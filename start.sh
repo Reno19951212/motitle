@@ -7,7 +7,7 @@ BACKEND_DIR="$SCRIPT_DIR/backend"
 FRONTEND_DIR="$SCRIPT_DIR/frontend"
 
 echo "=================================================="
-echo "  Whisper AI 字幕應用程式"
+echo "  AI 字幕轉換 APP"
 echo "=================================================="
 
 # Check venv

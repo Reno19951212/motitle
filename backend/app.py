@@ -5,6 +5,7 @@ Supports video/audio file upload and live transcription to Traditional Chinese s
 """
 
 import os
+import sys
 import json
 import base64
 import time
@@ -79,6 +80,8 @@ def _register_file(file_id, original_name, stored_name, size_bytes):
             'segments': [],
             'text': '',
             'error': None,
+            'model': None,       # whisper model used (e.g. 'small', 'tiny')
+            'backend': None,     # 'openai-whisper' or 'faster-whisper'
         }
         _save_registry()
     return _file_registry[file_id]
@@ -135,6 +138,24 @@ def get_model(model_size='small', backend='auto'):
             return _openai_model_cache[model_size], 'openai'
 
 
+def get_media_duration(file_path: str) -> float:
+    """Get media duration in seconds using ffprobe"""
+    try:
+        cmd = [
+            'ffprobe', '-v', 'quiet',
+            '-print_format', 'json',
+            '-show_format',
+            file_path
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        if result.returncode == 0:
+            info = json.loads(result.stdout)
+            return float(info.get('format', {}).get('duration', 0))
+    except Exception as e:
+        print(f"Error getting duration: {e}")
+    return 0
+
+
 def extract_audio(video_path: str, output_path: str) -> bool:
     """Extract audio from video file using ffmpeg"""
     try:
@@ -183,12 +204,37 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
         audio_path = temp_audio
 
     try:
+        # Get total media duration for progress tracking
+        total_duration = get_media_duration(audio_path)
+        transcribe_start_time = time.time()
+
         if sid:
-            socketio.emit('transcription_status',
-                         {'status': 'transcribing', 'message': '正在轉錄中...'},
-                         room=sid)
+            socketio.emit('transcription_status', {
+                'status': 'transcribing',
+                'message': '正在轉錄中...',
+                'total_duration': total_duration,
+            }, room=sid)
 
         segments = []
+
+        def emit_segment_with_progress(segment, sid):
+            """Emit a segment along with progress info"""
+            if not sid:
+                return
+            progress = 0
+            eta = None
+            if total_duration > 0:
+                progress = min(segment['end'] / total_duration, 1.0)
+                elapsed = time.time() - transcribe_start_time
+                if progress > 0.01:
+                    total_est = elapsed / progress
+                    eta = max(0, total_est - elapsed)
+            socketio.emit('subtitle_segment', {
+                **segment,
+                'progress': round(progress, 4),
+                'eta_seconds': round(eta, 1) if eta is not None else None,
+                'total_duration': total_duration,
+            }, room=sid)
 
         if backend == 'faster':
             # faster-whisper returns a generator of Segment namedtuples
@@ -218,8 +264,7 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
                         })
                 full_text_parts.append(seg.text.strip())
                 segments.append(segment)
-                if sid:
-                    socketio.emit('subtitle_segment', segment, room=sid)
+                emit_segment_with_progress(segment, sid)
 
             return {
                 'text': ' '.join(full_text_parts),
@@ -229,7 +274,35 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
             }
 
         else:
-            # openai-whisper
+            # openai-whisper: model.transcribe() is blocking — all segments
+            # come back at once. We run a heartbeat thread that sends estimated
+            # progress to the client while we wait.
+            heartbeat_stop = threading.Event()
+
+            def heartbeat():
+                """Send estimated progress every 2 seconds while transcription blocks."""
+                # Whisper processes ~30-second chunks. Estimate speed from model size.
+                while not heartbeat_stop.is_set():
+                    heartbeat_stop.wait(2)
+                    if heartbeat_stop.is_set():
+                        break
+                    elapsed = time.time() - transcribe_start_time
+                    if total_duration > 0 and sid:
+                        # Estimate: assume processing takes roughly
+                        # (total_duration * speed_factor) seconds of wall time.
+                        # We don't know speed_factor exactly, so we just report
+                        # elapsed time and let the client show an indeterminate
+                        # progress bar with elapsed time info.
+                        socketio.emit('transcription_progress', {
+                            'elapsed': round(elapsed, 1),
+                            'total_duration': total_duration,
+                            'status': 'transcribing',
+                        }, room=sid)
+
+            if sid and total_duration > 0:
+                hb_thread = threading.Thread(target=heartbeat, daemon=True)
+                hb_thread.start()
+
             result = model.transcribe(
                 audio_path,
                 language='zh',
@@ -239,6 +312,9 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
                 initial_prompt='請將音頻轉錄為繁體中文。',
                 fp16=False
             )
+
+            heartbeat_stop.set()
+
             for seg in result.get('segments', []):
                 segment = {
                     'id': seg['id'],
@@ -256,8 +332,7 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
                             'probability': word.get('probability', 1.0)
                         })
                 segments.append(segment)
-                if sid:
-                    socketio.emit('subtitle_segment', segment, room=sid)
+                emit_segment_with_progress(segment, sid)
 
             return {
                 'text': result.get('text', ''),
@@ -327,17 +402,39 @@ def health_check():
 
 @app.route('/api/models', methods=['GET'])
 def list_models():
-    """List available Whisper models"""
-    return jsonify({
-        'models': [
-            {'id': 'tiny', 'name': 'Tiny', 'params': '39M', 'speed': '最快', 'quality': '基礎'},
-            {'id': 'base', 'name': 'Base', 'params': '74M', 'speed': '快', 'quality': '良好'},
-            {'id': 'small', 'name': 'Small', 'params': '244M', 'speed': '中等', 'quality': '優良'},
-            {'id': 'medium', 'name': 'Medium', 'params': '769M', 'speed': '慢', 'quality': '出色'},
-            {'id': 'large', 'name': 'Large', 'params': '1550M', 'speed': '最慢', 'quality': '最佳'},
-            {'id': 'turbo', 'name': 'Turbo', 'params': '809M', 'speed': '快', 'quality': '優良'},
-        ]
-    })
+    """List available Whisper models with download/loaded status"""
+    # Check which models are downloaded on disk
+    cache_dir = Path.home() / '.cache' / 'whisper'
+    downloaded = set()
+    if cache_dir.exists():
+        for f in cache_dir.iterdir():
+            if f.suffix == '.pt':
+                downloaded.add(f.stem)  # e.g. 'small', 'tiny'
+
+    # Check which models are loaded in memory
+    loaded_openai = set(_openai_model_cache.keys())
+    loaded_faster = set(_faster_model_cache.keys())
+    loaded = loaded_openai | loaded_faster
+
+    models_info = [
+        {'id': 'tiny', 'name': 'Tiny', 'params': '39M', 'speed': '最快', 'quality': '基礎'},
+        {'id': 'base', 'name': 'Base', 'params': '74M', 'speed': '快', 'quality': '良好'},
+        {'id': 'small', 'name': 'Small', 'params': '244M', 'speed': '中等', 'quality': '優良'},
+        {'id': 'medium', 'name': 'Medium', 'params': '769M', 'speed': '慢', 'quality': '出色'},
+        {'id': 'large', 'name': 'Large', 'params': '1550M', 'speed': '最慢', 'quality': '最佳'},
+        {'id': 'turbo', 'name': 'Turbo', 'params': '809M', 'speed': '快', 'quality': '優良'},
+    ]
+
+    for m in models_info:
+        mid = m['id']
+        if mid in loaded:
+            m['status'] = 'loaded'       # in memory, ready to use
+        elif mid in downloaded:
+            m['status'] = 'downloaded'    # on disk, needs loading
+        else:
+            m['status'] = 'not_downloaded'  # needs download + loading
+
+    return jsonify({'models': models_info})
 
 
 @app.route('/api/transcribe', methods=['POST'])
@@ -372,9 +469,9 @@ def transcribe_file():
 
     # Start transcription in background thread
     def do_transcribe():
-        _update_file(file_id, status='transcribing')
+        _update_file(file_id, status='transcribing', model=model_size)
         if sid:
-            socketio.emit('file_updated', {'id': file_id, 'status': 'transcribing'}, room=sid)
+            socketio.emit('file_updated', {'id': file_id, 'status': 'transcribing', 'model': model_size}, room=sid)
         try:
             result = transcribe_with_segments(file_path, model_size, sid)
             if result:
@@ -383,6 +480,7 @@ def transcribe_file():
                     status='done',
                     text=result['text'],
                     segments=result['segments'],
+                    backend=result.get('backend'),
                 )
                 if sid:
                     socketio.emit('file_updated', {
@@ -456,6 +554,8 @@ def list_files():
                 'uploaded_at': entry['uploaded_at'],
                 'segment_count': len(entry.get('segments', [])),
                 'error': entry.get('error'),
+                'model': entry.get('model'),
+                'backend': entry.get('backend'),
             })
     # Newest first
     files.sort(key=lambda f: f['uploaded_at'], reverse=True)
@@ -537,12 +637,64 @@ def _fmt_vtt(seconds):
     return f"{h:02}:{m:02}:{s:02}.{ms:03}"
 
 
+@app.route('/api/files/<file_id>/segments')
+def get_file_segments(file_id):
+    """Return transcription segments for a file (used to load subtitles in player)"""
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+    if not entry:
+        return jsonify({'error': '文件不存在'}), 404
+    return jsonify({
+        'id': file_id,
+        'status': entry['status'],
+        'segments': entry.get('segments', []),
+        'text': entry.get('text', ''),
+    })
+
+
+@app.route('/api/files/<file_id>/segments/<int:seg_id>', methods=['PATCH'])
+def update_segment_text(file_id, seg_id):
+    """Update the text of a single segment (inline editing)"""
+    data = request.get_json()
+    if not data or 'text' not in data:
+        return jsonify({'error': '缺少 text 參數'}), 400
+
+    new_text = data['text'].strip()
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+        if not entry:
+            return jsonify({'error': '文件不存在'}), 404
+        segs = entry.get('segments', [])
+        matched = [s for s in segs if s.get('id') == seg_id]
+        if not matched:
+            return jsonify({'error': '段落不存在'}), 404
+        matched[0]['text'] = new_text
+        # Also update the full text
+        entry['text'] = ' '.join(s['text'] for s in segs)
+        _save_registry()
+
+    return jsonify({'status': 'ok', 'id': seg_id, 'text': new_text})
+
+
 @app.route('/api/files/<file_id>', methods=['DELETE'])
 def delete_file(file_id):
     """Delete an uploaded file and its transcription data"""
     if _delete_file_entry(file_id):
         return jsonify({'status': 'deleted', 'id': file_id})
     return jsonify({'error': '文件不存在'}), 404
+
+
+@app.route('/api/restart', methods=['POST'])
+def restart_server():
+    """Restart the server process"""
+    _save_registry()  # persist state before restart
+
+    def do_restart():
+        time.sleep(1)  # let the response reach the client
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+
+    threading.Thread(target=do_restart, daemon=True).start()
+    return jsonify({'status': 'restarting', 'message': '服務器正在重啟...'})
 
 
 # ============================================================
@@ -613,7 +765,7 @@ def handle_live_chunk(data):
 
 if __name__ == '__main__':
     print("=" * 60)
-    print("Whisper AI 字幕應用程式 - 後端服務器")
+    print("AI 字幕轉換 APP - 後端服務器")
     print("=" * 60)
     print(f"上傳目錄: {UPLOAD_DIR}")
     print(f"結果目錄: {RESULTS_DIR}")

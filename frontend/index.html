@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Whisper AI 字幕系統</title>
+  <title>AI 字幕轉換 APP</title>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <style>
     /* ===== CSS Variables ===== */
@@ -72,6 +72,25 @@
       font-size: 13px;
       color: var(--text-dim);
     }
+
+    .btn-restart {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      font-size: 18px;
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      line-height: 1;
+    }
+    .btn-restart:hover { border-color: var(--accent); color: var(--accent2); }
+    .btn-restart.spinning { animation: spin 0.8s linear infinite; pointer-events: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ===== Main Layout ===== */
     main {
@@ -385,7 +404,16 @@
       padding-top: 2px;
     }
 
-    .transcript-text { flex: 1; }
+    .transcript-text {
+      flex: 1;
+      border-radius: 4px;
+      padding: 2px 4px;
+      margin: -2px -4px;
+      transition: background 0.15s;
+    }
+    .transcript-text:hover {
+      background: rgba(108,99,255,0.1);
+    }
 
     /* ===== Live indicator ===== */
     .live-indicator {
@@ -510,6 +538,46 @@
     }
     .btn-icon:hover { color: var(--danger); background: rgba(239,68,68,0.15); }
 
+    /* ===== File Card Progress ===== */
+    .file-card-progress {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .file-progress-bar {
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .file-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 3px;
+      transition: width 0.4s ease;
+    }
+    .file-progress-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .file-progress-info .eta {
+      color: var(--accent2);
+      font-weight: 600;
+      font-family: monospace;
+    }
+    .file-progress-info .pct {
+      font-weight: 600;
+      color: var(--text);
+    }
+    @keyframes indeterminate {
+      0% { transform: translateX(-100%); width: 40%; }
+      50% { width: 60%; }
+      100% { transform: translateX(250%); width: 40%; }
+    }
+
     /* ===== Export ===== */
     .export-section {
       border-top: 1px solid var(--border);
@@ -541,9 +609,10 @@
 
 <!-- Header -->
 <header>
-  <div class="logo">🎙 Whisper 字幕 AI</div>
+  <div class="logo">🎙 AI 字幕轉換 APP</div>
   <span class="status-text" id="statusText">未連接</span>
   <div class="status-dot" id="statusDot"></div>
+  <button class="btn-restart" id="restartBtn" onclick="restartService()" title="重啟服務">⟳</button>
 </header>
 
 <!-- Main -->
@@ -662,13 +731,9 @@
         <div class="control-group">
           <label>Whisper 模型</label>
           <select id="modelSelect">
-            <option value="tiny">Tiny - 39M（最快）</option>
-            <option value="base">Base - 74M（快速）</option>
             <option value="small" selected>Small - 244M（推薦）</option>
-            <option value="medium">Medium - 769M（精準）</option>
-            <option value="large">Large - 1550M（最佳）</option>
-            <option value="turbo">Turbo - 809M（快速精準）</option>
           </select>
+          <div id="modelStatusHint" style="font-size:11px;margin-top:4px;color:var(--text-dim);"></div>
         </div>
 
         <div class="control-group">
@@ -754,6 +819,7 @@ let currentSid = null;
 let selectedFile = null;       // File object pending upload
 let activeFileId = null;       // Currently-selected uploaded file
 let uploadedFiles = {};        // file_id -> server metadata
+let fileProgress = {};         // file_id -> { progress, eta, totalDuration, processedTime }
 let mediaStream = null;
 let mediaRecorder = null;
 let liveChunkInterval = null;
@@ -797,6 +863,7 @@ function connectSocket() {
   socket.on('model_ready', (data) => {
     showToast(`模型 ${data.model} 已就緒!`, 'success');
     updateStatus('idle', '待機');
+    fetchModelStatus();  // Refresh model status indicators
   });
 
   socket.on('model_error', (data) => {
@@ -806,11 +873,33 @@ function connectSocket() {
   socket.on('transcription_status', (data) => {
     updateStatus('processing', data.message);
     setProgress(data.status === 'extracting' ? 20 : 40);
+
+    // Store total duration when transcription starts
+    if (activeFileId && data.total_duration) {
+      fileProgress[activeFileId] = {
+        progress: 0,
+        eta: null,
+        totalDuration: data.total_duration,
+        processedTime: 0,
+      };
+      renderFileList();
+    }
   });
 
   socket.on('subtitle_segment', (segment) => {
     addSegment(segment);
     scheduleSubtitle(segment);
+
+    // Update progress for active file
+    if (activeFileId && segment.progress !== undefined) {
+      fileProgress[activeFileId] = {
+        progress: segment.progress,
+        eta: segment.eta_seconds,
+        totalDuration: segment.total_duration,
+        processedTime: segment.end,
+      };
+      renderFileList();
+    }
   });
 
   socket.on('transcription_complete', (data) => {
@@ -821,11 +910,13 @@ function connectSocket() {
     showToast(`轉錄完成! 共 ${data.segment_count} 個字幕段落`, 'success');
     enableExport();
     setTimeout(() => setProgress(0), 2000);
+    fetchModelStatus();  // Model may have been loaded during transcription
 
     // Update file card
     if (data.file_id && uploadedFiles[data.file_id]) {
       uploadedFiles[data.file_id].status = 'done';
       uploadedFiles[data.file_id].segment_count = data.segment_count;
+      delete fileProgress[data.file_id];
       renderFileList();
     }
   });
@@ -836,6 +927,24 @@ function connectSocket() {
     isProcessing = false;
     document.getElementById('startTranscribeBtn').disabled = false;
     setProgress(0);
+  });
+
+  // Heartbeat from openai-whisper (blocking) — show elapsed time
+  socket.on('transcription_progress', (data) => {
+    if (activeFileId) {
+      const fp = fileProgress[activeFileId] || {};
+      fileProgress[activeFileId] = {
+        ...fp,
+        totalDuration: data.total_duration,
+        elapsed: data.elapsed,
+        // For openai-whisper we don't know exact progress, estimate from elapsed
+        // Whisper typically processes at ~1x-4x real-time depending on model
+        progress: null,  // null = indeterminate
+        eta: null,
+        processedTime: 0,
+      };
+      renderFileList();
+    }
   });
 
   socket.on('file_updated', (data) => {
@@ -1007,13 +1116,69 @@ function renderFileList() {
     else if (isError) statusHtml = '<span class="badge badge-idle">錯誤</span>';
     else statusHtml = '<span class="badge badge-idle">已上傳</span>';
 
-    let downloadHtml = '';
+    // Model info
+    let modelBadge = '';
+    if (f.model) {
+      const bk = f.backend === 'faster-whisper' ? 'faster' : 'openai';
+      modelBadge = `<span class="delay-badge" style="margin-left:0;">${f.model} · ${bk}</span>`;
+    }
+
+    let extraHtml = '';
     if (isDone) {
-      downloadHtml = `
+      extraHtml = `
         <div class="file-card-actions">
+          ${modelBadge}
           <a class="btn btn-secondary" href="${API_BASE}/api/files/${id}/subtitle.srt" download>SRT</a>
           <a class="btn btn-secondary" href="${API_BASE}/api/files/${id}/subtitle.vtt" download>VTT</a>
           <a class="btn btn-secondary" href="${API_BASE}/api/files/${id}/subtitle.txt" download>TXT</a>
+        </div>`;
+    } else if (isBusy && fileProgress[id]) {
+      const fp = fileProgress[id];
+      const hasDeterminateProgress = fp.progress != null && fp.progress > 0;
+
+      if (hasDeterminateProgress) {
+        // Determinate progress (faster-whisper streams segments)
+        const pct = Math.round(fp.progress * 100);
+        const processed = formatDuration(fp.processedTime || 0);
+        const total = formatDuration(fp.totalDuration || 0);
+        const etaStr = fp.eta != null ? formatDuration(fp.eta) : '--:--';
+        extraHtml = `
+          <div class="file-card-progress">
+            <div class="file-progress-bar">
+              <div class="file-progress-fill" style="width:${pct}%"></div>
+            </div>
+            <div class="file-progress-info">
+              <span>${processed} / ${total}</span>
+              <span class="pct">${pct}%</span>
+              <span>預計剩餘 <span class="eta">${etaStr}</span></span>
+            </div>
+          </div>`;
+      } else {
+        // Indeterminate progress (openai-whisper blocks, we show elapsed time)
+        const elapsed = formatDuration(fp.elapsed || 0);
+        const total = formatDuration(fp.totalDuration || 0);
+        extraHtml = `
+          <div class="file-card-progress">
+            <div class="file-progress-bar">
+              <div class="file-progress-fill" style="width:100%;animation:indeterminate 1.8s infinite linear"></div>
+            </div>
+            <div class="file-progress-info">
+              <span>音頻時長 ${total}</span>
+              <span class="pct">轉錄中...</span>
+              <span>已耗時 <span class="eta">${elapsed}</span></span>
+            </div>
+          </div>`;
+      }
+    } else if (isBusy) {
+      // Busy but no progress data yet (still extracting audio)
+      extraHtml = `
+        <div class="file-card-progress">
+          <div class="file-progress-bar">
+            <div class="file-progress-fill" style="width:100%;animation:indeterminate 1.8s infinite linear"></div>
+          </div>
+          <div class="file-progress-info">
+            <span>準備中...</span>
+          </div>
         </div>`;
     }
 
@@ -1026,7 +1191,7 @@ function renderFileList() {
           ${statusHtml}
           <button class="btn-icon" onclick="event.stopPropagation(); deleteFile('${id}')" title="刪除">✕</button>
         </div>
-        ${downloadHtml}
+        ${extraHtml}
       </div>`;
   }).join('');
 }
@@ -1041,15 +1206,17 @@ function selectFile(fileId) {
 }
 
 async function loadFileSegments(fileId) {
-  // Fetch full file data to get segments
   try {
-    const resp = await fetch(`${API_BASE}/api/files`);
+    const resp = await fetch(`${API_BASE}/api/files/${fileId}/segments`);
     const data = await resp.json();
-    const file = data.files.find(f => f.id === fileId);
-    if (file && file.status === 'done') {
-      // Segments are in the subtitle file, but we can also reconstruct from
-      // the subtitle_segment events we already received. For now just show
-      // a message that they can download.
+    if (data.status === 'done' && data.segments && data.segments.length > 0) {
+      // Load segments into the global array for subtitle display
+      segments = data.segments;
+      // Rebuild transcript display
+      clearTranscriptDisplay();
+      for (const seg of segments) {
+        addSegment(seg, true);  // true = skip push to array (already in segments)
+      }
       enableExport();
     }
   } catch (e) { /* ignore */ }
@@ -1288,8 +1455,8 @@ document.getElementById('videoPlayer').addEventListener('timeupdate', function()
 // ============================================================
 // Transcript Display
 // ============================================================
-function addSegment(segment) {
-  segments.push(segment);
+function addSegment(segment, skipPush) {
+  if (!skipPush) segments.push(segment);
   const count = document.getElementById('segmentCount');
   count.textContent = `${segments.length} 段`;
 
@@ -1301,12 +1468,66 @@ function addSegment(segment) {
 
   const item = document.createElement('div');
   item.className = 'transcript-item';
-  item.innerHTML = `
-    <div class="transcript-time">${formatTime(segment.start)}</div>
-    <div class="transcript-text">${escapeHtml(segment.text)}</div>
-  `;
+
+  const timeEl = document.createElement('div');
+  timeEl.className = 'transcript-time';
+  timeEl.textContent = formatTime(segment.start);
+
+  const textEl = document.createElement('div');
+  textEl.className = 'transcript-text';
+  textEl.textContent = segment.text;
+  textEl.title = '點擊編輯';
+  textEl.style.cursor = 'text';
+  textEl.addEventListener('click', () => startEditSegment(textEl, segment));
+
+  item.appendChild(timeEl);
+  item.appendChild(textEl);
   list.appendChild(item);
   list.scrollTop = list.scrollHeight;
+}
+
+function startEditSegment(textEl, segment) {
+  // Already editing
+  if (textEl.querySelector('input')) return;
+
+  const original = segment.text;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = original;
+  input.style.cssText = 'width:100%;background:var(--bg);color:var(--text);border:1px solid var(--accent);border-radius:4px;padding:4px 6px;font-size:14px;outline:none;';
+
+  textEl.textContent = '';
+  textEl.appendChild(input);
+  input.focus();
+  input.select();
+
+  function save() {
+    const newText = input.value.trim();
+    textEl.textContent = newText || original;
+    textEl.style.cursor = 'text';
+
+    if (newText && newText !== original) {
+      segment.text = newText;
+      // Also update the segments array
+      const seg = segments.find(s => s.id === segment.id && s.start === segment.start);
+      if (seg) seg.text = newText;
+
+      // Save to backend if we have an active file
+      if (activeFileId) {
+        fetch(`${API_BASE}/api/files/${activeFileId}/segments/${segment.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: newText })
+        }).catch(() => showToast('保存失敗', 'error'));
+      }
+    }
+  }
+
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.value = original; input.blur(); }
+  });
 }
 
 function formatTime(seconds) {
@@ -1319,6 +1540,16 @@ function formatTime(seconds) {
 }
 
 function pad(n) { return String(n).padStart(2, '0'); }
+
+function formatDuration(seconds) {
+  if (seconds == null || isNaN(seconds)) return '--:--';
+  const s = Math.round(seconds);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return `${h}:${pad(m)}:${pad(sec)}`;
+  return `${pad(m)}:${pad(sec)}`;
+}
 
 function escapeHtml(text) {
   return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -1463,9 +1694,107 @@ function showToast(message, type = 'info') {
 }
 
 // ============================================================
+// Restart Service
+// ============================================================
+async function restartService() {
+  const btn = document.getElementById('restartBtn');
+  btn.classList.add('spinning');
+
+  // Try to trigger server restart
+  try {
+    await fetch(`${API_BASE}/api/restart`, { method: 'POST' });
+  } catch (e) { /* server may already be restarting */ }
+
+  showToast('正在重啟服務器...', 'warning');
+  setConnectionStatus(false);
+
+  // Poll until server is back
+  let attempts = 0;
+  const poll = setInterval(async () => {
+    attempts++;
+    try {
+      const resp = await fetch(`${API_BASE}/api/health`, { signal: AbortSignal.timeout(2000) });
+      if (resp.ok) {
+        clearInterval(poll);
+        btn.classList.remove('spinning');
+        showToast('服務器已重啟!', 'success');
+
+        // Reconnect socket
+        if (socket) { socket.disconnect(); }
+        connectSocket();
+        fetchModelStatus();
+      }
+    } catch (e) { /* still restarting */ }
+
+    if (attempts > 30) {
+      clearInterval(poll);
+      btn.classList.remove('spinning');
+      showToast('重啟超時，請手動檢查服務器', 'error');
+    }
+  }, 2000);
+}
+
+// ============================================================
+// Model Status
+// ============================================================
+let modelsData = [];  // cached from server
+
+async function fetchModelStatus() {
+  try {
+    const resp = await fetch(`${API_BASE}/api/models`);
+    const data = await resp.json();
+    modelsData = data.models;
+    populateModelSelect();
+  } catch (e) { /* server not ready */ }
+}
+
+function populateModelSelect() {
+  const select = document.getElementById('modelSelect');
+  const currentVal = select.value;
+
+  select.innerHTML = modelsData.map(m => {
+    let label = `${m.name} - ${m.params}`;
+    if (m.status === 'loaded') {
+      label += '（已在線 ✓）';
+    } else if (m.status === 'downloaded') {
+      label += '（需加載）';
+    } else {
+      label += '（需下載）';
+    }
+    return `<option value="${m.id}">${label}</option>`;
+  }).join('');
+
+  // Restore previous selection or default to small
+  if (modelsData.some(m => m.id === currentVal)) {
+    select.value = currentVal;
+  } else {
+    select.value = 'small';
+  }
+  updateModelHint();
+}
+
+function updateModelHint() {
+  const select = document.getElementById('modelSelect');
+  const hint = document.getElementById('modelStatusHint');
+  const m = modelsData.find(x => x.id === select.value);
+  if (!m) { hint.textContent = ''; return; }
+
+  if (m.status === 'loaded') {
+    hint.innerHTML = `<span style="color:var(--success);">● 模型已加載，可直接使用</span>`;
+  } else if (m.status === 'downloaded') {
+    hint.innerHTML = `<span style="color:var(--warning);">● 模型已下載，首次使用時需加載到記憶體</span>`;
+  } else {
+    hint.innerHTML = `<span style="color:var(--danger);">● 模型尚未下載，首次使用時需下載 (${m.params}) 並加載</span>`;
+  }
+}
+
+document.getElementById('modelSelect').addEventListener('change', updateModelHint);
+
+// ============================================================
 // Init
 // ============================================================
 connectSocket();
+fetchModelStatus();
 </script>
 </body>
 </html>

@@ -62,7 +62,7 @@ Whisper 開發/
 | `model_ready` | `{model, status}` | Model load complete |
 | `model_error` | `{error}` | Model load failed |
 | `transcription_status` | `{status, message}` | Extraction/transcription phase |
-| `subtitle_segment` | `{id, start, end, text, words[]}` | Each segment as it's ready |
+| `subtitle_segment` | `{id, start, end, text, words[], progress, eta_seconds, total_duration}` | Each segment as it's ready (with progress %) |
 | `transcription_complete` | `{text, language, segment_count}` | All done |
 | `transcription_error` | `{error}` | Any failure |
 | `live_subtitle` | `{text, start, end, timestamp}` | Live mode subtitle |
@@ -85,6 +85,8 @@ Whisper 開發/
 | GET | `/api/files` | List all uploaded files with status |
 | GET | `/api/files/<id>/media` | Serve the original uploaded media file |
 | GET | `/api/files/<id>/subtitle.<fmt>` | Download subtitle in srt/vtt/txt format |
+| GET | `/api/files/<id>/segments` | Get transcription segments for a file |
+| PATCH | `/api/files/<id>/segments/<seg_id>` | Update a single segment's text (inline editing) |
 | DELETE | `/api/files/<id>` | Delete file from disk and registry |
 
 **File persistence**
@@ -187,3 +189,18 @@ Whenever a new feature is completed or existing functionality is modified, you *
 - Backend: `async_mode` switched from `eventlet` (deprecated) to `threading`; server port changed to 5001 (macOS AirPlay conflict)
 - New REST endpoints: `GET /api/files`, `GET /api/files/<id>/media`, `GET /api/files/<id>/subtitle.<fmt>`, `DELETE /api/files/<id>`
 - New WebSocket events: `file_added`, `file_updated`
+
+### v1.4 — Transcription Progress Bar with ETA
+- Backend: `get_media_duration()` uses `ffprobe` to detect total audio/video duration before transcription
+- Backend: each `subtitle_segment` event now includes `progress` (0–1), `eta_seconds`, and `total_duration`
+- Frontend: file card shows a progress bar during transcription with percentage, timeline (processed/total), and estimated time remaining
+- Progress is calculated as `segment.end / total_duration`; ETA is derived from elapsed wall-clock time vs progress ratio
+
+### v1.5 — Model Info Display & Inline Transcript Editing
+- File registry now stores `model` (e.g. 'small', 'tiny') and `backend` ('openai-whisper' or 'faster-whisper') per file
+- File cards show a model badge (e.g. "small · openai") in the download actions row when transcription is done
+- `GET /api/files` and `file_updated` events now include `model` and `backend` fields
+- Transcript text is inline-editable: click any segment text to edit, press Enter to save, Escape to cancel
+- Edits are persisted to the backend via `PATCH /api/files/<id>/segments/<seg_id>` and update `registry.json`
+- Edited text syncs to: the `segments[]` array (subtitle overlay), and all export formats (SRT/VTT/TXT, served from the registry)
+- Hover effect on transcript text to hint editability (subtle purple highlight)
