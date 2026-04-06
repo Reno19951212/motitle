@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Whisper AI 字幕系統</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    /* ===== CSS Variables ===== */
+    :root {
+      --bg: #0a0a0f;
+      --surface: #13131a;
+      --surface2: #1c1c28;
+      --border: #2a2a3d;
+      --accent: #6c63ff;
+      --accent2: #a78bfa;
+      --text: #e2e2f0;
+      --text-dim: #888899;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --subtitle-bg: rgba(0,0,0,0.78);
+      --subtitle-text: #ffffff;
+      --radius: 12px;
+      --shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', 'Microsoft JhengHei', 'PingFang TC', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ===== Header ===== */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      font-size: 22px;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--danger);
+      transition: background 0.3s;
+      margin-left: auto;
+    }
+    .status-dot.connected { background: var(--success); }
+
+    .status-text {
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    /* ===== Main Layout ===== */
+    main {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: 20px;
+      padding: 20px 24px;
+      flex: 1;
+      max-width: 1600px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    @media (max-width: 1024px) {
+      main { grid-template-columns: 1fr; }
+    }
+
+    /* ===== Panel ===== */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .panel-body { padding: 18px; }
+
+    /* ===== Tabs ===== */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface2);
+    }
+
+    .tab {
+      flex: 1;
+      padding: 14px;
+      text-align: center;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-dim);
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .tab:hover { color: var(--text); background: rgba(108,99,255,0.08); }
+    .tab.active {
+      color: var(--accent2);
+      border-bottom-color: var(--accent);
+      background: rgba(108,99,255,0.12);
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* ===== Video Container ===== */
+    .video-area {
+      position: relative;
+      background: #000;
+      border-radius: var(--radius);
+      overflow: hidden;
+      aspect-ratio: 16/9;
+      max-height: 480px;
+    }
+
+    .video-area video,
+    .video-area canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    /* ===== Subtitle Overlay ===== */
+    .subtitle-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      padding: 0 5% 4%;
+      pointer-events: none;
+    }
+
+    .subtitle-text {
+      background: var(--subtitle-bg);
+      color: var(--subtitle-text);
+      font-size: clamp(14px, 2.5vw, 24px);
+      font-weight: 600;
+      padding: 8px 20px;
+      border-radius: 6px;
+      text-align: center;
+      max-width: 90%;
+      line-height: 1.5;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.35s ease, transform 0.35s ease;
+      letter-spacing: 0.5px;
+    }
+    .subtitle-text.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ===== Placeholder ===== */
+    .video-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: var(--text-dim);
+    }
+
+    .video-placeholder .icon {
+      font-size: 48px;
+      opacity: 0.5;
+    }
+
+    .video-placeholder p { font-size: 15px; }
+
+    /* ===== Upload Zone ===== */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: var(--text-dim);
+    }
+    .upload-zone:hover,
+    .upload-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(108,99,255,0.08);
+      color: var(--text);
+    }
+
+    .upload-zone .upload-icon { font-size: 40px; margin-bottom: 12px; }
+    .upload-zone .upload-hint { font-size: 12px; margin-top: 6px; color: var(--text-dim); }
+
+    /* ===== Controls ===== */
+    .controls { display: flex; flex-direction: column; gap: 14px; padding: 18px; }
+
+    .control-group { display: flex; flex-direction: column; gap: 6px; }
+
+    label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-dim);
+    }
+
+    select, input[type="range"], input[type="number"] {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-size: 14px;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    select:focus, input:focus { border-color: var(--accent); }
+
+    input[type="range"] {
+      padding: 4px 0;
+      cursor: pointer;
+      accent-color: var(--accent);
+    }
+
+    .range-value {
+      font-size: 13px;
+      color: var(--accent2);
+      font-weight: 600;
+      text-align: right;
+    }
+
+    /* ===== Buttons ===== */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 11px 20px;
+      border-radius: 10px;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+    .btn-primary:hover { background: #5b52e0; transform: translateY(-1px); }
+
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent2); }
+
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+    .btn-danger:hover { background: #dc2626; }
+
+    .btn-success {
+      background: var(--success);
+      color: white;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    /* ===== Progress ===== */
+    .progress-bar {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+
+    /* ===== Status Badge ===== */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-idle { background: rgba(136,136,153,0.2); color: var(--text-dim); }
+    .badge-processing { background: rgba(245,158,11,0.2); color: var(--warning); }
+    .badge-recording { background: rgba(239,68,68,0.2); color: var(--danger); animation: pulse 1.5s infinite; }
+    .badge-done { background: rgba(34,197,94,0.2); color: var(--success); }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+    /* ===== Transcript Panel ===== */
+    .transcript-list {
+      height: 300px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 4px;
+    }
+
+    .transcript-list::-webkit-scrollbar { width: 4px; }
+    .transcript-list::-webkit-scrollbar-track { background: transparent; }
+    .transcript-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .transcript-item {
+      display: flex;
+      gap: 10px;
+      padding: 10px;
+      background: var(--surface2);
+      border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.5;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-10px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .transcript-time {
+      color: var(--accent2);
+      font-size: 11px;
+      font-family: monospace;
+      white-space: nowrap;
+      padding-top: 2px;
+    }
+
+    .transcript-text { flex: 1; }
+
+    /* ===== Live indicator ===== */
+    .live-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--danger);
+    }
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--danger);
+      animation: pulse 1s infinite;
+    }
+
+    /* ===== Toast ===== */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 9999;
+    }
+
+    .toast {
+      padding: 12px 18px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 14px;
+      box-shadow: var(--shadow);
+      animation: toastIn 0.3s ease;
+      max-width: 320px;
+    }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .toast.success { border-color: var(--success); }
+    .toast.error { border-color: var(--danger); }
+    .toast.warning { border-color: var(--warning); }
+
+    /* ===== File info ===== */
+    .file-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--surface2);
+      border-radius: 8px;
+      font-size: 13px;
+    }
+
+    .file-info .file-icon { font-size: 20px; }
+    .file-info .file-name { font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-info .file-size { color: var(--text-dim); font-size: 11px; }
+
+    /* ===== Export ===== */
+    .export-section {
+      border-top: 1px solid var(--border);
+      padding: 14px 18px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    /* ===== Delay settings ===== */
+    .delay-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      background: rgba(108,99,255,0.2);
+      color: var(--accent2);
+      border-radius: 20px;
+    }
+
+    /* ===== Empty state ===== */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-dim);
+    }
+    .empty-state .empty-icon { font-size: 36px; margin-bottom: 10px; opacity: 0.5; }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo">🎙 Whisper 字幕 AI</div>
+  <span class="status-text" id="statusText">未連接</span>
+  <div class="status-dot" id="statusDot"></div>
+</header>
+
+<!-- Main -->
+<main>
+  <!-- Left: Video + Controls -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+
+    <!-- Video Player / Preview -->
+    <div class="panel">
+      <div class="panel-header">
+        ▶ 視頻預覽
+        <span id="liveIndicator" style="display:none;" class="live-indicator">
+          <span class="live-dot"></span>LIVE
+        </span>
+        <span style="margin-left:auto;" id="statusBadge" class="badge badge-idle">待機</span>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <div class="video-area" id="videoArea">
+          <div class="video-placeholder" id="videoPlaceholder">
+            <div class="icon">📹</div>
+            <p>選擇文件或開始直播以預覽視頻</p>
+          </div>
+          <video id="videoPlayer" style="display:none;" controls></video>
+          <video id="liveVideo" style="display:none;" autoplay muted playsinline></video>
+          <canvas id="overlayCanvas" style="display:none;"></canvas>
+
+          <!-- Subtitle Overlay -->
+          <div class="subtitle-overlay">
+            <div class="subtitle-text" id="subtitleText"></div>
+          </div>
+        </div>
+
+        <!-- Progress -->
+        <div style="padding:0 2px;">
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressBar" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabs: Upload / Live -->
+    <div class="panel">
+      <div class="tabs">
+        <div class="tab active" data-tab="upload">📁 文件上傳</div>
+        <div class="tab" data-tab="live">🎥 實時錄製</div>
+      </div>
+
+      <!-- Upload Tab -->
+      <div class="tab-content active" id="tab-upload">
+        <div class="controls">
+          <!-- Upload Zone -->
+          <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+            <div class="upload-icon">⬆</div>
+            <div>拖放或點擊選擇文件</div>
+            <div class="upload-hint">支持: MP4 · MOV · AVI · MKV · WebM · MP3 · WAV · M4A</div>
+          </div>
+          <input type="file" id="fileInput" accept="video/*,audio/*" style="display:none"
+                 onchange="handleFileSelect(event)">
+
+          <!-- File Info -->
+          <div id="fileInfoBox" style="display:none;" class="file-info">
+            <div class="file-icon">🎬</div>
+            <div class="file-name" id="fileName"></div>
+            <div class="file-size" id="fileSize"></div>
+          </div>
+
+          <div class="btn-group">
+            <button class="btn btn-primary" id="startTranscribeBtn" onclick="startTranscription()" disabled>
+              🚀 開始轉錄
+            </button>
+            <button class="btn btn-secondary" onclick="clearAll()">🗑 清除</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Tab -->
+      <div class="tab-content" id="tab-live">
+        <div class="controls">
+          <div style="font-size:13px;color:var(--text-dim);padding:4px 0;">
+            從攝像頭/屏幕捕捉實時音視頻，並將語音即時轉為繁體中文字幕。
+          </div>
+
+          <div class="control-group">
+            <label>視頻源</label>
+            <select id="videoSource">
+              <option value="camera">📷 攝像頭</option>
+              <option value="screen">🖥 屏幕共享</option>
+            </select>
+          </div>
+
+          <div class="btn-group">
+            <button class="btn btn-success" id="startLiveBtn" onclick="startLive()">
+              ▶ 開始直播
+            </button>
+            <button class="btn btn-danger" id="stopLiveBtn" onclick="stopLive()" disabled>
+              ⏹ 停止
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: Settings + Transcript -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+
+    <!-- Settings -->
+    <div class="panel">
+      <div class="panel-header">⚙ 設置</div>
+      <div class="controls">
+
+        <div class="control-group">
+          <label>Whisper 模型</label>
+          <select id="modelSelect">
+            <option value="tiny">Tiny - 39M（最快）</option>
+            <option value="base">Base - 74M（快速）</option>
+            <option value="small" selected>Small - 244M（推薦）</option>
+            <option value="medium">Medium - 769M（精準）</option>
+            <option value="large">Large - 1550M（最佳）</option>
+            <option value="turbo">Turbo - 809M（快速精準）</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <label>字幕延遲 <span class="delay-badge">同步補償</span></label>
+            <span class="range-value" id="delayValue">0.5s</span>
+          </div>
+          <input type="range" id="subtitleDelay" min="0" max="5" step="0.1" value="0.5"
+                 oninput="updateDelay(this.value)">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-top:2px;">
+            <span>無延遲</span>
+            <span>5 秒</span>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <label>字幕顯示時長</label>
+            <span class="range-value" id="durationValue">4.0s</span>
+          </div>
+          <input type="range" id="subtitleDuration" min="1" max="10" step="0.5" value="4"
+                 oninput="updateDuration(this.value)">
+        </div>
+
+        <div class="control-group">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <label>字幕字號</label>
+            <span class="range-value" id="fontSizeValue">24px</span>
+          </div>
+          <input type="range" id="subtitleFontSize" min="14" max="48" step="2" value="24"
+                 oninput="updateFontSize(this.value)">
+        </div>
+
+        <button class="btn btn-secondary" onclick="preloadModel()" style="width:100%;">
+          📦 預加載模型
+        </button>
+      </div>
+    </div>
+
+    <!-- Transcript -->
+    <div class="panel" style="flex:1;">
+      <div class="panel-header">
+        📄 轉錄文字
+        <span id="segmentCount" style="margin-left:auto;font-size:12px;color:var(--text-dim);">0 段</span>
+      </div>
+      <div class="panel-body" style="padding:12px;">
+        <div class="transcript-list" id="transcriptList">
+          <div class="empty-state">
+            <div class="empty-icon">📝</div>
+            <div>轉錄文字將顯示在這裡</div>
+          </div>
+        </div>
+      </div>
+      <div class="export-section">
+        <button class="btn btn-secondary" onclick="exportSRT()" id="exportSrtBtn" disabled>
+          💾 SRT
+        </button>
+        <button class="btn btn-secondary" onclick="exportVTT()" id="exportVttBtn" disabled>
+          💾 VTT
+        </button>
+        <button class="btn btn-secondary" onclick="exportTXT()" id="exportTxtBtn" disabled>
+          📃 TXT
+        </button>
+        <button class="btn btn-secondary" onclick="clearTranscript()" style="margin-left:auto;">
+          🗑 清除
+        </button>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ============================================================
+// Configuration
+// ============================================================
+const API_BASE = 'http://localhost:5001';
+let socket = null;
+let currentSid = null;
+let selectedFile = null;
+let mediaStream = null;
+let mediaRecorder = null;
+let liveChunkInterval = null;
+let subtitleTimeout = null;
+let subtitleQueue = [];
+let segments = [];
+let isProcessing = false;
+let subtitleDelay = 0.5;
+let subtitleDuration = 4.0;
+
+// ============================================================
+// Socket.IO Connection
+// ============================================================
+function connectSocket() {
+  socket = io(API_BASE, {
+    transports: ['websocket', 'polling'],
+    reconnectionDelay: 2000,
+    reconnectionAttempts: 10
+  });
+
+  socket.on('connect', () => {
+    setConnectionStatus(true);
+  });
+
+  socket.on('disconnect', () => {
+    setConnectionStatus(false);
+    currentSid = null;
+  });
+
+  socket.on('connected', (data) => {
+    currentSid = data.sid;
+    showToast('已連接到 Whisper 服務器', 'success');
+  });
+
+  socket.on('model_loading', (data) => {
+    showToast(`正在加載模型 ${data.model}...`, 'warning');
+    updateStatus('processing', `加載 ${data.model}`);
+  });
+
+  socket.on('model_ready', (data) => {
+    showToast(`模型 ${data.model} 已就緒!`, 'success');
+    updateStatus('idle', '待機');
+  });
+
+  socket.on('model_error', (data) => {
+    showToast(`模型加載失敗: ${data.error}`, 'error');
+  });
+
+  socket.on('transcription_status', (data) => {
+    updateStatus('processing', data.message);
+    setProgress(data.status === 'extracting' ? 20 : 40);
+  });
+
+  socket.on('subtitle_segment', (segment) => {
+    addSegment(segment);
+    scheduleSubtitle(segment);
+  });
+
+  socket.on('transcription_complete', (data) => {
+    setProgress(100);
+    updateStatus('done', '完成');
+    isProcessing = false;
+    document.getElementById('startTranscribeBtn').disabled = false;
+    showToast(`轉錄完成! 共 ${data.segment_count} 個字幕段落`, 'success');
+    enableExport();
+    setTimeout(() => setProgress(0), 2000);
+  });
+
+  socket.on('transcription_error', (data) => {
+    showToast(`轉錄失敗: ${data.error}`, 'error');
+    updateStatus('idle', '錯誤');
+    isProcessing = false;
+    document.getElementById('startTranscribeBtn').disabled = false;
+    setProgress(0);
+  });
+
+  socket.on('live_subtitle', (data) => {
+    addLiveSubtitle(data);
+  });
+}
+
+function setConnectionStatus(connected) {
+  const dot = document.getElementById('statusDot');
+  const text = document.getElementById('statusText');
+  dot.className = 'status-dot' + (connected ? ' connected' : '');
+  text.textContent = connected ? '已連接' : '未連接';
+}
+
+// ============================================================
+// Tab Switching
+// ============================================================
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const target = tab.dataset.tab;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + target).classList.add('active');
+  });
+});
+
+// ============================================================
+// File Upload
+// ============================================================
+const uploadZone = document.getElementById('uploadZone');
+
+uploadZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  uploadZone.classList.add('drag-over');
+});
+
+uploadZone.addEventListener('dragleave', () => {
+  uploadZone.classList.remove('drag-over');
+});
+
+uploadZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  uploadZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) setFile(file);
+});
+
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) setFile(file);
+}
+
+function setFile(file) {
+  selectedFile = file;
+  const mb = (file.size / 1024 / 1024).toFixed(1);
+  document.getElementById('fileInfoBox').style.display = 'flex';
+  document.getElementById('fileName').textContent = file.name;
+  document.getElementById('fileSize').textContent = `${mb} MB`;
+  document.getElementById('startTranscribeBtn').disabled = false;
+
+  // Show video preview
+  const url = URL.createObjectURL(file);
+  const video = document.getElementById('videoPlayer');
+  video.src = url;
+  video.style.display = 'block';
+  document.getElementById('videoPlaceholder').style.display = 'none';
+}
+
+async function startTranscription() {
+  if (!selectedFile || isProcessing) return;
+  if (!socket?.connected) {
+    showToast('請先連接到服務器', 'error');
+    return;
+  }
+
+  isProcessing = true;
+  segments = [];
+  clearTranscriptDisplay();
+  document.getElementById('startTranscribeBtn').disabled = true;
+  updateStatus('processing', '上傳中...');
+  setProgress(10);
+
+  const formData = new FormData();
+  formData.append('file', selectedFile);
+  formData.append('model', document.getElementById('modelSelect').value);
+  formData.append('sid', currentSid);
+
+  try {
+    const resp = await fetch(`${API_BASE}/api/transcribe`, {
+      method: 'POST',
+      body: formData
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    setProgress(30);
+    showToast('文件上傳成功，開始轉錄...', 'success');
+  } catch (err) {
+    showToast(`上傳失敗: ${err.message}`, 'error');
+    isProcessing = false;
+    document.getElementById('startTranscribeBtn').disabled = false;
+    setProgress(0);
+  }
+}
+
+function clearAll() {
+  selectedFile = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('fileInfoBox').style.display = 'none';
+  document.getElementById('startTranscribeBtn').disabled = true;
+  document.getElementById('videoPlayer').style.display = 'none';
+  document.getElementById('videoPlaceholder').style.display = 'flex';
+  clearTranscript();
+  setProgress(0);
+  updateStatus('idle', '待機');
+  hideSubtitle();
+}
+
+// ============================================================
+// Live Mode
+// ============================================================
+async function startLive() {
+  const source = document.getElementById('videoSource').value;
+  document.getElementById('liveIndicator').style.display = 'flex';
+
+  try {
+    if (source === 'camera') {
+      mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    } else {
+      mediaStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+    }
+  } catch (err) {
+    showToast(`無法獲取媒體流: ${err.message}`, 'error');
+    return;
+  }
+
+  // Show live video
+  const liveVideo = document.getElementById('liveVideo');
+  liveVideo.srcObject = mediaStream;
+  liveVideo.style.display = 'block';
+  document.getElementById('videoPlayer').style.display = 'none';
+  document.getElementById('videoPlaceholder').style.display = 'none';
+
+  document.getElementById('startLiveBtn').disabled = true;
+  document.getElementById('stopLiveBtn').disabled = false;
+  updateStatus('recording', '直播中');
+
+  // Start audio capture
+  startAudioCapture();
+}
+
+function startAudioCapture() {
+  if (!mediaStream) return;
+
+  const audioTrack = mediaStream.getAudioTracks()[0];
+  if (!audioTrack) {
+    showToast('未找到音頻軌道', 'warning');
+    return;
+  }
+
+  const audioStream = new MediaStream([audioTrack]);
+  mediaRecorder = new MediaRecorder(audioStream, { mimeType: 'audio/webm;codecs=opus' });
+
+  const chunks = [];
+  mediaRecorder.ondataavailable = (e) => {
+    if (e.data.size > 0) {
+      chunks.push(e.data);
+    }
+  };
+
+  // Every 3 seconds, send audio chunk to server
+  mediaRecorder.onstop = async () => {
+    if (chunks.length === 0) return;
+    const blob = new Blob(chunks, { type: 'audio/webm' });
+    chunks.length = 0;
+    await sendAudioChunk(blob);
+  };
+
+  // Send chunks every 3 seconds
+  liveChunkInterval = setInterval(() => {
+    if (mediaRecorder.state === 'recording') {
+      mediaRecorder.stop();
+      mediaRecorder.start();
+    }
+  }, 3000);
+
+  mediaRecorder.start();
+  showToast('實時轉錄已開始', 'success');
+}
+
+async function sendAudioChunk(blob) {
+  if (!socket?.connected) return;
+
+  const arrayBuffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
+
+  // Convert in chunks to avoid stack overflow on large buffers
+  let binary = '';
+  const CHUNK = 8192;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  const base64 = btoa(binary);
+
+  socket.emit('live_audio_chunk', {
+    audio: base64,
+    model: document.getElementById('modelSelect').value
+  });
+}
+
+function stopLive() {
+  if (liveChunkInterval) {
+    clearInterval(liveChunkInterval);
+    liveChunkInterval = null;
+  }
+
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(t => t.stop());
+    mediaStream = null;
+  }
+
+  document.getElementById('liveVideo').srcObject = null;
+  document.getElementById('liveVideo').style.display = 'none';
+  document.getElementById('videoPlaceholder').style.display = 'flex';
+  document.getElementById('liveIndicator').style.display = 'none';
+  document.getElementById('startLiveBtn').disabled = false;
+  document.getElementById('stopLiveBtn').disabled = true;
+  updateStatus('idle', '待機');
+  hideSubtitle();
+  showToast('直播已停止', 'warning');
+}
+
+function addLiveSubtitle(data) {
+  const delay = subtitleDelay * 1000;
+  setTimeout(() => {
+    showSubtitleText(data.text);
+  }, delay);
+
+  // Add to transcript
+  addSegment({
+    id: segments.length,
+    start: data.start || 0,
+    end: data.end || 0,
+    text: data.text
+  });
+}
+
+// ============================================================
+// Subtitle Display
+// ============================================================
+function scheduleSubtitle(segment) {
+  // Segments are added to the array and the timeupdate handler
+  // (below) handles display during actual video playback.
+  // Nothing extra to do at arrival time.
+}
+
+function showSubtitleText(text) {
+  if (!text?.trim()) return;
+
+  const el = document.getElementById('subtitleText');
+  const duration = subtitleDuration * 1000;
+
+  el.textContent = text;
+  el.classList.add('visible');
+
+  if (subtitleTimeout) clearTimeout(subtitleTimeout);
+  subtitleTimeout = setTimeout(hideSubtitle, duration);
+}
+
+function hideSubtitle() {
+  const el = document.getElementById('subtitleText');
+  el.classList.remove('visible');
+}
+
+// ============================================================
+// Video sync subtitles (for file playback)
+// The delay slider shifts when subtitles appear relative to video time:
+//   delay > 0 → subtitles appear later (compensate for processing lag)
+//   delay < 0 would appear earlier (not exposed in UI)
+// We show a segment when: videoTime >= segment.start + delay
+// and hide it when:        videoTime >  segment.end   + delay
+// ============================================================
+document.getElementById('videoPlayer').addEventListener('timeupdate', function() {
+  const currentTime = this.currentTime;
+  const d = subtitleDelay;  // seconds, typically 0–5
+
+  // Find segment whose shifted window covers current playback time
+  const active = segments.find(s =>
+    currentTime >= (s.start + d) &&
+    currentTime <= (s.end   + d + 0.3)  // 0.3s grace to avoid flicker
+  );
+
+  const el = document.getElementById('subtitleText');
+  if (active && active.text?.trim()) {
+    el.textContent = active.text;
+    el.classList.add('visible');
+  } else {
+    el.classList.remove('visible');
+  }
+});
+
+// ============================================================
+// Transcript Display
+// ============================================================
+function addSegment(segment) {
+  segments.push(segment);
+  const count = document.getElementById('segmentCount');
+  count.textContent = `${segments.length} 段`;
+
+  const list = document.getElementById('transcriptList');
+
+  // Remove empty state
+  const empty = list.querySelector('.empty-state');
+  if (empty) empty.remove();
+
+  const item = document.createElement('div');
+  item.className = 'transcript-item';
+  item.innerHTML = `
+    <div class="transcript-time">${formatTime(segment.start)}</div>
+    <div class="transcript-text">${escapeHtml(segment.text)}</div>
+  `;
+  list.appendChild(item);
+  list.scrollTop = list.scrollHeight;
+}
+
+function formatTime(seconds) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  const ms = Math.floor((seconds % 1) * 100);
+  if (h > 0) return `${h}:${pad(m)}:${pad(s)}`;
+  return `${pad(m)}:${pad(s)}.${pad(ms)}`;
+}
+
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function escapeHtml(text) {
+  return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function clearTranscript() {
+  segments = [];
+  clearTranscriptDisplay();
+  document.getElementById('segmentCount').textContent = '0 段';
+  disableExport();
+}
+
+function clearTranscriptDisplay() {
+  const list = document.getElementById('transcriptList');
+  list.innerHTML = `<div class="empty-state">
+    <div class="empty-icon">📝</div>
+    <div>轉錄文字將顯示在這裡</div>
+  </div>`;
+}
+
+// ============================================================
+// Export
+// ============================================================
+function exportSRT() {
+  if (!segments.length) return;
+
+  let srt = '';
+  segments.forEach((seg, i) => {
+    srt += `${i + 1}\n`;
+    srt += `${formatSRTTime(seg.start)} --> ${formatSRTTime(seg.end)}\n`;
+    srt += `${seg.text}\n\n`;
+  });
+
+  downloadFile(srt, 'subtitles.srt', 'text/plain');
+}
+
+function exportVTT() {
+  if (!segments.length) return;
+
+  let vtt = 'WEBVTT\n\n';
+  segments.forEach((seg, i) => {
+    vtt += `${i + 1}\n`;
+    vtt += `${formatVTTTime(seg.start)} --> ${formatVTTTime(seg.end)}\n`;
+    vtt += `${seg.text}\n\n`;
+  });
+
+  downloadFile(vtt, 'subtitles.vtt', 'text/vtt');
+}
+
+function exportTXT() {
+  if (!segments.length) return;
+  const text = segments.map(s => s.text).join('\n');
+  downloadFile(text, 'transcript.txt', 'text/plain');
+}
+
+function formatVTTTime(seconds) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  const ms = Math.floor((seconds % 1) * 1000);
+  return `${pad(h)}:${pad(m)}:${pad(s)}.${String(ms).padStart(3,'0')}`;
+}
+
+function formatSRTTime(seconds) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  const ms = Math.floor((seconds % 1) * 1000);
+  return `${pad(h)}:${pad(m)}:${pad(s)},${String(ms).padStart(3,'0')}`;
+}
+
+function downloadFile(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function enableExport() {
+  document.getElementById('exportSrtBtn').disabled = false;
+  document.getElementById('exportVttBtn').disabled = false;
+  document.getElementById('exportTxtBtn').disabled = false;
+}
+
+function disableExport() {
+  document.getElementById('exportSrtBtn').disabled = true;
+  document.getElementById('exportVttBtn').disabled = true;
+  document.getElementById('exportTxtBtn').disabled = true;
+}
+
+// ============================================================
+// Settings
+// ============================================================
+function updateDelay(val) {
+  subtitleDelay = parseFloat(val);
+  document.getElementById('delayValue').textContent = `${val}s`;
+}
+
+function updateDuration(val) {
+  subtitleDuration = parseFloat(val);
+  document.getElementById('durationValue').textContent = `${val}s`;
+}
+
+function updateFontSize(val) {
+  document.getElementById('subtitleText').style.fontSize = `${val}px`;
+  document.getElementById('fontSizeValue').textContent = `${val}px`;
+}
+
+function preloadModel() {
+  if (!socket?.connected) {
+    showToast('請先連接到服務器', 'error');
+    return;
+  }
+  const model = document.getElementById('modelSelect').value;
+  socket.emit('load_model', { model });
+  showToast(`正在預加載 ${model} 模型...`, 'warning');
+}
+
+// ============================================================
+// UI Helpers
+// ============================================================
+function updateStatus(type, label) {
+  const badge = document.getElementById('statusBadge');
+  badge.className = `badge badge-${type}`;
+  badge.textContent = label;
+}
+
+function setProgress(pct) {
+  document.getElementById('progressBar').style.width = `${pct}%`;
+}
+
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
+}
+
+// ============================================================
+// Init
+// ============================================================
+connectSocket();
+</script>
+</body>
+</html>
