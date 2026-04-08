@@ -14,6 +14,15 @@
     "temperature": 0.1,
     "glossary_id": null
   },
+  "font": {
+    "family": "Noto Sans TC",
+    "size": 48,
+    "color": "#FFFFFF",
+    "outline_color": "#000000",
+    "outline_width": 2,
+    "position": "bottom",
+    "margin_bottom": 40
+  },
   "created_at": 1712534400,
   "updated_at": 1712534400
 }
