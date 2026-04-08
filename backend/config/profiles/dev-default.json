@@ -1,0 +1,19 @@
+{
+  "id": "dev-default",
+  "name": "Development",
+  "description": "Lightweight models for development and testing on MacBook (16GB RAM)",
+  "asr": {
+    "engine": "whisper",
+    "model_size": "tiny",
+    "language": "en",
+    "device": "auto"
+  },
+  "translation": {
+    "engine": "qwen2.5-3b",
+    "quantization": "q4",
+    "temperature": 0.1,
+    "glossary_id": null
+  },
+  "created_at": 1712534400,
+  "updated_at": 1712534400
+}
