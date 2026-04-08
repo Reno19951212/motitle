@@ -22,6 +22,7 @@ from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 from profiles import ProfileManager
 from glossary import GlossaryManager
+from renderer import SubtitleRenderer, DEFAULT_FONT_CONFIG
 
 # Try to import faster-whisper for better performance
 try:
@@ -47,6 +48,11 @@ UPLOAD_DIR = DATA_DIR / "uploads"
 RESULTS_DIR = DATA_DIR / "results"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+
+RENDERS_DIR = DATA_DIR / "renders"
+RENDERS_DIR.mkdir(parents=True, exist_ok=True)
+_subtitle_renderer = SubtitleRenderer(RENDERS_DIR)
+_render_jobs = {}
 
 # Profile management
 CONFIG_DIR = Path(__file__).parent / "config"
@@ -980,6 +986,112 @@ def api_approve_translation(file_id, idx):
     new_translations[idx] = {**translations[idx], "status": "approved"}
     _update_file(file_id, translations=new_translations)
     return jsonify({"translation": new_translations[idx]})
+
+
+# ============================================================
+# Render Endpoints
+# ============================================================
+
+VALID_RENDER_FORMATS = {"mp4", "mxf"}
+
+
+@app.route('/api/render', methods=['POST'])
+def api_start_render():
+    """Start a render job: burn approved translations into video as ASS subtitles."""
+    data = request.get_json() or {}
+
+    file_id = data.get("file_id")
+    if not file_id:
+        return jsonify({"error": "file_id is required"}), 400
+
+    output_format = data.get("format", "mp4")
+    if output_format not in VALID_RENDER_FORMATS:
+        return jsonify({"error": f"Invalid format '{output_format}'. Must be one of: {sorted(VALID_RENDER_FORMATS)}"}), 400
+
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+
+    if not entry:
+        return jsonify({"error": "File not found"}), 404
+
+    translations = entry.get("translations")
+    if not translations:
+        return jsonify({"error": "File has no translations to render"}), 400
+
+    unapproved = [t for t in translations if t.get("status") != "approved"]
+    if unapproved:
+        return jsonify({"error": f"{len(unapproved)} segment(s) not yet approved. All translations must be approved before rendering."}), 400
+
+    render_id = uuid.uuid4().hex[:12]
+    video_path = str(UPLOAD_DIR / entry["stored_name"])
+    output_filename = f"{render_id}.{output_format}"
+    output_path = str(RENDERS_DIR / output_filename)
+
+    _render_jobs[render_id] = {
+        "render_id": render_id,
+        "file_id": file_id,
+        "format": output_format,
+        "status": "processing",
+        "output_path": output_path,
+        "error": None,
+        "created_at": time.time(),
+    }
+
+    # Load font config from active profile (fallback to DEFAULT_FONT_CONFIG)
+    active_profile = _profile_manager.get_active()
+    font_config = active_profile.get("font", DEFAULT_FONT_CONFIG) if active_profile else DEFAULT_FONT_CONFIG
+
+    # Snapshot translations to pass into thread (immutable)
+    translations_snapshot = list(translations)
+
+    def do_render():
+        try:
+            ass_content = _subtitle_renderer.generate_ass(translations_snapshot, font_config)
+            success = _subtitle_renderer.render(video_path, ass_content, output_path, output_format)
+            if success:
+                _render_jobs[render_id] = {**_render_jobs[render_id], "status": "done"}
+            else:
+                _render_jobs[render_id] = {**_render_jobs[render_id], "status": "error", "error": "FFmpeg render failed"}
+        except Exception as exc:
+            print(f"Render job {render_id} error: {exc}")
+            _render_jobs[render_id] = {**_render_jobs[render_id], "status": "error", "error": str(exc)}
+
+    thread = threading.Thread(target=do_render)
+    thread.daemon = True
+    thread.start()
+
+    return jsonify({
+        "render_id": render_id,
+        "file_id": file_id,
+        "format": output_format,
+        "status": "processing",
+    }), 202
+
+
+@app.route('/api/renders/<render_id>', methods=['GET'])
+def api_get_render_status(render_id):
+    """Return the status of a render job."""
+    job = _render_jobs.get(render_id)
+    if not job:
+        return jsonify({"error": "Render job not found"}), 404
+    return jsonify(job)
+
+
+@app.route('/api/renders/<render_id>/download', methods=['GET'])
+def api_download_render(render_id):
+    """Download the rendered video file when the job is done."""
+    job = _render_jobs.get(render_id)
+    if not job:
+        return jsonify({"error": "Render job not found"}), 404
+
+    if job["status"] != "done":
+        return jsonify({"error": f"Render job is not done yet (status: {job['status']})"}), 400
+
+    output_path = job["output_path"]
+    if not os.path.exists(output_path):
+        return jsonify({"error": "Rendered file not found on disk"}), 404
+
+    return send_file(output_path, as_attachment=True)
 
 
 @app.route('/api/transcribe', methods=['POST'])
