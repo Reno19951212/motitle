@@ -1254,6 +1254,12 @@ async function loadFileSegments(fileId) {
         addSegment(seg, true);  // true = skip push to array (already in segments)
       }
       enableExport();
+
+      // Auto-load translations if available
+      const f = uploadedFiles[fileId];
+      if (f && f.translation_status === 'done') {
+        await loadTranslationsForActiveFile(fileId);
+      }
     }
   } catch (e) { /* ignore */ }
 }
