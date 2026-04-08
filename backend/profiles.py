@@ -17,7 +17,7 @@ from typing import Optional
 # ---------------------------------------------------------------------------
 
 VALID_ASR_ENGINES = {"whisper", "qwen3-asr", "flg-asr"}
-VALID_TRANSLATION_ENGINES = {"qwen3-235b", "qwen2.5-72b", "qwen2.5-7b", "qwen2.5-3b"}
+VALID_TRANSLATION_ENGINES = {"qwen3-235b", "qwen2.5-72b", "qwen2.5-7b", "qwen2.5-3b", "mock"}
 VALID_DEVICES = {"cpu", "cuda", "mps", "auto"}
 
 SETTINGS_FILENAME = "settings.json"
