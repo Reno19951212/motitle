@@ -6,6 +6,7 @@ switch between model combinations without reconfiguring manually.
 """
 
 import json
+import os
 import uuid
 from pathlib import Path
 from typing import Optional
@@ -130,6 +131,13 @@ class ProfileManager:
         """
         Merge `data` into an existing profile, validate, then persist.
 
+        The merge is a **shallow (top-level) merge**: each key in `data`
+        replaces the corresponding top-level key in the existing profile.
+        Nested blocks such as ``asr`` and ``translation`` are replaced in
+        their entirety, so callers must supply the complete nested object
+        if any of their inner fields change — partial nested updates are
+        not supported.
+
         Returns the updated profile, or None if profile_id is not found.
         Raises ValueError if the merged data is invalid.
         """
@@ -205,7 +213,9 @@ class ProfileManager:
 
     def _write_profile(self, profile_id: str, profile: dict) -> None:
         path = self._profile_path(profile_id)
-        path.write_text(json.dumps(profile, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp_path = path.with_suffix(".tmp")
+        tmp_path.write_text(json.dumps(profile, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.replace(tmp_path, path)
 
     def _read_settings(self) -> dict:
         try:
@@ -214,10 +224,12 @@ class ProfileManager:
             return {"active_profile": None}
 
     def _write_settings(self, settings: dict) -> None:
-        self._settings_path.write_text(
+        tmp_path = self._settings_path.with_suffix(".tmp")
+        tmp_path.write_text(
             json.dumps(settings, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+        os.replace(tmp_path, self._settings_path)
 
 
 # ---------------------------------------------------------------------------
