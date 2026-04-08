@@ -140,3 +140,24 @@ def test_ollama_translate_mocked_http():
     assert result[0]["en_text"] == "Good evening everyone."
     assert result[0]["start"] == 0.0
     assert result[1]["zh_text"] == "歡迎收看新聞。"
+
+
+def test_api_list_translation_engines():
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+
+    from app import app
+    app.config["TESTING"] = True
+    with app.test_client() as client:
+        resp = client.get("/api/translation/engines")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        engines = data["engines"]
+        assert len(engines) >= 2
+
+        engine_names = [e["engine"] for e in engines]
+        assert "mock" in engine_names
+
+        mock_info = next(e for e in engines if e["engine"] == "mock")
+        assert mock_info["available"] is True
