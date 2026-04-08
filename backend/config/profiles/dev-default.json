@@ -9,8 +9,8 @@
     "device": "auto"
   },
   "translation": {
-    "engine": "qwen2.5-3b",
-    "quantization": "q4",
+    "engine": "mock",
+    "style": "formal",
     "temperature": 0.1,
     "glossary_id": null
   },
