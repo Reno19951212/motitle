@@ -30,6 +30,22 @@ except ImportError:
     FASTER_WHISPER_AVAILABLE = False
     print("faster-whisper not available — using openai-whisper only")
 
+# Try to import whisper-streaming for real-time streaming mode
+try:
+    from whisper_streaming.processor import ASRProcessor, AudioReceiver, OutputSender, TimeTrimming, Word
+    from whisper_streaming.backend.faster_whisper_backend import (
+        FasterWhisperASR as StreamingFasterWhisperASR,
+        FasterWhisperModelConfig,
+        FasterWhisperTranscribeConfig,
+        FasterWhisperFeatureExtractorConfig,
+    )
+    from whisper_streaming.base import Backend as StreamingBackend
+    WHISPER_STREAMING_AVAILABLE = True
+    print("whisper-streaming available — streaming mode enabled")
+except ImportError:
+    WHISPER_STREAMING_AVAILABLE = False
+    print("whisper-streaming not available — streaming mode disabled")
+
 # Initialize Flask app
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'whisper-secret-key'
@@ -114,6 +130,116 @@ _model_lock = threading.Lock()
 # Per-session live transcription state (context carry-over + overlap)
 _live_session_state = {}   # sid -> {'last_text': str, 'prev_audio_tail': bytes|None, 'last_segments': list}
 _session_state_lock = threading.Lock()
+
+# Streaming mode sessions: sid -> StreamingSession
+_streaming_sessions = {}
+_streaming_sessions_lock = threading.Lock()
+
+
+# ============================================================
+# Streaming Mode (whisper-streaming integration)
+# ============================================================
+
+if WHISPER_STREAMING_AVAILABLE:
+    class SocketIOAudioReceiver(AudioReceiver):
+        """AudioReceiver that receives PCM audio chunks via a queue fed by Socket.IO."""
+        def __init__(self):
+            super().__init__()
+            self._closed = False
+
+        def _do_receive(self):
+            """Block until audio chunk arrives or stopped."""
+            import time as _time
+            while not self.stopped.is_set() and not self._closed:
+                try:
+                    return self.queue.get(timeout=0.5)
+                except Exception:
+                    continue
+            return None
+
+        def _do_close(self):
+            self._closed = True
+
+        def feed_audio(self, audio_np):
+            """Called from Socket.IO handler to push audio into the processor."""
+            if not self._closed and not self.stopped.is_set():
+                self.queue.put_nowait(audio_np)
+
+    class SocketIOOutputSender(OutputSender):
+        """OutputSender that emits confirmed words to the client via Socket.IO."""
+        def __init__(self, sid, socketio_instance):
+            super().__init__()
+            self._sid = sid
+            self._socketio = socketio_instance
+
+        def _do_output(self, data):
+            """data is a Word(start, end, word) — emit to client."""
+            if data and data.word and data.word.strip():
+                self._socketio.emit('live_subtitle', {
+                    'text': data.word.strip(),
+                    'start': round(data.start, 2),
+                    'end': round(data.end, 2),
+                    'timestamp': time.time(),
+                    'streaming': True,
+                }, room=self._sid)
+
+        def _do_close(self):
+            pass
+
+    class StreamingSession:
+        """Manages a whisper-streaming ASRProcessor for one WebSocket session."""
+        def __init__(self, sid, socketio_instance, model_size='small'):
+            self.sid = sid
+            self.audio_receiver = SocketIOAudioReceiver()
+            self.output_sender = SocketIOOutputSender(sid, socketio_instance)
+
+            model_config = FasterWhisperModelConfig(
+                model_size_or_path=model_size,
+                device="auto",
+                compute_type="int8",
+            )
+            transcribe_config = FasterWhisperTranscribeConfig(
+                vad_filter=True,
+                task='transcribe',
+            )
+            feature_config = FasterWhisperFeatureExtractorConfig()
+
+            processor_config = ASRProcessor.ProcessorConfig(
+                sampling_rate=16000,
+                prompt_size=200,
+                audio_receiver_timeout=5.0,
+                audio_trimming=TimeTrimming(seconds=30),
+                language='zh',
+            )
+
+            self.processor = ASRProcessor(
+                processor_config=processor_config,
+                audio_receiver=self.audio_receiver,
+                output_senders=self.output_sender,
+                backend=StreamingBackend.FASTER_WHISPER,
+                model_config=model_config,
+                transcribe_config=transcribe_config,
+                feature_extractor_config=feature_config,
+            )
+            self._thread = None
+
+        def start(self):
+            """Start the streaming processor in a background thread."""
+            self._thread = threading.Thread(target=self.processor.run, daemon=True)
+            self._thread.start()
+            print(f"Streaming session started for {self.sid}")
+
+        def feed_audio(self, audio_np):
+            """Feed a numpy float32 16kHz audio chunk to the processor."""
+            self.audio_receiver.feed_audio(audio_np)
+
+        def stop(self):
+            """Stop the streaming processor."""
+            self.audio_receiver.close()
+            self.output_sender.close()
+            if self._thread and self._thread.is_alive():
+                self._thread.join(timeout=3)
+            print(f"Streaming session stopped for {self.sid}")
 
 ALLOWED_EXTENSIONS = {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg'}
 
@@ -825,6 +951,11 @@ def handle_disconnect():
     print(f"Client disconnected: {sid}")
     with _session_state_lock:
         _live_session_state.pop(sid, None)
+    # Clean up streaming session if active
+    with _streaming_sessions_lock:
+        session = _streaming_sessions.pop(sid, None)
+    if session:
+        session.stop()
 
 
 @socketio.on('live_silence')
@@ -920,6 +1051,84 @@ def handle_live_chunk(data):
     thread = threading.Thread(target=process_chunk)
     thread.daemon = True
     thread.start()
+
+
+@socketio.on('start_streaming')
+def handle_start_streaming(data):
+    """Start a whisper-streaming session for real-time low-latency transcription."""
+    sid = request.sid
+    if not WHISPER_STREAMING_AVAILABLE:
+        socketio.emit('streaming_error', {
+            'error': 'whisper-streaming 未安裝，無法使用串流模式'
+        }, room=sid)
+        return
+
+    model_size = data.get('model', 'small')
+
+    # Stop any existing streaming session for this sid
+    with _streaming_sessions_lock:
+        existing = _streaming_sessions.pop(sid, None)
+    if existing:
+        existing.stop()
+
+    try:
+        session = StreamingSession(sid, socketio, model_size)
+        session.start()
+        with _streaming_sessions_lock:
+            _streaming_sessions[sid] = session
+        socketio.emit('streaming_started', {
+            'model': model_size,
+            'message': '串流模式已啟動'
+        }, room=sid)
+    except Exception as e:
+        print(f"Error starting streaming session: {e}")
+        socketio.emit('streaming_error', {'error': str(e)}, room=sid)
+
+
+@socketio.on('streaming_audio')
+def handle_streaming_audio(data):
+    """Receive continuous PCM audio data for streaming mode.
+    Expects float32 16kHz mono audio as binary."""
+    sid = request.sid
+    audio_data = data.get('audio') if isinstance(data, dict) else data
+
+    if not audio_data:
+        return
+
+    with _streaming_sessions_lock:
+        session = _streaming_sessions.get(sid)
+
+    if not session:
+        return
+
+    # Convert binary to numpy float32 array
+    if isinstance(audio_data, bytes):
+        audio_np = np.frombuffer(audio_data, dtype=np.float32)
+    else:
+        # Legacy base64
+        audio_np = np.frombuffer(base64.b64decode(audio_data), dtype=np.float32)
+
+    session.feed_audio(audio_np)
+
+
+@socketio.on('stop_streaming')
+def handle_stop_streaming():
+    """Stop the streaming session."""
+    sid = request.sid
+    with _streaming_sessions_lock:
+        session = _streaming_sessions.pop(sid, None)
+    if session:
+        session.stop()
+    socketio.emit('streaming_stopped', {'message': '串流模式已停止'}, room=sid)
+
+
+@app.route('/api/streaming/available')
+def streaming_available():
+    """Check if streaming mode is available."""
+    return jsonify({
+        'available': WHISPER_STREAMING_AVAILABLE,
+        'message': '串流模式可用' if WHISPER_STREAMING_AVAILABLE else 'whisper-streaming 未安裝'
+    })
 
 
 if __name__ == '__main__':

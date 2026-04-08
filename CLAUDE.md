@@ -58,6 +58,17 @@ Whisper 開發/
 - Helper functions: `_extract_audio_tail()`, `_merge_audio_overlap()`, `_deduplicate_segments()`
 - Uses `tiny` model by default for lowest latency
 
+**Streaming mode (`whisper-streaming` integration, optional)**
+- Uses `whisper-streaming` library's `ASRProcessor` with `FasterWhisperASR` backend
+- Custom `SocketIOAudioReceiver`: receives continuous PCM float32 16kHz audio via Socket.IO
+- Custom `SocketIOOutputSender`: emits confirmed `Word` objects as `live_subtitle` events
+- `StreamingSession` class manages per-session ASRProcessor lifecycle (start/stop/cleanup)
+- Frontend uses `ScriptProcessorNode` (or AudioWorklet) to capture raw PCM at 16kHz and send every ~256ms
+- LocalAgreement-2 policy: output confirmed only when 2 consecutive iterations agree
+- `TimeTrimming(seconds=30)` keeps a rolling 30s audio buffer
+- New REST endpoint: `GET /api/streaming/available` — check if streaming mode is installed
+- Falls back to chunk mode if `whisper-streaming` is not installed
+
 **WebSocket events (server → client)**
 | Event | Payload | When |
 |---|---|---|
@@ -69,9 +80,12 @@ Whisper 開發/
 | `subtitle_segment` | `{id, start, end, text, words[], progress, eta_seconds, total_duration}` | Each segment as it's ready (with progress %) |
 | `transcription_complete` | `{text, language, segment_count}` | All done |
 | `transcription_error` | `{error}` | Any failure |
-| `live_subtitle` | `{text, start, end, timestamp}` | Live mode subtitle |
+| `live_subtitle` | `{text, start, end, timestamp, streaming?}` | Live mode subtitle (both chunk and streaming) |
 | `file_added` | `{id, original_name, ...}` | New file uploaded |
 | `file_updated` | `{id, status, ...}` | File status changed |
+| `streaming_started` | `{model, message}` | Streaming session started |
+| `streaming_stopped` | `{message}` | Streaming session stopped |
+| `streaming_error` | `{error}` | Streaming mode error |
 
 **WebSocket events (client → server)**
 | Event | Payload |
@@ -79,6 +93,9 @@ Whisper 開發/
 | `load_model` | `{model}` |
 | `live_audio_chunk` | `{audio: ArrayBuffer (binary), model}` |
 | `live_silence` | *(no payload)* |
+| `start_streaming` | `{model}` |
+| `streaming_audio` | `{audio: Float32Array (binary PCM 16kHz)}` |
+| `stop_streaming` | *(no payload)* |
 
 **REST endpoints**
 | Method | Path | Purpose |
@@ -93,6 +110,7 @@ Whisper 開發/
 | GET | `/api/files/<id>/segments` | Get transcription segments for a file |
 | PATCH | `/api/files/<id>/segments/<seg_id>` | Update a single segment's text (inline editing) |
 | DELETE | `/api/files/<id>` | Delete file from disk and registry |
+| GET | `/api/streaming/available` | Check if streaming mode is installed |
 
 **File persistence**
 - Uploaded files are stored in `backend/data/uploads/` with a unique ID filename
@@ -212,6 +230,17 @@ Whenever a new feature is completed or existing functionality is modified, you *
 - Edits are persisted to the backend via `PATCH /api/files/<id>/segments/<seg_id>` and update `registry.json`
 - Edited text syncs to: the `segments[]` array (subtitle overlay), and all export formats (SRT/VTT/TXT, served from the registry)
 - Hover effect on transcript text to hint editability (subtle purple highlight)
+
+### v1.7 — Streaming Mode (whisper-streaming Integration)
+- **Optional streaming mode**: frontend toggle between "分段模式"（chunk-based, 3s intervals）and "串流模式"（continuous PCM streaming）
+- **Backend**: `StreamingSession` class wraps `whisper-streaming`'s `ASRProcessor` with custom `SocketIOAudioReceiver` and `SocketIOOutputSender`
+- **Frontend**: `ScriptProcessorNode` captures raw PCM audio at 16kHz and sends ~256ms chunks continuously to the server
+- **LocalAgreement-2 policy**: output is confirmed only when 2 consecutive processing iterations agree, ensuring reliable text
+- **TimeTrimming**: 30-second rolling audio buffer prevents memory growth
+- **Graceful fallback**: if `whisper-streaming` is not installed, streaming option is disabled in UI; chunk mode remains fully functional
+- New REST endpoint: `GET /api/streaming/available`
+- New WebSocket events: `start_streaming`, `streaming_audio`, `stop_streaming`, `streaming_started`, `streaming_stopped`, `streaming_error`
+- New dependency: `whisper-streaming>=0.1.0` (optional)
 
 ### v1.6 — Enhanced Live Transcription
 - **Binary WebSocket**: audio chunks sent as binary ArrayBuffer instead of base64, reducing transfer overhead by ~33%
