@@ -81,6 +81,24 @@ class ProfileManager:
             translation_errors = _validate_translation(translation)
             errors.extend(translation_errors)
 
+        # font (optional)
+        font = data.get("font")
+        if font is not None:
+            if not isinstance(font, dict):
+                errors.append("font must be a dict")
+            else:
+                if "family" in font and not isinstance(font["family"], str):
+                    errors.append("font.family must be a string")
+                if "size" in font:
+                    if not isinstance(font["size"], int) or font["size"] < 12 or font["size"] > 120:
+                        errors.append("font.size must be an integer between 12 and 120")
+                if "outline_width" in font:
+                    if not isinstance(font["outline_width"], int) or font["outline_width"] < 0 or font["outline_width"] > 10:
+                        errors.append("font.outline_width must be an integer between 0 and 10")
+                if "margin_bottom" in font:
+                    if not isinstance(font["margin_bottom"], int) or font["margin_bottom"] < 0 or font["margin_bottom"] > 200:
+                        errors.append("font.margin_bottom must be an integer between 0 and 200")
+
         return errors
 
     # ------------------------------------------------------------------
