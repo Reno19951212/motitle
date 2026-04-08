@@ -1,6 +1,5 @@
 import pytest
 import json
-import shutil
 from pathlib import Path
 
 
