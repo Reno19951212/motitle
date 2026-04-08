@@ -102,6 +102,7 @@
       max-width: 1600px;
       margin: 0 auto;
       width: 100%;
+      overflow: hidden;  /* prevent main from scrolling */
     }
 
     @media (max-width: 1024px) {
@@ -788,14 +789,14 @@
       </div>
     </div>
 
-    <!-- Transcript -->
-    <div class="panel" style="flex:1;">
-      <div class="panel-header">
+    <!-- Transcript (right column — independent scrollable panel) -->
+    <div class="panel" style="display:flex;flex-direction:column;max-height:calc(100vh - 100px);overflow:hidden;">
+      <div class="panel-header" style="flex-shrink:0;">
         📄 轉錄文字
         <span id="segmentCount" style="margin-left:auto;font-size:12px;color:var(--text-dim);">0 段</span>
       </div>
-      <div class="panel-body" style="padding:12px;">
-        <div class="transcript-list" id="transcriptList">
+      <div class="panel-body" style="padding:12px;flex:1;overflow:hidden;display:flex;flex-direction:column;">
+        <div class="transcript-list" id="transcriptList" style="flex:1;height:auto;max-height:none;">
           <div class="empty-state">
             <div class="empty-icon">📝</div>
             <div>轉錄文字將顯示在這裡</div>
@@ -1595,7 +1596,6 @@ function addSegment(segment, skipPush) {
   item.appendChild(timeEl);
   item.appendChild(textEl);
   list.appendChild(item);
-  list.scrollTop = list.scrollHeight;
 }
 
 function startEditSegment(textEl, segment) {
