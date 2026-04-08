@@ -682,6 +682,93 @@ def api_list_asr_engines():
     return jsonify({"engines": engines_info})
 
 
+# ============================================================
+# Translation Engine Info
+# ============================================================
+
+@app.route('/api/translation/engines', methods=['GET'])
+def api_list_translation_engines():
+    """List available translation engines with status."""
+    from translation import create_translation_engine
+    engines_info = []
+    for engine_name, desc in [
+        ("mock", "Mock translator (development)"),
+        ("qwen2.5-3b", "Qwen 2.5 3B (Ollama)"),
+        ("qwen2.5-7b", "Qwen 2.5 7B (Ollama)"),
+        ("qwen2.5-72b", "Qwen 2.5 72B (Ollama)"),
+        ("qwen3-235b", "Qwen3 235B MoE (Ollama)"),
+    ]:
+        try:
+            engine = create_translation_engine({"engine": engine_name})
+            info = engine.get_info()
+            engines_info.append({
+                "engine": engine_name,
+                "available": info.get("available", False),
+                "description": desc,
+            })
+        except Exception:
+            engines_info.append({
+                "engine": engine_name,
+                "available": False,
+                "description": desc,
+            })
+    return jsonify({"engines": engines_info})
+
+
+@app.route('/api/translate', methods=['POST'])
+def api_translate_file():
+    """Translate a file's transcription segments using the active profile's translation engine."""
+    data = request.get_json()
+    if not data or not data.get('file_id'):
+        return jsonify({"error": "file_id is required"}), 400
+
+    file_id = data['file_id']
+    style_override = data.get('style')
+
+    entry = _file_registry.get(file_id)
+    if not entry:
+        return jsonify({"error": "File not found"}), 404
+
+    segments = entry.get('segments', [])
+    if not segments:
+        return jsonify({"error": "No segments to translate. Transcribe the file first."}), 400
+
+    profile = _profile_manager.get_active()
+    if not profile:
+        return jsonify({"error": "No active profile. Set a profile first."}), 400
+
+    translation_config = profile.get("translation", {})
+    style = style_override or translation_config.get("style", "formal")
+
+    try:
+        from translation import create_translation_engine
+        engine = create_translation_engine(translation_config)
+
+        asr_segments = [
+            {"start": s["start"], "end": s["end"], "text": s["text"]}
+            for s in segments
+        ]
+
+        translated = engine.translate(asr_segments, glossary=[], style=style)
+
+        _update_file(file_id, translations=translated, translation_status='done')
+
+        return jsonify({
+            "file_id": file_id,
+            "segment_count": len(translated),
+            "style": style,
+            "engine": engine.get_info().get("engine"),
+            "translations": translated,
+        })
+
+    except NotImplementedError as e:
+        return jsonify({"error": str(e)}), 501
+    except ConnectionError as e:
+        return jsonify({"error": str(e)}), 503
+    except Exception as e:
+        return jsonify({"error": f"Translation failed: {str(e)}"}), 500
+
+
 @app.route('/api/transcribe', methods=['POST'])
 def transcribe_file():
     """Upload and transcribe a video/audio file. File is kept until explicitly deleted."""
