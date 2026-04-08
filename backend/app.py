@@ -21,6 +21,7 @@ from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 from profiles import ProfileManager
+from glossary import GlossaryManager
 
 # Try to import faster-whisper for better performance
 try:
@@ -56,6 +57,16 @@ def _init_profile_manager(config_dir):
     """Re-initialize profile manager (used by tests)."""
     global _profile_manager
     _profile_manager = ProfileManager(config_dir)
+
+
+# Glossary management
+_glossary_manager = GlossaryManager(CONFIG_DIR)
+
+
+def _init_glossary_manager(config_dir):
+    """Re-initialize glossary manager (used by tests)."""
+    global _glossary_manager
+    _glossary_manager = GlossaryManager(config_dir)
 
 
 # In-memory file registry: file_id -> metadata dict
@@ -767,6 +778,126 @@ def api_translate_file():
         return jsonify({"error": str(e)}), 503
     except Exception as e:
         return jsonify({"error": f"Translation failed: {str(e)}"}), 500
+
+
+# ============================================================
+# Glossary endpoints
+# ============================================================
+
+@app.route('/api/glossaries', methods=['GET'])
+def api_list_glossaries():
+    """List all glossaries (summaries, no entries)."""
+    summaries = _glossary_manager.list_all()
+    return jsonify({"glossaries": summaries})
+
+
+@app.route('/api/glossaries', methods=['POST'])
+def api_create_glossary():
+    """Create a new glossary."""
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "Request body must be JSON"}), 400
+    try:
+        glossary = _glossary_manager.create(data)
+        return jsonify(glossary), 201
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 422
+
+
+@app.route('/api/glossaries/<glossary_id>', methods=['GET'])
+def api_get_glossary(glossary_id):
+    """Get a single glossary with all entries."""
+    glossary = _glossary_manager.get(glossary_id)
+    if glossary is None:
+        return jsonify({"error": "Glossary not found"}), 404
+    return jsonify(glossary)
+
+
+@app.route('/api/glossaries/<glossary_id>', methods=['PATCH'])
+def api_update_glossary(glossary_id):
+    """Update glossary name and/or description."""
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "Request body must be JSON"}), 400
+    try:
+        updated = _glossary_manager.update(glossary_id, data)
+        if updated is None:
+            return jsonify({"error": "Glossary not found"}), 404
+        return jsonify(updated)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 422
+
+
+@app.route('/api/glossaries/<glossary_id>', methods=['DELETE'])
+def api_delete_glossary(glossary_id):
+    """Delete a glossary."""
+    deleted = _glossary_manager.delete(glossary_id)
+    if not deleted:
+        return jsonify({"error": "Glossary not found"}), 404
+    return jsonify({"deleted": True})
+
+
+@app.route('/api/glossaries/<glossary_id>/entries', methods=['POST'])
+def api_add_entry(glossary_id):
+    """Add an entry to a glossary."""
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "Request body must be JSON"}), 400
+    try:
+        updated = _glossary_manager.add_entry(glossary_id, data)
+        if updated is None:
+            return jsonify({"error": "Glossary not found"}), 404
+        return jsonify(updated), 201
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 422
+
+
+@app.route('/api/glossaries/<glossary_id>/entries/<entry_id>', methods=['PATCH'])
+def api_update_entry(glossary_id, entry_id):
+    """Update a single entry within a glossary."""
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "Request body must be JSON"}), 400
+    try:
+        updated = _glossary_manager.update_entry(glossary_id, entry_id, data)
+        if updated is None:
+            return jsonify({"error": "Glossary or entry not found"}), 404
+        return jsonify(updated)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 422
+
+
+@app.route('/api/glossaries/<glossary_id>/entries/<entry_id>', methods=['DELETE'])
+def api_delete_entry(glossary_id, entry_id):
+    """Delete a single entry from a glossary."""
+    updated = _glossary_manager.delete_entry(glossary_id, entry_id)
+    if updated is None:
+        return jsonify({"error": "Glossary not found"}), 404
+    return jsonify(updated)
+
+
+@app.route('/api/glossaries/<glossary_id>/import', methods=['POST'])
+def api_import_glossary_csv(glossary_id):
+    """Import entries from CSV text (JSON body with csv_content field)."""
+    data = request.get_json(silent=True)
+    if not data or "csv_content" not in data:
+        return jsonify({"error": "Request body must include csv_content"}), 400
+    updated = _glossary_manager.import_csv(glossary_id, data["csv_content"])
+    if updated is None:
+        return jsonify({"error": "Glossary not found"}), 404
+    return jsonify(updated)
+
+
+@app.route('/api/glossaries/<glossary_id>/export', methods=['GET'])
+def api_export_glossary_csv(glossary_id):
+    """Export glossary entries as CSV text."""
+    csv_text = _glossary_manager.export_csv(glossary_id)
+    if csv_text is None:
+        return jsonify({"error": "Glossary not found"}), 404
+    return csv_text, 200, {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": f"attachment; filename={glossary_id}.csv",
+    }
 
 
 @app.route('/api/transcribe', methods=['POST'])

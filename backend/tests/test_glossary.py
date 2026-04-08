@@ -233,3 +233,28 @@ def test_export_csv_nonexistent(glossary_dir):
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
     assert mgr.export_csv("nonexistent") is None
+
+
+def test_api_list_glossaries():
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+
+    from app import app, _init_glossary_manager
+    import tempfile
+    import json as json_mod
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        glossaries_dir = tmp_path / "glossaries"
+        glossaries_dir.mkdir()
+        _init_glossary_manager(tmp_path)
+        app.config["TESTING"] = True
+        with app.test_client() as client:
+            resp = client.post("/api/glossaries", json={"name": "Test", "entries": [{"en": "hi", "zh": "嗨"}]})
+            assert resp.status_code == 201
+
+            resp = client.get("/api/glossaries")
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert len(data["glossaries"]) == 1
+            assert data["glossaries"][0]["entry_count"] == 1
