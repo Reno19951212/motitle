@@ -1246,20 +1246,30 @@ async function loadFileSegments(fileId) {
     const resp = await fetch(`${API_BASE}/api/files/${fileId}/segments`);
     const data = await resp.json();
     if (data.status === 'done' && data.segments && data.segments.length > 0) {
-      // Load segments into the global array for subtitle display
       segments = data.segments;
-      // Rebuild transcript display
-      clearTranscriptDisplay();
-      for (const seg of segments) {
-        addSegment(seg, true);  // true = skip push to array (already in segments)
-      }
-      enableExport();
 
-      // Auto-load translations if available
+      // If translations exist, replace segment text with zh_text BEFORE rendering
       const f = uploadedFiles[fileId];
       if (f && f.translation_status === 'done') {
-        await loadTranslationsForActiveFile(fileId);
+        try {
+          const tResp = await fetch(`${API_BASE}/api/files/${fileId}/translations`);
+          if (tResp.ok) {
+            const tData = await tResp.json();
+            const translations = tData.translations || [];
+            for (let i = 0; i < segments.length && i < translations.length; i++) {
+              segments[i]._en_text = segments[i].text;
+              segments[i].text = translations[i].zh_text || segments[i].text;
+            }
+          }
+        } catch (e) { /* translation fetch failed, keep English */ }
       }
+
+      // Rebuild transcript display (now with Chinese if translations loaded)
+      clearTranscriptDisplay();
+      for (const seg of segments) {
+        addSegment(seg, true);
+      }
+      enableExport();
     }
   } catch (e) { /* ignore */ }
 }
