@@ -193,19 +193,26 @@ def extract_audio(video_path: str, output_path: str) -> bool:
 
 def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str = None):
     """
-    Transcribe audio/video file with Whisper and emit segments with timestamps.
-    Returns segments with timing for subtitle synchronization.
-    Uses faster-whisper when available, falls back to openai-whisper.
+    Transcribe audio/video file and emit segments with timestamps.
+    If an active profile exists with whisper engine, uses the profile's ASR engine.
+    Otherwise falls back to legacy direct Whisper path.
     """
-    model, backend = get_model(model_size, backend='auto')
+    profile = _profile_manager.get_active()
+    use_profile_engine = (
+        profile is not None
+        and profile.get("asr", {}).get("engine") == "whisper"
+    )
+
+    if not use_profile_engine:
+        model, backend = get_model(model_size, backend='auto')
 
     # Check if it's a video file - extract audio first
     suffix = Path(file_path).suffix.lower()
     audio_path = file_path
     temp_audio = None
 
-    if suffix in {'.mp4', '.mov', '.avi', '.mkv', '.webm'}:
-        temp_audio = str(UPLOAD_DIR / f"audio_{int(time.time())}.wav")
+    if suffix in {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.mxf'}:
+        temp_audio = str(UPLOAD_DIR / f"audio_{uuid.uuid4().hex}.wav")
         if sid:
             socketio.emit('transcription_status',
                          {'status': 'extracting', 'message': '正在提取音頻...'},
@@ -252,6 +259,32 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
                 'total_duration': total_duration,
             }, room=sid)
 
+        # === Profile-based ASR engine path ===
+        if use_profile_engine:
+            from asr import create_asr_engine
+            engine = create_asr_engine(profile["asr"])
+            language = profile["asr"].get("language", "en")
+            raw_segments = engine.transcribe(audio_path, language=language)
+
+            for i, seg in enumerate(raw_segments):
+                segment = {
+                    'id': i,
+                    'start': seg['start'],
+                    'end': seg['end'],
+                    'text': seg['text'],
+                    'words': [],
+                }
+                segments.append(segment)
+                emit_segment_with_progress(segment, sid)
+
+            return {
+                'text': ' '.join(s['text'] for s in segments),
+                'language': language,
+                'segments': segments,
+                'backend': engine.get_info().get('engine', 'whisper'),
+            }
+
+        # === Legacy path (no profile or non-whisper engine) ===
         if backend == 'faster':
             # faster-whisper returns a generator of Segment namedtuples
             seg_iter, info = model.transcribe(
@@ -616,6 +649,37 @@ def api_activate_profile(profile_id):
     if not profile:
         return jsonify({"error": "Profile not found"}), 404
     return jsonify({"profile": profile})
+
+
+# ============================================================
+# ASR Engine Info
+# ============================================================
+
+@app.route('/api/asr/engines', methods=['GET'])
+def api_list_asr_engines():
+    """List available ASR engines with status."""
+    from asr import create_asr_engine
+    engines_info = []
+    for engine_name, desc in [
+        ("whisper", "OpenAI Whisper (local)"),
+        ("qwen3-asr", "Qwen3-ASR (stub — production only)"),
+        ("flg-asr", "FLG-ASR (stub — production only)"),
+    ]:
+        try:
+            engine = create_asr_engine({"engine": engine_name, "model_size": "unknown"})
+            info = engine.get_info()
+            engines_info.append({
+                "engine": engine_name,
+                "available": info.get("available", False),
+                "description": desc,
+            })
+        except Exception:
+            engines_info.append({
+                "engine": engine_name,
+                "available": False,
+                "description": desc,
+            })
+    return jsonify({"engines": engines_info})
 
 
 @app.route('/api/transcribe', methods=['POST'])
