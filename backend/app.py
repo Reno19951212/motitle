@@ -220,6 +220,11 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
         and profile.get("asr", {}).get("engine") == "whisper"
     )
 
+    # Read language from profile (default to 'zh' for backward compat)
+    transcribe_language = 'zh'
+    if profile:
+        transcribe_language = profile.get("asr", {}).get("language", "zh")
+
     if not use_profile_engine:
         model, backend = get_model(model_size, backend='auto')
 
@@ -304,12 +309,13 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
         # === Legacy path (no profile or non-whisper engine) ===
         if backend == 'faster':
             # faster-whisper returns a generator of Segment namedtuples
+            initial_prompt = '請將音頻轉錄為繁體中文。' if transcribe_language == 'zh' else ''
             seg_iter, info = model.transcribe(
                 audio_path,
-                language='zh',
+                language=transcribe_language,
                 task='transcribe',
                 word_timestamps=True,
-                initial_prompt='請將音頻轉錄為繁體中文。',
+                initial_prompt=initial_prompt,
             )
             full_text_parts = []
             for i, seg in enumerate(seg_iter):
@@ -369,13 +375,14 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
                 hb_thread = threading.Thread(target=heartbeat, daemon=True)
                 hb_thread.start()
 
+            initial_prompt_openai = '請將音頻轉錄為繁體中文。' if transcribe_language == 'zh' else ''
             result = model.transcribe(
                 audio_path,
-                language='zh',
+                language=transcribe_language,
                 task='transcribe',
                 verbose=False,
                 word_timestamps=True,
-                initial_prompt='請將音頻轉錄為繁體中文。',
+                initial_prompt=initial_prompt_openai,
                 fp16=False
             )
 
