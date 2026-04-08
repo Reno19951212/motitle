@@ -711,6 +711,17 @@
             </select>
           </div>
 
+          <div class="control-group">
+            <label>轉錄模式</label>
+            <select id="liveMode">
+              <option value="chunk">分段模式（每 3 秒）</option>
+              <option value="streaming">串流模式（低延遲）</option>
+            </select>
+            <div id="streamingHint" style="font-size:11px;margin-top:4px;color:var(--text-dim);">
+              串流模式使用 whisper-streaming，延遲更低但需要更多 CPU
+            </div>
+          </div>
+
           <div class="btn-group">
             <button class="btn btn-success" id="startLiveBtn" onclick="startLive()">
               ▶ 開始直播
@@ -845,6 +856,12 @@ const VAD_ENERGY_THRESHOLD = 15;  // RMS energy threshold (0-255 scale)
 const recentLiveTexts = [];
 const MAX_RECENT_TEXTS = 5;
 
+// Streaming mode state
+let isStreamingMode = false;
+let streamingAudioContext = null;
+let streamingProcessor = null;
+let streamingAvailable = null;  // null = not checked, true/false
+
 // ============================================================
 // Socket.IO Connection
 // ============================================================
@@ -971,6 +988,21 @@ function connectSocket() {
 
   socket.on('live_subtitle', (data) => {
     addLiveSubtitle(data);
+  });
+
+  socket.on('streaming_started', (data) => {
+    showToast(`串流模式已啟動 (${data.model})`, 'success');
+  });
+
+  socket.on('streaming_stopped', () => {
+    showToast('串流模式已停止', 'warning');
+  });
+
+  socket.on('streaming_error', (data) => {
+    showToast(`串流錯誤: ${data.error}`, 'error');
+    // Fall back to chunk mode
+    document.getElementById('liveMode').value = 'chunk';
+    isStreamingMode = false;
   });
 }
 
@@ -1285,6 +1317,7 @@ function clearAll() {
 // ============================================================
 async function startLive() {
   const source = document.getElementById('videoSource').value;
+  isStreamingMode = document.getElementById('liveMode').value === 'streaming';
   document.getElementById('liveIndicator').style.display = 'flex';
 
   try {
@@ -1307,10 +1340,14 @@ async function startLive() {
 
   document.getElementById('startLiveBtn').disabled = true;
   document.getElementById('stopLiveBtn').disabled = false;
-  updateStatus('recording', '直播中');
 
-  // Start audio capture
-  startAudioCapture();
+  if (isStreamingMode) {
+    updateStatus('recording', '串流中');
+    startStreamingCapture();
+  } else {
+    updateStatus('recording', '直播中');
+    startAudioCapture();
+  }
 }
 
 function setupVAD(audioStream) {
@@ -1421,7 +1458,60 @@ async function sendAudioChunk(blob) {
   });
 }
 
+// ============================================================
+// Streaming Mode — continuous PCM audio via AudioWorklet/ScriptProcessor
+// ============================================================
+function startStreamingCapture() {
+  if (!mediaStream || !socket?.connected) return;
+
+  const model = document.getElementById('modelSelect').value;
+  socket.emit('start_streaming', { model });
+
+  const audioTrack = mediaStream.getAudioTracks()[0];
+  if (!audioTrack) {
+    showToast('未找到音頻軌道', 'warning');
+    return;
+  }
+
+  const audioStream = new MediaStream([audioTrack]);
+  streamingAudioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+  const source = streamingAudioContext.createMediaStreamSource(audioStream);
+
+  // Use ScriptProcessorNode (widely supported) to get raw PCM
+  // Buffer size 4096 at 16kHz = ~256ms chunks
+  streamingProcessor = streamingAudioContext.createScriptProcessor(4096, 1, 1);
+  streamingProcessor.onaudioprocess = (e) => {
+    if (!socket?.connected) return;
+    const pcmData = e.inputBuffer.getChannelData(0);  // Float32Array
+    // Send as binary float32 PCM
+    socket.emit('streaming_audio', { audio: pcmData.buffer.slice(0) });
+  };
+
+  source.connect(streamingProcessor);
+  streamingProcessor.connect(streamingAudioContext.destination);
+
+  showToast('串流轉錄已開始', 'success');
+}
+
+function stopStreamingCapture() {
+  if (streamingProcessor) {
+    streamingProcessor.onaudioprocess = null;
+    streamingProcessor.disconnect();
+    streamingProcessor = null;
+  }
+  if (streamingAudioContext) {
+    streamingAudioContext.close().catch(() => {});
+    streamingAudioContext = null;
+  }
+}
+
 function stopLive() {
+  // Stop streaming mode
+  if (isStreamingMode) {
+    stopStreamingCapture();
+    if (socket?.connected) socket.emit('stop_streaming');
+  }
+
   if (liveChunkInterval) {
     clearInterval(liveChunkInterval);
     liveChunkInterval = null;
@@ -1438,6 +1528,7 @@ function stopLive() {
     mediaStream = null;
   }
 
+  isStreamingMode = false;
   document.getElementById('liveVideo').srcObject = null;
   document.getElementById('liveVideo').style.display = 'none';
   document.getElementById('videoPlaceholder').style.display = 'flex';
@@ -1871,6 +1962,21 @@ document.getElementById('modelSelect').addEventListener('change', updateModelHin
 // ============================================================
 connectSocket();
 fetchModelStatus();
+
+// Check streaming availability
+fetch(`${API_BASE}/api/streaming/available`)
+  .then(r => r.json())
+  .then(data => {
+    streamingAvailable = data.available;
+    const hint = document.getElementById('streamingHint');
+    const select = document.getElementById('liveMode');
+    if (!data.available) {
+      select.querySelector('[value="streaming"]').disabled = true;
+      hint.textContent = '串流模式不可用（需安裝 whisper-streaming）';
+      hint.style.color = 'var(--danger)';
+    }
+  })
+  .catch(() => { streamingAvailable = false; });
 </script>
 </body>
 </html>
