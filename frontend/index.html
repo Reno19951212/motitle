@@ -138,7 +138,6 @@
       border-radius: var(--radius);
       overflow: hidden;
       aspect-ratio: 16/9;
-      max-height: 480px;
     }
 
     .video-area video,
@@ -710,9 +709,9 @@
         <div class="control-group">
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <label>字幕延遲 <span class="delay-badge">同步補償</span></label>
-            <span class="range-value" id="delayValue">0.5s</span>
+            <span class="range-value" id="delayValue">0s</span>
           </div>
-          <input type="range" id="subtitleDelay" min="0" max="5" step="0.1" value="0.5"
+          <input type="range" id="subtitleDelay" min="0" max="5" step="0.1" value="0"
                  oninput="updateDelay(this.value)">
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-top:2px;">
             <span>無延遲</span>
@@ -731,10 +730,10 @@
 
         <div class="control-group">
           <div style="display:flex;justify-content:space-between;align-items:center;">
-            <label>字幕字號</label>
-            <span class="range-value" id="fontSizeValue">24px</span>
+            <label>字幕大小</label>
+            <span class="range-value" id="fontSizeValue">18px</span>
           </div>
-          <input type="range" id="subtitleFontSize" min="14" max="48" step="2" value="24"
+          <input type="range" id="subtitleFontSize" min="14" max="48" step="2" value="18"
                  oninput="updateFontSize(this.value)">
         </div>
 
@@ -856,7 +855,7 @@ let subtitleTimeout = null;
 let subtitleQueue = [];
 let segments = [];
 let isProcessing = false;
-let subtitleDelay = 0.5;
+let subtitleDelay = 0;
 let subtitleDuration = 4.0;
 
 // ============================================================
@@ -1015,7 +1014,7 @@ uploadZone.addEventListener('drop', (e) => {
   e.preventDefault();
   uploadZone.classList.remove('drag-over');
   const file = e.dataTransfer.files[0];
-  if (file) setFile(file);
+  if (file) setPendingFile(file);
 });
 
 function handleFileSelect(e) {
@@ -1144,18 +1143,25 @@ function renderFileList() {
     let extraHtml = '';
     if (isDone) {
       const hasTranslations = f.translation_status === 'done';
+      const needsReview = f.translation_status === 'needs_review';
+      const isFailed = f.translation_status === 'failed';
       const isTranslating = f.translation_status === 'translating';
-      const proofreadBtn = hasTranslations
+      const canProofread = hasTranslations || needsReview;
+      const proofreadBtn = canProofread
         ? `<a class="btn btn-secondary" href="proofread.html?file_id=${id}" style="background:var(--accent);color:#fff;">校對</a>`
         : '';
 
       let transBadge = '<span class="badge badge-pending-trans">待翻譯</span>';
       if (hasTranslations) transBadge = '<span class="badge badge-translated">翻譯完成</span>';
+      else if (needsReview) transBadge = '<span class="badge badge-translating" style="background:var(--warning);color:#000;">需要校對</span>';
+      else if (isFailed) transBadge = '<span class="badge badge-pending-trans" style="background:var(--danger);">翻譯失敗</span>';
       else if (isTranslating) transBadge = '<span class="badge badge-translating">翻譯中...</span>';
 
-      const retranslateBtn = hasTranslations
-        ? `<button class="btn-retranslate" onclick="event.stopPropagation(); reTranslateFile('${id}', this)">🔄 重新翻譯</button>`
-        : '';
+      const translateBtn = isTranslating
+        ? ''
+        : (hasTranslations || needsReview)
+          ? `<button class="btn-retranslate" onclick="event.stopPropagation(); reTranslateFile('${id}', this)">🔄 重新翻譯</button>`
+          : `<button class="btn-retranslate" onclick="event.stopPropagation(); reTranslateFile('${id}', this)">▶ 翻譯</button>`;
 
       extraHtml = `
         <div class="file-card-actions">
@@ -1164,7 +1170,7 @@ function renderFileList() {
           <a class="btn btn-secondary" href="${API_BASE}/api/files/${id}/subtitle.srt" download>SRT</a>
           <a class="btn btn-secondary" href="${API_BASE}/api/files/${id}/subtitle.vtt" download>VTT</a>
           <a class="btn btn-secondary" href="${API_BASE}/api/files/${id}/subtitle.txt" download>TXT</a>
-          ${retranslateBtn}
+          ${translateBtn}
           ${proofreadBtn}
         </div>`;
     } else if (isBusy && fileProgress[id]) {
@@ -1682,7 +1688,7 @@ async function saveLanguageConfig() {
       method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data),
     });
     if (resp.ok) { showToast('語言配置已儲存', 'success'); }
-    else { const err = await resp.json(); showToast(err.errors ? err.errors.join(', ') : '儲存失敗', 'error'); }
+    else { const err = await resp.json(); showToast(err.errors || err.error || '儲存失敗', 'error'); }
   } catch (e) { showToast('儲存失敗', 'error'); }
 }
 
@@ -1721,7 +1727,7 @@ async function loadGlossaryEntries(glossaryId) {
     const resp = await fetch(`${API_BASE}/api/glossaries/${glossaryId}`);
     if (!resp.ok) return;
     const data = await resp.json();
-    const entries = data.glossary.entries || [];
+    const entries = data.entries || [];
     if (entries.length === 0) {
       container.innerHTML = '<div style="font-size:11px;color:var(--text-dim);padding:4px;">無術語</div>';
       return;
@@ -1776,7 +1782,7 @@ async function importGlossaryCSV(fileInput) {
       const data = await resp.json();
       loadGlossaryEntries(currentGlossaryId);
       loadGlossaries();
-      showToast(`已匯入 ${data.imported || '?'} 個術語`, 'success');
+      showToast(`匯入完成，共 ${(data.entries || []).length} 個術語`, 'success');
     } else { showToast('匯入失敗', 'error'); }
   } catch (e) { showToast('匯入失敗', 'error'); }
   fileInput.value = '';
@@ -1997,6 +2003,7 @@ fetchModelStatus();
 loadProfiles();
 loadLanguages();
 loadGlossaries();
+updateFontSize(document.getElementById('subtitleFontSize').value);
 </script>
 </body>
 </html>
