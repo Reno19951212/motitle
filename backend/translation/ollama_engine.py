@@ -45,26 +45,30 @@ class OllamaTranslationEngine(TranslationEngine):
         segments: List[dict],
         glossary: Optional[List[dict]] = None,
         style: str = "formal",
+        batch_size: Optional[int] = None,
+        temperature: Optional[float] = None,
     ) -> List[TranslatedSegment]:
         if not segments:
             return []
 
         glossary = glossary or []
         all_translated = []
+        effective_batch = batch_size if batch_size is not None else BATCH_SIZE
+        effective_temp = temperature if temperature is not None else self._temperature
 
-        for i in range(0, len(segments), BATCH_SIZE):
-            batch = segments[i : i + BATCH_SIZE]
-            translated_batch = self._translate_batch(batch, glossary, style)
+        for i in range(0, len(segments), effective_batch):
+            batch = segments[i : i + effective_batch]
+            translated_batch = self._translate_batch(batch, glossary, style, effective_temp)
             all_translated.extend(translated_batch)
 
         return all_translated
 
     def _translate_batch(
-        self, segments: List[dict], glossary: List[dict], style: str
+        self, segments: List[dict], glossary: List[dict], style: str, temperature: float
     ) -> List[TranslatedSegment]:
         system_prompt = self._build_system_prompt(style, glossary)
         user_message = self._build_user_message(segments)
-        response_text = self._call_ollama(system_prompt, user_message)
+        response_text = self._call_ollama(system_prompt, user_message, temperature)
         return self._parse_response(response_text, segments)
 
     def _build_system_prompt(self, style: str, glossary: List[dict]) -> str:
@@ -90,7 +94,7 @@ class OllamaTranslationEngine(TranslationEngine):
             lines.append(f"{i}. {seg['text']}")
         return "\n".join(lines)
 
-    def _call_ollama(self, system_prompt: str, user_message: str) -> str:
+    def _call_ollama(self, system_prompt: str, user_message: str, temperature: float) -> str:
         payload = json.dumps({
             "model": self._model,
             "messages": [
@@ -98,7 +102,7 @@ class OllamaTranslationEngine(TranslationEngine):
                 {"role": "user", "content": user_message},
             ],
             "stream": False,
-            "options": {"temperature": self._temperature},
+            "options": {"temperature": temperature},
         }).encode("utf-8")
 
         req = urllib.request.Request(

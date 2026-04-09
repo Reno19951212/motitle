@@ -12,7 +12,7 @@ class TranslatedSegment(TypedDict):
 
 class TranslationEngine(ABC):
     @abstractmethod
-    def translate(self, segments: List[dict], glossary: Optional[List[dict]] = None, style: str = "formal") -> List[TranslatedSegment]:
+    def translate(self, segments: List[dict], glossary: Optional[List[dict]] = None, style: str = "formal", batch_size: Optional[int] = None, temperature: Optional[float] = None) -> List[TranslatedSegment]:
         """Translate English segments to Chinese."""
 
     @abstractmethod
