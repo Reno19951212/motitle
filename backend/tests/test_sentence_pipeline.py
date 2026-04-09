@@ -162,3 +162,37 @@ def test_validate_hallucination():
     ]
     bad = validate_batch(results)
     assert 0 in bad
+
+
+def test_translate_with_sentences_basic():
+    from translation.sentence_pipeline import translate_with_sentences
+    from translation.mock_engine import MockTranslationEngine
+    engine = MockTranslationEngine({})
+    segments = [
+        {"start": 0.0, "end": 2.0, "text": "The cat sat on"},
+        {"start": 2.0, "end": 4.0, "text": "the mat."},
+        {"start": 4.0, "end": 6.0, "text": "The dog ran."},
+    ]
+    result = translate_with_sentences(engine, segments)
+    assert len(result) == 3
+    for r in result:
+        assert r["zh_text"] != ""
+        assert r["en_text"] != ""
+    assert result[0]["start"] == 0.0
+    assert result[2]["end"] == 6.0
+
+
+def test_translate_with_sentences_empty():
+    from translation.sentence_pipeline import translate_with_sentences
+    from translation.mock_engine import MockTranslationEngine
+    engine = MockTranslationEngine({})
+    result = translate_with_sentences(engine, [])
+    assert result == []
+
+
+def test_ollama_prompt_includes_sentence_instruction():
+    from translation.ollama_engine import SYSTEM_PROMPT_FORMAL, SYSTEM_PROMPT_CANTONESE
+    assert "COMPLETE sentence" in SYSTEM_PROMPT_FORMAL
+    assert "Do NOT merge or split" in SYSTEM_PROMPT_FORMAL
+    assert "COMPLETE sentence" in SYSTEM_PROMPT_CANTONESE
+    assert "Do NOT merge or split" in SYSTEM_PROMPT_CANTONESE

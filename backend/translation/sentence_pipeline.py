@@ -135,6 +135,72 @@ def redistribute_to_segments(
     return results
 
 
+def translate_with_sentences(
+    engine: TranslationEngine,
+    segments: List[dict],
+    glossary: Optional[List[dict]] = None,
+    style: str = "formal",
+    batch_size: Optional[int] = None,
+    temperature: Optional[float] = None,
+) -> List[TranslatedSegment]:
+    """Orchestrate sentence-aware translation pipeline."""
+    if not segments:
+        return []
+
+    merged = merge_to_sentences(segments)
+    if not merged:
+        return engine.translate(
+            segments, glossary=glossary, style=style,
+            batch_size=batch_size, temperature=temperature,
+        )
+
+    sentence_segments = [
+        {"start": m["start"], "end": m["end"], "text": m["text"]}
+        for m in merged
+    ]
+    translated_sentences = engine.translate(
+        sentence_segments, glossary=glossary, style=style,
+        batch_size=batch_size, temperature=temperature,
+    )
+    zh_sentences = [t["zh_text"] for t in translated_sentences]
+
+    results = redistribute_to_segments(merged, zh_sentences, segments)
+
+    bad_indices = validate_batch(results)
+    if not bad_indices:
+        return results
+
+    retry_sent_indices = set()
+    for bad_idx in bad_indices:
+        for sent_idx, m in enumerate(merged):
+            if bad_idx in m["seg_indices"]:
+                retry_sent_indices.add(sent_idx)
+
+    for sent_idx in retry_sent_indices:
+        retry_segments = [sentence_segments[sent_idx]]
+        retry_result = engine.translate(
+            retry_segments, glossary=glossary, style=style,
+            batch_size=1, temperature=temperature,
+        )
+        if retry_result:
+            zh_sentences[sent_idx] = retry_result[0]["zh_text"]
+
+    results = redistribute_to_segments(merged, zh_sentences, segments)
+
+    still_bad = validate_batch(results)
+    for idx in still_bad:
+        zh = results[idx]["zh_text"]
+        if not zh.startswith("[NEEDS REVIEW]"):
+            results[idx] = TranslatedSegment(
+                start=results[idx]["start"],
+                end=results[idx]["end"],
+                en_text=results[idx]["en_text"],
+                zh_text=f"[NEEDS REVIEW] {zh}",
+            )
+
+    return results
+
+
 def validate_batch(results: List[dict]) -> List[int]:
     """Check translated segments for quality issues.
 
