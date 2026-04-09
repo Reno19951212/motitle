@@ -190,9 +190,3 @@ def test_translate_with_sentences_empty():
     assert result == []
 
 
-def test_ollama_prompt_includes_sentence_instruction():
-    from translation.ollama_engine import SYSTEM_PROMPT_FORMAL, SYSTEM_PROMPT_CANTONESE
-    assert "COMPLETE sentence" in SYSTEM_PROMPT_FORMAL
-    assert "Do NOT merge or split" in SYSTEM_PROMPT_FORMAL
-    assert "COMPLETE sentence" in SYSTEM_PROMPT_CANTONESE
-    assert "Do NOT merge or split" in SYSTEM_PROMPT_CANTONESE

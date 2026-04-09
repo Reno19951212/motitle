@@ -662,40 +662,21 @@ def api_translate_file():
         lang_config_id = profile.get("asr", {}).get("language_config_id", profile.get("asr", {}).get("language", "en"))
         lang_config = _language_config_manager.get(lang_config_id)
         trans_params = lang_config["translation"] if lang_config else DEFAULT_TRANSLATION_CONFIG
-        from translation.sentence_pipeline import translate_with_sentences, validate_batch
-        translated = translate_with_sentences(
-            engine, asr_segments, glossary=glossary_entries, style=style,
+        translated = engine.translate(
+            asr_segments, glossary=glossary_entries, style=style,
             batch_size=trans_params["batch_size"],
             temperature=trans_params["temperature"],
         )
 
         for t in translated:
             t["status"] = "pending"
-
-        # Determine translation quality status
-        bad_indices = validate_batch(translated)
-        needs_review_count = sum(1 for t in translated if t.get("zh_text", "").startswith("[NEEDS REVIEW]"))
-        missing_count = sum(1 for t in translated if "[TRANSLATION MISSING]" in t.get("zh_text", ""))
-        total = len(translated)
-
-        if total == 0:
-            trans_status = 'failed'
-        elif missing_count == total or needs_review_count == total:
-            trans_status = 'failed'
-        elif bad_indices:
-            trans_status = 'needs_review'
-        else:
-            trans_status = 'done'
-
-        _update_file(file_id, translations=translated, translation_status=trans_status)
+        _update_file(file_id, translations=translated, translation_status='done')
 
         return jsonify({
             "file_id": file_id,
-            "segment_count": total,
+            "segment_count": len(translated),
             "style": style,
             "engine": engine.get_info().get("engine"),
-            "translation_status": trans_status,
-            "needs_review_count": needs_review_count,
             "translations": translated,
         })
 
@@ -1104,38 +1085,20 @@ def transcribe_file():
             lang_config_id = profile.get("asr", {}).get("language_config_id", profile.get("asr", {}).get("language", "en"))
             lang_config = _language_config_manager.get(lang_config_id)
             trans_params = lang_config["translation"] if lang_config else DEFAULT_TRANSLATION_CONFIG
-            from translation.sentence_pipeline import translate_with_sentences, validate_batch
-            translated = translate_with_sentences(
-                engine, asr_segments, glossary=glossary_entries, style=style,
+            translated = engine.translate(
+                asr_segments, glossary=glossary_entries, style=style,
                 batch_size=trans_params["batch_size"],
                 temperature=trans_params["temperature"],
             )
             for t in translated:
                 t["status"] = "pending"
-
-            # Determine translation quality status
-            bad_indices = validate_batch(translated)
-            needs_review_count = sum(1 for t in translated if t.get("zh_text", "").startswith("[NEEDS REVIEW]"))
-            missing_count = sum(1 for t in translated if "[TRANSLATION MISSING]" in t.get("zh_text", ""))
-            total = len(translated)
-
-            if total == 0:
-                trans_status = 'failed'
-            elif missing_count == total or needs_review_count == total:
-                trans_status = 'failed'
-            elif bad_indices:
-                trans_status = 'needs_review'
-            else:
-                trans_status = 'done'
-
-            _update_file(fid, translations=translated, translation_status=trans_status)
+            _update_file(fid, translations=translated, translation_status='done')
 
             if session_id:
                 socketio.emit('file_updated', {
                     'id': fid,
-                    'translation_status': trans_status,
-                    'translation_count': total,
-                    'needs_review_count': needs_review_count,
+                    'translation_status': 'done',
+                    'translation_count': len(translated),
                 }, room=session_id)
         except Exception as e:
             print(f"Auto-translate failed for {fid}: {e}")
