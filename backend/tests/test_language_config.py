@@ -74,3 +74,64 @@ def test_update_invalid_temperature(config_dir):
     mgr = LanguageConfigManager(config_dir)
     with pytest.raises(ValueError):
         mgr.update("en", {"asr": {"max_words_per_segment": 40, "max_segment_duration": 10.0}, "translation": {"batch_size": 10, "temperature": 3.0}})
+
+
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+def test_api_list_languages():
+    from app import app, _init_language_config_manager
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        lang_dir = tmp_path / "languages"
+        lang_dir.mkdir()
+        (lang_dir / "en.json").write_text(json.dumps({"id": "en", "name": "English", "asr": {"max_words_per_segment": 40, "max_segment_duration": 10.0}, "translation": {"batch_size": 10, "temperature": 0.1}}))
+        _init_language_config_manager(tmp_path)
+        app.config["TESTING"] = True
+        with app.test_client() as client:
+            resp = client.get("/api/languages")
+            assert resp.status_code == 200
+            assert len(resp.get_json()["languages"]) == 1
+
+def test_api_get_language():
+    from app import app, _init_language_config_manager
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        lang_dir = tmp_path / "languages"
+        lang_dir.mkdir()
+        (lang_dir / "en.json").write_text(json.dumps({"id": "en", "name": "English", "asr": {"max_words_per_segment": 40, "max_segment_duration": 10.0}, "translation": {"batch_size": 10, "temperature": 0.1}}))
+        _init_language_config_manager(tmp_path)
+        app.config["TESTING"] = True
+        with app.test_client() as client:
+            resp = client.get("/api/languages/en")
+            assert resp.status_code == 200
+            assert resp.get_json()["language"]["id"] == "en"
+
+def test_api_get_language_not_found():
+    from app import app, _init_language_config_manager
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        (tmp_path / "languages").mkdir()
+        _init_language_config_manager(tmp_path)
+        app.config["TESTING"] = True
+        with app.test_client() as client:
+            resp = client.get("/api/languages/fr")
+            assert resp.status_code == 404
+
+def test_api_update_language():
+    from app import app, _init_language_config_manager
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        lang_dir = tmp_path / "languages"
+        lang_dir.mkdir()
+        (lang_dir / "en.json").write_text(json.dumps({"id": "en", "name": "English", "asr": {"max_words_per_segment": 40, "max_segment_duration": 10.0}, "translation": {"batch_size": 10, "temperature": 0.1}}))
+        _init_language_config_manager(tmp_path)
+        app.config["TESTING"] = True
+        with app.test_client() as client:
+            resp = client.patch("/api/languages/en", json={"asr": {"max_words_per_segment": 30, "max_segment_duration": 8.0}, "translation": {"batch_size": 5, "temperature": 0.2}})
+            assert resp.status_code == 200
+            assert resp.get_json()["language"]["asr"]["max_words_per_segment"] == 30
