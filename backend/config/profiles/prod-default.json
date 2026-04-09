@@ -1,0 +1,28 @@
+{
+  "id": "prod-default",
+  "name": "Broadcast Production",
+  "description": "Full quality models for Dell Pro Max GB10 (128GB RAM)",
+  "asr": {
+    "engine": "qwen3-asr",
+    "model_size": "large",
+    "language": "en",
+    "device": "cuda"
+  },
+  "translation": {
+    "engine": "qwen3-235b",
+    "quantization": null,
+    "temperature": 0.1,
+    "glossary_id": null
+  },
+  "font": {
+    "family": "Noto Sans TC",
+    "size": 48,
+    "color": "#FFFFFF",
+    "outline_color": "#000000",
+    "outline_width": 2,
+    "position": "bottom",
+    "margin_bottom": 40
+  },
+  "created_at": 1712534400,
+  "updated_at": 1712534400
+}

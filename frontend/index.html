@@ -131,34 +131,6 @@
 
     .panel-body { padding: 18px; }
 
-    /* ===== Tabs ===== */
-    .tabs {
-      display: flex;
-      border-bottom: 1px solid var(--border);
-      background: var(--surface2);
-    }
-
-    .tab {
-      flex: 1;
-      padding: 14px;
-      text-align: center;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--text-dim);
-      border-bottom: 2px solid transparent;
-      transition: all 0.2s;
-    }
-    .tab:hover { color: var(--text); background: rgba(108,99,255,0.08); }
-    .tab.active {
-      color: var(--accent2);
-      border-bottom-color: var(--accent);
-      background: rgba(108,99,255,0.12);
-    }
-
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-
     /* ===== Video Container ===== */
     .video-area {
       position: relative;
@@ -368,7 +340,7 @@
 
     /* ===== Transcript Panel ===== */
     .transcript-list {
-      height: 300px;
+      max-height: calc(100vh - 350px);
       overflow-y: auto;
       display: flex;
       flex-direction: column;
@@ -413,27 +385,6 @@
     }
     .transcript-text:hover {
       background: rgba(108,99,255,0.1);
-    }
-
-    /* ===== Live indicator ===== */
-    .live-indicator {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--danger);
-    }
-    .live-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--danger);
-      animation: pulse 1s infinite;
-    }
-    .live-indicator.speech-active .live-dot {
-      background: var(--success);
-      box-shadow: 0 0 8px var(--success);
     }
 
     /* ===== Toast ===== */
@@ -628,20 +579,15 @@
     <div class="panel">
       <div class="panel-header">
         ▶ 視頻預覽
-        <span id="liveIndicator" style="display:none;" class="live-indicator">
-          <span class="live-dot"></span>LIVE
-        </span>
         <span style="margin-left:auto;" id="statusBadge" class="badge badge-idle">待機</span>
       </div>
       <div class="panel-body" style="padding:0;">
         <div class="video-area" id="videoArea">
           <div class="video-placeholder" id="videoPlaceholder">
             <div class="icon">📹</div>
-            <p>選擇文件或開始直播以預覽視頻</p>
+            <p>選擇文件以預覽視頻</p>
           </div>
           <video id="videoPlayer" style="display:none;" controls></video>
-          <video id="liveVideo" style="display:none;" autoplay muted playsinline></video>
-          <canvas id="overlayCanvas" style="display:none;"></canvas>
 
           <!-- Subtitle Overlay -->
           <div class="subtitle-overlay">
@@ -658,68 +604,35 @@
       </div>
     </div>
 
-    <!-- Tabs: Upload / Live -->
+    <!-- Upload Panel -->
     <div class="panel">
-      <div class="tabs">
-        <div class="tab active" data-tab="upload">📁 文件上傳</div>
-        <div class="tab" data-tab="live">🎥 實時錄製</div>
-      </div>
-
-      <!-- Upload Tab -->
-      <div class="tab-content active" id="tab-upload">
-        <div class="controls">
-          <!-- Upload Zone -->
-          <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
-            <div class="upload-icon">⬆</div>
-            <div>拖放或點擊選擇文件</div>
-            <div class="upload-hint">支持: MP4 · MOV · AVI · MKV · WebM · MP3 · WAV · M4A</div>
-          </div>
-          <input type="file" id="fileInput" accept="video/*,audio/*" style="display:none"
-                 onchange="handleFileSelect(event)">
-
-          <!-- Pending file (selected but not yet uploaded) -->
-          <div id="pendingFileBox" style="display:none;" class="file-info">
-            <div class="file-icon">🎬</div>
-            <div class="file-name" id="pendingFileName"></div>
-            <div class="file-size" id="pendingFileSize"></div>
-          </div>
-
-          <div class="btn-group">
-            <button class="btn btn-primary" id="startTranscribeBtn" onclick="startTranscription()" disabled>
-              🚀 上傳並轉錄
-            </button>
-            <button class="btn btn-secondary" onclick="clearPending()">🗑 清除</button>
-          </div>
-
-          <!-- Uploaded file list -->
-          <div class="file-list" id="fileList"></div>
+      <div class="panel-header">📁 文件上傳</div>
+      <div class="controls">
+        <!-- Upload Zone -->
+        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+          <div class="upload-icon">⬆</div>
+          <div>拖放或點擊選擇文件</div>
+          <div class="upload-hint">支持: MP4 · MOV · AVI · MKV · WebM · MP3 · WAV · M4A</div>
         </div>
-      </div>
+        <input type="file" id="fileInput" accept="video/*,audio/*" style="display:none"
+               onchange="handleFileSelect(event)">
 
-      <!-- Live Tab -->
-      <div class="tab-content" id="tab-live">
-        <div class="controls">
-          <div style="font-size:13px;color:var(--text-dim);padding:4px 0;">
-            從攝像頭/屏幕捕捉實時音視頻，並將語音即時轉為繁體中文字幕。
-          </div>
-
-          <div class="control-group">
-            <label>視頻源</label>
-            <select id="videoSource">
-              <option value="camera">📷 攝像頭</option>
-              <option value="screen">🖥 屏幕共享</option>
-            </select>
-          </div>
-
-          <div class="btn-group">
-            <button class="btn btn-success" id="startLiveBtn" onclick="startLive()">
-              ▶ 開始直播
-            </button>
-            <button class="btn btn-danger" id="stopLiveBtn" onclick="stopLive()" disabled>
-              ⏹ 停止
-            </button>
-          </div>
+        <!-- Pending file (selected but not yet uploaded) -->
+        <div id="pendingFileBox" style="display:none;" class="file-info">
+          <div class="file-icon">🎬</div>
+          <div class="file-name" id="pendingFileName"></div>
+          <div class="file-size" id="pendingFileSize"></div>
         </div>
+
+        <div class="btn-group">
+          <button class="btn btn-primary" id="startTranscribeBtn" onclick="startTranscription()" disabled>
+            🚀 上傳並轉錄
+          </button>
+          <button class="btn btn-secondary" onclick="clearPending()">🗑 清除</button>
+        </div>
+
+        <!-- Uploaded file list -->
+        <div class="file-list" id="fileList"></div>
       </div>
     </div>
   </div>
@@ -731,6 +644,17 @@
     <div class="panel">
       <div class="panel-header">⚙ 設置</div>
       <div class="controls">
+
+        <div class="control-group">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <label>Pipeline Profile</label>
+            <span class="range-value" id="activeProfileName" style="font-size:12px;">—</span>
+          </div>
+          <select id="profileSelect" onchange="activateProfile(this.value)">
+            <option value="">Select profile...</option>
+          </select>
+          <div id="profileInfo" style="font-size:11px;margin-top:4px;color:var(--text-dim);"></div>
+        </div>
 
         <div class="control-group">
           <label>Whisper 模型</label>
@@ -777,13 +701,13 @@
       </div>
     </div>
 
-    <!-- Transcript -->
-    <div class="panel" style="flex:1;">
-      <div class="panel-header">
+    <!-- Transcript (right column — sticks to viewport while left scrolls) -->
+    <div class="panel">
+      <div class="panel-header" style="flex-shrink:0;">
         📄 轉錄文字
         <span id="segmentCount" style="margin-left:auto;font-size:12px;color:var(--text-dim);">0 段</span>
       </div>
-      <div class="panel-body" style="padding:12px;">
+      <div class="panel-body" style="padding:12px;flex:1;overflow:hidden;display:flex;flex-direction:column;">
         <div class="transcript-list" id="transcriptList">
           <div class="empty-state">
             <div class="empty-icon">📝</div>
@@ -824,26 +748,12 @@ let selectedFile = null;       // File object pending upload
 let activeFileId = null;       // Currently-selected uploaded file
 let uploadedFiles = {};        // file_id -> server metadata
 let fileProgress = {};         // file_id -> { progress, eta, totalDuration, processedTime }
-let mediaStream = null;
-let mediaRecorder = null;
-let liveChunkInterval = null;
 let subtitleTimeout = null;
 let subtitleQueue = [];
 let segments = [];
 let isProcessing = false;
 let subtitleDelay = 0.5;
 let subtitleDuration = 4.0;
-
-// VAD (Voice Activity Detection) state
-let audioContext = null;
-let vadAnalyser = null;
-let vadInterval = null;
-let speechDetectedInChunk = false;
-const VAD_ENERGY_THRESHOLD = 15;  // RMS energy threshold (0-255 scale)
-
-// Frontend deduplication for live subtitles
-const recentLiveTexts = [];
-const MAX_RECENT_TEXTS = 5;
 
 // ============================================================
 // Socket.IO Connection
@@ -966,12 +876,14 @@ function connectSocket() {
     if (data.id && uploadedFiles[data.id]) {
       Object.assign(uploadedFiles[data.id], data);
       renderFileList();
+
+      // When translation completes, overlay zh_text onto displayed segments
+      if (data.translation_status === 'done' && data.id === activeFileId) {
+        loadTranslationsForActiveFile(data.id);
+      }
     }
   });
 
-  socket.on('live_subtitle', (data) => {
-    addLiveSubtitle(data);
-  });
 }
 
 function setConnectionStatus(connected) {
@@ -980,19 +892,6 @@ function setConnectionStatus(connected) {
   dot.className = 'status-dot' + (connected ? ' connected' : '');
   text.textContent = connected ? '已連接' : '未連接';
 }
-
-// ============================================================
-// Tab Switching
-// ============================================================
-document.querySelectorAll('.tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    const target = tab.dataset.tab;
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    tab.classList.add('active');
-    document.getElementById('tab-' + target).classList.add('active');
-  });
-});
 
 // ============================================================
 // File Upload
@@ -1140,12 +1039,17 @@ function renderFileList() {
 
     let extraHtml = '';
     if (isDone) {
+      const hasTranslations = f.translation_status === 'done';
+      const proofreadBtn = hasTranslations
+        ? `<a class="btn btn-secondary" href="proofread.html?file_id=${id}" style="background:var(--accent);color:#fff;">校對</a>`
+        : '';
       extraHtml = `
         <div class="file-card-actions">
           ${modelBadge}
           <a class="btn btn-secondary" href="${API_BASE}/api/files/${id}/subtitle.srt" download>SRT</a>
           <a class="btn btn-secondary" href="${API_BASE}/api/files/${id}/subtitle.vtt" download>VTT</a>
           <a class="btn btn-secondary" href="${API_BASE}/api/files/${id}/subtitle.txt" download>TXT</a>
+          ${proofreadBtn}
         </div>`;
     } else if (isBusy && fileProgress[id]) {
       const fp = fileProgress[id];
@@ -1225,12 +1129,27 @@ async function loadFileSegments(fileId) {
     const resp = await fetch(`${API_BASE}/api/files/${fileId}/segments`);
     const data = await resp.json();
     if (data.status === 'done' && data.segments && data.segments.length > 0) {
-      // Load segments into the global array for subtitle display
       segments = data.segments;
-      // Rebuild transcript display
+
+      // Always try to fetch translations — overlay zh_text onto segments before rendering
+      try {
+        const tResp = await fetch(`${API_BASE}/api/files/${fileId}/translations`);
+        if (tResp.ok) {
+          const tData = await tResp.json();
+          const translations = tData.translations || [];
+          if (translations.length > 0) {
+            for (let i = 0; i < segments.length && i < translations.length; i++) {
+              segments[i]._en_text = segments[i].text;
+              segments[i].text = translations[i].zh_text || segments[i].text;
+            }
+          }
+        }
+      } catch (e) { /* translation fetch failed, keep English */ }
+
+      // Rebuild transcript display (with Chinese if translations were loaded)
       clearTranscriptDisplay();
       for (const seg of segments) {
-        addSegment(seg, true);  // true = skip push to array (already in segments)
+        addSegment(seg, true);
       }
       enableExport();
     }
@@ -1278,200 +1197,6 @@ function clearAll() {
   setProgress(0);
   updateStatus('idle', '待機');
   hideSubtitle();
-}
-
-// ============================================================
-// Live Mode
-// ============================================================
-async function startLive() {
-  const source = document.getElementById('videoSource').value;
-  document.getElementById('liveIndicator').style.display = 'flex';
-
-  try {
-    if (source === 'camera') {
-      mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    } else {
-      mediaStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-    }
-  } catch (err) {
-    showToast(`無法獲取媒體流: ${err.message}`, 'error');
-    return;
-  }
-
-  // Show live video
-  const liveVideo = document.getElementById('liveVideo');
-  liveVideo.srcObject = mediaStream;
-  liveVideo.style.display = 'block';
-  document.getElementById('videoPlayer').style.display = 'none';
-  document.getElementById('videoPlaceholder').style.display = 'none';
-
-  document.getElementById('startLiveBtn').disabled = true;
-  document.getElementById('stopLiveBtn').disabled = false;
-  updateStatus('recording', '直播中');
-
-  // Start audio capture
-  startAudioCapture();
-}
-
-function setupVAD(audioStream) {
-  try {
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    const source = audioContext.createMediaStreamSource(audioStream);
-    vadAnalyser = audioContext.createAnalyser();
-    vadAnalyser.fftSize = 512;
-    source.connect(vadAnalyser);
-
-    const dataArray = new Uint8Array(vadAnalyser.frequencyBinCount);
-    const indicator = document.getElementById('liveIndicator');
-
-    vadInterval = setInterval(() => {
-      vadAnalyser.getByteFrequencyData(dataArray);
-      // Compute RMS energy
-      let sum = 0;
-      for (let i = 0; i < dataArray.length; i++) {
-        sum += dataArray[i] * dataArray[i];
-      }
-      const rms = Math.sqrt(sum / dataArray.length);
-
-      if (rms > VAD_ENERGY_THRESHOLD) {
-        speechDetectedInChunk = true;
-        indicator.classList.add('speech-active');
-      } else {
-        indicator.classList.remove('speech-active');
-      }
-    }, 100);
-  } catch (e) {
-    console.warn('VAD setup failed, sending all chunks:', e);
-    speechDetectedInChunk = true;  // fallback: always send
-  }
-}
-
-function cleanupVAD() {
-  if (vadInterval) {
-    clearInterval(vadInterval);
-    vadInterval = null;
-  }
-  if (audioContext) {
-    audioContext.close().catch(() => {});
-    audioContext = null;
-  }
-  vadAnalyser = null;
-  speechDetectedInChunk = false;
-  document.getElementById('liveIndicator').classList.remove('speech-active');
-}
-
-function startAudioCapture() {
-  if (!mediaStream) return;
-
-  const audioTrack = mediaStream.getAudioTracks()[0];
-  if (!audioTrack) {
-    showToast('未找到音頻軌道', 'warning');
-    return;
-  }
-
-  const audioStream = new MediaStream([audioTrack]);
-  mediaRecorder = new MediaRecorder(audioStream, { mimeType: 'audio/webm;codecs=opus' });
-
-  // Setup VAD for speech detection
-  setupVAD(audioStream);
-
-  const chunks = [];
-  mediaRecorder.ondataavailable = (e) => {
-    if (e.data.size > 0) {
-      chunks.push(e.data);
-    }
-  };
-
-  // Every 3 seconds, send audio chunk to server (only if speech detected)
-  mediaRecorder.onstop = async () => {
-    if (chunks.length === 0) return;
-    const blob = new Blob(chunks, { type: 'audio/webm' });
-    chunks.length = 0;
-
-    if (speechDetectedInChunk) {
-      await sendAudioChunk(blob);
-    } else if (socket?.connected) {
-      // Notify backend to clear overlap buffer on silence
-      socket.emit('live_silence');
-    }
-    speechDetectedInChunk = false;  // reset for next interval
-  };
-
-  // Send chunks every 3 seconds
-  liveChunkInterval = setInterval(() => {
-    if (mediaRecorder.state === 'recording') {
-      mediaRecorder.stop();
-      mediaRecorder.start();
-    }
-  }, 3000);
-
-  mediaRecorder.start();
-  showToast('實時轉錄已開始', 'success');
-}
-
-async function sendAudioChunk(blob) {
-  if (!socket?.connected) return;
-
-  const arrayBuffer = await blob.arrayBuffer();
-
-  // Send binary audio directly (Socket.IO v4 handles binary natively)
-  socket.emit('live_audio_chunk', {
-    audio: arrayBuffer,
-    model: document.getElementById('modelSelect').value
-  });
-}
-
-function stopLive() {
-  if (liveChunkInterval) {
-    clearInterval(liveChunkInterval);
-    liveChunkInterval = null;
-  }
-
-  cleanupVAD();
-
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-    mediaRecorder.stop();
-  }
-
-  if (mediaStream) {
-    mediaStream.getTracks().forEach(t => t.stop());
-    mediaStream = null;
-  }
-
-  document.getElementById('liveVideo').srcObject = null;
-  document.getElementById('liveVideo').style.display = 'none';
-  document.getElementById('videoPlaceholder').style.display = 'flex';
-  document.getElementById('liveIndicator').style.display = 'none';
-  document.getElementById('startLiveBtn').disabled = false;
-  document.getElementById('stopLiveBtn').disabled = true;
-  updateStatus('idle', '待機');
-  hideSubtitle();
-  showToast('直播已停止', 'warning');
-}
-
-function addLiveSubtitle(data) {
-  const text = (data.text || '').trim();
-  if (!text) return;
-
-  // Frontend dedup: skip if this text closely matches a recent subtitle
-  for (const recent of recentLiveTexts) {
-    if (text === recent || recent.includes(text) || text.includes(recent)) return;
-  }
-  recentLiveTexts.push(text);
-  if (recentLiveTexts.length > MAX_RECENT_TEXTS) recentLiveTexts.shift();
-
-  const delay = subtitleDelay * 1000;
-  setTimeout(() => {
-    showSubtitleText(text);
-  }, delay);
-
-  // Add to transcript
-  addSegment({
-    id: segments.length,
-    start: data.start || 0,
-    end: data.end || 0,
-    text: text
-  });
 }
 
 // ============================================================
@@ -1559,7 +1284,6 @@ function addSegment(segment, skipPush) {
   item.appendChild(timeEl);
   item.appendChild(textEl);
   list.appendChild(item);
-  list.scrollTop = list.scrollHeight;
 }
 
 function startEditSegment(textEl, segment) {
@@ -1720,6 +1444,105 @@ function disableExport() {
 }
 
 // ============================================================
+// Profile Management
+// ============================================================
+let profilesData = [];
+
+async function loadProfiles() {
+  try {
+    const resp = await fetch(`${API_BASE}/api/profiles`);
+    const data = await resp.json();
+    profilesData = data.profiles || [];
+    renderProfileSelect();
+    await loadActiveProfile();
+  } catch (e) {
+    console.warn('Failed to load profiles:', e);
+  }
+}
+
+function renderProfileSelect() {
+  const select = document.getElementById('profileSelect');
+  const currentValue = select.value;
+  select.innerHTML = '<option value="">Select profile...</option>';
+  for (const p of profilesData) {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.name;
+    select.appendChild(opt);
+  }
+  if (currentValue) select.value = currentValue;
+}
+
+async function loadActiveProfile() {
+  try {
+    const resp = await fetch(`${API_BASE}/api/profiles/active`);
+    const data = await resp.json();
+    const profile = data.profile;
+    const nameEl = document.getElementById('activeProfileName');
+    const infoEl = document.getElementById('profileInfo');
+    const select = document.getElementById('profileSelect');
+
+    if (profile) {
+      nameEl.textContent = profile.name;
+      select.value = profile.id;
+      infoEl.textContent = `ASR: ${profile.asr.engine} (${profile.asr.model_size}) | Translation: ${profile.translation.engine}`;
+    } else {
+      nameEl.textContent = '\u2014';
+      select.value = '';
+      infoEl.textContent = '';
+    }
+  } catch (e) {
+    console.warn('Failed to load active profile:', e);
+  }
+}
+
+async function activateProfile(profileId) {
+  if (!profileId) return;
+  try {
+    const resp = await fetch(`${API_BASE}/api/profiles/${profileId}/activate`, { method: 'POST' });
+    if (resp.ok) {
+      await loadActiveProfile();
+      showToast('Profile activated', 'success');
+    }
+  } catch (e) {
+    showToast('Failed to activate profile', 'error');
+  }
+}
+
+// ============================================================
+// Translation overlay — replace segment text with zh_text
+// ============================================================
+async function loadTranslationsForActiveFile(fileId) {
+  try {
+    const resp = await fetch(`${API_BASE}/api/files/${fileId}/translations`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const translations = data.translations || [];
+    if (translations.length === 0) return;
+
+    // Overlay zh_text onto segments array for subtitle display
+    for (let i = 0; i < segments.length && i < translations.length; i++) {
+      segments[i]._en_text = segments[i].text;  // preserve original
+      segments[i].text = translations[i].zh_text || segments[i].text;
+    }
+
+    // Re-render transcript panel with translated text
+    const container = document.getElementById('transcriptList');
+    if (container) {
+      container.querySelectorAll('.transcript-text').forEach((el, i) => {
+        if (i < segments.length) {
+          el.textContent = segments[i].text;
+        }
+      });
+    }
+
+    showToast('翻譯完成，字幕已更新為中文', 'success');
+  } catch (e) {
+    console.warn('Failed to load translations:', e);
+  }
+}
+
+// ============================================================
 // Settings
 // ============================================================
 function updateDelay(val) {
@@ -1871,6 +1694,7 @@ document.getElementById('modelSelect').addEventListener('change', updateModelHin
 // ============================================================
 connectSocket();
 fetchModelStatus();
+loadProfiles();
 </script>
 </body>
 </html>

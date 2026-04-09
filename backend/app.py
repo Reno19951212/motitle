@@ -7,7 +7,6 @@ Supports video/audio file upload and live transcription to Traditional Chinese s
 import os
 import sys
 import json
-import base64
 import time
 import uuid
 import threading
@@ -20,6 +19,9 @@ import numpy as np
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
+from profiles import ProfileManager
+from glossary import GlossaryManager
+from renderer import SubtitleRenderer, DEFAULT_FONT_CONFIG
 
 # Try to import faster-whisper for better performance
 try:
@@ -45,6 +47,32 @@ UPLOAD_DIR = DATA_DIR / "uploads"
 RESULTS_DIR = DATA_DIR / "results"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+
+RENDERS_DIR = DATA_DIR / "renders"
+RENDERS_DIR.mkdir(parents=True, exist_ok=True)
+_subtitle_renderer = SubtitleRenderer(RENDERS_DIR)
+_render_jobs = {}
+
+# Profile management
+CONFIG_DIR = Path(__file__).parent / "config"
+_profile_manager = ProfileManager(CONFIG_DIR)
+
+
+def _init_profile_manager(config_dir):
+    """Re-initialize profile manager (used by tests)."""
+    global _profile_manager
+    _profile_manager = ProfileManager(config_dir)
+
+
+# Glossary management
+_glossary_manager = GlossaryManager(CONFIG_DIR)
+
+
+def _init_glossary_manager(config_dir):
+    """Re-initialize glossary manager (used by tests)."""
+    global _glossary_manager
+    _glossary_manager = GlossaryManager(config_dir)
+
 
 # In-memory file registry: file_id -> metadata dict
 _file_registry = {}
@@ -110,10 +138,6 @@ def _delete_file_entry(file_id):
 _openai_model_cache = {}
 _faster_model_cache = {}
 _model_lock = threading.Lock()
-
-# Per-session live transcription state (context carry-over + overlap)
-_live_session_state = {}   # sid -> {'last_text': str, 'prev_audio_tail': bytes|None, 'last_segments': list}
-_session_state_lock = threading.Lock()
 
 ALLOWED_EXTENSIONS = {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg'}
 
@@ -181,19 +205,31 @@ def extract_audio(video_path: str, output_path: str) -> bool:
 
 def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str = None):
     """
-    Transcribe audio/video file with Whisper and emit segments with timestamps.
-    Returns segments with timing for subtitle synchronization.
-    Uses faster-whisper when available, falls back to openai-whisper.
+    Transcribe audio/video file and emit segments with timestamps.
+    If an active profile exists with whisper engine, uses the profile's ASR engine.
+    Otherwise falls back to legacy direct Whisper path.
     """
-    model, backend = get_model(model_size, backend='auto')
+    profile = _profile_manager.get_active()
+    use_profile_engine = (
+        profile is not None
+        and profile.get("asr", {}).get("engine") == "whisper"
+    )
+
+    # Read language from profile (default to 'zh' for backward compat)
+    transcribe_language = 'zh'
+    if profile:
+        transcribe_language = profile.get("asr", {}).get("language", "zh")
+
+    if not use_profile_engine:
+        model, backend = get_model(model_size, backend='auto')
 
     # Check if it's a video file - extract audio first
     suffix = Path(file_path).suffix.lower()
     audio_path = file_path
     temp_audio = None
 
-    if suffix in {'.mp4', '.mov', '.avi', '.mkv', '.webm'}:
-        temp_audio = str(UPLOAD_DIR / f"audio_{int(time.time())}.wav")
+    if suffix in {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.mxf'}:
+        temp_audio = str(UPLOAD_DIR / f"audio_{uuid.uuid4().hex}.wav")
         if sid:
             socketio.emit('transcription_status',
                          {'status': 'extracting', 'message': '正在提取音頻...'},
@@ -240,14 +276,41 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
                 'total_duration': total_duration,
             }, room=sid)
 
+        # === Profile-based ASR engine path ===
+        if use_profile_engine:
+            from asr import create_asr_engine
+            engine = create_asr_engine(profile["asr"])
+            language = profile["asr"].get("language", "en")
+            raw_segments = engine.transcribe(audio_path, language=language)
+
+            for i, seg in enumerate(raw_segments):
+                segment = {
+                    'id': i,
+                    'start': seg['start'],
+                    'end': seg['end'],
+                    'text': seg['text'],
+                    'words': [],
+                }
+                segments.append(segment)
+                emit_segment_with_progress(segment, sid)
+
+            return {
+                'text': ' '.join(s['text'] for s in segments),
+                'language': language,
+                'segments': segments,
+                'backend': engine.get_info().get('engine', 'whisper'),
+            }
+
+        # === Legacy path (no profile or non-whisper engine) ===
         if backend == 'faster':
             # faster-whisper returns a generator of Segment namedtuples
+            initial_prompt = '請將音頻轉錄為繁體中文。' if transcribe_language == 'zh' else ''
             seg_iter, info = model.transcribe(
                 audio_path,
-                language='zh',
+                language=transcribe_language,
                 task='transcribe',
                 word_timestamps=True,
-                initial_prompt='請將音頻轉錄為繁體中文。',
+                initial_prompt=initial_prompt,
             )
             full_text_parts = []
             for i, seg in enumerate(seg_iter):
@@ -307,13 +370,14 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
                 hb_thread = threading.Thread(target=heartbeat, daemon=True)
                 hb_thread.start()
 
+            initial_prompt_openai = '請將音頻轉錄為繁體中文。' if transcribe_language == 'zh' else ''
             result = model.transcribe(
                 audio_path,
-                language='zh',
+                language=transcribe_language,
                 task='transcribe',
                 verbose=False,
                 word_timestamps=True,
-                initial_prompt='請將音頻轉錄為繁體中文。',
+                initial_prompt=initial_prompt_openai,
                 fp16=False
             )
 
@@ -348,145 +412,6 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
     finally:
         if temp_audio and os.path.exists(temp_audio):
             os.remove(temp_audio)
-
-
-def _extract_audio_tail(audio_bytes: bytes, tail_seconds: float = 1.0) -> bytes:
-    """Extract the last tail_seconds of audio using FFmpeg.
-    Returns the tail audio bytes, or None on failure."""
-    in_file = str(UPLOAD_DIR / f"tail_in_{int(time.time() * 1000)}.webm")
-    out_file = str(UPLOAD_DIR / f"tail_out_{int(time.time() * 1000)}.webm")
-    try:
-        with open(in_file, 'wb') as f:
-            f.write(audio_bytes)
-        cmd = [
-            'ffmpeg', '-y', '-sseof', f'-{tail_seconds}',
-            '-i', in_file, '-c', 'copy', out_file
-        ]
-        result = subprocess.run(cmd, capture_output=True, timeout=10)
-        if result.returncode == 0 and os.path.exists(out_file):
-            with open(out_file, 'rb') as f:
-                return f.read()
-        return None
-    except Exception as e:
-        print(f"Error extracting audio tail: {e}")
-        return None
-    finally:
-        for f in [in_file, out_file]:
-            if os.path.exists(f):
-                os.remove(f)
-
-
-def _merge_audio_overlap(prev_tail: bytes, current: bytes) -> bytes:
-    """Concatenate previous audio tail with current chunk using FFmpeg.
-    Returns merged audio bytes, or current on failure."""
-    tail_file = str(UPLOAD_DIR / f"merge_tail_{int(time.time() * 1000)}.webm")
-    curr_file = str(UPLOAD_DIR / f"merge_curr_{int(time.time() * 1000)}.webm")
-    out_file = str(UPLOAD_DIR / f"merge_out_{int(time.time() * 1000)}.webm")
-    list_file = str(UPLOAD_DIR / f"merge_list_{int(time.time() * 1000)}.txt")
-    try:
-        with open(tail_file, 'wb') as f:
-            f.write(prev_tail)
-        with open(curr_file, 'wb') as f:
-            f.write(current)
-        # Create concat list file
-        with open(list_file, 'w') as f:
-            f.write(f"file '{tail_file}'\nfile '{curr_file}'\n")
-        cmd = [
-            'ffmpeg', '-y', '-f', 'concat', '-safe', '0',
-            '-i', list_file, '-c', 'copy', out_file
-        ]
-        result = subprocess.run(cmd, capture_output=True, timeout=10)
-        if result.returncode == 0 and os.path.exists(out_file):
-            with open(out_file, 'rb') as f:
-                return f.read()
-        return current  # fallback: use current chunk only
-    except Exception as e:
-        print(f"Error merging audio overlap: {e}")
-        return current
-    finally:
-        for f in [tail_file, curr_file, out_file, list_file]:
-            if os.path.exists(f):
-                os.remove(f)
-
-
-def _deduplicate_segments(new_segments: list, prev_segment_texts: list) -> list:
-    """Remove segments that overlap with previous chunk's segments.
-    Uses character-level similarity for Chinese text."""
-    if not prev_segment_texts or not new_segments:
-        return new_segments
-
-    def char_overlap_ratio(a: str, b: str) -> float:
-        """Compute ratio of overlapping characters between two strings."""
-        if not a or not b:
-            return 0.0
-        shorter, longer = (a, b) if len(a) <= len(b) else (b, a)
-        # Check if shorter is contained in longer
-        if shorter in longer:
-            return 1.0
-        # Check suffix-prefix overlap
-        max_overlap = min(len(a), len(b))
-        for k in range(max_overlap, 0, -1):
-            if a[-k:] == b[:k] or b[-k:] == a[:k]:
-                return k / max_overlap
-        return 0.0
-
-    result = []
-    for seg in new_segments:
-        text = seg.get('text', '').strip()
-        if not text:
-            continue
-        is_dup = False
-        for prev_text in prev_segment_texts:
-            if char_overlap_ratio(text, prev_text) > 0.7:
-                is_dup = True
-                break
-        if not is_dup:
-            result.append(seg)
-    return result
-
-
-def transcribe_chunk(audio_data: bytes, model_size: str = 'tiny', context_prompt: str = None) -> list:
-    """Transcribe a chunk of audio data for live streaming.
-    Prefers faster-whisper (lower latency). Falls back to openai-whisper.
-    context_prompt: previous transcript text for continuity."""
-    model, backend = get_model(model_size, backend='auto')
-
-    prompt = '請將音頻轉錄為繁體中文。'
-    if context_prompt:
-        prompt += context_prompt[-100:]  # keep last 100 chars to avoid overflow
-
-    temp_file = str(UPLOAD_DIR / f"chunk_{int(time.time() * 1000)}.webm")
-
-    try:
-        with open(temp_file, 'wb') as f:
-            f.write(audio_data)
-
-        if backend == 'faster':
-            seg_iter, _ = model.transcribe(
-                temp_file,
-                language='zh',
-                task='transcribe',
-                vad_filter=True,
-                initial_prompt=prompt,
-            )
-            return [
-                {'text': seg.text, 'start': seg.start, 'end': seg.end}
-                for seg in seg_iter
-            ]
-        else:
-            result = model.transcribe(
-                temp_file,
-                language='zh',
-                task='transcribe',
-                verbose=False,
-                initial_prompt=prompt,
-                fp16=False
-            )
-            return result.get('segments', [])
-
-    finally:
-        if os.path.exists(temp_file):
-            os.remove(temp_file)
 
 
 # ============================================================
@@ -542,6 +467,496 @@ def list_models():
     return jsonify({'models': models_info})
 
 
+# ============================================================
+# Profile Management API
+# ============================================================
+
+@app.route('/api/profiles', methods=['GET'])
+def api_list_profiles():
+    return jsonify({"profiles": _profile_manager.list_all()})
+
+
+@app.route('/api/profiles', methods=['POST'])
+def api_create_profile():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request body is required"}), 400
+    try:
+        profile = _profile_manager.create(data)
+        return jsonify({"profile": profile}), 201
+    except ValueError as e:
+        return jsonify({"errors": e.args[0]}), 400
+
+
+@app.route('/api/profiles/active', methods=['GET'])
+def api_get_active_profile():
+    profile = _profile_manager.get_active()
+    return jsonify({"profile": profile})
+
+
+@app.route('/api/profiles/<profile_id>', methods=['GET'])
+def api_get_profile(profile_id):
+    profile = _profile_manager.get(profile_id)
+    if not profile:
+        return jsonify({"error": "Profile not found"}), 404
+    return jsonify({"profile": profile})
+
+
+@app.route('/api/profiles/<profile_id>', methods=['PATCH'])
+def api_update_profile(profile_id):
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request body is required"}), 400
+    try:
+        profile = _profile_manager.update(profile_id, data)
+        if not profile:
+            return jsonify({"error": "Profile not found"}), 404
+        return jsonify({"profile": profile})
+    except ValueError as e:
+        return jsonify({"errors": e.args[0]}), 400
+
+
+@app.route('/api/profiles/<profile_id>', methods=['DELETE'])
+def api_delete_profile(profile_id):
+    if _profile_manager.delete(profile_id):
+        return jsonify({"message": "Profile deleted"})
+    return jsonify({"error": "Profile not found"}), 404
+
+
+@app.route('/api/profiles/<profile_id>/activate', methods=['POST'])
+def api_activate_profile(profile_id):
+    profile = _profile_manager.set_active(profile_id)
+    if not profile:
+        return jsonify({"error": "Profile not found"}), 404
+    return jsonify({"profile": profile})
+
+
+# ============================================================
+# ASR Engine Info
+# ============================================================
+
+@app.route('/api/asr/engines', methods=['GET'])
+def api_list_asr_engines():
+    """List available ASR engines with status."""
+    from asr import create_asr_engine
+    engines_info = []
+    for engine_name, desc in [
+        ("whisper", "OpenAI Whisper (local)"),
+        ("qwen3-asr", "Qwen3-ASR (stub — production only)"),
+        ("flg-asr", "FLG-ASR (stub — production only)"),
+    ]:
+        try:
+            engine = create_asr_engine({"engine": engine_name, "model_size": "unknown"})
+            info = engine.get_info()
+            engines_info.append({
+                "engine": engine_name,
+                "available": info.get("available", False),
+                "description": desc,
+            })
+        except Exception:
+            engines_info.append({
+                "engine": engine_name,
+                "available": False,
+                "description": desc,
+            })
+    return jsonify({"engines": engines_info})
+
+
+# ============================================================
+# Translation Engine Info
+# ============================================================
+
+@app.route('/api/translation/engines', methods=['GET'])
+def api_list_translation_engines():
+    """List available translation engines with status."""
+    from translation import create_translation_engine
+    engines_info = []
+    for engine_name, desc in [
+        ("mock", "Mock translator (development)"),
+        ("qwen2.5-3b", "Qwen 2.5 3B (Ollama)"),
+        ("qwen2.5-7b", "Qwen 2.5 7B (Ollama)"),
+        ("qwen2.5-72b", "Qwen 2.5 72B (Ollama)"),
+        ("qwen3-235b", "Qwen3 235B MoE (Ollama)"),
+    ]:
+        try:
+            engine = create_translation_engine({"engine": engine_name})
+            info = engine.get_info()
+            engines_info.append({
+                "engine": engine_name,
+                "available": info.get("available", False),
+                "description": desc,
+            })
+        except Exception:
+            engines_info.append({
+                "engine": engine_name,
+                "available": False,
+                "description": desc,
+            })
+    return jsonify({"engines": engines_info})
+
+
+@app.route('/api/translate', methods=['POST'])
+def api_translate_file():
+    """Translate a file's transcription segments using the active profile's translation engine."""
+    data = request.get_json()
+    if not data or not data.get('file_id'):
+        return jsonify({"error": "file_id is required"}), 400
+
+    file_id = data['file_id']
+    style_override = data.get('style')
+
+    entry = _file_registry.get(file_id)
+    if not entry:
+        return jsonify({"error": "File not found"}), 404
+
+    segments = entry.get('segments', [])
+    if not segments:
+        return jsonify({"error": "No segments to translate. Transcribe the file first."}), 400
+
+    profile = _profile_manager.get_active()
+    if not profile:
+        return jsonify({"error": "No active profile. Set a profile first."}), 400
+
+    translation_config = profile.get("translation", {})
+    style = style_override or translation_config.get("style", "formal")
+
+    try:
+        from translation import create_translation_engine
+        engine = create_translation_engine(translation_config)
+
+        asr_segments = [
+            {"start": s["start"], "end": s["end"], "text": s["text"]}
+            for s in segments
+        ]
+
+        glossary_entries = []
+        glossary_id = translation_config.get("glossary_id")
+        if glossary_id:
+            glossary_data = _glossary_manager.get(glossary_id)
+            if glossary_data:
+                glossary_entries = glossary_data.get("entries", [])
+
+        translated = engine.translate(asr_segments, glossary=glossary_entries, style=style)
+
+        for t in translated:
+            t["status"] = "pending"
+        _update_file(file_id, translations=translated, translation_status='done')
+
+        return jsonify({
+            "file_id": file_id,
+            "segment_count": len(translated),
+            "style": style,
+            "engine": engine.get_info().get("engine"),
+            "translations": translated,
+        })
+
+    except NotImplementedError as e:
+        return jsonify({"error": str(e)}), 501
+    except ConnectionError as e:
+        return jsonify({"error": str(e)}), 503
+    except Exception as e:
+        return jsonify({"error": f"Translation failed: {str(e)}"}), 500
+
+
+# ============================================================
+# Glossary endpoints
+# ============================================================
+
+@app.route('/api/glossaries', methods=['GET'])
+def api_list_glossaries():
+    """List all glossaries (summaries, no entries)."""
+    summaries = _glossary_manager.list_all()
+    return jsonify({"glossaries": summaries})
+
+
+@app.route('/api/glossaries', methods=['POST'])
+def api_create_glossary():
+    """Create a new glossary."""
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "Request body must be JSON"}), 400
+    try:
+        glossary = _glossary_manager.create(data)
+        return jsonify(glossary), 201
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 422
+
+
+@app.route('/api/glossaries/<glossary_id>', methods=['GET'])
+def api_get_glossary(glossary_id):
+    """Get a single glossary with all entries."""
+    glossary = _glossary_manager.get(glossary_id)
+    if glossary is None:
+        return jsonify({"error": "Glossary not found"}), 404
+    return jsonify(glossary)
+
+
+@app.route('/api/glossaries/<glossary_id>', methods=['PATCH'])
+def api_update_glossary(glossary_id):
+    """Update glossary name and/or description."""
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "Request body must be JSON"}), 400
+    try:
+        updated = _glossary_manager.update(glossary_id, data)
+        if updated is None:
+            return jsonify({"error": "Glossary not found"}), 404
+        return jsonify(updated)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 422
+
+
+@app.route('/api/glossaries/<glossary_id>', methods=['DELETE'])
+def api_delete_glossary(glossary_id):
+    """Delete a glossary."""
+    deleted = _glossary_manager.delete(glossary_id)
+    if not deleted:
+        return jsonify({"error": "Glossary not found"}), 404
+    return jsonify({"deleted": True})
+
+
+@app.route('/api/glossaries/<glossary_id>/entries', methods=['POST'])
+def api_add_entry(glossary_id):
+    """Add an entry to a glossary."""
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "Request body must be JSON"}), 400
+    try:
+        updated = _glossary_manager.add_entry(glossary_id, data)
+        if updated is None:
+            return jsonify({"error": "Glossary not found"}), 404
+        return jsonify(updated), 201
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 422
+
+
+@app.route('/api/glossaries/<glossary_id>/entries/<entry_id>', methods=['PATCH'])
+def api_update_entry(glossary_id, entry_id):
+    """Update a single entry within a glossary."""
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "Request body must be JSON"}), 400
+    try:
+        updated = _glossary_manager.update_entry(glossary_id, entry_id, data)
+        if updated is None:
+            return jsonify({"error": "Glossary or entry not found"}), 404
+        return jsonify(updated)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 422
+
+
+@app.route('/api/glossaries/<glossary_id>/entries/<entry_id>', methods=['DELETE'])
+def api_delete_entry(glossary_id, entry_id):
+    """Delete a single entry from a glossary."""
+    updated = _glossary_manager.delete_entry(glossary_id, entry_id)
+    if updated is None:
+        return jsonify({"error": "Glossary not found"}), 404
+    return jsonify(updated)
+
+
+@app.route('/api/glossaries/<glossary_id>/import', methods=['POST'])
+def api_import_glossary_csv(glossary_id):
+    """Import entries from CSV text (JSON body with csv_content field)."""
+    data = request.get_json(silent=True)
+    if not data or "csv_content" not in data:
+        return jsonify({"error": "Request body must include csv_content"}), 400
+    updated = _glossary_manager.import_csv(glossary_id, data["csv_content"])
+    if updated is None:
+        return jsonify({"error": "Glossary not found"}), 404
+    return jsonify(updated)
+
+
+@app.route('/api/glossaries/<glossary_id>/export', methods=['GET'])
+def api_export_glossary_csv(glossary_id):
+    """Export glossary entries as CSV text."""
+    csv_text = _glossary_manager.export_csv(glossary_id)
+    if csv_text is None:
+        return jsonify({"error": "Glossary not found"}), 404
+    return csv_text, 200, {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": f"attachment; filename={glossary_id}.csv",
+    }
+
+
+# ============================================================
+# Translation Approval API (Proof-reading)
+# ============================================================
+
+@app.route('/api/files/<file_id>/translations', methods=['GET'])
+def api_get_translations(file_id):
+    entry = _file_registry.get(file_id)
+    if not entry:
+        return jsonify({"error": "File not found"}), 404
+    translations = entry.get("translations", [])
+    return jsonify({"translations": translations, "file_id": file_id})
+
+
+@app.route('/api/files/<file_id>/translations/approve-all', methods=['POST'])
+def api_approve_all_translations(file_id):
+    entry = _file_registry.get(file_id)
+    if not entry:
+        return jsonify({"error": "File not found"}), 404
+    translations = entry.get("translations", [])
+    count = 0
+    new_translations = []
+    for t in translations:
+        if t.get("status") == "pending":
+            new_translations.append({**t, "status": "approved"})
+            count += 1
+        else:
+            new_translations.append(t)
+    _update_file(file_id, translations=new_translations)
+    return jsonify({"approved_count": count, "total": len(new_translations)})
+
+
+@app.route('/api/files/<file_id>/translations/status', methods=['GET'])
+def api_translation_status(file_id):
+    entry = _file_registry.get(file_id)
+    if not entry:
+        return jsonify({"error": "File not found"}), 404
+    translations = entry.get("translations", [])
+    approved = sum(1 for t in translations if t.get("status") == "approved")
+    pending = sum(1 for t in translations if t.get("status") != "approved")
+    return jsonify({"total": len(translations), "approved": approved, "pending": pending})
+
+
+@app.route('/api/files/<file_id>/translations/<int:idx>', methods=['PATCH'])
+def api_update_translation(file_id, idx):
+    entry = _file_registry.get(file_id)
+    if not entry:
+        return jsonify({"error": "File not found"}), 404
+    translations = entry.get("translations", [])
+    if idx < 0 or idx >= len(translations):
+        return jsonify({"error": "Translation index out of range"}), 404
+    data = request.get_json()
+    if not data or "zh_text" not in data:
+        return jsonify({"error": "zh_text is required"}), 400
+    new_translations = list(translations)
+    new_translations[idx] = {**translations[idx], "zh_text": data["zh_text"], "status": "approved"}
+    _update_file(file_id, translations=new_translations)
+    return jsonify({"translation": new_translations[idx]})
+
+
+@app.route('/api/files/<file_id>/translations/<int:idx>/approve', methods=['POST'])
+def api_approve_translation(file_id, idx):
+    entry = _file_registry.get(file_id)
+    if not entry:
+        return jsonify({"error": "File not found"}), 404
+    translations = entry.get("translations", [])
+    if idx < 0 or idx >= len(translations):
+        return jsonify({"error": "Translation index out of range"}), 404
+    new_translations = list(translations)
+    new_translations[idx] = {**translations[idx], "status": "approved"}
+    _update_file(file_id, translations=new_translations)
+    return jsonify({"translation": new_translations[idx]})
+
+
+# ============================================================
+# Render Endpoints
+# ============================================================
+
+VALID_RENDER_FORMATS = {"mp4", "mxf"}
+
+
+@app.route('/api/render', methods=['POST'])
+def api_start_render():
+    """Start a render job: burn approved translations into video as ASS subtitles."""
+    data = request.get_json() or {}
+
+    file_id = data.get("file_id")
+    if not file_id:
+        return jsonify({"error": "file_id is required"}), 400
+
+    output_format = data.get("format", "mp4")
+    if output_format not in VALID_RENDER_FORMATS:
+        return jsonify({"error": f"Invalid format '{output_format}'. Must be one of: {sorted(VALID_RENDER_FORMATS)}"}), 400
+
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+
+    if not entry:
+        return jsonify({"error": "File not found"}), 404
+
+    translations = entry.get("translations")
+    if not translations:
+        return jsonify({"error": "File has no translations to render"}), 400
+
+    unapproved = [t for t in translations if t.get("status") != "approved"]
+    if unapproved:
+        return jsonify({"error": f"{len(unapproved)} segment(s) not yet approved. All translations must be approved before rendering."}), 400
+
+    render_id = uuid.uuid4().hex[:12]
+    video_path = str(UPLOAD_DIR / entry["stored_name"])
+    output_filename = f"{render_id}.{output_format}"
+    output_path = str(RENDERS_DIR / output_filename)
+
+    _render_jobs[render_id] = {
+        "render_id": render_id,
+        "file_id": file_id,
+        "format": output_format,
+        "status": "processing",
+        "output_path": output_path,
+        "error": None,
+        "created_at": time.time(),
+    }
+
+    # Load font config from active profile (fallback to DEFAULT_FONT_CONFIG)
+    active_profile = _profile_manager.get_active()
+    font_config = active_profile.get("font", DEFAULT_FONT_CONFIG) if active_profile else DEFAULT_FONT_CONFIG
+
+    # Snapshot translations to pass into thread (immutable)
+    translations_snapshot = list(translations)
+
+    def do_render():
+        try:
+            ass_content = _subtitle_renderer.generate_ass(translations_snapshot, font_config)
+            success = _subtitle_renderer.render(video_path, ass_content, output_path, output_format)
+            if success:
+                _render_jobs[render_id] = {**_render_jobs[render_id], "status": "done"}
+            else:
+                _render_jobs[render_id] = {**_render_jobs[render_id], "status": "error", "error": "FFmpeg render failed"}
+        except Exception as exc:
+            print(f"Render job {render_id} error: {exc}")
+            _render_jobs[render_id] = {**_render_jobs[render_id], "status": "error", "error": str(exc)}
+
+    thread = threading.Thread(target=do_render)
+    thread.daemon = True
+    thread.start()
+
+    return jsonify({
+        "render_id": render_id,
+        "file_id": file_id,
+        "format": output_format,
+        "status": "processing",
+    }), 202
+
+
+@app.route('/api/renders/<render_id>', methods=['GET'])
+def api_get_render_status(render_id):
+    """Return the status of a render job."""
+    job = _render_jobs.get(render_id)
+    if not job:
+        return jsonify({"error": "Render job not found"}), 404
+    return jsonify(job)
+
+
+@app.route('/api/renders/<render_id>/download', methods=['GET'])
+def api_download_render(render_id):
+    """Download the rendered video file when the job is done."""
+    job = _render_jobs.get(render_id)
+    if not job:
+        return jsonify({"error": "Render job not found"}), 404
+
+    if job["status"] != "done":
+        return jsonify({"error": f"Render job is not done yet (status: {job['status']})"}), 400
+
+    output_path = job["output_path"]
+    if not os.path.exists(output_path):
+        return jsonify({"error": "Rendered file not found on disk"}), 404
+
+    return send_file(output_path, as_attachment=True)
+
+
 @app.route('/api/transcribe', methods=['POST'])
 def transcribe_file():
     """Upload and transcribe a video/audio file. File is kept until explicitly deleted."""
@@ -572,6 +987,52 @@ def transcribe_file():
     if sid:
         socketio.emit('file_added', entry, room=sid)
 
+    def _auto_translate(fid, segments, session_id):
+        """Auto-translate segments after transcription using the active profile."""
+        try:
+            profile = _profile_manager.get_active()
+            if not profile:
+                return
+            translation_config = profile.get("translation", {})
+            engine_name = translation_config.get("engine", "")
+            if not engine_name:
+                return
+
+            from translation import create_translation_engine
+            engine = create_translation_engine(translation_config)
+
+            style = translation_config.get("style", "formal")
+            glossary_entries = []
+            glossary_id = translation_config.get("glossary_id")
+            if glossary_id:
+                glossary_data = _glossary_manager.get(glossary_id)
+                if glossary_data:
+                    glossary_entries = glossary_data.get("entries", [])
+
+            asr_segments = [
+                {"start": s["start"], "end": s["end"], "text": s["text"]}
+                for s in segments
+            ]
+
+            translated = engine.translate(asr_segments, glossary=glossary_entries, style=style)
+            for t in translated:
+                t["status"] = "pending"
+            _update_file(fid, translations=translated, translation_status='done')
+
+            if session_id:
+                socketio.emit('file_updated', {
+                    'id': fid,
+                    'translation_status': 'done',
+                    'translation_count': len(translated),
+                }, room=session_id)
+        except Exception as e:
+            print(f"Auto-translate failed for {fid}: {e}")
+            if session_id:
+                socketio.emit('file_updated', {
+                    'id': fid,
+                    'translation_error': str(e),
+                }, room=session_id)
+
     # Start transcription in background thread
     def do_transcribe():
         _update_file(file_id, status='transcribing', model=model_size)
@@ -599,6 +1060,9 @@ def transcribe_file():
                         'language': result['language'],
                         'segment_count': len(result['segments'])
                     }, room=sid)
+
+                # Auto-translate if profile has a translation engine configured
+                _auto_translate(file_id, result['segments'], sid)
         except Exception as e:
             _update_file(file_id, status='error', error=str(e))
             if sid:
@@ -661,6 +1125,7 @@ def list_files():
                 'error': entry.get('error'),
                 'model': entry.get('model'),
                 'backend': entry.get('backend'),
+                'translation_status': entry.get('translation_status'),
             })
     # Newest first
     files.sort(key=lambda f: f['uploaded_at'], reverse=True)
@@ -810,12 +1275,6 @@ def restart_server():
 def handle_connect():
     sid = request.sid
     print(f"Client connected: {sid}")
-    with _session_state_lock:
-        _live_session_state[sid] = {
-            'last_text': '',
-            'prev_audio_tail': None,
-            'last_segments': [],
-        }
     emit('connected', {'sid': sid, 'message': '已連接到 Whisper 服務器'})
 
 
@@ -823,17 +1282,6 @@ def handle_connect():
 def handle_disconnect():
     sid = request.sid
     print(f"Client disconnected: {sid}")
-    with _session_state_lock:
-        _live_session_state.pop(sid, None)
-
-
-@socketio.on('live_silence')
-def handle_live_silence():
-    """Clear overlap buffer when frontend VAD detects silence."""
-    sid = request.sid
-    with _session_state_lock:
-        if sid in _live_session_state:
-            _live_session_state[sid]['prev_audio_tail'] = None
 
 
 @socketio.on('load_model')
@@ -852,72 +1300,6 @@ def handle_load_model(data):
             socketio.emit('model_error', {'error': str(e)}, room=sid)
 
     thread = threading.Thread(target=load_async)
-    thread.daemon = True
-    thread.start()
-
-
-@socketio.on('live_audio_chunk')
-def handle_live_chunk(data):
-    """Handle live audio chunk from browser (binary or base64).
-    Supports context carry-over, chunk overlap, and deduplication."""
-    sid = request.sid
-    audio_data = data.get('audio')
-    model_size = data.get('model', 'tiny')  # Use tiny for live for speed
-
-    if not audio_data:
-        return
-
-    # Support both binary (bytes) and legacy base64 (str)
-    if isinstance(audio_data, bytes):
-        audio_bytes = audio_data
-    else:
-        audio_bytes = base64.b64decode(audio_data)
-
-    # Read session state for context carry-over and overlap
-    with _session_state_lock:
-        state = _live_session_state.get(sid, {})
-        context_text = state.get('last_text', '')
-        prev_tail = state.get('prev_audio_tail')
-        prev_segments = state.get('last_segments', [])
-
-    def process_chunk():
-        try:
-            # Chunk overlap: prepend previous audio tail if available
-            merged_audio = _merge_audio_overlap(prev_tail, audio_bytes) if prev_tail else audio_bytes
-
-            segments = transcribe_chunk(merged_audio, model_size, context_prompt=context_text)
-
-            # Deduplicate against previous chunk's segments
-            new_segments = _deduplicate_segments(segments, prev_segments)
-
-            # Emit new (non-duplicate) segments
-            emitted_texts = []
-            for seg in new_segments:
-                text = seg.get('text', '').strip()
-                if text:
-                    socketio.emit('live_subtitle', {
-                        'text': text,
-                        'start': seg.get('start', 0),
-                        'end': seg.get('end', 0),
-                        'timestamp': time.time()
-                    }, room=sid)
-                    emitted_texts.append(text)
-
-            # Update session state
-            all_text = ' '.join(emitted_texts)
-            new_tail = _extract_audio_tail(audio_bytes)
-            with _session_state_lock:
-                if sid in _live_session_state:
-                    _live_session_state[sid]['last_text'] = all_text if all_text else context_text
-                    _live_session_state[sid]['prev_audio_tail'] = new_tail
-                    _live_session_state[sid]['last_segments'] = [
-                        seg.get('text', '').strip() for seg in segments if seg.get('text', '').strip()
-                    ]
-
-        except Exception as e:
-            print(f"Error processing live chunk: {e}")
-
-    thread = threading.Thread(target=process_chunk)
     thread.daemon = True
     thread.start()
 

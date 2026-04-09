@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>字幕校對編輯器</title>
+  <style>
+    /* ===== CSS Variables ===== */
+    :root {
+      --bg: #0f0f1a;
+      --surface: #1a1a2e;
+      --surface2: #1c1c28;
+      --border: #2a2a3d;
+      --accent: #a78bfa;
+      --accent2: #c4b5fd;
+      --text: #e2e2f0;
+      --text-dim: #888899;
+      --success: #4ade80;
+      --warning: #fbbf24;
+      --danger: #ef4444;
+      --subtitle-bg: rgba(0,0,0,0.78);
+      --subtitle-text: #ffffff;
+      --radius: 12px;
+      --shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', 'Microsoft JhengHei', 'PingFang TC', system-ui, sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ===== Header ===== */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      font-size: 20px;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header-file-name {
+      font-size: 13px;
+      color: var(--text-dim);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 300px;
+    }
+
+    .header-spacer { flex: 1; }
+
+    /* ===== Main Layout ===== */
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 520px;
+      grid-template-rows: 1fr auto;
+      gap: 0;
+      flex: 1;
+      min-height: 0;
+    }
+
+    @media (max-width: 1100px) {
+      .layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr auto;
+      }
+    }
+
+    /* ===== Left Panel (Video) ===== */
+    .video-panel {
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      background: #000;
+      min-height: 0;
+    }
+
+    .video-area {
+      position: relative;
+      background: #000;
+      aspect-ratio: 16/9;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .video-area video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    /* ===== Subtitle Overlay ===== */
+    .subtitle-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      padding: 0 5% 4%;
+      pointer-events: none;
+    }
+
+    .subtitle-text {
+      background: var(--subtitle-bg);
+      color: var(--subtitle-text);
+      font-size: clamp(14px, 2.5vw, 24px);
+      font-weight: 600;
+      padding: 8px 20px;
+      border-radius: 6px;
+      text-align: center;
+      max-width: 90%;
+      line-height: 1.5;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      letter-spacing: 0.5px;
+    }
+
+    .subtitle-text.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Placeholder when no video loaded */
+    .video-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: var(--text-dim);
+      background: #0a0a0f;
+    }
+
+    .video-placeholder .icon { font-size: 48px; opacity: 0.4; }
+    .video-placeholder p { font-size: 15px; }
+
+    /* Keyboard shortcuts hint */
+    .shortcuts-hint {
+      padding: 10px 16px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .shortcut {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .key {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-family: monospace;
+      font-size: 11px;
+      color: var(--text);
+    }
+
+    /* ===== Right Panel (Segment Table) ===== */
+    .table-panel {
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .table-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .table-header-title {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-dim);
+    }
+
+    .table-header-spacer { flex: 1; }
+
+    .approval-summary {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .approval-summary span {
+      color: var(--success);
+      font-weight: 600;
+    }
+
+    .segment-table-wrap {
+      flex: 1;
+      overflow-y: auto;
+      min-height: 0;
+    }
+
+    .segment-table-wrap::-webkit-scrollbar { width: 4px; }
+    .segment-table-wrap::-webkit-scrollbar-track { background: transparent; }
+    .segment-table-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 12px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-dim);
+      z-index: 10;
+    }
+
+    thead th:first-child { width: 42px; text-align: center; }
+    thead th.col-status { width: 64px; text-align: center; }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    tbody tr:hover { background: rgba(167,139,250,0.06); }
+
+    tbody tr.active {
+      background: rgba(167,139,250,0.12);
+    }
+
+    tbody tr.active td { border-left: 2px solid var(--accent); }
+    tbody tr.active td:not(:first-child) { border-left: none; }
+    tbody tr.active td:first-child { border-left: 2px solid var(--accent); }
+
+    td {
+      padding: 10px 12px;
+      vertical-align: top;
+    }
+
+    td:first-child {
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 11px;
+      font-family: monospace;
+      white-space: nowrap;
+    }
+
+    .td-time {
+      font-family: monospace;
+      font-size: 11px;
+      color: var(--text-dim);
+      white-space: nowrap;
+      width: 80px;
+    }
+
+    .td-en {
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .td-zh {
+      color: var(--accent2);
+      line-height: 1.5;
+      position: relative;
+    }
+
+    .zh-display {
+      border-radius: 4px;
+      padding: 2px 4px;
+      margin: -2px -4px;
+      transition: background 0.15s;
+      cursor: text;
+      display: block;
+      min-height: 1.5em;
+    }
+
+    .zh-display:hover {
+      background: rgba(167,139,250,0.12);
+    }
+
+    .zh-display.editing-active {
+      background: rgba(167,139,250,0.08);
+    }
+
+    .zh-edit-area {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+      font-family: inherit;
+      padding: 6px 8px;
+      resize: vertical;
+      min-height: 60px;
+      outline: none;
+      line-height: 1.5;
+    }
+
+    .td-status {
+      text-align: center;
+      width: 64px;
+    }
+
+    .status-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      transition: all 0.2s;
+      color: var(--text-dim);
+    }
+
+    .status-btn:hover {
+      border-color: var(--success);
+      color: var(--success);
+      background: rgba(74,222,128,0.1);
+    }
+
+    .status-btn.approved {
+      border-color: var(--success);
+      background: rgba(74,222,128,0.15);
+      color: var(--success);
+    }
+
+    /* ===== Bottom Bar ===== */
+    .bottom-bar {
+      grid-column: 1 / -1;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+
+    .progress-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .progress-label {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .progress-label strong {
+      color: var(--accent2);
+    }
+
+    .progress-bar {
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+
+    /* ===== Buttons ===== */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 10px;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent2); }
+
+    .btn-success {
+      background: var(--success);
+      color: #0a0a0f;
+    }
+    .btn-success:hover { background: #22c55e; transform: translateY(-1px); }
+
+    .btn-render {
+      background: linear-gradient(135deg, var(--accent), #7c3aed);
+      color: white;
+    }
+    .btn-render:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(167,139,250,0.3); }
+
+    .btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+
+    /* ===== Toast ===== */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 9999;
+      pointer-events: none;
+    }
+
+    .toast {
+      padding: 12px 18px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 14px;
+      box-shadow: var(--shadow);
+      animation: toastIn 0.3s ease;
+      max-width: 340px;
+      pointer-events: auto;
+    }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes toastOut {
+      from { opacity: 1; transform: translateY(0); }
+      to { opacity: 0; transform: translateY(10px); }
+    }
+
+    .toast.success { border-color: var(--success); }
+    .toast.error { border-color: var(--danger); }
+    .toast.warning { border-color: var(--warning); }
+    .toast.info { border-color: var(--accent); }
+
+    /* ===== Loading overlay ===== */
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15,15,26,0.85);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 200;
+    }
+
+    .loading-overlay.hidden { display: none; }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text {
+      font-size: 15px;
+      color: var(--text-dim);
+    }
+
+    /* ===== Error state ===== */
+    .error-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 60px 24px;
+      color: var(--text-dim);
+      text-align: center;
+    }
+
+    .error-state .icon { font-size: 48px; }
+    .error-state h2 { color: var(--danger); font-size: 18px; }
+    .error-state p { font-size: 14px; max-width: 400px; }
+  </style>
+</head>
+<body>
+
+  <!-- Loading overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loadingText">正在載入字幕資料…</div>
+  </div>
+
+  <!-- Header -->
+  <header>
+    <a href="index.html" style="color:var(--accent);text-decoration:none;font-size:14px;margin-right:12px;">← 返回主頁</a>
+    <div class="logo">✦ 字幕校對</div>
+    <div class="header-file-name" id="headerFileName">—</div>
+    <div class="header-spacer"></div>
+  </header>
+
+  <!-- Main layout -->
+  <div class="layout" id="mainLayout" style="display:none; flex:1; min-height:0;">
+
+    <!-- Left: Video panel -->
+    <div class="video-panel">
+      <div class="video-area" id="videoArea">
+        <div class="video-placeholder" id="videoPlaceholder">
+          <div class="icon">🎬</div>
+          <p>正在載入影片…</p>
+        </div>
+        <video id="videoEl" preload="auto" controls style="display:none;"></video>
+        <div class="subtitle-overlay">
+          <div class="subtitle-text" id="subtitleText"></div>
+        </div>
+      </div>
+
+      <div class="shortcuts-hint">
+        <div class="shortcut"><span class="key">Space</span> 播放/暫停</div>
+        <div class="shortcut"><span class="key">↑</span><span class="key">↓</span> 導覽片段</div>
+        <div class="shortcut"><span class="key">E</span> 編輯翻譯</div>
+        <div class="shortcut"><span class="key">Enter</span> 確認核准</div>
+        <div class="shortcut"><span class="key">Esc</span> 取消</div>
+      </div>
+    </div>
+
+    <!-- Right: Segment table panel -->
+    <div class="table-panel">
+      <div class="table-header">
+        <div class="table-header-title">片段列表</div>
+        <div class="table-header-spacer"></div>
+        <div class="approval-summary" id="approvalSummary">已核准 <span id="approvedCount">0</span> / <span id="totalCount">0</span></div>
+      </div>
+
+      <div class="segment-table-wrap" id="tableWrap">
+        <table id="segmentTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>English</th>
+              <th>中文翻譯</th>
+              <th class="col-status">狀態</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Bottom bar -->
+    <div class="bottom-bar">
+      <div class="progress-wrap">
+        <div class="progress-label">批核進度：<strong id="progressPct">0%</strong></div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill" style="width:0%"></div>
+        </div>
+      </div>
+      <button class="btn btn-secondary" id="btnBulkApprove">批核所有未改動</button>
+      <select id="renderFormat" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;">
+        <option value="mp4">MP4</option>
+        <option value="mxf">MXF (ProRes)</option>
+      </select>
+      <button class="btn btn-render" id="btnRender" disabled>匯出燒入字幕 →</button>
+    </div>
+  </div>
+
+  <!-- Error state (shown if load fails) -->
+  <div class="error-state" id="errorState" style="display:none;">
+    <div class="icon">⚠️</div>
+    <h2>載入失敗</h2>
+    <p id="errorMsg">無法取得字幕資料，請確認 file_id 正確且伺服器正在運行。</p>
+  </div>
+
+  <!-- Toast container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+<script>
+  'use strict';
+
+  const API_BASE = 'http://localhost:5001';
+
+  // ===== Utility functions =====
+
+  function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function formatTime(seconds) {
+    if (seconds == null || isNaN(seconds)) return '—';
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+
+  // ===== Toast system =====
+
+  function showToast(message, type = 'info', durationMs = 3000) {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.animation = 'toastOut 0.3s ease forwards';
+      setTimeout(() => toast.remove(), 300);
+    }, durationMs);
+  }
+
+  // ===== State (immutable update pattern) =====
+
+  let state = {
+    fileId: null,
+    fileName: '',
+    segments: [],         // [{idx, start, end, en_text, zh_text, approved}]
+    activeIdx: null,      // currently highlighted row index (into segments array)
+    editingIdx: null,     // segment idx currently being edited
+  };
+
+  function setState(patch) {
+    state = { ...state, ...patch };
+  }
+
+  function updateSegment(segIdx, patch) {
+    const segments = state.segments.map((seg, i) =>
+      i === segIdx ? { ...seg, ...patch } : seg
+    );
+    setState({ segments });
+  }
+
+  // ===== DOM references =====
+
+  const loadingOverlay = document.getElementById('loadingOverlay');
+  const loadingText    = document.getElementById('loadingText');
+  const mainLayout     = document.getElementById('mainLayout');
+  const errorState     = document.getElementById('errorState');
+  const errorMsg       = document.getElementById('errorMsg');
+  const headerFileName = document.getElementById('headerFileName');
+  const videoEl        = document.getElementById('videoEl');
+  const videoPlaceholder = document.getElementById('videoPlaceholder');
+  const subtitleTextEl = document.getElementById('subtitleText');
+  const tableBody      = document.getElementById('tableBody');
+  const tableWrap      = document.getElementById('tableWrap');
+  const approvedCount  = document.getElementById('approvedCount');
+  const totalCount     = document.getElementById('totalCount');
+  const progressPct    = document.getElementById('progressPct');
+  const progressFill   = document.getElementById('progressFill');
+  const btnBulkApprove = document.getElementById('btnBulkApprove');
+  const btnRender      = document.getElementById('btnRender');
+
+  // ===== Initialisation =====
+
+  async function init() {
+    const params = new URLSearchParams(window.location.search);
+    const fileId = params.get('file_id');
+
+    if (!fileId) {
+      showError('URL 缺少 file_id 參數，例如：proofread.html?file_id=abc123');
+      return;
+    }
+
+    setState({ fileId });
+
+    try {
+      await Promise.all([loadTranslations(fileId), loadMedia(fileId)]);
+      hideLoading();
+      mainLayout.style.display = '';
+      renderTable();
+      updateProgress();
+    } catch (err) {
+      showError(err.message || '發生未知錯誤');
+    }
+  }
+
+  async function loadTranslations(fileId) {
+    const res = await fetch(`${API_BASE}/api/files/${encodeURIComponent(fileId)}/translations`);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `無法取得翻譯資料 (HTTP ${res.status})`);
+    }
+    const data = await res.json();
+
+    // Normalise to array with stable index
+    const raw = Array.isArray(data) ? data : (data.segments || data.translations || []);
+    const segments = raw.map((seg, i) => ({
+      idx: i,
+      start: seg.start ?? seg.start_time ?? 0,
+      end: seg.end ?? seg.end_time ?? 0,
+      en_text: seg.en_text ?? seg.original_text ?? seg.text ?? '',
+      zh_text: seg.zh_text ?? seg.translated_text ?? '',
+      approved: Boolean(seg.approved),
+    }));
+
+    setState({
+      segments,
+      fileName: data.file_name || data.fileName || '',
+    });
+
+    if (state.fileName) {
+      headerFileName.textContent = state.fileName;
+      document.title = `字幕校對 — ${state.fileName}`;
+    }
+  }
+
+  async function loadMedia(fileId) {
+    const mediaUrl = `${API_BASE}/api/files/${encodeURIComponent(fileId)}/media`;
+    videoEl.src = mediaUrl;
+
+    await new Promise((resolve, reject) => {
+      videoEl.addEventListener('loadedmetadata', resolve, { once: true });
+      videoEl.addEventListener('error', () => reject(new Error('影片載入失敗，請確認檔案存在')), { once: true });
+    });
+
+    videoPlaceholder.style.display = 'none';
+    videoEl.style.display = 'block';
+  }
+
+  function hideLoading() {
+    loadingOverlay.classList.add('hidden');
+  }
+
+  function showError(msg) {
+    loadingOverlay.classList.add('hidden');
+    errorMsg.textContent = msg;
+    errorState.style.display = 'flex';
+  }
+
+  // ===== Rendering =====
+
+  function renderTable() {
+    const rows = state.segments.map((seg) => buildRow(seg));
+    tableBody.innerHTML = rows.join('');
+    attachRowListeners();
+  }
+
+  function buildRow(seg) {
+    const approvedClass = seg.approved ? 'approved' : '';
+    const approvedIcon  = seg.approved ? '✓' : '○';
+    const activeClass   = seg.idx === state.activeIdx ? 'active' : '';
+
+    return `
+      <tr data-idx="${seg.idx}" class="${activeClass}">
+        <td>${escapeHtml(formatTime(seg.start))}</td>
+        <td class="td-en">${escapeHtml(seg.en_text)}</td>
+        <td class="td-zh">
+          <span class="zh-display" data-idx="${seg.idx}">${escapeHtml(seg.zh_text) || '<span style="color:var(--text-dim);font-style:italic;">（空白）</span>'}</span>
+        </td>
+        <td class="td-status">
+          <button
+            class="status-btn ${approvedClass}"
+            data-idx="${seg.idx}"
+            title="${seg.approved ? '已核准（點擊取消）' : '點擊核准'}"
+            aria-label="${seg.approved ? '已核准' : '未核准'}"
+          >${approvedIcon}</button>
+        </td>
+      </tr>`;
+  }
+
+  function refreshRow(segIdx) {
+    const seg = state.segments[segIdx];
+    if (!seg) return;
+
+    const tr = tableBody.querySelector(`tr[data-idx="${segIdx}"]`);
+    if (!tr) return;
+
+    // Update class
+    tr.className = seg.idx === state.activeIdx ? 'active' : '';
+
+    // Update zh cell
+    const zhCell = tr.querySelector('.td-zh');
+    if (zhCell && state.editingIdx !== segIdx) {
+      const display = escapeHtml(seg.zh_text) || '<span style="color:var(--text-dim);font-style:italic;">（空白）</span>';
+      zhCell.innerHTML = `<span class="zh-display" data-idx="${segIdx}">${display}</span>`;
+      const newSpan = zhCell.querySelector('.zh-display');
+      if (newSpan) {
+        newSpan.addEventListener('click', () => startEdit(segIdx));
+      }
+    }
+
+    // Update status button
+    const btn = tr.querySelector('.status-btn');
+    if (btn) {
+      btn.className = `status-btn ${seg.approved ? 'approved' : ''}`;
+      btn.textContent = seg.approved ? '✓' : '○';
+      btn.title = seg.approved ? '已核准（點擊取消）' : '點擊核准';
+      btn.setAttribute('aria-label', seg.approved ? '已核准' : '未核准');
+    }
+  }
+
+  function attachRowListeners() {
+    // Row click → seek video
+    tableBody.querySelectorAll('tr[data-idx]').forEach(tr => {
+      tr.addEventListener('click', (e) => {
+        // Don't handle if clicking status button or inside textarea
+        if (e.target.closest('.status-btn') || e.target.tagName === 'TEXTAREA') return;
+        // If clicking zh-display → let startEdit handle it
+        if (e.target.closest('.zh-display')) return;
+        const idx = parseInt(tr.dataset.idx, 10);
+        seekToSegment(idx);
+      });
+    });
+
+    // zh-display click → start inline edit
+    tableBody.querySelectorAll('.zh-display').forEach(span => {
+      span.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(span.dataset.idx, 10);
+        startEdit(idx);
+      });
+    });
+
+    // Status button click → toggle approve
+    tableBody.querySelectorAll('.status-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(btn.dataset.idx, 10);
+        const seg = state.segments[idx];
+        if (seg) toggleApprove(idx, !seg.approved);
+      });
+    });
+  }
+
+  // ===== Navigation =====
+
+  function seekToSegment(segIdx) {
+    const seg = state.segments[segIdx];
+    if (!seg) return;
+
+    setState({ activeIdx: segIdx });
+    highlightActiveRow(segIdx);
+
+    if (videoEl.readyState >= 1) {
+      videoEl.currentTime = seg.start;
+    }
+  }
+
+  function highlightActiveRow(segIdx) {
+    tableBody.querySelectorAll('tr.active').forEach(r => r.classList.remove('active'));
+    const tr = tableBody.querySelector(`tr[data-idx="${segIdx}"]`);
+    if (tr) {
+      tr.classList.add('active');
+      tr.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }
+
+  function navigateRows(delta) {
+    const { segments, activeIdx } = state;
+    if (!segments.length) return;
+    const current = activeIdx ?? -1;
+    const next = Math.max(0, Math.min(segments.length - 1, current + delta));
+    seekToSegment(next);
+  }
+
+  // ===== Subtitle overlay =====
+
+  videoEl.addEventListener('timeupdate', () => {
+    const t = videoEl.currentTime;
+    const active = state.segments.find(seg => t >= seg.start && t <= seg.end + 0.3);
+
+    if (active) {
+      subtitleTextEl.textContent = active.zh_text || '';
+      subtitleTextEl.classList.toggle('visible', Boolean(active.zh_text));
+
+      // Auto-highlight active row (only if not editing)
+      if (state.editingIdx === null && active.idx !== state.activeIdx) {
+        setState({ activeIdx: active.idx });
+        highlightActiveRow(active.idx);
+      }
+    } else {
+      subtitleTextEl.classList.remove('visible');
+    }
+  });
+
+  // ===== Inline editing =====
+
+  function startEdit(segIdx) {
+    if (state.editingIdx === segIdx) return;
+    if (state.editingIdx !== null) cancelEdit();
+
+    const seg = state.segments[segIdx];
+    if (!seg) return;
+
+    setState({ editingIdx: segIdx });
+
+    const tr = tableBody.querySelector(`tr[data-idx="${segIdx}"]`);
+    if (!tr) return;
+
+    const zhCell = tr.querySelector('.td-zh');
+    if (!zhCell) return;
+
+    const textarea = document.createElement('textarea');
+    textarea.className = 'zh-edit-area';
+    textarea.value = seg.zh_text;
+    textarea.rows = 3;
+    textarea.setAttribute('aria-label', '編輯中文翻譯');
+
+    zhCell.innerHTML = '';
+    zhCell.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+
+    textarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        commitEdit(segIdx, textarea.value.trim());
+      } else if (e.key === 'Escape') {
+        cancelEdit();
+      }
+    });
+
+    textarea.addEventListener('blur', () => {
+      // Small delay to allow button clicks to register first
+      setTimeout(() => {
+        if (state.editingIdx === segIdx) commitEdit(segIdx, textarea.value.trim());
+      }, 150);
+    });
+  }
+
+  function cancelEdit() {
+    const idx = state.editingIdx;
+    setState({ editingIdx: null });
+    if (idx !== null) refreshRow(idx);
+  }
+
+  async function commitEdit(segIdx, newText) {
+    if (state.editingIdx !== segIdx) return;
+    setState({ editingIdx: null });
+
+    const seg = state.segments[segIdx];
+    if (!seg) return;
+
+    const oldText = seg.zh_text;
+    if (newText === oldText) {
+      refreshRow(segIdx);
+      return;
+    }
+
+    // Optimistic update
+    updateSegment(segIdx, { zh_text: newText });
+    refreshRow(segIdx);
+    updateProgress();
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/files/${encodeURIComponent(state.fileId)}/translations/${segIdx}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ zh_text: newText }),
+        }
+      );
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `儲存失敗 (HTTP ${res.status})`);
+      }
+
+      // Auto-approve after successful edit
+      await doApprove(segIdx, true);
+      showToast('已儲存並核准', 'success', 2000);
+
+    } catch (err) {
+      // Rollback on failure
+      updateSegment(segIdx, { zh_text: oldText });
+      refreshRow(segIdx);
+      updateProgress();
+      showToast(`儲存失敗：${err.message}`, 'error');
+    }
+  }
+
+  // ===== Approve =====
+
+  async function toggleApprove(segIdx, shouldApprove) {
+    await doApprove(segIdx, shouldApprove);
+  }
+
+  async function doApprove(segIdx, approved) {
+    // Optimistic update
+    const prevApproved = state.segments[segIdx]?.approved;
+    updateSegment(segIdx, { approved });
+    refreshRow(segIdx);
+    updateProgress();
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/files/${encodeURIComponent(state.fileId)}/translations/${segIdx}/approve`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ approved }),
+        }
+      );
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `操作失敗 (HTTP ${res.status})`);
+      }
+
+    } catch (err) {
+      // Rollback
+      updateSegment(segIdx, { approved: prevApproved });
+      refreshRow(segIdx);
+      updateProgress();
+      showToast(`核准操作失敗：${err.message}`, 'error');
+    }
+  }
+
+  async function bulkApprove() {
+    const unapproved = state.segments.filter(s => !s.approved);
+    if (!unapproved.length) {
+      showToast('所有片段已核准', 'info');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `確認批核所有 ${unapproved.length} 個未核准片段？`
+    );
+    if (!confirmed) return;
+
+    btnBulkApprove.disabled = true;
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/files/${encodeURIComponent(state.fileId)}/translations/approve-all`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' } }
+      );
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `批核失敗 (HTTP ${res.status})`);
+      }
+
+      // Update local state immutably
+      const updatedSegments = state.segments.map(seg => ({ ...seg, approved: true }));
+      setState({ segments: updatedSegments });
+      renderTable();
+      updateProgress();
+      showToast('已批核所有片段', 'success');
+
+    } catch (err) {
+      showToast(`批核失敗：${err.message}`, 'error');
+    } finally {
+      btnBulkApprove.disabled = false;
+    }
+  }
+
+  // ===== Progress =====
+
+  function updateProgress() {
+    const total    = state.segments.length;
+    const approved = state.segments.filter(s => s.approved).length;
+    const pct      = total > 0 ? Math.round((approved / total) * 100) : 0;
+
+    approvedCount.textContent = approved;
+    totalCount.textContent    = total;
+    progressPct.textContent   = `${pct}%`;
+    progressFill.style.width  = `${pct}%`;
+
+    btnRender.disabled = approved < total || total === 0;
+  }
+
+  // ===== Render / Export button =====
+
+  btnRender.addEventListener('click', async () => {
+    const format = document.getElementById('renderFormat').value;
+    btnRender.disabled = true;
+    btnRender.textContent = '渲染中...';
+
+    try {
+      const resp = await fetch(`${API_BASE}/api/render`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({file_id: fileId, format: format}),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json();
+        showToast(err.error || '渲染失敗', 'error');
+        btnRender.disabled = false;
+        btnRender.textContent = '匯出燒入字幕 →';
+        return;
+      }
+
+      const data = await resp.json();
+      const renderId = data.render_id;
+      showToast('渲染已開始...', 'info');
+
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusResp = await fetch(`${API_BASE}/api/renders/${renderId}`);
+          const statusData = await statusResp.json();
+
+          if (statusData.status === 'done') {
+            clearInterval(pollInterval);
+            btnRender.textContent = '匯出燒入字幕 →';
+            btnRender.disabled = false;
+            showToast('渲染完成！', 'success');
+
+            const downloadUrl = `${API_BASE}/api/renders/${renderId}/download`;
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = statusData.output_filename || `render.${format}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          } else if (statusData.status === 'error') {
+            clearInterval(pollInterval);
+            btnRender.textContent = '匯出燒入字幕 →';
+            btnRender.disabled = false;
+            showToast(statusData.error || '渲染失敗', 'error');
+          }
+        } catch (e) {
+          clearInterval(pollInterval);
+          btnRender.textContent = '匯出燒入字幕 →';
+          btnRender.disabled = false;
+          showToast('檢查渲染狀態失敗', 'error');
+        }
+      }, 2000);
+
+    } catch (e) {
+      btnRender.disabled = false;
+      btnRender.textContent = '匯出燒入字幕 →';
+      showToast('渲染請求失敗', 'error');
+    }
+  });
+
+  btnBulkApprove.addEventListener('click', bulkApprove);
+
+  // ===== Keyboard shortcuts =====
+
+  document.addEventListener('keydown', (e) => {
+    // Skip when typing in an input or textarea
+    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+
+    switch (e.key) {
+      case ' ':
+        e.preventDefault();
+        if (videoEl.paused) videoEl.play().catch(() => {});
+        else videoEl.pause();
+        break;
+
+      case 'ArrowUp':
+        e.preventDefault();
+        navigateRows(-1);
+        break;
+
+      case 'ArrowDown':
+        e.preventDefault();
+        navigateRows(1);
+        break;
+
+      case 'Enter': {
+        e.preventDefault();
+        if (state.activeIdx !== null) {
+          const seg = state.segments[state.activeIdx];
+          if (seg) toggleApprove(state.activeIdx, !seg.approved);
+        }
+        break;
+      }
+
+      case 'e':
+      case 'E':
+        e.preventDefault();
+        if (state.activeIdx !== null) startEdit(state.activeIdx);
+        break;
+
+      case 'Escape':
+        cancelEdit();
+        break;
+
+      default:
+        break;
+    }
+  });
+
+  // ===== Bootstrap =====
+
+  init();
+</script>
+
+</body>
+</html>
