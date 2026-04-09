@@ -21,6 +21,7 @@ from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 from profiles import ProfileManager
 from glossary import GlossaryManager
+from language_config import LanguageConfigManager, DEFAULT_ASR_CONFIG, DEFAULT_TRANSLATION_CONFIG
 from renderer import SubtitleRenderer, DEFAULT_FONT_CONFIG
 
 # Try to import faster-whisper for better performance
@@ -72,6 +73,15 @@ def _init_glossary_manager(config_dir):
     """Re-initialize glossary manager (used by tests)."""
     global _glossary_manager
     _glossary_manager = GlossaryManager(config_dir)
+
+
+# Language config management
+_language_config_manager = LanguageConfigManager(CONFIG_DIR)
+
+
+def _init_language_config_manager(config_dir):
+    global _language_config_manager
+    _language_config_manager = LanguageConfigManager(config_dir)
 
 
 # In-memory file registry: file_id -> metadata dict
@@ -282,6 +292,17 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
             engine = create_asr_engine(profile["asr"])
             language = profile["asr"].get("language", "en")
             raw_segments = engine.transcribe(audio_path, language=language)
+
+            # Post-process segments with language config
+            from asr.segment_utils import split_segments
+            lang_config_id = profile["asr"].get("language_config_id", language)
+            lang_config = _language_config_manager.get(lang_config_id)
+            asr_params = lang_config["asr"] if lang_config else DEFAULT_ASR_CONFIG
+            raw_segments = split_segments(
+                raw_segments,
+                max_words=asr_params["max_words_per_segment"],
+                max_duration=asr_params["max_segment_duration"],
+            )
 
             for i, seg in enumerate(raw_segments):
                 segment = {
@@ -636,7 +657,14 @@ def api_translate_file():
             if glossary_data:
                 glossary_entries = glossary_data.get("entries", [])
 
-        translated = engine.translate(asr_segments, glossary=glossary_entries, style=style)
+        lang_config_id = profile.get("asr", {}).get("language_config_id", profile.get("asr", {}).get("language", "en"))
+        lang_config = _language_config_manager.get(lang_config_id)
+        trans_params = lang_config["translation"] if lang_config else DEFAULT_TRANSLATION_CONFIG
+        translated = engine.translate(
+            asr_segments, glossary=glossary_entries, style=style,
+            batch_size=trans_params["batch_size"],
+            temperature=trans_params["temperature"],
+        )
 
         for t in translated:
             t["status"] = "pending"
@@ -776,6 +804,37 @@ def api_export_glossary_csv(glossary_id):
         "Content-Type": "text/csv; charset=utf-8",
         "Content-Disposition": f"attachment; filename={glossary_id}.csv",
     }
+
+
+# ============================================================
+# Language Configuration API
+# ============================================================
+
+@app.route('/api/languages', methods=['GET'])
+def api_list_languages():
+    return jsonify({"languages": _language_config_manager.list_all()})
+
+
+@app.route('/api/languages/<lang_id>', methods=['GET'])
+def api_get_language(lang_id):
+    config = _language_config_manager.get(lang_id)
+    if not config:
+        return jsonify({"error": "Language config not found"}), 404
+    return jsonify({"language": config})
+
+
+@app.route('/api/languages/<lang_id>', methods=['PATCH'])
+def api_update_language(lang_id):
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request body is required"}), 400
+    try:
+        config = _language_config_manager.update(lang_id, data)
+        if not config:
+            return jsonify({"error": "Language config not found"}), 404
+        return jsonify({"language": config})
+    except ValueError as e:
+        return jsonify({"errors": e.args[0]}), 400
 
 
 # ============================================================
@@ -1014,7 +1073,14 @@ def transcribe_file():
                 for s in segments
             ]
 
-            translated = engine.translate(asr_segments, glossary=glossary_entries, style=style)
+            lang_config_id = profile.get("asr", {}).get("language_config_id", profile.get("asr", {}).get("language", "en"))
+            lang_config = _language_config_manager.get(lang_config_id)
+            trans_params = lang_config["translation"] if lang_config else DEFAULT_TRANSLATION_CONFIG
+            translated = engine.translate(
+                asr_segments, glossary=glossary_entries, style=style,
+                batch_size=trans_params["batch_size"],
+                temperature=trans_params["temperature"],
+            )
             for t in translated:
                 t["status"] = "pending"
             _update_file(fid, translations=translated, translation_status='done')
