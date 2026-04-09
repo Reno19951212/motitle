@@ -12,3 +12,4 @@ ffmpeg-python>=0.2.0
 python-socketio>=5.10.0
 gevent>=23.9.0
 gevent-websocket>=0.10.1
+pysbd>=0.3.4
