@@ -586,6 +586,14 @@
     .glossary-import-row { margin-top: 6px; }
     .glossary-import-row label { font-size: 11px; color: var(--accent); cursor: pointer; text-decoration: underline; }
 
+    /* ===== Translation Status ===== */
+    .badge-translating { background: rgba(251,191,36,0.2); color: var(--warning); }
+    .badge-translated { background: rgba(74,222,128,0.2); color: var(--success); }
+    .badge-pending-trans { background: rgba(136,136,136,0.2); color: var(--text-dim); }
+    .btn-retranslate { padding: 4px 10px; font-size: 11px; border-radius: 6px; border: 1px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; }
+    .btn-retranslate:hover { background: var(--accent); color: #fff; }
+    .btn-retranslate:disabled { opacity: 0.5; cursor: not-allowed; }
+
     /* ===== Empty state ===== */
     .empty-state {
       text-align: center;
@@ -1136,15 +1144,27 @@ function renderFileList() {
     let extraHtml = '';
     if (isDone) {
       const hasTranslations = f.translation_status === 'done';
+      const isTranslating = f.translation_status === 'translating';
       const proofreadBtn = hasTranslations
         ? `<a class="btn btn-secondary" href="proofread.html?file_id=${id}" style="background:var(--accent);color:#fff;">校對</a>`
         : '';
+
+      let transBadge = '<span class="badge badge-pending-trans">待翻譯</span>';
+      if (hasTranslations) transBadge = '<span class="badge badge-translated">翻譯完成</span>';
+      else if (isTranslating) transBadge = '<span class="badge badge-translating">翻譯中...</span>';
+
+      const retranslateBtn = hasTranslations
+        ? `<button class="btn-retranslate" onclick="event.stopPropagation(); reTranslateFile('${id}', this)">🔄 重新翻譯</button>`
+        : '';
+
       extraHtml = `
         <div class="file-card-actions">
           ${modelBadge}
+          ${transBadge}
           <a class="btn btn-secondary" href="${API_BASE}/api/files/${id}/subtitle.srt" download>SRT</a>
           <a class="btn btn-secondary" href="${API_BASE}/api/files/${id}/subtitle.vtt" download>VTT</a>
           <a class="btn btn-secondary" href="${API_BASE}/api/files/${id}/subtitle.txt" download>TXT</a>
+          ${retranslateBtn}
           ${proofreadBtn}
         </div>`;
     } else if (isBusy && fileProgress[id]) {
@@ -1760,6 +1780,33 @@ async function importGlossaryCSV(fileInput) {
     } else { showToast('匯入失敗', 'error'); }
   } catch (e) { showToast('匯入失敗', 'error'); }
   fileInput.value = '';
+}
+
+// ============================================================
+// Re-translate
+// ============================================================
+async function reTranslateFile(fileId, btnEl) {
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = '翻譯中...'; }
+  try {
+    const resp = await fetch(`${API_BASE}/api/translate`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({file_id: fileId}),
+    });
+    if (resp.ok) {
+      showToast('重新翻譯完成', 'success');
+      await fetchFileList();
+      if (activeFileId === fileId) {
+        await loadFileSegments(fileId);
+      }
+    } else {
+      const err = await resp.json();
+      showToast(err.error || '翻譯失敗', 'error');
+    }
+  } catch (e) {
+    showToast('翻譯失敗', 'error');
+  }
+  if (btnEl) { btnEl.disabled = false; btnEl.textContent = '🔄 重新翻譯'; }
 }
 
 // ============================================================
