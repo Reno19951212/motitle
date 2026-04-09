@@ -679,8 +679,38 @@
     </div>
   </div>
 
-  <!-- Right: Settings + Transcript -->
+  <!-- Right: Transcript + Settings -->
   <div style="display:flex;flex-direction:column;gap:16px;">
+
+    <!-- Transcript (right column, top) -->
+    <div class="panel">
+      <div class="panel-header" style="flex-shrink:0;">
+        📄 轉錄文字
+        <span id="segmentCount" style="margin-left:auto;font-size:12px;color:var(--text-dim);">0 段</span>
+      </div>
+      <div class="panel-body" style="padding:12px;flex:1;overflow:hidden;display:flex;flex-direction:column;">
+        <div class="transcript-list" id="transcriptList">
+          <div class="empty-state">
+            <div class="empty-icon">📝</div>
+            <div>轉錄文字將顯示在這裡</div>
+          </div>
+        </div>
+      </div>
+      <div class="export-section">
+        <button class="btn btn-secondary" onclick="exportSRT()" id="exportSrtBtn" disabled>
+          💾 SRT
+        </button>
+        <button class="btn btn-secondary" onclick="exportVTT()" id="exportVttBtn" disabled>
+          💾 VTT
+        </button>
+        <button class="btn btn-secondary" onclick="exportTXT()" id="exportTxtBtn" disabled>
+          📃 TXT
+        </button>
+        <button class="btn btn-secondary" onclick="clearTranscript()" style="margin-left:auto;">
+          🗑 清除
+        </button>
+      </div>
+    </div>
 
     <!-- Settings -->
     <div class="panel">
@@ -802,36 +832,6 @@
             </div>
           </div>
         </div>
-    </div>
-
-    <!-- Transcript (right column — sticks to viewport while left scrolls) -->
-    <div class="panel">
-      <div class="panel-header" style="flex-shrink:0;">
-        📄 轉錄文字
-        <span id="segmentCount" style="margin-left:auto;font-size:12px;color:var(--text-dim);">0 段</span>
-      </div>
-      <div class="panel-body" style="padding:12px;flex:1;overflow:hidden;display:flex;flex-direction:column;">
-        <div class="transcript-list" id="transcriptList">
-          <div class="empty-state">
-            <div class="empty-icon">📝</div>
-            <div>轉錄文字將顯示在這裡</div>
-          </div>
-        </div>
-      </div>
-      <div class="export-section">
-        <button class="btn btn-secondary" onclick="exportSRT()" id="exportSrtBtn" disabled>
-          💾 SRT
-        </button>
-        <button class="btn btn-secondary" onclick="exportVTT()" id="exportVttBtn" disabled>
-          💾 VTT
-        </button>
-        <button class="btn btn-secondary" onclick="exportTXT()" id="exportTxtBtn" disabled>
-          📃 TXT
-        </button>
-        <button class="btn btn-secondary" onclick="clearTranscript()" style="margin-left:auto;">
-          🗑 清除
-        </button>
-      </div>
     </div>
 
   </div>
@@ -1143,23 +1143,18 @@ function renderFileList() {
     let extraHtml = '';
     if (isDone) {
       const hasTranslations = f.translation_status === 'done';
-      const needsReview = f.translation_status === 'needs_review';
-      const isFailed = f.translation_status === 'failed';
       const isTranslating = f.translation_status === 'translating';
-      const canProofread = hasTranslations || needsReview;
-      const proofreadBtn = canProofread
+      const proofreadBtn = hasTranslations
         ? `<a class="btn btn-secondary" href="proofread.html?file_id=${id}" style="background:var(--accent);color:#fff;">校對</a>`
         : '';
 
       let transBadge = '<span class="badge badge-pending-trans">待翻譯</span>';
       if (hasTranslations) transBadge = '<span class="badge badge-translated">翻譯完成</span>';
-      else if (needsReview) transBadge = '<span class="badge badge-translating" style="background:var(--warning);color:#000;">需要校對</span>';
-      else if (isFailed) transBadge = '<span class="badge badge-pending-trans" style="background:var(--danger);">翻譯失敗</span>';
       else if (isTranslating) transBadge = '<span class="badge badge-translating">翻譯中...</span>';
 
       const translateBtn = isTranslating
         ? ''
-        : (hasTranslations || needsReview)
+        : hasTranslations
           ? `<button class="btn-retranslate" onclick="event.stopPropagation(); reTranslateFile('${id}', this)">🔄 重新翻譯</button>`
           : `<button class="btn-retranslate" onclick="event.stopPropagation(); reTranslateFile('${id}', this)">▶ 翻譯</button>`;
 
