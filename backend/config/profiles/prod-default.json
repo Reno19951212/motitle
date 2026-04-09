@@ -6,6 +6,7 @@
     "engine": "qwen3-asr",
     "model_size": "large",
     "language": "en",
+    "language_config_id": "en",
     "device": "cuda"
   },
   "translation": {

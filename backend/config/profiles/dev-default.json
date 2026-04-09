@@ -6,6 +6,7 @@
     "engine": "whisper",
     "model_size": "tiny",
     "language": "en",
+    "language_config_id": "en",
     "device": "auto"
   },
   "translation": {
