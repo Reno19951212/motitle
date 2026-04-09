@@ -1,0 +1,12 @@
+{
+  "id": "en",
+  "name": "English",
+  "asr": {
+    "max_words_per_segment": 40,
+    "max_segment_duration": 10.0
+  },
+  "translation": {
+    "batch_size": 10,
+    "temperature": 0.1
+  }
+}
