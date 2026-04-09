@@ -551,6 +551,29 @@
       border-radius: 20px;
     }
 
+    /* ===== Collapsible Panels ===== */
+    .collapsible-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      padding: 8px 0;
+      user-select: none;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .collapsible-header:hover { color: var(--accent2); }
+    .collapsible-header .arrow { transition: transform 0.3s; font-size: 10px; color: var(--text-dim); }
+    .collapsible-header.open .arrow { transform: rotate(90deg); }
+    .collapsible-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+    .collapsible-body.open { max-height: 600px; }
+    .collapsible-body .control-group { margin-top: 8px; }
+    .config-input { width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 13px; }
+    .config-input:focus { border-color: var(--accent); outline: none; }
+    .config-save-btn { width: 100%; padding: 6px; margin-top: 8px; border: none; border-radius: 6px; background: var(--accent); color: #fff; font-size: 12px; cursor: pointer; }
+    .config-save-btn:hover { background: var(--accent2); }
+
     /* ===== Empty state ===== */
     .empty-state {
       text-align: center;
@@ -699,6 +722,39 @@
           📦 預加載模型
         </button>
       </div>
+
+        <!-- Language Config (collapsible) -->
+        <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:4px;padding-left:12px;padding-right:12px;padding-bottom:8px;">
+          <div class="collapsible-header" onclick="toggleCollapsible(this)">
+            <span>🌐 語言配置</span>
+            <span class="arrow">▶</span>
+          </div>
+          <div class="collapsible-body">
+            <div class="control-group">
+              <label style="font-size:12px;">Language</label>
+              <select id="langSelect" class="config-input" onchange="loadLanguageConfig(this.value)">
+                <option value="">Select...</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label style="font-size:12px;">每句最大字數</label>
+              <input type="number" id="langMaxWords" class="config-input" min="5" max="200" value="40">
+            </div>
+            <div class="control-group">
+              <label style="font-size:12px;">每句最大時長 (秒)</label>
+              <input type="number" id="langMaxDuration" class="config-input" min="1" max="60" step="0.5" value="10">
+            </div>
+            <div class="control-group">
+              <label style="font-size:12px;">翻譯 Batch Size</label>
+              <input type="number" id="langBatchSize" class="config-input" min="1" max="50" value="10">
+            </div>
+            <div class="control-group">
+              <label style="font-size:12px;">翻譯 Temperature</label>
+              <input type="number" id="langTemperature" class="config-input" min="0" max="2" step="0.05" value="0.1">
+            </div>
+            <button class="config-save-btn" onclick="saveLanguageConfig()">儲存語言配置</button>
+          </div>
+        </div>
     </div>
 
     <!-- Transcript (right column — sticks to viewport while left scrolls) -->
@@ -1510,6 +1566,72 @@ async function activateProfile(profileId) {
 }
 
 // ============================================================
+// Language Config Management
+// ============================================================
+let languagesData = [];
+
+async function loadLanguages() {
+  try {
+    const resp = await fetch(`${API_BASE}/api/languages`);
+    const data = await resp.json();
+    languagesData = data.languages || [];
+    const select = document.getElementById('langSelect');
+    select.innerHTML = '<option value="">Select...</option>';
+    for (const lang of languagesData) {
+      const opt = document.createElement('option');
+      opt.value = lang.id;
+      opt.textContent = `${lang.name} (${lang.id})`;
+      select.appendChild(opt);
+    }
+    if (languagesData.length > 0) {
+      select.value = languagesData[0].id;
+      loadLanguageConfig(languagesData[0].id);
+    }
+  } catch (e) { console.warn('Failed to load languages:', e); }
+}
+
+async function loadLanguageConfig(langId) {
+  if (!langId) return;
+  try {
+    const resp = await fetch(`${API_BASE}/api/languages/${langId}`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const cfg = data.language;
+    document.getElementById('langMaxWords').value = cfg.asr.max_words_per_segment;
+    document.getElementById('langMaxDuration').value = cfg.asr.max_segment_duration;
+    document.getElementById('langBatchSize').value = cfg.translation.batch_size;
+    document.getElementById('langTemperature').value = cfg.translation.temperature;
+  } catch (e) { console.warn('Failed to load language config:', e); }
+}
+
+async function saveLanguageConfig() {
+  const langId = document.getElementById('langSelect').value;
+  if (!langId) { showToast('請先選擇語言', 'warning'); return; }
+  const data = {
+    asr: {
+      max_words_per_segment: parseInt(document.getElementById('langMaxWords').value),
+      max_segment_duration: parseFloat(document.getElementById('langMaxDuration').value),
+    },
+    translation: {
+      batch_size: parseInt(document.getElementById('langBatchSize').value),
+      temperature: parseFloat(document.getElementById('langTemperature').value),
+    },
+  };
+  try {
+    const resp = await fetch(`${API_BASE}/api/languages/${langId}`, {
+      method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data),
+    });
+    if (resp.ok) { showToast('語言配置已儲存', 'success'); }
+    else { const err = await resp.json(); showToast(err.errors ? err.errors.join(', ') : '儲存失敗', 'error'); }
+  } catch (e) { showToast('儲存失敗', 'error'); }
+}
+
+function toggleCollapsible(header) {
+  header.classList.toggle('open');
+  header.nextElementSibling.classList.toggle('open');
+}
+
+// ============================================================
 // Translation overlay — replace segment text with zh_text
 // ============================================================
 async function loadTranslationsForActiveFile(fileId) {
@@ -1695,6 +1817,7 @@ document.getElementById('modelSelect').addEventListener('change', updateModelHin
 connectSocket();
 fetchModelStatus();
 loadProfiles();
+loadLanguages();
 </script>
 </body>
 </html>
