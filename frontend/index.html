@@ -574,6 +574,18 @@
     .config-save-btn { width: 100%; padding: 6px; margin-top: 8px; border: none; border-radius: 6px; background: var(--accent); color: #fff; font-size: 12px; cursor: pointer; }
     .config-save-btn:hover { background: var(--accent2); }
 
+    /* ===== Glossary Table ===== */
+    .glossary-table { width: 100%; font-size: 12px; border-collapse: collapse; margin-top: 6px; }
+    .glossary-table th { text-align: left; padding: 4px 6px; color: var(--text-dim); border-bottom: 1px solid var(--border); font-weight: 500; }
+    .glossary-table td { padding: 4px 6px; border-bottom: 1px solid var(--border); }
+    .glossary-table .btn-del { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 14px; padding: 0 4px; }
+    .glossary-table .btn-del:hover { color: var(--error); }
+    .glossary-add-row { display: flex; gap: 4px; margin-top: 6px; }
+    .glossary-add-row input { flex: 1; }
+    .glossary-add-row button { flex-shrink: 0; padding: 4px 10px; border: none; border-radius: 4px; background: var(--accent); color: #fff; font-size: 12px; cursor: pointer; }
+    .glossary-import-row { margin-top: 6px; }
+    .glossary-import-row label { font-size: 11px; color: var(--accent); cursor: pointer; text-decoration: underline; }
+
     /* ===== Empty state ===== */
     .empty-state {
       text-align: center;
@@ -753,6 +765,34 @@
               <input type="number" id="langTemperature" class="config-input" min="0" max="2" step="0.05" value="0.1">
             </div>
             <button class="config-save-btn" onclick="saveLanguageConfig()">儲存語言配置</button>
+          </div>
+        </div>
+
+        <!-- Glossary Manager (collapsible) -->
+        <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:4px;padding-left:12px;padding-right:12px;padding-bottom:8px;">
+          <div class="collapsible-header" onclick="toggleCollapsible(this)">
+            <span>📖 術語表</span>
+            <span class="arrow">▶</span>
+          </div>
+          <div class="collapsible-body">
+            <div class="control-group">
+              <label style="font-size:12px;">Glossary</label>
+              <select id="glossarySelect" class="config-input" onchange="loadGlossaryEntries(this.value)">
+                <option value="">Select...</option>
+              </select>
+            </div>
+            <div id="glossaryEntries"></div>
+            <div class="glossary-add-row">
+              <input type="text" id="newEntryEn" class="config-input" placeholder="English term" style="font-size:11px;">
+              <input type="text" id="newEntryZh" class="config-input" placeholder="中文翻譯" style="font-size:11px;">
+              <button onclick="addGlossaryEntry()">新增</button>
+            </div>
+            <div class="glossary-import-row">
+              <label>
+                📥 匯入 CSV
+                <input type="file" accept=".csv" style="display:none;" onchange="importGlossaryCSV(this)">
+              </label>
+            </div>
           </div>
         </div>
     </div>
@@ -1632,6 +1672,97 @@ function toggleCollapsible(header) {
 }
 
 // ============================================================
+// Glossary Management
+// ============================================================
+let glossariesData = [];
+let currentGlossaryId = null;
+
+async function loadGlossaries() {
+  try {
+    const resp = await fetch(`${API_BASE}/api/glossaries`);
+    const data = await resp.json();
+    glossariesData = data.glossaries || [];
+    const select = document.getElementById('glossarySelect');
+    select.innerHTML = '<option value="">Select...</option>';
+    for (const g of glossariesData) {
+      const opt = document.createElement('option');
+      opt.value = g.id;
+      opt.textContent = `${g.name} (${g.entry_count} entries)`;
+      select.appendChild(opt);
+    }
+  } catch (e) { console.warn('Failed to load glossaries:', e); }
+}
+
+async function loadGlossaryEntries(glossaryId) {
+  currentGlossaryId = glossaryId;
+  const container = document.getElementById('glossaryEntries');
+  if (!glossaryId) { container.innerHTML = ''; return; }
+  try {
+    const resp = await fetch(`${API_BASE}/api/glossaries/${glossaryId}`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const entries = data.glossary.entries || [];
+    if (entries.length === 0) {
+      container.innerHTML = '<div style="font-size:11px;color:var(--text-dim);padding:4px;">無術語</div>';
+      return;
+    }
+    let html = '<table class="glossary-table"><thead><tr><th>EN</th><th>中文</th><th></th></tr></thead><tbody>';
+    for (const entry of entries) {
+      const eid = entry.id || '';
+      html += `<tr><td>${escapeHtml(entry.en)}</td><td>${escapeHtml(entry.zh)}</td><td><button class="btn-del" onclick="deleteGlossaryEntry('${eid}')">✕</button></td></tr>`;
+    }
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  } catch (e) { console.warn('Failed to load glossary entries:', e); }
+}
+
+async function addGlossaryEntry() {
+  if (!currentGlossaryId) { showToast('請先選擇術語表', 'warning'); return; }
+  const en = document.getElementById('newEntryEn').value.trim();
+  const zh = document.getElementById('newEntryZh').value.trim();
+  if (!en || !zh) { showToast('請填寫英文和中文', 'warning'); return; }
+  try {
+    const resp = await fetch(`${API_BASE}/api/glossaries/${currentGlossaryId}/entries`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({en, zh}),
+    });
+    if (resp.ok) {
+      document.getElementById('newEntryEn').value = '';
+      document.getElementById('newEntryZh').value = '';
+      loadGlossaryEntries(currentGlossaryId);
+      loadGlossaries();
+      showToast('術語已新增', 'success');
+    } else { showToast('新增失敗', 'error'); }
+  } catch (e) { showToast('新增失敗', 'error'); }
+}
+
+async function deleteGlossaryEntry(entryId) {
+  if (!currentGlossaryId || !entryId) return;
+  try {
+    const resp = await fetch(`${API_BASE}/api/glossaries/${currentGlossaryId}/entries/${entryId}`, {method: 'DELETE'});
+    if (resp.ok) { loadGlossaryEntries(currentGlossaryId); loadGlossaries(); showToast('術語已刪除', 'success'); }
+  } catch (e) { showToast('刪除失敗', 'error'); }
+}
+
+async function importGlossaryCSV(fileInput) {
+  if (!currentGlossaryId) { showToast('請先選擇術語表', 'warning'); return; }
+  const file = fileInput.files[0];
+  if (!file) return;
+  const text = await file.text();
+  try {
+    const resp = await fetch(`${API_BASE}/api/glossaries/${currentGlossaryId}/import`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({csv_content: text}),
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      loadGlossaryEntries(currentGlossaryId);
+      loadGlossaries();
+      showToast(`已匯入 ${data.imported || '?'} 個術語`, 'success');
+    } else { showToast('匯入失敗', 'error'); }
+  } catch (e) { showToast('匯入失敗', 'error'); }
+  fileInput.value = '';
+}
+
+// ============================================================
 // Translation overlay — replace segment text with zh_text
 // ============================================================
 async function loadTranslationsForActiveFile(fileId) {
@@ -1818,6 +1949,7 @@ connectSocket();
 fetchModelStatus();
 loadProfiles();
 loadLanguages();
+loadGlossaries();
 </script>
 </body>
 </html>
