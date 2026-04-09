@@ -20,13 +20,17 @@ BATCH_SIZE = 10
 SYSTEM_PROMPT_FORMAL = (
     "You are a professional translator. Translate the following English text "
     "into formal Traditional Chinese (繁體中文書面語). Maintain the meaning and tone. "
+    "Each numbered line is a COMPLETE sentence. Translate each into exactly one "
+    "corresponding Traditional Chinese line. Do NOT merge or split lines. "
     "Output ONLY the translations, numbered to match the input."
 )
 
 SYSTEM_PROMPT_CANTONESE = (
     "You are a professional translator. Translate the following English text "
     "into Cantonese Traditional Chinese (繁體中文粵語口語). Use natural spoken "
-    "Cantonese expressions. Output ONLY the translations, numbered to match the input."
+    "Cantonese expressions. Each numbered line is a COMPLETE sentence. Translate "
+    "each into exactly one corresponding Traditional Chinese line. Do NOT merge "
+    "or split lines. Output ONLY the translations, numbered to match the input."
 )
 
 
