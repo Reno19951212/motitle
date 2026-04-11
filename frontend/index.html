@@ -1678,6 +1678,162 @@ function toggleProfileSection(header) {
   header.nextElementSibling.classList.toggle('open');
 }
 
+function buildProfileFormHTML(profile) {
+  const asr   = profile ? (profile.asr   || {}) : {};
+  const tr    = profile ? (profile.translation || {}) : {};
+  const font  = profile ? (profile.font  || {}) : {};
+  const pid   = profile ? profile.id : '';
+
+  const glossaryOptions = glossariesData.map(g =>
+    `<option value="${escapeHtml(g.id)}" ${tr.glossary_id === g.id ? 'selected' : ''}>${escapeHtml(g.name)}</option>`
+  ).join('');
+
+  const asrModelOptions = ['tiny','base','small','medium','large'].map(m =>
+    `<option value="${m}" ${(asr.model_size || 'tiny') === m ? 'selected' : ''}>${m}</option>`
+  ).join('');
+
+  const deviceOptions = ['auto','cpu','cuda','mps'].map(d =>
+    `<option value="${d}" ${(asr.device || 'auto') === d ? 'selected' : ''}>${d}</option>`
+  ).join('');
+
+  return `
+    <div class="profile-edit-form">
+      <input type="hidden" id="pfId" value="${escapeHtml(pid)}">
+
+      <!-- 基本資訊 -->
+      <div class="profile-form-section">
+        <div class="profile-form-section-header open" onclick="toggleProfileSection(this)">
+          <span>基本資訊</span><span class="pf-arrow">▶</span>
+        </div>
+        <div class="profile-form-section-body open">
+          <div class="profile-form-row">
+            <label>名稱 *</label>
+            <input type="text" id="pfName" value="${escapeHtml(profile ? profile.name : '')}" placeholder="Profile 名稱">
+          </div>
+          <div class="profile-form-row">
+            <label>描述</label>
+            <textarea id="pfDesc" placeholder="選填描述">${escapeHtml(profile ? (profile.description || '') : '')}</textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- ASR 設定 -->
+      <div class="profile-form-section">
+        <div class="profile-form-section-header" onclick="toggleProfileSection(this)">
+          <span>ASR 設定</span><span class="pf-arrow">▶</span>
+        </div>
+        <div class="profile-form-section-body">
+          <div class="profile-form-row">
+            <label>Engine</label>
+            <select id="pfAsrEngine">
+              <option value="whisper" ${(asr.engine || 'whisper') === 'whisper' ? 'selected' : ''}>Whisper</option>
+              <option value="qwen3"   ${asr.engine === 'qwen3'   ? 'selected' : ''}>Qwen3-ASR</option>
+              <option value="flg"     ${asr.engine === 'flg'     ? 'selected' : ''}>FLG-ASR</option>
+            </select>
+          </div>
+          <div class="profile-form-row">
+            <label>Model Size</label>
+            <select id="pfAsrModel">${asrModelOptions}</select>
+          </div>
+          <div class="profile-form-row">
+            <label>Language</label>
+            <input type="text" id="pfAsrLang" value="${escapeHtml(asr.language || 'en')}" placeholder="en">
+          </div>
+          <div class="profile-form-row">
+            <label>Language Config ID</label>
+            <input type="text" id="pfAsrLangConfig" value="${escapeHtml(asr.language_config_id || 'en')}" placeholder="en">
+          </div>
+          <div class="profile-form-row">
+            <label>Device</label>
+            <select id="pfAsrDevice">${deviceOptions}</select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 翻譯設定 -->
+      <div class="profile-form-section">
+        <div class="profile-form-section-header" onclick="toggleProfileSection(this)">
+          <span>翻譯設定</span><span class="pf-arrow">▶</span>
+        </div>
+        <div class="profile-form-section-body">
+          <div class="profile-form-row">
+            <label>Engine</label>
+            <select id="pfTrEngine">
+              <option value="ollama" ${(tr.engine || 'mock') === 'ollama' ? 'selected' : ''}>Ollama</option>
+              <option value="mock"   ${(tr.engine || 'mock') === 'mock'   ? 'selected' : ''}>Mock</option>
+            </select>
+          </div>
+          <div class="profile-form-row">
+            <label>Style</label>
+            <select id="pfTrStyle">
+              <option value="formal"     ${(tr.style || 'formal') === 'formal'     ? 'selected' : ''}>Formal</option>
+              <option value="colloquial" ${tr.style === 'colloquial'               ? 'selected' : ''}>Colloquial</option>
+            </select>
+          </div>
+          <div class="profile-form-row">
+            <label>Temperature (0–1)</label>
+            <input type="number" id="pfTrTemp" value="${tr.temperature !== undefined ? tr.temperature : 0.1}" min="0" max="1" step="0.1">
+          </div>
+          <div class="profile-form-row">
+            <label>Glossary</label>
+            <select id="pfTrGlossary">
+              <option value="" ${!tr.glossary_id ? 'selected' : ''}>無</option>
+              ${glossaryOptions}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 字型設定 -->
+      <div class="profile-form-section">
+        <div class="profile-form-section-header" onclick="toggleProfileSection(this)">
+          <span>字型設定</span><span class="pf-arrow">▶</span>
+        </div>
+        <div class="profile-form-section-body">
+          <div class="profile-form-row">
+            <label>Font Family</label>
+            <input type="text" id="pfFontFamily" value="${escapeHtml(font.family || 'Noto Sans TC')}">
+          </div>
+          <div class="profile-form-row">
+            <label>Font Size (12–120)</label>
+            <input type="number" id="pfFontSize" value="${font.size !== undefined ? font.size : 48}" min="12" max="120">
+          </div>
+          <div class="profile-form-row">
+            <label>Color</label>
+            <input type="color" id="pfFontColor" value="${font.color || '#ffffff'}">
+          </div>
+          <div class="profile-form-row">
+            <label>Outline Color</label>
+            <input type="color" id="pfFontOutlineColor" value="${font.outline_color || '#000000'}">
+          </div>
+          <div class="profile-form-row">
+            <label>Outline Width (0–10)</label>
+            <input type="number" id="pfFontOutlineWidth" value="${font.outline_width !== undefined ? font.outline_width : 2}" min="0" max="10">
+          </div>
+          <div class="profile-form-row">
+            <label>Position</label>
+            <select id="pfFontPosition">
+              <option value="bottom" ${(font.position || 'bottom') === 'bottom' ? 'selected' : ''}>Bottom</option>
+              <option value="top"    ${font.position === 'top'                  ? 'selected' : ''}>Top</option>
+            </select>
+          </div>
+          <div class="profile-form-row">
+            <label>Margin Bottom (0–200)</label>
+            <input type="number" id="pfFontMargin" value="${font.margin_bottom !== undefined ? font.margin_bottom : 40}" min="0" max="200">
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="profile-form-actions">
+        <button class="btn-pf-save" id="pfSaveBtn" onclick="saveProfile()">
+          ${pid ? '儲存' : '建立'}
+        </button>
+        <button class="btn-pf-cancel" onclick="cancelProfileForm()">取消</button>
+      </div>
+    </div>`;
+}
+
 async function activateProfile(profileId) {
   if (!profileId) return;
   try {
