@@ -2127,26 +2127,33 @@ function buildProfileFormHTML(profile) {
         </div>
         <div class="profile-form-section-body">
           <div class="profile-form-row">
-            <label>Engine</label>
-            <select id="pfTrEngine">
-              <option value="ollama" ${(tr.engine || 'mock') === 'ollama' ? 'selected' : ''}>Ollama</option>
-              <option value="mock"   ${(tr.engine || 'mock') === 'mock'   ? 'selected' : ''}>Mock</option>
-            </select>
+            <label>引擎</label>
+            <div class="pf-engine-row">
+              <select id="pf-tr-engine" onchange="onTranslationEngineChange()">
+                ${translationEnginesData.length === 0
+                  ? `<option value="">-- 載入失敗 --</option>`
+                  : translationEnginesData.map(e => {
+                      const selected = (tr.engine || translationEnginesData.find(x => x.available)?.engine || translationEnginesData[0]?.engine) === e.engine ? 'selected' : '';
+                      const isCurrentEngine = (tr.engine === e.engine);
+                      const disabled = (!e.available && !isCurrentEngine) ? 'disabled' : '';
+                      return `<option value="${escapeHtml(e.engine)}" ${selected} ${disabled}>${escapeHtml(e.engine)}</option>`;
+                    }).join('')
+                }
+              </select>
+              ${(() => {
+                const selectedEngine = translationEnginesData.find(e => e.engine === (tr.engine || translationEnginesData[0]?.engine));
+                if (!selectedEngine) return '';
+                const cls = selectedEngine.available ? 'available' : 'unavailable';
+                const label = selectedEngine.available ? '可用' : '不可用';
+                return `<span id="pf-tr-avail-dot" class="pf-avail-dot ${cls}"></span><span id="pf-tr-avail-label" class="pf-avail-label">${label}</span>`;
+              })()}
+            </div>
           </div>
+          <div id="pf-tr-model-info" class="pf-model-info"></div>
+          <div id="pf-tr-params" class="pf-params-area"></div>
           <div class="profile-form-row">
-            <label>Style</label>
-            <select id="pfTrStyle">
-              <option value="formal"     ${(tr.style || 'formal') === 'formal'     ? 'selected' : ''}>Formal</option>
-              <option value="colloquial" ${tr.style === 'colloquial'               ? 'selected' : ''}>Colloquial</option>
-            </select>
-          </div>
-          <div class="profile-form-row">
-            <label>Temperature (0–1)</label>
-            <input type="number" id="pfTrTemp" value="${tr.temperature !== undefined ? tr.temperature : 0.1}" min="0" max="1" step="0.1">
-          </div>
-          <div class="profile-form-row">
-            <label>Glossary</label>
-            <select id="pfTrGlossary">
+            <label>詞彙表</label>
+            <select id="pf-tr-glossary">
               <option value="" ${!tr.glossary_id ? 'selected' : ''}>無</option>
               ${glossaryOptions}
             </select>
@@ -2217,10 +2224,8 @@ async function saveProfile() {
       language_config_id: document.getElementById('pf-asr-language_config_id').value.trim() || 'en',
     },
     translation: {
-      engine:      document.getElementById('pfTrEngine').value,
-      style:       document.getElementById('pfTrStyle').value,
-      temperature: parseFloat(document.getElementById('pfTrTemp').value),
-      glossary_id: document.getElementById('pfTrGlossary').value || null,
+      engine:      document.getElementById('pf-tr-engine').value,
+      glossary_id: document.getElementById('pf-tr-glossary').value || null,
     },
     font: {
       family:        document.getElementById('pfFontFamily').value.trim() || 'Noto Sans TC',
