@@ -78,6 +78,8 @@ ollama pull qwen2.5:3b
 - **Development** — Whisper tiny + Mock 翻譯（開發測試用）
 - **Broadcast Production** — Whisper + Qwen2.5 翻譯（正式使用）
 
+可直接喺側邊欄 Profile 管理介面**建立、編輯、刪除** Profile，或按下「＋ New Profile」按鈕建立新配置。點擊任何 Profile 列表行可立即激活該 Profile（綠點指示）。
+
 ### 2. 上傳英文影片
 
 - 拖放影片至上傳區域，或點擊選擇文件
