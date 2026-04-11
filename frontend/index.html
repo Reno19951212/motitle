@@ -1655,6 +1655,29 @@ function renderProfileList() {
   container.innerHTML = html;
 }
 
+function openEditForm(profileId) {
+  isCreating = false;
+  editingProfileId = profileId;
+  renderProfileList();
+}
+
+function openCreateForm() {
+  editingProfileId = null;
+  isCreating = true;
+  renderProfileList();
+}
+
+function cancelProfileForm() {
+  editingProfileId = null;
+  isCreating = false;
+  renderProfileList();
+}
+
+function toggleProfileSection(header) {
+  header.classList.toggle('open');
+  header.nextElementSibling.classList.toggle('open');
+}
+
 async function activateProfile(profileId) {
   if (!profileId) return;
   try {
