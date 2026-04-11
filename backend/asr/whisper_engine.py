@@ -57,7 +57,8 @@ class WhisperEngine(ASREngine):
             return self._transcribe_openai(model, audio_path, language)
 
     def _transcribe_faster(self, model, audio_path: str, language: str) -> list[Segment]:
-        max_new_tokens = self._config.get("max_new_tokens") or None  # 0 or None → None
+        raw = self._config.get("max_new_tokens")
+        max_new_tokens = None if (raw is None or raw == 0) else int(raw)
         seg_iter, _info = model.transcribe(
             audio_path,
             language=language,
