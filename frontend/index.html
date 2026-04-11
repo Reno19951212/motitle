@@ -2215,23 +2215,33 @@ async function saveProfile() {
 
   const profileId = document.getElementById('pfId').value;
 
-  // Collect dynamic ASR params from schema keys
+  // Collect dynamic ASR params from schema keys (schema-aware: handles boolean + nullable integer)
   const asrParams = {};
-  for (const paramName of Object.keys(currentAsrSchema.params || {})) {
+  for (const [paramName, schema] of Object.entries(currentAsrSchema.params || {})) {
     if (EXCLUDED_ASR_PARAMS.includes(paramName)) continue;
     const el = document.getElementById(`pf-asr-${paramName}`);
-    if (el) {
-      asrParams[paramName] = (el.type === 'number') ? Number(el.value) : el.value;
+    if (!el) continue;
+    if (schema.type === 'boolean') {
+      asrParams[paramName] = el.value === 'true';
+    } else if (schema.type === 'number' || schema.type === 'integer') {
+      asrParams[paramName] = el.value === '' ? null : Number(el.value);
+    } else {
+      asrParams[paramName] = el.value;
     }
   }
 
-  // Collect dynamic translation params from schema keys
+  // Collect dynamic translation params from schema keys (schema-aware: handles boolean + nullable integer)
   const trParams = {};
-  for (const paramName of Object.keys(currentTranslationSchema.params || {})) {
+  for (const [paramName, schema] of Object.entries(currentTranslationSchema.params || {})) {
     if (EXCLUDED_TRANSLATION_PARAMS.includes(paramName)) continue;
     const el = document.getElementById(`pf-tr-${paramName}`);
-    if (el) {
-      trParams[paramName] = (el.type === 'number') ? Number(el.value) : el.value;
+    if (!el) continue;
+    if (schema.type === 'boolean') {
+      trParams[paramName] = el.value === 'true';
+    } else if (schema.type === 'number' || schema.type === 'integer') {
+      trParams[paramName] = el.value === '' ? null : Number(el.value);
+    } else {
+      trParams[paramName] = el.value;
     }
   }
 
