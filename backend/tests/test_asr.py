@@ -154,6 +154,26 @@ def test_whisper_engine_params_schema():
     assert schema["params"]["model_size"]["default"] == "small"
 
 
+def test_whisper_engine_params_schema_includes_layer1():
+    from asr.whisper_engine import WhisperEngine
+    engine = WhisperEngine({"engine": "whisper", "model_size": "tiny"})
+    schema = engine.get_params_schema()
+    params = schema["params"]
+
+    assert "max_new_tokens" in params
+    assert params["max_new_tokens"]["type"] == "integer"
+    assert params["max_new_tokens"]["default"] is None
+    assert params["max_new_tokens"]["minimum"] == 1
+
+    assert "condition_on_previous_text" in params
+    assert params["condition_on_previous_text"]["type"] == "boolean"
+    assert params["condition_on_previous_text"]["default"] is True
+
+    assert "vad_filter" in params
+    assert params["vad_filter"]["type"] == "boolean"
+    assert params["vad_filter"]["default"] is False
+
+
 def test_qwen3_engine_params_schema():
     from asr import create_asr_engine
     engine = create_asr_engine({"engine": "qwen3-asr", "model_size": "large"})

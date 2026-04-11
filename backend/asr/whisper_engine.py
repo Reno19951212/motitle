@@ -118,5 +118,21 @@ class WhisperEngine(ASREngine):
                     "enum": ["auto", "cpu", "cuda"],
                     "default": "auto",
                 },
+                "max_new_tokens": {
+                    "type": "integer",
+                    "description": "每句字幕長度上限（Token）。留空 = 無限制。約 1 token ≈ 0.75 個英文字",
+                    "minimum": 1,
+                    "default": None,
+                },
+                "condition_on_previous_text": {
+                    "type": "boolean",
+                    "description": "用上句文本做 context（true = 更連貫；false = 每句獨立更短）",
+                    "default": True,
+                },
+                "vad_filter": {
+                    "type": "boolean",
+                    "description": "語音活動偵測 — 在靜音位置自動切割 segment",
+                    "default": False,
+                },
             },
         }
