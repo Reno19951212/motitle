@@ -58,7 +58,12 @@ class WhisperEngine(ASREngine):
 
     def _transcribe_faster(self, model, audio_path: str, language: str) -> list[Segment]:
         raw = self._config.get("max_new_tokens")
-        max_new_tokens = None if (raw is None or raw == 0) else int(raw)
+        try:
+            if isinstance(raw, bool):
+                raise TypeError  # bool is int subclass; reject as invalid token count
+            max_new_tokens = None if (raw is None or int(raw) == 0) else int(raw)
+        except (ValueError, TypeError):
+            max_new_tokens = None  # Treat invalid or non-integer values as unlimited
         seg_iter, _info = model.transcribe(
             audio_path,
             language=language,
