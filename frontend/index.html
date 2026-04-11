@@ -753,14 +753,10 @@
       <div class="controls">
 
         <div class="control-group">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <label>Pipeline Profile</label>
-            <span class="range-value" id="activeProfileName" style="font-size:12px;">—</span>
+          <label>Pipeline Profile</label>
+          <div id="profileList" class="profile-list">
+            <div style="color:var(--text-dim);font-size:12px;padding:4px 0;">載入中...</div>
           </div>
-          <select id="profileSelect" onchange="activateProfile(this.value)">
-            <option value="">Select profile...</option>
-          </select>
-          <div id="profileInfo" style="font-size:11px;margin-top:4px;color:var(--text-dim);"></div>
         </div>
 
         <div class="control-group">
