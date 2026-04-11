@@ -2062,14 +2062,6 @@ function buildProfileFormHTML(profile) {
     `<option value="${escapeHtml(g.id)}" ${tr.glossary_id === g.id ? 'selected' : ''}>${escapeHtml(g.name)}</option>`
   ).join('');
 
-  const asrModelOptions = ['tiny','base','small','medium','large'].map(m =>
-    `<option value="${m}" ${(asr.model_size || 'tiny') === m ? 'selected' : ''}>${m}</option>`
-  ).join('');
-
-  const deviceOptions = ['auto','cpu','cuda','mps'].map(d =>
-    `<option value="${d}" ${(asr.device || 'auto') === d ? 'selected' : ''}>${d}</option>`
-  ).join('');
-
   return `
     <div class="profile-edit-form">
       <input type="hidden" id="pfId" value="${escapeHtml(pid)}">
@@ -2098,28 +2090,32 @@ function buildProfileFormHTML(profile) {
         </div>
         <div class="profile-form-section-body">
           <div class="profile-form-row">
-            <label>Engine</label>
-            <select id="pfAsrEngine">
-              <option value="whisper" ${(asr.engine || 'whisper') === 'whisper' ? 'selected' : ''}>Whisper</option>
-              <option value="qwen3"   ${asr.engine === 'qwen3'   ? 'selected' : ''}>Qwen3-ASR</option>
-              <option value="flg"     ${asr.engine === 'flg'     ? 'selected' : ''}>FLG-ASR</option>
-            </select>
+            <label>引擎</label>
+            <div class="pf-engine-row">
+              <select id="pf-asr-engine" onchange="onAsrEngineChange()">
+                ${asrEnginesData.length === 0
+                  ? `<option value="">-- 載入失敗 --</option>`
+                  : asrEnginesData.map(e => {
+                      const selected = (asr.engine || asrEnginesData.find(x => x.available)?.engine || asrEnginesData[0]?.engine) === e.engine ? 'selected' : '';
+                      const isCurrentEngine = (asr.engine === e.engine);
+                      const disabled = (!e.available && !isCurrentEngine) ? 'disabled' : '';
+                      return `<option value="${escapeHtml(e.engine)}" ${selected} ${disabled}>${escapeHtml(e.engine)}</option>`;
+                    }).join('')
+                }
+              </select>
+              ${(() => {
+                const selectedEngine = asrEnginesData.find(e => e.engine === (asr.engine || asrEnginesData[0]?.engine));
+                if (!selectedEngine) return '';
+                const cls = selectedEngine.available ? 'available' : 'unavailable';
+                const label = selectedEngine.available ? '可用' : '不可用';
+                return `<span id="pf-asr-avail-dot" class="pf-avail-dot ${cls}"></span><span id="pf-asr-avail-label" class="pf-avail-label">${label}</span>`;
+              })()}
+            </div>
           </div>
+          <div id="pf-asr-params" class="pf-params-area"></div>
           <div class="profile-form-row">
-            <label>Model Size</label>
-            <select id="pfAsrModel">${asrModelOptions}</select>
-          </div>
-          <div class="profile-form-row">
-            <label>Language</label>
-            <input type="text" id="pfAsrLang" value="${escapeHtml(asr.language || 'en')}" placeholder="en">
-          </div>
-          <div class="profile-form-row">
-            <label>Language Config ID</label>
-            <input type="text" id="pfAsrLangConfig" value="${escapeHtml(asr.language_config_id || 'en')}" placeholder="en">
-          </div>
-          <div class="profile-form-row">
-            <label>Device</label>
-            <select id="pfAsrDevice">${deviceOptions}</select>
+            <label title="Language config ID for ASR segmentation params">Language Config ID</label>
+            <input type="text" id="pf-asr-language_config_id" value="${escapeHtml(asr.language_config_id || 'en')}" placeholder="en">
           </div>
         </div>
       </div>
@@ -2217,11 +2213,8 @@ async function saveProfile() {
     name,
     description: document.getElementById('pfDesc').value.trim(),
     asr: {
-      engine:             document.getElementById('pfAsrEngine').value,
-      model_size:         document.getElementById('pfAsrModel').value,
-      language:           document.getElementById('pfAsrLang').value.trim() || 'en',
-      language_config_id: document.getElementById('pfAsrLangConfig').value.trim() || 'en',
-      device:             document.getElementById('pfAsrDevice').value,
+      engine:             document.getElementById('pf-asr-engine').value,
+      language_config_id: document.getElementById('pf-asr-language_config_id').value.trim() || 'en',
     },
     translation: {
       engine:      document.getElementById('pfTrEngine').value,
