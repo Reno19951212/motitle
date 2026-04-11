@@ -1,7 +1,49 @@
-# CLAUDE.md — Broadcast Subtitle Pipeline
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 This file is the authoritative development reference for Claude Code.
 **Update this file whenever a new feature is completed.**
+
+---
+
+## Development Commands
+
+### Setup
+```bash
+./setup.sh                          # First-time: creates backend/venv, installs deps
+```
+
+### Running the backend
+```bash
+# Via start.sh (recommended — activates venv + opens browser)
+./start.sh
+
+# Manually (from backend/)
+source venv/bin/activate
+python app.py                       # Runs on http://localhost:5001
+```
+
+### Running tests
+```bash
+cd backend
+source venv/bin/activate
+
+pytest tests/                       # Run all tests
+pytest tests/test_asr.py            # Run a single test file
+pytest tests/test_asr.py::test_whisper_engine_get_info   # Run a single test
+pytest tests/ -k "not api_"         # Skip Flask-dependent API tests
+```
+
+> Note: API-level tests (`test_api_*`) require `flask` in the active venv. Unit tests run without it.
+
+### curl smoke tests
+```bash
+curl http://localhost:5001/api/health
+curl http://localhost:5001/api/asr/engines
+curl http://localhost:5001/api/asr/engines/whisper/params
+curl http://localhost:5001/api/translation/engines/mock/models
+```
 
 ---
 
@@ -44,7 +86,7 @@ whisper-subtitle-ai/
 │   │   ├── profiles/           # Profile JSON files
 │   │   ├── glossaries/         # Glossary JSON files
 │   │   └── languages/          # Per-language config (en.json, zh.json)
-│   ├── tests/                  # Test suite (145 tests)
+│   ├── tests/                  # Test suite (157 tests)
 │   ├── data/                   # Runtime: uploads, registry, renders (gitignored)
 │   └── requirements.txt        # Python dependencies
 ├── frontend/
@@ -145,8 +187,11 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | DELETE | `/api/profiles/<id>` | Delete profile |
 | POST | `/api/profiles/<id>/activate` | Set active profile |
 | GET | `/api/asr/engines` | List ASR engines with availability |
+| GET | `/api/asr/engines/<name>/params` | Get param schema for ASR engine |
 | POST | `/api/translate` | Translate a file's segments |
 | GET | `/api/translation/engines` | List translation engines with availability |
+| GET | `/api/translation/engines/<name>/params` | Get param schema for translation engine |
+| GET | `/api/translation/engines/<name>/models` | List available models for translation engine |
 | GET | `/api/glossaries` | List all glossaries |
 | POST | `/api/glossaries` | Create glossary |
 | GET | `/api/glossaries/<id>` | Get glossary with entries |
@@ -191,7 +236,8 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 - ASR 同 Translation 引擎完全解耦，透過 ABC + Factory 模式
 - 新增引擎只需：實現 ABC 介面 + 加入 Factory mapping + 加入 tests
 - 引擎選擇可由前端即時傳入，Profile 作為「快速預設」而非硬性綁定
-- 每個引擎必須實現 `get_info()` 返回引擎元數據及可用性
+- **ASREngine** 必須實現：`transcribe()`, `get_info()`, `get_params_schema()`
+- **TranslationEngine** 必須實現：`translate()`, `get_info()`, `get_params_schema()`, `get_models()`
 
 ### Verification Gates
 
@@ -220,6 +266,7 @@ Whenever a new feature is completed or existing functionality is modified, you *
 - **引擎參數 API**: 每個引擎提供 param schema + 可用模型列表
 - **前端引擎選擇器**: 動態參數面板、可用性即時偵測
 - **Profile 增強**: 從固定綁定改為快速預設 + 自由組合
+- **Profile CRUD UI**: 側邊欄 Profile 管理介面 — 建立、編輯、刪除 Profile，15 個欄位分 4 個折疊區塊（基本資訊/ASR/翻譯/字型），active Profile 刪除保護
 
 ### v2.1 — Language Config, Frontend UI, Bug Fixes
 - **Language config system**: Per-language ASR params (max_words_per_segment, max_segment_duration) and translation params (batch_size, temperature) with validation
@@ -230,7 +277,7 @@ Whenever a new feature is completed or existing functionality is modified, you *
 - **Re-translate button**: Manually trigger translation for any file (待翻譯 shows "▶ 翻譯", 翻譯完成 shows "🔄 重新翻譯")
 - **Bug fixes**: Glossary entries display (API format mismatch), drag-drop upload, validation error toast, CSV import count, translation_status lifecycle
 - **Sentence-aware pipeline (experimental, not active)**: merge_to_sentences → translate → redistribute_to_segments with pySBD. Kept in codebase for future iteration.
-- **145 automated tests** (+36 new: language config, segment utils, sentence pipeline)
+- **157 automated tests** (+36 new: language config, segment utils, sentence pipeline)
 
 ### v2.0 — Broadcast Subtitle Pipeline
 - **Complete pipeline rewrite**: English video → ASR → Translation → Proof-reading → Burnt-in subtitle output
