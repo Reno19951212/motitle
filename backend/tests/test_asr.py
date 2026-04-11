@@ -250,7 +250,6 @@ def test_whisper_faster_passes_layer1_params():
         "vad_filter": True,
     })
 
-    MockSeg = namedtuple("MockSeg", ["start", "end", "text", "words"])
     MockInfo = namedtuple("MockInfo", ["language"])
     mock_model = MagicMock()
     mock_model.transcribe.return_value = (iter([]), MockInfo(language="en"))
@@ -269,15 +268,19 @@ def test_whisper_faster_passes_layer1_params():
 
 
 def test_whisper_faster_null_and_zero_max_tokens_become_none():
-    """max_new_tokens of None or 0 both map to None (unlimited)."""
+    """max_new_tokens of None, 0, or absent all map to None (unlimited)."""
     from asr.whisper_engine import WhisperEngine
 
     MockInfo = namedtuple("MockInfo", ["language"])
 
-    for val in (None, 0):
-        engine = WhisperEngine({
-            "engine": "whisper", "model_size": "tiny", "max_new_tokens": val,
-        })
+    _MISSING = object()  # sentinel for "key absent from config"
+
+    for val in (None, 0, _MISSING):
+        config = {"engine": "whisper", "model_size": "tiny"}
+        if val is not _MISSING:
+            config["max_new_tokens"] = val
+
+        engine = WhisperEngine(config)
         mock_model = MagicMock()
         mock_model.transcribe.return_value = (iter([]), MockInfo(language="en"))
 
@@ -285,7 +288,8 @@ def test_whisper_faster_null_and_zero_max_tokens_become_none():
             engine.transcribe("/tmp/test.wav", language="en")
 
         call_kwargs = mock_model.transcribe.call_args.kwargs
-        assert call_kwargs["max_new_tokens"] is None, f"Expected None for val={val}"
+        label = f"val={val!r}"
+        assert call_kwargs["max_new_tokens"] is None, f"Expected None for {label}"
 
 
 def test_whisper_openai_passes_condition_on_previous_text():
