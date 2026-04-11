@@ -292,6 +292,24 @@ def test_whisper_faster_null_and_zero_max_tokens_become_none():
         assert call_kwargs["max_new_tokens"] is None, f"Expected None for {label}"
 
 
+def test_whisper_faster_invalid_max_new_tokens_falls_back_to_none():
+    """Non-integer max_new_tokens (e.g. from manually-edited profile JSON) falls back to None."""
+    from asr.whisper_engine import WhisperEngine
+
+    MockInfo = namedtuple("MockInfo", ["language"])
+
+    for bad_val in ("abc", "2.5", True):
+        engine = WhisperEngine({"engine": "whisper", "model_size": "tiny", "max_new_tokens": bad_val})
+        mock_model = MagicMock()
+        mock_model.transcribe.return_value = (iter([]), MockInfo(language="en"))
+
+        with patch.object(engine, '_get_model', return_value=(mock_model, 'faster')):
+            engine.transcribe("/tmp/test.wav", language="en")
+
+        call_kwargs = mock_model.transcribe.call_args.kwargs
+        assert call_kwargs["max_new_tokens"] is None, f"Expected None for bad_val={bad_val!r}"
+
+
 def test_whisper_openai_passes_condition_on_previous_text():
     """openai-whisper path passes condition_on_previous_text; ignores the others."""
     from asr.whisper_engine import WhisperEngine
