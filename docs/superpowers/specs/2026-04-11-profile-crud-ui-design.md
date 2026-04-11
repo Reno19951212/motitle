@@ -44,11 +44,12 @@ The existing Profile panel (collapsible sidebar section) is extended into a full
 
 ### Behaviour Rules
 
-- Only one profile can have its edit form expanded at a time. Opening another collapses the current one.
-- Clicking **[+ New Profile]** inserts a blank expanded card at the top of the list.
+- Only one profile can have its edit form expanded at a time. Opening a new form (edit or create) **cancels** the currently open form first.
+- Clicking **[+ New Profile]** cancels any open edit form and inserts a blank expanded card at the top of the list.
 - The active profile's **[Del]** button is disabled with a tooltip: "請先切換至其他 Profile".
 - Delete triggers `confirm('確定刪除 Profile「{name}」？')` before calling the API.
 - Profile activation (click on profile name row) is unchanged from current behaviour.
+- Creating a new profile does **not** auto-activate it.
 
 ---
 
@@ -61,22 +62,58 @@ The existing Profile panel (collapsible sidebar section) is extended into a full
 | Page load | `GET /api/profiles` + `GET /api/profiles/active` |
 | Click Edit | Fill form from local list data (no extra fetch) |
 | Save (create) | `POST /api/profiles { name, description, asr, translation, font }` |
-| Save (update) | `PATCH /api/profiles/<id> { ...changed fields }` |
+| Save (update) | `PATCH /api/profiles/<id> { name, description, asr, translation, font }` — always send complete nested blocks |
 | Delete (confirmed) | `DELETE /api/profiles/<id>` |
 | After any mutation | Re-fetch `GET /api/profiles` to refresh list |
 
+> **PATCH note:** The backend performs a shallow (top-level) merge. Sending only a partial `asr` block (e.g. `{ engine: "qwen3" }`) would replace the entire `asr` object, losing other fields. Always send the full `asr`, `translation`, and `font` blocks.
+
 ### JS State Variables
 
+Extend the existing variables — do not introduce new conflicting names:
+
 ```js
-let profiles = []           // full profiles list
-let activeProfileId = null  // currently active profile id
-let editingProfileId = null // profile id whose form is expanded (null = none)
-let isCreating = false      // true when [+ New Profile] form is open
+// existing (reuse)
+let profilesData = []        // full profiles list (already declared in index.html)
+let glossariesData = []      // reuse for Glossary select in translation form
+
+// new additions
+let activeProfileId = null   // currently active profile id
+let editingProfileId = null  // profile id whose form is expanded (null = none)
+let isCreating = false       // true when [+ New Profile] form is open
 ```
 
 ### Update Strategy
 
-Re-fetch the full profile list after every successful mutation. No optimistic local updates. Buttons show loading state during API calls to prevent duplicate submissions.
+- Re-fetch the full profile list after every successful mutation. No optimistic local updates.
+- Buttons show loading state during API calls to prevent duplicate submissions.
+- **Creating a new profile does NOT auto-activate it.** The user activates manually by clicking the profile row.
+- **Glossary data** for the translation form is read from the existing `glossariesData` array (populated by the existing `loadGlossaries()` call at page load). No additional fetch needed.
+
+### Form Open / Close Rules
+
+Before opening any edit or create form, cancel the currently open form first:
+
+```
+openEditForm(profileId):
+  isCreating = false
+  editingProfileId = profileId
+  re-render list
+
+openCreateForm():
+  editingProfileId = null
+  isCreating = true
+  re-render list
+
+cancel():
+  editingProfileId = null
+  isCreating = false
+  re-render list
+```
+
+### DOM Migration
+
+The existing `<select id="profileSelect" onchange="activateProfile(this.value)">` and its surrounding HTML must be **fully replaced** with the new profile list. The `activateProfile()` function is retained and wired to click on each profile row.
 
 ---
 
