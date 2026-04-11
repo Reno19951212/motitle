@@ -2715,9 +2715,8 @@ document.getElementById('modelSelect').addEventListener('change', updateModelHin
 // ============================================================
 connectSocket();
 fetchModelStatus();
-loadProfiles();
-loadAsrEngines();
-loadTranslationEngines();
+Promise.all([loadAsrEngines(), loadTranslationEngines()])
+  .then(() => loadProfiles());
 loadLanguages();
 loadGlossaries();
 updateFontSize(document.getElementById('subtitleFontSize').value);
