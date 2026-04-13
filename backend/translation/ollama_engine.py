@@ -87,21 +87,16 @@ class OllamaTranslationEngine(TranslationEngine):
         return self._parse_response(response_text, segments)
 
     def _build_system_prompt(self, style: str, glossary: List[dict]) -> str:
-        if style == "cantonese":
-            prompt = SYSTEM_PROMPT_CANTONESE
-        else:
-            prompt = SYSTEM_PROMPT_FORMAL
-
-        if glossary:
-            terms = "\n".join(
-                f'- "{entry["en"]}" → "{entry["zh"]}"' for entry in glossary
-            )
-            prompt += (
-                f"\n\nIMPORTANT — Use these specific translations for "
-                f"the following terms:\n{terms}"
-            )
-
-        return prompt
+        base = SYSTEM_PROMPT_CANTONESE if style == "cantonese" else SYSTEM_PROMPT_FORMAL
+        if not glossary:
+            return base
+        terms = "\n".join(
+            f'- "{entry["en"]}" → "{entry["zh"]}"' for entry in glossary
+        )
+        return base + (
+            f"\n\nIMPORTANT — Use these specific translations for "
+            f"the following terms:\n{terms}"
+        )
 
     def _build_user_message(self, segments: List[dict]) -> str:
         lines = []
