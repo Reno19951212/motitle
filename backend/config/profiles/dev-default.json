@@ -3,22 +3,23 @@
   "name": "Development",
   "description": "Lightweight models for development and testing on MacBook (16GB RAM)",
   "asr": {
-    "engine": "whisper",
-    "model_size": "tiny",
-    "language": "en",
+    "engine": "mlx-whisper",
     "language_config_id": "en",
-    "device": "auto"
+    "condition_on_previous_text": true,
+    "language": "en",
+    "model_size": "medium"
   },
   "translation": {
-    "engine": "mock",
+    "engine": "qwen2.5-3b",
+    "glossary_id": null,
+    "batch_size": 5,
     "style": "formal",
-    "temperature": 0.1,
-    "glossary_id": null
+    "temperature": 0.1
   },
   "font": {
     "family": "Noto Sans TC",
     "size": 48,
-    "color": "#FFFFFF",
+    "color": "#ffffff",
     "outline_color": "#000000",
     "outline_width": 2,
     "position": "bottom",

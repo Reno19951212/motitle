@@ -1200,8 +1200,13 @@ function renderFileList() {
     // Model info
     let modelBadge = '';
     if (f.model) {
-      const bk = f.backend === 'faster-whisper' ? 'faster' : 'openai';
-      modelBadge = `<span class="delay-badge" style="margin-left:0;">${f.model} · ${bk}</span>`;
+      const bkLabel = f.backend || '';
+      const bkSuffix = bkLabel ? ` · ${bkLabel}` : '';
+      modelBadge = `<span class="delay-badge" style="margin-left:0;">${f.model}${bkSuffix}</span>`;
+    }
+    let transEngineBadge = '';
+    if (f.translation_engine) {
+      transEngineBadge = `<span class="delay-badge" style="margin-left:0;">${f.translation_engine}</span>`;
     }
 
     let extraHtml = '';
@@ -1225,6 +1230,7 @@ function renderFileList() {
       extraHtml = `
         <div class="file-card-actions">
           ${modelBadge}
+          ${transEngineBadge}
           ${transBadge}
           <a class="btn btn-secondary" href="${API_BASE}/api/files/${id}/subtitle.srt" download>SRT</a>
           <a class="btn btn-secondary" href="${API_BASE}/api/files/${id}/subtitle.vtt" download>VTT</a>
