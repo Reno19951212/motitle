@@ -396,7 +396,7 @@ def test_system_prompt_formal_has_rthk_context():
     from translation.ollama_engine import OllamaTranslationEngine
     engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
     prompt = engine._build_system_prompt(style="formal", glossary=[])
-    assert "繁體中文書面語" in prompt  # existing test still passes
+    assert "RTHK" in prompt
 
 
 def test_system_prompt_cantonese_forbids_simplified():
