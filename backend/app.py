@@ -562,7 +562,8 @@ def api_list_asr_engines():
     from asr import create_asr_engine
     engines_info = []
     for engine_name, desc in [
-        ("whisper", "OpenAI Whisper (local)"),
+        ("whisper", "Whisper (faster-whisper, CPU)"),
+        ("mlx-whisper", "MLX Whisper (Metal GPU, Apple Silicon)"),
         ("qwen3-asr", "Qwen3-ASR (stub — production only)"),
         ("flg-asr", "FLG-ASR (stub — production only)"),
     ]:

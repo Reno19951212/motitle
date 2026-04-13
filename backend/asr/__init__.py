@@ -29,6 +29,9 @@ def create_asr_engine(asr_config: dict) -> ASREngine:
     if engine_name == "whisper":
         from .whisper_engine import WhisperEngine
         return WhisperEngine(asr_config)
+    elif engine_name == "mlx-whisper":
+        from .mlx_whisper_engine import MlxWhisperEngine
+        return MlxWhisperEngine(asr_config)
     elif engine_name == "qwen3-asr":
         from .qwen3_engine import Qwen3ASREngine
         return Qwen3ASREngine(asr_config)
