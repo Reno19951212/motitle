@@ -75,9 +75,10 @@ class TranslationPostProcessor:
 
     def _mark_bad_segments(self, results: List[dict], bad_indices: List[int]) -> List[dict]:
         """Prepend [NEEDS REVIEW] to segments flagged by validate_batch."""
-        new_results = list(results)
-        for idx in bad_indices:
-            zh = new_results[idx].get('zh_text', '')
-            if not zh.startswith('[NEEDS REVIEW]'):
-                new_results[idx] = {**new_results[idx], 'zh_text': f'[NEEDS REVIEW] {zh}'}
-        return new_results
+        bad_set = set(bad_indices)
+        return [
+            {**r, 'zh_text': f'[NEEDS REVIEW] {r.get("zh_text", "")}'}
+            if i in bad_set and not r.get('zh_text', '').startswith('[NEEDS REVIEW]')
+            else r
+            for i, r in enumerate(results)
+        ]
