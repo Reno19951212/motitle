@@ -56,8 +56,11 @@ class OllamaTranslationEngine(TranslationEngine):
         self._model = ENGINE_TO_MODEL.get(self._engine_name, "qwen2.5:3b")
         self._temperature = config.get("temperature", 0.1)
         self._base_url = config.get("ollama_url", "http://localhost:11434")
-        raw_window = config.get("context_window", 3)
-        self._context_window = max(0, min(10, int(raw_window)))
+        try:
+            raw_window = int(config.get("context_window", 3))
+        except (ValueError, TypeError):
+            raw_window = 3
+        self._context_window = max(0, min(10, raw_window))
 
     def translate(
         self,

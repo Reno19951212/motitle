@@ -172,3 +172,25 @@ def test_process_clean_input_unchanged():
     processed = processor.process(results)
     assert processed[0]["zh_text"] == "各位晚上好。"
     assert processed[1]["zh_text"] == "歡迎收看。"
+
+
+def test_validate_batch_not_double_flagged_after_long_prefix():
+    """validate_batch should not flag a segment solely because [LONG] prefix inflates its length."""
+    from translation.post_processor import validate_batch
+    # zh_text has [LONG] prefix already applied (26-char original → 33 chars with prefix)
+    # Should NOT trigger the too-long check — the original text is only moderately over limit
+    zh_26_chars = "一二三四五六七八九十一二三四五六七八九十一二三四五六"  # 26 chars
+    results = [{"en_text": "x" * 20, "zh_text": f"[LONG] {zh_26_chars}"}]
+    bad = validate_batch(results)
+    assert bad == [], f"Expected no bad indices, got {bad} (double-flagging bug)"
+
+
+def test_validate_batch_prefix_stripped_for_hallucination_check():
+    """Hallucination check should not count [LONG] prefix chars against zh length."""
+    from translation.post_processor import validate_batch
+    # Short en_text (2 chars), zh is 6 chars after stripping [LONG] prefix (8 chars)
+    # Without stripping: 15 chars "[LONG] 六個字。" > 2*3=6 → flagged as hallucination
+    # With stripping: 6 chars "六個字。" is not > 2*3=6 → not flagged
+    results = [{"en_text": "Hi", "zh_text": "[LONG] 六個字。"}]
+    bad = validate_batch(results)
+    assert bad == [], f"Expected no bad indices, got {bad} ([LONG] prefix inflated hallucination check)"

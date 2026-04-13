@@ -33,10 +33,13 @@ def validate_batch(results: List[dict]) -> List[int]:
             if i not in bad_indices:
                 bad_indices.append(i)
             continue
-        if len(zh) > 32:
+        # Strip [LONG] prefix before length/hallucination checks so that
+        # _flag_long_segments output does not inflate the measured length.
+        zh_raw = zh.removeprefix("[LONG] ")
+        if len(zh_raw) > 32:
             if i not in bad_indices:
                 bad_indices.append(i)
-        if len(en) > 0 and len(zh) > len(en) * 3:
+        if len(en) > 0 and len(zh_raw) > len(en) * 3:
             if i not in bad_indices:
                 bad_indices.append(i)
 
