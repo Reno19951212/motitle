@@ -67,4 +67,17 @@ class TranslationPostProcessor:
         ]
 
     def process(self, results: List[dict]) -> List[dict]:
-        raise NotImplementedError
+        """Run all post-processing steps in order."""
+        results = self._convert_to_traditional(results)
+        results = self._flag_long_segments(results)
+        bad_indices = validate_batch(results)
+        return self._mark_bad_segments(results, bad_indices)
+
+    def _mark_bad_segments(self, results: List[dict], bad_indices: List[int]) -> List[dict]:
+        """Prepend [NEEDS REVIEW] to segments flagged by validate_batch."""
+        new_results = list(results)
+        for idx in bad_indices:
+            zh = new_results[idx].get('zh_text', '')
+            if not zh.startswith('[NEEDS REVIEW]'):
+                new_results[idx] = {**new_results[idx], 'zh_text': f'[NEEDS REVIEW] {zh}'}
+        return new_results
