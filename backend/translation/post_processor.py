@@ -53,7 +53,7 @@ class TranslationPostProcessor:
     def _convert_to_traditional(self, results: List[dict]) -> List[dict]:
         """Convert any simplified Chinese characters to Traditional Chinese."""
         return [
-            {**r, 'zh_text': self._converter.convert(r['zh_text'])}
+            {**r, 'zh_text': self._converter.convert(r.get('zh_text', ''))}
             for r in results
         ]
 
