@@ -629,4 +629,36 @@ def test_retry_failure_keeps_missing_flagged():
         result = engine.translate(SAMPLE_SEGMENTS)
     # PostProcessor's validate_batch turns [TRANSLATION MISSING] → [NEEDS REVIEW]
     assert "[NEEDS REVIEW]" in result[1]["zh_text"]
-    assert "[TRANSLATION MISSING]" in result[1]["zh_text"]
+
+
+def test_retry_splice_multiple_missing():
+    """Retry correctly splices results back when multiple segments in one batch
+    are missing — verifies the iter/next splice logic for indices [0, 2] in a
+    3-segment batch."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    three_segs = [
+        {"start": 0.0, "end": 1.0, "text": "Good evening everyone."},
+        {"start": 1.0, "end": 2.0, "text": "Welcome to the news."},
+        {"start": 2.0, "end": 3.0, "text": "Tonight's top story."},
+    ]
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+    # Segments 0 and 2 are missing, segment 1 is fine
+    batch_with_two_missing = [
+        _make_seg(0.0, 1.0, "Good evening everyone.", "[TRANSLATION MISSING] Good evening everyone."),
+        _make_seg(1.0, 2.0, "Welcome to the news.", "歡迎收看新聞。"),
+        _make_seg(2.0, 3.0, "Tonight's top story.", "[TRANSLATION MISSING] Tonight's top story."),
+    ]
+    retry_results = [
+        _make_seg(0.0, 1.0, "Good evening everyone.", "各位晚上好。"),
+        _make_seg(2.0, 3.0, "Tonight's top story.", "今晚頭條新聞。"),
+    ]
+    with _patch.object(engine, "_translate_batch", return_value=batch_with_two_missing), \
+         _patch.object(engine, "_retry_missing", return_value=retry_results):
+        result = engine.translate(three_segs)
+    # Segment 1 (never missing) is unchanged
+    assert "歡迎收看新聞" in result[1]["zh_text"]
+    # Segments 0 and 2 got retried successfully
+    assert "[TRANSLATION MISSING]" not in result[0]["zh_text"]
+    assert "[TRANSLATION MISSING]" not in result[2]["zh_text"]
+    assert "各位晚上好" in result[0]["zh_text"]
+    assert "今晚頭條新聞" in result[2]["zh_text"]
