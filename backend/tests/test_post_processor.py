@@ -86,3 +86,41 @@ def test_opencc_preserves_other_fields():
     assert processed[0]["start"] == 1.5
     assert processed[0]["end"] == 3.0
     assert processed[0]["en_text"] == "test"
+
+
+def test_length_flag_applied_when_over_limit():
+    from translation.post_processor import TranslationPostProcessor
+    processor = TranslationPostProcessor(max_chars=16)
+    long_text = "政府宣布將於下月推出一系列新的經濟振興措施"  # 21 chars
+    results = [{"start": 0.0, "end": 1.0, "en_text": "test", "zh_text": long_text}]
+    processed = processor._flag_long_segments(results)
+    assert processed[0]["zh_text"].startswith("[LONG] ")
+    assert long_text in processed[0]["zh_text"]
+
+
+def test_length_flag_not_applied_when_within_limit():
+    from translation.post_processor import TranslationPostProcessor
+    processor = TranslationPostProcessor(max_chars=16)
+    short_text = "颱風正逼近香港。"  # 8 chars
+    results = [{"start": 0.0, "end": 1.0, "en_text": "test", "zh_text": short_text}]
+    processed = processor._flag_long_segments(results)
+    assert processed[0]["zh_text"] == short_text
+
+
+def test_length_flag_at_exact_limit_not_flagged():
+    from translation.post_processor import TranslationPostProcessor
+    processor = TranslationPostProcessor(max_chars=16)
+    exact_text = "一二三四五六七八九十一二三四五六"  # exactly 16 chars
+    results = [{"start": 0.0, "end": 1.0, "en_text": "test", "zh_text": exact_text}]
+    processed = processor._flag_long_segments(results)
+    assert processed[0]["zh_text"] == exact_text
+
+
+def test_length_flag_preserves_original_text():
+    from translation.post_processor import TranslationPostProcessor
+    processor = TranslationPostProcessor(max_chars=5)
+    original = "超過字數限制的句子"
+    results = [{"start": 0.0, "end": 1.0, "en_text": "test", "zh_text": original}]
+    processed = processor._flag_long_segments(results)
+    # Original text is preserved, not truncated
+    assert original in processed[0]["zh_text"]
