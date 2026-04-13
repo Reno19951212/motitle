@@ -13,3 +13,4 @@ python-socketio>=5.10.0
 gevent>=23.9.0
 gevent-websocket>=0.10.1
 pysbd>=0.3.4
+opencc-python-reimplemented>=0.1.7
