@@ -57,5 +57,14 @@ class TranslationPostProcessor:
             for r in results
         ]
 
+    def _flag_long_segments(self, results: List[dict]) -> List[dict]:
+        """Prepend [LONG] to segments exceeding max_chars. Preserves original text."""
+        return [
+            {**r, 'zh_text': f"[LONG] {r['zh_text']}"}
+            if len(r.get('zh_text', '')) > self._max_chars
+            else r
+            for r in results
+        ]
+
     def process(self, results: List[dict]) -> List[dict]:
         raise NotImplementedError
