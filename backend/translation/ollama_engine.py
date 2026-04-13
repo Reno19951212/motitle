@@ -84,6 +84,20 @@ class OllamaTranslationEngine(TranslationEngine):
             translated_batch = self._translate_batch(
                 batch, glossary, style, effective_temp, context_pairs
             )
+            missing_indices = [
+                j for j, r in enumerate(translated_batch)
+                if "[TRANSLATION MISSING]" in r.get("zh_text", "")
+            ]
+            if missing_indices:
+                missing_segs = [batch[j] for j in missing_indices]
+                retried = list(self._retry_missing(
+                    missing_segs, glossary, style, effective_temp, context_pairs
+                ))
+                retried_iter = iter(retried)
+                translated_batch = [
+                    next(retried_iter, r) if j in missing_indices else r
+                    for j, r in enumerate(translated_batch)
+                ]
             all_translated.extend(translated_batch)
             if self._context_window > 0:
                 new_pairs = [(seg["text"], t["zh_text"]) for seg, t in zip(batch, translated_batch)]
@@ -104,6 +118,20 @@ class OllamaTranslationEngine(TranslationEngine):
         user_message = self._build_user_message(segments, context_pairs=context_pairs)
         response_text = self._call_ollama(system_prompt, user_message, temperature)
         return self._parse_response(response_text, segments)
+
+    def _retry_missing(
+        self,
+        segments: List[dict],
+        glossary: List[dict],
+        style: str,
+        temperature: float,
+        context_pairs: list,
+    ) -> List[TranslatedSegment]:
+        """Re-translate segments that got [TRANSLATION MISSING] placeholders.
+
+        Delegates to _translate_batch — no new prompt logic. Called at most once
+        per batch. Remaining missing segments are flagged by PostProcessor."""
+        return self._translate_batch(segments, glossary, style, temperature, context_pairs)
 
     def _build_system_prompt(self, style: str, glossary: List[dict]) -> str:
         base = SYSTEM_PROMPT_CANTONESE if style == "cantonese" else SYSTEM_PROMPT_FORMAL
