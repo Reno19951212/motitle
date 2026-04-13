@@ -411,3 +411,78 @@ def test_system_prompt_cantonese_has_char_limit():
     engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
     prompt = engine._build_system_prompt(style="cantonese", glossary=[])
     assert "16" in prompt
+
+
+# ── Task 7: Sliding Window Context ───────────────────────────────────────────
+
+
+def test_sliding_window_context_in_user_message():
+    """After first batch, context appears in user message for next batch."""
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b", "context_window": 2})
+    context_pairs = [("Hello.", "你好。"), ("Good morning.", "早安。")]
+    segments = [{"text": "How are you?", "start": 0, "end": 1}]
+
+    msg = engine._build_user_message(segments, context_pairs=context_pairs)
+
+    assert "[Context" in msg
+    assert "Hello." in msg
+    assert "[Translate the following:" in msg
+    assert "How are you?" in msg
+
+
+def test_sliding_window_zero_disables_context():
+    """context_window=0 means no context block even if pairs are provided."""
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b", "context_window": 0})
+    context_pairs = [("Hello.", "你好。")]
+    segments = [{"text": "Good morning.", "start": 0, "end": 1}]
+
+    msg = engine._build_user_message(segments, context_pairs=context_pairs)
+
+    assert "[Context" not in msg
+
+
+def test_sliding_window_trims_to_window_size():
+    """Rolling list is trimmed to last context_window pairs."""
+    import json as json_mod
+    from unittest.mock import patch, MagicMock, call
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b", "context_window": 1})
+
+    # Mock _call_ollama to return predictable numbered response
+    with patch.object(engine, "_call_ollama", return_value="1. 測試翻譯。"):
+        captured_context = {}
+        original_build = engine._build_user_message
+
+        def capturing_build(segments, context_pairs=None):
+            captured_context["last_context"] = list(context_pairs) if context_pairs else []
+            return original_build(segments, context_pairs=context_pairs)
+
+        with patch.object(engine, "_build_user_message", side_effect=capturing_build):
+            engine.translate(
+                [
+                    {"text": "First.", "start": 0, "end": 1},
+                    {"text": "Second.", "start": 1, "end": 2},
+                ],
+                batch_size=1,
+            )
+
+    # The second batch call should have received only 1 context pair (window=1)
+    assert len(captured_context["last_context"]) == 1
+    assert captured_context["last_context"][0][0] == "First."
+
+
+def test_context_window_in_params_schema():
+    """context_window appears in get_params_schema() output."""
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+    schema = engine.get_params_schema()
+
+    assert "context_window" in schema["params"]
+    assert schema["params"]["context_window"]["type"] == "integer"
+    assert schema["params"]["context_window"]["default"] == 3

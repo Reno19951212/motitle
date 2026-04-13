@@ -54,6 +54,8 @@ class OllamaTranslationEngine(TranslationEngine):
         self._model = ENGINE_TO_MODEL.get(self._engine_name, "qwen2.5:3b")
         self._temperature = config.get("temperature", 0.1)
         self._base_url = config.get("ollama_url", "http://localhost:11434")
+        raw_window = config.get("context_window", 3)
+        self._context_window = max(0, min(10, int(raw_window)))
 
     def translate(
         self,
@@ -70,19 +72,30 @@ class OllamaTranslationEngine(TranslationEngine):
         all_translated = []
         effective_batch = batch_size if batch_size is not None else BATCH_SIZE
         effective_temp = temperature if temperature is not None else self._temperature
+        context_pairs: list = []
 
         for i in range(0, len(segments), effective_batch):
             batch = segments[i : i + effective_batch]
-            translated_batch = self._translate_batch(batch, glossary, style, effective_temp)
+            translated_batch = self._translate_batch(
+                batch, glossary, style, effective_temp, context_pairs
+            )
             all_translated.extend(translated_batch)
+            if self._context_window > 0:
+                new_pairs = [(seg["text"], t["zh_text"]) for seg, t in zip(batch, translated_batch)]
+                context_pairs = (context_pairs + new_pairs)[-self._context_window:]
 
         return all_translated
 
     def _translate_batch(
-        self, segments: List[dict], glossary: List[dict], style: str, temperature: float
+        self,
+        segments: List[dict],
+        glossary: List[dict],
+        style: str,
+        temperature: float,
+        context_pairs: Optional[list] = None,
     ) -> List[TranslatedSegment]:
         system_prompt = self._build_system_prompt(style, glossary)
-        user_message = self._build_user_message(segments)
+        user_message = self._build_user_message(segments, context_pairs=context_pairs)
         response_text = self._call_ollama(system_prompt, user_message, temperature)
         return self._parse_response(response_text, segments)
 
@@ -98,11 +111,19 @@ class OllamaTranslationEngine(TranslationEngine):
             f"the following terms:\n{terms}"
         )
 
-    def _build_user_message(self, segments: List[dict]) -> str:
-        lines = []
-        for i, seg in enumerate(segments, 1):
-            lines.append(f"{i}. {seg['text']}")
-        return "\n".join(lines)
+    def _build_user_message(
+        self, segments: List[dict], context_pairs: Optional[list] = None
+    ) -> str:
+        parts = []
+        if context_pairs and self._context_window > 0:
+            context_lines = ["[Context - previous translations for reference:]"]
+            for idx, (en, zh) in enumerate(context_pairs, 1):
+                context_lines.append(f"{idx}. {en} → {zh}")
+            parts.append("\n".join(context_lines))
+            parts.append("[Translate the following:]")
+        numbered_lines = [f"{i}. {seg['text']}" for i, seg in enumerate(segments, 1)]
+        parts.append("\n".join(numbered_lines))
+        return "\n".join(parts)
 
     def _is_thinking_model(self) -> bool:
         """Return True for qwen3/qwen3.5 models that default to thinking mode."""
@@ -241,6 +262,13 @@ class OllamaTranslationEngine(TranslationEngine):
                     "description": "Translation style",
                     "enum": ["formal", "cantonese"],
                     "default": "formal",
+                },
+                "context_window": {
+                    "type": "integer",
+                    "description": "Number of previously-translated pairs passed as context to each batch (0 = disabled)",
+                    "minimum": 0,
+                    "maximum": 10,
+                    "default": 3,
                 },
             },
         }
