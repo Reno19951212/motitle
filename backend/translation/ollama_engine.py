@@ -114,8 +114,25 @@ class OllamaTranslationEngine(TranslationEngine):
 
         try:
             with urllib.request.urlopen(req, timeout=120) as resp:
-                data = json.loads(resp.read())
+                raw = resp.read().decode("utf-8").strip()
+            try:
+                data = json.loads(raw)
                 return data.get("message", {}).get("content", "")
+            except json.JSONDecodeError:
+                # Ollama returned NDJSON streaming format — accumulate content chunks
+                parts = []
+                for line in raw.splitlines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        obj = json.loads(line)
+                        chunk = obj.get("message", {}).get("content", "")
+                        if chunk:
+                            parts.append(chunk)
+                    except json.JSONDecodeError:
+                        continue
+                return "".join(parts)
         except urllib.error.URLError as e:
             raise ConnectionError(
                 f"Cannot connect to Ollama at {self._base_url}. "

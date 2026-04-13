@@ -142,6 +142,34 @@ def test_ollama_translate_mocked_http():
     assert result[1]["zh_text"] == "歡迎收看新聞。"
 
 
+def test_ollama_translate_mocked_ndjson():
+    """Ollama returns NDJSON streaming chunks despite stream:False — content is accumulated."""
+    import json as json_mod
+    from unittest.mock import patch, MagicMock
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+
+    # Simulate NDJSON: two streaming chunks + final done marker
+    ndjson_body = (
+        json_mod.dumps({"message": {"role": "assistant", "content": "1. 各位晚上好。\n"}}) + "\n" +
+        json_mod.dumps({"message": {"role": "assistant", "content": "2. 歡迎收看新聞。"}}) + "\n" +
+        json_mod.dumps({"done": True, "message": {"role": "assistant", "content": ""}})
+    ).encode("utf-8")
+
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = ndjson_body
+    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+    mock_resp.__exit__ = MagicMock(return_value=False)
+
+    with patch("urllib.request.urlopen", return_value=mock_resp):
+        result = engine.translate(SAMPLE_SEGMENTS, glossary=[], style="formal")
+
+    assert len(result) == 2
+    assert result[0]["zh_text"] == "各位晚上好。"
+    assert result[1]["zh_text"] == "歡迎收看新聞。"
+
+
 def test_api_list_translation_engines():
     import sys
     from pathlib import Path
@@ -210,11 +238,11 @@ def test_ollama_engine_get_models_mocked():
     with patch("urllib.request.urlopen", return_value=mock_resp):
         models = engine.get_models()
 
-    assert len(models) == 4  # all ENGINE_TO_MODEL entries
+    assert len(models) == 5  # all ENGINE_TO_MODEL entries
     available_models = [m for m in models if m["available"]]
     assert len(available_models) == 2  # qwen2.5:3b and qwen2.5:7b
     unavailable_models = [m for m in models if not m["available"]]
-    assert len(unavailable_models) == 2
+    assert len(unavailable_models) == 3
 
 
 def test_api_translation_engine_params_mock():

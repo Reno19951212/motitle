@@ -716,10 +716,13 @@ def api_translate_file():
         })
 
     except NotImplementedError as e:
+        _update_file(file_id, translation_status=None)
         return jsonify({"error": str(e)}), 501
     except ConnectionError as e:
+        _update_file(file_id, translation_status=None)
         return jsonify({"error": str(e)}), 503
     except Exception as e:
+        _update_file(file_id, translation_status=None)
         return jsonify({"error": f"Translation failed: {str(e)}"}), 500
 
 
@@ -1426,6 +1429,13 @@ if __name__ == '__main__':
 
     # Load persisted file registry
     _file_registry.update(_load_registry())
+    # Reset any in-progress translation states — they were interrupted by shutdown
+    stuck = [fid for fid, e in _file_registry.items() if e.get("translation_status") == "translating"]
+    for fid in stuck:
+        _file_registry[fid]["translation_status"] = None
+    if stuck:
+        _save_registry()
+        print(f"已重置 {len(stuck)} 個中斷的翻譯狀態")
     print(f"已載入 {len(_file_registry)} 個已上傳文件")
 
     # Pre-load small model
