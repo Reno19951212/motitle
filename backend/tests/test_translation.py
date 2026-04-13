@@ -376,3 +376,38 @@ def test_api_translation_engine_models_unknown():
         assert resp.status_code == 404
         data = resp.get_json()
         assert "error" in data
+
+
+def test_system_prompt_formal_forbids_simplified():
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+    prompt = engine._build_system_prompt(style="formal", glossary=[])
+    assert "NEVER use Simplified Chinese" in prompt or "Traditional Chinese ONLY" in prompt
+
+
+def test_system_prompt_formal_has_char_limit():
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+    prompt = engine._build_system_prompt(style="formal", glossary=[])
+    assert "16" in prompt
+
+
+def test_system_prompt_formal_has_rthk_context():
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+    prompt = engine._build_system_prompt(style="formal", glossary=[])
+    assert "繁體中文書面語" in prompt  # existing test still passes
+
+
+def test_system_prompt_cantonese_forbids_simplified():
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+    prompt = engine._build_system_prompt(style="cantonese", glossary=[])
+    assert "NEVER use Simplified Chinese" in prompt or "Traditional Chinese ONLY" in prompt
+
+
+def test_system_prompt_cantonese_has_char_limit():
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+    prompt = engine._build_system_prompt(style="cantonese", glossary=[])
+    assert "16" in prompt
