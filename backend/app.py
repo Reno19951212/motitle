@@ -222,7 +222,7 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
     profile = _profile_manager.get_active()
     use_profile_engine = (
         profile is not None
-        and profile.get("asr", {}).get("engine") == "whisper"
+        and bool(profile.get("asr", {}).get("engine"))
     )
 
     # Read language from profile (default to 'zh' for backward compat)
@@ -315,11 +315,13 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
                 segments.append(segment)
                 emit_segment_with_progress(segment, sid)
 
+            engine_info = engine.get_info()
             return {
                 'text': ' '.join(s['text'] for s in segments),
                 'language': language,
                 'segments': segments,
-                'backend': engine.get_info().get('engine', 'whisper'),
+                'backend': engine_info.get('engine', 'whisper'),
+                'model': engine_info.get('model_size', profile['asr'].get('model_size', '')),
             }
 
         # === Legacy path (no profile or non-whisper engine) ===
@@ -1130,13 +1132,15 @@ def transcribe_file():
             )
             for t in translated:
                 t["status"] = "pending"
-            _update_file(fid, translations=translated, translation_status='done')
+            _update_file(fid, translations=translated, translation_status='done',
+                         translation_engine=translation_config.get('engine', ''))
 
             if session_id:
                 socketio.emit('file_updated', {
                     'id': fid,
                     'translation_status': 'done',
                     'translation_count': len(translated),
+                    'translation_engine': translation_config.get('engine', ''),
                 }, room=session_id)
         except Exception as e:
             print(f"Auto-translate failed for {fid}: {e}")
@@ -1156,18 +1160,22 @@ def transcribe_file():
         try:
             result = transcribe_with_segments(file_path, model_size, sid)
             if result:
+                actual_model = result.get('model', model_size)
                 _update_file(
                     file_id,
                     status='done',
                     text=result['text'],
                     segments=result['segments'],
                     backend=result.get('backend'),
+                    model=actual_model,
                 )
                 if sid:
                     socketio.emit('file_updated', {
                         'id': file_id,
                         'status': 'done',
                         'segment_count': len(result['segments']),
+                        'model': actual_model,
+                        'backend': result.get('backend'),
                     }, room=sid)
                     socketio.emit('transcription_complete', {
                         'file_id': file_id,
@@ -1241,6 +1249,7 @@ def list_files():
                 'model': entry.get('model'),
                 'backend': entry.get('backend'),
                 'translation_status': entry.get('translation_status'),
+                'translation_engine': entry.get('translation_engine'),
             })
     # Newest first
     files.sort(key=lambda f: f['uploaded_at'], reverse=True)
