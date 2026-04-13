@@ -486,3 +486,23 @@ def test_context_window_in_params_schema():
     assert "context_window" in schema["params"]
     assert schema["params"]["context_window"]["type"] == "integer"
     assert schema["params"]["context_window"]["default"] == 3
+
+
+# ── Task 8: Wire PostProcessor ────────────────────────────────────────────────
+
+
+def test_translate_applies_post_processor():
+    """translate() runs opencc conversion on output — simplified chars become traditional."""
+    from unittest.mock import patch
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+    segments = [{"text": "Hello.", "start": 0.0, "end": 1.0}]
+
+    # _call_ollama returns a response with a simplified Chinese character (软件 → should become 軟體)
+    with patch.object(engine, "_call_ollama", return_value="1. 软件更新。"):
+        result = engine.translate(segments)
+
+    # opencc s2twp should convert 软件 → 軟體
+    assert "軟體" in result[0]["zh_text"]
+    assert "软件" not in result[0]["zh_text"]

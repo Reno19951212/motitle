@@ -7,6 +7,7 @@ import urllib.error
 from typing import Optional, List
 
 from . import TranslationEngine, TranslatedSegment
+from .post_processor import TranslationPostProcessor
 
 ENGINE_TO_MODEL = {
     "qwen2.5-3b": "qwen2.5:3b",
@@ -84,7 +85,8 @@ class OllamaTranslationEngine(TranslationEngine):
                 new_pairs = [(seg["text"], t["zh_text"]) for seg, t in zip(batch, translated_batch)]
                 context_pairs = (context_pairs + new_pairs)[-self._context_window:]
 
-        return all_translated
+        processor = TranslationPostProcessor(max_chars=16)
+        return processor.process(all_translated)
 
     def _translate_batch(
         self,
