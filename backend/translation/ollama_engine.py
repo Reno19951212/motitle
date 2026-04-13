@@ -110,7 +110,7 @@ class OllamaTranslationEngine(TranslationEngine):
             "options": {"temperature": temperature},
         }
         if self._is_thinking_model():
-            body["think"] = False
+            body["think"] = self._config.get("think", False)
 
         payload = json.dumps(body).encode("utf-8")
 
