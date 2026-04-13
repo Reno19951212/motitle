@@ -1,0 +1,92 @@
+"""MLX Whisper ASR engine — Metal GPU-accelerated Whisper for Apple Silicon."""
+
+import threading
+
+from . import ASREngine, Segment
+
+try:
+    import mlx_whisper
+    MLX_WHISPER_AVAILABLE = True
+except ImportError:
+    MLX_WHISPER_AVAILABLE = False
+
+# Maps model_size keys to mlx-community HuggingFace repo names
+MODEL_REPO = {
+    "tiny":     "mlx-community/whisper-tiny",
+    "base":     "mlx-community/whisper-base",
+    "small":    "mlx-community/whisper-small-mlx-q4",
+    "medium":   "mlx-community/whisper-medium-mlx-q4",
+    "large-v2": "mlx-community/whisper-large-v2-mlx",
+    "large-v3": "mlx-community/whisper-large-v3-mlx",
+}
+
+_model_lock = threading.Lock()
+
+
+class MlxWhisperEngine(ASREngine):
+    """Whisper via MLX — uses Metal GPU on Apple Silicon for 30-40% faster inference."""
+
+    def __init__(self, config: dict):
+        self._config = config
+        self._model_size = config.get("model_size", "large-v3")
+        self._repo = MODEL_REPO.get(self._model_size, MODEL_REPO["large-v3"])
+
+    def transcribe(self, audio_path: str, language: str = "en") -> list[Segment]:
+        if not MLX_WHISPER_AVAILABLE:
+            raise RuntimeError("mlx-whisper is not installed. Run: pip install mlx-whisper")
+
+        condition_on_previous_text = self._config.get("condition_on_previous_text", True)
+
+        with _model_lock:
+            result = mlx_whisper.transcribe(
+                audio_path,
+                path_or_hf_repo=self._repo,
+                language=language,
+                task="transcribe",
+                condition_on_previous_text=condition_on_previous_text,
+                word_timestamps=False,
+                verbose=False,
+            )
+
+        segments = []
+        for seg in result.get("segments", []):
+            text = seg.get("text", "").strip()
+            if text:
+                segments.append(Segment(
+                    start=seg["start"],
+                    end=seg["end"],
+                    text=text,
+                ))
+        return segments
+
+    def get_info(self) -> dict:
+        return {
+            "engine": "mlx-whisper",
+            "model_size": self._model_size,
+            "repo": self._repo,
+            "available": MLX_WHISPER_AVAILABLE,
+        }
+
+    def get_params_schema(self) -> dict:
+        return {
+            "engine": "mlx-whisper",
+            "params": {
+                "model_size": {
+                    "type": "string",
+                    "description": "MLX Whisper model size (首次使用會自動從 HuggingFace 下載)",
+                    "enum": list(MODEL_REPO.keys()),
+                    "default": "large-v3",
+                },
+                "language": {
+                    "type": "string",
+                    "description": "Source language code (ISO 639-1)",
+                    "enum": ["en", "zh", "ja", "ko", "fr", "de", "es"],
+                    "default": "en",
+                },
+                "condition_on_previous_text": {
+                    "type": "boolean",
+                    "description": "用上句文本做 context（true = 更連貫；false = 每句獨立更短）",
+                    "default": True,
+                },
+            },
+        }
