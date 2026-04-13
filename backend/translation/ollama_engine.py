@@ -18,13 +18,14 @@ ENGINE_TO_MODEL = {
 }
 
 BATCH_SIZE = 10
+MAX_SUBTITLE_CHARS = 16
 
 SYSTEM_PROMPT_FORMAL = (
     "You are a professional broadcast subtitle translator for Hong Kong news (RTHK style).\n\n"
     "Rules:\n"
     "1. Translate English into formal Traditional Chinese (繁體中文書面語).\n"
     "2. NEVER use Simplified Chinese characters. Use Traditional Chinese ONLY.\n"
-    "3. Each translation must be ≤16 Chinese characters. Be concise.\n"
+    f"3. Each translation must be ≤{MAX_SUBTITLE_CHARS} Chinese characters. Be concise.\n"
     "4. Use neutral, journalistic tone. No colloquialisms.\n"
     "5. Output ONLY numbered translations. No explanations, no brackets, no notes.\n\n"
     "Example:\n"
@@ -37,7 +38,7 @@ SYSTEM_PROMPT_CANTONESE = (
     "Rules:\n"
     "1. Translate English into Cantonese Traditional Chinese (繁體中文粵語口語).\n"
     "2. NEVER use Simplified Chinese characters. Use Traditional Chinese ONLY.\n"
-    "3. Each translation must be ≤16 Chinese characters. Be concise.\n"
+    f"3. Each translation must be ≤{MAX_SUBTITLE_CHARS} Chinese characters. Be concise.\n"
     "4. Use natural spoken Cantonese expressions.\n"
     "5. Output ONLY numbered translations. No explanations, no brackets, no notes.\n\n"
     "Example:\n"
@@ -85,7 +86,7 @@ class OllamaTranslationEngine(TranslationEngine):
                 new_pairs = [(seg["text"], t["zh_text"]) for seg, t in zip(batch, translated_batch)]
                 context_pairs = (context_pairs + new_pairs)[-self._context_window:]
 
-        processor = TranslationPostProcessor(max_chars=16)
+        processor = TranslationPostProcessor(max_chars=MAX_SUBTITLE_CHARS)
         return processor.process(all_translated)
 
     def _translate_batch(
