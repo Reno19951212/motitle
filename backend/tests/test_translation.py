@@ -506,3 +506,41 @@ def test_translate_applies_post_processor():
     # opencc s2twp should convert 软件 → 軟體
     assert "軟體" in result[0]["zh_text"]
     assert "软件" not in result[0]["zh_text"]
+
+
+# ── Parse response bug fixes ──────────────────────────────────────────────────
+
+
+def test_parse_response_non_sequential_numbers():
+    """Model starts numbering from context window's last number instead of 1.
+    E.g. 3 context pairs → model outputs 4. t1  5. t2 instead of 1. t1  2. t2.
+    Primary path should map positionally, not by key value."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+    # Model numbered from 4 instead of 1 (as if continuing context numbering)
+    response_text = "4. 各位晚上好。\n5. 歡迎收看新聞。"
+    result = engine._parse_response(response_text, SAMPLE_SEGMENTS)
+    assert len(result) == 2
+    assert result[0]["zh_text"] == "各位晚上好。"
+    assert result[1]["zh_text"] == "歡迎收看新聞。"
+    assert "[TRANSLATION MISSING]" not in result[0]["zh_text"]
+    assert "[TRANSLATION MISSING]" not in result[1]["zh_text"]
+
+
+def test_parse_response_fallback_ignores_non_translation_lines():
+    """When response has extra header/explanation lines, fallback should not
+    include them as translations — only numbered lines count."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+    # Model outputs a header before numbered translations (3 segments, 2 translations)
+    three_segs = [
+        {"start": 0.0, "end": 1.0, "text": "Good evening everyone."},
+        {"start": 1.0, "end": 2.0, "text": "Welcome to the news."},
+        {"start": 2.0, "end": 3.0, "text": "Tonight's top story."},
+    ]
+    response_text = "Here are the translations:\n1. 各位晚上好。\n2. 歡迎收看新聞。"
+    result = engine._parse_response(response_text, three_segs)
+    assert len(result) == 3
+    assert result[0]["zh_text"] == "各位晚上好。"  # not "Here are the translations:"
+    assert result[1]["zh_text"] == "歡迎收看新聞。"
+    assert "[TRANSLATION MISSING]" in result[2]["zh_text"]  # only 2 of 3 provided

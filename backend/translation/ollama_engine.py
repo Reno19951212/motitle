@@ -194,33 +194,29 @@ class OllamaTranslationEngine(TranslationEngine):
     ) -> List[TranslatedSegment]:
         lines = [ln.strip() for ln in response_text.strip().split("\n") if ln.strip()]
 
-        numbered = {}
+        # Extract numbered lines only — ignores headers, explanations, and any
+        # other non-translation text the model might output.
+        numbered_pairs: list = []
         for line in lines:
             match = re.match(r"^(\d+)[.)]\s*(.+)", line)
             if match:
-                idx = int(match.group(1))
-                numbered[idx] = match.group(2).strip()
+                numbered_pairs.append((int(match.group(1)), match.group(2).strip()))
 
-        if len(numbered) == len(segments):
-            return [
-                TranslatedSegment(
-                    start=seg["start"],
-                    end=seg["end"],
-                    en_text=seg["text"],
-                    zh_text=numbered[i + 1],
-                )
-                for i, seg in enumerate(segments)
-            ]
+        # Sort by number then map positionally.
+        # Positional mapping handles models that continue numbering from a context
+        # window (e.g. outputting "4. t1\n5. t2" instead of "1. t1\n2. t2"),
+        # which would KeyError with the old numbered[i+1] approach.
+        numbered_pairs.sort(key=lambda x: x[0])
+        translations = [text for _, text in numbered_pairs]
 
-        clean_lines = []
-        for line in lines:
-            cleaned = re.sub(r"^\d+[.)]\s*", "", line).strip()
-            if cleaned:
-                clean_lines.append(cleaned)
+        # Fallback: if the model produced no numbered lines at all, treat every
+        # line as a plain translation (positional alignment, best effort).
+        if not translations:
+            translations = lines
 
         results = []
         for i, seg in enumerate(segments):
-            zh = clean_lines[i] if i < len(clean_lines) else f"[TRANSLATION MISSING] {seg['text']}"
+            zh = translations[i] if i < len(translations) else f"[TRANSLATION MISSING] {seg['text']}"
             results.append(
                 TranslatedSegment(
                     start=seg["start"],
