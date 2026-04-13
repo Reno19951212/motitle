@@ -1,5 +1,6 @@
 """Translation post-processor: opencc conversion, length flagging, quality validation."""
 
+import opencc
 from typing import List
 
 
@@ -46,7 +47,15 @@ class TranslationPostProcessor:
     """Apply post-processing steps to translated segments."""
 
     def __init__(self, max_chars: int = 16):
+        self._converter = opencc.OpenCC('s2twp')
         self._max_chars = max_chars
+
+    def _convert_to_traditional(self, results: List[dict]) -> List[dict]:
+        """Convert any simplified Chinese characters to Traditional Chinese."""
+        return [
+            {**r, 'zh_text': self._converter.convert(r['zh_text'])}
+            for r in results
+        ]
 
     def process(self, results: List[dict]) -> List[dict]:
         raise NotImplementedError
