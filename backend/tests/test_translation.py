@@ -544,3 +544,89 @@ def test_parse_response_fallback_ignores_non_translation_lines():
     assert result[0]["zh_text"] == "各位晚上好。"  # not "Here are the translations:"
     assert result[1]["zh_text"] == "歡迎收看新聞。"
     assert "[TRANSLATION MISSING]" in result[2]["zh_text"]  # only 2 of 3 provided
+
+
+# ---------------------------------------------------------------------------
+# Retry-missing tests
+# ---------------------------------------------------------------------------
+from unittest.mock import patch as _patch
+
+
+def _make_seg(start, end, en, zh):
+    """Helper: build a TranslatedSegment-like dict."""
+    return {"start": start, "end": end, "en_text": en, "zh_text": zh}
+
+
+def test_no_retry_when_no_missing():
+    """When all segments translate successfully, _retry_missing is never called."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+    good_batch = [
+        _make_seg(0.0, 2.5, "Good evening everyone.", "各位晚上好。"),
+        _make_seg(2.5, 5.0, "Welcome to the news.", "歡迎收看新聞。"),
+    ]
+    with _patch.object(engine, "_translate_batch", return_value=good_batch), \
+         _patch.object(engine, "_retry_missing") as mock_retry:
+        engine.translate(SAMPLE_SEGMENTS)
+    mock_retry.assert_not_called()
+
+
+def test_retry_called_for_missing_segments():
+    """When _translate_batch returns a missing segment, _retry_missing is called with
+    only that segment (not the whole batch)."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+    batch_with_missing = [
+        _make_seg(0.0, 2.5, "Good evening everyone.", "各位晚上好。"),
+        _make_seg(2.5, 5.0, "Welcome to the news.", "[TRANSLATION MISSING] Welcome to the news."),
+    ]
+    retry_result = [
+        _make_seg(2.5, 5.0, "Welcome to the news.", "歡迎收看新聞。"),
+    ]
+    with _patch.object(engine, "_translate_batch", return_value=batch_with_missing), \
+         _patch.object(engine, "_retry_missing", return_value=retry_result) as mock_retry:
+        engine.translate(SAMPLE_SEGMENTS)
+    mock_retry.assert_called_once()
+    # First positional arg is the list of missing segments
+    retried_segs = mock_retry.call_args[0][0]
+    assert len(retried_segs) == 1
+    assert retried_segs[0]["text"] == "Welcome to the news."
+
+
+def test_retry_success_replaces_missing():
+    """When retry returns a real translation, the final output contains it — not the
+    placeholder."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+    batch_with_missing = [
+        _make_seg(0.0, 2.5, "Good evening everyone.", "各位晚上好。"),
+        _make_seg(2.5, 5.0, "Welcome to the news.", "[TRANSLATION MISSING] Welcome to the news."),
+    ]
+    retry_result = [
+        _make_seg(2.5, 5.0, "Welcome to the news.", "歡迎收看新聞。"),
+    ]
+    with _patch.object(engine, "_translate_batch", return_value=batch_with_missing), \
+         _patch.object(engine, "_retry_missing", return_value=retry_result):
+        result = engine.translate(SAMPLE_SEGMENTS)
+    assert "[TRANSLATION MISSING]" not in result[1]["zh_text"]
+    assert "歡迎收看新聞" in result[1]["zh_text"]
+
+
+def test_retry_failure_keeps_missing_flagged():
+    """When retry also fails (placeholder survives), PostProcessor marks it
+    [NEEDS REVIEW] so the human reviewer sees it."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+    batch_with_missing = [
+        _make_seg(0.0, 2.5, "Good evening everyone.", "各位晚上好。"),
+        _make_seg(2.5, 5.0, "Welcome to the news.", "[TRANSLATION MISSING] Welcome to the news."),
+    ]
+    retry_still_missing = [
+        _make_seg(2.5, 5.0, "Welcome to the news.", "[TRANSLATION MISSING] Welcome to the news."),
+    ]
+    with _patch.object(engine, "_translate_batch", return_value=batch_with_missing), \
+         _patch.object(engine, "_retry_missing", return_value=retry_still_missing):
+        result = engine.translate(SAMPLE_SEGMENTS)
+    # PostProcessor's validate_batch turns [TRANSLATION MISSING] → [NEEDS REVIEW]
+    assert "[NEEDS REVIEW]" in result[1]["zh_text"]
+    assert "[TRANSLATION MISSING]" in result[1]["zh_text"]
