@@ -609,6 +609,7 @@ def api_list_translation_engines():
         ("qwen2.5-7b", "Qwen 2.5 7B (Ollama)"),
         ("qwen2.5-72b", "Qwen 2.5 72B (Ollama)"),
         ("qwen3-235b", "Qwen3 235B MoE (Ollama)"),
+        ("qwen3.5-9b", "Qwen 3.5 9B (Ollama)"),
     ]:
         try:
             engine = create_translation_engine({"engine": engine_name})

@@ -33,7 +33,7 @@ def create_translation_engine(translation_config: dict) -> TranslationEngine:
     if engine_name == "mock":
         from .mock_engine import MockTranslationEngine
         return MockTranslationEngine(translation_config)
-    elif engine_name in {"qwen3-235b", "qwen2.5-72b", "qwen2.5-7b", "qwen2.5-3b"}:
+    elif engine_name in {"qwen3-235b", "qwen2.5-72b", "qwen2.5-7b", "qwen2.5-3b", "qwen3.5-9b"}:
         from .ollama_engine import OllamaTranslationEngine
         return OllamaTranslationEngine(translation_config)
     else:

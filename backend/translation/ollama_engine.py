@@ -13,6 +13,7 @@ ENGINE_TO_MODEL = {
     "qwen2.5-7b": "qwen2.5:7b",
     "qwen2.5-72b": "qwen2.5:72b",
     "qwen3-235b": "qwen3:235b",
+    "qwen3.5-9b": "qwen3.5:9b",
 }
 
 BATCH_SIZE = 10
