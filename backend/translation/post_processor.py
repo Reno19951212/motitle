@@ -15,7 +15,7 @@ def validate_batch(results: List[dict]) -> List[int]:
     # Check repetition: 3+ consecutive identical zh_text
     run_start = 0
     for i in range(1, len(results) + 1):
-        if i < len(results) and results[i]["zh_text"] == results[run_start]["zh_text"]:
+        if i < len(results) and results[i].get("zh_text", "") == results[run_start].get("zh_text", ""):
             continue
         run_length = i - run_start
         if run_length >= 3:
