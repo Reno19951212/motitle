@@ -95,8 +95,12 @@ class OllamaTranslationEngine(TranslationEngine):
             lines.append(f"{i}. {seg['text']}")
         return "\n".join(lines)
 
+    def _is_thinking_model(self) -> bool:
+        """Return True for qwen3/qwen3.5 models that default to thinking mode."""
+        return self._model.startswith("qwen3")
+
     def _call_ollama(self, system_prompt: str, user_message: str, temperature: float) -> str:
-        payload = json.dumps({
+        body: dict = {
             "model": self._model,
             "messages": [
                 {"role": "system", "content": system_prompt},
@@ -104,7 +108,11 @@ class OllamaTranslationEngine(TranslationEngine):
             ],
             "stream": False,
             "options": {"temperature": temperature},
-        }).encode("utf-8")
+        }
+        if self._is_thinking_model():
+            body["think"] = False
+
+        payload = json.dumps(body).encode("utf-8")
 
         req = urllib.request.Request(
             f"{self._base_url}/api/chat",
@@ -137,6 +145,12 @@ class OllamaTranslationEngine(TranslationEngine):
             raise ConnectionError(
                 f"Cannot connect to Ollama at {self._base_url}. "
                 f"Is Ollama running? Error: {e}"
+            )
+        except OSError as e:
+            # socket.timeout (raised by resp.read() on timeout) is a subclass of OSError
+            raise ConnectionError(
+                f"Ollama request timed out at {self._base_url}. "
+                f"Try reducing batch_size or switching to a smaller model. Error: {e}"
             )
 
     def _parse_response(

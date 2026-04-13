@@ -142,6 +142,65 @@ def test_ollama_translate_mocked_http():
     assert result[1]["zh_text"] == "歡迎收看新聞。"
 
 
+def test_ollama_thinking_model_detection():
+    """qwen3/qwen3.5 models are detected as thinking models; qwen2.5 is not."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    assert OllamaTranslationEngine({"engine": "qwen3-235b"})._is_thinking_model() is True
+    assert OllamaTranslationEngine({"engine": "qwen3.5-9b"})._is_thinking_model() is True
+    assert OllamaTranslationEngine({"engine": "qwen2.5-3b"})._is_thinking_model() is False
+    assert OllamaTranslationEngine({"engine": "qwen2.5-7b"})._is_thinking_model() is False
+
+
+def test_ollama_thinking_model_sets_think_false():
+    """think:false is included in payload for qwen3/qwen3.5 models."""
+    import json as json_mod
+    from unittest.mock import patch, MagicMock
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    engine = OllamaTranslationEngine({"engine": "qwen3.5-9b"})
+    mock_response = json_mod.dumps({"message": {"content": "1. 恭喜。\n2. 謝謝。"}}).encode()
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = mock_response
+    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+    mock_resp.__exit__ = MagicMock(return_value=False)
+
+    captured = {}
+
+    def fake_urlopen(req, timeout=None):
+        captured["body"] = json_mod.loads(req.data)
+        return mock_resp
+
+    with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+        engine.translate(SAMPLE_SEGMENTS, glossary=[], style="formal")
+
+    assert captured["body"].get("think") is False
+
+
+def test_ollama_non_thinking_model_no_think_key():
+    """think key is absent for qwen2.5 models."""
+    import json as json_mod
+    from unittest.mock import patch, MagicMock
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+    mock_response = json_mod.dumps({"message": {"content": "1. 各位晚上好。\n2. 歡迎收看新聞。"}}).encode()
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = mock_response
+    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+    mock_resp.__exit__ = MagicMock(return_value=False)
+
+    captured = {}
+
+    def fake_urlopen(req, timeout=None):
+        captured["body"] = json_mod.loads(req.data)
+        return mock_resp
+
+    with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+        engine.translate(SAMPLE_SEGMENTS, glossary=[], style="formal")
+
+    assert "think" not in captured["body"]
+
+
 def test_ollama_translate_mocked_ndjson():
     """Ollama returns NDJSON streaming chunks despite stream:False — content is accumulated."""
     import json as json_mod
