@@ -1681,7 +1681,8 @@ function escapeHtml(str) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // Engine params that should NOT be rendered as form fields
@@ -2156,10 +2157,10 @@ function buildProfileFormHTML(profile) {
 
                   let html = '';
                   if (local.length) {
-                    html += `<optgroup label="本地模型">${local.map(renderOption).join('')}</optgroup>`;
+                    html += `<optgroup label="${escapeHtml('本地模型')}">${local.map(renderOption).join('')}</optgroup>`;
                   }
                   if (cloud.length) {
-                    html += `<optgroup label="雲端模型（需要 ollama signin）">${cloud.map(renderOption).join('')}</optgroup>`;
+                    html += `<optgroup label="${escapeHtml('雲端模型（需要 ollama signin）')}">${cloud.map(renderOption).join('')}</optgroup>`;
                   }
                   return html;
                 })()}
