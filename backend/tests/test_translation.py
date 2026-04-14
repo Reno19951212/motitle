@@ -800,3 +800,20 @@ def test_api_list_translation_engines_includes_cloud():
 
         qwen25_entry = next(e for e in engines if e["engine"] == "qwen2.5-3b")
         assert qwen25_entry["is_cloud"] is False
+
+        # Every cloud entry must have a boolean 'available' field
+        # (prevents regression where the factory gap silently dropped it)
+        for e in cloud_engines:
+            assert "available" in e
+            assert isinstance(e["available"], bool)
+
+
+def test_factory_routes_cloud_engines():
+    """create_translation_engine routes all 3 cloud engine keys to OllamaTranslationEngine."""
+    from translation import create_translation_engine
+    from translation.ollama_engine import OllamaTranslationEngine, CLOUD_ENGINES
+
+    for engine_name in CLOUD_ENGINES:
+        engine = create_translation_engine({"engine": engine_name})
+        assert isinstance(engine, OllamaTranslationEngine)
+        assert engine.get_info()["engine"] == engine_name
