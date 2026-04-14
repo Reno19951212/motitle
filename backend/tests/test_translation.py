@@ -201,6 +201,86 @@ def test_ollama_non_thinking_model_no_think_key():
     assert "think" not in captured["body"]
 
 
+def test_ollama_cloud_qwen_is_thinking_model():
+    """qwen3.5:397b-cloud is detected as a thinking model."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen3.5-397b-cloud"})
+    assert engine._is_thinking_model() is True
+
+
+def test_ollama_cloud_qwen_request_body_has_think_false():
+    """think:false is included in payload for qwen3.5:397b-cloud."""
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    engine = OllamaTranslationEngine({"engine": "qwen3.5-397b-cloud"})
+    mock_response = json_mod.dumps({"message": {"content": "1. 各位晚上好。\n2. 歡迎收看新聞。"}}).encode()
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = mock_response
+    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+    mock_resp.__exit__ = MagicMock(return_value=False)
+
+    captured = {}
+
+    def fake_urlopen(req, timeout=None):
+        captured["body"] = json_mod.loads(req.data)
+        return mock_resp
+
+    with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+        engine.translate(SAMPLE_SEGMENTS, glossary=[], style="formal")
+
+    assert captured["body"].get("think") is False
+
+
+def test_ollama_cloud_glm_not_thinking_model():
+    """glm-4.6:cloud does NOT trigger thinking mode — no 'think' key in payload."""
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    engine = OllamaTranslationEngine({"engine": "glm-4.6-cloud"})
+    assert engine._is_thinking_model() is False
+
+    mock_response = json_mod.dumps({"message": {"content": "1. 各位晚上好。\n2. 歡迎收看新聞。"}}).encode()
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = mock_response
+    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+    mock_resp.__exit__ = MagicMock(return_value=False)
+
+    captured = {}
+
+    def fake_urlopen(req, timeout=None):
+        captured["body"] = json_mod.loads(req.data)
+        return mock_resp
+
+    with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+        engine.translate(SAMPLE_SEGMENTS, glossary=[], style="formal")
+
+    assert "think" not in captured["body"]
+
+
+def test_ollama_cloud_gpt_oss_not_thinking_model():
+    """gpt-oss:120b-cloud does NOT trigger thinking mode — no 'think' key in payload."""
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    engine = OllamaTranslationEngine({"engine": "gpt-oss-120b-cloud"})
+    assert engine._is_thinking_model() is False
+
+    mock_response = json_mod.dumps({"message": {"content": "1. 各位晚上好。\n2. 歡迎收看新聞。"}}).encode()
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = mock_response
+    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+    mock_resp.__exit__ = MagicMock(return_value=False)
+
+    captured = {}
+
+    def fake_urlopen(req, timeout=None):
+        captured["body"] = json_mod.loads(req.data)
+        return mock_resp
+
+    with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+        engine.translate(SAMPLE_SEGMENTS, glossary=[], style="formal")
+
+    assert "think" not in captured["body"]
+
+
 def test_ollama_translate_mocked_ndjson():
     """Ollama returns NDJSON streaming chunks despite stream:False — content is accumulated."""
     import json as json_mod
