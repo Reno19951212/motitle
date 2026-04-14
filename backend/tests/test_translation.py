@@ -362,8 +362,13 @@ def test_ollama_engine_params_schema():
 
 
 def test_ollama_engine_get_models_mocked():
+    import subprocess as sp
     from translation.ollama_engine import OllamaTranslationEngine
+    from translation import ollama_engine as _oe
     engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+
+    # Ensure signin status cache reports "not signed in" so cloud models are unavailable
+    _oe._SIGNIN_STATUS_CACHE["expires_at"] = 0
 
     mock_response_body = json_mod.dumps({
         "models": [{"name": "qwen2.5:3b"}, {"name": "qwen2.5:7b"}]
@@ -374,7 +379,9 @@ def test_ollama_engine_get_models_mocked():
     mock_resp.__enter__ = MagicMock(return_value=mock_resp)
     mock_resp.__exit__ = MagicMock(return_value=False)
 
-    with patch("urllib.request.urlopen", return_value=mock_resp):
+    # Simulate timeout (not signed in) for cloud model availability checks
+    with patch("subprocess.run", side_effect=sp.TimeoutExpired(cmd="ollama signin", timeout=2)), \
+         patch("urllib.request.urlopen", return_value=mock_resp):
         models = engine.get_models()
 
     # 5 local + 3 cloud = 8 total
@@ -819,42 +826,244 @@ def test_factory_routes_cloud_engines():
         assert engine.get_info()["engine"] == engine_name
 
 
-def test_api_ollama_signin_spawns_subprocess():
-    """POST /api/ollama/signin spawns 'ollama signin' via subprocess and returns 200."""
+def test_api_ollama_signin_spawns_subprocess_when_not_signed_in():
+    """POST /api/ollama/signin spawns subprocess when user is NOT signed in."""
     import sys
+    import subprocess as sp
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from unittest.mock import patch, MagicMock
+    from translation import ollama_engine
+
+    ollama_engine._SIGNIN_STATUS_CACHE["expires_at"] = 0
 
     from app import app
     app.config["TESTING"] = True
     with app.test_client() as client:
         mock_process = MagicMock()
         mock_process.pid = 99999
-        with patch("subprocess.Popen", return_value=mock_process) as mock_popen:
+        with patch("subprocess.run", side_effect=sp.TimeoutExpired(cmd="ollama signin", timeout=2)), \
+             patch("subprocess.Popen", return_value=mock_process) as mock_popen:
             resp = client.post("/api/ollama/signin")
             assert resp.status_code == 200
             data = resp.get_json()
-            assert data.get("status") == "ok"
-            # Verify ollama signin was the spawned command
+            assert data["signed_in"] is False
+            assert data["status"] == "signin_spawned"
             mock_popen.assert_called_once()
             call_args = mock_popen.call_args[0][0]
             assert call_args == ["ollama", "signin"]
+
+
+def test_api_ollama_signin_returns_already_signed_in():
+    """POST /api/ollama/signin returns already_signed_in when user IS signed in (no spawn)."""
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from unittest.mock import patch, MagicMock
+    from translation import ollama_engine
+
+    ollama_engine._SIGNIN_STATUS_CACHE["expires_at"] = 0
+
+    from app import app
+    app.config["TESTING"] = True
+
+    mock_result = MagicMock()
+    mock_result.stdout = "You are already signed in as user 'testuser'\n"
+    mock_result.stderr = ""
+    mock_result.returncode = 0
+
+    with app.test_client() as client:
+        with patch("subprocess.run", return_value=mock_result), \
+             patch("subprocess.Popen") as mock_popen:
+            resp = client.post("/api/ollama/signin")
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert data["signed_in"] is True
+            assert data["user"] == "testuser"
+            assert data["status"] == "already_signed_in"
+            mock_popen.assert_not_called()
 
 
 def test_api_ollama_signin_missing_binary_returns_500():
     """POST /api/ollama/signin returns 500 when ollama binary is not in PATH."""
     import sys
     from pathlib import Path
+    import subprocess as sp
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from unittest.mock import patch
+    from translation import ollama_engine
+
+    ollama_engine._SIGNIN_STATUS_CACHE["expires_at"] = 0
 
     from app import app
     app.config["TESTING"] = True
     with app.test_client() as client:
-        with patch("subprocess.Popen", side_effect=FileNotFoundError("ollama")):
+        # Both status check and Popen fail because binary is missing
+        with patch("subprocess.run", side_effect=FileNotFoundError("ollama")), \
+             patch("subprocess.Popen", side_effect=FileNotFoundError("ollama")):
             resp = client.post("/api/ollama/signin")
             assert resp.status_code == 500
             data = resp.get_json()
             assert "error" in data
             assert "ollama" in data["error"].lower()
+
+
+def test_ollama_signin_status_detects_signed_in():
+    """_get_ollama_signin_status returns signed_in=True when ollama signin outputs 'already signed in'."""
+    from unittest.mock import patch, MagicMock
+    from translation import ollama_engine
+
+    # Clear cache
+    ollama_engine._SIGNIN_STATUS_CACHE["expires_at"] = 0
+
+    mock_result = MagicMock()
+    mock_result.stdout = "You are already signed in as user 'testuser'\n"
+    mock_result.stderr = ""
+    mock_result.returncode = 0
+
+    with patch("subprocess.run", return_value=mock_result):
+        status = ollama_engine._get_ollama_signin_status()
+
+    assert status["signed_in"] is True
+    assert status["user"] == "testuser"
+
+
+def test_ollama_signin_status_detects_not_signed_in_on_timeout():
+    """_get_ollama_signin_status returns signed_in=False when subprocess times out (interactive flow)."""
+    import subprocess
+    from unittest.mock import patch
+    from translation import ollama_engine
+
+    ollama_engine._SIGNIN_STATUS_CACHE["expires_at"] = 0
+
+    with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="ollama signin", timeout=2)):
+        status = ollama_engine._get_ollama_signin_status()
+
+    assert status["signed_in"] is False
+    assert status["user"] is None
+
+
+def test_ollama_signin_status_missing_binary():
+    """_get_ollama_signin_status returns signed_in=False when ollama binary is missing."""
+    from unittest.mock import patch
+    from translation import ollama_engine
+
+    ollama_engine._SIGNIN_STATUS_CACHE["expires_at"] = 0
+
+    with patch("subprocess.run", side_effect=FileNotFoundError()):
+        status = ollama_engine._get_ollama_signin_status()
+
+    assert status["signed_in"] is False
+    assert status["user"] is None
+
+
+def test_ollama_signin_status_cached():
+    """_get_ollama_signin_status caches result for 60 seconds."""
+    from unittest.mock import patch, MagicMock
+    from translation import ollama_engine
+
+    ollama_engine._SIGNIN_STATUS_CACHE["expires_at"] = 0
+
+    mock_result = MagicMock()
+    mock_result.stdout = "You are already signed in as user 'testuser'\n"
+    mock_result.stderr = ""
+    mock_result.returncode = 0
+
+    with patch("subprocess.run", return_value=mock_result) as mock_run:
+        ollama_engine._get_ollama_signin_status()
+        ollama_engine._get_ollama_signin_status()
+        ollama_engine._get_ollama_signin_status()
+
+    # Should have called subprocess.run exactly once due to caching
+    assert mock_run.call_count == 1
+
+
+def test_ollama_cloud_engine_available_when_signed_in():
+    """OllamaTranslationEngine._check_available() returns True for cloud engines when signed in."""
+    from unittest.mock import patch, MagicMock
+    from translation.ollama_engine import OllamaTranslationEngine
+    from translation import ollama_engine
+
+    ollama_engine._SIGNIN_STATUS_CACHE["expires_at"] = 0
+
+    mock_result = MagicMock()
+    mock_result.stdout = "You are already signed in as user 'testuser'\n"
+    mock_result.stderr = ""
+    mock_result.returncode = 0
+
+    engine = OllamaTranslationEngine({"engine": "gpt-oss-120b-cloud"})
+    with patch("subprocess.run", return_value=mock_result):
+        assert engine._check_available() is True
+
+
+def test_ollama_cloud_engine_unavailable_when_not_signed_in():
+    """OllamaTranslationEngine._check_available() returns False for cloud engines when not signed in."""
+    import subprocess
+    from unittest.mock import patch
+    from translation.ollama_engine import OllamaTranslationEngine
+    from translation import ollama_engine
+
+    ollama_engine._SIGNIN_STATUS_CACHE["expires_at"] = 0
+
+    engine = OllamaTranslationEngine({"engine": "gpt-oss-120b-cloud"})
+    with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="ollama signin", timeout=2)):
+        assert engine._check_available() is False
+
+
+def test_ollama_cloud_get_models_returns_available_when_signed_in():
+    """get_models() returns available=True for all cloud entries when signed in."""
+    from unittest.mock import patch, MagicMock
+    from translation.ollama_engine import OllamaTranslationEngine, CLOUD_ENGINES
+    from translation import ollama_engine
+
+    ollama_engine._SIGNIN_STATUS_CACHE["expires_at"] = 0
+
+    mock_result = MagicMock()
+    mock_result.stdout = "You are already signed in as user 'testuser'\n"
+    mock_result.stderr = ""
+    mock_result.returncode = 0
+
+    # Mock the local /api/tags to return only qwen2.5:3b
+    mock_tags_response = json_mod.dumps({"models": [{"name": "qwen2.5:3b"}]}).encode()
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = mock_tags_response
+    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+    mock_resp.__exit__ = MagicMock(return_value=False)
+
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+
+    with patch("subprocess.run", return_value=mock_result), \
+         patch("urllib.request.urlopen", return_value=mock_resp):
+        models = engine.get_models()
+
+    cloud_models = [m for m in models if m["is_cloud"]]
+    assert len(cloud_models) == 3
+    for m in cloud_models:
+        assert m["available"] is True, f"{m['engine']} should be available when signed in"
+
+
+def test_api_ollama_status_endpoint():
+    """GET /api/ollama/status returns signin state."""
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from unittest.mock import patch, MagicMock
+    from translation import ollama_engine
+
+    ollama_engine._SIGNIN_STATUS_CACHE["expires_at"] = 0
+
+    from app import app
+    app.config["TESTING"] = True
+
+    mock_result = MagicMock()
+    mock_result.stdout = "You are already signed in as user 'testuser'\n"
+    mock_result.stderr = ""
+    mock_result.returncode = 0
+
+    with app.test_client() as client:
+        with patch("subprocess.run", return_value=mock_result):
+            resp = client.get("/api/ollama/status")
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert data["signed_in"] is True
+            assert data["user"] == "testuser"
