@@ -817,3 +817,44 @@ def test_factory_routes_cloud_engines():
         engine = create_translation_engine({"engine": engine_name})
         assert isinstance(engine, OllamaTranslationEngine)
         assert engine.get_info()["engine"] == engine_name
+
+
+def test_api_ollama_signin_spawns_subprocess():
+    """POST /api/ollama/signin spawns 'ollama signin' via subprocess and returns 200."""
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from unittest.mock import patch, MagicMock
+
+    from app import app
+    app.config["TESTING"] = True
+    with app.test_client() as client:
+        mock_process = MagicMock()
+        mock_process.pid = 99999
+        with patch("subprocess.Popen", return_value=mock_process) as mock_popen:
+            resp = client.post("/api/ollama/signin")
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert data.get("status") == "ok"
+            # Verify ollama signin was the spawned command
+            mock_popen.assert_called_once()
+            call_args = mock_popen.call_args[0][0]
+            assert call_args == ["ollama", "signin"]
+
+
+def test_api_ollama_signin_missing_binary_returns_500():
+    """POST /api/ollama/signin returns 500 when ollama binary is not in PATH."""
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from unittest.mock import patch
+
+    from app import app
+    app.config["TESTING"] = True
+    with app.test_client() as client:
+        with patch("subprocess.Popen", side_effect=FileNotFoundError("ollama")):
+            resp = client.post("/api/ollama/signin")
+            assert resp.status_code == 500
+            data = resp.get_json()
+            assert "error" in data
+            assert "ollama" in data["error"].lower()

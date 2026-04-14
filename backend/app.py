@@ -660,6 +660,27 @@ def api_translation_engine_models(name):
         return jsonify({"error": f"Unknown translation engine: {name}"}), 404
 
 
+@app.route('/api/ollama/signin', methods=['POST'])
+def api_ollama_signin():
+    """Spawn 'ollama signin' as a detached subprocess.
+
+    Ollama's signin command opens a browser for OAuth. We spawn it non-blocking
+    and return immediately — the user completes the flow in their browser.
+    """
+    import subprocess
+    try:
+        subprocess.Popen(
+            ["ollama", "signin"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return jsonify({"status": "ok", "message": "Ollama signin spawned. Complete login in browser."}), 200
+    except FileNotFoundError:
+        return jsonify({"error": "ollama binary not found in PATH. Install Ollama first."}), 500
+    except Exception as e:
+        return jsonify({"error": f"Failed to spawn ollama signin: {str(e)}"}), 500
+
+
 @app.route('/api/translate', methods=['POST'])
 def api_translate_file():
     """Translate a file's transcription segments using the active profile's translation engine."""
