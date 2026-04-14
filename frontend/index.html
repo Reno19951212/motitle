@@ -671,6 +671,20 @@
       padding: 6px 0;
     }
 
+    .pf-ollama-signin-btn {
+      margin-left: 8px;
+      padding: 4px 10px;
+      font-size: 12px;
+      background: #eef2ff;
+      border: 1px solid #c7d2fe;
+      border-radius: 4px;
+      cursor: pointer;
+      color: #4338ca;
+    }
+    .pf-ollama-signin-btn:hover {
+      background: #e0e7ff;
+    }
+
     .pf-params-label {
       font-size: 11px;
       color: var(--text-dim);
@@ -1981,6 +1995,20 @@ async function onTranslationEngineChange() {
   }
 }
 
+async function ollamaSignin() {
+  try {
+    const resp = await fetch(`${API_BASE}/api/ollama/signin`, { method: 'POST' });
+    const data = await resp.json();
+    if (resp.ok) {
+      alert('Ollama signin 已啟動，請喺瀏覽器完成登入。登入後請 refresh 頁面，雲端模型就會顯示為可用。');
+    } else {
+      alert('啟動失敗：' + (data.error || '未知錯誤'));
+    }
+  } catch (e) {
+    alert('無法連接後端：' + e.message);
+  }
+}
+
 function renderProfileList() {
   const container = document.getElementById('profileList');
   if (!container) return;
@@ -2172,6 +2200,7 @@ function buildProfileFormHTML(profile) {
                 const label = selectedEngine.available ? '可用' : '不可用';
                 return `<span id="pf-tr-avail-dot" class="pf-avail-dot ${cls}"></span><span id="pf-tr-avail-label" class="pf-avail-label">${label}</span>`;
               })()}
+              <button type="button" class="pf-ollama-signin-btn" onclick="ollamaSignin()" title="Spawn 'ollama signin' to log in to Ollama Cloud">☁ Ollama Cloud 登入</button>
             </div>
           </div>
           <div id="pf-tr-model-info" class="pf-model-info"></div>
