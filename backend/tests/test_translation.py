@@ -761,3 +761,42 @@ def test_retry_splice_multiple_missing():
     assert "[TRANSLATION MISSING]" not in result[2]["zh_text"]
     assert "各位晚上好" in result[0]["zh_text"]
     assert "今晚頭條新聞" in result[2]["zh_text"]
+
+
+def test_api_list_translation_engines_includes_cloud():
+    """API response includes the 3 cloud engines with is_cloud flag."""
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+
+    from app import app
+    app.config["TESTING"] = True
+    with app.test_client() as client:
+        resp = client.get("/api/translation/engines")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        engines = data.get("engines", [])
+
+        engine_keys = {e["engine"] for e in engines}
+        assert "glm-4.6-cloud" in engine_keys
+        assert "qwen3.5-397b-cloud" in engine_keys
+        assert "gpt-oss-120b-cloud" in engine_keys
+
+        # Every entry must have is_cloud
+        for e in engines:
+            assert "is_cloud" in e
+
+        cloud_engines = [e for e in engines if e["is_cloud"]]
+        cloud_keys = {e["engine"] for e in cloud_engines}
+        assert cloud_keys == {
+            "glm-4.6-cloud",
+            "qwen3.5-397b-cloud",
+            "gpt-oss-120b-cloud",
+        }
+
+        # Mock and non-cloud Ollama engines must have is_cloud=False
+        mock_entry = next(e for e in engines if e["engine"] == "mock")
+        assert mock_entry["is_cloud"] is False
+
+        qwen25_entry = next(e for e in engines if e["engine"] == "qwen2.5-3b")
+        assert qwen25_entry["is_cloud"] is False
