@@ -673,6 +673,7 @@ def api_ollama_signin():
             ["ollama", "signin"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            start_new_session=True,
         )
         return jsonify({"status": "ok", "message": "Ollama signin spawned. Complete login in browser."}), 200
     except FileNotFoundError:
