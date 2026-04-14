@@ -662,24 +662,61 @@ def api_translation_engine_models(name):
 
 @app.route('/api/ollama/signin', methods=['POST'])
 def api_ollama_signin():
-    """Spawn 'ollama signin' as a detached subprocess.
+    """Check signin status; spawn interactive flow if not already signed in.
 
-    Ollama's signin command opens a browser for OAuth. We spawn it non-blocking
-    and return immediately — the user completes the flow in their browser.
+    First invalidates the cache and checks signin status via ``ollama signin``
+    with a 2-second timeout (see ``_get_ollama_signin_status``).  If already
+    signed in, returns the user name immediately without spawning a new process.
+    If not signed in, spawns the interactive OAuth flow non-blocking so the
+    user can complete it in their browser.
     """
-    import subprocess
+    import subprocess as sp
+    from translation.ollama_engine import _get_ollama_signin_status, _SIGNIN_STATUS_CACHE
+
+    # Invalidate cache so we get a fresh check
+    _SIGNIN_STATUS_CACHE["expires_at"] = 0
+    status = _get_ollama_signin_status()
+
+    if status["signed_in"]:
+        return jsonify({
+            "status": "already_signed_in",
+            "signed_in": True,
+            "user": status["user"],
+            "message": f"Already signed in as '{status['user']}'",
+        }), 200
+
+    # Not signed in — spawn interactive OAuth flow
     try:
-        subprocess.Popen(
+        sp.Popen(
             ["ollama", "signin"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=sp.DEVNULL,
+            stderr=sp.DEVNULL,
             start_new_session=True,
         )
-        return jsonify({"status": "ok", "message": "Ollama signin spawned. Complete login in browser."}), 200
+        return jsonify({
+            "status": "signin_spawned",
+            "signed_in": False,
+            "message": "Ollama signin launched. Complete login in browser.",
+        }), 200
     except FileNotFoundError:
         return jsonify({"error": "ollama binary not found in PATH. Install Ollama first."}), 500
     except Exception as e:
         return jsonify({"error": f"Failed to spawn ollama signin: {str(e)}"}), 500
+
+
+@app.route('/api/ollama/status', methods=['GET'])
+def api_ollama_status():
+    """Return cached Ollama Cloud signin status.
+
+    Uses the 60-second cached result from ``_get_ollama_signin_status`` to
+    avoid repeated subprocess overhead on repeated calls.
+    """
+    from translation.ollama_engine import _get_ollama_signin_status
+    status = _get_ollama_signin_status()
+    return jsonify({
+        "signed_in": status["signed_in"],
+        "user": status.get("user"),
+    }), 200
 
 
 @app.route('/api/translate', methods=['POST'])
