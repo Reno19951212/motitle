@@ -297,11 +297,30 @@ def test_ollama_engine_get_models_mocked():
     with patch("urllib.request.urlopen", return_value=mock_resp):
         models = engine.get_models()
 
-    assert len(models) == 5  # all ENGINE_TO_MODEL entries
+    # 5 local + 3 cloud = 8 total
+    assert len(models) == 8
+
     available_models = [m for m in models if m["available"]]
     assert len(available_models) == 2  # qwen2.5:3b and qwen2.5:7b
+
     unavailable_models = [m for m in models if not m["available"]]
-    assert len(unavailable_models) == 3
+    assert len(unavailable_models) == 6
+
+    # Every entry must expose is_cloud boolean
+    for m in models:
+        assert "is_cloud" in m
+        assert isinstance(m["is_cloud"], bool)
+
+    cloud_entries = [m for m in models if m["is_cloud"]]
+    cloud_engine_keys = {m["engine"] for m in cloud_entries}
+    assert cloud_engine_keys == {
+        "glm-4.6-cloud",
+        "qwen3.5-397b-cloud",
+        "gpt-oss-120b-cloud",
+    }
+
+    local_entries = [m for m in models if not m["is_cloud"]]
+    assert len(local_entries) == 5
 
 
 def test_api_translation_engine_params_mock():
