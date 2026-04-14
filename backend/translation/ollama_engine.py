@@ -15,7 +15,16 @@ ENGINE_TO_MODEL = {
     "qwen2.5-72b": "qwen2.5:72b",
     "qwen3-235b": "qwen3:235b",
     "qwen3.5-9b": "qwen3.5:9b",
+    "glm-4.6-cloud": "glm-4.6:cloud",
+    "qwen3.5-397b-cloud": "qwen3.5:397b-cloud",
+    "gpt-oss-120b-cloud": "gpt-oss:120b-cloud",
 }
+
+CLOUD_ENGINES = frozenset({
+    "glm-4.6-cloud",
+    "qwen3.5-397b-cloud",
+    "gpt-oss-120b-cloud",
+})
 
 BATCH_SIZE = 10
 MAX_SUBTITLE_CHARS = 16
@@ -310,6 +319,7 @@ class OllamaTranslationEngine(TranslationEngine):
                 "engine": engine_key,
                 "model": model_tag,
                 "available": self._check_model_available(model_tag),
+                "is_cloud": engine_key in CLOUD_ENGINES,
             })
         return models
 
