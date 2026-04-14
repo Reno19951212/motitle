@@ -605,6 +605,8 @@ def api_asr_engine_params(name):
 def api_list_translation_engines():
     """List available translation engines with status."""
     from translation import create_translation_engine
+    from translation.ollama_engine import CLOUD_ENGINES
+
     engines_info = []
     for engine_name, desc in [
         ("mock", "Mock translator (development)"),
@@ -613,6 +615,9 @@ def api_list_translation_engines():
         ("qwen2.5-72b", "Qwen 2.5 72B (Ollama)"),
         ("qwen3-235b", "Qwen3 235B MoE (Ollama)"),
         ("qwen3.5-9b", "Qwen 3.5 9B (Ollama)"),
+        ("glm-4.6-cloud", "GLM-4.6 (Ollama Cloud)"),
+        ("qwen3.5-397b-cloud", "Qwen 3.5 397B MoE (Ollama Cloud)"),
+        ("gpt-oss-120b-cloud", "GPT-OSS 120B (Ollama Cloud)"),
     ]:
         try:
             engine = create_translation_engine({"engine": engine_name})
@@ -621,12 +626,14 @@ def api_list_translation_engines():
                 "engine": engine_name,
                 "available": info.get("available", False),
                 "description": desc,
+                "is_cloud": engine_name in CLOUD_ENGINES,
             })
         except Exception:
             engines_info.append({
                 "engine": engine_name,
                 "available": False,
                 "description": desc,
+                "is_cloud": engine_name in CLOUD_ENGINES,
             })
     return jsonify({"engines": engines_info})
 
