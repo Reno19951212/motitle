@@ -1999,10 +1999,22 @@ async function ollamaSignin() {
   try {
     const resp = await fetch(`${API_BASE}/api/ollama/signin`, { method: 'POST' });
     const data = await resp.json();
-    if (resp.ok) {
-      alert('Ollama signin 已啟動，請喺瀏覽器完成登入。登入後請 refresh 頁面，雲端模型就會顯示為可用。');
-    } else {
+    if (!resp.ok) {
       alert('啟動失敗：' + (data.error || '未知錯誤'));
+      return;
+    }
+    if (data.signed_in) {
+      alert(`你已經登入為 '${data.user}'。雲端模型應該可用。`);
+    } else {
+      alert('Ollama 登入已啟動，請喺瀏覽器完成登入。登入後請 refresh 頁面。');
+    }
+    // Refresh engine list to update availability
+    if (typeof loadTranslationEngines === 'function') {
+      await loadTranslationEngines();
+      // Re-render the profile form to reflect updated availability
+      if (typeof renderProfileList === 'function') {
+        renderProfileList();
+      }
     }
   } catch (e) {
     alert('無法連接後端：' + e.message);
