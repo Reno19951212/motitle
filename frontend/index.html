@@ -693,6 +693,86 @@
       background: #e0e7ff;
     }
 
+    /* ===== Schema-driven param widgets ===== */
+    .pf-hint {
+      font-size: 10.5px;
+      color: var(--text-dim);
+      margin-top: 2px;
+      line-height: 1.4;
+    }
+    /* Toggle switch */
+    .pf-switch {
+      position: relative;
+      display: inline-block;
+      width: 38px;
+      height: 20px;
+    }
+    .pf-switch input { opacity: 0; width: 0; height: 0; }
+    .pf-switch-slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background: rgba(255,255,255,0.15);
+      border-radius: 20px;
+      transition: 0.2s;
+    }
+    .pf-switch-slider::before {
+      content: '';
+      position: absolute;
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      top: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: 0.2s;
+    }
+    .pf-switch input:checked + .pf-switch-slider { background: var(--accent); }
+    .pf-switch input:checked + .pf-switch-slider::before { transform: translateX(18px); }
+
+    /* Segmented control */
+    .pf-segmented {
+      display: inline-flex;
+      gap: 0;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px;
+    }
+    .pf-segmented-option {
+      background: transparent;
+      border: 0;
+      padding: 4px 12px;
+      font-size: 12px;
+      color: var(--text-dim);
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.15s;
+    }
+    .pf-segmented-option:hover { color: var(--text); }
+    .pf-segmented-option.pf-segmented-active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    /* Slider with readout */
+    .pf-slider-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .pf-slider-row input[type="range"] {
+      flex: 1;
+      accent-color: var(--accent);
+    }
+    .pf-slider-readout {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      color: var(--accent);
+      min-width: 36px;
+      text-align: right;
+    }
+
     .pf-params-label {
       font-size: 11px;
       color: var(--text-dim);
@@ -1729,15 +1809,53 @@ const EXCLUDED_TRANSLATION_PARAMS = ['model'];
 function renderParamField(name, idPrefix, paramSchema, currentValue) {
   const id = `${idPrefix}-${name}`;
   const value = currentValue !== undefined ? currentValue : (paramSchema.default ?? '');
-  const label = name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  // Prefer the schema-provided localized label; fall back to humanized field name
+  const label = paramSchema.label || name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   const tooltip = paramSchema.description ? ` title="${escapeHtml(paramSchema.description)}"` : '';
+  const hint = paramSchema.hint
+    ? `<div class="pf-hint">${escapeHtml(paramSchema.hint)}</div>`
+    : '';
 
   let input;
-  if (paramSchema.enum) {
-    const options = paramSchema.enum.map(opt =>
-      `<option value="${escapeHtml(String(opt))}" ${String(value) === String(opt) ? 'selected' : ''}>${escapeHtml(String(opt))}</option>`
-    ).join('');
+  const widget = paramSchema.widget; // may be undefined; falls through to type-based default
+
+  if (widget === 'segmented' && paramSchema.enum) {
+    // Render as a row of toggle pills (one per enum option)
+    const labels = paramSchema.enum_labels || {};
+    const pills = paramSchema.enum.map(opt => {
+      const optStr = String(opt);
+      const display = labels[optStr] || optStr;
+      const active = String(value) === optStr ? 'pf-segmented-active' : '';
+      return `<button type="button" class="pf-segmented-option ${active}" data-value="${escapeHtml(optStr)}" onclick="selectSegmented('${id}', this)">${escapeHtml(display)}</button>`;
+    }).join('');
+    input = `<div class="pf-segmented" id="${id}-group" data-value="${escapeHtml(String(value))}">${pills}</div>`
+          + `<input type="hidden" id="${id}" value="${escapeHtml(String(value))}">`;
+
+  } else if (widget === 'switch' && paramSchema.type === 'boolean') {
+    // Render as a toggle switch (checkbox styled as a slider)
+    const checked = (value === true || String(value) === 'true') ? 'checked' : '';
+    input = `<label class="pf-switch"><input type="checkbox" id="${id}" ${checked}><span class="pf-switch-slider"></span></label>`;
+
+  } else if (widget === 'slider' && (paramSchema.type === 'number' || paramSchema.type === 'integer')) {
+    // Render as a range slider with live numeric readout
+    const min = paramSchema.minimum !== undefined ? paramSchema.minimum : 0;
+    const max = paramSchema.maximum !== undefined ? paramSchema.maximum : 100;
+    const step = paramSchema.step !== undefined ? paramSchema.step : (paramSchema.type === 'number' ? 0.1 : 1);
+    input = `<div class="pf-slider-row">
+        <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${escapeHtml(String(value))}" oninput="document.getElementById('${id}-readout').textContent = this.value">
+        <span id="${id}-readout" class="pf-slider-readout">${escapeHtml(String(value))}</span>
+      </div>`;
+
+  } else if (paramSchema.enum) {
+    // Standard dropdown with enum_labels support
+    const labels = paramSchema.enum_labels || {};
+    const options = paramSchema.enum.map(opt => {
+      const optStr = String(opt);
+      const display = labels[optStr] || optStr;
+      return `<option value="${escapeHtml(optStr)}" ${String(value) === optStr ? 'selected' : ''}>${escapeHtml(display)}</option>`;
+    }).join('');
     input = `<select id="${id}">${options}</select>`;
+
   } else if (paramSchema.type === 'boolean') {
     const trueSelected  = String(value) === 'true'  ? 'selected' : '';
     const falseSelected = String(value) === 'false' ? 'selected' : '';
@@ -1745,6 +1863,7 @@ function renderParamField(name, idPrefix, paramSchema, currentValue) {
       <option value="true"  ${trueSelected}>true</option>
       <option value="false" ${falseSelected}>false</option>
     </select>`;
+
   } else if (paramSchema.type === 'number' || paramSchema.type === 'integer') {
     const min = paramSchema.minimum !== undefined ? ` min="${paramSchema.minimum}"` : '';
     const max = paramSchema.maximum !== undefined ? ` max="${paramSchema.maximum}"` : '';
@@ -1752,6 +1871,7 @@ function renderParamField(name, idPrefix, paramSchema, currentValue) {
     const displayValue = (value === null || value === undefined || value === '') ? '' : String(value);
     const placeholder = paramSchema.default === null ? ' placeholder="留空 = 無限制"' : '';
     input = `<input type="number" id="${id}" value="${escapeHtml(displayValue)}"${min}${max}${step}${placeholder}>`;
+
   } else {
     input = `<input type="text" id="${id}" value="${escapeHtml(String(value))}">`;
   }
@@ -1760,7 +1880,22 @@ function renderParamField(name, idPrefix, paramSchema, currentValue) {
     <div class="profile-form-row">
       <label${tooltip}>${escapeHtml(label)}</label>
       ${input}
+      ${hint}
     </div>`;
+}
+
+// Helper for the segmented control widget — sets the hidden input value and
+// updates which pill has the active class.
+function selectSegmented(inputId, btn) {
+  const value = btn.dataset.value;
+  document.getElementById(inputId).value = value;
+  const group = document.getElementById(inputId + '-group');
+  if (group) {
+    group.dataset.value = value;
+    group.querySelectorAll('.pf-segmented-option').forEach(el => {
+      el.classList.toggle('pf-segmented-active', el === btn);
+    });
+  }
 }
 
 /**
@@ -2343,34 +2478,33 @@ async function saveProfile() {
 
   const profileId = document.getElementById('pfId').value;
 
-  // Collect dynamic ASR params from schema keys (schema-aware: handles boolean + nullable integer)
+  // Collect dynamic ASR params from schema keys.
+  // Handles: boolean (checkbox vs select), nullable integer, segmented hidden input.
+  const collectParam = (el, schema) => {
+    if (schema.type === 'boolean') {
+      // Toggle switch (checkbox) reports via .checked; legacy select uses .value
+      return (el.tagName === 'INPUT' && el.type === 'checkbox') ? el.checked : (el.value === 'true');
+    }
+    if (schema.type === 'number' || schema.type === 'integer') {
+      return el.value === '' ? null : Number(el.value);
+    }
+    return el.value;
+  };
+
   const asrParams = {};
   for (const [paramName, schema] of Object.entries(currentAsrSchema.params || {})) {
     if (EXCLUDED_ASR_PARAMS.includes(paramName)) continue;
     const el = document.getElementById(`pf-asr-${paramName}`);
     if (!el) continue;
-    if (schema.type === 'boolean') {
-      asrParams[paramName] = el.value === 'true';
-    } else if (schema.type === 'number' || schema.type === 'integer') {
-      asrParams[paramName] = el.value === '' ? null : Number(el.value);
-    } else {
-      asrParams[paramName] = el.value;
-    }
+    asrParams[paramName] = collectParam(el, schema);
   }
 
-  // Collect dynamic translation params from schema keys (schema-aware: handles boolean + nullable integer)
   const trParams = {};
   for (const [paramName, schema] of Object.entries(currentTranslationSchema.params || {})) {
     if (EXCLUDED_TRANSLATION_PARAMS.includes(paramName)) continue;
     const el = document.getElementById(`pf-tr-${paramName}`);
     if (!el) continue;
-    if (schema.type === 'boolean') {
-      trParams[paramName] = el.value === 'true';
-    } else if (schema.type === 'number' || schema.type === 'integer') {
-      trParams[paramName] = el.value === '' ? null : Number(el.value);
-    } else {
-      trParams[paramName] = el.value;
-    }
+    trParams[paramName] = collectParam(el, schema);
   }
 
   const payload = {
