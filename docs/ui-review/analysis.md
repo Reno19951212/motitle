@@ -20,7 +20,7 @@ Check off each area as it is reviewed. Pick the next unchecked area in order.
 - [x] 6. Profile form — basic info section
 - [x] 7. Profile form — ASR parameters section
 - [x] 8. Profile form — Translation engine dropdown (local/cloud optgroup)
-- [ ] 9. Profile form — Font configuration section
+- [x] 9. Profile form — Font configuration section
 - [ ] 10. Transcription progress bar + ETA
 - [ ] 11. Real-time subtitle segment display during transcription
 - [ ] 12. Translation status badge + re-translate button flow
@@ -373,5 +373,44 @@ Each entry below follows this template:
 
 **Estimated impact:** high — translation controls are consulted on every transcription run, and the section currently contains an actual incorrect status label
 **Estimated effort:** M — bug fix + `renderParamField` upgrades (slider, stepper, segmented) + row layout rework; no backend changes beyond the optional `/models` tightening
+
+---
+
+### Area 9: Profile form — Font configuration section
+
+**Screenshot:** `screenshots/09_profile-form-font.png`
+
+**What works:**
+- Range hints are baked into the labels: `FONT SIZE (12-120)`, `OUTLINE WIDTH (0-10)`, `MARGIN BOTTOM (0-200)`. Users know the valid range before typing.
+- Native `<input type="color">` for fill and outline — zero dependencies, works everywhere
+- `POSITION` is a dropdown (likely Top / Middle / Bottom) — appropriate control for an enumeration
+- Numeric fields use `<input type="number">` with `min`/`max` attributes, so browser validation fires automatically
+- Section is collapsible to stay out of the way when the user isn't styling
+
+**Issues observed:**
+- [P1] **No live preview anywhere.** This is the single biggest gap. A user configuring font family, size, colour, outline and position has no visual feedback until they save the profile, run a transcription, and render the output. That is a 5-minute feedback loop for a visual decision.
+- [P1] **ALL-CAPS English labels** (`FONT FAMILY`, `FONT SIZE`, `COLOR`, `OUTLINE COLOR`, `OUTLINE WIDTH`, `POSITION`, `MARGIN BOTTOM`) against a Chinese section header (`字型設定`). Same schema-key leakage as Areas 7 and 8, but more glaring here because these are properties users directly perceive on the final output.
+- [P1] **`FONT FAMILY` is free text.** A user can type `Comic Sans MS` or `Noto Sans CJK` and the form accepts it. FFmpeg / fontconfig will silently pick a fallback when rendering if the font isn't installed. No validation, no warning, just a surprise at render time.
+- [P2] **Colour pickers are thin horizontal bars** with no hex readout next to them. User cannot tell what `#ffffff` vs `#fafafa` looks like — both read as "white". No alpha channel support, so semi-transparent or anti-banding subtitles cannot be configured.
+- [P2] **`COLOR` and `OUTLINE COLOR` are visually indistinguishable** at a glance — both render as identical horizontal colour bars. Only the label tells them apart. Grouping and iconography would help.
+- [P2] **`POSITION` as a dropdown** for a 2-3 option enumeration wastes a click. Segmented toggle (`[⬆ 頂] [⟷ 中] [⬇ 底]`) would show all options at once.
+- [P2] **`MARGIN BOTTOM` unit is unspecified.** Is 40 in pixels? Percent? The label says `(0-200)` but users cannot infer that 200 means "200 pixels from the bottom of the video frame".
+- [P2] **No reset-to-default.** If a user experiments and gets lost, they must remember the original broadcast defaults or reload the form.
+- [P3] **No field grouping.** Colours should cluster; size/outline should cluster; position/margin should cluster. Seven flat fields force the eye to scan linearly.
+- [P3] **No preview of what "Noto Sans TC" actually looks like** in a Chinese font picker — users who don't know the name have to guess.
+
+**Recommendations:**
+1. **Add a live preview strip** at the top of the 字型設定 section: a small dark rectangle (~240 × 60 px) simulating a video frame, with a sample subtitle ("🎬 各位晚上好 · preview") that re-renders on every change to any font field. Pure CSS — no FFmpeg invocation needed. This alone eliminates 80% of the friction.
+2. **Humanize all labels in Traditional Chinese**: `字體`, `字號`, `字體顏色`, `描邊顏色`, `描邊粗度`, `位置`, `底部邊距 (px)`. Put the original schema key as a tiny auxiliary label underneath only when debugging.
+3. **Replace the free-text `FONT FAMILY` input** with a searchable dropdown populated from a new backend endpoint `/api/fonts` that queries `fc-list` or `ffmpeg -f lavfi -i fontfile=...`. Include a text fallback for advanced users.
+4. **Upgrade colour pickers**: larger swatches, a hex-code readout inline, and an alpha slider for semi-transparent support (useful for karaoke-style or lower-third styling).
+5. **Render `POSITION` as a segmented control** with icons and labels: `[⬆ 頂部] [⟷ 中] [⬇ 底部]`.
+6. **Add unit suffixes** directly to the numeric inputs: `底部邊距` field should show "40 px" with the unit as an `<span class="input-suffix">`.
+7. **Add `↺ 還原預設` button** in the section footer that snaps all seven fields to broadcast defaults (`Noto Sans TC`, 48, white, black, 2, bottom, 40).
+8. **Introduce sub-groupings with thin dividers**: [字體 + 字號] / [字體顏色 + 描邊顏色 + 描邊粗度] / [位置 + 底部邊距]. Group headers can be small caps in `--text-dim`.
+9. **Include a sample char-set preview** next to the font family dropdown: show `繁體中文 abc 123` in the selected font so users can visually confirm before saving.
+
+**Estimated impact:** high — subtitle appearance is the user-visible output of the whole pipeline; the current form is a "save, render, wait, repeat" feedback loop
+**Estimated effort:** M — preview strip is small CSS/JS work; label humanization is trivial; font dropdown is the only new backend hook
 
 ---
