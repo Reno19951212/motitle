@@ -18,7 +18,7 @@ Check off each area as it is reviewed. Pick the next unchecked area in order.
 - [x] 4. Sidebar structure + collapsibility
 - [x] 5. Profile selector (list-style, not a dropdown)
 - [x] 6. Profile form — basic info section
-- [ ] 7. Profile form — ASR parameters section
+- [x] 7. Profile form — ASR parameters section
 - [ ] 8. Profile form — Translation engine dropdown (local/cloud optgroup)
 - [ ] 9. Profile form — Font configuration section
 - [ ] 10. Transcription progress bar + ETA
@@ -281,5 +281,50 @@ Each entry below follows this template:
 
 **Estimated impact:** medium — low-frequency interaction, but the first form a new user fills in, so a poor impression compounds
 **Estimated effort:** S — mostly attributes + small CSS and JS; no backend coupling
+
+---
+
+### Area 7: Profile form — ASR parameters section
+
+**Screenshot:** `screenshots/07_profile-form-asr.png`
+
+**What works:**
+- Engine dropdown is prominent at the top with an availability indicator `● 可用` — immediate feedback on whether the chosen engine can actually run
+- Parameters are dynamically loaded from the backend schema (no hard-coded assumptions), so adding a new engine automatically surfaces its params
+- `引擎參數` sub-header separates the engine selector from the engine-specific parameters
+- Each parameter row has its own control; consistent dropdown styling
+- The section is collapsible, reducing vertical cost when users aren't tuning
+
+**Issues observed:**
+- [P1] **Parameter labels are the raw schema keys in ALL-CAPS English**: `CONDITION ON PREVIOUS TEXT`, `LANGUAGE`, `MODEL SIZE`, `LANGUAGE CONFIG ID`. The rest of the UI is Traditional Chinese (title-cased). A user who can't decode the field name has zero recourse — there is no translation, no tooltip, nothing.
+- [P1] **No parameter descriptions anywhere.** A user staring at `CONDITION ON PREVIOUS TEXT` cannot guess what it does without reading the faster-whisper source. The schema-driven form surfaces the keys but drops the intent.
+- [P1] **`LANGUAGE` and `LANGUAGE CONFIG ID` both appear with the same label styling**, despite referring to two different things (Whisper language code vs reference to a language-config preset file). Their adjacency plus name similarity reads as either redundancy or confusion — neither is good.
+- [P2] **Boolean fields are rendered as dropdowns** (`true` / `false`). `renderParamField` treats `type: "boolean"` as a `<select>` with two options instead of a toggle switch. This inflates vertical space and misrepresents the control.
+- [P2] **No defaults indicator.** The user cannot tell whether `medium` is the default `MODEL SIZE` or a value they once overrode. There is no `(預設)` marker, no reset-to-default control.
+- [P2] **`MODEL SIZE`** has no hint about the quality/latency trade-off. A newcomer does not know `medium` is the middle of a five-step curve — should they go `small` to save RAM or `large` for accuracy?
+- [P2] **No field grouping**. All four parameters are stacked with identical weight. Language-related fields should be visually clustered; quality fields should be clustered. Right now the eye cannot find related knobs.
+- [P3] **Dropdown chevron contrast is low** against the dark background — the `▼` is tiny and muted.
+- [P3] **Label casing is inconsistent** inside the same card: `引擎` and `引擎參數` are Chinese, the parameter labels are ALL-CAPS English. Looks like two different designers wrote two halves of the form.
+
+**Recommendations:**
+1. **Extend the schema**: have `get_params_schema()` return `label` (localized display string) and `description` (tooltip copy) alongside `type`, `default`, and `enum`. Frontend renders the label instead of the key. Example:
+   ```json
+   "condition_on_previous_text": {
+     "type": "boolean",
+     "label": "條件於前文",
+     "description": "讓 Whisper 參考前一句嘅 context，準但會放大錯誤",
+     "default": true
+   }
+   ```
+2. **Render booleans as toggle switches** (`.switch` component with left/right states), not dropdowns.
+3. **Hide `language_config_id` or rename + describe it** as `語言預設檔 (自動)` with a tooltip: "揀返語言時自動選擇對應 tuning preset"; consider making it read-only once language is chosen.
+4. **Default markers**: add a subtle `(預設)` badge next to the default option inside each dropdown, and a trailing `↺` "重設" icon button to each row that snaps the value back to the schema default.
+5. **Model size tradeoff strip**: under `MODEL SIZE` render a small horizontal scale like `tiny · small · medium · large · large-v3` with `⚡ 快` on the left and `🎯 準` on the right.
+6. **Introduce field groups**: wrap `language` + `language_config_id` in a `<fieldset>` with a small group header `語言`; wrap quality params in `<fieldset>` labelled `品質`.
+7. **Improve dropdown chevron**: use a larger, higher-contrast `▾` via an icon font or inline SVG so the affordance is visible at a glance.
+8. **Normalise all labels to Traditional Chinese title case**. All caps English stays only when the schema key is genuinely an identifier (and even then, render it dim as auxiliary text under the humanized label).
+
+**Estimated impact:** high — ASR params directly control output quality; the current surface is hostile to non-experts
+**Estimated effort:** M — coordinated backend schema change + frontend rendering update; no DB / migration work
 
 ---
