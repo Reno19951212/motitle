@@ -247,44 +247,64 @@ class OllamaTranslationEngine(TranslationEngine):
 
         payload = json.dumps(body).encode("utf-8")
 
-        req = urllib.request.Request(
-            f"{self._base_url}/api/chat",
-            data=payload,
-            headers={"Content-Type": "application/json"},
-        )
-
-        try:
-            with urllib.request.urlopen(req, timeout=120) as resp:
-                raw = resp.read().decode("utf-8").strip()
+        # Retry on transient 5xx errors (502/503/504) common with Ollama Cloud proxy.
+        # Each retry waits 2^attempt seconds (1s, 2s, 4s).
+        last_error: Optional[Exception] = None
+        for attempt in range(4):
+            req = urllib.request.Request(
+                f"{self._base_url}/api/chat",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+            )
             try:
-                data = json.loads(raw)
-                return data.get("message", {}).get("content", "")
-            except json.JSONDecodeError:
-                # Ollama returned NDJSON streaming format — accumulate content chunks
-                parts = []
-                for line in raw.splitlines():
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        obj = json.loads(line)
-                        chunk = obj.get("message", {}).get("content", "")
-                        if chunk:
-                            parts.append(chunk)
-                    except json.JSONDecodeError:
-                        continue
-                return "".join(parts)
-        except urllib.error.URLError as e:
-            raise ConnectionError(
-                f"Cannot connect to Ollama at {self._base_url}. "
-                f"Is Ollama running? Error: {e}"
-            )
-        except OSError as e:
-            # socket.timeout (raised by resp.read() on timeout) is a subclass of OSError
-            raise ConnectionError(
-                f"Ollama request timed out at {self._base_url}. "
-                f"Try reducing batch_size or switching to a smaller model. Error: {e}"
-            )
+                with urllib.request.urlopen(req, timeout=120) as resp:
+                    raw = resp.read().decode("utf-8").strip()
+                try:
+                    data = json.loads(raw)
+                    return data.get("message", {}).get("content", "")
+                except json.JSONDecodeError:
+                    # Ollama returned NDJSON streaming format — accumulate content chunks
+                    parts = []
+                    for line in raw.splitlines():
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            obj = json.loads(line)
+                            chunk = obj.get("message", {}).get("content", "")
+                            if chunk:
+                                parts.append(chunk)
+                        except json.JSONDecodeError:
+                            continue
+                    return "".join(parts)
+            except urllib.error.HTTPError as e:
+                last_error = e
+                if e.code in (502, 503, 504) and attempt < 3:
+                    time.sleep(2 ** attempt)
+                    continue
+                raise ConnectionError(
+                    f"Ollama HTTP {e.code} from {self._base_url}: {e.reason}"
+                )
+            except urllib.error.URLError as e:
+                last_error = e
+                if attempt < 3:
+                    time.sleep(2 ** attempt)
+                    continue
+                raise ConnectionError(
+                    f"Cannot connect to Ollama at {self._base_url}. "
+                    f"Is Ollama running? Error: {e}"
+                )
+            except OSError as e:
+                # socket.timeout (raised by resp.read() on timeout) is a subclass of OSError
+                raise ConnectionError(
+                    f"Ollama request timed out at {self._base_url}. "
+                    f"Try reducing batch_size or switching to a smaller model. Error: {e}"
+                )
+
+        # Loop exhausted without success or exception — defensive fallback
+        raise ConnectionError(
+            f"Ollama request failed after retries: {last_error}"
+        )
 
     def _parse_response(
         self, response_text: str, segments: List[dict]
