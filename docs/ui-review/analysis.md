@@ -17,7 +17,7 @@ Check off each area as it is reviewed. Pick the next unchecked area in order.
 - [x] 3. File list card (status badges, re-transcribe, delete)
 - [x] 4. Sidebar structure + collapsibility
 - [x] 5. Profile selector (list-style, not a dropdown)
-- [ ] 6. Profile form — basic info section
+- [x] 6. Profile form — basic info section
 - [ ] 7. Profile form — ASR parameters section
 - [ ] 8. Profile form — Translation engine dropdown (local/cloud optgroup)
 - [ ] 9. Profile form — Font configuration section
@@ -243,5 +243,43 @@ Each entry below follows this template:
 
 **Estimated impact:** high — profile activation is the root of every transcription run, and currently requires guesswork
 **Estimated effort:** S-M — CSS + small JS for click-to-activate + metadata rendering; no backend changes
+
+---
+
+### Area 6: Profile form — basic info section
+
+**Screenshot:** `screenshots/06_profile-form-basic.png`
+
+**What works:**
+- Section is collapsible with a ▼ arrow in the expanded state — visual affordance is present
+- `名稱 *` uses the standard asterisk convention to mark a required field
+- `描述` is a textarea (multi-line), so longer notes like "Lightweight models for development and testing on MacBook (16GB RAM)" have room to breathe
+- Section header + body are visually distinct from the panel background, making the form-in-sidebar boundary clear
+- Default values populate correctly when editing an existing profile (no empty form on Edit)
+
+**Issues observed:**
+- [P1] **No reserved error slot.** If form validation fires (e.g. user clears `名稱`), any error message injected dynamically will cause layout jump. The adjacent fields have no stable `min-height` allowance.
+- [P1] **No character count or maxlength on `描述`.** The user has no idea if they can write a sentence or a paragraph, and the backend has no visible guard either. A pasted 10 KB essay would silently flood the field.
+- [P2] **Required asterisk is the same color as the label**, so it is not scannable — an error pattern visible only on careful read.
+- [P2] **No inline help/examples** for `描述`. The placeholder `選填描述` is vague; a hint like `e.g. "RTHK style · 16GB MacBook · Cantonese output"` would guide the user.
+- [P2] **The textarea font appears to render in a monospace-like stack**, inconsistent with the rest of the form. Likely an inherited browser default that was not overridden by the form CSS.
+- [P2] **Section header click target is wide but only the ▼ arrow visibly signals interactivity.** A background-tint hover state would make the full-width click surface discoverable.
+- [P3] **No form reset or discard control.** A user who starts editing and wants to bail has to close the form (losing all in-progress changes with no confirmation) or manually wipe every field.
+- [P3] **No label/control association via `for`/`id`** is visibly confirmable from the screenshot; if absent, screen readers lose context.
+- [P3] **Fixed textarea height (~60px)** means long descriptions become scrolling-inside-a-tiny-box. Auto-grow up to a max-height would fit natural writing.
+
+**Recommendations:**
+1. Reserve a 16–20px error slot under each input (`<div class="pf-error" role="alert"></div>`) so inline validation never shifts layout. Wire `validate()` to populate it.
+2. Add `maxlength="40"` to `#pfName` and `maxlength="280"` to `#pfDesc`, with a small right-aligned counter `<span class="pf-counter">42 / 280</span>` under the textarea.
+3. Style the required asterisk in `--danger` color with a small left margin so it reads as `名稱 *` with the star clearly separated.
+4. Add a helper line under each field label: `<small class="pf-hint">Profile 的識別用途，例如 "Production RTHK Cantonese"</small>`.
+5. Enforce font consistency: `.profile-edit-form input, .profile-edit-form textarea { font-family: inherit; }`.
+6. Give `.profile-form-section-header:hover` a subtle background tint so the click target is perceivable.
+7. Add a trailing `.btn-ghost` "清空表單" button in the form footer (or restore-defaults on Edit mode) with a confirm dialog.
+8. Use `<label for="pfName">名稱 *</label>` bindings explicitly; add `aria-describedby` pointing at the helper/counter spans.
+9. Enable textarea auto-grow: on `input`, set `style.height = 'auto'; style.height = (element.scrollHeight + 2) + 'px'`. Cap at e.g. 200px.
+
+**Estimated impact:** medium — low-frequency interaction, but the first form a new user fills in, so a poor impression compounds
+**Estimated effort:** S — mostly attributes + small CSS and JS; no backend coupling
 
 ---
