@@ -24,7 +24,7 @@ Check off each area as it is reviewed. Pick the next unchecked area in order.
 - [x] 10. Transcription progress bar + ETA
 - [x] 11. Real-time subtitle segment display during transcription
 - [x] 12. Translation status badge + re-translate button flow
-- [ ] 13. Language config panel
+- [x] 13. Language config panel
 - [ ] 14. Glossary management panel
 - [ ] 15. Proofread editor — video player controls
 - [ ] 16. Proofread editor — segment table editing UX
@@ -535,5 +535,49 @@ Each entry below follows this template:
 
 **Estimated impact:** high — translation is half of the product; missing progress + error visibility is a top-3 friction
 **Estimated effort:** M — frontend progress reuse + a couple of new socket events + small cancel endpoint + error state rendering
+
+---
+
+### Area 13: Language config panel
+
+**Screenshot:** `screenshots/13_language-config.png`
+
+**What works:**
+- Clear panel header `🌐 語言配置` with a globe icon and arrow-based collapse affordance
+- Native `<select>` for language picks; shows the localized label `English (en)`
+- Four parameters cover both sides of the pipeline (ASR segmentation + translation tuning) that are genuinely language-specific
+- Unit disclosed in the label: `每句最大時長 (秒)` — explicit seconds
+- Save button is a prominent full-width purple primary action
+- Collapsible so the panel doesn't dominate the sidebar when unused
+
+**Issues observed:**
+- [P1] **Three different label casing conventions inside one panel**: `LANGUAGE` (ALL CAPS English), `每句最大字數` (Chinese), `翻譯 BATCH SIZE` (Chinese prefix + ALL CAPS English suffix). Looks like two different authors wrote the labels.
+- [P1] **No explanation of what these parameters do.** The panel is a config dump with zero guidance: why would a user change `max_words_per_segment` from 25 to 40? When does `temperature` matter? New users cannot safely tune these without reading the source code.
+- [P1] **No dirty-state indicator and no "unsaved changes" protection.** A user can change `batch_size` from 8 to 20, forget to click save, collapse the panel, and lose the change with no warning or visual cue.
+- [P2] **No reset-to-default control.** A user who experiments into a broken state cannot easily recover without remembering or looking up the original numbers.
+- [P2] **Temperature is a plain `<input type="number">`** for a bounded `0 → 2` range — same pain point as Area 8. A slider would be more discoverable and bound-respecting.
+- [P2] **Save scope is ambiguous.** Does saving affect all profiles currently using `en`? Does it affect already-transcribed files? The button label `儲存語言配置` does not answer.
+- [P2] **No way to add a new language.** The dropdown is populated from backend; if a user wants `ja` or `ko`, there is no path to create the config file.
+- [P2] **Fields are flat-stacked.** ASR segmentation params (max_words, max_duration) and translation params (batch_size, temperature) belong to two different phases but are visually identical rows in a single list.
+- [P3] **No hint about "normal" values.** A user seeing `每句最大字數 = 25` has no idea whether that's aggressive, typical, or loose. A tiny range hint (`5 - 200, typical: 20-40`) would orient them.
+- [P3] **Save button is inside the collapsible body.** On smaller viewports it may fall below the fold.
+- [P3] **Save feedback is a transient toast** — easy to miss. A persistent "Last saved at HH:MM" indicator would be clearer.
+
+**Recommendations:**
+1. **Normalize all labels to Traditional Chinese title case**: `語言`, `每句最多字數`, `每句最長時間 (秒)`, `翻譯批次大小`, `翻譯溫度`. Drop ALL CAPS English entirely.
+2. **Add per-field helper copy** (dim small text under each input). Examples:
+   - `每句最多字數`: "超過就會自動切句。太細會切得碎，太大會有過長字幕。典型值 20–40。"
+   - `翻譯溫度`: "0 = 穩定一致, 1 = 平衡, 2 = 創意。翻譯新聞保留 0.1。"
+3. **Track dirty state**: hook `input` events on all fields; set a `● 未儲存` chip next to the panel header and near the save button. Add a `beforeunload` / collapse guard that asks "捨棄變更？".
+4. **Add a `↺ 還原預設` ghost button** next to save, which repopulates the fields from the backend default (a new `GET /api/languages/<id>/default` endpoint or embed defaults in the same response).
+5. **Render temperature as a slider** (0–2, step 0.1) with markers at 0 / 0.5 / 1 / 2 and a live readout.
+6. **Clarify save scope**: rename button to `儲存 (影響所有使用 English 的 Profile)` or add an `ℹ` info icon with tooltip: "更新後, 新嘅轉譯會用新設定; 已完成嘅檔案唔會動。"
+7. **Sub-groups with headers**: wrap `max_words` + `max_duration` under `<fieldset><legend>ASR 分段</legend>` and `batch_size` + `temperature` under `<fieldset><legend>翻譯參數</legend>`.
+8. **Add "新增語言" flow** as a trailing link in the language dropdown (`+ 新增語言...`) that opens a mini form for creating a new language-config file.
+9. **Persistent save feedback**: replace the toast with an inline `✓ 已儲存於 14:32:05` line adjacent to the save button, fading to 40% opacity after 5 s.
+10. **Show delta vs default** inline: if a user has overridden `max_words` from default 20 to 25, render `25 (預設 20)` in the placeholder space.
+
+**Estimated impact:** medium-high — language config is where users tune pipeline quality; currently it's an opaque config dump
+**Estimated effort:** S-M — mostly copy/CSS/attribute changes + dirty-state tracking + slider component
 
 ---
