@@ -1821,12 +1821,13 @@ async function initEngineParamsForForm(profile) {
     // Guard: form may have been closed
     if (!document.getElementById('pf-tr-params')) return;
 
-    // Render model info
+    // Render model info. Defensively match by engine key in case the
+    // endpoint ever returns multiple entries (it currently filters to one).
     if (modelsResp.ok && modelInfoEl) {
       const modelsData = await modelsResp.json();
       const models = modelsData.models || [];
-      if (models.length > 0) {
-        const m = models[0];
+      const m = models.find(x => x.engine === trEngine) || models[0];
+      if (m) {
         const icon = m.available
           ? `<span class="pf-model-ok">✓ 已載入</span>`
           : `<span class="pf-model-err">✗ 未載入</span>`;
@@ -1937,15 +1938,15 @@ async function onTranslationEngineChange() {
 
     if (!document.getElementById('pf-tr-params')) return;
 
-    // Update model info
+    // Update model info. Match by engine key defensively.
     if (modelsResp.ok && document.getElementById('pf-tr-model-info')) {
       const modelsData = await modelsResp.json();
       if (!document.getElementById('pf-tr-params')) return;
       const models = modelsData.models || [];
       const infoEl = document.getElementById('pf-tr-model-info');
       if (infoEl) {
-        if (models.length > 0) {
-          const m = models[0];
+        const m = models.find(x => x.engine === engineEl.value) || models[0];
+        if (m) {
           const icon = m.available
             ? `<span class="pf-model-ok">✓ 已載入</span>`
             : `<span class="pf-model-err">✗ 未載入</span>`;

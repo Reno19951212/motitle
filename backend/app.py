@@ -651,11 +651,21 @@ def api_translation_engine_params(name):
 
 @app.route('/api/translation/engines/<name>/models', methods=['GET'])
 def api_translation_engine_models(name):
-    """List available models for a specific translation engine."""
+    """Return the model info for the specified translation engine.
+
+    `OllamaTranslationEngine.get_models()` enumerates every entry in
+    ENGINE_TO_MODEL, so the raw result would confuse the frontend (which
+    expects one entry per engine). We filter to just the requested engine.
+    """
     from translation import create_translation_engine
     try:
         engine = create_translation_engine({"engine": name})
-        return jsonify({"engine": name, "models": engine.get_models()})
+        all_models = engine.get_models()
+        matching = [m for m in all_models if m.get("engine") == name]
+        # Fallback: if no match (e.g. mock engine returns a single dummy),
+        # return whatever the engine provided.
+        models = matching if matching else all_models
+        return jsonify({"engine": name, "models": models})
     except ValueError:
         return jsonify({"error": f"Unknown translation engine: {name}"}), 404
 
