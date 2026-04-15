@@ -127,3 +127,58 @@ def test_rebuild_merge_preserves_existing(tmp_path):
     new = saved["0f80e046ac16"]
     assert new["status"] == "uploaded"
     assert new["segments"] == []
+
+
+def test_rebuild_corrupt_registry_raises_json_decode_error(tmp_path):
+    """Corrupt registry.json under --merge surfaces JSONDecodeError."""
+    import json
+    import pytest
+    from tools.rebuild_registry import rebuild
+
+    uploads_dir = tmp_path / "uploads"
+    uploads_dir.mkdir()
+    (uploads_dir / "bbd1b34cb2ca.mp4").write_bytes(b"x" * 100)
+
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text("{ truncated not json")
+
+    with pytest.raises(json.JSONDecodeError):
+        rebuild(tmp_path, dry_run=False, merge=True)
+
+
+def test_rebuild_non_dict_registry_raises_value_error(tmp_path):
+    """A registry.json containing a list (not a dict) under --merge raises ValueError."""
+    import json
+    import pytest
+    from tools.rebuild_registry import rebuild
+
+    uploads_dir = tmp_path / "uploads"
+    uploads_dir.mkdir()
+    (uploads_dir / "bbd1b34cb2ca.mp4").write_bytes(b"x" * 100)
+
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(json.dumps(["not", "a", "dict"]))
+
+    with pytest.raises(ValueError, match="not a JSON object"):
+        rebuild(tmp_path, dry_run=False, merge=True)
+
+
+def test_rebuild_malformed_entry_does_not_crash_print(tmp_path, capsys):
+    """Entries missing stored_name/size print '?' placeholders instead of crashing."""
+    import json
+    from tools.rebuild_registry import rebuild
+
+    uploads_dir = tmp_path / "uploads"
+    uploads_dir.mkdir()
+
+    registry_path = tmp_path / "registry.json"
+    # Existing entry missing required fields (simulating damaged registry)
+    registry_path.write_text(json.dumps({
+        "damaged-entry": {"id": "damaged-entry"},
+    }))
+
+    rebuild(tmp_path, dry_run=True, merge=True)
+
+    captured = capsys.readouterr()
+    assert "damaged-entry" in captured.out
+    assert "?" in captured.out  # stored_name/size fallbacks present

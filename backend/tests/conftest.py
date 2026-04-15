@@ -13,9 +13,17 @@ def _isolate_app_data(tmp_path, monkeypatch):
     Prevents tests from overwriting backend/data/registry.json when they
     call API endpoints that invoke _save_registry(). Applies to every test
     in the suite without requiring opt-in from individual fixtures.
+
+    Tests that don't depend on the Flask app (e.g. rebuild_registry unit
+    tests) still run when Flask is unavailable — the isolation just
+    becomes a no-op for them.
     """
-    import app
-    from renderer import SubtitleRenderer
+    try:
+        import app
+        from renderer import SubtitleRenderer
+    except ImportError:
+        yield
+        return
 
     test_data_dir = tmp_path / "data"
     (test_data_dir / "uploads").mkdir(parents=True, exist_ok=True)

@@ -61,7 +61,12 @@ def rebuild(data_dir: Path, dry_run: bool, merge: bool) -> dict:
     existing = {}
     if merge and registry_path.exists():
         with open(registry_path) as f:
-            existing = json.load(f)
+            loaded = json.load(f)
+        if not isinstance(loaded, dict):
+            raise ValueError(
+                f"{registry_path} is not a JSON object (got {type(loaded).__name__})"
+            )
+        existing = loaded
 
     # Merge: existing entries take precedence over scanned (preserve real metadata)
     final = {**scanned, **existing} if merge else scanned
@@ -74,8 +79,11 @@ def rebuild(data_dir: Path, dry_run: bool, merge: bool) -> dict:
         print(f"Will {action} {registry_path}")
         print(f"Final entry count: {len(final)}")
 
+    # Entries from a damaged/merged registry may be missing fields — print defensively.
     for fid, entry in sorted(final.items()):
-        print(f"  {fid}  {entry['stored_name']}  {entry['size']} bytes")
+        name = entry.get("stored_name", "?") if isinstance(entry, dict) else "?"
+        size = entry.get("size", "?") if isinstance(entry, dict) else "?"
+        print(f"  {fid}  {name}  {size} bytes")
 
     if dry_run:
         print("\n(dry-run: no changes written)")
@@ -97,6 +105,12 @@ def main():
     try:
         rebuild(data_dir, dry_run=args.dry_run, merge=args.merge)
     except FileNotFoundError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        print(f"Error: existing registry.json is corrupt: {e}", file=sys.stderr)
+        sys.exit(1)
+    except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
