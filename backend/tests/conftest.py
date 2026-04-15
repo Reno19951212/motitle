@@ -15,21 +15,33 @@ def _isolate_app_data(tmp_path, monkeypatch):
     in the suite without requiring opt-in from individual fixtures.
     """
     import app
+    from renderer import SubtitleRenderer
 
     test_data_dir = tmp_path / "data"
-    (test_data_dir / "uploads").mkdir(parents=True)
-    (test_data_dir / "renders").mkdir()
-    (test_data_dir / "results").mkdir()
+    (test_data_dir / "uploads").mkdir(parents=True, exist_ok=True)
+    (test_data_dir / "renders").mkdir(exist_ok=True)
+    (test_data_dir / "results").mkdir(exist_ok=True)
 
     monkeypatch.setattr(app, "DATA_DIR", test_data_dir)
     monkeypatch.setattr(app, "UPLOAD_DIR", test_data_dir / "uploads")
     monkeypatch.setattr(app, "RENDERS_DIR", test_data_dir / "renders")
     monkeypatch.setattr(app, "RESULTS_DIR", test_data_dir / "results")
 
-    original_registry = app._file_registry.copy()
-    app._file_registry.clear()
+    # Also replace the module-level _subtitle_renderer instance, which was
+    # constructed at import time with the real RENDERS_DIR.
+    monkeypatch.setattr(
+        app,
+        "_subtitle_renderer",
+        SubtitleRenderer(test_data_dir / "renders"),
+    )
+
+    # Snapshot and clear the registry under the same lock production code uses.
+    with app._registry_lock:
+        original_registry = app._file_registry.copy()
+        app._file_registry.clear()
 
     yield
 
-    app._file_registry.clear()
-    app._file_registry.update(original_registry)
+    with app._registry_lock:
+        app._file_registry.clear()
+        app._file_registry.update(original_registry)
