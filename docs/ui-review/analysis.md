@@ -19,7 +19,7 @@ Check off each area as it is reviewed. Pick the next unchecked area in order.
 - [x] 5. Profile selector (list-style, not a dropdown)
 - [x] 6. Profile form — basic info section
 - [x] 7. Profile form — ASR parameters section
-- [ ] 8. Profile form — Translation engine dropdown (local/cloud optgroup)
+- [x] 8. Profile form — Translation engine dropdown (local/cloud optgroup)
 - [ ] 9. Profile form — Font configuration section
 - [ ] 10. Transcription progress bar + ETA
 - [ ] 11. Real-time subtitle segment display during transcription
@@ -326,5 +326,52 @@ Each entry below follows this template:
 
 **Estimated impact:** high — ASR params directly control output quality; the current surface is hostile to non-experts
 **Estimated effort:** M — coordinated backend schema change + frontend rendering update; no DB / migration work
+
+---
+
+### Area 8: Profile form — Translation engine dropdown (local/cloud optgroup)
+
+**Screenshot:** `screenshots/08_profile-form-translation-engine.png`
+
+**What works:**
+- The new `is_cloud`-grouped dropdown and `✓ / ⚠` availability prefix from the `feature/ollama-cloud-models` merge are visible and functional
+- `● 可用` availability indicator sits beside the engine dropdown — immediate at-a-glance state
+- A dedicated `☁ Ollama Cloud 登入` button sits inline next to the selector, contextually placed
+- `Model: <tag> ✓ 已載入` line gives the underlying Ollama model tag, useful for reproducibility
+- `詞彙表` lives inside the same section so the user can wire glossary during engine setup
+- Section header is collapsible, matching the ASR section pattern
+
+**Issues observed:**
+- [P1] **Engine dropdown text is truncated.** `✓ gpt-oss-1...` shows only 10 visible characters before cutoff. The full key `gpt-oss-120b-cloud` is 18 chars — with the `✓` prefix it cannot fit in the current narrow layout. The dropdown shares its row with the availability dot and the "Ollama Cloud 登入" button, so there is no room to breathe.
+- [P1] **`Model: qwen2.5:3b ✓ 已載入` is a real bug, not just a UI quirk.** The active engine is `gpt-oss-120b-cloud`, yet the label shows `qwen2.5:3b`. The root cause is in `onTranslationEngineChange()` (and the parallel logic on form open): it reads `modelsData.models[0]` and prints that entry unconditionally. Because `OllamaTranslationEngine.get_models()` iterates `ENGINE_TO_MODEL` in insertion order, `models[0]` is always `qwen2.5:3b`. Fix is one line in the frontend (`models.find(x => x.engine === trEngine)`) or the backend endpoint should return only the matching engine's model.
+- [P1] **Parameter labels are the raw ALL-CAPS schema keys again**: `BATCH SIZE`, `CONTEXT WINDOW`, `STYLE`, `TEMPERATURE`. Same issue as Area 7 — the schema-driven renderer drops localization and humanization.
+- [P2] **`TEMPERATURE` is a plain text input** for a bounded `0 → 2` float. A slider with markers at 0 / 0.5 / 1 / 2 would make the semantics (deterministic vs creative) legible at a glance and avoid invalid values.
+- [P2] **`BATCH SIZE` is a plain text input** with no visible min/max. The schema declares `minimum: 1, maximum: 50` but the control does not enforce or surface those bounds.
+- [P2] **`STYLE` renders as a dropdown** despite having only two options (`formal` / `cantonese`). A segmented control (`書面語 | 粵語`) would show both options at once with zero click cost.
+- [P2] **`Ollama Cloud 登入` button is visually quiet** — it's a small outlined pill next to the availability dot. First-time users facing a `⚠` cloud model may not spot it as the fix path.
+- [P2] **`引擎參數` sub-header is the same weak styling as ASR**, so the eye cannot distinguish the params block from the engine-selection block above it.
+- [P3] **`詞彙表` sits inside `翻譯設定`** but feels detached from the translation params above it — no divider, no mini header.
+- [P3] **No test-translation affordance.** For cloud engines that depend on `ollama signin`, the user has no way to verify the model actually works before committing to a full 57-segment translation run.
+- [P3] **Dropdown chevron contrast is low**, same as the ASR section.
+
+**Recommendations:**
+1. **Give the engine dropdown the full row width** so the full engine key is visible. Move `● 可用` + `Ollama Cloud 登入` to a secondary row below the dropdown.
+2. **Fix the `Model:` label bug** (one-line frontend fix or tighten the `/models` endpoint):
+   ```js
+   // Before
+   const m = models[0];
+   // After
+   const m = models.find(x => x.engine === trEngine) || models[0];
+   ```
+3. **Humanize param labels** via the schema-metadata approach proposed in Area 7: `batch_size` → `批次大小`, `temperature` → `溫度`, `style` → `翻譯風格`, `context_window` → `上下文視窗`.
+4. **Render `temperature` as a slider** with markers at 0 / 0.5 / 1 / 2 and tooltip: "0 = 穩定 · 1 = 平衡 · 2 = 創意". Live numeric readout on the right.
+5. **Render `batch_size` as a stepper** (`− 10 +`) or at least `<input type="number" min="1" max="50">`.
+6. **Render `style` as a segmented toggle** (`[書面語] [粵語]`) — two options shown at once, single click to pick, no hidden state.
+7. **Promote the `Ollama Cloud 登入` button** when a cloud engine is selected and `available === false`: upgrade it to a primary-outline CTA, show it on its own row with a subtitle ("一次登入，雲端模型即可使用"), and hide it when local engines are selected.
+8. **Add a `🧪 試譯` button** at the bottom of the translation section that POSTs a fixed English sample ("Good evening, welcome to the news.") to `/api/translate` with the current unsaved config and inlines the output. Immediate feedback = trust.
+9. **Separate `詞彙表`** with a thin rule divider and a mini header `詞彙表注入` so it reads as a distinct "plug this glossary into every translate call" toggle.
+
+**Estimated impact:** high — translation controls are consulted on every transcription run, and the section currently contains an actual incorrect status label
+**Estimated effort:** M — bug fix + `renderParamField` upgrades (slider, stepper, segmented) + row layout rework; no backend changes beyond the optional `/models` tightening
 
 ---
