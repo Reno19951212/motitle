@@ -1067,3 +1067,106 @@ def test_api_ollama_status_endpoint():
             data = resp.get_json()
             assert data["signed_in"] is True
             assert data["user"] == "testuser"
+
+
+def test_ollama_retries_on_502_then_succeeds():
+    """Transient 502 from Ollama Cloud is retried; second attempt succeeds."""
+    import json as json_mod
+    import urllib.error
+    from unittest.mock import patch, MagicMock
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+
+    # First call raises 502, second call returns success
+    success_body = json_mod.dumps({"message": {"content": "1. 晚上好。\n2. 歡迎收看新聞。"}}).encode()
+    mock_ok = MagicMock()
+    mock_ok.read.return_value = success_body
+    mock_ok.__enter__ = MagicMock(return_value=mock_ok)
+    mock_ok.__exit__ = MagicMock(return_value=False)
+
+    calls = {"n": 0}
+
+    def fake_urlopen(req, timeout=None):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise urllib.error.HTTPError(
+                url=req.full_url, code=502, msg="Bad Gateway", hdrs=None, fp=None
+            )
+        return mock_ok
+
+    with patch("urllib.request.urlopen", side_effect=fake_urlopen), \
+         patch("time.sleep"):
+        result = engine.translate(SAMPLE_SEGMENTS, glossary=[], style="formal")
+
+    assert len(result) == 2
+    assert result[0]["zh_text"] == "晚上好。"
+    assert calls["n"] == 2  # 1 fail + 1 success
+
+
+def test_ollama_raises_after_retries_exhausted():
+    """Persistent 502 raises ConnectionError after 4 attempts (1 initial + 3 retries)."""
+    import urllib.error
+    from unittest.mock import patch
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+
+    calls = {"n": 0}
+
+    def fake_urlopen(req, timeout=None):
+        calls["n"] += 1
+        raise urllib.error.HTTPError(
+            url=req.full_url, code=502, msg="Bad Gateway", hdrs=None, fp=None
+        )
+
+    with patch("urllib.request.urlopen", side_effect=fake_urlopen), \
+         patch("time.sleep"):
+        with pytest.raises(ConnectionError, match="502"):
+            engine.translate(SAMPLE_SEGMENTS, glossary=[], style="formal")
+
+    assert calls["n"] == 4  # 1 initial + 3 retries
+
+
+def test_isolate_fixture_redirects_registry_writes():
+    """The autouse _isolate_app_data fixture must redirect _save_registry writes
+    to tmp_path so the real backend/data/registry.json is never touched."""
+    import app
+    from pathlib import Path
+
+    # Sanity check: the fixture should have redirected DATA_DIR already
+    real_data_dir = Path(__file__).parent.parent / "data"
+    assert app.DATA_DIR != real_data_dir, (
+        "autouse fixture failed to redirect DATA_DIR — "
+        f"still pointing at {app.DATA_DIR}"
+    )
+
+    # Mutate the in-memory registry
+    app._file_registry["isolation-sentinel-001"] = {
+        "id": "isolation-sentinel-001",
+        "original_name": "sentinel.mp4",
+        "stored_name": "sentinel.mp4",
+        "size": 42,
+        "status": "uploaded",
+        "uploaded_at": 1700000000,
+    }
+
+    # Trigger a save
+    app._save_registry()
+
+    # The test tmp registry MUST contain the sentinel
+    test_registry_path = app.DATA_DIR / "registry.json"
+    assert test_registry_path.exists(), "registry.json was not written to tmp_path"
+
+    import json
+    with open(test_registry_path) as f:
+        saved = json.load(f)
+    assert "isolation-sentinel-001" in saved
+
+    # The real registry.json (if it exists) must NOT contain the sentinel
+    if real_data_dir.joinpath("registry.json").exists():
+        with open(real_data_dir / "registry.json") as f:
+            real_saved = json.load(f)
+        assert "isolation-sentinel-001" not in real_saved, (
+            "REAL registry.json was modified — isolation fixture broken!"
+        )
