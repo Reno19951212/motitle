@@ -16,7 +16,7 @@ Check off each area as it is reviewed. Pick the next unchecked area in order.
 - [x] 2. File upload region (button + drag-drop zone)
 - [x] 3. File list card (status badges, re-transcribe, delete)
 - [x] 4. Sidebar structure + collapsibility
-- [ ] 5. Profile selector dropdown
+- [x] 5. Profile selector (list-style, not a dropdown)
 - [ ] 6. Profile form — basic info section
 - [ ] 7. Profile form — ASR parameters section
 - [ ] 8. Profile form — Translation engine dropdown (local/cloud optgroup)
@@ -204,5 +204,44 @@ Each entry below follows this template:
 
 **Estimated impact:** high — the sidebar is the control centre and currently tangles three mental models into one scroll
 **Estimated effort:** M-L — restructuring panel hierarchy, introducing sub-panel components, consolidating button styles
+
+---
+
+### Area 5: Profile selector (list-style, not a dropdown)
+
+**Screenshot:** `screenshots/05_profile-selector.png`
+
+**Note:** The area is labelled "dropdown" in the checklist, but the actual implementation is a vertical list (`#profileList`) with inline Edit/Del actions. No `<select>` is involved. Review applies to the list-selector as it exists.
+
+**What works:**
+- Active profile is clearly marked with a green dot prefix — low-cost, scannable
+- Entire profile list is visible at once (two items) without drilling into a dropdown
+- Edit / Del actions are inline on each row, so no hidden affordances
+- "+ New Profile" button is directly above the list, in natural creation-flow position
+- On the active profile, `Del` is dimmed, signalling that you cannot delete the currently-active profile
+
+**Issues observed:**
+- [P1] **No explicit activation affordance.** Looking at the two rows, a first-time user cannot tell how to switch from `Development` to `Broadcast Production`. The row has no pointer cursor, no "Activate" button, no radio indicator. Activation must be inferred by trial and error (click-the-name-and-hope) or learned from docs.
+- [P1] **Edit and Del are visually indistinguishable.** Both render as small non-underlined text in the same color. On `Broadcast Production` both are active; on `Development` one is dimmed — but the dimming is subtle and the labels themselves do not differentiate. A hasty user will click the wrong one.
+- [P1] **Dimmed `Del` on the active profile is ambiguous.** It is neither fully disabled (no cursor change, no tooltip explaining why) nor fully hidden. The user has to stare and guess whether their click will have an effect.
+- [P2] **No metadata preview per profile.** `Broadcast Production` and `Development` differ in engine/language/style but the row shows only the name. Users must open the edit form to remember which profile is which — a full modal context-switch for a glance question.
+- [P2] **"+ New Profile" button is weaker than the items below it.** The dashed border with neutral text is visually subordinate to the filled profile cards, so the eye scans past it. If creating a new profile is a first-class action it should match the button vocabulary elsewhere on the page.
+- [P2] **`PIPELINE PROFILE` header is small caps in a dim color.** For what is arguably the most consequential setting in the app — the thing that determines what happens when you press Upload — the header lacks emphasis.
+- [P3] **No hover feedback on profile rows.** A row should show a subtle background tint on hover to confirm it is interactive (once activation is wired up).
+- [P3] **No keyboard shortcut for quick switching** (e.g. `Cmd+1` / `Cmd+2`) despite broadcast workflow being a power-user context where hotkeys matter.
+- [P3] **Long profile names** would be truncated with no tooltip. Not visible in the current two-profile sample but easy to reach.
+
+**Recommendations:**
+1. Make the whole row an explicit activation target: `cursor: pointer`, hover background tint, `onclick` handler calling `POST /api/profiles/<id>/activate`. Show an optimistic toast `已啟用 <name>` on success.
+2. Replace inline text `Edit` / `Del` with small icon buttons (✏ and 🗑) with different hover colors (neutral → blue / red). Add `aria-label` and tooltips. Consider moving them into a `⋯` overflow menu to free the row for the new click-to-activate target.
+3. Fully disable `Del` on the active profile: `disabled` attribute, `opacity: 0.25`, `title="先切換至其他 Profile 才能刪除"`. The intent should be perceptible, not guessable.
+4. Render a one-line metadata preview under each profile name: `mlx-whisper · en · qwen2.5-3b`. Use a dimmer color so it reads as supporting info.
+5. Upgrade the `PIPELINE PROFILE` header to match other panel headers (larger font, slight accent color) and consider renaming to `Pipeline 配置` for consistency with the rest of the Chinese-language UI.
+6. Rebuild `+ New Profile` as a secondary-style button (outlined purple with an icon) so it visually matches the rest of the button language without competing with the row list.
+7. Add keyboard shortcut wiring: `data-hotkey="1"`, `data-hotkey="2"` on rows; press the number to activate. Surface in a `?` help modal.
+8. Add `title` attribute on each row name so long names get full-text tooltips on hover.
+
+**Estimated impact:** high — profile activation is the root of every transcription run, and currently requires guesswork
+**Estimated effort:** S-M — CSS + small JS for click-to-activate + metadata rendering; no backend changes
 
 ---
