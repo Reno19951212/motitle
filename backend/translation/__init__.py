@@ -1,6 +1,6 @@
 """Translation Pipeline — unified interface for text translation engines."""
 from abc import ABC, abstractmethod
-from typing import TypedDict, List, Dict, Optional
+from typing import TypedDict, List, Dict, Optional, Callable
 
 
 class TranslatedSegment(TypedDict):
@@ -10,10 +10,28 @@ class TranslatedSegment(TypedDict):
     zh_text: str
 
 
+# Progress callback shape: called after each batch with (completed_count, total_count)
+ProgressCallback = Callable[[int, int], None]
+
+
 class TranslationEngine(ABC):
     @abstractmethod
-    def translate(self, segments: List[dict], glossary: Optional[List[dict]] = None, style: str = "formal", batch_size: Optional[int] = None, temperature: Optional[float] = None) -> List[TranslatedSegment]:
-        """Translate English segments to Chinese."""
+    def translate(
+        self,
+        segments: List[dict],
+        glossary: Optional[List[dict]] = None,
+        style: str = "formal",
+        batch_size: Optional[int] = None,
+        temperature: Optional[float] = None,
+        progress_callback: Optional[ProgressCallback] = None,
+    ) -> List[TranslatedSegment]:
+        """Translate English segments to Chinese.
+
+        progress_callback (optional): invoked after each batch completes with
+        (completed_segments, total_segments). Used by the API layer to emit
+        per-batch progress updates over the WebSocket. If None, no progress
+        is reported.
+        """
 
     @abstractmethod
     def get_info(self) -> dict:
