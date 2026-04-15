@@ -814,7 +814,15 @@
     }
 
     /* ===== Translation Status ===== */
-    .badge-translating { background: rgba(251,191,36,0.2); color: var(--warning); }
+    .badge-translating {
+      background: rgba(251,191,36,0.2);
+      color: var(--warning);
+      animation: badgePulse 1.4s ease-in-out infinite;
+    }
+    @keyframes badgePulse {
+      0%, 100% { background: rgba(251,191,36,0.2); }
+      50%      { background: rgba(251,191,36,0.45); }
+    }
     .badge-translated { background: rgba(74,222,128,0.2); color: var(--success); }
     .badge-pending-trans { background: rgba(136,136,136,0.2); color: var(--text-dim); }
     .btn-retranslate { padding: 4px 10px; font-size: 11px; border-radius: 6px; border: 1px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; }
@@ -1184,6 +1192,31 @@ function connectSocket() {
     }
   });
 
+  // Per-batch translation progress: update an inline progress bar on the file card
+  // without re-rendering the whole list (DOM thrash). Stash latest progress on the
+  // file and patch only the matching card's progress strip.
+  socket.on('translation_progress', (data) => {
+    if (!data || !data.file_id) return;
+    const f = uploadedFiles[data.file_id];
+    if (f) {
+      f.translation_progress = {
+        completed: data.completed,
+        total: data.total,
+        percent: data.percent,
+      };
+    }
+    const bar = document.querySelector(`[data-translation-progress="${data.file_id}"]`);
+    if (bar) {
+      const fill = bar.querySelector('.file-progress-fill');
+      const info = bar.querySelector('.file-progress-info');
+      if (fill) fill.style.width = data.percent + '%';
+      if (info) info.textContent = `翻譯中 ${data.completed} / ${data.total} 段 · ${data.percent}%`;
+    } else {
+      // First progress event for this file — re-render so the new bar appears
+      renderFileList();
+    }
+  });
+
 }
 
 function setConnectionStatus(connected) {
@@ -1359,6 +1392,19 @@ function renderFileList() {
           ? `<button class="btn-retranslate" onclick="event.stopPropagation(); reTranslateFile('${id}', this)">🔄 重新翻譯</button>`
           : `<button class="btn-retranslate" onclick="event.stopPropagation(); reTranslateFile('${id}', this)">▶ 翻譯</button>`;
 
+      // Translation progress strip — only shown while a batch is in progress
+      let translationProgressHtml = '';
+      if (isTranslating) {
+        const tp = f.translation_progress || { completed: 0, total: f.segment_count || 0, percent: 0 };
+        translationProgressHtml = `
+          <div class="file-card-progress" data-translation-progress="${id}">
+            <div class="file-progress-bar">
+              <div class="file-progress-fill" style="width:${tp.percent || 0}%"></div>
+            </div>
+            <div class="file-progress-info">翻譯中 ${tp.completed} / ${tp.total} 段 · ${tp.percent || 0}%</div>
+          </div>`;
+      }
+
       extraHtml = `
         <div class="file-card-actions">
           ${modelBadge}
@@ -1369,7 +1415,8 @@ function renderFileList() {
           <a class="btn btn-secondary" href="${API_BASE}/api/files/${id}/subtitle.txt" download>TXT</a>
           ${translateBtn}
           ${proofreadBtn}
-        </div>`;
+        </div>
+        ${translationProgressHtml}`;
     } else if (isBusy && fileProgress[id]) {
       const fp = fileProgress[id];
       const hasDeterminateProgress = fp.progress != null && fp.progress > 0;
