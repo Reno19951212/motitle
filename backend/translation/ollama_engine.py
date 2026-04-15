@@ -3,6 +3,7 @@
 import json
 import re
 import subprocess
+import sys
 import time
 import urllib.request
 import urllib.error
@@ -280,6 +281,10 @@ class OllamaTranslationEngine(TranslationEngine):
             except urllib.error.HTTPError as e:
                 last_error = e
                 if e.code in (502, 503, 504) and attempt < 3:
+                    print(
+                        f"[ollama] retry attempt {attempt + 1}/3 after HTTP {e.code}",
+                        file=sys.stderr,
+                    )
                     time.sleep(2 ** attempt)
                     continue
                 raise ConnectionError(
