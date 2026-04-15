@@ -1204,3 +1204,75 @@ def test_ollama_retry_logs_to_stderr(capsys):
     captured = capsys.readouterr()
     assert "[ollama] retry" in captured.err
     assert "502" in captured.err
+
+
+def test_api_ollama_signin_rejects_non_localhost():
+    """POST /api/ollama/signin returns 403 when request comes from non-localhost."""
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from unittest.mock import patch
+
+    from app import app
+    app.config["TESTING"] = True
+
+    with app.test_client() as client:
+        # Override REMOTE_ADDR via environ_base to simulate a LAN request
+        with patch("subprocess.Popen") as mock_popen:
+            resp = client.post(
+                "/api/ollama/signin",
+                environ_base={"REMOTE_ADDR": "192.168.1.42"},
+            )
+            assert resp.status_code == 403
+            assert "localhost" in resp.get_json().get("error", "").lower()
+            # Subprocess must NOT have been spawned
+            mock_popen.assert_not_called()
+
+
+def test_api_ollama_status_rejects_non_localhost():
+    """GET /api/ollama/status returns 403 when request comes from non-localhost."""
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from unittest.mock import patch
+
+    from app import app
+    app.config["TESTING"] = True
+
+    with app.test_client() as client:
+        with patch("subprocess.run") as mock_run:
+            resp = client.get(
+                "/api/ollama/status",
+                environ_base={"REMOTE_ADDR": "10.0.0.5"},
+            )
+            assert resp.status_code == 403
+            # Subprocess status check must NOT have run either
+            mock_run.assert_not_called()
+
+
+def test_api_ollama_signin_accepts_ipv6_localhost():
+    """POST /api/ollama/signin accepts ::1 (IPv6 localhost) same as 127.0.0.1."""
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from unittest.mock import patch, MagicMock
+    from translation import ollama_engine
+
+    ollama_engine._SIGNIN_STATUS_CACHE["expires_at"] = 0
+
+    from app import app
+    app.config["TESTING"] = True
+
+    mock_result = MagicMock()
+    mock_result.stdout = "You are already signed in as user 'testuser'\n"
+    mock_result.stderr = ""
+    mock_result.returncode = 0
+
+    with app.test_client() as client:
+        with patch("subprocess.run", return_value=mock_result):
+            resp = client.post(
+                "/api/ollama/signin",
+                environ_base={"REMOTE_ADDR": "::1"},
+            )
+            assert resp.status_code == 200
+            assert resp.get_json()["signed_in"] is True
