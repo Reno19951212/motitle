@@ -1791,6 +1791,9 @@ async function initEngineParamsForForm(profile) {
   trContainer.innerHTML  = `<div class="pf-params-loading">載入中...</div>`;
   if (saveBtn) saveBtn.disabled = true;
 
+  // Render the Ollama Cloud signin pill (only appears for cloud engines)
+  updateOllamaSigninSlot();
+
   // Fetch ASR params
   let asrSchemaOk = false;
   try {
@@ -1936,6 +1939,7 @@ async function onTranslationEngineChange() {
   engineEl.disabled = true;
   if (saveBtn) saveBtn.disabled = true;
   container.innerHTML = `<div class="pf-params-loading">載入中...</div>`;
+  updateOllamaSigninSlot();
   if (modelInfoEl) modelInfoEl.textContent = 'Model: 載入中...';
 
   try {
@@ -2017,16 +2021,54 @@ async function ollamaSignin() {
     } else {
       alert('Ollama 登入已啟動，請喺瀏覽器完成登入。登入後請 refresh 頁面。');
     }
-    // Refresh engine list to update availability
+    // Refresh engine list and signin slot to update availability
     if (typeof loadTranslationEngines === 'function') {
       await loadTranslationEngines();
-      // Re-render the profile form to reflect updated availability
       if (typeof renderProfileList === 'function') {
         renderProfileList();
       }
     }
+    updateOllamaSigninSlot();
   } catch (e) {
     alert('無法連接後端：' + e.message);
+  }
+}
+
+// Renders the Ollama Cloud signin pill into #pf-tr-signin-slot based on the
+// currently-selected engine and live signin status.
+//
+// - Local engine selected → slot is empty (hidden)
+// - Cloud engine + signed in → non-clickable info pill '✓ 已登入 (user)'
+// - Cloud engine + not signed in → clickable primary pill '☁ Ollama Cloud 登入'
+async function updateOllamaSigninSlot() {
+  const slot = document.getElementById('pf-tr-signin-slot');
+  if (!slot) return;
+
+  const engineEl = document.getElementById('pf-tr-engine');
+  const engineKey = engineEl ? engineEl.value : null;
+  const selected = translationEnginesData.find(e => e.engine === engineKey);
+
+  // Not a cloud engine → hide the slot entirely
+  if (!selected || !selected.is_cloud) {
+    slot.innerHTML = '';
+    return;
+  }
+
+  // Cloud engine — show a placeholder while fetching status
+  slot.innerHTML = `<span class="pf-ollama-signin-btn" style="opacity:0.6;cursor:default;">⟳ 檢查登入...</span>`;
+
+  try {
+    const resp = await fetch(`${API_BASE}/api/ollama/status`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const status = await resp.json();
+    if (status.signed_in) {
+      slot.innerHTML = `<span class="pf-ollama-signin-btn" style="cursor:default;" title="已登入 Ollama Cloud">✓ 已登入 (${escapeHtml(status.user || 'ollama')})</span>`;
+    } else {
+      slot.innerHTML = `<button type="button" class="pf-ollama-signin-btn" onclick="ollamaSignin()" title="Spawn 'ollama signin' to log in to Ollama Cloud">☁ Ollama Cloud 登入</button>`;
+    }
+  } catch (e) {
+    // On status check failure, fall back to the clickable signin button
+    slot.innerHTML = `<button type="button" class="pf-ollama-signin-btn" onclick="ollamaSignin()" title="Spawn 'ollama signin' to log in to Ollama Cloud">☁ Ollama Cloud 登入</button>`;
   }
 }
 
@@ -2221,7 +2263,7 @@ function buildProfileFormHTML(profile) {
                 const label = selectedEngine.available ? '可用' : '不可用';
                 return `<span id="pf-tr-avail-dot" class="pf-avail-dot ${cls}"></span><span id="pf-tr-avail-label" class="pf-avail-label">${label}</span>`;
               })()}
-              <button type="button" class="pf-ollama-signin-btn" onclick="ollamaSignin()" title="Spawn 'ollama signin' to log in to Ollama Cloud">☁ Ollama Cloud 登入</button>
+              <span id="pf-tr-signin-slot"></span>
             </div>
           </div>
           <div id="pf-tr-model-info" class="pf-model-info"></div>
