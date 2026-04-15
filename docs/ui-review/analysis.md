@@ -28,7 +28,7 @@ Check off each area as it is reviewed. Pick the next unchecked area in order.
 - [x] 14. Glossary management panel
 - [x] 15. Proofread editor — video player controls
 - [x] 16. Proofread editor — segment table editing UX
-- [ ] 17. Proofread editor — approval buttons (per-segment + bulk)
+- [x] 17. Proofread editor — approval buttons (per-segment + bulk)
 - [ ] 18. Proofread editor — keyboard shortcuts discoverability
 - [ ] 19. Error states (upload/API/translation failures)
 - [ ] 20. Loading states consistency + Ollama signin button UX
@@ -719,5 +719,50 @@ Each entry below follows this template:
 
 **Estimated impact:** high — this is the core editing surface of the app; any user doing real proofreading work will benefit
 **Estimated effort:** M — inline edit + visual states + search are independent incremental wins; bulk replace is the most involved
+
+---
+
+### Area 17: Proofread editor — approval buttons (per-segment + bulk)
+
+**Screenshot:** `screenshots/17_proofread-approvals.png`
+*Captured with the first three segments toggled to approved via `.status-btn` clicks.*
+
+**What works:**
+- Clear binary visual state: green `✓` (approved) vs empty `○` (unapproved)
+- Approval state updates immediately on click — no page reload or confirmation delay
+- `已核准 X / 41` counter in the header provides live approval progress
+- Separate `轉換編輯進度 7%` progress strip at the bottom left — approval completeness is tracked as its own metric
+- Bulk-approve button `批核所有未改動 (N)` exists and is scoped to "untouched" segments only, so user edits aren't accidentally overwritten
+- Per-button tooltips (`title="已核准（點擊取消）"` / `"點擊核准"`) exist
+- ARIA labels on buttons (`已核准` / `未核准`) — accessibility win
+
+**Issues observed:**
+- [P1] **Bulk button label `批核所有未改動` is ambiguous.** New users may interpret it as "approve everything that isn't currently approved", when it actually means "approve only segments that haven't been edited since the AI produced them". The semantic difference matters: edited-but-unapproved segments are skipped silently. Label must be explicit.
+- [P1] **No "approve everything including edited" fallback.** A user who wants to mass-approve the whole file (e.g. after reviewing everything manually) has no single-click option — they must click 41 circles. Missing the other half of the bulk-approve family.
+- [P2] **Per-segment approval button is tiny (~20 px circle).** Hard to hit accurately on a trackpad; impossible on touch. Enlarge or convert to a pill.
+- [P2] **No keyboard shortcut** for per-segment approval. The keyboard hint strip says `Enter 確認核准` but it's unclear whether Enter approves the currently-focused row or commits a text edit — two completely different actions sharing the same key.
+- [P2] **No undo for bulk approval.** Clicking "批核所有未改動" is irreversible without clicking 30+ circles to uncheck.
+- [P2] **Approval count in header is static text**, no animation when it changes. A user who just approved 15 segments gets no positive feedback.
+- [P2] **No filter "show unapproved only"**, so finding the remaining 3 out of 41 at the end requires visual scanning.
+- [P3] **Bulk button sits in the render footer** next to the format picker and `儲存並產生字幕` primary button. This visually groups approval with rendering, but they are distinct concerns. A user might think "bulk approve" is part of the render action.
+- [P3] **`(0)` counter suffix** on the bulk button is unexplained. It probably means "0 untouched segments available to approve" — but a user seeing `(0)` may interpret it as "0 approved so far". Disable with explicit reason instead.
+- [P3] **No "un-approve all" recovery path.** A user who accidentally approved everything has no easy reset.
+
+**Recommendations:**
+1. **Rename the bulk button** to something unambiguous:
+   - `✓ 核准未編輯段落 (N)` (what it currently does)
+   - Add a sibling action `✓ 核准全部 (N)` with a confirm dialog, for the "I've reviewed everything, just commit" case.
+   - Both buttons should show the count of segments they would affect; both should be disabled with a descriptive tooltip when count is 0.
+2. **Enlarge the per-segment button** from ~20 px circle to ~28 px pill. Use a capsule shape `[ ✓ ]` with generous padding.
+3. **Add a dedicated `A` shortcut** that toggles approval on the currently-focused segment. Add to the keyboard hint strip with label `A 核准 / 取消`. Move `Enter` to "commit text edit" to avoid the dual-purpose conflict.
+4. **Add "undo last bulk approval"**: after a bulk action, show a transient `↺ 撤銷` link for 10 seconds at the top of the table that reverts the batch. Implement as a backend snapshot or frontend state stack.
+5. **Animate the header count** on change: brief purple glow + scale-bounce on `已核准 X/41` when the number updates.
+6. **Add a filter toggle** next to the counter: `[全部] [未核准] [已編輯未核准]`. Clicking filters the table to just that subset.
+7. **Relocate the bulk approval button** to the approval summary bar at the top of the table, separating it from the render footer. Keep only `儲存並產生字幕` + format picker in the footer.
+8. **Replace disabled `(0)` state with explicit reason**: when no segments match, render the button as `所有段落已改動` with a tooltip explaining why.
+9. **Add "重置所有核准"** in an overflow menu on the approval summary for recovery. Needs a confirm dialog and should be visually de-emphasized.
+
+**Estimated impact:** high — approval is the final gate before render, so even small friction compounds
+**Estimated effort:** S-M — label fix is trivial; bulk variants + keyboard shortcut + filter are incremental improvements
 
 ---
