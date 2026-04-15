@@ -660,6 +660,23 @@ def api_translation_engine_models(name):
         return jsonify({"error": f"Unknown translation engine: {name}"}), 404
 
 
+_LOCALHOST_ADDRS = frozenset({"127.0.0.1", "::1", None})
+
+
+def _require_localhost():
+    """Return (None, None) if the request is from localhost, else a 403 response.
+
+    Guards subprocess-spawning + signin-sensitive endpoints against LAN
+    exposure even if FLASK_HOST is set to 0.0.0.0. remote_addr is None when
+    Flask is running under a test client."""
+    if request.remote_addr not in _LOCALHOST_ADDRS:
+        return (
+            jsonify({"error": "restricted to localhost"}),
+            403,
+        )
+    return None
+
+
 @app.route('/api/ollama/signin', methods=['POST'])
 def api_ollama_signin():
     """Check signin status; spawn interactive flow if not already signed in.
@@ -670,6 +687,10 @@ def api_ollama_signin():
     If not signed in, spawns the interactive OAuth flow non-blocking so the
     user can complete it in their browser.
     """
+    forbidden = _require_localhost()
+    if forbidden:
+        return forbidden
+
     import subprocess as sp
     from translation.ollama_engine import _get_ollama_signin_status, _SIGNIN_STATUS_CACHE
 
@@ -711,6 +732,10 @@ def api_ollama_status():
     Uses the 60-second cached result from ``_get_ollama_signin_status`` to
     avoid repeated subprocess overhead on repeated calls.
     """
+    forbidden = _require_localhost()
+    if forbidden:
+        return forbidden
+
     from translation.ollama_engine import _get_ollama_signin_status
     status = _get_ollama_signin_status()
     return jsonify({
@@ -1521,4 +1546,6 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"模型預加載失敗: {e}")
 
-    socketio.run(app, host='0.0.0.0', port=5001, debug=False, allow_unsafe_werkzeug=True)
+    # Default bind to localhost only. Set FLASK_HOST=0.0.0.0 to expose on LAN.
+    host = os.environ.get('FLASK_HOST', '127.0.0.1')
+    socketio.run(app, host=host, port=5001, debug=False, allow_unsafe_werkzeug=True)
