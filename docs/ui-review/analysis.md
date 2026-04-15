@@ -25,7 +25,7 @@ Check off each area as it is reviewed. Pick the next unchecked area in order.
 - [x] 11. Real-time subtitle segment display during transcription
 - [x] 12. Translation status badge + re-translate button flow
 - [x] 13. Language config panel
-- [ ] 14. Glossary management panel
+- [x] 14. Glossary management panel
 - [ ] 15. Proofread editor — video player controls
 - [ ] 16. Proofread editor — segment table editing UX
 - [ ] 17. Proofread editor — approval buttons (per-segment + bulk)
@@ -579,5 +579,53 @@ Each entry below follows this template:
 
 **Estimated impact:** medium-high — language config is where users tune pipeline quality; currently it's an opaque config dump
 **Estimated effort:** S-M — mostly copy/CSS/attribute changes + dirty-state tracking + slider component
+
+---
+
+### Area 14: Glossary management panel
+
+**Screenshot:** `screenshots/14_glossary-panel.png`
+
+**What works:**
+- Two-column `EN / 中文` layout matches the underlying data model 1:1
+- Entry count is surfaced in the dropdown label (`Broadcast News (1 entries)`) — immediate data-size awareness
+- Inline add row: two inputs + `新增` button on a single line, no modal gymnastics
+- Per-row delete `×` rendered in red — destructive action is colour-coded
+- `📥 匯入 CSV` link for bulk loading
+- Collapsible section keeps the panel out of the way when not in use
+
+**Issues observed:**
+- [P1] **Existing entry shows `Micahel → 23468`** — typoed English ("Micahel" instead of "Michael") and a purely numeric "Chinese" translation. The UI accepted both without validation. No format check for the English side, no CJK-presence check for the Chinese side. This is a direct data-quality regression into the translation prompt.
+- [P1] **Delete `×` has no confirmation.** Single-click permanent delete on an already-persisted entry, adjacent to live data. High mis-click risk with zero recovery.
+- [P1] **No edit affordance on existing rows.** To fix `Micahel → Michael`, the user must delete the bad row and recreate it. Inline-edit on click/double-click is the expected behaviour for a tabular glossary.
+- [P2] **`1 entries` is ungrammatical** — should be `1 entry` in English or `1 條` / `1 項` in Chinese. Affects singular case in all copies.
+- [P2] **No search or filter.** With more than ~20 entries the panel becomes an unusable scroll.
+- [P2] **No sort controls.** Entries appear in insertion order; no header click to sort A → Z or reverse.
+- [P2] **`新增` button is always enabled**, even when both input fields are empty. Clicking with empty fields produces either a silent no-op or an error toast — neither discoverable from the idle state.
+- [P2] **No CSV export** shown in this panel. Import is visible but export is not — asymmetric and confusing when users want to back up their glossary.
+- [P2] **No purpose description** anywhere. A first-time user cannot tell whether terms are regex-matched, whole-word, case-sensitive, or inserted into the LLM prompt as examples. The absence of an explainer leads to misuse.
+- [P3] **`GLOSSARY` label is ALL CAPS English** — same pattern leak as Area 7 and Area 13, inconsistent with the panel header `術語表`.
+- [P3] **Single glossary dropdown** has no `+ 新增詞彙表` option. Creating new glossaries requires an unexplained path.
+- [P3] **No hint about what counts as "good"**: should glossaries contain proper nouns only? Multi-word phrases? Regex? Case variants?
+
+**Recommendations:**
+1. **Input validation**:
+   - English field: reject empty, warn on non-ASCII/CJK, minimum 1 letter
+   - Chinese field: require at least one CJK character; warn on "pure number" / "pure ASCII" input
+   - Disable `新增` until both pass validation; show inline red error under the offending field
+2. **Confirm dialog on delete**: a native `confirm("確定刪除 'Michael → 邁克爾'？")` or a small modal. Include the entry pair in the question.
+3. **Inline edit on double-click**: turn cells into `contenteditable` spans; `Enter` commits via `PATCH /api/glossaries/<id>/entries/<eid>`; `Escape` cancels.
+4. **Fix the i18n count string**: `${n} ${n === 1 ? 'entry' : 'entries'}` or fully Chinese `${n} 條`.
+5. **Add a search input** above the entry list with live client-side filtering; `🔍 搜尋術語` placeholder.
+6. **Add sortable headers** — click `EN` to sort by English A-Z / Z-A; click `中文` similarly.
+7. **Disable `新增` when invalid**: `opacity: 0.35; pointer-events: none;` with tooltip explaining why.
+8. **Add `📤 匯出 CSV`** link adjacent to `📥 匯入 CSV` at the panel footer.
+9. **Humanize all labels**: `GLOSSARY` → `詞彙表`, column headers `EN` / `中文` → `原文` / `翻譯`.
+10. **Add `+ 新增詞彙表`** option at the top of the glossary dropdown, opening a small inline name+save flow.
+11. **Add a purpose explainer** under the header: "術語表會注入到翻譯 prompt 做 few-shot examples, 確保專有名詞一致。建議每個 Profile 綁一個相關嘅 glossary。"
+12. **Move `×` into an overflow menu** `⋯` with explicit label "刪除此詞彙" and the confirm dialog.
+
+**Estimated impact:** medium — direct impact on translation quality via the prompt; current "Micahel → 23468" shows the validation gap is already producing bad data
+**Estimated effort:** S-M — frontend work + basic validation; inline edit adds the most value for effort
 
 ---
