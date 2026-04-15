@@ -15,7 +15,7 @@ Check off each area as it is reviewed. Pick the next unchecked area in order.
 - [x] 1. Dashboard overall layout + header
 - [x] 2. File upload region (button + drag-drop zone)
 - [x] 3. File list card (status badges, re-transcribe, delete)
-- [ ] 4. Sidebar structure + collapsibility
+- [x] 4. Sidebar structure + collapsibility
 - [ ] 5. Profile selector dropdown
 - [ ] 6. Profile form — basic info section
 - [ ] 7. Profile form — ASR parameters section
@@ -157,5 +157,52 @@ Each entry below follows this template:
 
 **Estimated impact:** high — this card is the primary recurring interaction surface
 **Estimated effort:** M — two CSS refactors + one JS overflow menu + safer delete confirm
+
+---
+
+### Area 4: Sidebar structure + collapsibility
+
+**Screenshot:** `screenshots/04_sidebar-structure.png`
+
+**What works:**
+- Two clearly-delineated panels stack vertically: 「轉錄文字」 (current-file transcript) on top, 「設置」 (settings) below. The separation by concern (output vs configuration) is a reasonable starting point.
+- Collapsible sub-sections (`🌐 語言配置`, `📖 術語表`) with the ▶ indicator reduce initial cognitive load for users who only care about the core playback controls.
+- Active profile "Development" is highlighted with a green left-dot — standard "you are here" pattern.
+- Empty state in the 轉錄文字 panel has an illustration + helper copy, avoiding a dead tabs-only state.
+- Persistent status footer `已連接到 Whisper 服務器` gives the user confidence that the backend link is alive.
+- Fixed-width 360px column on desktop is narrow enough to not dominate the viewport.
+
+**Issues observed:**
+- [P1] The "設置" panel conflates three logically distinct concerns into one undifferentiated scroll:
+  (a) **Pipeline management** — `PIPELINE PROFILE` list with Edit/Del (affects the *next* transcription run)
+  (b) **Playback rendering** — `字幕延遲`, `字幕顯示時長`, `字幕大小` sliders (affect *current* video playback only)
+  (c) **Global config** — `🌐 語言配置`, `📖 術語表` (global, affects all runs)
+  A user adjusting the subtitle delay slider has no way to know it is *playback-only* and does not re-trigger anything. The mental model leaks.
+- [P1] Inline `Edit` / `Del` text links on each profile row are visually indistinguishable (same color, same font size, same proximity). For the active profile the `Del` is dimmed but the user has to visually parse "is it dimmed?" before clicking — not scannable.
+- [P1] The three sliders have no visual separation between them and share the same purple accent. Scanning down the panel, it is easy to misread which number belongs to which slider, especially because `字幕延遲` shows a `同步補償` pill and auxiliary min/max labels while the other two do not.
+- [P2] The "設置" panel has a single top-level header `⚙ 設置` then immediately drops into `PIPELINE PROFILE` without a clear hierarchy. Sliders have no group header. Collapsible sections have no group header. Everything is one flat list inside one panel.
+- [P2] `🌐 語言配置` and `📖 術語表` headers have a ▶ glyph but no visible hover/pointer affordance in the idle state — they look like decorative markers rather than interactive elements.
+- [P2] Slider annotations are inconsistent: `字幕延遲` shows "無延遲 / 5 秒", but `字幕顯示時長` and `字幕大小` show only the current value. Either all three should have min/max hints or none should.
+- [P2] `+ New Profile` is a dashed-border button — a different button language than the filled purple `🚀 上傳並轉錄` on the main column. Two visually distinct "new action" styles in the same viewport with no rationale.
+- [P3] The "轉錄文字" empty-state illustration occupies roughly 150px of vertical space. Once real data arrives it will push the setting panel below the fold; users will have to scroll just to see the 字幕延遲 slider they wanted to tweak.
+- [P3] Below the `📖 術語表` collapsible there is a large empty region before the footer status — on a 1400px-tall viewport this is ~400px of wasted space.
+- [P3] The footer `✅ 已連接到 Whisper 服務器` is far from where the user is looking when they interact with settings. A disconnect will not be noticed until the user scrolls all the way down.
+
+**Recommendations:**
+1. Split the "設置" panel into three clearly-labelled sub-panels:
+   - **「Pipeline 配置」** — profile list + language + glossary (everything that feeds the next run)
+   - **「播放調整」** — delay / display duration / font size sliders (rendering on the current clip only)
+   - **「管理」** (collapsed by default) — CRUD for profiles, language configs, glossaries
+   Put a thin divider rule between each, and a subtle mini-header in the body.
+2. Replace inline `Edit` / `Del` text with icons: ✏ (pencil, neutral) and 🗑 (red). Wrap both in an overflow `⋯` menu if vertical space matters more than discoverability.
+3. Add mini group headers for the sliders ("播放微調") and visual separators between each slider row. Alternatively, render each slider in its own subdued card with the label + value on one line and the track below.
+4. Normalise slider annotations: either give all three sliders `min / max` hints or remove them from 字幕延遲.
+5. Unify button vocabulary. Pick three styles only: `.btn-primary` (filled purple), `.btn-secondary` (outlined purple), `.btn-ghost` (text-only). `+ New Profile` should be `.btn-secondary` to match its secondary role.
+6. Shrink the "轉錄文字" empty-state illustration by ~40% (smaller graphic, tighter padding) so that it doesn't crowd out settings once data arrives.
+7. Move the connection status to the global header top-right, upgrading from the current tiny green dot to a colored pill with explicit text (`✅ Whisper / 🟢 Ollama Cloud`). Remove the bottom-of-sidebar duplicate.
+8. Make collapsible section headers feel clickable: `cursor: pointer`, background tint on hover, and rotate the ▶ glyph to ▼ when expanded.
+
+**Estimated impact:** high — the sidebar is the control centre and currently tangles three mental models into one scroll
+**Estimated effort:** M-L — restructuring panel hierarchy, introducing sub-panel components, consolidating button styles
 
 ---
