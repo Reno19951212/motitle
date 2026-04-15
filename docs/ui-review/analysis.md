@@ -30,7 +30,7 @@ Check off each area as it is reviewed. Pick the next unchecked area in order.
 - [x] 16. Proofread editor — segment table editing UX
 - [x] 17. Proofread editor — approval buttons (per-segment + bulk)
 - [x] 18. Proofread editor — keyboard shortcuts discoverability
-- [ ] 19. Error states (upload/API/translation failures)
+- [x] 19. Error states (upload/API/translation failures)
 - [ ] 20. Loading states consistency + Ollama signin button UX
 
 ---
@@ -816,5 +816,49 @@ Each entry below follows this template:
 
 **Estimated impact:** medium-high — shortcuts multiply productivity but only if discoverable; the current strip is a good start that misses the 3-4 most-wanted power-user actions
 **Estimated effort:** S-M — help modal + new shortcuts + contrast fix are independent small wins
+
+---
+
+### Area 19: Error states (upload / API / translation failures)
+
+**Screenshot:** `screenshots/19_error-states.png`
+*Captured with a simulated `轉錄失敗` file card injected and an error toast fired via `showToast`.*
+
+**What works:**
+- Consistent red colour vocabulary across the error card (border, ⚠ icon, badge, message text) — the danger signal is unambiguous
+- Badge `轉錄失敗` is human-readable, not a raw HTTP status code
+- Inline error detail (`FFmpeg error: Unsupported codec 'av1'`) is specific to the actual failure, not generic "something went wrong"
+- `🔄 重試` button gives an immediate recovery path directly on the failing card
+- Error toast appears at the bottom-right without obscuring other UI
+- Success and error toasts can coexist without collision (stacked with per-class coloured borders)
+- Global `showToast(msg, 'error')` is wired for error surfacing
+
+**Issues observed:**
+- [P1] **Error toasts are transient and auto-dismiss.** A user who glances away for 5 seconds misses the notification entirely. Upload failures are high-severity and should not silently disappear.
+- [P1] **No error aggregation.** If five uploads fail in quick succession, five toasts stack briefly and then vanish — there is no "recent errors" panel to revisit them.
+- [P1] **Error details are raw backend output.** `FFmpeg error: Unsupported codec 'av1'` is actionable to a developer but opaque to a producer. No human translation, no suggested fix, no help link.
+- [P2] **Retry button is non-contextual.** For a codec error, clicking retry without changing the input is pointless, yet the button is enabled and gives no hint.
+- [P2] **Toast text cannot be copied** while it is visible (transient), and cannot be referenced once it vanishes. Support escalation is hostile — "what exactly did the error say?" goes unanswered.
+- [P2] **No global error indicator** in the header. Once the toast is gone and the user has scrolled past the failing card, there is no way to tell "I have N unresolved errors" without manually hunting.
+- [P2] **Delete button on error cards** removes both the file and the error context. A safer pattern would be "✓ 標記已處理" which keeps the file but clears the error badge.
+- [P2] **No error code / ID**. For support tickets users cannot reference "error #E4892" — they must retype the full message into a bug report.
+- [P3] **WCAG contrast on red-on-dark** is unverified. The red-border + red-text combination needs to be measured against AA (4.5:1 minimum for normal text).
+- [P3] **Error details are single-line**. Multi-line stack traces or JSON bodies are truncated with no "show more" affordance.
+- [P3] **No global JavaScript error boundary**. A runtime exception in frontend code (e.g. undefined function) may leave the app half-broken with only console evidence.
+
+**Recommendations:**
+1. **Stratify toast severity**: `info` and `success` use transient auto-dismissing toasts (3 s). `warning` persists 10 s. `error` becomes a persistent banner at the top of the viewport with an explicit `✕ 關閉` button. Never auto-dismiss a critical error.
+2. **Build an error aggregation centre**: a `🔔` bell icon in the header with a counter. Clicking opens a sidebar panel listing all recent errors with timestamp, code, detail, and per-error retry/dismiss actions. Persist to `localStorage` across reloads.
+3. **Humanize backend errors** through a code → explanation map. Extend the backend error contract to `{ "error_code": "UNSUPPORTED_CODEC", "message": "...", "hint": "呢個格式未支援，請先轉檔成 H.264 或 H.265" }`. Frontend renders the localized hint under the raw message.
+4. **Context-aware retry button**: map error codes to whether retry is useful. Disable the button for `UNSUPPORTED_CODEC`, `INVALID_CREDENTIALS`, etc. Label it `🔄 重試` (recoverable) or `⚙ 修正後重試` (needs action) or `ℹ 查看詳情` (non-recoverable).
+5. **Copy-error button** on each error card and toast: `📋` icon that copies `<error_code> · <raw_message> · <timestamp>` to clipboard.
+6. **Header error indicator** (`🔴 2 個錯誤`) as a red pill next to the connection status when unresolved errors exist. Click to open the aggregation panel.
+7. **Separate "dismiss error" from "delete file"**: error cards should have `× 解除警告` (clears the error state but keeps the file) and `🗑 刪除` (destructive, with confirm).
+8. **Verify red-on-dark contrast**: `#ff4d4f on #0a0a1a` should be measured; if below AA, shift to `#ff7070` or adjust background.
+9. **Expandable detail pane**: truncate multi-line errors to 2 lines with a `↓ 展開` affordance; full error in a collapsible below.
+10. **Global JS error boundary**: `window.addEventListener('error', e => showToast(...))` + `unhandledrejection` handler. A friendly fallback modal for runtime failures with a "匯報" / "重新整理" action.
+
+**Estimated impact:** medium-high — errors are recurring in a multi-stage pipeline; current handling loses information quickly and blocks support/debug
+**Estimated effort:** M — error-code contract + humanization + aggregation panel are independent but each non-trivial
 
 ---
