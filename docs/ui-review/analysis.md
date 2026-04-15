@@ -27,7 +27,7 @@ Check off each area as it is reviewed. Pick the next unchecked area in order.
 - [x] 13. Language config panel
 - [x] 14. Glossary management panel
 - [x] 15. Proofread editor — video player controls
-- [ ] 16. Proofread editor — segment table editing UX
+- [x] 16. Proofread editor — segment table editing UX
 - [ ] 17. Proofread editor — approval buttons (per-segment + bulk)
 - [ ] 18. Proofread editor — keyboard shortcuts discoverability
 - [ ] 19. Error states (upload/API/translation failures)
@@ -670,5 +670,54 @@ Each entry below follows this template:
 
 **Estimated impact:** high — the proofread editor is where the user spends the most time per file; live subtitle preview alone eliminates the main feedback loop
 **Estimated effort:** M-L — custom player chrome is the expensive piece; subtitle overlay via WebVTT is a few hours of work
+
+---
+
+### Area 16: Proofread editor — segment table editing UX
+
+**Screenshot:** `screenshots/16_proofread-segment-table.png`
+
+**What works:**
+- Three-column layout `時間 | 原文 | 中文翻譯` + approval column matches the mental model of a translation table
+- `已核准 0/41` counter in the header gives live approval progress
+- Time cells use `mm:ss` format, concise and scannable
+- The currently-focused segment is highlighted with a purple row background — "you are here" is clear
+- Rows are compact enough to fit many segments in one viewport
+- Cantonese translations are visible and reasonable quality (`呢場比賽壓力好大` / `氣勢全由我哋掌握`)
+- Approval column on the far right gives a single-click binary toggle per segment
+- Bottom action bar surfaces the format picker and "儲存並產生字幕" primary CTA
+
+**Issues observed:**
+- [P1] **No visible edit affordance on the 中文翻譯 cells.** Looking at the screenshot, users cannot tell which cells are editable, which are read-only, and how to trigger an edit. No pencil icon, no `cursor: text` hint, no hover state. The core action of the proofread editor is opaque.
+- [P1] **No save-state feedback** after editing. If the user types a correction, there is no visible confirmation that the change was persisted via `PATCH /api/files/.../segments/<id>`. Silent save = user anxiety.
+- [P1] **No visual differentiation between segment states.** An edited-but-unapproved row, a machine-only-untouched row, and an approved row all look nearly identical (only the purple row is "focused", not "state"). Scanning 41 rows for "which are still pending" is manual.
+- [P2] **No segment number column.** For a 41-segment clip the user has no way to reference "segment 17 is wrong" without counting by hand.
+- [P2] **No segment duration visible** inside the time cell. A subtitle longer than 8 seconds or shorter than 1 second is a red flag, but nothing surfaces it.
+- [P2] **No search / filter** within the segment list. For a 5-minute broadcast with 100+ segments, finding "the one about the typhoon" requires scrolling and visually scanning.
+- [P2] **No bulk-find-and-replace** despite the common broadcast need to enforce a term globally (e.g. every "Harry Kane" → "哈里·簡").
+- [P2] **No diff vs original**. After editing, the user cannot see what the AI originally produced — no audit trail for why a change was made.
+- [P3] **No quick-copy buttons** for EN or ZH text. Verifying with a colleague or quoting requires manual select + Cmd+C.
+- [P3] **No "next unapproved" keyboard shortcut** visible in the hint strip. The hints mention `↓ 下一段` but not "skip to next un-approved".
+- [P3] **Row height varies with wrapped text**. Long Cantonese lines wrap, making the table un-rhythmic.
+
+**Recommendations:**
+1. **Make `中文翻譯` cells explicitly editable**: `<div contenteditable="true">` or `<input>` with `cursor: text` and a subtle hover underline. On focus, show a tiny `Cmd+Enter 儲存 · Esc 取消` hint below the cell.
+2. **Save feedback**: after each successful PATCH, flash the row background green for 300 ms and display a transient `✓ 已儲存` pill at the top of the table. On error, flash red + toast.
+3. **Visual state system** with a left-border accent:
+   - Default (untouched): no accent
+   - Edited, pending approval: 3 px amber left border
+   - Approved: 3 px green left border + cell text dimmed slightly
+   - Contains `[TRANSLATION MISSING]`: 3 px red left border + warning icon
+4. **Add `#` segment-number column**: width 40 px, right-aligned, monospace. Sticky to the leftmost so users can reference segments.
+5. **Enrich the time cell**: show `mm:ss` on line 1 and `2.3s` duration on line 2 in dimmer text. Colour duration red for < 1 s or > 8 s.
+6. **Search bar above the table**: single input that live-filters rows where EN or ZH contains the query. Keyboard shortcut `Cmd+K` to focus.
+7. **Bulk find-replace dialog** (`Cmd+Shift+F`): modal with Find / Replace fields, scope toggle (`中文 only / 原文 only / 兩者`), and a "Preview" button showing affected segments before committing.
+8. **Diff vs AI original**: store `zh_text_original` on each segment; render a subtle `↺` icon next to the current translation when it differs, with a hover tooltip showing the original.
+9. **Copy-on-hover buttons**: two small icons on row hover — copy EN, copy ZH.
+10. **Add keyboard shortcut `N` → next unapproved**: cycles through unapproved rows only, skipping approved ones. Add to the hint strip: `N 下一段未核准`.
+11. **Normalize row height** with `max-height` + `text-overflow: ellipsis` + an expand-on-hover affordance. Or give each row a stable 2-line slot.
+
+**Estimated impact:** high — this is the core editing surface of the app; any user doing real proofreading work will benefit
+**Estimated effort:** M — inline edit + visual states + search are independent incremental wins; bulk replace is the most involved
 
 ---
