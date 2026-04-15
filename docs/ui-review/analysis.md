@@ -22,7 +22,7 @@ Check off each area as it is reviewed. Pick the next unchecked area in order.
 - [x] 8. Profile form — Translation engine dropdown (local/cloud optgroup)
 - [x] 9. Profile form — Font configuration section
 - [x] 10. Transcription progress bar + ETA
-- [ ] 11. Real-time subtitle segment display during transcription
+- [x] 11. Real-time subtitle segment display during transcription
 - [ ] 12. Translation status badge + re-translate button flow
 - [ ] 13. Language config panel
 - [ ] 14. Glossary management panel
@@ -452,5 +452,47 @@ Each entry below follows this template:
 
 **Estimated impact:** high — users stare at this component while waiting for the core pipeline; friction here is highly visible
 **Estimated effort:** M — CSS changes + cancel endpoint + stage tracking in the frontend socket handler + a few minor socket events
+
+---
+
+### Area 11: Real-time subtitle segment display during transcription
+
+**Screenshot:** `screenshots/11_subtitle-segments.png`
+*Captured by injecting a six-segment mock into `#transcriptList` since no live transcription was running at review time.*
+
+**What works:**
+- Each segment is its own card with clear visual separation — easy to parse
+- Timestamps are in a dedicated column with monospace font, so the eye can scan the time progression cleanly
+- Purple accent on timestamps matches the rest of the brand vocabulary
+- Generous line-height on the text keeps long sentences readable
+- `#segmentCount` in the panel header reflects live count (`6 段` in the mock)
+- Empty state with a friendly icon and copy handles the zero-segment case
+
+**Issues observed:**
+- [P1] **No auto-scroll management**. When a new segment arrives during a live run, the panel does not announce scrolling behaviour: if the user has scrolled up to read an earlier segment, do they get pulled back down? If so, that's disruptive. If not, they may miss new content. Neither strategy is visibly chosen.
+- [P1] **Timestamps are raw seconds (`0.0s`, `14.5s`)** regardless of video length. A 45-minute broadcast would show `1823.7s` — unreadable. MM:SS (or HH:MM:SS for very long videos) is standard.
+- [P1] **No click-to-seek affordance.** The segments look read-only. If the underlying logic supports click-to-jump, it is invisible (no cursor, no hover, no underline). If it does not, that's a missing first-class feature — jumping to a specific spoken line is the primary reason users open the dashboard.
+- [P2] **No "currently playing" segment highlight.** During video playback the row whose time range matches the current playhead should glow. This is standard subtitle-editor UX, and its absence makes the transcript feel disconnected from the video.
+- [P2] **No per-segment duration** (e.g. a subtle `2.5s` badge). Users debugging "why is this subtitle too fast" cannot see segment duration without arithmetic.
+- [P2] **No edit affordance on the dashboard list.** Fix-a-typo requires opening the proofread editor. The transcript list could support inline light edits.
+- [P2] **No copy-to-clipboard** on individual rows. Quoting a segment requires manual selection.
+- [P3] **New segments pop in abruptly** during live runs — no slide-in or fade-in animation. A live transcript should feel alive.
+- [P3] **No paragraph grouping** between sentences with long silence gaps. A 5-second gap and a 0.2-second gap render identically.
+- [P3] **Timestamp widths vary** because the raw second format does not left-pad. On long videos `1:23:45` next to `0:01` produces a jagged left column.
+
+**Recommendations:**
+1. **Auto-scroll with pause-on-user-interaction**: hook into `#transcriptList` wheel/scroll events. If the user scrolls up, stop auto-scrolling and show a floating `↓ 跳到最新 (3)` button that also acts as a "new segments" counter. Click to resume.
+2. **Humanize timestamps**: use `mm:ss` for videos ≤ 1 hour, `h:mm:ss` otherwise. Keep monospace so alignment stays true. Format via a `formatTimestamp(seconds)` helper.
+3. **Make segments click-to-seek**: `cursor: pointer`, background tint on hover, `onclick` sets the video player `currentTime = segment.start`. Add `role="button"` + `tabindex="0"` + keyboard handler for accessibility.
+4. **Highlight current segment during playback**: use the video element's `timeupdate` event to add `.transcript-item.playing` class to the segment whose range contains `currentTime`. Purple left border + brighter background.
+5. **Show per-segment duration**: small right-aligned badge `${duration.toFixed(1)}s`, tinted red when `duration < 1` or `duration > 8`, giving a visual hint for problematic segments.
+6. **Inline edit on double-click**: double-click a segment to turn the text span into a `contenteditable` field; `Enter` commits via `PATCH /api/files/<id>/segments/<sid>`.
+7. **Copy-on-hover**: small `📋` icon that appears on row hover, copies plain text to clipboard with a toast confirmation.
+8. **Slide-in animation** for new segments (respecting `prefers-reduced-motion`).
+9. **Paragraph gap detection**: when `(segment.start - previous.end) > 2`, render an 8px margin-top on the new row so paragraphs visually breathe.
+10. **Left-pad the timestamp column to a fixed width** based on the longest timestamp in the list — no alignment jitter.
+
+**Estimated impact:** high — the transcript list is the second-most-scanned surface during active work; unlocking click-to-seek alone turns it into a real editor
+**Estimated effort:** M — independent sub-features (~5 features × ~1 hour each); no backend changes needed
 
 ---
