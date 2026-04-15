@@ -258,3 +258,37 @@ def test_api_list_glossaries():
             data = resp.get_json()
             assert len(data["glossaries"]) == 1
             assert data["glossaries"][0]["entry_count"] == 1
+
+
+def test_validate_entry_rejects_numeric_zh(glossary_dir):
+    """ZH field containing only digits/ASCII should be rejected as invalid."""
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    errors = mgr.validate_entry({"en": "Michael", "zh": "23468"})
+    assert any("zh" in e for e in errors), f"Expected zh error, got: {errors}"
+
+
+def test_validate_entry_rejects_ascii_only_zh(glossary_dir):
+    """ZH field with only Latin letters should be rejected."""
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    errors = mgr.validate_entry({"en": "hello", "zh": "hello world"})
+    assert any("zh" in e for e in errors), f"Expected zh error, got: {errors}"
+
+
+def test_validate_entry_accepts_mixed_zh_with_cjk(glossary_dir):
+    """ZH field with at least one CJK character is allowed (mixed input is common)."""
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    assert mgr.validate_entry({"en": "Hong Kong", "zh": "香港 HK"}) == []
+    assert mgr.validate_entry({"en": "typhoon", "zh": "颱風"}) == []
+
+
+def test_validate_entry_rejects_en_without_letters(glossary_dir):
+    """EN field must contain at least one ASCII letter (pure punctuation/numbers is invalid)."""
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    errors = mgr.validate_entry({"en": "12345", "zh": "一二三四五"})
+    assert any("en" in e for e in errors), f"Expected en error, got: {errors}"
+    errors = mgr.validate_entry({"en": "!!!", "zh": "驚嘆"})
+    assert any("en" in e for e in errors), f"Expected en error, got: {errors}"
