@@ -201,6 +201,86 @@ def test_ollama_non_thinking_model_no_think_key():
     assert "think" not in captured["body"]
 
 
+def test_ollama_cloud_qwen_is_thinking_model():
+    """qwen3.5:397b-cloud is detected as a thinking model."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen3.5-397b-cloud"})
+    assert engine._is_thinking_model() is True
+
+
+def test_ollama_cloud_qwen_request_body_has_think_false():
+    """think:false is included in payload for qwen3.5:397b-cloud."""
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    engine = OllamaTranslationEngine({"engine": "qwen3.5-397b-cloud"})
+    mock_response = json_mod.dumps({"message": {"content": "1. 各位晚上好。\n2. 歡迎收看新聞。"}}).encode()
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = mock_response
+    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+    mock_resp.__exit__ = MagicMock(return_value=False)
+
+    captured = {}
+
+    def fake_urlopen(req, timeout=None):
+        captured["body"] = json_mod.loads(req.data)
+        return mock_resp
+
+    with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+        engine.translate(SAMPLE_SEGMENTS, glossary=[], style="formal")
+
+    assert captured["body"].get("think") is False
+
+
+def test_ollama_cloud_glm_not_thinking_model():
+    """glm-4.6:cloud does NOT trigger thinking mode — no 'think' key in payload."""
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    engine = OllamaTranslationEngine({"engine": "glm-4.6-cloud"})
+    assert engine._is_thinking_model() is False
+
+    mock_response = json_mod.dumps({"message": {"content": "1. 各位晚上好。\n2. 歡迎收看新聞。"}}).encode()
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = mock_response
+    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+    mock_resp.__exit__ = MagicMock(return_value=False)
+
+    captured = {}
+
+    def fake_urlopen(req, timeout=None):
+        captured["body"] = json_mod.loads(req.data)
+        return mock_resp
+
+    with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+        engine.translate(SAMPLE_SEGMENTS, glossary=[], style="formal")
+
+    assert "think" not in captured["body"]
+
+
+def test_ollama_cloud_gpt_oss_not_thinking_model():
+    """gpt-oss:120b-cloud does NOT trigger thinking mode — no 'think' key in payload."""
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    engine = OllamaTranslationEngine({"engine": "gpt-oss-120b-cloud"})
+    assert engine._is_thinking_model() is False
+
+    mock_response = json_mod.dumps({"message": {"content": "1. 各位晚上好。\n2. 歡迎收看新聞。"}}).encode()
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = mock_response
+    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+    mock_resp.__exit__ = MagicMock(return_value=False)
+
+    captured = {}
+
+    def fake_urlopen(req, timeout=None):
+        captured["body"] = json_mod.loads(req.data)
+        return mock_resp
+
+    with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+        engine.translate(SAMPLE_SEGMENTS, glossary=[], style="formal")
+
+    assert "think" not in captured["body"]
+
+
 def test_ollama_translate_mocked_ndjson():
     """Ollama returns NDJSON streaming chunks despite stream:False — content is accumulated."""
     import json as json_mod
@@ -282,8 +362,13 @@ def test_ollama_engine_params_schema():
 
 
 def test_ollama_engine_get_models_mocked():
+    import subprocess as sp
     from translation.ollama_engine import OllamaTranslationEngine
+    from translation import ollama_engine as _oe
     engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+
+    # Ensure signin status cache reports "not signed in" so cloud models are unavailable
+    _oe._SIGNIN_STATUS_CACHE["expires_at"] = 0
 
     mock_response_body = json_mod.dumps({
         "models": [{"name": "qwen2.5:3b"}, {"name": "qwen2.5:7b"}]
@@ -294,14 +379,35 @@ def test_ollama_engine_get_models_mocked():
     mock_resp.__enter__ = MagicMock(return_value=mock_resp)
     mock_resp.__exit__ = MagicMock(return_value=False)
 
-    with patch("urllib.request.urlopen", return_value=mock_resp):
+    # Simulate timeout (not signed in) for cloud model availability checks
+    with patch("subprocess.run", side_effect=sp.TimeoutExpired(cmd="ollama signin", timeout=2)), \
+         patch("urllib.request.urlopen", return_value=mock_resp):
         models = engine.get_models()
 
-    assert len(models) == 5  # all ENGINE_TO_MODEL entries
+    # 5 local + 3 cloud = 8 total
+    assert len(models) == 8
+
     available_models = [m for m in models if m["available"]]
     assert len(available_models) == 2  # qwen2.5:3b and qwen2.5:7b
+
     unavailable_models = [m for m in models if not m["available"]]
-    assert len(unavailable_models) == 3
+    assert len(unavailable_models) == 6
+
+    # Every entry must expose is_cloud boolean
+    for m in models:
+        assert "is_cloud" in m
+        assert isinstance(m["is_cloud"], bool)
+
+    cloud_entries = [m for m in models if m["is_cloud"]]
+    cloud_engine_keys = {m["engine"] for m in cloud_entries}
+    assert cloud_engine_keys == {
+        "glm-4.6-cloud",
+        "qwen3.5-397b-cloud",
+        "gpt-oss-120b-cloud",
+    }
+
+    local_entries = [m for m in models if not m["is_cloud"]]
+    assert len(local_entries) == 5
 
 
 def test_api_translation_engine_params_mock():
@@ -662,3 +768,439 @@ def test_retry_splice_multiple_missing():
     assert "[TRANSLATION MISSING]" not in result[2]["zh_text"]
     assert "各位晚上好" in result[0]["zh_text"]
     assert "今晚頭條新聞" in result[2]["zh_text"]
+
+
+def test_api_list_translation_engines_includes_cloud():
+    """API response includes the 3 cloud engines with is_cloud flag."""
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+
+    from app import app
+    app.config["TESTING"] = True
+    with app.test_client() as client:
+        resp = client.get("/api/translation/engines")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        engines = data.get("engines", [])
+
+        engine_keys = {e["engine"] for e in engines}
+        assert "glm-4.6-cloud" in engine_keys
+        assert "qwen3.5-397b-cloud" in engine_keys
+        assert "gpt-oss-120b-cloud" in engine_keys
+
+        # Every entry must have is_cloud
+        for e in engines:
+            assert "is_cloud" in e
+
+        cloud_engines = [e for e in engines if e["is_cloud"]]
+        cloud_keys = {e["engine"] for e in cloud_engines}
+        assert cloud_keys == {
+            "glm-4.6-cloud",
+            "qwen3.5-397b-cloud",
+            "gpt-oss-120b-cloud",
+        }
+
+        # Mock and non-cloud Ollama engines must have is_cloud=False
+        mock_entry = next(e for e in engines if e["engine"] == "mock")
+        assert mock_entry["is_cloud"] is False
+
+        qwen25_entry = next(e for e in engines if e["engine"] == "qwen2.5-3b")
+        assert qwen25_entry["is_cloud"] is False
+
+        # Every cloud entry must have a boolean 'available' field
+        # (prevents regression where the factory gap silently dropped it)
+        for e in cloud_engines:
+            assert "available" in e
+            assert isinstance(e["available"], bool)
+
+
+def test_factory_routes_cloud_engines():
+    """create_translation_engine routes all 3 cloud engine keys to OllamaTranslationEngine."""
+    from translation import create_translation_engine
+    from translation.ollama_engine import OllamaTranslationEngine, CLOUD_ENGINES
+
+    for engine_name in CLOUD_ENGINES:
+        engine = create_translation_engine({"engine": engine_name})
+        assert isinstance(engine, OllamaTranslationEngine)
+        assert engine.get_info()["engine"] == engine_name
+
+
+def test_api_ollama_signin_spawns_subprocess_when_not_signed_in():
+    """POST /api/ollama/signin spawns subprocess when user is NOT signed in."""
+    import sys
+    import subprocess as sp
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from unittest.mock import patch, MagicMock
+    from translation import ollama_engine
+
+    ollama_engine._SIGNIN_STATUS_CACHE["expires_at"] = 0
+
+    from app import app
+    app.config["TESTING"] = True
+    with app.test_client() as client:
+        mock_process = MagicMock()
+        mock_process.pid = 99999
+        with patch("subprocess.run", side_effect=sp.TimeoutExpired(cmd="ollama signin", timeout=2)), \
+             patch("subprocess.Popen", return_value=mock_process) as mock_popen:
+            resp = client.post("/api/ollama/signin")
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert data["signed_in"] is False
+            assert data["status"] == "signin_spawned"
+            mock_popen.assert_called_once()
+            call_args = mock_popen.call_args[0][0]
+            assert call_args == ["ollama", "signin"]
+
+
+def test_api_ollama_signin_returns_already_signed_in():
+    """POST /api/ollama/signin returns already_signed_in when user IS signed in (no spawn)."""
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from unittest.mock import patch, MagicMock
+    from translation import ollama_engine
+
+    ollama_engine._SIGNIN_STATUS_CACHE["expires_at"] = 0
+
+    from app import app
+    app.config["TESTING"] = True
+
+    mock_result = MagicMock()
+    mock_result.stdout = "You are already signed in as user 'testuser'\n"
+    mock_result.stderr = ""
+    mock_result.returncode = 0
+
+    with app.test_client() as client:
+        with patch("subprocess.run", return_value=mock_result), \
+             patch("subprocess.Popen") as mock_popen:
+            resp = client.post("/api/ollama/signin")
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert data["signed_in"] is True
+            assert data["user"] == "testuser"
+            assert data["status"] == "already_signed_in"
+            mock_popen.assert_not_called()
+
+
+def test_api_ollama_signin_missing_binary_returns_500():
+    """POST /api/ollama/signin returns 500 when ollama binary is not in PATH."""
+    import sys
+    from pathlib import Path
+    import subprocess as sp
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from unittest.mock import patch
+    from translation import ollama_engine
+
+    ollama_engine._SIGNIN_STATUS_CACHE["expires_at"] = 0
+
+    from app import app
+    app.config["TESTING"] = True
+    with app.test_client() as client:
+        # Both status check and Popen fail because binary is missing
+        with patch("subprocess.run", side_effect=FileNotFoundError("ollama")), \
+             patch("subprocess.Popen", side_effect=FileNotFoundError("ollama")):
+            resp = client.post("/api/ollama/signin")
+            assert resp.status_code == 500
+            data = resp.get_json()
+            assert "error" in data
+            assert "ollama" in data["error"].lower()
+
+
+def test_ollama_signin_status_detects_signed_in():
+    """_get_ollama_signin_status returns signed_in=True when ollama signin outputs 'already signed in'."""
+    from unittest.mock import patch, MagicMock
+    from translation import ollama_engine
+
+    # Clear cache
+    ollama_engine._SIGNIN_STATUS_CACHE["expires_at"] = 0
+
+    mock_result = MagicMock()
+    mock_result.stdout = "You are already signed in as user 'testuser'\n"
+    mock_result.stderr = ""
+    mock_result.returncode = 0
+
+    with patch("subprocess.run", return_value=mock_result):
+        status = ollama_engine._get_ollama_signin_status()
+
+    assert status["signed_in"] is True
+    assert status["user"] == "testuser"
+
+
+def test_ollama_signin_status_detects_not_signed_in_on_timeout():
+    """_get_ollama_signin_status returns signed_in=False when subprocess times out (interactive flow)."""
+    import subprocess
+    from unittest.mock import patch
+    from translation import ollama_engine
+
+    ollama_engine._SIGNIN_STATUS_CACHE["expires_at"] = 0
+
+    with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="ollama signin", timeout=2)):
+        status = ollama_engine._get_ollama_signin_status()
+
+    assert status["signed_in"] is False
+    assert status["user"] is None
+
+
+def test_ollama_signin_status_missing_binary():
+    """_get_ollama_signin_status returns signed_in=False when ollama binary is missing."""
+    from unittest.mock import patch
+    from translation import ollama_engine
+
+    ollama_engine._SIGNIN_STATUS_CACHE["expires_at"] = 0
+
+    with patch("subprocess.run", side_effect=FileNotFoundError()):
+        status = ollama_engine._get_ollama_signin_status()
+
+    assert status["signed_in"] is False
+    assert status["user"] is None
+
+
+def test_ollama_signin_status_cached():
+    """_get_ollama_signin_status caches result for 60 seconds."""
+    from unittest.mock import patch, MagicMock
+    from translation import ollama_engine
+
+    ollama_engine._SIGNIN_STATUS_CACHE["expires_at"] = 0
+
+    mock_result = MagicMock()
+    mock_result.stdout = "You are already signed in as user 'testuser'\n"
+    mock_result.stderr = ""
+    mock_result.returncode = 0
+
+    with patch("subprocess.run", return_value=mock_result) as mock_run:
+        ollama_engine._get_ollama_signin_status()
+        ollama_engine._get_ollama_signin_status()
+        ollama_engine._get_ollama_signin_status()
+
+    # Should have called subprocess.run exactly once due to caching
+    assert mock_run.call_count == 1
+
+
+def test_ollama_cloud_engine_available_when_signed_in():
+    """OllamaTranslationEngine._check_available() returns True for cloud engines when signed in."""
+    from unittest.mock import patch, MagicMock
+    from translation.ollama_engine import OllamaTranslationEngine
+    from translation import ollama_engine
+
+    ollama_engine._SIGNIN_STATUS_CACHE["expires_at"] = 0
+
+    mock_result = MagicMock()
+    mock_result.stdout = "You are already signed in as user 'testuser'\n"
+    mock_result.stderr = ""
+    mock_result.returncode = 0
+
+    engine = OllamaTranslationEngine({"engine": "gpt-oss-120b-cloud"})
+    with patch("subprocess.run", return_value=mock_result):
+        assert engine._check_available() is True
+
+
+def test_ollama_cloud_engine_unavailable_when_not_signed_in():
+    """OllamaTranslationEngine._check_available() returns False for cloud engines when not signed in."""
+    import subprocess
+    from unittest.mock import patch
+    from translation.ollama_engine import OllamaTranslationEngine
+    from translation import ollama_engine
+
+    ollama_engine._SIGNIN_STATUS_CACHE["expires_at"] = 0
+
+    engine = OllamaTranslationEngine({"engine": "gpt-oss-120b-cloud"})
+    with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="ollama signin", timeout=2)):
+        assert engine._check_available() is False
+
+
+def test_ollama_cloud_get_models_returns_available_when_signed_in():
+    """get_models() returns available=True for all cloud entries when signed in."""
+    from unittest.mock import patch, MagicMock
+    from translation.ollama_engine import OllamaTranslationEngine, CLOUD_ENGINES
+    from translation import ollama_engine
+
+    ollama_engine._SIGNIN_STATUS_CACHE["expires_at"] = 0
+
+    mock_result = MagicMock()
+    mock_result.stdout = "You are already signed in as user 'testuser'\n"
+    mock_result.stderr = ""
+    mock_result.returncode = 0
+
+    # Mock the local /api/tags to return only qwen2.5:3b
+    mock_tags_response = json_mod.dumps({"models": [{"name": "qwen2.5:3b"}]}).encode()
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = mock_tags_response
+    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+    mock_resp.__exit__ = MagicMock(return_value=False)
+
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+
+    with patch("subprocess.run", return_value=mock_result), \
+         patch("urllib.request.urlopen", return_value=mock_resp):
+        models = engine.get_models()
+
+    cloud_models = [m for m in models if m["is_cloud"]]
+    assert len(cloud_models) == 3
+    for m in cloud_models:
+        assert m["available"] is True, f"{m['engine']} should be available when signed in"
+
+
+def test_api_ollama_status_endpoint():
+    """GET /api/ollama/status returns signin state."""
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from unittest.mock import patch, MagicMock
+    from translation import ollama_engine
+
+    ollama_engine._SIGNIN_STATUS_CACHE["expires_at"] = 0
+
+    from app import app
+    app.config["TESTING"] = True
+
+    mock_result = MagicMock()
+    mock_result.stdout = "You are already signed in as user 'testuser'\n"
+    mock_result.stderr = ""
+    mock_result.returncode = 0
+
+    with app.test_client() as client:
+        with patch("subprocess.run", return_value=mock_result):
+            resp = client.get("/api/ollama/status")
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert data["signed_in"] is True
+            assert data["user"] == "testuser"
+
+
+def test_ollama_retries_on_502_then_succeeds():
+    """Transient 502 from Ollama Cloud is retried; second attempt succeeds."""
+    import json as json_mod
+    import urllib.error
+    from unittest.mock import patch, MagicMock
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+
+    # First call raises 502, second call returns success
+    success_body = json_mod.dumps({"message": {"content": "1. 晚上好。\n2. 歡迎收看新聞。"}}).encode()
+    mock_ok = MagicMock()
+    mock_ok.read.return_value = success_body
+    mock_ok.__enter__ = MagicMock(return_value=mock_ok)
+    mock_ok.__exit__ = MagicMock(return_value=False)
+
+    calls = {"n": 0}
+
+    def fake_urlopen(req, timeout=None):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise urllib.error.HTTPError(
+                url=req.full_url, code=502, msg="Bad Gateway", hdrs=None, fp=None
+            )
+        return mock_ok
+
+    with patch("urllib.request.urlopen", side_effect=fake_urlopen), \
+         patch("time.sleep"):
+        result = engine.translate(SAMPLE_SEGMENTS, glossary=[], style="formal")
+
+    assert len(result) == 2
+    assert result[0]["zh_text"] == "晚上好。"
+    assert calls["n"] == 2  # 1 fail + 1 success
+
+
+def test_ollama_raises_after_retries_exhausted():
+    """Persistent 502 raises ConnectionError after 4 attempts (1 initial + 3 retries)."""
+    import urllib.error
+    from unittest.mock import patch
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+
+    calls = {"n": 0}
+
+    def fake_urlopen(req, timeout=None):
+        calls["n"] += 1
+        raise urllib.error.HTTPError(
+            url=req.full_url, code=502, msg="Bad Gateway", hdrs=None, fp=None
+        )
+
+    with patch("urllib.request.urlopen", side_effect=fake_urlopen), \
+         patch("time.sleep"):
+        with pytest.raises(ConnectionError, match="502"):
+            engine.translate(SAMPLE_SEGMENTS, glossary=[], style="formal")
+
+    assert calls["n"] == 4  # 1 initial + 3 retries
+
+
+def test_isolate_fixture_redirects_registry_writes():
+    """The autouse _isolate_app_data fixture must redirect _save_registry writes
+    to tmp_path so the real backend/data/registry.json is never touched."""
+    import app
+    from pathlib import Path
+
+    # Sanity check: the fixture should have redirected DATA_DIR already
+    real_data_dir = Path(__file__).parent.parent / "data"
+    assert app.DATA_DIR != real_data_dir, (
+        "autouse fixture failed to redirect DATA_DIR — "
+        f"still pointing at {app.DATA_DIR}"
+    )
+
+    # Mutate the in-memory registry
+    app._file_registry["isolation-sentinel-001"] = {
+        "id": "isolation-sentinel-001",
+        "original_name": "sentinel.mp4",
+        "stored_name": "sentinel.mp4",
+        "size": 42,
+        "status": "uploaded",
+        "uploaded_at": 1700000000,
+    }
+
+    # Trigger a save
+    app._save_registry()
+
+    # The test tmp registry MUST contain the sentinel
+    test_registry_path = app.DATA_DIR / "registry.json"
+    assert test_registry_path.exists(), "registry.json was not written to tmp_path"
+
+    import json
+    with open(test_registry_path) as f:
+        saved = json.load(f)
+    assert "isolation-sentinel-001" in saved
+
+    # The real registry.json (if it exists) must NOT contain the sentinel
+    if real_data_dir.joinpath("registry.json").exists():
+        with open(real_data_dir / "registry.json") as f:
+            real_saved = json.load(f)
+        assert "isolation-sentinel-001" not in real_saved, (
+            "REAL registry.json was modified — isolation fixture broken!"
+        )
+
+
+def test_ollama_retry_logs_to_stderr(capsys):
+    """Retry loop prints [ollama] retry diagnostic to stderr on 5xx."""
+    import json as json_mod
+    import urllib.error
+    from unittest.mock import patch, MagicMock
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+
+    success_body = json_mod.dumps({"message": {"content": "1. 晚上好。\n2. 歡迎。"}}).encode()
+    mock_ok = MagicMock()
+    mock_ok.read.return_value = success_body
+    mock_ok.__enter__ = MagicMock(return_value=mock_ok)
+    mock_ok.__exit__ = MagicMock(return_value=False)
+
+    calls = {"n": 0}
+
+    def fake_urlopen(req, timeout=None):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise urllib.error.HTTPError(
+                url=req.full_url, code=502, msg="Bad Gateway", hdrs=None, fp=None
+            )
+        return mock_ok
+
+    with patch("urllib.request.urlopen", side_effect=fake_urlopen), \
+         patch("time.sleep"):
+        engine.translate(SAMPLE_SEGMENTS, glossary=[], style="formal")
+
+    captured = capsys.readouterr()
+    assert "[ollama] retry" in captured.err
+    assert "502" in captured.err

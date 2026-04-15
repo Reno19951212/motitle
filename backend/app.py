@@ -605,6 +605,8 @@ def api_asr_engine_params(name):
 def api_list_translation_engines():
     """List available translation engines with status."""
     from translation import create_translation_engine
+    from translation.ollama_engine import CLOUD_ENGINES
+
     engines_info = []
     for engine_name, desc in [
         ("mock", "Mock translator (development)"),
@@ -613,6 +615,9 @@ def api_list_translation_engines():
         ("qwen2.5-72b", "Qwen 2.5 72B (Ollama)"),
         ("qwen3-235b", "Qwen3 235B MoE (Ollama)"),
         ("qwen3.5-9b", "Qwen 3.5 9B (Ollama)"),
+        ("glm-4.6-cloud", "GLM-4.6 (Ollama Cloud)"),
+        ("qwen3.5-397b-cloud", "Qwen 3.5 397B MoE (Ollama Cloud)"),
+        ("gpt-oss-120b-cloud", "GPT-OSS 120B (Ollama Cloud)"),
     ]:
         try:
             engine = create_translation_engine({"engine": engine_name})
@@ -621,12 +626,14 @@ def api_list_translation_engines():
                 "engine": engine_name,
                 "available": info.get("available", False),
                 "description": desc,
+                "is_cloud": engine_name in CLOUD_ENGINES,
             })
         except Exception:
             engines_info.append({
                 "engine": engine_name,
                 "available": False,
                 "description": desc,
+                "is_cloud": engine_name in CLOUD_ENGINES,
             })
     return jsonify({"engines": engines_info})
 
@@ -651,6 +658,65 @@ def api_translation_engine_models(name):
         return jsonify({"engine": name, "models": engine.get_models()})
     except ValueError:
         return jsonify({"error": f"Unknown translation engine: {name}"}), 404
+
+
+@app.route('/api/ollama/signin', methods=['POST'])
+def api_ollama_signin():
+    """Check signin status; spawn interactive flow if not already signed in.
+
+    First invalidates the cache and checks signin status via ``ollama signin``
+    with a 2-second timeout (see ``_get_ollama_signin_status``).  If already
+    signed in, returns the user name immediately without spawning a new process.
+    If not signed in, spawns the interactive OAuth flow non-blocking so the
+    user can complete it in their browser.
+    """
+    import subprocess as sp
+    from translation.ollama_engine import _get_ollama_signin_status, _SIGNIN_STATUS_CACHE
+
+    # Invalidate cache so we get a fresh check
+    _SIGNIN_STATUS_CACHE["expires_at"] = 0
+    status = _get_ollama_signin_status()
+
+    if status["signed_in"]:
+        return jsonify({
+            "status": "already_signed_in",
+            "signed_in": True,
+            "user": status["user"],
+            "message": f"Already signed in as '{status['user']}'",
+        }), 200
+
+    # Not signed in — spawn interactive OAuth flow
+    try:
+        sp.Popen(
+            ["ollama", "signin"],
+            stdout=sp.DEVNULL,
+            stderr=sp.DEVNULL,
+            start_new_session=True,
+        )
+        return jsonify({
+            "status": "signin_spawned",
+            "signed_in": False,
+            "message": "Ollama signin launched. Complete login in browser.",
+        }), 200
+    except FileNotFoundError:
+        return jsonify({"error": "ollama binary not found in PATH. Install Ollama first."}), 500
+    except Exception as e:
+        return jsonify({"error": f"Failed to spawn ollama signin: {str(e)}"}), 500
+
+
+@app.route('/api/ollama/status', methods=['GET'])
+def api_ollama_status():
+    """Return cached Ollama Cloud signin status.
+
+    Uses the 60-second cached result from ``_get_ollama_signin_status`` to
+    avoid repeated subprocess overhead on repeated calls.
+    """
+    from translation.ollama_engine import _get_ollama_signin_status
+    status = _get_ollama_signin_status()
+    return jsonify({
+        "signed_in": status["signed_in"],
+        "user": status.get("user"),
+    }), 200
 
 
 @app.route('/api/translate', methods=['POST'])

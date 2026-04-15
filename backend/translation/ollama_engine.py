@@ -2,6 +2,9 @@
 
 import json
 import re
+import subprocess
+import sys
+import time
 import urllib.request
 import urllib.error
 from typing import Optional, List
@@ -9,13 +12,80 @@ from typing import Optional, List
 from . import TranslationEngine, TranslatedSegment
 from .post_processor import TranslationPostProcessor
 
+# ---------------------------------------------------------------------------
+# Ollama Cloud signin status cache
+# ---------------------------------------------------------------------------
+
+# Cache dict avoids repeated subprocess calls for availability checks.
+# Mutating in-place is intentional here: tests reset it by setting expires_at=0.
+_SIGNIN_STATUS_CACHE: dict = {
+    "value": {"signed_in": False, "user": None},
+    "expires_at": 0.0,
+}
+_SIGNIN_CACHE_TTL = 60
+
+
+def _get_ollama_signin_status() -> dict:
+    """Check if user is signed in to Ollama Cloud.
+
+    Runs ``ollama signin`` as a subprocess with a 2-second timeout.  When
+    already signed in, the command prints "You are already signed in as
+    user 'X'" and exits immediately (<100 ms).  When NOT signed in the
+    command enters an interactive OAuth flow and blocks waiting for the
+    user — the 2 s timeout kills it and we interpret that as "not signed
+    in".
+
+    Returns:
+        dict with keys ``signed_in`` (bool) and ``user`` (str or None).
+
+    Result is cached for 60 seconds to avoid repeated subprocess overhead.
+    """
+    now = time.time()
+    if _SIGNIN_STATUS_CACHE["expires_at"] > now:
+        return _SIGNIN_STATUS_CACHE["value"]
+
+    status: dict = {"signed_in": False, "user": None}
+    try:
+        result = subprocess.run(
+            ["ollama", "signin"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        combined = (result.stdout or "") + (result.stderr or "")
+        match = re.search(r"signed in as user '([^']+)'", combined)
+        if match:
+            status = {"signed_in": True, "user": match.group(1)}
+    except subprocess.TimeoutExpired:
+        # Subprocess still waiting for interactive OAuth → not signed in
+        pass
+    except FileNotFoundError:
+        # ollama binary missing
+        pass
+    except Exception:
+        pass
+
+    _SIGNIN_STATUS_CACHE["value"] = status
+    _SIGNIN_STATUS_CACHE["expires_at"] = now + _SIGNIN_CACHE_TTL
+    return status
+
+
 ENGINE_TO_MODEL = {
     "qwen2.5-3b": "qwen2.5:3b",
     "qwen2.5-7b": "qwen2.5:7b",
     "qwen2.5-72b": "qwen2.5:72b",
     "qwen3-235b": "qwen3:235b",
     "qwen3.5-9b": "qwen3.5:9b",
+    "glm-4.6-cloud": "glm-4.6:cloud",
+    "qwen3.5-397b-cloud": "qwen3.5:397b-cloud",
+    "gpt-oss-120b-cloud": "gpt-oss:120b-cloud",
 }
+
+CLOUD_ENGINES = frozenset({
+    "glm-4.6-cloud",
+    "qwen3.5-397b-cloud",
+    "gpt-oss-120b-cloud",
+})
 
 BATCH_SIZE = 10
 MAX_SUBTITLE_CHARS = 16
@@ -178,44 +248,68 @@ class OllamaTranslationEngine(TranslationEngine):
 
         payload = json.dumps(body).encode("utf-8")
 
-        req = urllib.request.Request(
-            f"{self._base_url}/api/chat",
-            data=payload,
-            headers={"Content-Type": "application/json"},
-        )
-
-        try:
-            with urllib.request.urlopen(req, timeout=120) as resp:
-                raw = resp.read().decode("utf-8").strip()
+        # Retry on transient 5xx errors (502/503/504) common with Ollama Cloud proxy.
+        # Each retry waits 2^attempt seconds (1s, 2s, 4s).
+        last_error: Optional[Exception] = None
+        for attempt in range(4):
+            req = urllib.request.Request(
+                f"{self._base_url}/api/chat",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+            )
             try:
-                data = json.loads(raw)
-                return data.get("message", {}).get("content", "")
-            except json.JSONDecodeError:
-                # Ollama returned NDJSON streaming format — accumulate content chunks
-                parts = []
-                for line in raw.splitlines():
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        obj = json.loads(line)
-                        chunk = obj.get("message", {}).get("content", "")
-                        if chunk:
-                            parts.append(chunk)
-                    except json.JSONDecodeError:
-                        continue
-                return "".join(parts)
-        except urllib.error.URLError as e:
-            raise ConnectionError(
-                f"Cannot connect to Ollama at {self._base_url}. "
-                f"Is Ollama running? Error: {e}"
-            )
-        except OSError as e:
-            # socket.timeout (raised by resp.read() on timeout) is a subclass of OSError
-            raise ConnectionError(
-                f"Ollama request timed out at {self._base_url}. "
-                f"Try reducing batch_size or switching to a smaller model. Error: {e}"
-            )
+                with urllib.request.urlopen(req, timeout=120) as resp:
+                    raw = resp.read().decode("utf-8").strip()
+                try:
+                    data = json.loads(raw)
+                    return data.get("message", {}).get("content", "")
+                except json.JSONDecodeError:
+                    # Ollama returned NDJSON streaming format — accumulate content chunks
+                    parts = []
+                    for line in raw.splitlines():
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            obj = json.loads(line)
+                            chunk = obj.get("message", {}).get("content", "")
+                            if chunk:
+                                parts.append(chunk)
+                        except json.JSONDecodeError:
+                            continue
+                    return "".join(parts)
+            except urllib.error.HTTPError as e:
+                last_error = e
+                if e.code in (502, 503, 504) and attempt < 3:
+                    print(
+                        f"[ollama] retry attempt {attempt + 1}/3 after HTTP {e.code}",
+                        file=sys.stderr,
+                    )
+                    time.sleep(2 ** attempt)
+                    continue
+                raise ConnectionError(
+                    f"Ollama HTTP {e.code} from {self._base_url}: {e.reason}"
+                )
+            except urllib.error.URLError as e:
+                last_error = e
+                if attempt < 3:
+                    time.sleep(2 ** attempt)
+                    continue
+                raise ConnectionError(
+                    f"Cannot connect to Ollama at {self._base_url}. "
+                    f"Is Ollama running? Error: {e}"
+                )
+            except OSError as e:
+                # socket.timeout (raised by resp.read() on timeout) is a subclass of OSError
+                raise ConnectionError(
+                    f"Ollama request timed out at {self._base_url}. "
+                    f"Try reducing batch_size or switching to a smaller model. Error: {e}"
+                )
+
+        # Loop exhausted without success or exception — defensive fallback
+        raise ConnectionError(
+            f"Ollama request failed after retries: {last_error}"
+        )
 
     def _parse_response(
         self, response_text: str, segments: List[dict]
@@ -309,11 +403,26 @@ class OllamaTranslationEngine(TranslationEngine):
             models.append({
                 "engine": engine_key,
                 "model": model_tag,
-                "available": self._check_model_available(model_tag),
+                "available": self._check_model_available(model_tag, engine_key),
+                "is_cloud": engine_key in CLOUD_ENGINES,
             })
         return models
 
-    def _check_model_available(self, model_tag: str) -> bool:
+    def _check_model_available(self, model_tag: str, engine_key: str = None) -> bool:
+        """Check if a specific model is available.
+
+        For cloud engines, availability is determined by Ollama Cloud signin
+        status (``/api/tags`` does not list cloud models even when signed in).
+        For local engines, checks the Ollama ``/api/tags`` endpoint.
+
+        Args:
+            model_tag: The full model tag string (e.g. ``"qwen2.5:3b"``).
+            engine_key: The engine identifier key (e.g. ``"qwen2.5-3b"``).
+                        Falls back to ``self._engine_name`` when omitted.
+        """
+        key = engine_key if engine_key is not None else self._engine_name
+        if key in CLOUD_ENGINES:
+            return _get_ollama_signin_status()["signed_in"]
         try:
             req = urllib.request.Request(f"{self._base_url}/api/tags")
             with urllib.request.urlopen(req, timeout=3) as resp:
@@ -324,6 +433,13 @@ class OllamaTranslationEngine(TranslationEngine):
             return False
 
     def _check_available(self) -> bool:
+        """Check if the current engine's model is available.
+
+        For cloud engines, checks Ollama Cloud signin status.
+        For local engines, checks the Ollama ``/api/tags`` endpoint.
+        """
+        if self._engine_name in CLOUD_ENGINES:
+            return _get_ollama_signin_status()["signed_in"]
         try:
             req = urllib.request.Request(f"{self._base_url}/api/tags")
             with urllib.request.urlopen(req, timeout=3) as resp:

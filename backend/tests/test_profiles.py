@@ -50,6 +50,21 @@ def test_validate_profile_invalid_asr_engine(config_dir):
     assert any("asr.engine" in e for e in errors)
 
 
+def test_validate_profile_accepts_cloud_translation_engines(config_dir):
+    from profiles import ProfileManager
+    mgr = ProfileManager(config_dir)
+    for cloud_engine in ("glm-4.6-cloud", "qwen3.5-397b-cloud", "gpt-oss-120b-cloud"):
+        profile_data = {
+            "name": f"Cloud {cloud_engine}",
+            "description": "",
+            "asr": {"engine": "whisper", "model_size": "tiny", "language": "en", "device": "cpu"},
+            "translation": {"engine": cloud_engine, "temperature": 0.1, "glossary_id": None},
+        }
+        errors = mgr.validate(profile_data)
+        engine_errors = [e for e in errors if "translation.engine" in e]
+        assert engine_errors == [], f"{cloud_engine} rejected: {engine_errors}"
+
+
 def test_validate_profile_missing_asr(config_dir):
     from profiles import ProfileManager
     mgr = ProfileManager(config_dir)
