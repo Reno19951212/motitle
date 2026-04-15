@@ -10,11 +10,12 @@
     "model_size": "medium"
   },
   "translation": {
-    "engine": "qwen2.5-3b",
-    "glossary_id": null,
+    "engine": "qwen3.5-397b-cloud",
     "batch_size": 5,
-    "style": "formal",
-    "temperature": 0.1
+    "style": "cantonese",
+    "temperature": 0.1,
+    "context_window": 3,
+    "glossary_id": null
   },
   "font": {
     "family": "Noto Sans TC",
