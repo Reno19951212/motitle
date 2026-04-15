@@ -14,7 +14,7 @@ Check off each area as it is reviewed. Pick the next unchecked area in order.
 
 - [x] 1. Dashboard overall layout + header
 - [x] 2. File upload region (button + drag-drop zone)
-- [ ] 3. File list card (status badges, re-transcribe, delete)
+- [x] 3. File list card (status badges, re-transcribe, delete)
 - [ ] 4. Sidebar structure + collapsibility
 - [ ] 5. Profile selector dropdown
 - [ ] 6. Profile form — basic info section
@@ -121,5 +121,41 @@ Each entry below follows this template:
 
 **Estimated impact:** medium-high — recurring first-action friction; sharp downgrade once the user has more than a handful of files
 **Estimated effort:** S — CSS + small JS for collapse state + one confirm dialog
+
+---
+
+### Area 3: File list card (status badges, re-transcribe, delete)
+
+**Screenshot:** `screenshots/03_file-list-card.png`
+
+**What works:**
+- Filename has full-width room; long YouTube-derived names are not visually clipped beyond what CSS truncation demands
+- Two-row layout separates identity (filename + size + status) from context and actions (engine chips + downloads + CTAs)
+- Color-coded green pills for completed states stand out against the dark background
+- SRT / VTT / TXT download links are always one click away, directly on the card — no need to open a sub-panel
+- Engine provenance chips (`medium · mlx-whisper` + `gpt-oss-120b-cloud`) document what produced this result — valuable for debugging and reproducibility
+
+**Issues observed:**
+- [P1] The card has two "done" pills (`完成` top-right for transcription, `翻譯完成` row 2 for translation) styled identically. Users cannot visually distinguish the two lifecycle stages — both are green pill shape/size/color. The meaning is learned, not perceived.
+- [P1] No visual hierarchy on row 2: engine chips, status pill, three download links, `重新翻譯`, and `校對` are all rendered with the same pill-button vocabulary. The card is visually "flat" — everything competes for the eye.
+- [P1] `×` (delete) is top-right, adjacent to the `完成` badge, with no confirm dialog. Destructive action sits directly next to a static status badge — high mis-click risk, zero recovery.
+- [P2] Engine chips (`medium · mlx-whisper`, `gpt-oss-120b-cloud`) look like clickable buttons (same rounded pill shape as the SRT/VTT/TXT download links) but are static labels. Affordance confusion: user may try to click to "change engine".
+- [P2] The filename itself is clickable (opens proofread editor) but has no underline, no color shift, no pointer hint. Discoverability: low. Only learned by accident.
+- [P2] Two CTAs at the end of row 2: `重新翻譯` (outlined purple) and `校對` (filled purple). Reading order is `重新翻譯` → `校對` but visual weight says `校對` is primary. Conflict between left-to-right priority and visual priority.
+- [P3] `48.6 MB` on row 1 uses space that could show richer metadata (duration, segment count, uploaded-at timestamp). File size alone becomes uninteresting once the file is done.
+- [P3] No relative upload time ("2 小時前") and no duration ("⏱ 4:32"). For broadcast workflow these are more useful than byte count.
+- [P3] When the card is `.active` (selected) the only difference is a purple border per the CSS. No additional affordance to say "this is the file currently playing in the video column" — easy to lose track when scrolling.
+
+**Recommendations:**
+1. Differentiate the two status pills: `✓ 轉譯` as an outlined pill (lifecycle stage 1), `✓ 翻譯` as a filled pill (lifecycle stage 2), or use distinct icons. Pair each with a tooltip that shows the completed-at timestamp.
+2. Restyle row 2 with explicit groups separated by spacing and subtle dividers: `[engine chips]  |  [status pill]  |  [download pills]  →  [action cluster]`. Downgrade engine chips to flat tags (no border, dimmer background).
+3. Move `×` delete into an overflow menu (`⋯`) with explicit label "刪除檔案" and a confirm dialog. Keep the top-right area for lifecycle badges only.
+4. Make the filename an explicit link: hover underline, cursor `pointer`, and a trailing `↗` icon. Add `title="打開校對編輯器"` so the action is discoverable.
+5. Collapse `重新翻譯` into the overflow menu — it is rarely used once a file is approved. Row 2 then shows only one CTA: `校對 →`.
+6. Replace `48.6 MB` with a compact metadata strip: `⏱ 4:32 · 41 段 · 2 天前`. File size can move to a tooltip on the overflow menu if anyone cares.
+7. When `.file-card.active`, add a left border accent stripe and a small "▶ 播放中" chip near the filename — visual pinning so users scrolling through a long list can always spot "where I am now".
+
+**Estimated impact:** high — this card is the primary recurring interaction surface
+**Estimated effort:** M — two CSS refactors + one JS overflow menu + safer delete confirm
 
 ---
