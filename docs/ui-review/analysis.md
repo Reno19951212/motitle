@@ -26,7 +26,7 @@ Check off each area as it is reviewed. Pick the next unchecked area in order.
 - [x] 12. Translation status badge + re-translate button flow
 - [x] 13. Language config panel
 - [x] 14. Glossary management panel
-- [ ] 15. Proofread editor — video player controls
+- [x] 15. Proofread editor — video player controls
 - [ ] 16. Proofread editor — segment table editing UX
 - [ ] 17. Proofread editor — approval buttons (per-segment + bulk)
 - [ ] 18. Proofread editor — keyboard shortcuts discoverability
@@ -627,5 +627,48 @@ Each entry below follows this template:
 
 **Estimated impact:** medium — direct impact on translation quality via the prompt; current "Micahel → 23468" shows the validation gap is already producing bad data
 **Estimated effort:** S-M — frontend work + basic validation; inline edit adds the most value for effort
+
+---
+
+### Area 15: Proofread editor — video player controls
+
+**Screenshot:** `screenshots/15_proofread-video-player.png`
+*Loaded with `file_id=e00d4db3c61c` (41-segment interview clip, translation done).*
+
+**What works:**
+- Native HTML5 `<video>` element + native browser controls: zero dependencies, works in every browser
+- Total duration is visible in the corner (`0:00 / 1:43`) so the user knows the clip length up front
+- `← 返回主頁` navigation link is top-left — standard pattern for a detail page
+- **Keyboard shortcut hints are rendered directly below the player**: `Space` 播放/暫停, `↑` 上一段, `↓` 下一段, `←` 往前 5 秒, `→` 往後 5 秒, `Enter` 確認核對, `Esc` 取消. Excellent discoverability of the proofread-specific hotkeys.
+- Shortcut labels are localized in Traditional Chinese
+- The `字幕校對 ▾` heading acts as a file-context marker
+
+**Issues observed:**
+- [P1] **No subtitle overlay on the video.** The user is proofreading translations but the video plays with no rendered captions at all — the Cantonese output is only visible in the side table. There is no way to answer "what will the final rendered output look like?" without running `/api/render` and downloading an MP4.
+- [P1] **Native browser controls break visual consistency.** On macOS Safari the controls are grey-gradient; on Chrome they are dark with white; on Firefox they are flat. The rest of the app uses a specific dark-purple design language, and the video bar stands out.
+- [P2] **Keyboard hints are below the native control bar**, which means they compete with the scrubber for vertical space and are the last thing in the visual scan. Users who don't know about them will miss them until they scroll to the bottom of the viewport.
+- [P2] **No playback speed control**. For proofreading dense speech, 0.5x / 0.75x are essential. The native `<video>` API supports this but via right-click menu only, which is not discoverable.
+- [P2] **No loop-current-segment** button. Standard proofread workflow is "play this segment again". The only way to do this currently is manually scrubbing back each time.
+- [P2] **No visible "jump N seconds" buttons** in the UI — only the keyboard shortcuts. Touch/mouse users are stranded.
+- [P2] **`字幕校對 ▾` arrow** suggests a dropdown but does not visibly open anything; the affordance is unclear.
+- [P3] **No source captions track** (original English) available in the player. Proofreading against the source would be faster if both the source and target were visible simultaneously.
+- [P3] **No scrubber tick marks** showing segment boundaries — every segment requires a round-trip to the side table to jump.
+- [P3] **No thumbnail preview** on scrubber hover (YouTube-style).
+- [P3] **`← 返回主頁`** loses dashboard scroll position and file-selection state.
+
+**Recommendations:**
+1. **Overlay translated subtitles** on the video. Generate a WebVTT file from the current translations at page load (client-side, from the segments array) and wire it as `<track kind="subtitles" default>`. Style via CSS `::cue { ... }` using the profile's font config. The user now sees a live preview of the final output while proofreading.
+2. **Replace native controls with custom player chrome** matching the app dark theme: play/pause, scrubber, volume, speed, fullscreen, loop-segment, jump-5s, segment counter. `<video controls={false}>` plus a thin controls bar component.
+3. **Lift the keyboard hints** into a collapsible panel on the right, or a `?` help button that reveals them on click. Their current position is too easy to miss.
+4. **Add speed dropdown** in the player chrome: `0.5x · 0.75x · 1x · 1.25x · 1.5x · 2x`, default 1x.
+5. **Add loop-current-segment toggle** `⟲`: when active, video loops between `segment.start` and `segment.end` of the currently-focused segment.
+6. **Add visible jump buttons**: `⏪ -5s` / `+5s ⏩` icons directly in the player chrome, duplicating the keyboard shortcut affordance for mouse users.
+7. **Clarify `字幕校對 ▾`**: if it is intended as a file switcher, wire the dropdown to show other translated files; if not, remove the arrow.
+8. **Add English captions as a secondary track** with a toggle button in the player chrome (`EN | 中 | off`).
+9. **Render segment boundary ticks** as tiny vertical lines over the scrubber so users can see segment density and jump visually.
+10. **Preserve dashboard state** on back: use `history.back()` when referrer is the dashboard; otherwise fall back to `index.html`.
+
+**Estimated impact:** high — the proofread editor is where the user spends the most time per file; live subtitle preview alone eliminates the main feedback loop
+**Estimated effort:** M-L — custom player chrome is the expensive piece; subtitle overlay via WebVTT is a few hours of work
 
 ---
