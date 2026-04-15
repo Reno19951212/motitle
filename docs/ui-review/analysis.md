@@ -31,7 +31,7 @@ Check off each area as it is reviewed. Pick the next unchecked area in order.
 - [x] 17. Proofread editor — approval buttons (per-segment + bulk)
 - [x] 18. Proofread editor — keyboard shortcuts discoverability
 - [x] 19. Error states (upload/API/translation failures)
-- [ ] 20. Loading states consistency + Ollama signin button UX
+- [x] 20. Loading states consistency + Ollama signin button UX
 
 ---
 
@@ -860,5 +860,60 @@ Each entry below follows this template:
 
 **Estimated impact:** medium-high — errors are recurring in a multi-stage pipeline; current handling loses information quickly and blocks support/debug
 **Estimated effort:** M — error-code contract + humanization + aggregation panel are independent but each non-trivial
+
+---
+
+### Area 20: Loading states consistency + Ollama signin button UX
+
+**Screenshot:** `screenshots/20_loading-and-signin.png`
+
+**What works:**
+- Standardized `.pf-params-loading` class with the text `載入中...` is reused for async schema loads
+- `✓ 已載入` / `✗ 未載入` model info uses green / red colour coding for availability
+- The `☁ Ollama Cloud 登入` button is styled distinctly with a lighter blue-purple tint and a cloud icon — visually signals "external auth action"
+- Button positioned directly next to the engine dropdown — contextually correct
+- `title` tooltip on the button ("Spawn 'ollama signin' to log in to Ollama Cloud") provides keyboard-hover context
+- Success / error toasts fire after signin action completes, giving confirmation
+
+**Issues observed:**
+- [P1] **Signin button is always visible regardless of engine type.** When the user has selected a local engine (`qwen2.5-3b`), the `Ollama Cloud 登入` button is still rendered and clickable, despite having no relevance — it spawns a signin flow the user doesn't need.
+- [P1] **Signin button state does not reflect actual login status.** After the user is already signed in (`qawseds0801107`), the button still reads `☁ Ollama Cloud 登入` as if they aren't. There is no "✓ 已登入" confirmation state, no username display, no distinction between "needs signin" and "already signed in".
+- [P1] **Loading vocabulary is inconsistent across the app.**
+  - Profile form: `載入中...` in `.pf-params-loading`
+  - Engine params schema: `載入中...` again (but a different placement)
+  - File list on first load: no skeleton, just empty
+  - Glossary entries: no skeleton, possibly a `<div style="...">載入中...</div>` (seen at line 833)
+  - Each component invented its own loading pattern.
+- [P2] **No spinner animation**, only text. "載入中..." without motion looks like static placeholder copy — users may think it's the final state of an error.
+- [P2] **No skeleton loaders** for the file list, profile list, glossary entries. On slow backends users see an empty column that looks identical to "no data".
+- [P2] **`✗ 未載入` on the model info line** has no recovery action. Users see "model not loaded" but must figure out on their own whether to `ollama pull`, `ollama signin`, or give up.
+- [P2] **The "Model: <tag>" label bug** (re-flagged from Area 8) is still visible here: it shows `qwen2.5:3b` even though the selected engine is `gpt-oss-120b-cloud`. The loading path uses `models[0]` instead of matching the active engine.
+- [P2] **Signin button click has no "in-progress" state.** The user clicks, the POST fires, and for 1-2 seconds nothing happens. Then a toast appears. Between click and toast, the button should show a spinner and be disabled to prevent double-clicks.
+- [P3] **Failed async fetches render `無法載入引擎參數，請重試`** as plain text with no actual retry button. Users have to close and reopen the form.
+- [P3] **Loading text alignment** is inconsistent (center vs left) across different components.
+- [P3] **No tie between the `⚠` state on a cloud engine and the signin button**. Ideally, when the user picks a cloud engine that shows `⚠` (not signed in), the signin button should be visually promoted — highlighted, larger, with a hint — so it is obviously the next step.
+
+**Recommendations:**
+1. **Conditional signin button visibility**: only render when `engine in CLOUD_ENGINES`. For local engines the button is entirely hidden.
+2. **State-aware signin button** tied to `GET /api/ollama/status`:
+   - `loading`: `⟳ 檢查登入狀態...` (disabled)
+   - `signed_in === true`: `✓ 已登入 (${user})` (dim, non-clickable info pill with `☁` icon)
+   - `signed_in === false`: `☁ Ollama Cloud 登入` (clickable primary button, promoted visually when paired with an unavailable cloud engine)
+3. **Standardize loading vocabulary** via a shared class:
+   ```css
+   .loading { /* text + CSS spinner */ }
+   .loading::before { content: '⟳ '; animation: spin 1s linear infinite; }
+   ```
+   Apply to: profile form param loads, glossary list, file list initial load, engine switch spinner.
+4. **Skeleton loaders** for list-shaped content: dim rectangles sized like the real row/card. Replaces empty divs + text-only loading copy.
+5. **Fix the `Model:` label bug** once and for all: `models.find(x => x.engine === trEngine) || models[0]`. Re-flagged from Area 8.
+6. **`✗ 未載入` → actionable link**: for cloud models, clicking the label highlights the signin button; for local models, shows the exact `ollama pull <tag>` command.
+7. **Signin-button click feedback**: on click, swap label to `⟳ 登入中...` and disable the button. Re-enable on response (or on toast fire).
+8. **Retry button for failed loads**: replace `無法載入引擎參數，請重試` with `❌ 載入失敗 · [↺ 重試]` where the button re-fires the fetch without closing the form.
+9. **Promote signin when needed**: when engine is cloud AND `available === false`, render the signin button with a subtitle `雲端模型需要先登入` and upgrade its style to `.btn-primary` instead of the current `.btn-ghost-ish`.
+10. **Align loading indicators** consistently: all left-aligned for field-level loads, all centered for panel-level empty/loading states. Document in the component style guide.
+
+**Estimated impact:** medium-high — loading and signin are the "does this work?" moments of the cloud experience; current inconsistency makes the app feel fragile even when it's actually working
+**Estimated effort:** S-M — conditional render + status-aware labels + shared loading class + skeleton component
 
 ---
