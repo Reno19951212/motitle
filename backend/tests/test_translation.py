@@ -1276,3 +1276,35 @@ def test_api_ollama_signin_accepts_ipv6_localhost():
             )
             assert resp.status_code == 200
             assert resp.get_json()["signed_in"] is True
+
+
+def test_api_translation_engine_models_returns_only_matching_engine():
+    """GET /api/translation/engines/<name>/models returns only the entry for <name>, not all models."""
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+
+    from app import app
+    app.config["TESTING"] = True
+
+    with app.test_client() as client:
+        # Cloud engine request should return only the cloud engine's entry
+        resp = client.get("/api/translation/engines/qwen3.5-397b-cloud/models")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["engine"] == "qwen3.5-397b-cloud"
+        models = data["models"]
+        assert len(models) == 1
+        assert models[0]["engine"] == "qwen3.5-397b-cloud"
+        assert models[0]["model"] == "qwen3.5:397b-cloud"
+        assert models[0]["is_cloud"] is True
+
+        # Local engine request should return only the local engine's entry
+        resp = client.get("/api/translation/engines/qwen2.5-3b/models")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        models = data["models"]
+        assert len(models) == 1
+        assert models[0]["engine"] == "qwen2.5-3b"
+        assert models[0]["model"] == "qwen2.5:3b"
+        assert models[0]["is_cloud"] is False

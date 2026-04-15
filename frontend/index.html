@@ -333,7 +333,15 @@
     .badge-idle { background: rgba(136,136,153,0.2); color: var(--text-dim); }
     .badge-processing { background: rgba(245,158,11,0.2); color: var(--warning); }
     .badge-recording { background: rgba(239,68,68,0.2); color: var(--danger); animation: pulse 1.5s infinite; }
-    .badge-done { background: rgba(34,197,94,0.2); color: var(--success); }
+    /* Transcription-done uses an OUTLINED pill so it is visibly distinct from
+       the FILLED .badge-translated pill below. Two "done" states on the same
+       card should not look identical. */
+    .badge-done {
+      background: transparent;
+      color: var(--success);
+      border: 1px solid var(--success);
+      padding: 3px 9px; /* compensate for border so total size matches */
+    }
 
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
 
@@ -1206,7 +1214,7 @@ function renderFileList() {
     const isBusy = f.status === 'transcribing';
 
     let statusHtml = '';
-    if (isDone) statusHtml = '<span class="badge badge-done">完成</span>';
+    if (isDone) statusHtml = '<span class="badge badge-done">✓ 轉譯</span>';
     else if (isBusy) statusHtml = '<span class="badge badge-processing">轉錄中</span>';
     else if (isError) statusHtml = '<span class="badge badge-idle">錯誤</span>';
     else statusHtml = '<span class="badge badge-idle">已上傳</span>';
@@ -1232,7 +1240,7 @@ function renderFileList() {
         : '';
 
       let transBadge = '<span class="badge badge-pending-trans">待翻譯</span>';
-      if (hasTranslations) transBadge = '<span class="badge badge-translated">翻譯完成</span>';
+      if (hasTranslations) transBadge = '<span class="badge badge-translated">✓ 翻譯</span>';
       else if (isTranslating) transBadge = '<span class="badge badge-translating">翻譯中...</span>';
 
       const translateBtn = isTranslating
@@ -1365,6 +1373,9 @@ function loadMediaPreview(fileId) {
 }
 
 async function deleteFile(fileId) {
+  const entry = uploadedFiles[fileId];
+  const displayName = entry && entry.original_name ? entry.original_name : fileId;
+  if (!confirm(`確定刪除「${displayName}」？\n此操作會永久刪除檔案、轉譯同翻譯結果。`)) return;
   try {
     const resp = await fetch(`${API_BASE}/api/files/${fileId}`, { method: 'DELETE' });
     const data = await resp.json();
@@ -1783,6 +1794,9 @@ async function initEngineParamsForForm(profile) {
   trContainer.innerHTML  = `<div class="pf-params-loading">載入中...</div>`;
   if (saveBtn) saveBtn.disabled = true;
 
+  // Render the Ollama Cloud signin pill (only appears for cloud engines)
+  updateOllamaSigninSlot();
+
   // Fetch ASR params
   let asrSchemaOk = false;
   try {
@@ -1821,12 +1835,13 @@ async function initEngineParamsForForm(profile) {
     // Guard: form may have been closed
     if (!document.getElementById('pf-tr-params')) return;
 
-    // Render model info
+    // Render model info. Defensively match by engine key in case the
+    // endpoint ever returns multiple entries (it currently filters to one).
     if (modelsResp.ok && modelInfoEl) {
       const modelsData = await modelsResp.json();
       const models = modelsData.models || [];
-      if (models.length > 0) {
-        const m = models[0];
+      const m = models.find(x => x.engine === trEngine) || models[0];
+      if (m) {
         const icon = m.available
           ? `<span class="pf-model-ok">✓ 已載入</span>`
           : `<span class="pf-model-err">✗ 未載入</span>`;
@@ -1927,6 +1942,7 @@ async function onTranslationEngineChange() {
   engineEl.disabled = true;
   if (saveBtn) saveBtn.disabled = true;
   container.innerHTML = `<div class="pf-params-loading">載入中...</div>`;
+  updateOllamaSigninSlot();
   if (modelInfoEl) modelInfoEl.textContent = 'Model: 載入中...';
 
   try {
@@ -1937,15 +1953,15 @@ async function onTranslationEngineChange() {
 
     if (!document.getElementById('pf-tr-params')) return;
 
-    // Update model info
+    // Update model info. Match by engine key defensively.
     if (modelsResp.ok && document.getElementById('pf-tr-model-info')) {
       const modelsData = await modelsResp.json();
       if (!document.getElementById('pf-tr-params')) return;
       const models = modelsData.models || [];
       const infoEl = document.getElementById('pf-tr-model-info');
       if (infoEl) {
-        if (models.length > 0) {
-          const m = models[0];
+        const m = models.find(x => x.engine === engineEl.value) || models[0];
+        if (m) {
           const icon = m.available
             ? `<span class="pf-model-ok">✓ 已載入</span>`
             : `<span class="pf-model-err">✗ 未載入</span>`;
@@ -2008,16 +2024,54 @@ async function ollamaSignin() {
     } else {
       alert('Ollama 登入已啟動，請喺瀏覽器完成登入。登入後請 refresh 頁面。');
     }
-    // Refresh engine list to update availability
+    // Refresh engine list and signin slot to update availability
     if (typeof loadTranslationEngines === 'function') {
       await loadTranslationEngines();
-      // Re-render the profile form to reflect updated availability
       if (typeof renderProfileList === 'function') {
         renderProfileList();
       }
     }
+    updateOllamaSigninSlot();
   } catch (e) {
     alert('無法連接後端：' + e.message);
+  }
+}
+
+// Renders the Ollama Cloud signin pill into #pf-tr-signin-slot based on the
+// currently-selected engine and live signin status.
+//
+// - Local engine selected → slot is empty (hidden)
+// - Cloud engine + signed in → non-clickable info pill '✓ 已登入 (user)'
+// - Cloud engine + not signed in → clickable primary pill '☁ Ollama Cloud 登入'
+async function updateOllamaSigninSlot() {
+  const slot = document.getElementById('pf-tr-signin-slot');
+  if (!slot) return;
+
+  const engineEl = document.getElementById('pf-tr-engine');
+  const engineKey = engineEl ? engineEl.value : null;
+  const selected = translationEnginesData.find(e => e.engine === engineKey);
+
+  // Not a cloud engine → hide the slot entirely
+  if (!selected || !selected.is_cloud) {
+    slot.innerHTML = '';
+    return;
+  }
+
+  // Cloud engine — show a placeholder while fetching status
+  slot.innerHTML = `<span class="pf-ollama-signin-btn" style="opacity:0.6;cursor:default;">⟳ 檢查登入...</span>`;
+
+  try {
+    const resp = await fetch(`${API_BASE}/api/ollama/status`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const status = await resp.json();
+    if (status.signed_in) {
+      slot.innerHTML = `<span class="pf-ollama-signin-btn" style="cursor:default;" title="已登入 Ollama Cloud">✓ 已登入 (${escapeHtml(status.user || 'ollama')})</span>`;
+    } else {
+      slot.innerHTML = `<button type="button" class="pf-ollama-signin-btn" onclick="ollamaSignin()" title="Spawn 'ollama signin' to log in to Ollama Cloud">☁ Ollama Cloud 登入</button>`;
+    }
+  } catch (e) {
+    // On status check failure, fall back to the clickable signin button
+    slot.innerHTML = `<button type="button" class="pf-ollama-signin-btn" onclick="ollamaSignin()" title="Spawn 'ollama signin' to log in to Ollama Cloud">☁ Ollama Cloud 登入</button>`;
   }
 }
 
@@ -2212,7 +2266,7 @@ function buildProfileFormHTML(profile) {
                 const label = selectedEngine.available ? '可用' : '不可用';
                 return `<span id="pf-tr-avail-dot" class="pf-avail-dot ${cls}"></span><span id="pf-tr-avail-label" class="pf-avail-label">${label}</span>`;
               })()}
-              <button type="button" class="pf-ollama-signin-btn" onclick="ollamaSignin()" title="Spawn 'ollama signin' to log in to Ollama Cloud">☁ Ollama Cloud 登入</button>
+              <span id="pf-tr-signin-slot"></span>
             </div>
           </div>
           <div id="pf-tr-model-info" class="pf-model-info"></div>
@@ -2515,7 +2569,9 @@ async function loadGlossaryEntries(glossaryId) {
     let html = '<table class="glossary-table"><thead><tr><th>EN</th><th>中文</th><th></th></tr></thead><tbody>';
     for (const entry of entries) {
       const eid = entry.id || '';
-      html += `<tr><td>${escapeHtml(entry.en)}</td><td>${escapeHtml(entry.zh)}</td><td><button class="btn-del" onclick="deleteGlossaryEntry('${eid}')">✕</button></td></tr>`;
+      const enAttr = escapeHtml(entry.en || '');
+      const zhAttr = escapeHtml(entry.zh || '');
+      html += `<tr><td>${enAttr}</td><td>${zhAttr}</td><td><button class="btn-del" onclick="deleteGlossaryEntry('${eid}', '${enAttr.replace(/'/g, '&#39;')}', '${zhAttr.replace(/'/g, '&#39;')}')">✕</button></td></tr>`;
     }
     html += '</tbody></table>';
     container.innerHTML = html;
@@ -2541,8 +2597,10 @@ async function addGlossaryEntry() {
   } catch (e) { showToast('新增失敗', 'error'); }
 }
 
-async function deleteGlossaryEntry(entryId) {
+async function deleteGlossaryEntry(entryId, enText, zhText) {
   if (!currentGlossaryId || !entryId) return;
+  const label = (enText && zhText) ? `「${enText} → ${zhText}」` : '此術語';
+  if (!confirm(`確定刪除 ${label}？`)) return;
   try {
     const resp = await fetch(`${API_BASE}/api/glossaries/${currentGlossaryId}/entries/${entryId}`, {method: 'DELETE'});
     if (resp.ok) { loadGlossaryEntries(currentGlossaryId); loadGlossaries(); showToast('術語已刪除', 'success'); }
