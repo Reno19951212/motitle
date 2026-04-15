@@ -671,6 +671,20 @@
       padding: 6px 0;
     }
 
+    .pf-ollama-signin-btn {
+      margin-left: 8px;
+      padding: 4px 10px;
+      font-size: 12px;
+      background: #eef2ff;
+      border: 1px solid #c7d2fe;
+      border-radius: 4px;
+      cursor: pointer;
+      color: #4338ca;
+    }
+    .pf-ollama-signin-btn:hover {
+      background: #e0e7ff;
+    }
+
     .pf-params-label {
       font-size: 11px;
       color: var(--text-dim);
@@ -1681,7 +1695,8 @@ function escapeHtml(str) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // Engine params that should NOT be rendered as form fields
@@ -1980,6 +1995,32 @@ async function onTranslationEngineChange() {
   }
 }
 
+async function ollamaSignin() {
+  try {
+    const resp = await fetch(`${API_BASE}/api/ollama/signin`, { method: 'POST' });
+    const data = await resp.json();
+    if (!resp.ok) {
+      alert('啟動失敗：' + (data.error || '未知錯誤'));
+      return;
+    }
+    if (data.signed_in) {
+      alert(`你已經登入為 '${data.user}'。雲端模型應該可用。`);
+    } else {
+      alert('Ollama 登入已啟動，請喺瀏覽器完成登入。登入後請 refresh 頁面。');
+    }
+    // Refresh engine list to update availability
+    if (typeof loadTranslationEngines === 'function') {
+      await loadTranslationEngines();
+      // Re-render the profile form to reflect updated availability
+      if (typeof renderProfileList === 'function') {
+        renderProfileList();
+      }
+    }
+  } catch (e) {
+    alert('無法連接後端：' + e.message);
+  }
+}
+
 function renderProfileList() {
   const container = document.getElementById('profileList');
   if (!container) return;
@@ -2128,15 +2169,41 @@ function buildProfileFormHTML(profile) {
             <label>引擎</label>
             <div class="pf-engine-row">
               <select id="pf-tr-engine" onchange="onTranslationEngineChange()">
-                ${translationEnginesData.length === 0
-                  ? `<option value="">-- 載入失敗 --</option>`
-                  : translationEnginesData.map(e => {
-                      const selected = (tr.engine || translationEnginesData.find(x => x.available)?.engine || translationEnginesData[0]?.engine) === e.engine ? 'selected' : '';
-                      const isCurrentEngine = (tr.engine === e.engine);
-                      const disabled = (!e.available && !isCurrentEngine) ? 'disabled' : '';
-                      return `<option value="${escapeHtml(e.engine)}" ${selected} ${disabled}>${escapeHtml(e.engine)}</option>`;
-                    }).join('')
-                }
+                ${(() => {
+                  if (translationEnginesData.length === 0) {
+                    return `<option value="">-- 載入失敗 --</option>`;
+                  }
+
+                  const currentEngine = tr.engine
+                    || translationEnginesData.find(x => x.available)?.engine
+                    || translationEnginesData[0]?.engine;
+
+                  const renderOption = (e) => {
+                    const selected = currentEngine === e.engine ? 'selected' : '';
+                    const isCurrent = (tr.engine === e.engine);
+                    const disabled = (!e.available && !isCurrent) ? 'disabled' : '';
+                    const status = e.available ? '✓' : '⚠';
+                    const tooltip = !e.available
+                      ? (e.is_cloud
+                          ? '需要先執行 `ollama signin` 登入 Ollama Cloud'
+                          : '需要先 `ollama pull` 對應 model')
+                      : '';
+                    const titleAttr = tooltip ? `title="${escapeHtml(tooltip)}"` : '';
+                    return `<option value="${escapeHtml(e.engine)}" ${selected} ${disabled} ${titleAttr}>${status} ${escapeHtml(e.engine)}</option>`;
+                  };
+
+                  const local = translationEnginesData.filter(e => !e.is_cloud);
+                  const cloud = translationEnginesData.filter(e => e.is_cloud);
+
+                  let html = '';
+                  if (local.length) {
+                    html += `<optgroup label="${escapeHtml('本地模型')}">${local.map(renderOption).join('')}</optgroup>`;
+                  }
+                  if (cloud.length) {
+                    html += `<optgroup label="${escapeHtml('雲端模型（需要 ollama signin）')}">${cloud.map(renderOption).join('')}</optgroup>`;
+                  }
+                  return html;
+                })()}
               </select>
               ${(() => {
                 const selectedEngine = translationEnginesData.find(e => e.engine === (tr.engine || translationEnginesData.find(x => x.available)?.engine || translationEnginesData[0]?.engine));
@@ -2145,6 +2212,7 @@ function buildProfileFormHTML(profile) {
                 const label = selectedEngine.available ? '可用' : '不可用';
                 return `<span id="pf-tr-avail-dot" class="pf-avail-dot ${cls}"></span><span id="pf-tr-avail-label" class="pf-avail-label">${label}</span>`;
               })()}
+              <button type="button" class="pf-ollama-signin-btn" onclick="ollamaSignin()" title="Spawn 'ollama signin' to log in to Ollama Cloud">☁ Ollama Cloud 登入</button>
             </div>
           </div>
           <div id="pf-tr-model-info" class="pf-model-info"></div>

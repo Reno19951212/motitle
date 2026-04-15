@@ -214,6 +214,24 @@ ollama pull qwen2.5:3b
 | **Ollama** | ✅ 完整實現 | qwen2.5:3b / 7b / 72b | 本地 LLM，支援書面語及粵語風格 |
 | **Mock** | ✅ 測試用 | — | 返回 `[EN→ZH]` 格式，用於開發測試 |
 
+### Ollama Cloud 模型（選用）
+
+系統支援三個 Ollama Cloud 雲端模型，提供更高質素嘅翻譯結果：
+
+| 模型 | 用途 |
+|---|---|
+| `glm-4.6-cloud` | 通用中英翻譯，198K context，響應快 |
+| `qwen3.5-397b-cloud` | Qwen 最大 MoE（397B），256K context，粵語翻譯質素最高 |
+| `gpt-oss-120b-cloud` | OpenAI 開源 MoE 120B，128K context |
+
+使用前需要先登入 Ollama Cloud（付費服務）：
+
+```bash
+ollama signin
+```
+
+登入之後，雲端模型會自動出現喺 Profile 翻譯引擎選單嘅「雲端模型」組別，唔需要 `ollama pull`。如果未 signin，選項會顯示 `⚠` 加 tooltip 提示。
+
 #### 語言參數
 
 每種語言可獨立設定：
