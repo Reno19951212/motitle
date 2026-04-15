@@ -29,7 +29,7 @@ Check off each area as it is reviewed. Pick the next unchecked area in order.
 - [x] 15. Proofread editor — video player controls
 - [x] 16. Proofread editor — segment table editing UX
 - [x] 17. Proofread editor — approval buttons (per-segment + bulk)
-- [ ] 18. Proofread editor — keyboard shortcuts discoverability
+- [x] 18. Proofread editor — keyboard shortcuts discoverability
 - [ ] 19. Error states (upload/API/translation failures)
 - [ ] 20. Loading states consistency + Ollama signin button UX
 
@@ -764,5 +764,57 @@ Each entry below follows this template:
 
 **Estimated impact:** high — approval is the final gate before render, so even small friction compounds
 **Estimated effort:** S-M — label fix is trivial; bulk variants + keyboard shortcut + filter are incremental improvements
+
+---
+
+### Area 18: Proofread editor — keyboard shortcuts discoverability
+
+**Screenshot:** `screenshots/18_proofread-shortcuts.png`
+
+**What works:**
+- Keys are rendered as small "keycap" pills (`Space`, `↑`, `↓`, `E`, `Enter`, `Esc`), visually distinct from the label text — immediately recognizable as press-these
+- Horizontal single-row layout is compact and stays out of the way
+- All labels are in Traditional Chinese with clear action verbs (`播放/暫停`, `導覽片段`, `編輯翻譯`, `確認核准`, `取消`)
+- Grouping `↑` / `↓` under one combined label is space-efficient
+- The 5 shortcuts in the hint strip match the 5 shortcuts in the JavaScript handler exactly — no phantom or missing entries
+- Positioned directly below the video player where the user's eye already falls
+
+**Issues observed:**
+- [P1] **Hint strip is the bottom-most element of the video column**, so on smaller viewports or when the video occupies full height, it drops below the fold. Users who never scroll to the bottom of the left column will miss it entirely.
+- [P1] **No persistent "help" button / overlay.** A user who wants to scan all available shortcuts in one place has no affordance. The strip is the only reference.
+- [P1] **`Enter` has dual semantics hidden from the user.** In row-focus mode it toggles approval; inside an active text edit it commits the edit. The hint strip shows only `確認核准`. A user mid-edit may press Enter expecting a newline and get a save instead.
+- [P2] **No visual feedback when a shortcut fires.** Pressing `Space` should briefly flash the `Space` keycap; today nothing happens visually.
+- [P2] **No shortcuts for saving, rendering, or navigation-by-state.** Broadcast workflow demands: `⌘S` to save, `N` to jump to next unapproved, `R` to open render. None exist.
+- [P2] **No `?` help shortcut.** Standard editor convention of "press `?` for help" is missing.
+- [P2] **Cross-page inconsistency**: the dashboard (index.html) has its own keyboard hint strip mentioning `← → 往前/往後 5 秒`, but those shortcuts are not in the proofread editor. Mental model leaks between pages.
+- [P3] **Low contrast on the keycap pills** — they blend into the dark background and the eye has to work to read them.
+- [P3] **No section header** like `⌨ 快速鍵`. Users scanning past the hint row may not recognize it as "this is the keyboard reference".
+- [P3] **No accessibility announcement** when a shortcut fires (`aria-live` region) for screen-reader users.
+
+**Recommendations:**
+1. **Add a persistent help button** `❓` in the top-right of the proofread editor header. Bind `?` to open a modal listing every keyboard shortcut with Chinese descriptions. Group by category: Navigation / Editing / Approval / Playback / Actions.
+2. **Convert the hint strip into a collapsible dock**: a tiny `⌨ 快速鍵` pill in the corner that expands to the full strip on hover/click. Save the user's preferred state in `localStorage`.
+3. **Clarify `Enter` dual semantics** in the hint strip with context-aware labels:
+   - Default: `Enter 核准` (list-focus mode)
+   - While editing: `Enter 儲存 · Shift+Enter 換行`
+   Use live JS to swap labels based on `state.editing`.
+4. **Visual feedback on keypress**: flash the matching keycap (`transition: background 200ms; background: var(--accent)`) whenever its shortcut fires. Psychologically reinforcing.
+5. **Add missing power-user shortcuts** consistent with recommendations elsewhere:
+   - `A` — toggle approval (frees `Enter` from dual meaning)
+   - `N` — next unapproved
+   - `P` — previous unapproved
+   - `⌘/Ctrl+K` — focus search
+   - `⌘/Ctrl+F` — find/replace
+   - `⌘/Ctrl+S` — save without rendering
+   - `R` — open render dialog
+   - `?` — open shortcut help modal
+   Update both the hint strip and the handler together.
+6. **Increase keycap contrast**: `background: var(--surface2); border: 1px solid var(--border); color: var(--text-bright);`. Make them visually "pop" against the dark background.
+7. **Add a subtle header** `⌨ 快速鍵` (small caps, dim colour) above the strip so the row is self-identifying.
+8. **ARIA announcement region**: `<div aria-live="polite" class="sr-only" id="sr-announce"></div>` that receives messages like "已核准段落 18" when shortcuts fire. Screen readers benefit without affecting visual users.
+9. **Page consistency**: either add `←` / `→` 5-second-skip to proofread, or remove them from the dashboard hint strip. Pick one mental model.
+
+**Estimated impact:** medium-high — shortcuts multiply productivity but only if discoverable; the current strip is a good start that misses the 3-4 most-wanted power-user actions
+**Estimated effort:** S-M — help modal + new shortcuts + contrast fix are independent small wins
 
 ---
