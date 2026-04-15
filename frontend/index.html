@@ -368,6 +368,12 @@
       font-size: 14px;
       line-height: 1.5;
       animation: slideIn 0.3s ease;
+      border-left: 3px solid transparent;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .transcript-item-active {
+      border-left-color: var(--accent);
+      background: rgba(108,99,255,0.12);
     }
 
     @keyframes slideIn {
@@ -771,6 +777,30 @@
       color: var(--accent);
       min-width: 36px;
       text-align: right;
+    }
+
+    /* Font live preview strip */
+    .pf-font-preview {
+      margin-bottom: 10px;
+    }
+    .pf-font-preview-frame {
+      background: linear-gradient(135deg, #1a1a2e, #2d1b3d);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      height: 70px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .pf-font-preview-text {
+      padding-bottom: 10px;
+      transition: all 0.1s ease;
+      white-space: nowrap;
+      max-width: 95%;
+      text-overflow: ellipsis;
+      overflow: hidden;
     }
 
     .pf-params-label {
@@ -1543,6 +1573,38 @@ document.getElementById('videoPlayer').addEventListener('timeupdate', function()
   } else {
     el.classList.remove('visible');
   }
+
+  // Highlight the matching transcript row (without delay offset — the row
+  // is keyed to original segment.start). Only update if the active item
+  // changed, to avoid thrashing the DOM on every timeupdate tick.
+  const list = document.getElementById('transcriptList');
+  if (!list) return;
+  const items = list.querySelectorAll('.transcript-item');
+  let activeRow = null;
+  if (active) {
+    for (const item of items) {
+      const s = parseFloat(item.dataset.start);
+      if (Math.abs(s - active.start) < 0.01) {
+        activeRow = item;
+        break;
+      }
+    }
+  }
+  if (activeRow !== window._lastActiveTranscriptRow) {
+    if (window._lastActiveTranscriptRow) {
+      window._lastActiveTranscriptRow.classList.remove('transcript-item-active');
+    }
+    if (activeRow) {
+      activeRow.classList.add('transcript-item-active');
+      // Auto-scroll into view, but only if not already visible
+      const rect = activeRow.getBoundingClientRect();
+      const listRect = list.getBoundingClientRect();
+      if (rect.top < listRect.top || rect.bottom > listRect.bottom) {
+        activeRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+    window._lastActiveTranscriptRow = activeRow;
+  }
 });
 
 // ============================================================
@@ -1561,10 +1623,24 @@ function addSegment(segment, skipPush) {
 
   const item = document.createElement('div');
   item.className = 'transcript-item';
+  // Tag with start/end so the timeupdate handler can find the active row
+  item.dataset.start = segment.start;
+  item.dataset.end = segment.end;
 
   const timeEl = document.createElement('div');
   timeEl.className = 'transcript-time';
   timeEl.textContent = formatTime(segment.start);
+  // Click time cell → seek video to segment start (not editable)
+  timeEl.title = '跳到段落';
+  timeEl.style.cursor = 'pointer';
+  timeEl.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    const video = document.getElementById('videoPlayer');
+    if (video) {
+      video.currentTime = Math.max(0, segment.start);
+      video.play().catch(() => {});
+    }
+  });
 
   const textEl = document.createElement('div');
   textEl.className = 'transcript-text';
@@ -2253,6 +2329,11 @@ function renderProfileList() {
     const editingProfile = profilesData.find(p => p.id === editingProfileId);
     if (editingProfile) initEngineParamsForForm(editingProfile);
   }
+
+  // Initialise the font preview strip with the current font config values
+  if (typeof updateFontPreview === 'function' && document.getElementById('pfFontPreviewText')) {
+    updateFontPreview();
+  }
 }
 
 function openEditForm(profileId) {
@@ -2422,35 +2503,41 @@ function buildProfileFormHTML(profile) {
           <span>字型設定</span><span class="pf-arrow">▶</span>
         </div>
         <div class="profile-form-section-body">
-          <div class="profile-form-row">
-            <label>Font Family</label>
-            <input type="text" id="pfFontFamily" value="${escapeHtml(font.family || 'Noto Sans TC')}">
+          <!-- Live preview strip (re-renders on every font input change) -->
+          <div class="pf-font-preview" id="pfFontPreview">
+            <div class="pf-font-preview-frame">
+              <div class="pf-font-preview-text" id="pfFontPreviewText">🎬 各位晚上好 · Preview Sample</div>
+            </div>
           </div>
           <div class="profile-form-row">
-            <label>Font Size (12–120)</label>
-            <input type="number" id="pfFontSize" value="${font.size !== undefined ? font.size : 48}" min="12" max="120">
+            <label>字體</label>
+            <input type="text" id="pfFontFamily" value="${escapeHtml(font.family || 'Noto Sans TC')}" oninput="updateFontPreview()">
           </div>
           <div class="profile-form-row">
-            <label>Color</label>
-            <input type="color" id="pfFontColor" value="${font.color || '#ffffff'}">
+            <label>字號 (12-120 px)</label>
+            <input type="number" id="pfFontSize" value="${font.size !== undefined ? font.size : 48}" min="12" max="120" oninput="updateFontPreview()">
           </div>
           <div class="profile-form-row">
-            <label>Outline Color</label>
-            <input type="color" id="pfFontOutlineColor" value="${font.outline_color || '#000000'}">
+            <label>字體顏色</label>
+            <input type="color" id="pfFontColor" value="${font.color || '#ffffff'}" oninput="updateFontPreview()">
           </div>
           <div class="profile-form-row">
-            <label>Outline Width (0–10)</label>
-            <input type="number" id="pfFontOutlineWidth" value="${font.outline_width !== undefined ? font.outline_width : 2}" min="0" max="10">
+            <label>描邊顏色</label>
+            <input type="color" id="pfFontOutlineColor" value="${font.outline_color || '#000000'}" oninput="updateFontPreview()">
           </div>
           <div class="profile-form-row">
-            <label>Position</label>
-            <select id="pfFontPosition">
-              <option value="bottom" ${(font.position || 'bottom') === 'bottom' ? 'selected' : ''}>Bottom</option>
-              <option value="top"    ${font.position === 'top'                  ? 'selected' : ''}>Top</option>
+            <label>描邊粗度 (0-10 px)</label>
+            <input type="number" id="pfFontOutlineWidth" value="${font.outline_width !== undefined ? font.outline_width : 2}" min="0" max="10" oninput="updateFontPreview()">
+          </div>
+          <div class="profile-form-row">
+            <label>位置</label>
+            <select id="pfFontPosition" onchange="updateFontPreview()">
+              <option value="bottom" ${(font.position || 'bottom') === 'bottom' ? 'selected' : ''}>底部</option>
+              <option value="top"    ${font.position === 'top'                  ? 'selected' : ''}>頂部</option>
             </select>
           </div>
           <div class="profile-form-row">
-            <label>Margin Bottom (0–200)</label>
+            <label>底部邊距 (0-200 px)</label>
             <input type="number" id="pfFontMargin" value="${font.margin_bottom !== undefined ? font.margin_bottom : 40}" min="0" max="200">
           </div>
         </div>
@@ -2464,6 +2551,41 @@ function buildProfileFormHTML(profile) {
         <button class="btn-pf-cancel" onclick="cancelProfileForm()">取消</button>
       </div>
     </div>`;
+}
+
+// Updates the font preview strip in the profile form using the current
+// font config inputs. Wired via oninput on every font field so the
+// preview reflects edits in real time without saving the profile.
+function updateFontPreview() {
+  const previewEl = document.getElementById('pfFontPreviewText');
+  const frameEl = document.querySelector('.pf-font-preview-frame');
+  if (!previewEl || !frameEl) return;
+
+  const family = (document.getElementById('pfFontFamily').value || 'Noto Sans TC').trim();
+  const size = parseInt(document.getElementById('pfFontSize').value, 10) || 48;
+  const color = document.getElementById('pfFontColor').value || '#ffffff';
+  const outlineColor = document.getElementById('pfFontOutlineColor').value || '#000000';
+  const outlineWidth = parseInt(document.getElementById('pfFontOutlineWidth').value, 10) || 0;
+  const position = document.getElementById('pfFontPosition').value || 'bottom';
+
+  // Scale the preview down by ~50% so a 48px subtitle reads as 24px in the strip.
+  // (Keeps the preview compact while preserving relative proportions.)
+  const previewSize = Math.max(10, Math.round(size * 0.5));
+
+  // Compose a 4-direction text-shadow to approximate ASS subtitle outlines.
+  const w = outlineWidth;
+  const shadow = w > 0
+    ? `${-w}px ${-w}px 0 ${outlineColor}, ${w}px ${-w}px 0 ${outlineColor}, ${-w}px ${w}px 0 ${outlineColor}, ${w}px ${w}px 0 ${outlineColor}`
+    : 'none';
+
+  previewEl.style.fontFamily = `'${family}', 'Noto Sans TC', sans-serif`;
+  previewEl.style.fontSize = previewSize + 'px';
+  previewEl.style.color = color;
+  previewEl.style.textShadow = shadow;
+
+  frameEl.style.alignItems = position === 'top' ? 'flex-start' : 'flex-end';
+  previewEl.style.paddingTop = position === 'top' ? '10px' : '';
+  previewEl.style.paddingBottom = position === 'bottom' ? '10px' : '';
 }
 
 async function saveProfile() {
