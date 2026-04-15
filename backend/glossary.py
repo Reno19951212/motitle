@@ -64,9 +64,19 @@ class GlossaryManager:
         """
         Validate a single glossary entry.
 
-        Returns a list of human-readable error strings.
-        An empty list means the entry is valid.
+        Rules:
+        - `en` is required, must be a non-empty string, must contain at
+          least one ASCII letter (rejects pure numbers or punctuation).
+        - `zh` is required, must be a non-empty string, must contain at
+          least one CJK character (rejects pure ASCII / numeric so that
+          garbage like "Michael → 23468" never reaches the translation
+          prompt).
+
+        Returns a list of human-readable error strings. Empty list means
+        the entry passed validation.
         """
+        import re
+
         errors = []
 
         en = entry.get("en")
@@ -74,12 +84,22 @@ class GlossaryManager:
             errors.append("en is required")
         elif not isinstance(en, str) or not en.strip():
             errors.append("en must be a non-empty string")
+        elif not re.search(r"[A-Za-z]", en):
+            errors.append(
+                "en must contain at least one letter "
+                "(pure numbers or punctuation are not valid source terms)"
+            )
 
         zh = entry.get("zh")
         if zh is None:
             errors.append("zh is required")
         elif not isinstance(zh, str) or not zh.strip():
             errors.append("zh must be a non-empty string")
+        elif not re.search(r"[\u4e00-\u9fff\u3400-\u4dbf]", zh):
+            errors.append(
+                "zh must contain at least one Chinese character "
+                "(pure ASCII / digits are not valid translations)"
+            )
 
         return errors
 

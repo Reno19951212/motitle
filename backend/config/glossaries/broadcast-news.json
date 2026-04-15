@@ -2,13 +2,7 @@
   "id": "broadcast-news",
   "name": "Broadcast News",
   "description": "Common terms for Hong Kong news broadcasting",
-  "entries": [
-    {
-      "en": "Micahel",
-      "zh": "23468",
-      "id": "71092398-f075-490f-af64-d1c393aee9ca"
-    }
-  ],
+  "entries": [],
   "created_at": 1712534400,
   "updated_at": 1712534400
 }
