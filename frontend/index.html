@@ -333,7 +333,15 @@
     .badge-idle { background: rgba(136,136,153,0.2); color: var(--text-dim); }
     .badge-processing { background: rgba(245,158,11,0.2); color: var(--warning); }
     .badge-recording { background: rgba(239,68,68,0.2); color: var(--danger); animation: pulse 1.5s infinite; }
-    .badge-done { background: rgba(34,197,94,0.2); color: var(--success); }
+    /* Transcription-done uses an OUTLINED pill so it is visibly distinct from
+       the FILLED .badge-translated pill below. Two "done" states on the same
+       card should not look identical. */
+    .badge-done {
+      background: transparent;
+      color: var(--success);
+      border: 1px solid var(--success);
+      padding: 3px 9px; /* compensate for border so total size matches */
+    }
 
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
 
@@ -1206,7 +1214,7 @@ function renderFileList() {
     const isBusy = f.status === 'transcribing';
 
     let statusHtml = '';
-    if (isDone) statusHtml = '<span class="badge badge-done">完成</span>';
+    if (isDone) statusHtml = '<span class="badge badge-done">✓ 轉譯</span>';
     else if (isBusy) statusHtml = '<span class="badge badge-processing">轉錄中</span>';
     else if (isError) statusHtml = '<span class="badge badge-idle">錯誤</span>';
     else statusHtml = '<span class="badge badge-idle">已上傳</span>';
@@ -1232,7 +1240,7 @@ function renderFileList() {
         : '';
 
       let transBadge = '<span class="badge badge-pending-trans">待翻譯</span>';
-      if (hasTranslations) transBadge = '<span class="badge badge-translated">翻譯完成</span>';
+      if (hasTranslations) transBadge = '<span class="badge badge-translated">✓ 翻譯</span>';
       else if (isTranslating) transBadge = '<span class="badge badge-translating">翻譯中...</span>';
 
       const translateBtn = isTranslating
