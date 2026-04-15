@@ -21,7 +21,7 @@ Check off each area as it is reviewed. Pick the next unchecked area in order.
 - [x] 7. Profile form — ASR parameters section
 - [x] 8. Profile form — Translation engine dropdown (local/cloud optgroup)
 - [x] 9. Profile form — Font configuration section
-- [ ] 10. Transcription progress bar + ETA
+- [x] 10. Transcription progress bar + ETA
 - [ ] 11. Real-time subtitle segment display during transcription
 - [ ] 12. Translation status badge + re-translate button flow
 - [ ] 13. Language config panel
@@ -412,5 +412,45 @@ Each entry below follows this template:
 
 **Estimated impact:** high — subtitle appearance is the user-visible output of the whole pipeline; the current form is a "save, render, wait, repeat" feedback loop
 **Estimated effort:** M — preview strip is small CSS/JS work; label humanization is trivial; font dropdown is the only new backend hook
+
+---
+
+### Area 10: Transcription progress bar + ETA
+
+**Screenshot:** `screenshots/10_progress-bar.png`
+*Captured with a simulated `.file-card-progress` block injected into the DOM (the registry has no live transcription at review time).*
+
+**What works:**
+- Triple-metric info row is genuinely useful: `processed / total` audio time, percentage, and estimated remaining time — a user can answer "how long until it's done" without doing arithmetic
+- Orange/amber `轉錄中` pill is distinct from the green `完成` badge, so lifecycle states are colour-coded
+- Progress bar fill uses the brand purple, matching the rest of the accent language
+- ETA (`預計剩餘 02:23`) is computed from the segment stream rate — reasonable use of live data
+- The active card shows a brighter purple border, giving a "you are here" cue when there are multiple cards
+
+**Issues observed:**
+- [P1] **Progress bar is very thin (~4-5 px).** On a 1440-wide card it reads as a hairline. A user scanning multiple cards will easily miss which one is mid-run, especially if the card is below the fold.
+- [P1] **No cancel affordance.** Once transcription starts there is no stop button, no keyboard shortcut, no way to abort — the user has to wait or close the tab. For a 10-minute cloud run this is genuinely painful.
+- [P1] **The progress info row mixes three priorities but does not rank them.** Percent is centered and bold; ETA is right-aligned in smaller text. For most users "when will this finish" is more important than "what fraction is done". The hierarchy is inverted.
+- [P2] **No stage indicator.** The pipeline has multiple phases: audio extract → Whisper ASR → auto-translate. The single progress bar shows "overall" progress but provides no visibility into which phase is running. A user at 42% cannot tell whether translation is about to start or has already finished.
+- [P2] **`轉錄中` pill has no motion cue.** It is a static orange block. A subtle pulse or leading spinner would reinforce "this is actively working" vs a stale-looking label.
+- [P2] **No provenance metadata during progress**: which ASR engine, which translation model, which profile. If the user is watching multiple cards they have to remember which profile each one was started with.
+- [P2] **If cloud translation hits a retry**, the user has no visual signal. The stderr `[ollama] retry` line we added in the feature branch is backend-only; the frontend card does not surface it. A sudden slowdown looks like a hang.
+- [P3] **No running segment count** (e.g. `已生成 18 段`). For long videos this gives confidence the stream is producing output.
+- [P3] **Progress info elements compete for the same row**; on narrow viewports they may wrap unpredictably.
+- [P3] **The delete-button slot is empty but not visibly disabled** during transcription — a user hunting for "stop" may look there and find nothing.
+
+**Recommendations:**
+1. **Thicken the progress bar** from ~4 px to 8-10 px and add a subtle gradient (`linear-gradient(to right, var(--accent), var(--accent2))`) so it reads as a solid "this is working" ribbon.
+2. **Add a cancel button**: a small `⊘ 取消` text link on the right end of the progress row, with a confirm dialog. Backend needs a `POST /api/files/<id>/cancel` endpoint but the immediate frontend win is enabling the affordance.
+3. **Reverse the hierarchy of the info row**: ETA becomes the largest bold element (`預計 02:23 後完成`), percent becomes a subdued auxiliary number, processed/total is tertiary.
+4. **Stage strip above the progress bar**: three small pills in a row `[🎤 音訊 → 📝 轉譯 → 🌐 翻譯]` with the current phase highlighted and the next two dimmed. This makes the multi-phase pipeline legible.
+5. **Animate the `轉錄中` pill**: CSS `@keyframes` pulsing background opacity, or a leading spinner glyph `⟳`.
+6. **Surface provenance during progress**: under the filename, show `· mlx-whisper medium · gpt-oss-120b-cloud · cantonese` in dim text.
+7. **Surface cloud retries**: when the frontend receives a socket event `ollama_retry` (to be added), show a small `⚠ 雲端延遲，已自動重試` chip near the ETA with a tooltip.
+8. **Add a live segment counter**: `已生成 18 段` under the progress bar, appended as each `subtitle_segment` event comes in.
+9. **Explicitly disable or hide the delete-button slot during `transcribing`**: render a disabled `⊘` with `title="處理中無法刪除"` so the affordance status is visible.
+
+**Estimated impact:** high — users stare at this component while waiting for the core pipeline; friction here is highly visible
+**Estimated effort:** M — CSS changes + cancel endpoint + stage tracking in the frontend socket handler + a few minor socket events
 
 ---
