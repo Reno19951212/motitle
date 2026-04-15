@@ -1373,6 +1373,9 @@ function loadMediaPreview(fileId) {
 }
 
 async function deleteFile(fileId) {
+  const entry = uploadedFiles[fileId];
+  const displayName = entry && entry.original_name ? entry.original_name : fileId;
+  if (!confirm(`確定刪除「${displayName}」？\n此操作會永久刪除檔案、轉譯同翻譯結果。`)) return;
   try {
     const resp = await fetch(`${API_BASE}/api/files/${fileId}`, { method: 'DELETE' });
     const data = await resp.json();
@@ -2566,7 +2569,9 @@ async function loadGlossaryEntries(glossaryId) {
     let html = '<table class="glossary-table"><thead><tr><th>EN</th><th>中文</th><th></th></tr></thead><tbody>';
     for (const entry of entries) {
       const eid = entry.id || '';
-      html += `<tr><td>${escapeHtml(entry.en)}</td><td>${escapeHtml(entry.zh)}</td><td><button class="btn-del" onclick="deleteGlossaryEntry('${eid}')">✕</button></td></tr>`;
+      const enAttr = escapeHtml(entry.en || '');
+      const zhAttr = escapeHtml(entry.zh || '');
+      html += `<tr><td>${enAttr}</td><td>${zhAttr}</td><td><button class="btn-del" onclick="deleteGlossaryEntry('${eid}', '${enAttr.replace(/'/g, '&#39;')}', '${zhAttr.replace(/'/g, '&#39;')}')">✕</button></td></tr>`;
     }
     html += '</tbody></table>';
     container.innerHTML = html;
@@ -2592,8 +2597,10 @@ async function addGlossaryEntry() {
   } catch (e) { showToast('新增失敗', 'error'); }
 }
 
-async function deleteGlossaryEntry(entryId) {
+async function deleteGlossaryEntry(entryId, enText, zhText) {
   if (!currentGlossaryId || !entryId) return;
+  const label = (enText && zhText) ? `「${enText} → ${zhText}」` : '此術語';
+  if (!confirm(`確定刪除 ${label}？`)) return;
   try {
     const resp = await fetch(`${API_BASE}/api/glossaries/${currentGlossaryId}/entries/${entryId}`, {method: 'DELETE'});
     if (resp.ok) { loadGlossaryEntries(currentGlossaryId); loadGlossaries(); showToast('術語已刪除', 'success'); }
