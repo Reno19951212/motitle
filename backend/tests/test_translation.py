@@ -1170,3 +1170,37 @@ def test_isolate_fixture_redirects_registry_writes():
         assert "isolation-sentinel-001" not in real_saved, (
             "REAL registry.json was modified — isolation fixture broken!"
         )
+
+
+def test_ollama_retry_logs_to_stderr(capsys):
+    """Retry loop prints [ollama] retry diagnostic to stderr on 5xx."""
+    import json as json_mod
+    import urllib.error
+    from unittest.mock import patch, MagicMock
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+
+    success_body = json_mod.dumps({"message": {"content": "1. 晚上好。\n2. 歡迎。"}}).encode()
+    mock_ok = MagicMock()
+    mock_ok.read.return_value = success_body
+    mock_ok.__enter__ = MagicMock(return_value=mock_ok)
+    mock_ok.__exit__ = MagicMock(return_value=False)
+
+    calls = {"n": 0}
+
+    def fake_urlopen(req, timeout=None):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise urllib.error.HTTPError(
+                url=req.full_url, code=502, msg="Bad Gateway", hdrs=None, fp=None
+            )
+        return mock_ok
+
+    with patch("urllib.request.urlopen", side_effect=fake_urlopen), \
+         patch("time.sleep"):
+        engine.translate(SAMPLE_SEGMENTS, glossary=[], style="formal")
+
+    captured = capsys.readouterr()
+    assert "[ollama] retry" in captured.err
+    assert "502" in captured.err
