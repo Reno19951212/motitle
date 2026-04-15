@@ -23,7 +23,7 @@ Check off each area as it is reviewed. Pick the next unchecked area in order.
 - [x] 9. Profile form — Font configuration section
 - [x] 10. Transcription progress bar + ETA
 - [x] 11. Real-time subtitle segment display during transcription
-- [ ] 12. Translation status badge + re-translate button flow
+- [x] 12. Translation status badge + re-translate button flow
 - [ ] 13. Language config panel
 - [ ] 14. Glossary management panel
 - [ ] 15. Proofread editor — video player controls
@@ -494,5 +494,46 @@ Each entry below follows this template:
 
 **Estimated impact:** high — the transcript list is the second-most-scanned surface during active work; unlocking click-to-seek alone turns it into a real editor
 **Estimated effort:** M — independent sub-features (~5 features × ~1 hour each); no backend changes needed
+
+---
+
+### Area 12: Translation status badge + re-translate button flow
+
+**Screenshot:** `screenshots/12_translation-status-flow.png`
+*Three synthetic cards injected into the file list to show all lifecycle states side-by-side: `待翻譯`, `翻譯中...`, `翻譯完成`.*
+
+**What works:**
+- The three states use distinct colour families (grey → orange → green), making the lifecycle scannable
+- The primary action button adapts its label: `▶ 翻譯` when idle, disabled during processing, `🔄 重新翻譯` when done — semantically correct
+- `校對` (proofread) stays visible in all three states, so the user is never blocked from reviewing transcripts regardless of translation state
+- Translation engine chip (`qwen3.5-397b-cloud`, `gpt-oss-120b-cloud`) records which engine produced each file
+- Active card border (purple) marks the file currently being translated, consistent with the transcription progress pattern
+
+**Issues observed:**
+- [P1] **Two "done" badges on the same card** (`完成` top-right for transcription, `翻譯完成` row 2 for translation) share the same green pill styling. Re-flagged from Area 3 — this remains a core visual ambiguity.
+- [P1] **No translation progress indicator.** Transcription has a progress bar + ETA; translation has only a static text pill `翻譯中...`. For cloud translations that take 5-10 minutes the user has no sense of where they are. This is the single biggest gap in the translation flow.
+- [P1] **`翻譯中...` pill is static** — the ellipsis suggests motion but no CSS animation fires. Users cannot tell live progress from a hung state.
+- [P2] **Disabled state on `▶ 翻譯` during processing is visually weak.** It dims only slightly. A user may still click expecting a no-op; clearer `opacity: 0.4 + cursor: not-allowed + tooltip` would be unambiguous.
+- [P2] **Icon vocabulary mismatch:** `▶` (play) for initial translation, `🔄` (refresh) for re-translate. Same action (start a translate run), two different icons. Users have to relearn per state.
+- [P2] **No abort affordance** during `翻譯中`. Same problem as transcription (Area 10) — a wrong-profile run cannot be stopped.
+- [P2] **Error state is invisible.** If translation fails (all retries exhausted, cloud signin lost, network dead), there is no red badge, no `翻譯失敗` pill, no inline error message. The frontend shows errors as transient toasts that vanish after a few seconds — the card reverts to the previous state with no persistent trail.
+- [P2] **`[TRANSLATION MISSING]` partial failures are not surfaced.** The backend PostProcessor may leave placeholder strings in the output when retries don't fix everything. The UI shows a full green `翻譯完成` badge even when 3 of 41 segments are broken — silent data quality loss.
+- [P3] **No "last run" metadata.** User cannot tell when the translation finished (5 min ago? yesterday?) or how long it took.
+- [P3] **No per-file prompt override.** If the user wants to tweak translation style for one file only (e.g. more casual for an interview), they must create a new profile.
+
+**Recommendations:**
+1. **Disambiguate the two completion badges** per Area 3 rec #1: outlined `轉譯 ✓` vs filled `翻譯 ✓`.
+2. **Add a translation progress bar + ETA**: reuse the existing `.file-card-progress` component during `translation_status === 'translating'`. Backend should emit a `translation_progress` socket event per batch (`{ batch: 3, total: 12, eta_seconds: 180 }`).
+3. **Animate `翻譯中...`**: pulse the orange background via `@keyframes` or add a leading spinner `⟳ 翻譯中`.
+4. **Stronger disabled state**: `.btn[disabled] { opacity: 0.35; cursor: not-allowed; }` + tooltip `title="翻譯進行中，請稍候"`.
+5. **Unify icon vocabulary**: use `🌐` for "start translation" in both idle and done states; keep `🔄` for explicit retry-after-failure only.
+6. **Cancel control**: `⊘ 取消翻譯` link adjacent to the progress bar during `翻譯中`. Needs a backend `POST /api/files/<id>/translation/cancel` endpoint.
+7. **Error badge and inline error panel**: on translation failure, set badge to red `翻譯失敗` and add a small error detail tooltip showing the last backend error. Include a `重試` button with the same styling as `🌐 翻譯`.
+8. **Partial-failure badge**: if any segment has `[TRANSLATION MISSING]`, render amber `翻譯完成 · N 段異常` with a `檢視` action that jumps to the proofread editor filtered to problem segments.
+9. **Last-run metadata** in the chip row: `gpt-oss-120b-cloud · 14:32 · 5 分鐘`.
+10. **Per-file override** as an overflow menu item: `⋯ → 調整翻譯風格 (此檔案)` opens a mini modal with temperature + style sliders.
+
+**Estimated impact:** high — translation is half of the product; missing progress + error visibility is a top-3 friction
+**Estimated effort:** M — frontend progress reuse + a couple of new socket events + small cancel endpoint + error state rendering
 
 ---
