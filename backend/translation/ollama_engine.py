@@ -139,6 +139,7 @@ class OllamaTranslationEngine(TranslationEngine):
         style: str = "formal",
         batch_size: Optional[int] = None,
         temperature: Optional[float] = None,
+        progress_callback=None,
     ) -> List[TranslatedSegment]:
         if not segments:
             return []
@@ -148,6 +149,7 @@ class OllamaTranslationEngine(TranslationEngine):
         effective_batch = batch_size if batch_size is not None else BATCH_SIZE
         effective_temp = temperature if temperature is not None else self._temperature
         context_pairs: list = []
+        total = len(segments)
 
         for i in range(0, len(segments), effective_batch):
             batch = segments[i : i + effective_batch]
@@ -172,6 +174,14 @@ class OllamaTranslationEngine(TranslationEngine):
             if self._context_window > 0:
                 new_pairs = [(seg["text"], t["zh_text"]) for seg, t in zip(batch, translated_batch)]
                 context_pairs = (context_pairs + new_pairs)[-self._context_window:]
+
+            # Report per-batch progress to the optional callback. Wrapped in
+            # try/except so a buggy callback can never break translation.
+            if progress_callback is not None:
+                try:
+                    progress_callback(len(all_translated), total)
+                except Exception:
+                    pass
 
         processor = TranslationPostProcessor(max_chars=MAX_SUBTITLE_CHARS)
         return processor.process(all_translated)
