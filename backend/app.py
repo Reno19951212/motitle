@@ -780,6 +780,12 @@ def api_translate_file():
     style = style_override or translation_config.get("style", "formal")
 
     _update_file(file_id, translation_status='translating')
+    socketio.emit('translation_progress', {
+        'file_id': file_id,
+        'completed': 0,
+        'total': len(segments),
+        'percent': 0,
+    })
 
     try:
         from translation import create_translation_engine
@@ -800,10 +806,20 @@ def api_translate_file():
         lang_config_id = profile.get("asr", {}).get("language_config_id", profile.get("asr", {}).get("language", "en"))
         lang_config = _language_config_manager.get(lang_config_id)
         trans_params = lang_config["translation"] if lang_config else DEFAULT_TRANSLATION_CONFIG
+
+        def _emit_progress(completed: int, total: int) -> None:
+            socketio.emit('translation_progress', {
+                'file_id': file_id,
+                'completed': completed,
+                'total': total,
+                'percent': int((completed / total) * 100) if total else 0,
+            })
+
         translated = engine.translate(
             asr_segments, glossary=glossary_entries, style=style,
             batch_size=trans_params["batch_size"],
             temperature=trans_params["temperature"],
+            progress_callback=_emit_progress,
         )
 
         for t in translated:
@@ -1206,6 +1222,12 @@ def transcribe_file():
                     'id': fid,
                     'translation_status': 'translating',
                 }, room=session_id)
+            socketio.emit('translation_progress', {
+                'file_id': fid,
+                'completed': 0,
+                'total': len(segments),
+                'percent': 0,
+            })
 
             from translation import create_translation_engine
             engine = create_translation_engine(translation_config)
@@ -1226,10 +1248,20 @@ def transcribe_file():
             lang_config_id = profile.get("asr", {}).get("language_config_id", profile.get("asr", {}).get("language", "en"))
             lang_config = _language_config_manager.get(lang_config_id)
             trans_params = lang_config["translation"] if lang_config else DEFAULT_TRANSLATION_CONFIG
+
+            def _emit_auto_progress(completed: int, total: int) -> None:
+                socketio.emit('translation_progress', {
+                    'file_id': fid,
+                    'completed': completed,
+                    'total': total,
+                    'percent': int((completed / total) * 100) if total else 0,
+                })
+
             translated = engine.translate(
                 asr_segments, glossary=glossary_entries, style=style,
                 batch_size=trans_params["batch_size"],
                 temperature=trans_params["temperature"],
+                progress_callback=_emit_auto_progress,
             )
             for t in translated:
                 t["status"] = "pending"
