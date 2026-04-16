@@ -120,7 +120,7 @@
     }
     table.seg-table col.col-num { width: 32px; }
     table.seg-table col.col-en  { width: 150px; }
-    table.seg-table col.col-zh  { width: 260px; }
+    /* col-zh: no explicit width — table-layout:fixed distributes remaining space to match header 1fr */
     table.seg-table col.col-ok  { width: 48px; }
 
     table.seg-table tbody tr {
@@ -334,8 +334,10 @@
       fetch(`${API_BASE}/api/files/${fileId}/translations`),
       fetch(`${API_BASE}/api/glossaries`),
     ]);
-    state.segments = transRes.ok ? await transRes.json() : [];
-    state.glossaries = glossRes.ok ? await glossRes.json() : [];
+    state = Object.assign({}, state, {
+      segments:   transRes.ok ? await transRes.json() : [],
+      glossaries: glossRes.ok ? await glossRes.json() : [],
+    });
 
     renderTable();
     updateApprovalCount();
@@ -397,7 +399,7 @@
     if (!seg || (seg.zh_text ?? '') === text.trim()) return;
     const newText = text.trim();
     const updated = Object.assign({}, seg, { zh_text: newText, status: 'pending' });
-    state.segments = state.segments.map((s, i) => i === idx ? updated : s);
+    state = Object.assign({}, state, { segments: state.segments.map((s, i) => i === idx ? updated : s) });
     await fetch(`${API_BASE}/api/files/${fileId}/translations/${idx}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -415,7 +417,7 @@
       if (!res.ok) { showToast('批核失敗', 'error'); return; }
     }
     const newStatus = isApproved ? 'pending' : 'approved';
-    state.segments = state.segments.map((s, i) => i === idx ? Object.assign({}, s, { status: newStatus }) : s);
+    state = Object.assign({}, state, { segments: state.segments.map((s, i) => i === idx ? Object.assign({}, s, { status: newStatus }) : s) });
     const row = document.querySelector(`tr[data-idx="${idx}"]`);
     if (row) {
       row.className = newStatus === 'approved' ? 'approved' : '';
@@ -433,7 +435,7 @@
   document.getElementById('btnBulkApprove').addEventListener('click', async () => {
     const res = await fetch(`${API_BASE}/api/files/${fileId}/translations/approve-all`, { method: 'POST' });
     if (res.ok) {
-      state.segments = state.segments.map(s => Object.assign({}, s, { status: 'approved' }));
+      state = Object.assign({}, state, { segments: state.segments.map(s => Object.assign({}, s, { status: 'approved' })) });
       renderTable();
       updateApprovalCount();
       showToast('全部已批核', 'success');
@@ -626,6 +628,15 @@
 
   function openRenderModal() {
     const opts = document.getElementById('renderOptions');
+    const resolutionRow = `
+      <div class="form-row"><label>輸出解像度</label>
+        <select id="rResolution">
+          <option value="" selected>原始解像度</option>
+          <option value="1280x720">1280×720 (HD)</option>
+          <option value="1920x1080">1920×1080 (Full HD)</option>
+          <option value="2560x1440">2560×1440 (2K)</option>
+          <option value="3840x2160">3840×2160 (4K)</option>
+        </select></div>`;
     if (state.format === 'mp4') {
       opts.innerHTML = `
         <div class="form-row"><label>CRF (畫質，0=最高)</label>
@@ -635,7 +646,14 @@
           <select id="rPreset">
             ${['ultrafast','superfast','veryfast','faster','fast','medium','slow','veryslow']
               .map(p => `<option value="${p}"${p === 'medium' ? ' selected' : ''}>${p}</option>`).join('')}
-          </select></div>`;
+          </select></div>
+        <div class="form-row"><label>音頻碼率</label>
+          <select id="rAudioBitrate">
+            <option value="64k">64k</option><option value="96k">96k</option>
+            <option value="128k">128k</option><option value="192k" selected>192k</option>
+            <option value="256k">256k</option><option value="320k">320k</option>
+          </select></div>
+        ${resolutionRow}`;
       document.getElementById('rCrf').addEventListener('input', e => {
         document.getElementById('crfVal').textContent = e.target.value;
       });
@@ -647,12 +665,13 @@
             <option value="2" selected>Standard</option><option value="3">HQ (422 HQ)</option>
             <option value="4">4444</option><option value="5">4444 XQ</option>
           </select></div>
-        <div class="form-row"><label>音頻位深</label>
-          <select id="rBitDepth">
-            <option value="16">16-bit PCM</option>
-            <option value="24" selected>24-bit PCM</option>
-            <option value="32">32-bit PCM</option>
-          </select></div>`;
+        <div class="form-row"><label>音頻格式</label>
+          <select id="rAudioFormat">
+            <option value="pcm_s16le">16-bit PCM</option>
+            <option value="pcm_s24le" selected>24-bit PCM</option>
+            <option value="pcm_s32le">32-bit PCM</option>
+          </select></div>
+        ${resolutionRow}`;
     }
     document.getElementById('renderModal').style.display = 'flex';
   }
@@ -661,14 +680,18 @@
 
   document.getElementById('btnStartRender').addEventListener('click', async () => {
     closeRenderModal();
+    const resolution = document.getElementById('rResolution')?.value || null;
     const renderOptions = state.format === 'mp4'
       ? {
-          crf: parseInt(document.getElementById('rCrf')?.value ?? '18', 10),
-          preset: document.getElementById('rPreset')?.value ?? 'medium',
+          crf:           parseInt(document.getElementById('rCrf')?.value ?? '18', 10),
+          preset:        document.getElementById('rPreset')?.value ?? 'medium',
+          audio_bitrate: document.getElementById('rAudioBitrate')?.value ?? '192k',
+          resolution,
         }
       : {
           prores_profile: parseInt(document.getElementById('rProres')?.value ?? '2', 10),
-          audio_bit_depth: parseInt(document.getElementById('rBitDepth')?.value ?? '24', 10),
+          audio_format:   document.getElementById('rAudioFormat')?.value ?? 'pcm_s24le',
+          resolution,
         };
 
     const res = await fetch(`${API_BASE}/api/render`, {
