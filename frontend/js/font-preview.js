@@ -10,6 +10,7 @@ const FontPreview = (() => {
   const _apiBase = (typeof API_BASE !== 'undefined' ? API_BASE : 'http://localhost:5001');
   let _svgEl = null;
   let _textEl = null;
+  let _listenerRegistered = false;
 
   function applyFontConfig(font) {
     if (!font) return;
@@ -53,7 +54,8 @@ const FontPreview = (() => {
     }
 
     const sock = socketOrNull || (typeof io !== 'undefined' ? io(_apiBase) : null);
-    if (sock) {
+    if (sock && !_listenerRegistered) {
+      _listenerRegistered = true;
       sock.on('profile_updated', (data) => {
         if (data && data.font) applyFontConfig(data.font);
       });
