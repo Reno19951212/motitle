@@ -618,14 +618,20 @@
     .file-card {
       background: var(--surface2);
       border: 1px solid var(--border);
+      border-left: 3px solid var(--border);
       border-radius: 10px;
       padding: 12px 14px;
       display: flex;
       flex-direction: column;
       gap: 8px;
       animation: slideIn 0.3s ease;
+      transition: border-color 0.2s, background 0.2s;
     }
-    .file-card.active { border-color: var(--accent); }
+    .file-card.active {
+      border-color: var(--accent);
+      border-left: 3px solid var(--accent);
+      background: rgba(108,99,255,0.08);
+    }
 
     .file-card-header {
       display: flex;
@@ -634,21 +640,91 @@
       cursor: pointer;
     }
     .file-card-header:hover .file-card-name { color: var(--accent2); }
+    .file-card-header:hover .file-card-name-arrow { opacity: 1; }
     .file-card-icon { font-size: 20px; flex-shrink: 0; }
     .file-card-name {
       font-weight: 500;
       font-size: 13px;
       flex: 1;
+      min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
       transition: color 0.2s;
+    }
+    .file-card-name-arrow {
+      font-size: 10px;
+      color: var(--accent2);
+      opacity: 0.45;
+      transition: opacity 0.2s;
+      margin-left: 2px;
+    }
+    .file-card-now-playing {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--accent);
+      background: rgba(108,99,255,0.18);
+      padding: 2px 8px;
+      border-radius: 10px;
+      white-space: nowrap;
+      letter-spacing: 0.02em;
+      animation: nowPlayingPulse 1.8s ease-in-out infinite;
+    }
+    @keyframes nowPlayingPulse {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: 0.65; }
+    }
+    .file-card-meta-chip {
+      font-size: 10.5px;
+      color: var(--text-dim);
+      background: rgba(255,255,255,0.04);
+      padding: 2px 7px;
+      border-radius: 10px;
+      white-space: nowrap;
     }
     .file-card-meta {
       font-size: 11px;
       color: var(--text-dim);
       white-space: nowrap;
     }
+
+    /* Overflow menu trigger + dropdown */
+    .file-card-overflow {
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .btn-overflow {
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: 2px;
+    }
+    .btn-overflow:hover { color: var(--accent2) !important; background: rgba(108,99,255,0.15) !important; }
+    .file-overflow-menu {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      padding: 4px;
+      min-width: 140px;
+      z-index: 10001;
+    }
+    .file-overflow-item {
+      display: block;
+      width: 100%;
+      background: transparent;
+      border: 0;
+      color: var(--text);
+      text-align: left;
+      padding: 8px 12px;
+      font-size: 12px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .file-overflow-item:hover { background: rgba(255,255,255,0.06); }
+    .file-overflow-item-danger { color: var(--danger); }
+    .file-overflow-item-danger:hover { background: rgba(239,68,68,0.15); }
 
     .file-card-actions {
       display: flex;
@@ -1691,18 +1767,94 @@ function renderFileList() {
         </div>`;
     }
 
+    // Metadata chips: size + segment count + relative upload time
+    const segCount = f.segment_count || 0;
+    const relTime = f.uploaded_at ? formatRelativeTime(f.uploaded_at) : '';
+    const metaPieces = [`${mb} MB`];
+    if (segCount > 0) metaPieces.push(`${segCount} 段`);
+    if (relTime) metaPieces.push(relTime);
+    const metaHtml = metaPieces.map(m => `<span class="file-card-meta-chip">${escapeHtml(m)}</span>`).join('');
+
+    // Active "currently playing" chip — only when this card is selected
+    const activeChip = isActive
+      ? `<span class="file-card-now-playing" title="目前播放中">▶ 播放中</span>`
+      : '';
+
+    // Filename becomes an explicit link cue — hover underline + trailing ↗ icon.
+    // The entire header is still click-to-select, but the name itself signals
+    // interactability via the standard link affordance vocabulary.
+    const nameHtml = `<span class="file-card-name" title="打開此檔案">${escapeHtml(f.original_name)} <span class="file-card-name-arrow">↗</span></span>`;
+
     return `
       <div class="file-card ${isActive ? 'active' : ''}" data-file-id="${id}">
         <div class="file-card-header" onclick="selectFile('${id}')">
           <span class="file-card-icon">${isDone ? '✅' : isBusy ? '⏳' : isError ? '❌' : '🎬'}</span>
-          <span class="file-card-name">${escapeHtml(f.original_name)}</span>
-          <span class="file-card-meta">${mb} MB</span>
+          ${nameHtml}
+          ${activeChip}
+          ${metaHtml}
           ${statusHtml}
-          <button class="btn-icon" onclick="event.stopPropagation(); deleteFile('${id}')" title="刪除">✕</button>
+          <div class="file-card-overflow" onclick="event.stopPropagation(); toggleFileOverflow(this, '${id}')" title="更多操作">
+            <button class="btn-icon btn-overflow" aria-label="更多操作">⋯</button>
+          </div>
         </div>
         ${extraHtml}
       </div>`;
   }).join('');
+}
+
+// Format a unix timestamp into a relative-time string ("2 分鐘前", "3 小時前", "2 天前")
+function formatRelativeTime(unixTs) {
+  if (!unixTs) return '';
+  const now = Date.now() / 1000;
+  const diff = Math.floor(now - unixTs);
+  if (diff < 60) return '剛剛';
+  if (diff < 3600) return `${Math.floor(diff / 60)} 分鐘前`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} 小時前`;
+  if (diff < 2592000) return `${Math.floor(diff / 86400)} 天前`;
+  if (diff < 31536000) return `${Math.floor(diff / 2592000)} 個月前`;
+  return `${Math.floor(diff / 31536000)} 年前`;
+}
+
+// Toggle a small dropdown menu next to the overflow button.
+// Clicking outside the menu closes it.
+function toggleFileOverflow(anchor, fileId) {
+  // Close any existing menu first
+  const existing = document.querySelector('.file-overflow-menu');
+  if (existing) {
+    const wasForThis = existing.dataset.fileId === fileId;
+    existing.remove();
+    if (wasForThis) return;
+  }
+
+  const menu = document.createElement('div');
+  menu.className = 'file-overflow-menu';
+  menu.dataset.fileId = fileId;
+  menu.innerHTML = `
+    <button class="file-overflow-item file-overflow-item-danger">🗑 刪除檔案</button>
+  `;
+  menu.querySelector('.file-overflow-item-danger').addEventListener('click', (e) => {
+    e.stopPropagation();
+    menu.remove();
+    deleteFile(fileId);
+  });
+
+  // Position menu relative to the anchor
+  document.body.appendChild(menu);
+  const rect = anchor.getBoundingClientRect();
+  menu.style.position = 'fixed';
+  menu.style.top = (rect.bottom + 4) + 'px';
+  menu.style.left = Math.max(8, rect.right - 140) + 'px';
+
+  // Close on outside click (next tick so the opening click doesn't close it)
+  setTimeout(() => {
+    const closeHandler = (ev) => {
+      if (!menu.contains(ev.target)) {
+        menu.remove();
+        document.removeEventListener('click', closeHandler);
+      }
+    };
+    document.addEventListener('click', closeHandler);
+  }, 0);
 }
 
 function selectFile(fileId) {
