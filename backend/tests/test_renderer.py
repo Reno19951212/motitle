@@ -174,3 +174,49 @@ def test_render_returns_true_none_on_success(tmp_path, monkeypatch):
     success, error = result
     assert success is True
     assert error is None
+
+
+def test_mxf_render_command_includes_ar_48000(tmp_path, monkeypatch):
+    """MXF render command must include -ar 48000: FFmpeg's MXF muxer only supports 48kHz audio."""
+    import subprocess as sp
+    from renderer import SubtitleRenderer
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        class R:
+            returncode = 0
+            stderr = ""
+        return R()
+
+    monkeypatch.setattr(sp, "run", fake_run)
+
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT)
+    renderer.render("/fake/video.mxf", ass, str(tmp_path / "out.mxf"), "mxf")
+
+    assert "-ar" in captured["cmd"], "MXF command must include -ar flag"
+    ar_idx = captured["cmd"].index("-ar")
+    assert captured["cmd"][ar_idx + 1] == "48000", "MXF command must force audio to 48000 Hz"
+
+
+def test_mp4_render_command_does_not_force_ar(tmp_path, monkeypatch):
+    """MP4 render command should NOT force -ar 48000 (no such restriction for MP4)."""
+    import subprocess as sp
+    from renderer import SubtitleRenderer
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        class R:
+            returncode = 0
+            stderr = ""
+        return R()
+
+    monkeypatch.setattr(sp, "run", fake_run)
+
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT)
+    renderer.render("/fake/video.mp4", ass, str(tmp_path / "out.mp4"), "mp4")
+
+    assert "-ar" not in captured["cmd"], "MP4 command should not force audio sample rate"
