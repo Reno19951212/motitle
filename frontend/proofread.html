@@ -1358,6 +1358,62 @@
     }
   }
 
+  async function replaceAll() {
+    const zhMatches = findState.matchList.filter(m => m.field === 'zh');
+    if (zhMatches.length === 0) return;
+
+    const confirmed = window.confirm(`確定替換 ${zhMatches.length} 處？`);
+    if (!confirmed) return;
+
+    const q = findState.query;
+    const rep = findState.replacement;
+
+    // Group matches by segIdx; sort each group descending by start position
+    // so that earlier replacements don't shift the indices of later ones
+    const bySegIdx = {};
+    zhMatches.forEach(m => {
+      if (!bySegIdx[m.segIdx]) bySegIdx[m.segIdx] = [];
+      bySegIdx[m.segIdx].push(m);
+    });
+    Object.values(bySegIdx).forEach(ms => ms.sort((a, b) => b.start - a.start));
+
+    let replacedCount = 0;
+
+    for (const segIdx of Object.keys(bySegIdx).map(Number)) {
+      const seg = state.segments[segIdx];
+      if (!seg) continue;
+
+      let text = seg.zh_text || '';
+      for (const m of bySegIdx[segIdx]) {
+        text = text.slice(0, m.start) + rep + text.slice(m.start + m.len);
+      }
+
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/files/${encodeURIComponent(state.fileId)}/translations/${segIdx}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ zh_text: text }),
+          }
+        );
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error || `PATCH 失敗 (HTTP ${res.status})`);
+        }
+        updateSegment(segIdx, { zh_text: text });
+        replacedCount += bySegIdx[segIdx].length;
+      } catch (err) {
+        showToast(`替換中斷（第 ${replacedCount + 1} 處失敗）：${err.message}`, 'error');
+        runFind(); applyHighlights(); updateFindUI();
+        return;
+      }
+    }
+
+    showToast(`已替換 ${replacedCount} 處`, 'success');
+    runFind(); applyHighlights(); updateFindUI();
+  }
+
   // ===== DOM references =====
 
   const loadingOverlay = document.getElementById('loadingOverlay');
@@ -2248,6 +2304,9 @@
 
     const replaceOneBtn = document.getElementById('findReplaceOneBtn');
     if (replaceOneBtn) replaceOneBtn.addEventListener('click', replaceOne);
+
+    const replaceAllBtn = document.getElementById('findReplaceAllBtn');
+    if (replaceAllBtn) replaceAllBtn.addEventListener('click', replaceAll);
 
     const findInput = document.getElementById('findInput');
     if (findInput) {
