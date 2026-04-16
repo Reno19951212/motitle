@@ -1500,3 +1500,4 @@ def test_pipeline_timing_event_emitted(monkeypatch):
     assert "total_seconds" in evt
     assert "asr_seconds" in evt
     assert isinstance(evt["translation_seconds"], float)
+    assert evt.get("file_id") == "fake-id"
