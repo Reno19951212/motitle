@@ -661,11 +661,11 @@ def api_update_profile(profile_id):
     if not data:
         return jsonify({"error": "Request body is required"}), 400
     try:
+        active_before = _profile_manager.get_active()
         profile = _profile_manager.update(profile_id, data)
         if not profile:
             return jsonify({"error": "Profile not found"}), 404
-        active = _profile_manager.get_active()
-        if active and active.get("id") == profile_id:
+        if active_before and active_before.get("id") == profile_id:
             # Broadcast to all connected clients — all tabs should reflect the active profile change
             socketio.emit("profile_updated", {"font": profile.get("font", DEFAULT_FONT_CONFIG)})
         return jsonify({"profile": profile})
