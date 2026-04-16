@@ -7,7 +7,7 @@
  *   FontPreview.updateText(text)     // call from timeupdate handler
  */
 const FontPreview = (() => {
-  const API_BASE = 'http://localhost:5001';
+  const _apiBase = (typeof API_BASE !== 'undefined' ? API_BASE : 'http://localhost:5001');
   let _svgEl = null;
   let _textEl = null;
 
@@ -40,20 +40,19 @@ const FontPreview = (() => {
   }
 
   function init(socketOrNull) {
-    if (_svgEl) return; // already initialised
-    _svgEl = document.getElementById('subtitleSvg');
-    _textEl = document.getElementById('subtitleSvgText');
+    if (!_svgEl) {
+      _svgEl = document.getElementById('subtitleSvg');
+      _textEl = document.getElementById('subtitleSvgText');
 
-    fetch(`${API_BASE}/api/profiles/active`)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data && data.profile && data.profile.font) {
-          applyFontConfig(data.profile.font);
-        }
-      })
-      .catch((err) => { console.warn('[FontPreview] Failed to fetch active profile:', err); });
+      fetch(`${_apiBase}/api/profiles/active`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data && data.profile && data.profile.font) applyFontConfig(data.profile.font);
+        })
+        .catch((err) => { console.warn('[FontPreview] Failed to fetch active profile:', err); });
+    }
 
-    const sock = socketOrNull || (typeof io !== 'undefined' ? io(API_BASE) : null);
+    const sock = socketOrNull || (typeof io !== 'undefined' ? io(_apiBase) : null);
     if (sock) {
       sock.on('profile_updated', (data) => {
         if (data && data.font) applyFontConfig(data.font);
