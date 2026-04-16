@@ -112,35 +112,17 @@
     /* ===== Subtitle Overlay ===== */
     .subtitle-overlay {
       position: absolute;
-      bottom: 0;
+      bottom: var(--preview-margin-bottom, 40px);
       left: 0;
       right: 0;
       display: flex;
       justify-content: center;
-      padding: 0 5% 4%;
       pointer-events: none;
     }
 
-    .subtitle-text {
-      background: var(--subtitle-bg);
-      color: var(--subtitle-text);
-      font-size: clamp(14px, 2.5vw, 24px);
-      font-weight: 600;
-      padding: 8px 20px;
-      border-radius: 6px;
-      text-align: center;
+    .subtitle-svg {
       max-width: 90%;
-      line-height: 1.5;
-      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
-      opacity: 0;
-      transform: translateY(8px);
-      transition: opacity 0.25s ease, transform 0.25s ease;
-      letter-spacing: 0.5px;
-    }
-
-    .subtitle-text.visible {
-      opacity: 1;
-      transform: translateY(0);
+      overflow: visible;
     }
 
     /* Placeholder when no video loaded */
@@ -782,7 +764,19 @@
         </div>
         <video id="videoEl" preload="auto" controls style="display:none;"></video>
         <div class="subtitle-overlay">
-          <div class="subtitle-text" id="subtitleText"></div>
+          <svg class="subtitle-svg" id="subtitleSvg"
+               xmlns="http://www.w3.org/2000/svg"
+               width="100%" height="60" overflow="visible">
+            <text id="subtitleSvgText"
+                  x="50%" y="50"
+                  text-anchor="middle"
+                  font-weight="600"
+                  paint-order="stroke fill"
+                  stroke-linejoin="round"
+                  opacity="0"
+                  style="transition: opacity 0.25s ease;">
+            </text>
+          </svg>
         </div>
       </div>
 
@@ -913,7 +907,6 @@
   const headerFileName = document.getElementById('headerFileName');
   const videoEl        = document.getElementById('videoEl');
   const videoPlaceholder = document.getElementById('videoPlaceholder');
-  const subtitleTextEl = document.getElementById('subtitleText');
   const tableBody      = document.getElementById('tableBody');
   const tableWrap      = document.getElementById('tableWrap');
   const approvedCount  = document.getElementById('approvedCount');
@@ -935,6 +928,8 @@
     }
 
     setState({ fileId });
+
+    FontPreview.init(null);
 
     try {
       await Promise.all([loadTranslations(fileId), loadMedia(fileId)]);
@@ -1138,8 +1133,7 @@
     const active = state.segments.find(seg => t >= seg.start && t <= seg.end + 0.3);
 
     if (active) {
-      subtitleTextEl.textContent = active.zh_text || '';
-      subtitleTextEl.classList.toggle('visible', Boolean(active.zh_text));
+      FontPreview.updateText(active.zh_text || '');
 
       // Auto-highlight active row (only if not editing)
       if (state.editingIdx === null && active.idx !== state.activeIdx) {
@@ -1147,7 +1141,7 @@
         highlightActiveRow(active.idx);
       }
     } else {
-      subtitleTextEl.classList.remove('visible');
+      FontPreview.updateText('');
     }
   });
 
@@ -1768,6 +1762,9 @@
 
   init();
 </script>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="js/font-preview.js"></script>
 
 </body>
 </html>
