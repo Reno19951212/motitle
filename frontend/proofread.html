@@ -187,6 +187,75 @@
       color: var(--text);
     }
 
+    /* Shortcut help modal */
+    .shortcut-help-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+    .shortcut-help-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 480px;
+      max-width: 90vw;
+      max-height: 85vh;
+      overflow: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .shortcut-help-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .shortcut-help-close {
+      background: transparent;
+      border: 0;
+      color: var(--text-dim);
+      font-size: 18px;
+      cursor: pointer;
+      padding: 0 4px;
+    }
+    .shortcut-help-close:hover { color: var(--text); }
+    .shortcut-help-body { padding: 14px 18px; }
+    .shortcut-help-group { margin-bottom: 16px; }
+    .shortcut-help-group:last-child { margin-bottom: 0; }
+    .shortcut-help-group-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .shortcut-help-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 5px 0;
+      font-size: 13px;
+      color: var(--text);
+    }
+    .shortcut-help-row kbd {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      color: var(--text);
+      min-width: 28px;
+      text-align: center;
+    }
+
     /* ===== Right Panel (Segment Table) ===== */
     .table-panel {
       display: flex;
@@ -578,9 +647,11 @@
       <div class="shortcuts-hint">
         <div class="shortcut"><span class="key">Space</span> 播放/暫停</div>
         <div class="shortcut"><span class="key">↑</span><span class="key">↓</span> 導覽片段</div>
+        <div class="shortcut"><span class="key">N</span><span class="key">P</span> 跳未核准</div>
         <div class="shortcut"><span class="key">E</span> 編輯翻譯</div>
-        <div class="shortcut"><span class="key">Enter</span> 確認核准</div>
+        <div class="shortcut"><span class="key">A</span> 核准</div>
         <div class="shortcut"><span class="key">Esc</span> 取消</div>
+        <div class="shortcut" style="margin-left:auto;cursor:pointer;color:var(--accent);" onclick="showShortcutHelp()"><span class="key">?</span> 全部說明</div>
       </div>
     </div>
 
@@ -1194,7 +1265,94 @@
 
   // ===== Keyboard shortcuts =====
 
+  // Jump to next/previous segment matching a predicate.
+  // direction: 1 = forward, -1 = backward.
+  function navigateMatching(direction, predicate) {
+    if (!state.segments.length) return;
+    const start = state.activeIdx == null ? (direction > 0 ? -1 : state.segments.length) : state.activeIdx;
+    let idx = start + direction;
+    while (idx >= 0 && idx < state.segments.length) {
+      if (predicate(state.segments[idx])) {
+        seekToSegment(idx);
+        return;
+      }
+      idx += direction;
+    }
+  }
+
+  function showShortcutHelp() {
+    let modal = document.getElementById('shortcutHelpModal');
+    if (modal) {
+      modal.style.display = 'flex';
+      return;
+    }
+    modal = document.createElement('div');
+    modal.id = 'shortcutHelpModal';
+    modal.className = 'shortcut-help-overlay';
+    modal.innerHTML = `
+      <div class="shortcut-help-panel">
+        <div class="shortcut-help-header">
+          <span>⌨ 快速鍵說明</span>
+          <button class="shortcut-help-close" aria-label="關閉">✕</button>
+        </div>
+        <div class="shortcut-help-body">
+          <div class="shortcut-help-group">
+            <div class="shortcut-help-group-title">播放控制</div>
+            <div class="shortcut-help-row"><kbd>Space</kbd> 播放 / 暫停</div>
+          </div>
+          <div class="shortcut-help-group">
+            <div class="shortcut-help-group-title">段落導覽</div>
+            <div class="shortcut-help-row"><kbd>↑</kbd> 上一段</div>
+            <div class="shortcut-help-row"><kbd>↓</kbd> 下一段</div>
+            <div class="shortcut-help-row"><kbd>N</kbd> 下一個未核准段落</div>
+            <div class="shortcut-help-row"><kbd>P</kbd> 上一個未核准段落</div>
+          </div>
+          <div class="shortcut-help-group">
+            <div class="shortcut-help-group-title">編輯翻譯</div>
+            <div class="shortcut-help-row"><kbd>E</kbd> 開始編輯目前段落</div>
+            <div class="shortcut-help-row"><kbd>Enter</kbd> 儲存編輯（編輯模式中）</div>
+            <div class="shortcut-help-row"><kbd>Esc</kbd> 取消編輯</div>
+          </div>
+          <div class="shortcut-help-group">
+            <div class="shortcut-help-group-title">核准</div>
+            <div class="shortcut-help-row"><kbd>A</kbd> 切換核准狀態（行焦點時）</div>
+            <div class="shortcut-help-row"><kbd>Enter</kbd> 切換核准狀態（行焦點時）</div>
+          </div>
+          <div class="shortcut-help-group">
+            <div class="shortcut-help-group-title">說明</div>
+            <div class="shortcut-help-row"><kbd>?</kbd> 開啟此說明 / <kbd>Esc</kbd> 關閉</div>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.querySelector('.shortcut-help-close').addEventListener('click', () => {
+      modal.style.display = 'none';
+    });
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.style.display = 'none';
+    });
+  }
+  // Expose to the global scope so inline onclick="showShortcutHelp()" can find it.
+  window.showShortcutHelp = showShortcutHelp;
+
   document.addEventListener('keydown', (e) => {
+    // Allow ? help shortcut to open even from anywhere (but not while typing)
+    if ((e.key === '?' || (e.shiftKey && e.key === '/')) && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'INPUT') {
+      e.preventDefault();
+      showShortcutHelp();
+      return;
+    }
+
+    // Esc closes the help modal first if open
+    if (e.key === 'Escape') {
+      const modal = document.getElementById('shortcutHelpModal');
+      if (modal && modal.style.display !== 'none') {
+        modal.style.display = 'none';
+        e.preventDefault();
+        return;
+      }
+    }
+
     // Skip when typing in an input or textarea
     if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
 
@@ -1223,6 +1381,30 @@
         }
         break;
       }
+
+      case 'a':
+      case 'A':
+        // Dedicated approve toggle — frees Enter from dual meaning later
+        e.preventDefault();
+        if (state.activeIdx !== null) {
+          const seg = state.segments[state.activeIdx];
+          if (seg) toggleApprove(state.activeIdx, !seg.approved);
+        }
+        break;
+
+      case 'n':
+      case 'N':
+        // Next unapproved segment
+        e.preventDefault();
+        navigateMatching(1, (s) => !s.approved);
+        break;
+
+      case 'p':
+      case 'P':
+        // Previous unapproved segment
+        e.preventDefault();
+        navigateMatching(-1, (s) => !s.approved);
+        break;
 
       case 'e':
       case 'E':
