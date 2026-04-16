@@ -291,6 +291,47 @@ def test_api_get_active_when_none(client):
 # Bug regression tests
 # ============================================================
 
+def test_update_profile_partial_asr_preserves_other_fields(tmp_path):
+    """PATCH {"asr": {"engine": "whisper"}} must preserve other asr fields like model_size."""
+    from profiles import ProfileManager
+    mgr = ProfileManager(tmp_path)
+
+    full_asr = {"engine": "whisper", "model_size": "base", "language": "en", "device": "mps"}
+    created = mgr.create({**VALID_PROFILE, "asr": full_asr})
+
+    # Partial PATCH: only change the engine, leave everything else out
+    updated = mgr.update(created["id"], {"asr": {"engine": "mlx-whisper"}})
+
+    assert updated["asr"]["engine"] == "mlx-whisper"
+    assert updated["asr"]["model_size"] == "base", "model_size was wiped by partial asr PATCH"
+    assert updated["asr"]["language"] == "en", "language was wiped by partial asr PATCH"
+    assert updated["asr"]["device"] == "mps", "device was wiped by partial asr PATCH"
+
+
+def test_update_profile_partial_translation_preserves_other_fields(tmp_path):
+    """PATCH {"translation": {"style": "casual"}} must preserve other translation fields."""
+    from profiles import ProfileManager
+    mgr = ProfileManager(tmp_path)
+
+    full_translation = {
+        "engine": "qwen2.5-7b",
+        "quantization": "q8",
+        "temperature": 0.3,
+        "glossary_id": "glossary-abc",
+        "style": "formal",
+    }
+    created = mgr.create({**VALID_PROFILE, "translation": full_translation})
+
+    # Partial PATCH: only change style
+    updated = mgr.update(created["id"], {"translation": {"style": "casual"}})
+
+    assert updated["translation"]["style"] == "casual"
+    assert updated["translation"]["engine"] == "qwen2.5-7b", "engine was wiped by partial translation PATCH"
+    assert updated["translation"]["quantization"] == "q8", "quantization was wiped by partial translation PATCH"
+    assert updated["translation"]["temperature"] == 0.3, "temperature was wiped by partial translation PATCH"
+    assert updated["translation"]["glossary_id"] == "glossary-abc", "glossary_id was wiped by partial translation PATCH"
+
+
 def test_update_profile_font_null_raises_value_error_not_type_error(tmp_path):
     """PATCH {"font": null} must raise ValueError (validation), not TypeError (crash).
 

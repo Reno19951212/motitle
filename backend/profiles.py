@@ -155,13 +155,11 @@ class ProfileManager:
         """
         Merge `data` into an existing profile, validate, then persist.
 
-        The merge is a **shallow (top-level) merge** with special handling for ``font``:
-        - For the ``font`` object, a **deep merge** is performed (existing font fields
-          are preserved, new values override)
-        - Other nested blocks such as ``asr`` and ``translation`` are replaced in
-          their entirety, so callers must supply the complete nested object
-          if any of their inner fields change — partial nested updates are
-          not supported.
+        The merge is a **shallow (top-level) merge** with special handling for
+        ``font``, ``asr``, and ``translation``: each nested block is deep-merged
+        so that partial PATCHes (e.g. only changing ``asr.engine``) preserve all
+        other fields in the block.  Non-dict values for these keys fall through
+        to ``validate()`` and are rejected with a proper ``ValueError``.
 
         Returns the updated profile, or None if profile_id is not found.
         Raises ValueError if the merged data is invalid.
@@ -170,13 +168,13 @@ class ProfileManager:
         if existing is None:
             return None
 
-        # Special handling for font: deep merge to preserve all font properties.
-        # Guard with isinstance check so that non-dict values (e.g. None) fall
-        # through to validate() and are rejected with a proper ValueError instead
-        # of crashing here with a TypeError.
+        # Shallow merge at the top level first, then deep-merge nested blocks.
+        # The isinstance guard ensures that non-dict values (e.g. None) are not
+        # spread here — they will be caught and rejected by validate() instead.
         merged = {**existing, **data, "id": profile_id}
-        if "font" in data and "font" in existing and isinstance(data["font"], dict):
-            merged["font"] = {**existing["font"], **data["font"]}
+        for key in ("font", "asr", "translation"):
+            if key in data and key in existing and isinstance(data[key], dict):
+                merged[key] = {**existing[key], **data[key]}
 
         errors = self.validate(merged)
         if errors:
