@@ -734,6 +734,124 @@
     .error-state .icon { font-size: 48px; }
     .error-state h2 { color: var(--danger); font-size: 18px; }
     .error-state p { font-size: 14px; max-width: 400px; }
+
+    /* ===== Find & Replace toolbar ===== */
+    .find-bar {
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+      padding: 8px 12px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .find-bar.open { display: flex; }
+    .find-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .find-input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      font-size: 13px;
+      padding: 4px 8px;
+      min-width: 160px;
+      outline: none;
+    }
+    .find-input:focus { border-color: var(--accent); }
+    .find-counter {
+      font-size: 12px;
+      color: var(--text-dim);
+      min-width: 60px;
+      white-space: nowrap;
+    }
+    .find-counter.no-match { color: var(--danger); }
+    .find-nav-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      cursor: pointer;
+      font-size: 12px;
+      padding: 3px 8px;
+    }
+    .find-nav-btn:hover { border-color: var(--accent); }
+    .find-close-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+      padding: 2px 4px;
+      margin-left: auto;
+    }
+    .find-close-btn:hover { color: var(--text); }
+    .find-glossary-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .find-glossary-select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      font-size: 13px;
+      padding: 4px 8px;
+      min-width: 180px;
+    }
+    mark.find-highlight {
+      background: rgba(250, 204, 21, 0.35);
+      border-radius: 2px;
+      color: inherit;
+    }
+    mark.find-highlight-active {
+      background: rgba(250, 204, 21, 0.75);
+      outline: 1px solid #facc15;
+      border-radius: 2px;
+      color: inherit;
+    }
+    /* Glossary preview modal */
+    .glossary-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .glossary-modal-overlay.open { display: flex; }
+    .glossary-modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      max-width: 520px;
+      width: 90%;
+      padding: 20px;
+      max-height: 70vh;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .glossary-modal h3 { margin: 0; font-size: 15px; }
+    .glossary-violation-list {
+      overflow-y: auto;
+      flex: 1;
+      font-size: 13px;
+      line-height: 1.8;
+      color: var(--text);
+    }
+    .glossary-modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
   </style>
 </head>
 <body>
@@ -799,6 +917,31 @@
         <div class="approval-summary" id="approvalSummary">已核准 <span id="approvedCount">0</span> / <span id="totalCount">0</span></div>
       </div>
 
+      <!-- Find & Replace toolbar -->
+      <div class="find-bar" id="findBar">
+        <div class="find-bar-row">
+          <span style="color:var(--text-dim);font-size:12px;">🔍</span>
+          <input class="find-input" id="findInput" type="text" placeholder="搜尋…" autocomplete="off" />
+          <input class="find-input" id="replaceInput" type="text" placeholder="替換為…" autocomplete="off" />
+          <label style="font-size:12px;color:var(--text-dim);display:flex;align-items:center;gap:4px;cursor:pointer;">
+            <input type="checkbox" id="findOnlyUnapproved" /> 只搜未批核
+          </label>
+          <span class="find-counter" id="findCounter"></span>
+          <button class="find-nav-btn" id="findPrevBtn" title="上一個 (Shift+Enter)" disabled>▲</button>
+          <button class="find-nav-btn" id="findNextBtn" title="下一個 (Enter)" disabled>▼</button>
+          <button class="btn btn-secondary" id="findReplaceOneBtn" style="font-size:12px;padding:4px 10px;" disabled>替換</button>
+          <button class="btn btn-secondary" id="findReplaceAllBtn" style="font-size:12px;padding:4px 10px;" disabled>全部替換</button>
+          <button class="find-close-btn" id="findCloseBtn" title="關閉 (Esc)">✕</button>
+        </div>
+        <div class="find-glossary-row">
+          <span style="color:var(--text-dim);font-size:12px;">📖 套用詞表：</span>
+          <select class="find-glossary-select" id="findGlossarySelect">
+            <option value="">— 未選擇 —</option>
+          </select>
+          <button class="btn btn-secondary" id="findApplyGlossaryBtn" style="font-size:12px;padding:4px 10px;" disabled>套用詞表</button>
+        </div>
+      </div>
+
       <div class="segment-table-wrap" id="tableWrap">
         <table id="segmentTable">
           <thead>
@@ -832,6 +975,18 @@
     <div class="icon">⚠️</div>
     <h2>載入失敗</h2>
     <p id="errorMsg">無法取得字幕資料，請確認 file_id 正確且伺服器正在運行。</p>
+  </div>
+
+  <!-- Apply Glossary preview modal -->
+  <div class="glossary-modal-overlay" id="glossaryModalOverlay">
+    <div class="glossary-modal">
+      <h3 id="glossaryModalTitle">發現詞表不符</h3>
+      <div class="glossary-violation-list" id="glossaryViolationList"></div>
+      <div class="glossary-modal-actions">
+        <button class="btn btn-secondary" id="glossaryModalCancelBtn">取消</button>
+        <button class="btn btn-primary" id="glossaryModalApplyBtn">全部套用</button>
+      </div>
+    </div>
   </div>
 
   <!-- Toast container -->
@@ -897,6 +1052,22 @@
       i === segIdx ? { ...seg, ...patch } : seg
     );
     setState({ segments });
+  }
+
+  // ===== Find & Replace state =====
+
+  let findState = {
+    query: '',
+    replacement: '',
+    onlyUnapproved: false,
+    matchList: [],       // [{segIdx, field, start, len}] field: 'zh'|'en'
+    currentMatchIdx: -1,
+    glossaryList: [],    // [{id, name}] populated on toolbar open
+    selectedGlossaryId: null,
+  };
+
+  function setFindState(patch) {
+    findState = { ...findState, ...patch };
   }
 
   // ===== DOM references =====
