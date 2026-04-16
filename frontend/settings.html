@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>設定 — MoTitle</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <link rel="stylesheet" href="shared.css" />
+  <script src="js/font-preview.js"></script>
+  <style>
+    /* ── Page layout ────────────────────────────── */
+    html, body { height: 100%; overflow: hidden; }
+
+    .page-wrap {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    /* ── Tab bar ───────────────────────────────── */
+    .tab-bar {
+      height: 40px;
+      display: flex;
+      align-items: stretch;
+      padding: 0 16px;
+      gap: 4px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .tab-btn {
+      display: inline-flex;
+      align-items: center;
+      padding: 0 14px;
+      font-size: var(--font-base);
+      color: var(--text-muted);
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--accent2); border-bottom-color: var(--accent2); }
+
+    /* ── Tab pane ──────────────────────────────── */
+    .tab-content {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .tab-pane {
+      display: none;
+      height: 100%;
+      overflow-y: auto;
+    }
+    .tab-pane.active { display: flex; flex-direction: column; }
+
+    /* ── Profile tab — 2-column ───────────────── */
+    #pane-profile { flex-direction: row; overflow: hidden; }
+
+    .profile-list-panel {
+      width: 280px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .profile-list-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 0;
+    }
+    .profile-list-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      cursor: pointer;
+      font-size: var(--font-base);
+      color: var(--text-muted);
+      transition: background 0.12s, color 0.12s;
+      border-left: 2px solid transparent;
+    }
+    .profile-list-item:hover { background: var(--surface2); color: var(--text); }
+    .profile-list-item.selected {
+      background: var(--surface2);
+      color: var(--text);
+      border-left-color: var(--accent);
+    }
+    .profile-active-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      background: var(--border);
+    }
+    .profile-active-dot.active-profile { background: var(--success); }
+    .profile-list-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .profile-list-footer {
+      padding: 8px 12px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .profile-form-panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 24px;
+    }
+    .profile-empty-state {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: var(--font-sm);
+    }
+
+    /* ── Form sections ─────────────────────────── */
+    .form-section {
+      margin-bottom: 20px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .form-section-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      background: var(--surface);
+      cursor: pointer;
+      font-size: var(--font-sm);
+      font-weight: 600;
+      color: var(--text-muted);
+      user-select: none;
+    }
+    .form-section-header:hover { color: var(--text); }
+    .form-section-toggle {
+      margin-left: auto;
+      font-size: 11px;
+      transition: transform 0.15s;
+    }
+    .form-section-body {
+      padding: 12px 14px;
+      background: var(--surface2);
+    }
+    .form-section.collapsed .form-section-body { display: none; }
+    .form-section.collapsed .form-section-toggle { transform: rotate(-90deg); }
+
+    .form-row input[type=text],
+    .form-row input[type=number],
+    .form-row select {
+      width: 100%;
+    }
+
+    .profile-actions {
+      display: flex;
+      gap: 8px;
+      padding: 12px 0 4px;
+      flex-wrap: wrap;
+    }
+
+    /* ── Glossary tab ──────────────────────────── */
+    #pane-glossary { overflow-y: auto; padding: 16px 24px; flex-direction: column; }
+
+    .glossary-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .glossary-card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: var(--surface);
+    }
+    .glossary-card-name {
+      font-size: var(--font-base);
+      font-weight: 600;
+      flex: 1;
+    }
+    .glossary-card-body {
+      background: var(--surface2);
+      padding: 0 14px 12px;
+    }
+
+    .glossary-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: var(--font-sm);
+      margin: 10px 0 8px;
+    }
+    .glossary-table th {
+      text-align: left;
+      color: var(--text-muted);
+      font-weight: 500;
+      padding: 4px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .glossary-table td {
+      padding: 4px 8px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .glossary-table tr:last-child td { border-bottom: none; }
+
+    .glossary-add-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .glossary-add-row input {
+      flex: 1;
+    }
+    .glossary-card-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .glossary-footer {
+      padding: 8px 0 4px;
+    }
+
+    /* ── Language tab ──────────────────────────── */
+    #pane-language { overflow-y: auto; padding: 16px 24px; flex-direction: column; }
+
+    .language-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .language-card-header {
+      padding: 10px 14px;
+      background: var(--surface);
+      font-size: var(--font-base);
+      font-weight: 600;
+    }
+    .language-card-body {
+      padding: 12px 14px;
+      background: var(--surface2);
+    }
+    .language-subsection {
+      margin-bottom: 12px;
+    }
+    .language-subsection-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+    .language-params-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 16px;
+    }
+    .language-card-footer {
+      padding: 8px 14px 12px;
+      background: var(--surface2);
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+<div class="page-wrap">
+
+  <!-- Header -->
+  <header class="header">
+    <a href="index.html" class="logo-back">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 2L4 7L9 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      返回
+    </a>
+    <span class="page-title">設定</span>
+    <span style="width:48px"></span><!-- spacer to balance back link -->
+  </header>
+
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <button class="tab-btn" data-tab="profile">Profile</button>
+    <button class="tab-btn" data-tab="glossary">詞表</button>
+    <button class="tab-btn" data-tab="language">語言</button>
+  </div>
+
+  <!-- Tab content -->
+  <div class="tab-content">
+
+    <!-- Profile tab -->
+    <div id="pane-profile" class="tab-pane">
+      <!-- Left: profile list -->
+      <div class="profile-list-panel">
+        <div class="profile-list-scroll" id="profileList"></div>
+        <div class="profile-list-footer">
+          <button class="btn btn-primary" style="width:100%" id="btnNewProfile">+ 新增 Profile</button>
+        </div>
+      </div>
+      <!-- Right: profile form / empty state -->
+      <div class="profile-form-panel" id="profileFormPanel">
+        <div class="profile-empty-state" id="profileEmptyState">選擇左側 Profile 以編輯</div>
+        <div id="profileForm" style="display:none">
+          <!-- 基本資訊 -->
+          <div class="form-section" id="section-basic">
+            <div class="form-section-header" data-section="basic">
+              基本資訊 <span class="form-section-toggle">▾</span>
+            </div>
+            <div class="form-section-body">
+              <div class="form-row">
+                <label for="pf-name">名稱</label>
+                <input type="text" id="pf-name" placeholder="Profile 名稱" />
+              </div>
+            </div>
+          </div>
+
+          <!-- ASR -->
+          <div class="form-section" id="section-asr">
+            <div class="form-section-header" data-section="asr">
+              ASR <span class="form-section-toggle">▾</span>
+            </div>
+            <div class="form-section-body">
+              <div class="form-row">
+                <label for="pf-asr-engine">引擎</label>
+                <select id="pf-asr-engine">
+                  <option value="whisper">whisper</option>
+                  <option value="mlx-whisper">mlx-whisper</option>
+                  <option value="qwen3-asr">qwen3-asr</option>
+                  <option value="flg-asr">flg-asr</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label for="pf-asr-language">語言代碼</label>
+                <input type="text" id="pf-asr-language" placeholder="e.g. en" />
+              </div>
+              <div class="form-row">
+                <label for="pf-asr-device">裝置</label>
+                <select id="pf-asr-device">
+                  <option value="auto">auto</option>
+                  <option value="cpu">cpu</option>
+                  <option value="cuda">cuda</option>
+                  <option value="mps">mps</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- 翻譯 -->
+          <div class="form-section" id="section-translation">
+            <div class="form-section-header" data-section="translation">
+              翻譯 <span class="form-section-toggle">▾</span>
+            </div>
+            <div class="form-section-body">
+              <div class="form-row">
+                <label for="pf-tr-engine">引擎</label>
+                <select id="pf-tr-engine">
+                  <optgroup label="本地模型">
+                    <option value="mock">mock</option>
+                    <option value="qwen2.5-3b">qwen2.5-3b</option>
+                    <option value="qwen2.5-7b">qwen2.5-7b</option>
+                    <option value="qwen2.5-72b">qwen2.5-72b</option>
+                    <option value="qwen3-235b">qwen3-235b</option>
+                    <option value="qwen3.5-9b">qwen3.5-9b</option>
+                  </optgroup>
+                  <optgroup label="雲端模型（需要 ollama signin）">
+                    <option value="glm-4.6-cloud">glm-4.6-cloud</option>
+                    <option value="qwen3.5-397b-cloud">qwen3.5-397b-cloud</option>
+                    <option value="gpt-oss-120b-cloud">gpt-oss-120b-cloud</option>
+                  </optgroup>
+                </select>
+              </div>
+              <div class="form-row">
+                <label for="pf-parallel-batches">平行批次數</label>
+                <input type="number" id="pf-parallel-batches" min="1" max="8" value="1" />
+                <span class="form-hint">本地模型建議 1–2；雲端模型建議 3–5</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 字型 -->
+          <div class="form-section" id="section-font">
+            <div class="form-section-header" data-section="font">
+              字型 <span class="form-section-toggle">▾</span>
+            </div>
+            <div class="form-section-body">
+              <div class="form-row">
+                <label for="pf-font-family">字型名稱</label>
+                <input type="text" id="pf-font-family" placeholder="e.g. Noto Sans TC" />
+              </div>
+              <div class="form-row">
+                <label for="pf-font-size">大小 (12–120)</label>
+                <input type="number" id="pf-font-size" min="12" max="120" />
+              </div>
+              <div class="form-row">
+                <label for="pf-font-color">顏色（十六進位）</label>
+                <input type="text" id="pf-font-color" placeholder="e.g. #FFFFFF" />
+              </div>
+              <div class="form-row">
+                <label for="pf-outline-color">外框顏色</label>
+                <input type="text" id="pf-outline-color" placeholder="e.g. #000000" />
+              </div>
+              <div class="form-row">
+                <label for="pf-outline-width">外框寬度 (0–10)</label>
+                <input type="number" id="pf-outline-width" min="0" max="10" />
+              </div>
+              <div class="form-row">
+                <label for="pf-margin-bottom">底部邊距 (0–200)</label>
+                <input type="number" id="pf-margin-bottom" min="0" max="200" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="profile-actions">
+            <button class="btn btn-primary" id="btnSaveProfile">儲存</button>
+            <button class="btn" id="btnActivateProfile">設為使用中</button>
+            <button class="btn btn-danger" id="btnDeleteProfile">刪除</button>
+          </div>
+          <div id="profileActiveNote" style="font-size:11px;color:var(--success);margin-top:4px;display:none">● 目前使用中</div>
+        </div>
+      </div>
+    </div><!-- /pane-profile -->
+
+    <!-- Glossary tab -->
+    <div id="pane-glossary" class="tab-pane">
+      <div id="glossaryList"></div>
+      <div class="glossary-footer">
+        <button class="btn btn-primary" id="btnNewGlossary">+ 新增詞表</button>
+      </div>
+    </div>
+
+    <!-- Language tab -->
+    <div id="pane-language" class="tab-pane">
+      <div id="languageList"></div>
+    </div>
+
+  </div><!-- /tab-content -->
+</div><!-- /page-wrap -->
+
+<div id="toastContainer" class="toast-container"></div>
+
+<script src="js/shared.js"></script>
+<script>
+'use strict';
+
+/* ─────────────────────────────────────────────────
+ * State
+ * ───────────────────────────────────────────────── */
+const state = {
+  profiles: [],
+  activeProfileId: null,
+  selectedProfileId: null,
+};
+
+/* ─────────────────────────────────────────────────
+ * Tab routing
+ * ───────────────────────────────────────────────── */
+const VALID_TABS = ['profile', 'glossary', 'language'];
+
+function getTabFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get('tab');
+  return VALID_TABS.includes(tab) ? tab : 'profile';
+}
+
+function switchTab(tab) {
+  if (!VALID_TABS.includes(tab)) tab = 'profile';
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+  document.querySelectorAll('.tab-pane').forEach(pane => {
+    pane.classList.toggle('active', pane.id === `pane-${tab}`);
+  });
+  const url = new URL(window.location.href);
+  url.searchParams.set('tab', tab);
+  history.replaceState(null, '', url.toString());
+  if (tab === 'profile' && state.profiles.length === 0) loadProfiles();
+  if (tab === 'glossary') loadGlossaryList();
+  if (tab === 'language') loadLanguageList();
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+/* ─────────────────────────────────────────────────
+ * Collapsible form sections
+ * ───────────────────────────────────────────────── */
+document.querySelectorAll('.form-section-header').forEach(header => {
+  header.addEventListener('click', () => {
+    header.closest('.form-section').classList.toggle('collapsed');
+  });
+});
+
+/* ─────────────────────────────────────────────────
+ * Profile tab
+ * ───────────────────────────────────────────────── */
+async function loadProfiles() {
+  try {
+    const [profilesRes, activeRes] = await Promise.all([
+      fetch(`${API_BASE}/api/profiles`),
+      fetch(`${API_BASE}/api/profiles/active`),
+    ]);
+    const profiles = await profilesRes.json();
+    const activeData = await activeRes.json();
+    state.profiles = Array.isArray(profiles) ? profiles : [];
+    state.activeProfileId = activeData?.profile?.id ?? null;
+    renderProfileList();
+    // If a profile was previously selected, re-select it
+    if (state.selectedProfileId) {
+      const still = state.profiles.find(p => p.id === state.selectedProfileId);
+      if (still) renderProfileForm(still);
+    }
+  } catch (err) {
+    showToast('無法載入 Profile 列表', 'error');
+    console.error('[loadProfiles]', err);
+  }
+}
+
+function renderProfileList() {
+  const list = document.getElementById('profileList');
+  if (state.profiles.length === 0) {
+    list.innerHTML = '<div style="padding:12px 16px;font-size:12px;color:var(--text-muted)">尚無 Profile</div>';
+    return;
+  }
+  list.innerHTML = state.profiles.map(p => {
+    const isActive = p.id === state.activeProfileId;
+    const isSelected = p.id === state.selectedProfileId;
+    return `
+      <div class="profile-list-item${isSelected ? ' selected' : ''}" data-id="${escapeHtml(p.id)}">
+        <span class="profile-active-dot${isActive ? ' active-profile' : ''}"></span>
+        <span class="profile-list-name">${escapeHtml(p.name)}</span>
+      </div>`;
+  }).join('');
+  list.querySelectorAll('.profile-list-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const id = item.dataset.id;
+      const profile = state.profiles.find(p => p.id === id);
+      if (profile) {
+        state.selectedProfileId = id;
+        renderProfileList();
+        renderProfileForm(profile);
+      }
+    });
+  });
+}
+
+function renderProfileForm(profile) {
+  document.getElementById('profileEmptyState').style.display = 'none';
+  const form = document.getElementById('profileForm');
+  form.style.display = '';
+
+  // Basic
+  document.getElementById('pf-name').value = profile.name ?? '';
+
+  // ASR
+  const asr = profile.asr ?? {};
+  setSelectValue('pf-asr-engine', asr.engine ?? 'whisper');
+  document.getElementById('pf-asr-language').value = asr.language ?? '';
+  setSelectValue('pf-asr-device', asr.device ?? 'auto');
+
+  // Translation
+  const tr = profile.translation ?? {};
+  setSelectValue('pf-tr-engine', tr.engine ?? 'mock');
+  document.getElementById('pf-parallel-batches').value = tr.parallel_batches ?? 1;
+
+  // Font
+  const font = profile.font ?? {};
+  document.getElementById('pf-font-family').value = font.family ?? '';
+  document.getElementById('pf-font-size').value = font.size ?? '';
+  document.getElementById('pf-font-color').value = font.color ?? '';
+  document.getElementById('pf-outline-color').value = font.outline_color ?? '';
+  document.getElementById('pf-outline-width').value = font.outline_width ?? '';
+  document.getElementById('pf-margin-bottom').value = font.margin_bottom ?? '';
+
+  // Active state
+  const isActive = profile.id === state.activeProfileId;
+  document.getElementById('profileActiveNote').style.display = isActive ? '' : 'none';
+  document.getElementById('btnActivateProfile').disabled = isActive;
+  document.getElementById('btnDeleteProfile').disabled = isActive;
+}
+
+function setSelectValue(id, value) {
+  const sel = document.getElementById(id);
+  if (!sel) return;
+  // Try to find option matching value; if not found leave as-is
+  const opt = Array.from(sel.options).find(o => o.value === value);
+  if (opt) sel.value = value;
+}
+
+function collectProfileFormData() {
+  return {
+    name: document.getElementById('pf-name').value.trim(),
+    asr: {
+      engine: document.getElementById('pf-asr-engine').value,
+      language: document.getElementById('pf-asr-language').value.trim(),
+      device: document.getElementById('pf-asr-device').value,
+    },
+    translation: {
+      engine: document.getElementById('pf-tr-engine').value,
+      parallel_batches: parseInt(document.getElementById('pf-parallel-batches').value, 10) || 1,
+    },
+    font: {
+      family: document.getElementById('pf-font-family').value.trim(),
+      size: parseFloat(document.getElementById('pf-font-size').value) || null,
+      color: document.getElementById('pf-font-color').value.trim(),
+      outline_color: document.getElementById('pf-outline-color').value.trim(),
+      outline_width: parseFloat(document.getElementById('pf-outline-width').value) || null,
+      margin_bottom: parseFloat(document.getElementById('pf-margin-bottom').value) || null,
+    },
+  };
+}
+
+document.getElementById('btnSaveProfile').addEventListener('click', async () => {
+  const id = state.selectedProfileId;
+  if (!id) return;
+  const data = collectProfileFormData();
+  try {
+    const res = await fetch(`${API_BASE}/api/profiles/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    showToast('儲存成功', 'success');
+    await loadProfiles();
+  } catch (err) {
+    showToast('儲存失敗', 'error');
+    console.error('[saveProfile]', err);
+  }
+});
+
+document.getElementById('btnActivateProfile').addEventListener('click', async () => {
+  const id = state.selectedProfileId;
+  if (!id) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/profiles/${encodeURIComponent(id)}/activate`, { method: 'POST' });
+    if (!res.ok) throw new Error(await res.text());
+    showToast('已設為使用中', 'success');
+    await loadProfiles();
+  } catch (err) {
+    showToast('操作失敗', 'error');
+    console.error('[activateProfile]', err);
+  }
+});
+
+document.getElementById('btnDeleteProfile').addEventListener('click', async () => {
+  const id = state.selectedProfileId;
+  if (!id) return;
+  const profile = state.profiles.find(p => p.id === id);
+  if (!confirm(`確定刪除 Profile「${profile?.name ?? id}」？`)) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/profiles/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(await res.text());
+    showToast('已刪除', 'success');
+    state.selectedProfileId = null;
+    document.getElementById('profileEmptyState').style.display = '';
+    document.getElementById('profileForm').style.display = 'none';
+    await loadProfiles();
+  } catch (err) {
+    showToast('刪除失敗', 'error');
+    console.error('[deleteProfile]', err);
+  }
+});
+
+document.getElementById('btnNewProfile').addEventListener('click', async () => {
+  const name = prompt('新 Profile 名稱：');
+  if (!name || !name.trim()) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/profiles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim(), asr: { engine: 'whisper' }, translation: { engine: 'mock' } }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const created = await res.json();
+    showToast('已建立 Profile', 'success');
+    await loadProfiles();
+    // Select new profile
+    state.selectedProfileId = created?.id ?? created?.profile?.id ?? null;
+    if (state.selectedProfileId) {
+      renderProfileList();
+      const newProfile = state.profiles.find(p => p.id === state.selectedProfileId);
+      if (newProfile) renderProfileForm(newProfile);
+    }
+  } catch (err) {
+    showToast('建立失敗', 'error');
+    console.error('[newProfile]', err);
+  }
+});
+
+/* ─────────────────────────────────────────────────
+ * Glossary tab
+ * ───────────────────────────────────────────────── */
+async function loadGlossaryList() {
+  try {
+    const res = await fetch(`${API_BASE}/api/glossaries`);
+    if (!res.ok) throw new Error(await res.text());
+    const glossaries = await res.json();
+    await renderGlossaryList(Array.isArray(glossaries) ? glossaries : []);
+  } catch (err) {
+    showToast('無法載入詞表', 'error');
+    console.error('[loadGlossaryList]', err);
+  }
+}
+
+async function renderGlossaryList(glossaries) {
+  const container = document.getElementById('glossaryList');
+  if (glossaries.length === 0) {
+    container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px 0">尚無詞表</div>';
+    return;
+  }
+  // Fetch details for each glossary to get entries
+  const details = await Promise.all(
+    glossaries.map(g =>
+      fetch(`${API_BASE}/api/glossaries/${encodeURIComponent(g.id)}`)
+        .then(r => r.json())
+        .catch(() => ({ ...g, entries: [] }))
+    )
+  );
+  container.innerHTML = details.map(g => renderGlossaryCard(g)).join('');
+  bindGlossaryEvents(container, details);
+}
+
+function renderGlossaryCard(g) {
+  const entries = Array.isArray(g.entries) ? g.entries : [];
+  const entriesHtml = entries.length === 0
+    ? '<tr><td colspan="3" style="color:var(--text-muted);font-size:11px;padding:6px 8px">（尚無條目）</td></tr>'
+    : entries.map(e => `
+        <tr data-entry-id="${escapeHtml(e.id)}">
+          <td>${escapeHtml(e.source)}</td>
+          <td>${escapeHtml(e.target)}</td>
+          <td style="text-align:right">
+            <button class="btn btn-icon btn-delete-entry" data-gid="${escapeHtml(g.id)}" data-eid="${escapeHtml(e.id)}" title="刪除">✕</button>
+          </td>
+        </tr>`).join('');
+
+  return `
+    <div class="glossary-card" data-gid="${escapeHtml(g.id)}">
+      <div class="glossary-card-header">
+        <span class="glossary-card-name">${escapeHtml(g.name)}</span>
+        <button class="btn btn-danger btn-delete-glossary" data-gid="${escapeHtml(g.id)}" style="font-size:11px;padding:3px 8px">刪除詞表</button>
+      </div>
+      <div class="glossary-card-body">
+        <table class="glossary-table">
+          <thead><tr><th>EN</th><th>ZH</th><th></th></tr></thead>
+          <tbody class="glossary-entries">${entriesHtml}</tbody>
+        </table>
+        <div class="glossary-add-row">
+          <input type="text" class="input-entry-source" placeholder="英文術語" />
+          <input type="text" class="input-entry-target" placeholder="中文翻譯" />
+          <button class="btn btn-primary btn-add-entry" data-gid="${escapeHtml(g.id)}" style="white-space:nowrap">新增</button>
+        </div>
+        <div class="glossary-card-actions">
+          <label class="btn" style="cursor:pointer">
+            匯入 CSV
+            <input type="file" accept=".csv" class="input-import-csv" data-gid="${escapeHtml(g.id)}" style="display:none" />
+          </label>
+          <a class="btn" href="${API_BASE}/api/glossaries/${encodeURIComponent(g.id)}/export" download>匯出 CSV</a>
+        </div>
+      </div>
+    </div>`;
+}
+
+function bindGlossaryEvents(container, glossaryDetails) {
+  // Delete glossary
+  container.querySelectorAll('.btn-delete-glossary').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const gid = btn.dataset.gid;
+      const g = glossaryDetails.find(x => x.id === gid);
+      if (!confirm(`確定刪除詞表「${g?.name ?? gid}」？`)) return;
+      try {
+        const res = await fetch(`${API_BASE}/api/glossaries/${encodeURIComponent(gid)}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error(await res.text());
+        showToast('已刪除詞表', 'success');
+        loadGlossaryList();
+      } catch (err) {
+        showToast('刪除失敗', 'error');
+        console.error('[deleteGlossary]', err);
+      }
+    });
+  });
+
+  // Delete entry
+  container.querySelectorAll('.btn-delete-entry').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const { gid, eid } = btn.dataset;
+      try {
+        const res = await fetch(`${API_BASE}/api/glossaries/${encodeURIComponent(gid)}/entries/${encodeURIComponent(eid)}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error(await res.text());
+        showToast('已刪除條目', 'success');
+        loadGlossaryList();
+      } catch (err) {
+        showToast('刪除失敗', 'error');
+        console.error('[deleteEntry]', err);
+      }
+    });
+  });
+
+  // Add entry
+  container.querySelectorAll('.btn-add-entry').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const card = btn.closest('.glossary-card');
+      const gid = btn.dataset.gid;
+      const source = card.querySelector('.input-entry-source').value.trim();
+      const target = card.querySelector('.input-entry-target').value.trim();
+      if (!source || !target) { showToast('請填寫英文及中文術語', 'error'); return; }
+      try {
+        const res = await fetch(`${API_BASE}/api/glossaries/${encodeURIComponent(gid)}/entries`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ source, target }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        showToast('已新增條目', 'success');
+        loadGlossaryList();
+      } catch (err) {
+        showToast('新增失敗', 'error');
+        console.error('[addEntry]', err);
+      }
+    });
+  });
+
+  // Enter key on add-entry inputs
+  container.querySelectorAll('.input-entry-source, .input-entry-target').forEach(input => {
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        const card = input.closest('.glossary-card');
+        card.querySelector('.btn-add-entry')?.click();
+      }
+    });
+  });
+
+  // Import CSV
+  container.querySelectorAll('.input-import-csv').forEach(fileInput => {
+    fileInput.addEventListener('change', async () => {
+      const gid = fileInput.dataset.gid;
+      const file = fileInput.files[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append('file', file);
+      try {
+        const res = await fetch(`${API_BASE}/api/glossaries/${encodeURIComponent(gid)}/import`, {
+          method: 'POST',
+          body: formData,
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        showToast(`已匯入 ${data.imported ?? 0} 個條目`, 'success');
+        loadGlossaryList();
+      } catch (err) {
+        showToast('匯入失敗', 'error');
+        console.error('[importCsv]', err);
+      } finally {
+        fileInput.value = '';
+      }
+    });
+  });
+}
+
+document.getElementById('btnNewGlossary').addEventListener('click', async () => {
+  const name = prompt('新詞表名稱：');
+  if (!name || !name.trim()) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/glossaries`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    showToast('已建立詞表', 'success');
+    loadGlossaryList();
+  } catch (err) {
+    showToast('建立失敗', 'error');
+    console.error('[newGlossary]', err);
+  }
+});
+
+/* ─────────────────────────────────────────────────
+ * Language tab
+ * ───────────────────────────────────────────────── */
+async function loadLanguageList() {
+  try {
+    const res = await fetch(`${API_BASE}/api/languages`);
+    if (!res.ok) throw new Error(await res.text());
+    const langs = await res.json();
+    renderLanguageList(Array.isArray(langs) ? langs : []);
+  } catch (err) {
+    showToast('無法載入語言設定', 'error');
+    console.error('[loadLanguageList]', err);
+  }
+}
+
+function renderLanguageList(langs) {
+  const container = document.getElementById('languageList');
+  if (langs.length === 0) {
+    container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px 0">尚無語言設定</div>';
+    return;
+  }
+  container.innerHTML = langs.map(lang => renderLanguageCard(lang)).join('');
+  container.querySelectorAll('.btn-save-language').forEach(btn => {
+    btn.addEventListener('click', () => saveLanguage(btn.dataset.lid));
+  });
+}
+
+function renderLanguageCard(lang) {
+  const asr = lang.asr ?? {};
+  const tr = lang.translation ?? {};
+  return `
+    <div class="language-card" data-lid="${escapeHtml(lang.id)}">
+      <div class="language-card-header">${escapeHtml(lang.name ?? lang.id)}</div>
+      <div class="language-card-body">
+        <div class="language-subsection">
+          <div class="language-subsection-title">ASR 參數</div>
+          <div class="language-params-grid">
+            <div class="form-row">
+              <label>每段最大字數</label>
+              <input type="number" class="lang-asr-max-words" data-lid="${escapeHtml(lang.id)}"
+                value="${escapeHtml(asr.max_words_per_segment ?? '')}" min="1" max="200" />
+            </div>
+            <div class="form-row">
+              <label>最大段落時長 (秒)</label>
+              <input type="number" class="lang-asr-max-dur" data-lid="${escapeHtml(lang.id)}"
+                value="${escapeHtml(asr.max_segment_duration ?? '')}" min="1" max="60" step="0.1" />
+            </div>
+          </div>
+        </div>
+        <div class="language-subsection">
+          <div class="language-subsection-title">翻譯參數</div>
+          <div class="language-params-grid">
+            <div class="form-row">
+              <label>批次大小</label>
+              <input type="number" class="lang-tr-batch-size" data-lid="${escapeHtml(lang.id)}"
+                value="${escapeHtml(tr.batch_size ?? '')}" min="1" max="50" />
+            </div>
+            <div class="form-row">
+              <label>Temperature</label>
+              <input type="number" class="lang-tr-temperature" data-lid="${escapeHtml(lang.id)}"
+                value="${escapeHtml(tr.temperature ?? '')}" min="0" max="2" step="0.01" />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="language-card-footer">
+        <button class="btn btn-primary btn-save-language" data-lid="${escapeHtml(lang.id)}">儲存</button>
+      </div>
+    </div>`;
+}
+
+async function saveLanguage(lid) {
+  const card = document.querySelector(`.language-card[data-lid="${CSS.escape(lid)}"]`);
+  if (!card) return;
+  const data = {
+    asr: {
+      max_words_per_segment: parseInt(card.querySelector('.lang-asr-max-words').value, 10) || null,
+      max_segment_duration: parseFloat(card.querySelector('.lang-asr-max-dur').value) || null,
+    },
+    translation: {
+      batch_size: parseInt(card.querySelector('.lang-tr-batch-size').value, 10) || null,
+      temperature: parseFloat(card.querySelector('.lang-tr-temperature').value) || null,
+    },
+  };
+  try {
+    const res = await fetch(`${API_BASE}/api/languages/${encodeURIComponent(lid)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    showToast('語言設定已儲存', 'success');
+  } catch (err) {
+    showToast('儲存失敗', 'error');
+    console.error('[saveLanguage]', err);
+  }
+}
+
+/* ─────────────────────────────────────────────────
+ * Socket.IO (optional — font preview only)
+ * ───────────────────────────────────────────────── */
+connectSocket({}, { optional: true });
+
+/* ─────────────────────────────────────────────────
+ * Boot
+ * ───────────────────────────────────────────────── */
+(function init() {
+  const tab = getTabFromUrl();
+  switchTab(tab);
+})();
+</script>
+</body>
+</html>
