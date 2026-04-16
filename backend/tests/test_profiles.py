@@ -354,3 +354,83 @@ def test_update_profile_font_null_raises_value_error_not_type_error(tmp_path):
     # but must NOT crash with a TypeError from the deep-merge.
     with pytest.raises(ValueError):
         mgr.update(created["id"], {"font": None})
+
+
+def test_get_active_clears_stale_id_when_file_deleted_externally(tmp_path):
+    """L13: get_active() must clear settings.json when profile file is missing externally.
+
+    If the active profile JSON is deleted without going through delete(), get_active()
+    must both return None AND clear the stale active_profile ID from settings.json so
+    subsequent reads do not waste a file-read on a known-missing file.
+    """
+    from profiles import ProfileManager
+    mgr = ProfileManager(tmp_path)
+
+    created = mgr.create(VALID_PROFILE)
+    mgr.set_active(created["id"])
+
+    # Verify the active profile is correctly set
+    assert mgr.get_active() is not None
+
+    # Delete the profile file externally (bypassing ProfileManager.delete())
+    profile_file = tmp_path / "profiles" / f"{created['id']}.json"
+    profile_file.unlink()
+
+    # get_active() must return None
+    result = mgr.get_active()
+    assert result is None, "get_active() should return None when profile file is missing"
+
+    # AND the stale ID must be cleared from settings.json
+    settings = mgr._read_settings()
+    assert settings.get("active_profile") is None, (
+        "get_active() should clear stale active_profile from settings.json "
+        "when the profile file no longer exists"
+    )
+
+
+def test_create_and_update_profile_sets_updated_at(tmp_path):
+    """L14: create() and update() must write updated_at to the profile.
+
+    After create(): updated_at must equal created_at.
+    After update(): updated_at must be >= created_at (monotonically non-decreasing).
+    """
+    import time as _time
+    from profiles import ProfileManager
+    mgr = ProfileManager(tmp_path)
+
+    before_create = _time.time()
+    created = mgr.create(VALID_PROFILE)
+    after_create = _time.time()
+
+    assert "updated_at" in created, "create() must set updated_at on the profile"
+    assert created["updated_at"] == created["created_at"], (
+        "create() must set updated_at == created_at on initial creation"
+    )
+    assert before_create <= created["updated_at"] <= after_create
+
+    # Re-read from disk to confirm persistence
+    on_disk = mgr.get(created["id"])
+    assert "updated_at" in on_disk, "updated_at must be persisted to disk by create()"
+    assert on_disk["updated_at"] == on_disk["created_at"]
+
+    # Allow a small sleep so update timestamp is measurably different
+    _time.sleep(0.01)
+
+    before_update = _time.time()
+    updated = mgr.update(created["id"], {"name": "Updated Name",
+                                          "asr": VALID_PROFILE["asr"],
+                                          "translation": VALID_PROFILE["translation"]})
+    after_update = _time.time()
+
+    assert "updated_at" in updated, "update() must set updated_at on the profile"
+    assert updated["updated_at"] >= created["created_at"], (
+        "updated_at must be >= created_at after an update"
+    )
+    assert before_update <= updated["updated_at"] <= after_update, (
+        "updated_at must reflect the time of the update call"
+    )
+
+    # Re-read from disk to confirm persistence
+    on_disk_after = mgr.get(created["id"])
+    assert "updated_at" in on_disk_after, "updated_at must be persisted to disk by update()"
+    assert on_disk_after["updated_at"] == updated["updated_at"]
