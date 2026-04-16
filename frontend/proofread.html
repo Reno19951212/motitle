@@ -1987,8 +1987,8 @@
 
   // ===== Find & Replace event wiring =====
   function initFindReplace() {
-    document.getElementById('findCloseBtn')
-      .addEventListener('click', closeFindReplace);
+    const closeBtn = document.getElementById('findCloseBtn');
+    if (closeBtn) closeBtn.addEventListener('click', closeFindReplace);
   }
 
   // ===== Bootstrap =====
