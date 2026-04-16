@@ -88,9 +88,13 @@ class SubtitleRenderer:
         )
 
         for seg in segments:
+            # L10: skip zero-duration segments — ASS renderers mishandle them
+            if seg["start"] == seg["end"]:
+                continue
             start = seconds_to_ass_time(seg["start"])
             end = seconds_to_ass_time(seg["end"])
-            text = seg.get("zh_text", "")
+            # L11: replace raw newlines with ASS line-break escape sequence
+            text = seg.get("zh_text", "").replace("\r", "").replace("\n", "\\N")
             lines.append(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{text}")
 
         return "\n".join(lines) + "\n"
@@ -157,6 +161,10 @@ class SubtitleRenderer:
 
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
             if result.returncode == 0:
+                # L12: FFmpeg can exit 0 while printing fatal errors to stderr in rare cases
+                stderr_lower = (result.stderr or "").lower()
+                if any(p in stderr_lower for p in ("error", "invalid", "no such file")):
+                    return False, f"FFmpeg reported errors: {result.stderr[:200]}"
                 return True, None
             return False, result.stderr or "FFmpeg exited with a non-zero status"
         except Exception as e:
