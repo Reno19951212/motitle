@@ -1491,6 +1491,7 @@ function connectSocket() {
         completed: data.completed,
         total: data.total,
         percent: data.percent,
+        elapsed_seconds: data.elapsed_seconds,
       };
     }
     const bar = document.querySelector(`[data-translation-progress="${data.file_id}"]`);
@@ -1512,6 +1513,7 @@ function connectSocket() {
     if (data.asr_seconds != null) parts.push(`ASR: ${data.asr_seconds}s`);
     if (data.translation_seconds != null) parts.push(`翻譯: ${data.translation_seconds}s`);
     if (data.total_seconds != null) parts.push(`總計: ${data.total_seconds}s`);
+    if (parts.length === 0) return;
     showToast(parts.join(' ｜ '), 'success');
   });
 

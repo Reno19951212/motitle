@@ -945,19 +945,24 @@ def api_translate_file():
         lang_config = _language_config_manager.get(lang_config_id)
         trans_params = lang_config["translation"] if lang_config else DEFAULT_TRANSLATION_CONFIG
 
+        translation_start = time.time()
+
         def _emit_progress(completed: int, total: int) -> None:
             socketio.emit('translation_progress', {
                 'file_id': file_id,
                 'completed': completed,
                 'total': total,
                 'percent': int((completed / total) * 100) if total else 0,
+                'elapsed_seconds': round(time.time() - translation_start, 1),
             })
 
+        parallel_batches = int(translation_config.get("parallel_batches") or 1)
         translated = engine.translate(
             asr_segments, glossary=glossary_entries, style=style,
             batch_size=trans_params["batch_size"],
             temperature=trans_params["temperature"],
             progress_callback=_emit_progress,
+            parallel_batches=parallel_batches,
         )
 
         for t in translated:
@@ -1443,7 +1448,7 @@ def _auto_translate(fid: str, segments: list, session_id) -> None:
                 'elapsed_seconds': round(time.time() - translation_start, 1),
             })
 
-        parallel_batches = int(translation_config.get("parallel_batches", 1))
+        parallel_batches = int(translation_config.get("parallel_batches") or 1)
         translated = engine.translate(
             asr_segments, glossary=glossary_entries, style=style,
             batch_size=trans_params["batch_size"],
