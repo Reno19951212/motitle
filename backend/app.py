@@ -279,7 +279,7 @@ if WHISPER_STREAMING_AVAILABLE:
                 self._thread.join(timeout=3)
             print(f"Streaming session stopped for {self.sid}")
 
-ALLOWED_EXTENSIONS = {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg'}
+ALLOWED_EXTENSIONS = {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.mxf', '.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg'}
 
 
 def get_model(model_size='small', backend='auto'):
