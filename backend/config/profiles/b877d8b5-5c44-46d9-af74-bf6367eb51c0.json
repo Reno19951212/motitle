@@ -1,31 +1,30 @@
 {
-  "id": "dev-default",
-  "name": "English to Cantonese 書面語",
-  "description": "for local Macbook M1 Pro",
+  "name": "中文 -> 中文 字幕",
+  "description": "",
   "asr": {
     "engine": "mlx-whisper",
     "language_config_id": "en",
     "condition_on_previous_text": true,
-    "language": "en",
+    "language": "zh",
     "model_size": "medium"
   },
   "translation": {
-    "engine": "gpt-oss-120b-cloud",
+    "engine": "qwen3.5-9b",
     "glossary_id": null,
-    "batch_size": 5,
-    "context_window": 5,
+    "batch_size": 10,
+    "context_window": 3,
     "style": "formal",
     "temperature": 0.1
   },
   "font": {
     "family": "Noto Sans TC",
-    "size": 48,
+    "size": 26,
     "color": "#ffffff",
     "outline_color": "#000000",
     "outline_width": 2,
     "position": "bottom",
     "margin_bottom": 40
   },
-  "created_at": 1712534400,
-  "updated_at": 1712534400
+  "id": "b877d8b5-5c44-46d9-af74-bf6367eb51c0",
+  "created_at": 1776324431.247073
 }

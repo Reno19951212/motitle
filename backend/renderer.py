@@ -126,7 +126,7 @@ class SubtitleRenderer:
                     "ffmpeg", "-y", "-i", video_path,
                     "-vf", vf,
                     "-c:v", "prores_ks", "-profile:v", str(prores_profile),
-                    "-c:a", audio_fmt,
+                    "-c:a", audio_fmt, "-ar", "48000",
                     output_path,
                 ]
             else:
