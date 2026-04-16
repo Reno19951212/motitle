@@ -685,9 +685,12 @@ def api_activate_profile(profile_id):
     profile = _profile_manager.set_active(profile_id)
     if not profile:
         return jsonify({"error": "Profile not found"}), 404
+    response = jsonify({"profile": profile})
     # Broadcast to all connected clients — all tabs should reflect the active profile change
+    # Note: emit fires before HTTP response is sent — Flask-SocketIO limitation;
+    # client handles both events independently
     socketio.emit("profile_updated", {"font": profile.get("font", DEFAULT_FONT_CONFIG)})
-    return jsonify({"profile": profile})
+    return response
 
 
 # ============================================================
