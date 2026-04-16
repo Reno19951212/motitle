@@ -41,7 +41,7 @@ const FontPreview = (() => {
   }
 
   function init(socketOrNull) {
-    if (!_svgEl) {
+    if (!_svgEl || !_svgEl.isConnected) {
       _svgEl = document.getElementById('subtitleSvg');
       _textEl = document.getElementById('subtitleSvgText');
 

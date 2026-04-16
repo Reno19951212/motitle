@@ -122,7 +122,8 @@ class ProfileManager:
             raise ValueError(errors)
 
         profile_id = str(uuid.uuid4())
-        profile = {**data, "id": profile_id, "created_at": time.time()}
+        now = time.time()
+        profile = {**data, "id": profile_id, "created_at": now, "updated_at": now}
         self._write_profile(profile_id, profile)
         return profile
 
@@ -180,6 +181,7 @@ class ProfileManager:
         if errors:
             raise ValueError(errors)
 
+        merged["updated_at"] = time.time()
         self._write_profile(profile_id, merged)
         return merged
 
@@ -210,12 +212,21 @@ class ProfileManager:
         """
         Return the currently active profile, or None if none is set
         or the referenced profile no longer exists.
+
+        If the profile file was deleted externally (not via delete()), the stale
+        active_profile ID is cleared from settings.json before returning None so
+        that callers can distinguish "never set" from "was set but file is gone",
+        and subsequent calls skip a pointless file-read.
         """
         settings = self._read_settings()
         active_id = settings.get("active_profile")
         if not active_id:
             return None
-        return self.get(active_id)
+        profile = self.get(active_id)
+        if profile is None:
+            # Profile file was deleted externally — clear the stale reference.
+            self._write_settings({**settings, "active_profile": None})
+        return profile
 
     def set_active(self, profile_id: str) -> Optional[dict]:
         """
