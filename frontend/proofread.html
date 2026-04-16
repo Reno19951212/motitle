@@ -1,2534 +1,714 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>字幕校對編輯器</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MoTitle — 校對</title>
+  <link rel="stylesheet" href="shared.css">
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="js/font-preview.js"></script>
+  <script src="js/shared.js"></script>
   <style>
-    /* ===== CSS Variables ===== */
-    :root {
-      --bg: #0f0f1a;
-      --surface: #1a1a2e;
-      --surface2: #1c1c28;
-      --border: #2a2a3d;
-      --accent: #a78bfa;
-      --accent2: #c4b5fd;
-      --text: #e2e2f0;
-      --text-dim: #888899;
-      --success: #4ade80;
-      --warning: #fbbf24;
-      --danger: #ef4444;
-      --subtitle-bg: rgba(0,0,0,0.78);
-      --subtitle-text: #ffffff;
-      --radius: 12px;
-      --shadow: 0 8px 32px rgba(0,0,0,0.4);
-    }
+    body { display: flex; flex-direction: column; }
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Segoe UI', 'Microsoft JhengHei', 'PingFang TC', system-ui, sans-serif;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    /* ===== Header ===== */
-    header {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 14px 24px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-
-    .logo {
-      font-size: 20px;
-      font-weight: 700;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .header-file-name {
-      font-size: 13px;
-      color: var(--text-dim);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      max-width: 300px;
-    }
-
-    .header-spacer { flex: 1; }
-
-    /* ===== Main Layout ===== */
-    .layout {
+    .main-grid {
+      flex: 1; min-height: 0;
       display: grid;
       grid-template-columns: 1fr 520px;
-      grid-template-rows: 1fr auto;
-      gap: 0;
-      flex: 1;
-      min-height: 0;
     }
 
-    @media (max-width: 1100px) {
-      .layout {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto 1fr auto;
-      }
-    }
-
-    /* ===== Left Panel (Video) ===== */
-    .video-panel {
-      display: flex;
-      flex-direction: column;
+    /* ── Left: video + shortcuts ── */
+    .left-col {
+      display: flex; flex-direction: column;
       border-right: 1px solid var(--border);
-      background: #000;
-      min-height: 0;
     }
-
-    .video-area {
-      position: relative;
+    .video-wrap {
+      flex: 1; min-height: 0;
       background: #000;
+      position: relative;
       aspect-ratio: 16/9;
       width: 100%;
-      overflow: hidden;
     }
-
-    .video-area video {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
+    .video-wrap video {
+      width: 100%; height: 100%;
+      display: block; object-fit: contain;
     }
-
-    /* ===== Subtitle Overlay ===== */
     .subtitle-overlay {
       position: absolute;
-      bottom: var(--preview-margin-bottom, 40px);
-      left: 0;
-      right: 0;
-      display: flex;
-      justify-content: center;
+      bottom: var(--preview-margin-bottom);
+      left: 0; right: 0;
+      display: flex; justify-content: center;
       pointer-events: none;
     }
-
-    .subtitle-svg {
-      max-width: 90%;
-      overflow: visible;
-    }
-
-    /* Placeholder when no video loaded */
-    .video-placeholder {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      color: var(--text-dim);
-      background: #0a0a0f;
-    }
-
-    .video-placeholder .icon { font-size: 48px; opacity: 0.4; }
-    .video-placeholder p { font-size: 15px; }
-
-    /* Keyboard shortcuts hint */
-    .shortcuts-hint {
-      padding: 10px 16px;
-      background: var(--surface);
+    .shortcuts-bar {
+      height: 40px; flex-shrink: 0;
+      display: flex; align-items: center;
+      gap: 16px; padding: 0 16px;
+      background: var(--surface2);
       border-top: 1px solid var(--border);
-      display: flex;
-      gap: 20px;
-      flex-wrap: wrap;
+      font-size: 11px; color: var(--text-muted);
+    }
+    .shortcut-hint { display: flex; gap: 4px; align-items: center; }
+    .shortcut-hint kbd {
+      background: var(--border); border-radius: 3px;
+      padding: 1px 5px; font-size: 10px; color: var(--text);
     }
 
-    .shortcut {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      color: var(--text-dim);
-    }
-
-    .key {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 2px 7px;
-      font-family: monospace;
-      font-size: 11px;
-      color: var(--text);
-    }
-
-    /* Shortcut help modal */
-    .shortcut-help-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.65);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-    }
-    .shortcut-help-panel {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      width: 480px;
-      max-width: 90vw;
-      max-height: 85vh;
-      overflow: auto;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-    }
-    .shortcut-help-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 14px 18px;
-      border-bottom: 1px solid var(--border);
-      font-weight: 600;
-      font-size: 14px;
-    }
-    .shortcut-help-close {
-      background: transparent;
-      border: 0;
-      color: var(--text-dim);
-      font-size: 18px;
-      cursor: pointer;
-      padding: 0 4px;
-    }
-    .shortcut-help-close:hover { color: var(--text); }
-    .shortcut-help-body { padding: 14px 18px; }
-    .shortcut-help-group { margin-bottom: 16px; }
-    .shortcut-help-group:last-child { margin-bottom: 0; }
-    .shortcut-help-group-title {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      color: var(--text-dim);
-      text-transform: uppercase;
-      margin-bottom: 8px;
-    }
-    .shortcut-help-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 5px 0;
-      font-size: 13px;
-      color: var(--text);
-    }
-    .shortcut-help-row kbd {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 2px 8px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 11px;
-      color: var(--text);
-      min-width: 28px;
-      text-align: center;
-    }
-
-    /* ===== Right Panel (Segment Table) ===== */
-    .table-panel {
-      display: flex;
-      flex-direction: column;
-      background: var(--surface);
-      min-height: 0;
+    /* ── Right: segment table ── */
+    .right-col {
+      display: flex; flex-direction: column; min-height: 0;
       overflow: hidden;
     }
 
     .table-header {
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-shrink: 0;
-    }
-
-    .table-header-title {
-      font-size: 13px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--text-dim);
-    }
-
-    .table-header-spacer { flex: 1; }
-
-    .approval-summary {
-      font-size: 12px;
-      color: var(--text-dim);
-    }
-
-    .approval-summary span {
-      color: var(--success);
-      font-weight: 600;
-    }
-
-    .segment-table-wrap {
-      flex: 1;
-      overflow-y: auto;
-      min-height: 0;
-    }
-
-    .segment-table-wrap::-webkit-scrollbar { width: 4px; }
-    .segment-table-wrap::-webkit-scrollbar-track { background: transparent; }
-    .segment-table-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-    }
-
-    thead th {
-      position: sticky;
-      top: 0;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 10px 12px;
-      text-align: left;
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--text-dim);
-      z-index: 10;
-    }
-
-    thead th:first-child { width: 42px; text-align: center; }
-    thead th.col-status { width: 64px; text-align: center; }
-
-    tbody tr {
-      border-bottom: 1px solid var(--border);
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-
-    tbody tr:hover { background: rgba(167,139,250,0.06); }
-
-    tbody tr.active {
-      background: rgba(167,139,250,0.12);
-    }
-
-    tbody tr.active td { border-left: 2px solid var(--accent); }
-    tbody tr.active td:not(:first-child) { border-left: none; }
-    tbody tr.active td:first-child { border-left: 2px solid var(--accent); }
-
-    td {
-      padding: 10px 12px;
-      vertical-align: top;
-    }
-
-    td:first-child {
-      text-align: center;
-      color: var(--text-dim);
-      font-size: 11px;
-      font-family: monospace;
-      white-space: nowrap;
-    }
-
-    .td-time {
-      font-family: monospace;
-      font-size: 11px;
-      color: var(--text-dim);
-      white-space: nowrap;
-      width: 80px;
-    }
-
-    .td-en {
-      color: var(--text);
-      line-height: 1.5;
-    }
-
-    .td-zh {
-      color: var(--accent2);
-      line-height: 1.5;
-      position: relative;
-    }
-
-    .zh-display {
-      border-radius: 4px;
-      padding: 2px 4px;
-      margin: -2px -4px;
-      transition: background 0.15s;
-      cursor: text;
-      display: block;
-      min-height: 1.5em;
-    }
-
-    .zh-display:hover {
-      background: rgba(167,139,250,0.12);
-    }
-
-    .zh-display.editing-active {
-      background: rgba(167,139,250,0.08);
-    }
-
-    .zh-edit-area {
-      width: 100%;
-      background: var(--surface2);
-      border: 1px solid var(--accent);
-      border-radius: 6px;
-      color: var(--text);
-      font-size: 13px;
-      font-family: inherit;
-      padding: 6px 8px;
-      resize: vertical;
-      min-height: 60px;
-      outline: none;
-      line-height: 1.5;
-    }
-
-    .td-status {
-      text-align: center;
-      width: 64px;
-    }
-
-    .status-btn {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      border: 2px solid var(--border);
-      background: none;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      transition: all 0.2s;
-      color: var(--text-dim);
-    }
-
-    .status-btn:hover {
-      border-color: var(--success);
-      color: var(--success);
-      background: rgba(74,222,128,0.1);
-    }
-
-    .status-btn.approved {
-      border-color: var(--success);
-      background: rgba(74,222,128,0.15);
-      color: var(--success);
-    }
-
-    /* ===== Bottom Bar ===== */
-    .bottom-bar {
-      grid-column: 1 / -1;
-      background: var(--surface);
-      border-top: 1px solid var(--border);
-      padding: 14px 24px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      flex-shrink: 0;
-    }
-
-    .progress-wrap {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .progress-label {
-      font-size: 12px;
-      color: var(--text-dim);
-    }
-
-    .progress-label strong {
-      color: var(--accent2);
-    }
-
-    .progress-bar {
-      height: 6px;
-      background: var(--border);
-      border-radius: 3px;
-      overflow: hidden;
-    }
-
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--accent), var(--accent2));
-      border-radius: 3px;
-      transition: width 0.3s ease;
-    }
-
-    /* ===== Buttons ===== */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 10px 18px;
-      border-radius: 10px;
-      border: none;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      white-space: nowrap;
-    }
-
-    .btn-secondary {
-      background: var(--surface2);
-      color: var(--text);
-      border: 1px solid var(--border);
-    }
-    .btn-secondary:hover { border-color: var(--accent); color: var(--accent2); }
-
-    .btn-success {
-      background: var(--success);
-      color: #0a0a0f;
-    }
-    .btn-success:hover { background: #22c55e; transform: translateY(-1px); }
-
-    .btn-render {
-      background: linear-gradient(135deg, var(--accent), #7c3aed);
-      color: white;
-    }
-    .btn-render:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(167,139,250,0.3); }
-
-    .btn:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-      transform: none !important;
-      box-shadow: none !important;
-    }
-
-    /* ===== Render Options Modal ===== */
-    .render-modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.65);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 2000;
-      animation: fadeIn 0.15s ease;
-    }
-    @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
-
-    .render-modal {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      width: 480px;
-      max-width: 94vw;
-      max-height: 88vh;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .render-modal-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 18px 22px 14px;
-      border-bottom: 1px solid var(--border);
-    }
-    .render-modal-title {
-      font-size: 16px;
-      font-weight: 600;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-    .render-modal-close {
-      background: none;
-      border: none;
-      color: var(--text-dim);
-      font-size: 18px;
-      cursor: pointer;
-      padding: 2px 6px;
-      border-radius: 6px;
-      line-height: 1;
-    }
-    .render-modal-close:hover { color: var(--text); background: var(--surface2); }
-
-    .render-modal-body { padding: 20px 22px; display: flex; flex-direction: column; gap: 20px; }
-
-    .render-opt-section {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-    .render-opt-section-title {
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--text-dim);
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 6px;
-    }
-
-    .render-opt-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .render-opt-label {
-      font-size: 13px;
-      color: var(--text-dim);
-      min-width: 90px;
-      flex-shrink: 0;
-    }
-    .render-opt-control { flex: 1; }
-
-    .render-opt-control select,
-    .render-opt-control input[type="range"] {
-      width: 100%;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      font-size: 13px;
-      padding: 6px 10px;
-    }
-    .render-opt-control select:focus { outline: none; border-color: var(--accent); }
-
-    .render-crf-wrap { display: flex; align-items: center; gap: 10px; }
-    .render-crf-wrap input[type="range"] { flex: 1; padding: 0; accent-color: var(--accent); }
-    .render-crf-val {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--accent2);
-      min-width: 24px;
-      text-align: right;
-    }
-    .render-crf-hint {
-      font-size: 11px;
-      color: var(--text-dim);
-      margin-top: 3px;
-    }
-
-    .render-prores-grid {
+      height: 40px; flex-shrink: 0;
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-    .render-prores-option {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      padding: 10px 12px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      cursor: pointer;
-      transition: border-color 0.15s, background 0.15s;
-    }
-    .render-prores-option:hover { border-color: var(--accent); }
-    .render-prores-option.selected {
-      border-color: var(--accent);
-      background: rgba(167,139,250,0.08);
-    }
-    .render-prores-option input[type="radio"] { display: none; }
-    .render-prores-name { font-size: 13px; font-weight: 600; color: var(--text); }
-    .render-prores-desc { font-size: 11px; color: var(--text-dim); }
-
-    .render-modal-footer {
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-      padding: 14px 22px 18px;
-      border-top: 1px solid var(--border);
-    }
-
-    /* ===== Toast ===== */
-    .toast-container {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      z-index: 9999;
-      pointer-events: none;
-    }
-
-    .toast {
-      padding: 12px 18px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      font-size: 14px;
-      box-shadow: var(--shadow);
-      animation: toastIn 0.3s ease;
-      max-width: 340px;
-      pointer-events: auto;
-    }
-
-    @keyframes toastIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    @keyframes toastOut {
-      from { opacity: 1; transform: translateY(0); }
-      to { opacity: 0; transform: translateY(10px); }
-    }
-
-    .toast.success { border-color: var(--success); }
-    .toast.error { border-color: var(--danger); }
-    .toast.warning { border-color: var(--warning); }
-    .toast.info { border-color: var(--accent); }
-
-    /* ===== Loading overlay ===== */
-    .loading-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(15,15,26,0.85);
-      display: flex;
-      flex-direction: column;
+      grid-template-columns: 32px 150px 1fr 48px;
       align-items: center;
-      justify-content: center;
-      gap: 16px;
-      z-index: 200;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      padding: 0 8px;
+      font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.3px;
+      color: var(--text-muted);
     }
 
-    .loading-overlay.hidden { display: none; }
-
-    .spinner {
-      width: 40px;
-      height: 40px;
-      border: 3px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .loading-text {
-      font-size: 15px;
-      color: var(--text-dim);
-    }
-
-    /* ===== Error state ===== */
-    .error-state {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      padding: 60px 24px;
-      color: var(--text-dim);
-      text-align: center;
-    }
-
-    .error-state .icon { font-size: 48px; }
-    .error-state h2 { color: var(--danger); font-size: 18px; }
-    .error-state p { font-size: 14px; max-width: 400px; }
-
-    /* ===== Find & Replace toolbar ===== */
+    /* Find bar: sticky, overlays table */
     .find-bar {
-      display: none;
-      flex-direction: column;
-      gap: 6px;
-      padding: 8px 12px;
+      position: sticky; top: 0; z-index: 10;
       background: var(--surface);
       border-bottom: 1px solid var(--border);
-      font-size: 13px;
+      padding: 8px 10px;
+      display: none;
     }
-    .find-bar.open { display: flex; }
-    .find-bar-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
+    .find-bar.open { display: block; }
+    .find-bar-row1 {
+      display: flex; gap: 6px; align-items: center; margin-bottom: 6px;
     }
     .find-input {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      color: var(--text);
-      font-size: 13px;
-      padding: 4px 8px;
-      min-width: 160px;
-      outline: none;
+      flex: 1; background: var(--surface2);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text); padding: 4px 8px; font-size: 12px;
     }
-    .find-input:focus { border-color: var(--accent); }
-    .find-counter {
-      font-size: 12px;
-      color: var(--text-dim);
-      min-width: 60px;
-      white-space: nowrap;
-    }
-    .find-counter.no-match { color: var(--danger); }
     .find-nav-btn {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      color: var(--text);
-      cursor: pointer;
-      font-size: 12px;
-      padding: 3px 8px;
+      background: none; border: 1px solid var(--border);
+      border-radius: var(--radius); color: var(--text);
+      padding: 3px 8px; cursor: pointer; font-size: 12px;
     }
-    .find-nav-btn:hover { border-color: var(--accent); }
-    .find-nav-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-    .find-close-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-dim);
-      cursor: pointer;
-      font-size: 16px;
-      line-height: 1;
-      padding: 2px 4px;
-      margin-left: auto;
+    .find-nav-btn:hover { background: var(--surface2); }
+    .find-bar-row2 { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .find-count { font-size: 11px; color: var(--text-muted); min-width: 60px; }
+    .glossary-toggle {
+      font-size: 11px; color: var(--accent2);
+      background: none; border: none; cursor: pointer;
+      padding: 2px 6px;
     }
-    .find-close-btn:hover { color: var(--text); }
-    .find-glossary-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
+    .glossary-section {
+      display: none; margin-top: 6px;
+      padding-top: 6px; border-top: 1px solid var(--border);
     }
-    .find-glossary-select {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      color: var(--text);
+    .glossary-section.open { display: block; }
+
+    /* Segment table scroll container */
+    .seg-scroll {
+      flex: 1; min-height: 0; overflow-y: auto;
+    }
+
+    table.seg-table {
+      width: 100%; border-collapse: collapse;
+      table-layout: fixed;
+    }
+    table.seg-table col.col-num { width: 32px; }
+    table.seg-table col.col-en  { width: 150px; }
+    table.seg-table col.col-zh  { width: 260px; }
+    table.seg-table col.col-ok  { width: 48px; }
+
+    table.seg-table tbody tr {
+      border-bottom: 1px solid var(--border);
+    }
+    table.seg-table tbody tr:hover { background: var(--surface2); }
+    table.seg-table tbody tr.approved { opacity: 0.6; }
+    table.seg-table tbody tr.playing  { background: rgba(108,99,255,0.1); }
+
+    table.seg-table td {
+      padding: 8px;
+      vertical-align: top;
       font-size: 13px;
-      padding: 4px 8px;
-      min-width: 180px;
     }
-    mark.find-highlight {
-      background: rgba(250, 204, 21, 0.35);
-      border-radius: 2px;
-      color: inherit;
+    table.seg-table td.col-num {
+      text-align: center; color: var(--text-muted);
+      font-size: 11px; width: 32px;
     }
-    mark.find-highlight-active {
-      background: rgba(250, 204, 21, 0.75);
-      outline: 1px solid #facc15;
-      border-radius: 2px;
-      color: inherit;
+    table.seg-table td.col-en {
+      color: var(--text-muted); font-size: 12px; word-break: break-word;
     }
-    /* Glossary preview modal */
-    .glossary-modal-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.6);
-      z-index: 2000;
-      align-items: center;
-      justify-content: center;
+    table.seg-table td.col-zh {
+      font-size: 13px; word-break: break-word;
     }
-    .glossary-modal-overlay.open { display: flex; }
-    .glossary-modal {
+    table.seg-table td.col-zh [contenteditable] {
+      outline: none; display: block;
+      border-radius: 4px; padding: 2px 4px;
+    }
+    table.seg-table td.col-zh [contenteditable]:focus {
+      background: var(--surface2); outline: 1px solid var(--accent);
+    }
+    table.seg-table td.col-ok { text-align: center; width: 48px; }
+    table.seg-table td.col-ok button {
+      background: none; border: 1px solid var(--border);
+      border-radius: 4px; cursor: pointer;
+      width: 28px; height: 24px; font-size: 12px; color: var(--text-muted);
+    }
+    table.seg-table td.col-ok button.approved-btn {
+      border-color: var(--success); color: var(--success);
+    }
+
+    /* Highlight for Find matches */
+    .find-match { background: rgba(251,191,36,0.3); border-radius: 2px; }
+    .find-match-current { background: rgba(251,191,36,0.6); }
+
+    /* Bottom bar */
+    .bottom-bar {
+      height: 56px; flex-shrink: 0;
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 12px;
+      border-top: 1px solid var(--border);
       background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      max-width: 520px;
-      width: 90%;
-      padding: 20px;
-      max-height: 70vh;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
     }
-    .glossary-modal h3 { margin: 0; font-size: 15px; }
-    .glossary-violation-list {
-      overflow-y: auto;
-      flex: 1;
-      font-size: 13px;
-      line-height: 1.8;
-      color: var(--text);
+    .approval-count { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+    .format-toggle {
+      display: flex; gap: 4px; margin-left: auto;
     }
-    .glossary-modal-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
+    .format-btn {
+      padding: 4px 12px; font-size: 12px;
+      border: 1px solid var(--border); border-radius: var(--radius);
+      background: var(--surface2); color: var(--text); cursor: pointer;
     }
-    .btn-primary {
-      background: var(--accent);
-      color: #0a0a0f;
+    .format-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn-render {
+      padding: 6px 16px; font-size: 13px;
+      background: var(--accent); border: none; border-radius: var(--radius);
+      color: #fff; cursor: pointer; white-space: nowrap;
     }
-    .btn-primary:hover { background: var(--accent2); transform: translateY(-1px); }
+    .btn-render:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-bulk {
+      font-size: 12px; padding: 4px 10px;
+    }
   </style>
 </head>
 <body>
-
-  <!-- Loading overlay -->
-  <div class="loading-overlay" id="loadingOverlay">
-    <div class="spinner"></div>
-    <div class="loading-text" id="loadingText">正在載入字幕資料…</div>
-  </div>
-
-  <!-- Header -->
-  <header>
-    <a href="index.html" style="color:var(--accent);text-decoration:none;font-size:14px;margin-right:12px;">← 返回主頁</a>
-    <div class="logo">✦ 字幕校對</div>
-    <div class="header-file-name" id="headerFileName">—</div>
-    <div class="header-spacer"></div>
+  <header class="header">
+    <a href="index.html" class="logo-back" id="btnBack">← 返回</a>
+    <span class="page-title" id="pageTitle">校對編輯器</span>
+    <a href="settings.html" class="btn btn-icon" title="設定">⚙</a>
   </header>
 
-  <!-- Main layout -->
-  <div class="layout" id="mainLayout" style="display:none; flex:1; min-height:0;">
-
-    <!-- Left: Video panel -->
-    <div class="video-panel">
-      <div class="video-area" id="videoArea">
-        <div class="video-placeholder" id="videoPlaceholder">
-          <div class="icon">🎬</div>
-          <p>正在載入影片…</p>
-        </div>
-        <video id="videoEl" preload="auto" controls style="display:none;"></video>
+  <main class="main-grid">
+    <!-- Left: video -->
+    <div class="left-col">
+      <div class="video-wrap">
+        <video id="videoPlayer" preload="metadata"></video>
         <div class="subtitle-overlay">
-          <svg class="subtitle-svg" id="subtitleSvg"
-               xmlns="http://www.w3.org/2000/svg"
-               width="100%" height="60" overflow="visible">
+          <svg id="subtitleSvg" width="100%" height="60" style="overflow:visible">
             <text id="subtitleSvgText"
-                  x="50%" y="50"
-                  text-anchor="middle"
-                  font-weight="600"
-                  paint-order="stroke fill"
-                  stroke-linejoin="round"
-                  opacity="0"
-                  style="transition: opacity 0.25s ease;">
-            </text>
+              x="50%" y="52"
+              text-anchor="middle"
+              paint-order="stroke fill"
+              style="opacity:0"></text>
           </svg>
         </div>
       </div>
-
-      <div class="shortcuts-hint">
-        <div class="shortcut"><span class="key">Space</span> 播放/暫停</div>
-        <div class="shortcut"><span class="key">↑</span><span class="key">↓</span> 導覽片段</div>
-        <div class="shortcut"><span class="key">N</span><span class="key">P</span> 跳未核准</div>
-        <div class="shortcut"><span class="key">E</span> 編輯翻譯</div>
-        <div class="shortcut"><span class="key">A</span> 核准</div>
-        <div class="shortcut"><span class="key">Esc</span> 取消</div>
-        <div class="shortcut" style="margin-left:auto;cursor:pointer;color:var(--accent);" onclick="showShortcutHelp()"><span class="key">?</span> 全部說明</div>
+      <div class="shortcuts-bar">
+        <span class="shortcut-hint"><kbd>Tab</kbd> 下一段</span>
+        <span class="shortcut-hint"><kbd>Shift+Tab</kbd> 上一段</span>
+        <span class="shortcut-hint"><kbd>⌘F</kbd> 尋找</span>
+        <span class="shortcut-hint"><kbd>⌘Enter</kbd> 批核</span>
       </div>
     </div>
 
-    <!-- Right: Segment table panel -->
-    <div class="table-panel">
+    <!-- Right: segment editor -->
+    <div class="right-col">
       <div class="table-header">
-        <div class="table-header-title">片段列表</div>
-        <div class="table-header-spacer"></div>
-        <div class="approval-summary" id="approvalSummary">已核准 <span id="approvedCount">0</span> / <span id="totalCount">0</span></div>
+        <span>#</span><span>EN</span><span>ZH</span><span>✓</span>
       </div>
 
-      <!-- Find & Replace toolbar -->
-      <div class="find-bar" id="findBar">
-        <div class="find-bar-row">
-          <span style="color:var(--text-dim);font-size:12px;">🔍</span>
-          <input class="find-input" id="findInput" type="text" placeholder="搜尋…" autocomplete="off" />
-          <input class="find-input" id="replaceInput" type="text" placeholder="替換為…" autocomplete="off" />
-          <label style="font-size:12px;color:var(--text-dim);display:flex;align-items:center;gap:4px;cursor:pointer;">
-            <input type="checkbox" id="findOnlyUnapproved" /> 只搜未批核
-          </label>
-          <span class="find-counter" id="findCounter"></span>
-          <button class="find-nav-btn" id="findPrevBtn" title="上一個 (Shift+Enter)" disabled>▲</button>
-          <button class="find-nav-btn" id="findNextBtn" title="下一個 (Enter)" disabled>▼</button>
-          <button class="btn btn-secondary" id="findReplaceOneBtn" style="font-size:12px;padding:4px 10px;" disabled>替換</button>
-          <button class="btn btn-secondary" id="findReplaceAllBtn" style="font-size:12px;padding:4px 10px;" disabled>全部替換</button>
-          <button class="find-close-btn" id="findCloseBtn" title="關閉 (Esc)">✕</button>
+      <!-- Find bar: sticky within seg-scroll container -->
+      <div class="seg-scroll" id="segScroll">
+        <div class="find-bar" id="findBar">
+          <div class="find-bar-row1">
+            <input class="find-input" id="findInput" type="text" placeholder="搜尋中文…" autocomplete="off">
+            <input class="find-input" id="replaceInput" type="text" placeholder="替換為…" autocomplete="off">
+            <button class="find-nav-btn" id="btnFindPrev">▲</button>
+            <button class="find-nav-btn" id="btnFindNext">▼</button>
+            <button class="find-nav-btn" id="btnReplaceOne">替換</button>
+            <button class="find-nav-btn" id="btnReplaceAll">全換</button>
+            <button class="find-nav-btn" onclick="closeFindBar()">✕</button>
+          </div>
+          <div class="find-bar-row2">
+            <span class="find-count" id="findCount">0 / 0</span>
+            <label style="font-size:11px;display:flex;gap:4px;align-items:center;cursor:pointer;">
+              <input type="checkbox" id="findOnlyUnapproved"> 只搜未批核
+            </label>
+            <button class="glossary-toggle" id="glossaryToggle" onclick="toggleGlossarySection()">
+              📚 詞表套用 ▾
+            </button>
+          </div>
+          <div class="glossary-section" id="glossarySection">
+            <button class="btn btn-primary" style="font-size:12px;" onclick="applyGlossary()">套用詞表</button>
+            <span id="glossaryStatus" style="font-size:11px;color:var(--text-muted);margin-left:8px;"></span>
+          </div>
         </div>
-        <div class="find-glossary-row">
-          <span style="color:var(--text-dim);font-size:12px;">📖 套用詞表：</span>
-          <select class="find-glossary-select" id="findGlossarySelect">
-            <option value="">— 未選擇 —</option>
-          </select>
-          <button class="btn btn-secondary" id="findApplyGlossaryBtn" style="font-size:12px;padding:4px 10px;" disabled>套用詞表</button>
-        </div>
-      </div>
 
-      <div class="segment-table-wrap" id="tableWrap">
-        <table id="segmentTable">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>English</th>
-              <th>中文翻譯</th>
-              <th class="col-status">狀態</th>
-            </tr>
-          </thead>
-          <tbody id="tableBody"></tbody>
+        <table class="seg-table" id="segTable">
+          <colgroup>
+            <col class="col-num"><col class="col-en">
+            <col class="col-zh"><col class="col-ok">
+          </colgroup>
+          <tbody id="segBody"></tbody>
         </table>
       </div>
-    </div>
 
-    <!-- Bottom bar -->
-    <div class="bottom-bar">
-      <div class="progress-wrap">
-        <div class="progress-label">批核進度：<strong id="progressPct">0%</strong></div>
-        <div class="progress-bar">
-          <div class="progress-fill" id="progressFill" style="width:0%"></div>
+      <div class="bottom-bar">
+        <button class="btn btn-bulk" id="btnBulkApprove">批核全部</button>
+        <span class="approval-count" id="approvalCount">0 / 0 批核</span>
+        <div class="format-toggle">
+          <button class="format-btn active" id="fmtMp4" onclick="setFormat('mp4')">MP4</button>
+          <button class="format-btn" id="fmtMxf" onclick="setFormat('mxf')">MXF</button>
         </div>
+        <button class="btn-render" id="btnRender" disabled>匯出燒入字幕 →</button>
       </div>
-      <button class="btn btn-secondary" id="btnBulkApprove">批核所有未改動</button>
-      <button class="btn btn-render" id="btnRender" disabled>匯出燒入字幕 →</button>
     </div>
-  </div>
+  </main>
 
-  <!-- Error state (shown if load fails) -->
-  <div class="error-state" id="errorState" style="display:none;">
-    <div class="icon">⚠️</div>
-    <h2>載入失敗</h2>
-    <p id="errorMsg">無法取得字幕資料，請確認 file_id 正確且伺服器正在運行。</p>
-  </div>
+  <div id="toastContainer" class="toast-container"></div>
 
-  <!-- Apply Glossary preview modal -->
-  <div class="glossary-modal-overlay" id="glossaryModalOverlay">
-    <div class="glossary-modal">
-      <h3 id="glossaryModalTitle">發現詞表不符</h3>
-      <div class="glossary-violation-list" id="glossaryViolationList"></div>
-      <div class="glossary-modal-actions">
-        <button class="btn btn-secondary" id="glossaryModalCancelBtn">取消</button>
-        <button class="btn btn-primary" id="glossaryModalApplyBtn">全部套用</button>
+  <!-- Render modal -->
+  <div id="renderModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center;">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;width:400px;max-width:90vw;">
+      <h3 style="margin-bottom:16px;font-size:15px;">匯出設定</h3>
+      <div id="renderOptions"></div>
+      <div style="display:flex;gap:8px;margin-top:20px;justify-content:flex-end;">
+        <button class="btn" onclick="closeRenderModal()">取消</button>
+        <button class="btn btn-primary" id="btnStartRender">開始渲染</button>
       </div>
     </div>
   </div>
 
-  <!-- Toast container -->
-  <div class="toast-container" id="toastContainer"></div>
-
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  <script src="js/font-preview.js"></script>
   <script>
-    'use strict';
+  'use strict';
 
-  const API_BASE = 'http://localhost:5001';
-
-  // ===== Utility functions =====
-
-  function escapeHtml(str) {
-    if (str == null) return '';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
-
-  function formatTime(seconds) {
-    if (seconds == null || isNaN(seconds)) return '—';
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  }
-
-  // ===== Toast system =====
-
-  function showToast(message, type = 'info', durationMs = 3000) {
-    const container = document.getElementById('toastContainer');
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.textContent = message;
-    container.appendChild(toast);
-
-    setTimeout(() => {
-      toast.style.animation = 'toastOut 0.3s ease forwards';
-      setTimeout(() => toast.remove(), 300);
-    }, durationMs);
-  }
-
-  // ===== State (immutable update pattern) =====
+  // ── Init: read file_id from URL ───────────────────────────
+  const params  = new URLSearchParams(location.search);
+  const fileId  = params.get('file_id');
+  if (!fileId) { location.href = 'index.html'; throw new Error('no file_id'); }
 
   let state = {
-    fileId: null,
-    fileName: '',
-    segments: [],         // [{idx, start, end, en_text, zh_text, approved}]
-    activeIdx: null,      // currently highlighted row index (into segments array)
-    editingIdx: null,     // segment idx currently being edited
+    segments: [],      // { id, start, end, text, zh_text, status }
+    currentIdx: -1,
+    findMatches: [],
+    findMatchIdx: 0,
+    format: 'mp4',
+    glossaries: [],
+    renderJobId: null,
+    renderPollTimer: null,
   };
 
-  function setState(patch) {
-    state = { ...state, ...patch };
+  // ── Socket ────────────────────────────────────────────────
+  const socket = connectSocket({}, { optional: true });
+
+  // ── Load file ─────────────────────────────────────────────
+  async function init() {
+    // Validate file_id
+    const fileRes = await fetch(`${API_BASE}/api/files/${fileId}`);
+    if (!fileRes.ok) { location.href = 'index.html'; return; }
+    const fileData = await fileRes.json();
+    document.getElementById('pageTitle').textContent = fileData.original_name || '校對編輯器';
+
+    // Load video
+    const video = document.getElementById('videoPlayer');
+    video.src = `${API_BASE}/api/files/${fileId}/media`;
+    video.load();
+    video.addEventListener('timeupdate', onTimeUpdate);
+
+    // Load translations (no gate — load whatever is available)
+    const [transRes, glossRes] = await Promise.all([
+      fetch(`${API_BASE}/api/files/${fileId}/translations`),
+      fetch(`${API_BASE}/api/glossaries`),
+    ]);
+    state.segments = transRes.ok ? await transRes.json() : [];
+    state.glossaries = glossRes.ok ? await glossRes.json() : [];
+
+    renderTable();
+    updateApprovalCount();
+    document.getElementById('btnRender').disabled = false;
   }
 
-  function updateSegment(segIdx, patch) {
-    const segments = state.segments.map((seg, i) =>
-      i === segIdx ? { ...seg, ...patch } : seg
-    );
-    setState({ segments });
+  // ── Segment table ─────────────────────────────────────────
+  function renderTable() {
+    const tbody = document.getElementById('segBody');
+    tbody.innerHTML = state.segments.map((seg, i) => {
+      const isApproved = seg.status === 'approved';
+      return `
+        <tr data-idx="${i}" class="${isApproved ? 'approved' : ''}">
+          <td class="col-num">${i + 1}</td>
+          <td class="col-en">${escapeHtml(seg.text || '')}</td>
+          <td class="col-zh">
+            <div contenteditable="${isApproved ? 'false' : 'true'}"
+              data-idx="${i}"
+              onblur="saveZh(${i}, this.textContent)"
+              onkeydown="handleZhKey(event, ${i})"
+            >${escapeHtml(seg.zh_text || '')}</div>
+          </td>
+          <td class="col-ok">
+            <button class="${isApproved ? 'approved-btn' : ''}"
+              onclick="toggleApprove(${i})"
+              title="${isApproved ? '撤銷批核' : '批核'}">
+              ${isApproved ? '✓' : '○'}
+            </button>
+          </td>
+        </tr>`;
+    }).join('');
   }
 
-  // ===== Find & Replace state =====
-
-  let findState = {
-    query: '',
-    replacement: '',
-    onlyUnapproved: false,
-    matchList: [],       // [{segIdx, field, start, len}] field: 'zh'|'en'
-    currentMatchIdx: -1,
-    glossaryList: [],    // [{id, name}] populated on toolbar open
-    selectedGlossaryId: null,
-  };
-
-  function setFindState(patch) {
-    findState = { ...findState, ...patch };
-  }
-
-  // ===== Find & Replace open / close =====
-
-  function openFindReplace() {
-    const bar = document.getElementById('findBar');
-    if (!bar) return;
-    bar.classList.add('open');
-    const input = document.getElementById('findInput');
-    if (input) {
-      input.focus();
-      input.select();
+  function handleZhKey(e, idx) {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const next = e.shiftKey ? idx - 1 : idx + 1;
+      if (next >= 0 && next < state.segments.length) {
+        const el = document.querySelector(`[data-idx="${next}"][contenteditable]`);
+        if (el) { el.focus(); selectAll(el); }
+      }
     }
-    // Load glossary dropdown on open (Task 8 will implement this fully)
-    if (typeof loadGlossaryDropdown === 'function') loadGlossaryDropdown();
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      toggleApprove(idx);
+    }
   }
 
-  function closeFindReplace() {
-    const bar = document.getElementById('findBar');
-    if (!bar) return;
-    bar.classList.remove('open');
+  function selectAll(el) {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  async function saveZh(idx, text) {
+    const seg = state.segments[idx];
+    if (!seg || (seg.zh_text ?? '') === text.trim()) return;
+    const newText = text.trim();
+    const updated = Object.assign({}, seg, { zh_text: newText, status: 'pending' });
+    state.segments = state.segments.map((s, i) => i === idx ? updated : s);
+    await fetch(`${API_BASE}/api/files/${fileId}/translations/${idx}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ zh_text: newText }),
+    });
+    updateApprovalCount();
+  }
+
+  async function toggleApprove(idx) {
+    const seg = state.segments[idx];
+    if (!seg) return;
+    const isApproved = seg.status === 'approved';
+    if (!isApproved) {
+      const res = await fetch(`${API_BASE}/api/files/${fileId}/translations/${idx}/approve`, { method: 'POST' });
+      if (!res.ok) { showToast('批核失敗', 'error'); return; }
+    }
+    const newStatus = isApproved ? 'pending' : 'approved';
+    state.segments = state.segments.map((s, i) => i === idx ? Object.assign({}, s, { status: newStatus }) : s);
+    const row = document.querySelector(`tr[data-idx="${idx}"]`);
+    if (row) {
+      row.className = newStatus === 'approved' ? 'approved' : '';
+      const btn = row.querySelector('.col-ok button');
+      if (btn) {
+        btn.className = newStatus === 'approved' ? 'approved-btn' : '';
+        btn.textContent = newStatus === 'approved' ? '✓' : '○';
+      }
+      const editable = row.querySelector('[contenteditable]');
+      if (editable) editable.contentEditable = newStatus === 'approved' ? 'false' : 'true';
+    }
+    updateApprovalCount();
+  }
+
+  document.getElementById('btnBulkApprove').addEventListener('click', async () => {
+    const res = await fetch(`${API_BASE}/api/files/${fileId}/translations/approve-all`, { method: 'POST' });
+    if (res.ok) {
+      state.segments = state.segments.map(s => Object.assign({}, s, { status: 'approved' }));
+      renderTable();
+      updateApprovalCount();
+      showToast('全部已批核', 'success');
+    } else {
+      showToast('批核失敗', 'error');
+    }
+  });
+
+  function updateApprovalCount() {
+    const total    = state.segments.length;
+    const approved = state.segments.filter(s => s.status === 'approved').length;
+    document.getElementById('approvalCount').textContent = `${approved} / ${total} 批核`;
+  }
+
+  // ── Video sync ────────────────────────────────────────────
+  function onTimeUpdate() {
+    const t = document.getElementById('videoPlayer').currentTime;
+    const seg = state.segments.find(s => t >= s.start && t <= s.end);
+    FontPreview.updateText(seg?.zh_text || seg?.text || '');
+
+    // Highlight playing row
+    document.querySelectorAll('tr.playing').forEach(r => r.classList.remove('playing'));
+    if (seg) {
+      const idx = state.segments.indexOf(seg);
+      const row = document.querySelector(`tr[data-idx="${idx}"]`);
+      row?.classList.add('playing');
+    }
+  }
+
+  // ── Find & Replace ────────────────────────────────────────
+  function openFindBar() {
+    document.getElementById('findBar').classList.add('open');
+    document.getElementById('findInput').focus();
+  }
+  function closeFindBar() {
+    document.getElementById('findBar').classList.remove('open');
     clearHighlights();
-    setFindState({ query: '', replacement: '', matchList: [], currentMatchIdx: -1, onlyUnapproved: false });
-    const checkboxEl = document.getElementById('findOnlyUnapproved');
-    if (checkboxEl) checkboxEl.checked = false;
-    const findInput = document.getElementById('findInput');
-    if (findInput) findInput.value = '';
-    const replaceInput = document.getElementById('replaceInput');
-    if (replaceInput) replaceInput.value = '';
-    if (typeof updateFindUI === 'function') updateFindUI();
+    state = Object.assign({}, state, { findMatches: [], findMatchIdx: 0 });
+    document.getElementById('findCount').textContent = '0 / 0';
+  }
+  function toggleGlossarySection() {
+    document.getElementById('glossarySection').classList.toggle('open');
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'f') { e.preventDefault(); openFindBar(); }
+    if (e.key === 'Escape') closeFindBar();
+    if (e.key === 'Enter' && document.getElementById('findBar').classList.contains('open')) {
+      e.preventDefault();
+      e.shiftKey ? findPrev() : findNext();
+    }
+  });
+
+  document.getElementById('findInput').addEventListener('input', runFind);
+  document.getElementById('findOnlyUnapproved').addEventListener('change', runFind);
+  document.getElementById('btnFindPrev').addEventListener('click', findPrev);
+  document.getElementById('btnFindNext').addEventListener('click', findNext);
+  document.getElementById('btnReplaceOne').addEventListener('click', replaceOne);
+  document.getElementById('btnReplaceAll').addEventListener('click', replaceAll);
+
+  function runFind() {
+    clearHighlights();
+    const query = document.getElementById('findInput').value.trim();
+    if (!query) {
+      state = Object.assign({}, state, { findMatches: [], findMatchIdx: 0 });
+      document.getElementById('findCount').textContent = '0 / 0';
+      return;
+    }
+    const onlyUnapproved = document.getElementById('findOnlyUnapproved').checked;
+    const matches = [];
+    state.segments.forEach((seg, i) => {
+      if (onlyUnapproved && seg.status === 'approved') return;
+      if ((seg.zh_text || '').includes(query)) matches.push(i);
+    });
+    state = Object.assign({}, state, { findMatches: matches, findMatchIdx: 0 });
+    updateFindCount();
+    highlightMatches(query);
+    scrollToMatch();
+  }
+
+  function findNext() {
+    if (!state.findMatches.length) return;
+    state = Object.assign({}, state, { findMatchIdx: (state.findMatchIdx + 1) % state.findMatches.length });
+    updateFindCount();
+    scrollToMatch();
+  }
+  function findPrev() {
+    if (!state.findMatches.length) return;
+    state = Object.assign({}, state, { findMatchIdx: (state.findMatchIdx - 1 + state.findMatches.length) % state.findMatches.length });
+    updateFindCount();
+    scrollToMatch();
+  }
+
+  function updateFindCount() {
+    document.getElementById('findCount').textContent =
+      state.findMatches.length ? `${state.findMatchIdx + 1} / ${state.findMatches.length}` : '0 / 0';
+  }
+
+  function highlightMatches(query) {
+    state.findMatches.forEach((segIdx, matchIdx) => {
+      const el = document.querySelector(`tr[data-idx="${segIdx}"] [contenteditable]`);
+      if (!el) return;
+      const cls = matchIdx === state.findMatchIdx ? 'find-match-current' : 'find-match';
+      el.innerHTML = escapeHtml(state.segments[segIdx].zh_text || '').replace(
+        new RegExp(escapeHtml(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'),
+        `<mark class="${cls}">$&</mark>`
+      );
+    });
   }
 
   function clearHighlights() {
-    // Re-render all rows to strip any <mark> tags
-    state.segments.forEach((_, i) => refreshRow(i));
-  }
-
-  /**
-   * Return HTML string with all (case-insensitive) occurrences of `query`
-   * wrapped in <mark>. The occurrence at local index `activeLocalIdx`
-   * (0-based count within THIS text string) gets find-highlight-active;
-   * others get find-highlight.
-   * activeLocalIdx = -1 means no active mark in this text.
-   */
-  function highlightText(rawText, query, activeLocalIdx) {
-    if (!query || !rawText) return escapeHtml(rawText || '');
-    const lower = rawText.toLowerCase();
-    const qLower = query.toLowerCase();
-    let result = '';
-    let searchFrom = 0;
-    let occurrenceCount = 0;
-    while (searchFrom < rawText.length) {
-      const idx = lower.indexOf(qLower, searchFrom);
-      if (idx === -1) {
-        result += escapeHtml(rawText.slice(searchFrom));
-        break;
-      }
-      result += escapeHtml(rawText.slice(searchFrom, idx));
-      const cls = (occurrenceCount === activeLocalIdx)
-        ? 'find-highlight-active'
-        : 'find-highlight';
-      result += `<mark class="${cls}">${escapeHtml(rawText.slice(idx, idx + query.length))}</mark>`;
-      occurrenceCount++;
-      searchFrom = idx + query.length;
-    }
-    return result;
-  }
-
-  /**
-   * Scan state.segments for all matches of findState.query in zh_text + en_text.
-   * Populates findState.matchList and clamps currentMatchIdx.
-   * Does NOT update the DOM — call applyHighlights() after.
-   */
-  function runFind() {
-    const q = findState.query;
-    if (!q) {
-      setFindState({ matchList: [], currentMatchIdx: -1 });
-      return;
-    }
-    const qLower = q.toLowerCase();
-    const matches = [];
-    state.segments.forEach((seg) => {
-      if (findState.onlyUnapproved && seg.approved) return;
-      // zh_text matches (replaceable)
-      let text = seg.zh_text || '';
-      let lower = text.toLowerCase();
-      let from = 0;
-      while (from < text.length) {
-        const pos = lower.indexOf(qLower, from);
-        if (pos === -1) break;
-        matches.push({ segIdx: seg.idx, field: 'zh', start: pos, len: q.length });
-        from = pos + q.length;
-      }
-      // en_text matches (highlight-only)
-      text = seg.en_text || '';
-      lower = text.toLowerCase();
-      from = 0;
-      while (from < text.length) {
-        const pos = lower.indexOf(qLower, from);
-        if (pos === -1) break;
-        matches.push({ segIdx: seg.idx, field: 'en', start: pos, len: q.length });
-        from = pos + q.length;
-      }
-    });
-
-    // Clamp currentMatchIdx
-    let newIdx = findState.currentMatchIdx;
-    if (matches.length === 0) newIdx = -1;
-    else if (newIdx < 0) newIdx = 0;
-    else if (newIdx >= matches.length) newIdx = matches.length - 1;
-
-    setFindState({ matchList: matches, currentMatchIdx: newIdx });
-  }
-
-  /**
-   * Walk all rows and inject <mark> tags into zh and en cells based on
-   * findState.matchList. Skips rows where the segment is currently being edited.
-   */
-  function applyHighlights() {
-    const tableBody = document.getElementById('tableBody');
-    if (!tableBody) return;
-    const q = findState.query;
-    const matches = findState.matchList;
-
-    // Group matches by segIdx → {zh: [{globalIdx,start,len}], en: [...]}
-    const bySegIdx = {};
-    matches.forEach((m, globalIdx) => {
-      if (!bySegIdx[m.segIdx]) bySegIdx[m.segIdx] = { zh: [], en: [] };
-      bySegIdx[m.segIdx][m.field].push({ globalIdx, start: m.start, len: m.len });
-    });
-
-    state.segments.forEach((seg) => {
-      const tr = tableBody.querySelector(`tr[data-idx="${seg.idx}"]`);
-      if (!tr) return;
-
-      const segMatches = bySegIdx[seg.idx];
-      const zhCell = tr.querySelector('.td-zh');
-      const enCell = tr.querySelector('.td-en');
-
-      if (!segMatches || !q) {
-        // No matches in this seg — restore clean display
-        if (zhCell && state.editingIdx !== seg.idx) {
-          const display = escapeHtml(seg.zh_text) ||
-            '<span style="color:var(--text-dim);font-style:italic;">（空白）</span>';
-          zhCell.innerHTML = `<span class="zh-display" data-idx="${seg.idx}">${display}</span>`;
-          zhCell.querySelector('.zh-display')?.addEventListener('click', () => startEdit(seg.idx));
-        }
-        if (enCell) enCell.textContent = seg.en_text || '';
-        return;
-      }
-
-      // zh cell
-      if (zhCell && state.editingIdx !== seg.idx) {
-        const zhMs = segMatches.zh;
-        const activeGlobal = findState.currentMatchIdx;
-        const activeLocal = zhMs.findIndex(m => m.globalIdx === activeGlobal);
-        const zhHtml = zhMs.length > 0
-          ? highlightText(seg.zh_text, q, activeLocal)
-          : (escapeHtml(seg.zh_text) || '<span style="color:var(--text-dim);font-style:italic;">（空白）</span>');
-        zhCell.innerHTML = `<span class="zh-display" data-idx="${seg.idx}">${zhHtml}</span>`;
-        zhCell.querySelector('.zh-display')?.addEventListener('click', () => startEdit(seg.idx));
-      }
-
-      // en cell
-      if (enCell) {
-        const enMs = segMatches.en;
-        if (enMs.length > 0) {
-          const activeGlobal = findState.currentMatchIdx;
-          const activeLocal = enMs.findIndex(m => m.globalIdx === activeGlobal);
-          enCell.innerHTML = highlightText(seg.en_text, q, activeLocal);
-        } else {
-          enCell.textContent = seg.en_text || '';
-        }
-      }
+    document.querySelectorAll('.find-match, .find-match-current').forEach(el => {
+      const row = el.closest('tr');
+      if (!row) return;
+      const idx = parseInt(row.dataset.idx, 10);
+      const editable = row.querySelector('[contenteditable]');
+      if (editable) editable.textContent = state.segments[idx]?.zh_text || '';
     });
   }
 
-  /**
-   * Sync toolbar counter, nav buttons, and replace buttons to findState.
-   */
-  function updateFindUI() {
-    const counter = document.getElementById('findCounter');
-    const prevBtn = document.getElementById('findPrevBtn');
-    const nextBtn = document.getElementById('findNextBtn');
-    const replaceOneBtn = document.getElementById('findReplaceOneBtn');
-    const replaceAllBtn = document.getElementById('findReplaceAllBtn');
-
-    const total = findState.matchList.length;
-    const cur = findState.currentMatchIdx;
-
-    if (!findState.query) {
-      if (counter) { counter.textContent = ''; counter.className = 'find-counter'; }
-    } else if (total === 0) {
-      if (counter) { counter.textContent = '找不到'; counter.className = 'find-counter no-match'; }
-    } else {
-      if (counter) {
-        counter.textContent = `${cur + 1} / ${total}`;
-        counter.className = 'find-counter';
-      }
-    }
-
-    const hasZhMatch = findState.matchList.some(m => m.field === 'zh');
-    const isCurrentZhMatch = cur >= 0 && findState.matchList[cur]?.field === 'zh';
-
-    if (prevBtn) prevBtn.disabled = total === 0;
-    if (nextBtn) nextBtn.disabled = total === 0;
-    if (replaceOneBtn) replaceOneBtn.disabled = !isCurrentZhMatch;
-    if (replaceAllBtn) replaceAllBtn.disabled = !hasZhMatch;
-  }
-
-  /**
-   * Navigate to the next or previous match (circular).
-   */
-  function navigateMatch(direction) {
-    const total = findState.matchList.length;
-    if (total === 0) return;
-    let newIdx = findState.currentMatchIdx + direction;
-    if (newIdx < 0) newIdx = total - 1;
-    if (newIdx >= total) newIdx = 0;
-    setFindState({ currentMatchIdx: newIdx });
-    applyHighlights();
-    updateFindUI();
-    scrollToCurrentMatch();
-  }
-
-  /**
-   * Scroll the table to show the current match's row.
-   */
-  function scrollToCurrentMatch() {
-    const cur = findState.currentMatchIdx;
-    if (cur < 0 || cur >= findState.matchList.length) return;
-    const match = findState.matchList[cur];
-    const tableBody = document.getElementById('tableBody');
-    if (!tableBody) return;
-    const tr = tableBody.querySelector(`tr[data-idx="${match.segIdx}"]`);
-    if (tr) tr.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  function scrollToMatch() {
+    if (!state.findMatches.length) return;
+    const idx = state.findMatches[state.findMatchIdx];
+    const row = document.querySelector(`tr[data-idx="${idx}"]`);
+    row?.scrollIntoView({ block: 'nearest' });
   }
 
   async function replaceOne() {
-    const cur = findState.currentMatchIdx;
-    if (cur < 0 || cur >= findState.matchList.length) return;
-    const match = findState.matchList[cur];
-    if (match.field !== 'zh') return;  // only zh_text is replaceable
-
-    const seg = state.segments[match.segIdx];
+    if (!state.findMatches.length) return;
+    const query   = document.getElementById('findInput').value.trim();
+    const replace = document.getElementById('replaceInput').value;
+    const idx = state.findMatches[state.findMatchIdx];
+    const seg = state.segments[idx];
     if (!seg) return;
-
-    const q = findState.query;
-    const rep = findState.replacement;
-    const oldText = seg.zh_text || '';
-
-    // Replace only this specific occurrence (by its start position)
-    const newText = oldText.slice(0, match.start) + rep + oldText.slice(match.start + match.len);
-
-    // Optimistic update
-    updateSegment(match.segIdx, { zh_text: newText });
-
-    try {
-      const res = await fetch(
-        `${API_BASE}/api/files/${encodeURIComponent(state.fileId)}/translations/${match.segIdx}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ zh_text: newText }),
-        }
-      );
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || `替換失敗 (HTTP ${res.status})`);
-      }
-      // Re-run find from current position, then advance
-      const prevIdx = findState.currentMatchIdx;
-      runFind();
-      const newTotal = findState.matchList.length;
-      setFindState({ currentMatchIdx: newTotal === 0 ? -1 : Math.min(prevIdx, newTotal - 1) });
-      applyHighlights();
-      updateFindUI();
-      scrollToCurrentMatch();
-    } catch (err) {
-      // Rollback
-      updateSegment(match.segIdx, { zh_text: oldText });
-      refreshRow(match.segIdx);
-      showToast(`替換失敗：${err.message}`, 'error');
-    }
+    const newText = (seg.zh_text || '').replace(query, replace);
+    await saveZh(idx, newText);
+    runFind();
+    renderTable();
   }
 
   async function replaceAll() {
-    const zhMatches = findState.matchList.filter(m => m.field === 'zh');
-    if (zhMatches.length === 0) return;
-
-    const confirmed = window.confirm(`確定替換 ${zhMatches.length} 處？`);
-    if (!confirmed) return;
-
-    const q = findState.query;
-    const rep = findState.replacement;
-
-    // Group matches by segIdx; sort each group descending by start position
-    // so that earlier replacements don't shift the indices of later ones
-    const bySegIdx = {};
-    zhMatches.forEach(m => {
-      if (!bySegIdx[m.segIdx]) bySegIdx[m.segIdx] = [];
-      bySegIdx[m.segIdx].push(m);
-    });
-    Object.values(bySegIdx).forEach(ms => ms.sort((a, b) => b.start - a.start));
-
-    let replacedCount = 0;
-
-    for (const segIdx of Object.keys(bySegIdx).map(Number)) {
-      const seg = state.segments[segIdx];
-      if (!seg) continue;
-
-      let text = seg.zh_text || '';
-      for (const m of bySegIdx[segIdx]) {
-        text = text.slice(0, m.start) + rep + text.slice(m.start + m.len);
-      }
-
-      try {
-        const res = await fetch(
-          `${API_BASE}/api/files/${encodeURIComponent(state.fileId)}/translations/${segIdx}`,
-          {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ zh_text: text }),
-          }
-        );
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.error || `PATCH 失敗 (HTTP ${res.status})`);
-        }
-        updateSegment(segIdx, { zh_text: text });
-        replacedCount += bySegIdx[segIdx].length;
-      } catch (err) {
-        showToast(`替換中斷（第 ${replacedCount + 1} 處失敗）：${err.message}`, 'error');
-        runFind(); applyHighlights(); updateFindUI();
-        return;
-      }
-    }
-
-    showToast(`已替換 ${replacedCount} 處`, 'success');
-    runFind(); applyHighlights(); updateFindUI();
-  }
-
-  function updateApplyGlossaryBtn() {
-    const applyBtn = document.getElementById('findApplyGlossaryBtn');
-    const select = document.getElementById('findGlossarySelect');
-    if (!applyBtn || !select) return;
-    applyBtn.disabled = !select.value;
-  }
-
-  async function loadGlossaryDropdown() {
-    const select = document.getElementById('findGlossarySelect');
-    const applyBtn = document.getElementById('findApplyGlossaryBtn');
-    if (!select) return;
-
-    try {
-      const res = await fetch(`${API_BASE}/api/glossaries`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const glossaries = data.glossaries || [];
-
-      // Try to get the active profile's linked glossary
-      let profileGlossaryId = null;
-      try {
-        const profileRes = await fetch(`${API_BASE}/api/profiles/active`);
-        if (profileRes.ok) {
-          const profileData = await profileRes.json();
-          profileGlossaryId = profileData?.translation?.glossary_id || null;
-        }
-      } catch (_) { /* ignore profile fetch failure */ }
-
-      // Rebuild dropdown
-      select.innerHTML = '<option value="">— 未選擇 —</option>';
-      glossaries.forEach(g => {
-        const opt = document.createElement('option');
-        opt.value = g.id;
-        opt.textContent = g.name;
-        select.appendChild(opt);
-      });
-
-      // Pre-select profile's linked glossary if available
-      if (profileGlossaryId && glossaries.some(g => g.id === profileGlossaryId)) {
-        select.value = profileGlossaryId;
-        setFindState({ selectedGlossaryId: profileGlossaryId });
-      } else {
-        setFindState({ selectedGlossaryId: null });
-      }
-
-      setFindState({ glossaryList: glossaries });
-      updateApplyGlossaryBtn();
-
-    } catch (err) {
-      showToast('無法載入詞表', 'error');
-      if (applyBtn) applyBtn.disabled = true;
-    }
+    const query   = document.getElementById('findInput').value.trim();
+    const replace = document.getElementById('replaceInput').value;
+    if (!query || !state.findMatches.length) return;
+    await Promise.all(state.findMatches.map(async idx => {
+      const seg = state.segments[idx];
+      if (!seg) return;
+      const newText = (seg.zh_text || '').replaceAll(query, replace);
+      await saveZh(idx, newText);
+    }));
+    runFind();
+    renderTable();
   }
 
   async function applyGlossary() {
-    const glossaryId = findState.selectedGlossaryId;
-    if (!glossaryId) return;
-
-    let entries = [];
-    try {
-      const res = await fetch(`${API_BASE}/api/glossaries/${encodeURIComponent(glossaryId)}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const statusEl = document.getElementById('glossaryStatus');
+    statusEl.textContent = '套用中…';
+    let count = 0;
+    const allEntries = [];
+    for (const g of state.glossaries) {
+      const res = await fetch(`${API_BASE}/api/glossaries/${g.id}`);
+      if (!res.ok) continue;
       const data = await res.json();
-      entries = data.entries || [];
-    } catch (err) {
-      showToast(`無法載入詞表內容：${err.message}`, 'error');
-      return;
+      allEntries.push(...(data.entries || []));
     }
-
-    if (entries.length === 0) {
-      showToast('所選詞表沒有詞條', 'info');
-      return;
-    }
-
-    // Detect violations: en_text contains entry.en AND zh_text does NOT contain entry.zh
-    const violations = [];
-    state.segments.forEach(seg => {
-      const enLower = (seg.en_text || '').toLowerCase();
-      entries.forEach(entry => {
-        if (!entry.en || !entry.zh) return;
-        if (enLower.includes(entry.en.toLowerCase())) {
-          if (!(seg.zh_text || '').includes(entry.zh)) {
-            violations.push({ seg, entry });
-          }
-        }
-      });
-    });
-
-    if (violations.length === 0) {
-      showToast('所有段落均符合詞表，無需替換', 'success');
-      return;
-    }
-
-    showGlossaryModal(violations);
-  }
-
-  function showGlossaryModal(violations) {
-    const overlay = document.getElementById('glossaryModalOverlay');
-    const title = document.getElementById('glossaryModalTitle');
-    const list = document.getElementById('glossaryViolationList');
-    if (!overlay || !title || !list) return;
-
-    title.textContent = `發現 ${violations.length} 處詞表不符：`;
-    list.innerHTML = violations.map(({ seg, entry }) =>
-      `<div>#${seg.idx + 1} &nbsp;「${escapeHtml(entry.en)}」→ 建議加入「${escapeHtml(entry.zh)}」</div>`
-    ).join('');
-
-    overlay.classList.add('open');
-
-    const applyBtn = document.getElementById('glossaryModalApplyBtn');
-    const cancelBtn = document.getElementById('glossaryModalCancelBtn');
-    if (!applyBtn || !cancelBtn) return;
-
-    function closeModal() {
-      overlay.classList.remove('open');
-      applyBtn.removeEventListener('click', onApply);
-      cancelBtn.removeEventListener('click', closeModal);
-    }
-
-    async function onApply() {
-      closeModal();
-      await batchApplyGlossary(violations);
-    }
-
-    applyBtn.addEventListener('click', onApply, { once: true });
-    cancelBtn.addEventListener('click', closeModal, { once: true });
-  }
-
-  async function batchApplyGlossary(violations) {
-    let appliedCount = 0;
-
-    for (let i = 0; i < violations.length; i++) {
-      const { seg, entry } = violations[i];
-      const currentSeg = state.segments[seg.idx];
-      const existing = (currentSeg ? currentSeg.zh_text : seg.zh_text) || '';
-      const newText = existing ? `${existing} ${entry.zh}` : entry.zh;
-
-      try {
-        const res = await fetch(
-          `${API_BASE}/api/files/${encodeURIComponent(state.fileId)}/translations/${seg.idx}`,
-          {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ zh_text: newText }),
-          }
-        );
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.error || `PATCH 失敗 (HTTP ${res.status})`);
-        }
-        updateSegment(seg.idx, { zh_text: newText });
-        refreshRow(seg.idx);
-        appliedCount++;
-      } catch (err) {
-        showToast(`替換中斷（第 ${appliedCount + 1} 處失敗）：${err.message}`, 'error');
-        return;
+    const updates = [];
+    state.segments.forEach((seg, i) => {
+      if (seg.status === 'approved') return;
+      let zh = seg.zh_text || '';
+      let changed = false;
+      for (const entry of allEntries) {
+        if (zh.includes(entry.source)) { zh = zh.replaceAll(entry.source, entry.target); changed = true; }
       }
-    }
-
-    showToast(`已套用 ${appliedCount} 處詞表`, 'success');
-    // Re-run find if toolbar is showing search results
-    if (findState.query) {
-      runFind(); applyHighlights(); updateFindUI();
-    }
-  }
-
-  // ===== DOM references =====
-
-  const loadingOverlay = document.getElementById('loadingOverlay');
-  const loadingText    = document.getElementById('loadingText');
-  const mainLayout     = document.getElementById('mainLayout');
-  const errorState     = document.getElementById('errorState');
-  const errorMsg       = document.getElementById('errorMsg');
-  const headerFileName = document.getElementById('headerFileName');
-  const videoEl        = document.getElementById('videoEl');
-  const videoPlaceholder = document.getElementById('videoPlaceholder');
-  const tableBody      = document.getElementById('tableBody');
-  const tableWrap      = document.getElementById('tableWrap');
-  const approvedCount  = document.getElementById('approvedCount');
-  const totalCount     = document.getElementById('totalCount');
-  const progressPct    = document.getElementById('progressPct');
-  const progressFill   = document.getElementById('progressFill');
-  const btnBulkApprove = document.getElementById('btnBulkApprove');
-  const btnRender      = document.getElementById('btnRender');
-
-  // ===== Initialisation =====
-
-  async function init() {
-    const params = new URLSearchParams(window.location.search);
-    const fileId = params.get('file_id');
-
-    if (!fileId) {
-      showError('URL 缺少 file_id 參數，例如：proofread.html?file_id=abc123');
-      return;
-    }
-
-    setState({ fileId });
-
-    FontPreview.init(null);
-    initFindReplace();
-
-    try {
-      await Promise.all([loadTranslations(fileId), loadMedia(fileId)]);
-      hideLoading();
-      mainLayout.style.display = '';
-      renderTable();
-      updateProgress();
-    } catch (err) {
-      showError(err.message || '發生未知錯誤');
-    }
-  }
-
-  async function loadTranslations(fileId) {
-    const res = await fetch(`${API_BASE}/api/files/${encodeURIComponent(fileId)}/translations`);
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.error || `無法取得翻譯資料 (HTTP ${res.status})`);
-    }
-    const data = await res.json();
-
-    // Normalise to array with stable index
-    const raw = Array.isArray(data) ? data : (data.segments || data.translations || []);
-    const segments = raw.map((seg, i) => ({
-      idx: i,
-      start: seg.start ?? seg.start_time ?? 0,
-      end: seg.end ?? seg.end_time ?? 0,
-      en_text: seg.en_text ?? seg.original_text ?? seg.text ?? '',
-      zh_text: seg.zh_text ?? seg.translated_text ?? '',
-      approved: seg.status === 'approved' || Boolean(seg.approved),
-    }));
-
-    setState({
-      segments,
-      fileName: data.file_name || data.fileName || '',
+      if (changed) updates.push({ idx: i, zh });
     });
-
-    if (state.fileName) {
-      headerFileName.textContent = state.fileName;
-      document.title = `字幕校對 — ${state.fileName}`;
-    }
+    await Promise.all(updates.map(({ idx, zh }) => saveZh(idx, zh)));
+    count = updates.length;
+    renderTable();
+    statusEl.textContent = `已套用 ${count} 段`;
   }
 
-  async function loadMedia(fileId) {
-    const mediaUrl = `${API_BASE}/api/files/${encodeURIComponent(fileId)}/media`;
-    videoEl.src = mediaUrl;
-
-    await new Promise((resolve) => {
-      videoEl.addEventListener('loadedmetadata', () => {
-        videoPlaceholder.style.display = 'none';
-        videoEl.style.display = 'block';
-        resolve();
-      }, { once: true });
-      videoEl.addEventListener('error', () => {
-        // Video failed to load — keep the placeholder and continue without blocking init
-        console.warn('Video failed to load; showing placeholder.');
-        resolve();
-      }, { once: true });
-    });
+  // ── Format + Render ───────────────────────────────────────
+  function setFormat(fmt) {
+    state = Object.assign({}, state, { format: fmt });
+    document.getElementById('fmtMp4').classList.toggle('active', fmt === 'mp4');
+    document.getElementById('fmtMxf').classList.toggle('active', fmt === 'mxf');
   }
 
-  function hideLoading() {
-    loadingOverlay.classList.add('hidden');
-  }
+  document.getElementById('btnRender').addEventListener('click', openRenderModal);
 
-  function showError(msg) {
-    loadingOverlay.classList.add('hidden');
-    errorMsg.textContent = msg;
-    errorState.style.display = 'flex';
-  }
-
-  // ===== Rendering =====
-
-  function renderTable() {
-    const rows = state.segments.map((seg) => buildRow(seg));
-    tableBody.innerHTML = rows.join('');
-    attachRowListeners();
-  }
-
-  function buildRow(seg) {
-    const approvedClass = seg.approved ? 'approved' : '';
-    const approvedIcon  = seg.approved ? '✓' : '○';
-    const activeClass   = seg.idx === state.activeIdx ? 'active' : '';
-
-    return `
-      <tr data-idx="${seg.idx}" class="${activeClass}">
-        <td>${escapeHtml(formatTime(seg.start))}</td>
-        <td class="td-en">${escapeHtml(seg.en_text)}</td>
-        <td class="td-zh">
-          <span class="zh-display" data-idx="${seg.idx}">${escapeHtml(seg.zh_text) || '<span style="color:var(--text-dim);font-style:italic;">（空白）</span>'}</span>
-        </td>
-        <td class="td-status">
-          <button
-            class="status-btn ${approvedClass}"
-            data-idx="${seg.idx}"
-            title="${seg.approved ? '已核准（點擊取消）' : '點擊核准'}"
-            aria-label="${seg.approved ? '已核准' : '未核准'}"
-          >${approvedIcon}</button>
-        </td>
-      </tr>`;
-  }
-
-  function refreshRow(segIdx) {
-    const seg = state.segments[segIdx];
-    if (!seg) return;
-
-    const tr = tableBody.querySelector(`tr[data-idx="${segIdx}"]`);
-    if (!tr) return;
-
-    // Update class
-    tr.className = seg.idx === state.activeIdx ? 'active' : '';
-
-    // Update zh cell
-    const zhCell = tr.querySelector('.td-zh');
-    if (zhCell && state.editingIdx !== segIdx) {
-      const display = escapeHtml(seg.zh_text) || '<span style="color:var(--text-dim);font-style:italic;">（空白）</span>';
-      zhCell.innerHTML = `<span class="zh-display" data-idx="${segIdx}">${display}</span>`;
-      const newSpan = zhCell.querySelector('.zh-display');
-      if (newSpan) {
-        newSpan.addEventListener('click', () => startEdit(segIdx));
-      }
-    }
-
-    // Update status button
-    const btn = tr.querySelector('.status-btn');
-    if (btn) {
-      btn.className = `status-btn ${seg.approved ? 'approved' : ''}`;
-      btn.textContent = seg.approved ? '✓' : '○';
-      btn.title = seg.approved ? '已核准（點擊取消）' : '點擊核准';
-      btn.setAttribute('aria-label', seg.approved ? '已核准' : '未核准');
-    }
-  }
-
-  function attachRowListeners() {
-    // Row click → seek video
-    tableBody.querySelectorAll('tr[data-idx]').forEach(tr => {
-      tr.addEventListener('click', (e) => {
-        // Don't handle if clicking status button or inside textarea
-        if (e.target.closest('.status-btn') || e.target.tagName === 'TEXTAREA') return;
-        // If clicking zh-display → let startEdit handle it
-        if (e.target.closest('.zh-display')) return;
-        const idx = parseInt(tr.dataset.idx, 10);
-        seekToSegment(idx);
+  function openRenderModal() {
+    const opts = document.getElementById('renderOptions');
+    if (state.format === 'mp4') {
+      opts.innerHTML = `
+        <div class="form-row"><label>CRF (畫質，0=最高)</label>
+          <input type="range" id="rCrf" min="0" max="51" value="18" style="width:100%">
+          <span id="crfVal">18</span></div>
+        <div class="form-row"><label>編碼速度</label>
+          <select id="rPreset">
+            ${['ultrafast','superfast','veryfast','faster','fast','medium','slow','veryslow']
+              .map(p => `<option value="${p}"${p === 'medium' ? ' selected' : ''}>${p}</option>`).join('')}
+          </select></div>`;
+      document.getElementById('rCrf').addEventListener('input', e => {
+        document.getElementById('crfVal').textContent = e.target.value;
       });
-    });
-
-    // zh-display click → start inline edit
-    tableBody.querySelectorAll('.zh-display').forEach(span => {
-      span.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const idx = parseInt(span.dataset.idx, 10);
-        startEdit(idx);
-      });
-    });
-
-    // Status button click → toggle approve
-    tableBody.querySelectorAll('.status-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const idx = parseInt(btn.dataset.idx, 10);
-        const seg = state.segments[idx];
-        if (seg) toggleApprove(idx, !seg.approved);
-      });
-    });
-  }
-
-  // ===== Navigation =====
-
-  function seekToSegment(segIdx) {
-    const seg = state.segments[segIdx];
-    if (!seg) return;
-
-    setState({ activeIdx: segIdx });
-    highlightActiveRow(segIdx);
-
-    if (videoEl.readyState >= 1) {
-      videoEl.currentTime = seg.start;
-    }
-  }
-
-  function highlightActiveRow(segIdx) {
-    tableBody.querySelectorAll('tr.active').forEach(r => r.classList.remove('active'));
-    const tr = tableBody.querySelector(`tr[data-idx="${segIdx}"]`);
-    if (tr) {
-      tr.classList.add('active');
-      tr.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    }
-  }
-
-  function navigateRows(delta) {
-    const { segments, activeIdx } = state;
-    if (!segments.length) return;
-    const current = activeIdx ?? -1;
-    const next = Math.max(0, Math.min(segments.length - 1, current + delta));
-    seekToSegment(next);
-  }
-
-  // ===== Subtitle overlay =====
-
-  videoEl.addEventListener('timeupdate', () => {
-    const t = videoEl.currentTime;
-    const active = state.segments.find(seg => t >= seg.start && t <= seg.end + 0.3);
-
-    if (active) {
-      FontPreview.updateText(active.zh_text || '');
-
-      // Auto-highlight active row (only if not editing)
-      if (state.editingIdx === null && active.idx !== state.activeIdx) {
-        setState({ activeIdx: active.idx });
-        highlightActiveRow(active.idx);
-      }
     } else {
-      FontPreview.updateText('');
+      opts.innerHTML = `
+        <div class="form-row"><label>ProRes 規格</label>
+          <select id="rProres">
+            <option value="0">Proxy</option><option value="1">LT</option>
+            <option value="2" selected>Standard</option><option value="3">HQ (422 HQ)</option>
+            <option value="4">4444</option><option value="5">4444 XQ</option>
+          </select></div>
+        <div class="form-row"><label>音頻位深</label>
+          <select id="rBitDepth">
+            <option value="16">16-bit PCM</option>
+            <option value="24" selected>24-bit PCM</option>
+            <option value="32">32-bit PCM</option>
+          </select></div>`;
     }
+    document.getElementById('renderModal').style.display = 'flex';
+  }
+
+  function closeRenderModal() { document.getElementById('renderModal').style.display = 'none'; }
+
+  document.getElementById('btnStartRender').addEventListener('click', async () => {
+    closeRenderModal();
+    const renderOptions = state.format === 'mp4'
+      ? {
+          crf: parseInt(document.getElementById('rCrf')?.value ?? '18', 10),
+          preset: document.getElementById('rPreset')?.value ?? 'medium',
+        }
+      : {
+          prores_profile: parseInt(document.getElementById('rProres')?.value ?? '2', 10),
+          audio_bit_depth: parseInt(document.getElementById('rBitDepth')?.value ?? '24', 10),
+        };
+
+    const res = await fetch(`${API_BASE}/api/render`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file_id: fileId, format: state.format, render_options: renderOptions }),
+    });
+    if (!res.ok) { showToast('渲染啟動失敗', 'error'); return; }
+    const data = await res.json();
+    state = Object.assign({}, state, { renderJobId: data.id });
+    showToast('渲染中，請稍候…', 'info', 10000);
+    document.getElementById('btnRender').disabled = true;
+    pollRender();
   });
 
-  // ===== Inline editing =====
-
-  function startEdit(segIdx) {
-    if (state.editingIdx === segIdx) return;
-    if (state.editingIdx !== null) cancelEdit();
-
-    const seg = state.segments[segIdx];
-    if (!seg) return;
-
-    setState({ editingIdx: segIdx });
-
-    const tr = tableBody.querySelector(`tr[data-idx="${segIdx}"]`);
-    if (!tr) return;
-
-    const zhCell = tr.querySelector('.td-zh');
-    if (!zhCell) return;
-
-    const textarea = document.createElement('textarea');
-    textarea.className = 'zh-edit-area';
-    textarea.value = seg.zh_text;
-    textarea.rows = 3;
-    textarea.setAttribute('aria-label', '編輯中文翻譯');
-
-    zhCell.innerHTML = '';
-    zhCell.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-
-    textarea.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        commitEdit(segIdx, textarea.value.trim());
-      } else if (e.key === 'Escape') {
-        cancelEdit();
-      }
-    });
-
-    textarea.addEventListener('blur', () => {
-      // Small delay to allow button clicks to register first
-      setTimeout(() => {
-        if (state.editingIdx === segIdx) commitEdit(segIdx, textarea.value.trim());
-      }, 150);
-    });
-  }
-
-  function cancelEdit() {
-    const idx = state.editingIdx;
-    setState({ editingIdx: null });
-    if (idx !== null) refreshRow(idx);
-  }
-
-  async function commitEdit(segIdx, newText) {
-    if (state.editingIdx !== segIdx) return;
-    setState({ editingIdx: null });
-
-    const seg = state.segments[segIdx];
-    if (!seg) return;
-
-    const oldText = seg.zh_text;
-    if (newText === oldText) {
-      refreshRow(segIdx);
-      return;
-    }
-
-    // Optimistic update
-    updateSegment(segIdx, { zh_text: newText });
-    refreshRow(segIdx);
-    updateProgress();
-
-    try {
-      const res = await fetch(
-        `${API_BASE}/api/files/${encodeURIComponent(state.fileId)}/translations/${segIdx}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ zh_text: newText }),
+  function pollRender() {
+    state = Object.assign({}, state, {
+      renderPollTimer: setTimeout(async () => {
+        const res = await fetch(`${API_BASE}/api/renders/${state.renderJobId}`);
+        if (!res.ok) { showToast('渲染狀態查詢失敗', 'error'); return; }
+        const data = await res.json();
+        if (data.status === 'done') {
+          showToast('渲染完成！', 'success');
+          document.getElementById('btnRender').disabled = false;
+          const link = document.createElement('a');
+          link.href = `${API_BASE}/api/renders/${state.renderJobId}/download`;
+          link.download = data.output_filename || 'output';
+          link.click();
+        } else if (data.status === 'failed') {
+          showToast(data.error || '渲染失敗', 'error');
+          document.getElementById('btnRender').disabled = false;
+        } else {
+          pollRender();
         }
-      );
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || `儲存失敗 (HTTP ${res.status})`);
-      }
-
-      // Auto-approve after successful edit
-      await doApprove(segIdx, true);
-      showToast('已儲存並核准', 'success', 2000);
-
-    } catch (err) {
-      // Rollback on failure
-      updateSegment(segIdx, { zh_text: oldText });
-      refreshRow(segIdx);
-      updateProgress();
-      showToast(`儲存失敗：${err.message}`, 'error');
-    }
-  }
-
-  // ===== Approve =====
-
-  async function toggleApprove(segIdx, shouldApprove) {
-    await doApprove(segIdx, shouldApprove);
-  }
-
-  async function doApprove(segIdx, approved) {
-    // Optimistic update
-    const prevApproved = state.segments[segIdx]?.approved;
-    updateSegment(segIdx, { approved });
-    refreshRow(segIdx);
-    updateProgress();
-
-    try {
-      const res = await fetch(
-        `${API_BASE}/api/files/${encodeURIComponent(state.fileId)}/translations/${segIdx}/approve`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ approved }),
-        }
-      );
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || `操作失敗 (HTTP ${res.status})`);
-      }
-
-    } catch (err) {
-      // Rollback
-      updateSegment(segIdx, { approved: prevApproved });
-      refreshRow(segIdx);
-      updateProgress();
-      showToast(`核准操作失敗：${err.message}`, 'error');
-    }
-  }
-
-  async function bulkApprove() {
-    const unapproved = state.segments.filter(s => !s.approved);
-    if (!unapproved.length) {
-      showToast('所有片段已核准', 'info');
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `確認批核所有 ${unapproved.length} 個未核准片段？`
-    );
-    if (!confirmed) return;
-
-    btnBulkApprove.disabled = true;
-
-    try {
-      const res = await fetch(
-        `${API_BASE}/api/files/${encodeURIComponent(state.fileId)}/translations/approve-all`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' } }
-      );
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || `批核失敗 (HTTP ${res.status})`);
-      }
-
-      // Update local state immutably
-      const updatedSegments = state.segments.map(seg => ({ ...seg, approved: true }));
-      setState({ segments: updatedSegments });
-      renderTable();
-      updateProgress();
-      showToast('已批核所有片段', 'success');
-
-    } catch (err) {
-      showToast(`批核失敗：${err.message}`, 'error');
-    } finally {
-      btnBulkApprove.disabled = false;
-    }
-  }
-
-  // ===== Progress =====
-
-  function updateProgress() {
-    const total    = state.segments.length;
-    const approved = state.segments.filter(s => s.approved).length;
-    const pct      = total > 0 ? Math.round((approved / total) * 100) : 0;
-
-    approvedCount.textContent = approved;
-    totalCount.textContent    = total;
-    progressPct.textContent   = `${pct}%`;
-    progressFill.style.width  = `${pct}%`;
-
-    btnRender.disabled = approved < total || total === 0;
-  }
-
-  // ===== Render / Export button — opens options modal =====
-
-  btnRender.addEventListener('click', () => {
-    if (!document.getElementById('renderModalOverlay')) buildRenderModal();
-  });
-
-  btnBulkApprove.addEventListener('click', bulkApprove);
-
-  // ===== Keyboard shortcuts =====
-
-  // Jump to next/previous segment matching a predicate.
-  // direction: 1 = forward, -1 = backward.
-  function navigateMatching(direction, predicate) {
-    if (!state.segments.length) return;
-    const start = state.activeIdx == null ? (direction > 0 ? -1 : state.segments.length) : state.activeIdx;
-    let idx = start + direction;
-    while (idx >= 0 && idx < state.segments.length) {
-      if (predicate(state.segments[idx])) {
-        seekToSegment(idx);
-        return;
-      }
-      idx += direction;
-    }
-  }
-
-  function showShortcutHelp() {
-    let modal = document.getElementById('shortcutHelpModal');
-    if (modal) {
-      modal.style.display = 'flex';
-      return;
-    }
-    modal = document.createElement('div');
-    modal.id = 'shortcutHelpModal';
-    modal.className = 'shortcut-help-overlay';
-    modal.innerHTML = `
-      <div class="shortcut-help-panel">
-        <div class="shortcut-help-header">
-          <span>⌨ 快速鍵說明</span>
-          <button class="shortcut-help-close" aria-label="關閉">✕</button>
-        </div>
-        <div class="shortcut-help-body">
-          <div class="shortcut-help-group">
-            <div class="shortcut-help-group-title">播放控制</div>
-            <div class="shortcut-help-row"><kbd>Space</kbd> 播放 / 暫停</div>
-          </div>
-          <div class="shortcut-help-group">
-            <div class="shortcut-help-group-title">段落導覽</div>
-            <div class="shortcut-help-row"><kbd>↑</kbd> 上一段</div>
-            <div class="shortcut-help-row"><kbd>↓</kbd> 下一段</div>
-            <div class="shortcut-help-row"><kbd>N</kbd> 下一個未核准段落</div>
-            <div class="shortcut-help-row"><kbd>P</kbd> 上一個未核准段落</div>
-          </div>
-          <div class="shortcut-help-group">
-            <div class="shortcut-help-group-title">編輯翻譯</div>
-            <div class="shortcut-help-row"><kbd>E</kbd> 開始編輯目前段落</div>
-            <div class="shortcut-help-row"><kbd>Enter</kbd> 儲存編輯（編輯模式中）</div>
-            <div class="shortcut-help-row"><kbd>Esc</kbd> 取消編輯</div>
-          </div>
-          <div class="shortcut-help-group">
-            <div class="shortcut-help-group-title">核准</div>
-            <div class="shortcut-help-row"><kbd>A</kbd> 切換核准狀態（行焦點時）</div>
-            <div class="shortcut-help-row"><kbd>Enter</kbd> 切換核准狀態（行焦點時）</div>
-          </div>
-          <div class="shortcut-help-group">
-            <div class="shortcut-help-group-title">說明</div>
-            <div class="shortcut-help-row"><kbd>?</kbd> 開啟此說明 / <kbd>Esc</kbd> 關閉</div>
-          </div>
-        </div>
-      </div>`;
-    document.body.appendChild(modal);
-    modal.querySelector('.shortcut-help-close').addEventListener('click', () => {
-      modal.style.display = 'none';
-    });
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) modal.style.display = 'none';
+      }, 2000),
     });
   }
-  // Expose to the global scope so inline onclick="showShortcutHelp()" can find it.
-  window.showShortcutHelp = showShortcutHelp;
 
-  document.addEventListener('keydown', (e) => {
-    // Cmd+F / Ctrl+F: open find toolbar (intercept browser default)
-    if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
-      e.preventDefault();
-      openFindReplace();
-      return;
-    }
-
-    // Allow ? help shortcut to open even from anywhere (but not while typing)
-    if ((e.key === '?' || (e.shiftKey && e.key === '/')) && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'INPUT') {
-      e.preventDefault();
-      showShortcutHelp();
-      return;
-    }
-
-    // Esc closes the help modal first if open
-    if (e.key === 'Escape') {
-      const modal = document.getElementById('shortcutHelpModal');
-      if (modal && modal.style.display !== 'none') {
-        modal.style.display = 'none';
-        e.preventDefault();
-        return;
-      }
-    }
-
-    // Esc from find input: close find bar
-    if (e.key === 'Escape' && (e.target.id === 'findInput' || e.target.id === 'replaceInput')) {
-      e.preventDefault();
-      closeFindReplace();
-      return;
-    }
-
-    // Skip when typing in an input or textarea
-    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
-
-    switch (e.key) {
-      case ' ':
-        e.preventDefault();
-        if (videoEl.paused) videoEl.play().catch(() => {});
-        else videoEl.pause();
-        break;
-
-      case 'ArrowUp':
-        e.preventDefault();
-        navigateRows(-1);
-        break;
-
-      case 'ArrowDown':
-        e.preventDefault();
-        navigateRows(1);
-        break;
-
-      case 'Enter': {
-        e.preventDefault();
-        if (state.activeIdx !== null) {
-          const seg = state.segments[state.activeIdx];
-          if (seg) toggleApprove(state.activeIdx, !seg.approved);
-        }
-        break;
-      }
-
-      case 'a':
-      case 'A':
-        // Dedicated approve toggle — frees Enter from dual meaning later
-        e.preventDefault();
-        if (state.activeIdx !== null) {
-          const seg = state.segments[state.activeIdx];
-          if (seg) toggleApprove(state.activeIdx, !seg.approved);
-        }
-        break;
-
-      case 'n':
-      case 'N':
-        // Next unapproved segment
-        e.preventDefault();
-        navigateMatching(1, (s) => !s.approved);
-        break;
-
-      case 'p':
-      case 'P':
-        // Previous unapproved segment
-        e.preventDefault();
-        navigateMatching(-1, (s) => !s.approved);
-        break;
-
-      case 'e':
-      case 'E':
-        e.preventDefault();
-        if (state.activeIdx !== null) startEdit(state.activeIdx);
-        break;
-
-      case 'Escape':
-        cancelEdit();
-        break;
-
-      default:
-        break;
-    }
-  });
-
-  // ===== Render Options Modal =====
-
-  const PRORES_PROFILES = [
-    { value: 0, name: 'Proxy',    desc: '~45 Mbps — 預覽用途' },
-    { value: 1, name: 'LT',       desc: '~102 Mbps — 輕量製作' },
-    { value: 2, name: 'Standard', desc: '~147 Mbps — 標準廣播' },
-    { value: 3, name: 'HQ',       desc: '~220 Mbps — 高品質（預設）' },
-    { value: 4, name: '4444',     desc: '~330 Mbps — 最高品質' },
-    { value: 5, name: '4444 XQ',  desc: '~500 Mbps — 最高品質+' },
-  ];
-
-  function buildRenderModal() {
-    const overlay = document.createElement('div');
-    overlay.className = 'render-modal-overlay';
-    overlay.id = 'renderModalOverlay';
-
-    overlay.innerHTML = `
-      <div class="render-modal" role="dialog" aria-modal="true" aria-labelledby="renderModalTitle">
-        <div class="render-modal-header">
-          <span class="render-modal-title" id="renderModalTitle">渲染 / 匯出設定</span>
-          <button class="render-modal-close" id="renderModalClose" aria-label="關閉">✕</button>
-        </div>
-        <div class="render-modal-body">
-
-          <div class="render-opt-section">
-            <div class="render-opt-section-title">輸出格式</div>
-            <div class="render-opt-row">
-              <span class="render-opt-label">格式</span>
-              <div class="render-opt-control">
-                <select id="rmFormat">
-                  <option value="mp4">MP4 (H.264)</option>
-                  <option value="mxf">MXF (ProRes)</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div class="render-opt-section" id="rmMp4Section">
-            <div class="render-opt-section-title">MP4 — H.264 設定</div>
-            <div class="render-opt-row">
-              <span class="render-opt-label">畫面品質</span>
-              <div class="render-opt-control">
-                <div class="render-crf-wrap">
-                  <input type="range" id="rmCrf" min="0" max="51" value="18" step="1">
-                  <span class="render-crf-val" id="rmCrfVal">18</span>
-                </div>
-                <div class="render-crf-hint" id="rmCrfHint">高品質 — 檔案較大</div>
-              </div>
-            </div>
-            <div class="render-opt-row">
-              <span class="render-opt-label">編碼速度</span>
-              <div class="render-opt-control">
-                <select id="rmPreset">
-                  <option value="ultrafast">極快速（最大檔案）</option>
-                  <option value="fast">快速</option>
-                  <option value="medium" selected>平衡（預設）</option>
-                  <option value="slow">慢速（較小檔案）</option>
-                  <option value="veryslow">最慢（最小檔案）</option>
-                </select>
-              </div>
-            </div>
-            <div class="render-opt-row">
-              <span class="render-opt-label">音頻碼率</span>
-              <div class="render-opt-control">
-                <select id="rmAudioBitrate">
-                  <option value="128k">128 kbps</option>
-                  <option value="192k" selected>192 kbps（預設）</option>
-                  <option value="256k">256 kbps</option>
-                  <option value="320k">320 kbps</option>
-                </select>
-              </div>
-            </div>
-            <div class="render-opt-row">
-              <span class="render-opt-label">輸出解像度</span>
-              <div class="render-opt-control">
-                <select id="rmMp4Resolution">
-                  <option value="">原始（保持不變）</option>
-                  <option value="1280x720">1280 × 720（HD）</option>
-                  <option value="1920x1080">1920 × 1080（Full HD）</option>
-                  <option value="3840x2160">3840 × 2160（4K UHD）</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div class="render-opt-section" id="rmMxfSection" style="display:none">
-            <div class="render-opt-section-title">MXF — ProRes 設定</div>
-            <div class="render-opt-row" style="align-items:flex-start">
-              <span class="render-opt-label" style="padding-top:4px">ProRes 規格</span>
-              <div class="render-opt-control">
-                <div class="render-prores-grid" id="rmProresGrid"></div>
-              </div>
-            </div>
-            <div class="render-opt-row">
-              <span class="render-opt-label">音頻位深</span>
-              <div class="render-opt-control">
-                <select id="rmAudioFormat">
-                  <option value="pcm_s16le">16-bit PCM</option>
-                  <option value="pcm_s24le" selected>24-bit PCM（廣播標準）</option>
-                  <option value="pcm_s32le">32-bit PCM</option>
-                </select>
-              </div>
-            </div>
-            <div class="render-opt-row">
-              <span class="render-opt-label">輸出解像度</span>
-              <div class="render-opt-control">
-                <select id="rmMxfResolution">
-                  <option value="">原始（保持不變）</option>
-                  <option value="1920x1080">1920 × 1080（Full HD）</option>
-                  <option value="3840x2160">3840 × 2160（4K UHD）</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-        </div>
-        <div class="render-modal-footer">
-          <button class="btn btn-secondary" id="renderModalCancel">取消</button>
-          <button class="btn btn-render" id="renderModalConfirm">開始渲染 →</button>
-        </div>
-      </div>
-    `;
-
-    // Build ProRes profile grid
-    const grid = overlay.querySelector('#rmProresGrid');
-    PRORES_PROFILES.forEach((p) => {
-      const div = document.createElement('div');
-      div.className = 'render-prores-option' + (p.value === 3 ? ' selected' : '');
-      div.dataset.profile = p.value;
-      div.innerHTML = `<input type="radio" name="prores" value="${p.value}" ${p.value === 3 ? 'checked' : ''}>
-        <span class="render-prores-name">${p.name}</span>
-        <span class="render-prores-desc">${p.desc}</span>`;
-      div.addEventListener('click', () => {
-        grid.querySelectorAll('.render-prores-option').forEach(el => el.classList.remove('selected'));
-        div.classList.add('selected');
-        div.querySelector('input').checked = true;
-      });
-      grid.appendChild(div);
-    });
-
-    // CRF slider live update
-    const crfSlider = overlay.querySelector('#rmCrf');
-    const crfVal    = overlay.querySelector('#rmCrfVal');
-    const crfHint   = overlay.querySelector('#rmCrfHint');
-    function updateCrfHint(v) {
-      crfVal.textContent = v;
-      if      (v <= 16) crfHint.textContent = '高品質 — 檔案較大';
-      else if (v <= 22) crfHint.textContent = '良好品質 — 平衡';
-      else if (v <= 28) crfHint.textContent = '標準品質 — 檔案較小';
-      else              crfHint.textContent = '低品質 — 檔案最小';
-    }
-    crfSlider.addEventListener('input', () => updateCrfHint(parseInt(crfSlider.value, 10)));
-    updateCrfHint(18);
-
-    // Format toggle
-    const fmtSelect  = overlay.querySelector('#rmFormat');
-    const mp4Section = overlay.querySelector('#rmMp4Section');
-    const mxfSection = overlay.querySelector('#rmMxfSection');
-    fmtSelect.addEventListener('change', () => {
-      const isMxf = fmtSelect.value === 'mxf';
-      mp4Section.style.display = isMxf ? 'none' : '';
-      mxfSection.style.display = isMxf ? ''     : 'none';
-    });
-
-    function closeModal() {
-      const el = document.getElementById('renderModalOverlay');
-      if (el) el.remove();
-    }
-    overlay.querySelector('#renderModalClose').addEventListener('click', closeModal);
-    overlay.querySelector('#renderModalCancel').addEventListener('click', closeModal);
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
-
-    overlay.querySelector('#renderModalConfirm').addEventListener('click', async () => {
-      const format = fmtSelect.value;
-      const render_options = {};
-
-      if (format === 'mp4') {
-        render_options.crf           = parseInt(overlay.querySelector('#rmCrf').value, 10);
-        render_options.preset        = overlay.querySelector('#rmPreset').value;
-        render_options.audio_bitrate = overlay.querySelector('#rmAudioBitrate').value;
-        const res = overlay.querySelector('#rmMp4Resolution').value;
-        if (res) render_options.resolution = res;
-      } else {
-        const checked = overlay.querySelector('#rmProresGrid input[type="radio"]:checked');
-        render_options.prores_profile = checked ? parseInt(checked.value, 10) : 3;
-        render_options.audio_format   = overlay.querySelector('#rmAudioFormat').value;
-        const res = overlay.querySelector('#rmMxfResolution').value;
-        if (res) render_options.resolution = res;
-      }
-
-      closeModal();
-      await startRender(format, render_options);
-    });
-
-    document.body.appendChild(overlay);
-  }
-
-  async function startRender(format, render_options) {
-    btnRender.disabled = true;
-    btnRender.textContent = '渲染中...';
-
-    try {
-      const resp = await fetch(`${API_BASE}/api/render`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ file_id: state.fileId, format, render_options }),
-      });
-
-      if (!resp.ok) {
-        const err = await resp.json();
-        showToast(err.error || '渲染失敗', 'error');
-        btnRender.disabled = false;
-        btnRender.textContent = '匯出燒入字幕 →';
-        return;
-      }
-
-      const data = await resp.json();
-      const renderId = data.render_id;
-      showToast('渲染已開始...', 'info');
-
-      const pollInterval = setInterval(async () => {
-        try {
-          const statusResp = await fetch(`${API_BASE}/api/renders/${renderId}`);
-          const statusData = await statusResp.json();
-
-          if (statusData.status === 'done') {
-            clearInterval(pollInterval);
-            btnRender.textContent = '匯出燒入字幕 →';
-            btnRender.disabled = false;
-            showToast('渲染完成！', 'success');
-
-            const downloadUrl = `${API_BASE}/api/renders/${renderId}/download`;
-            const a = document.createElement('a');
-            a.href = downloadUrl;
-            a.download = statusData.output_filename || `render.${format}`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-          } else if (statusData.status === 'error') {
-            clearInterval(pollInterval);
-            btnRender.textContent = '匯出燒入字幕 →';
-            btnRender.disabled = false;
-            showToast(statusData.error || '渲染失敗', 'error');
-          }
-        } catch (e) {
-          clearInterval(pollInterval);
-          btnRender.textContent = '匯出燒入字幕 →';
-          btnRender.disabled = false;
-          showToast('檢查渲染狀態失敗', 'error');
-        }
-      }, 2000);
-
-    } catch (e) {
-      btnRender.disabled = false;
-      btnRender.textContent = '匯出燒入字幕 →';
-      showToast('渲染請求失敗', 'error');
-    }
-  }
-
-  // ===== Find & Replace event wiring =====
-  function initFindReplace() {
-    let findDebounceTimer = null;
-
-    const closeBtn = document.getElementById('findCloseBtn');
-    if (closeBtn) closeBtn.addEventListener('click', closeFindReplace);
-
-    const prevBtn = document.getElementById('findPrevBtn');
-    if (prevBtn) prevBtn.addEventListener('click', () => navigateMatch(-1));
-    const nextBtn = document.getElementById('findNextBtn');
-    if (nextBtn) nextBtn.addEventListener('click', () => navigateMatch(1));
-
-    const replaceOneBtn = document.getElementById('findReplaceOneBtn');
-    if (replaceOneBtn) replaceOneBtn.addEventListener('click', replaceOne);
-
-    const replaceAllBtn = document.getElementById('findReplaceAllBtn');
-    if (replaceAllBtn) replaceAllBtn.addEventListener('click', replaceAll);
-
-    const glossarySelect = document.getElementById('findGlossarySelect');
-    if (glossarySelect) {
-      glossarySelect.addEventListener('change', (e) => {
-        setFindState({ selectedGlossaryId: e.target.value || null });
-        updateApplyGlossaryBtn();
-      });
-    }
-
-    const applyGlossaryBtn = document.getElementById('findApplyGlossaryBtn');
-    if (applyGlossaryBtn) applyGlossaryBtn.addEventListener('click', applyGlossary);
-
-    const findInput = document.getElementById('findInput');
-    if (findInput) {
-      findInput.addEventListener('input', (e) => {
-        setFindState({ query: e.target.value, currentMatchIdx: 0 });
-        clearTimeout(findDebounceTimer);
-        findDebounceTimer = setTimeout(() => {
-          runFind();
-          applyHighlights();
-          updateFindUI();
-        }, 150);
-      });
-      findInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          if (e.shiftKey) navigateMatch(-1);
-          else navigateMatch(1);
-        }
-      });
-    }
-
-    const replaceInput = document.getElementById('replaceInput');
-    if (replaceInput) {
-      replaceInput.addEventListener('input', (e) => {
-        setFindState({ replacement: e.target.value });
-      });
-    }
-
-    const onlyUnapproved = document.getElementById('findOnlyUnapproved');
-    if (onlyUnapproved) {
-      onlyUnapproved.addEventListener('change', (e) => {
-        setFindState({ onlyUnapproved: e.target.checked, currentMatchIdx: 0 });
-        runFind();
-        applyHighlights();
-        updateFindUI();
-      });
-    }
-  }
-
-  // ===== Bootstrap =====
-
+  // ── Run ───────────────────────────────────────────────────
   init();
-</script>
-
+  </script>
 </body>
 </html>
