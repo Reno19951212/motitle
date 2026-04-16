@@ -14,7 +14,7 @@ const FontPreview = (() => {
   function applyFontConfig(font) {
     if (!font) return;
     const size = Number(font.size) || 48;
-    const strokeWidth = (Number(font.outline_width) || 2) * 2;
+    const strokeWidth = (font.outline_width != null ? Number(font.outline_width) : 2) * 2;
     const svgHeight = size + strokeWidth + 10;
 
     const root = document.documentElement;
@@ -23,7 +23,8 @@ const FontPreview = (() => {
     root.style.setProperty('--preview-font-color', font.color || '#FFFFFF');
     root.style.setProperty('--preview-outline-color', font.outline_color || '#000000');
     root.style.setProperty('--preview-outline-width', strokeWidth + 'px');
-    root.style.setProperty('--preview-margin-bottom', (Number(font.margin_bottom) || 40) + 'px');
+    const mb = font.margin_bottom != null ? Number(font.margin_bottom) : 40;
+    root.style.setProperty('--preview-margin-bottom', mb + 'px');
 
     if (_svgEl) {
       _svgEl.setAttribute('height', svgHeight);
@@ -39,6 +40,7 @@ const FontPreview = (() => {
   }
 
   function init(socketOrNull) {
+    if (_svgEl) return; // already initialised
     _svgEl = document.getElementById('subtitleSvg');
     _textEl = document.getElementById('subtitleSvgText');
 
@@ -49,7 +51,7 @@ const FontPreview = (() => {
           applyFontConfig(data.profile.font);
         }
       })
-      .catch(() => {});
+      .catch((err) => { console.warn('[FontPreview] Failed to fetch active profile:', err); });
 
     const sock = socketOrNull || (typeof io !== 'undefined' ? io(API_BASE) : null);
     if (sock) {
