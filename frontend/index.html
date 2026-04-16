@@ -836,6 +836,41 @@
       color: var(--text-dim);
     }
     .empty-state .empty-icon { font-size: 36px; margin-bottom: 10px; opacity: 0.5; }
+
+    /* ===== Panel scope hint (small tag-line under panel headers) ===== */
+    .panel-scope-hint {
+      font-size: 10.5px;
+      font-weight: 400;
+      color: var(--text-dim);
+      margin-left: 10px;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    .panel-management-header:hover .panel-scope-hint { color: var(--text); }
+
+    /* Tint the left border of each sidebar panel in a distinct colour so users
+       can see at a glance which concern they are editing. */
+    .panel-pipeline   { border-left: 3px solid var(--accent); }
+    .panel-playback   { border-left: 3px solid var(--accent2); }
+    .panel-management { border-left: 3px solid var(--border); }
+
+    /* Management panel — sub-sections get a thin divider rule */
+    .management-subsection {
+      border-top: 1px solid var(--border);
+      margin-top: 8px;
+      padding-top: 8px;
+    }
+    .management-subsection:first-child {
+      border-top: 0;
+      margin-top: 0;
+      padding-top: 0;
+    }
+    .panel-management-header .arrow {
+      transition: transform 0.2s ease;
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+    .panel-management-header.open .arrow { transform: rotate(90deg); }
   </style>
 </head>
 <body>
@@ -948,18 +983,28 @@
       </div>
     </div>
 
-    <!-- Settings -->
-    <div class="panel">
-      <div class="panel-header">⚙ 設置</div>
+    <!-- Panel 1: Pipeline 配置 (affects NEXT transcription run) -->
+    <div class="panel panel-pipeline">
+      <div class="panel-header">
+        🎬 Pipeline 配置
+        <span class="panel-scope-hint">下一次轉譯會用嘅設定</span>
+      </div>
       <div class="controls">
-
         <div class="control-group">
-          <label>Pipeline Profile</label>
           <div id="profileList" class="profile-list">
             <div style="color:var(--text-dim);font-size:12px;padding:4px 0;">載入中...</div>
           </div>
         </div>
+      </div>
+    </div>
 
+    <!-- Panel 2: 播放調整 (affects CURRENT video playback only) -->
+    <div class="panel panel-playback">
+      <div class="panel-header">
+        ▶ 播放調整
+        <span class="panel-scope-hint">只影響目前播放嘅字幕顯示</span>
+      </div>
+      <div class="controls">
         <div class="control-group">
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <label>字幕延遲 <span class="delay-badge">同步補償</span></label>
@@ -990,11 +1035,19 @@
           <input type="range" id="subtitleFontSize" min="14" max="48" step="2" value="18"
                  oninput="updateFontSize(this.value)">
         </div>
-
       </div>
+    </div>
 
+    <!-- Panel 3: 管理 (global config — collapsed by default) -->
+    <div class="panel panel-management">
+      <div class="panel-header panel-management-header" onclick="toggleManagementPanel()" style="cursor:pointer;">
+        ⚙ 管理
+        <span class="panel-scope-hint">全域配置 — 影響所有 Profile</span>
+        <span id="panelManagementArrow" class="arrow" style="margin-left:auto;">▶</span>
+      </div>
+      <div class="controls" id="panelManagementBody" style="display:none;">
         <!-- Language Config (collapsible) -->
-        <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:4px;padding-left:12px;padding-right:12px;padding-bottom:8px;">
+        <div class="management-subsection">
           <div class="collapsible-header" onclick="toggleCollapsible(this)">
             <span>🌐 語言配置</span>
             <span class="arrow">▶</span>
@@ -1027,7 +1080,7 @@
         </div>
 
         <!-- Glossary Manager (collapsible) -->
-        <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:4px;padding-left:12px;padding-right:12px;padding-bottom:8px;">
+        <div class="management-subsection">
           <div class="collapsible-header" onclick="toggleCollapsible(this)">
             <span>📖 術語表</span>
             <span class="arrow">▶</span>
@@ -1053,6 +1106,7 @@
             </div>
           </div>
         </div>
+      </div>
     </div>
 
   </div>
@@ -2833,6 +2887,35 @@ function toggleCollapsible(header) {
   header.classList.toggle('open');
   header.nextElementSibling.classList.toggle('open');
 }
+
+// Management panel is collapsed by default — expand/collapse on header click.
+// Persists the user's preference in localStorage so their choice sticks.
+function toggleManagementPanel() {
+  const header = document.querySelector('.panel-management-header');
+  const body = document.getElementById('panelManagementBody');
+  if (!header || !body) return;
+  const willOpen = body.style.display === 'none';
+  body.style.display = willOpen ? 'flex' : 'none';
+  header.classList.toggle('open', willOpen);
+  try {
+    localStorage.setItem('panelManagementOpen', willOpen ? '1' : '0');
+  } catch (e) { /* ignore quota / private-mode errors */ }
+}
+
+// Restore management panel state from localStorage on load
+try {
+  if (localStorage.getItem('panelManagementOpen') === '1') {
+    // Defer to next tick so DOM is ready
+    setTimeout(() => {
+      const body = document.getElementById('panelManagementBody');
+      const header = document.querySelector('.panel-management-header');
+      if (body && header) {
+        body.style.display = 'flex';
+        header.classList.add('open');
+      }
+    }, 0);
+  }
+} catch (e) { /* ignore */ }
 
 // ============================================================
 // Glossary Management
