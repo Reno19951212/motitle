@@ -220,3 +220,89 @@ def test_mp4_render_command_does_not_force_ar(tmp_path, monkeypatch):
     renderer.render("/fake/video.mp4", ass, str(tmp_path / "out.mp4"), "mp4")
 
     assert "-ar" not in captured["cmd"], "MP4 command should not force audio sample rate"
+
+
+# ===== _escape_ass_path() — FFmpeg filter special-character escaping =====
+
+def test_escape_ass_path_no_special_chars():
+    """Paths with no special chars are returned unchanged."""
+    from renderer import _escape_ass_path
+    assert _escape_ass_path("/tmp/subtitle.ass") == "/tmp/subtitle.ass"
+
+
+def test_escape_ass_path_escapes_colon():
+    """Colons must be escaped as \\: in FFmpeg filter strings."""
+    from renderer import _escape_ass_path
+    assert _escape_ass_path("/tmp/fake:path/sub.ass") == "/tmp/fake\\:path/sub.ass"
+
+
+def test_escape_ass_path_escapes_comma():
+    """Commas must be escaped as \\, in FFmpeg filter strings."""
+    from renderer import _escape_ass_path
+    assert _escape_ass_path("/tmp/fake,path/sub.ass") == "/tmp/fake\\,path/sub.ass"
+
+
+def test_escape_ass_path_escapes_backslash_first():
+    """Backslashes must be escaped before colons/commas to avoid double-escaping."""
+    from renderer import _escape_ass_path
+    # Input Python string:  C:\tmp\fake:path
+    # Step 1 (backslashes): C:\\tmp\\fake:path
+    # Step 2 (colons):      C\:\\tmp\\fake\:path   (both the drive ':' and path ':' are escaped)
+    # In Python repr that is: "C\\:\\\\tmp\\\\fake\\:path"
+    assert _escape_ass_path("C:\\tmp\\fake:path") == "C\\:\\\\tmp\\\\fake\\:path"
+
+
+def test_escape_ass_path_multiple_special_chars():
+    """All special chars in a single path are all escaped."""
+    from renderer import _escape_ass_path
+    assert _escape_ass_path("/a:b,c/d.ass") == "/a\\:b\\,c/d.ass"
+
+
+def test_ass_filter_escapes_colon_in_path(tmp_path, monkeypatch):
+    """Paths with colons must be escaped in the FFmpeg ass= filter."""
+    import subprocess as sp
+    import tempfile
+    from renderer import SubtitleRenderer
+
+    captured = {}
+
+    # Monkeypatch mkstemp to return a path containing a colon
+    fake_ass_path = "/tmp/fake:path/sub.ass"
+    real_fd = None
+
+    # Capture the real mkstemp before patching
+    import tempfile as _tempfile_module
+    real_mkstemp = _tempfile_module.mkstemp
+
+    def fake_mkstemp(**kwargs):
+        # Use the real mkstemp (captured before patching) to get a working fd
+        nonlocal real_fd
+        fd, real_path = real_mkstemp(suffix=".ass", dir=str(tmp_path))
+        real_fd = fd
+        return fd, fake_ass_path
+
+    monkeypatch.setattr(tempfile, "mkstemp", fake_mkstemp)
+
+    # Also patch os.path.exists and os.remove to avoid errors on the fake path
+    import os
+    monkeypatch.setattr(os.path, "exists", lambda p: False)
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        class R:
+            returncode = 0
+            stderr = ""
+        return R()
+
+    monkeypatch.setattr(sp, "run", fake_run)
+
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT)
+    renderer.render("/fake/video.mp4", ass, str(tmp_path / "out.mp4"), "mp4")
+
+    assert "cmd" in captured, "FFmpeg was not called"
+    vf_idx = captured["cmd"].index("-vf")
+    vf_value = captured["cmd"][vf_idx + 1]
+    # The colon in the path must be escaped; a bare ':' in the ass= value would corrupt the filter
+    assert "\\:" in vf_value, f"Expected escaped colon in -vf value, got: {vf_value}"
+    assert "fake:path" not in vf_value, f"Unescaped colon found in -vf value: {vf_value}"
