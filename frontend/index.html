@@ -1510,8 +1510,8 @@ function connectSocket() {
     if (!data) return;
     const parts = [];
     if (data.asr_seconds != null) parts.push(`ASR: ${data.asr_seconds}s`);
-    parts.push(`翻譯: ${data.translation_seconds}s`);
-    parts.push(`總計: ${data.total_seconds}s`);
+    if (data.translation_seconds != null) parts.push(`翻譯: ${data.translation_seconds}s`);
+    if (data.total_seconds != null) parts.push(`總計: ${data.total_seconds}s`);
     showToast(parts.join(' ｜ '), 'success');
   });
 
@@ -2903,7 +2903,7 @@ function buildProfileFormHTML(profile) {
           </div>
           <div id="pf-tr-model-info" class="pf-model-info"></div>
           <div id="pf-tr-params" class="pf-params-area"></div>
-          <div class="pf-row">
+          <div class="profile-form-row">
             <label for="pf-tr-parallel">並發批次</label>
             <input type="number" id="pf-tr-parallel" min="1" max="8" step="1" placeholder="1" value="${tr.parallel_batches ?? ''}">
             <p class="pf-hint">本地模型建議 1–2（需設定 OLLAMA_NUM_PARALLEL≥N）；雲端模型建議 3–5</p>
