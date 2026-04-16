@@ -2179,8 +2179,10 @@
       findInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
           e.preventDefault();
-          if (e.shiftKey) navigateMatch(-1);
-          else navigateMatch(1);
+          if (typeof navigateMatch === 'function') {
+            if (e.shiftKey) navigateMatch(-1);
+            else navigateMatch(1);
+          }
         }
       });
     }
