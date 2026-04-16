@@ -278,6 +278,7 @@ Whenever a new feature is completed or existing functionality is modified, you *
 - **渲染匯出參數面板**：點擊「匯出燒入字幕」開啟渲染設定 Modal；MP4 可調 CRF（0-51 slider）、編碼速度（ultrafast→veryslow）、音頻碼率、輸出解像度；MXF 可選 ProRes 規格（Proxy/LT/Standard/HQ/4444/4444XQ + 碼率說明）、音頻位深（16/24/32-bit PCM）、輸出解像度；後端 `_validate_render_options()` 完整驗證所有欄位並返回 400 + 明確錯誤信息；`render_options` 存入 job dict 並出現在 status API 響應
 - **Preview Font Sync**: SVG subtitle overlays in `index.html` and `proofread.html` now reflect Active Profile font config (family, size, color, outline, margin) in real-time via Socket.IO `profile_updated` event; replaced hardcoded CSS div with SVG `<text paint-order="stroke fill">` for true per-character outline matching ASS renderer output
 - **274 automated tests**（+3 new: profile_updated emit on activate, PATCH-active, PATCH-inactive）
+- **Find & Replace + Apply Glossary**: Find & Replace toolbar in `proofread.html` — search zh/en columns with live highlight, match navigation (▲/▼, Enter/Shift+Enter), Replace One/All (zh_text only), 只搜未批核 checkbox, Apply Glossary (violation detection + preview modal + batch PATCH). Opened via `Cmd+F`. No backend changes.
 
 ### v2.1 — Language Config, Frontend UI, Bug Fixes
 - **Language config system**: Per-language ASR params (max_words_per_segment, max_segment_duration) and translation params (batch_size, temperature) with validation
