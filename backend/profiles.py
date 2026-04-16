@@ -86,9 +86,9 @@ class ProfileManager:
             translation_errors = _validate_translation(translation)
             errors.extend(translation_errors)
 
-        # font (optional)
+        # font (optional — absent means "no change"; present must be a dict)
         font = data.get("font")
-        if font is not None:
+        if "font" in data:
             if not isinstance(font, dict):
                 errors.append("font must be a dict")
             else:
@@ -170,9 +170,12 @@ class ProfileManager:
         if existing is None:
             return None
 
-        # Special handling for font: deep merge to preserve all font properties
+        # Special handling for font: deep merge to preserve all font properties.
+        # Guard with isinstance check so that non-dict values (e.g. None) fall
+        # through to validate() and are rejected with a proper ValueError instead
+        # of crashing here with a TypeError.
         merged = {**existing, **data, "id": profile_id}
-        if "font" in data and "font" in existing:
+        if "font" in data and "font" in existing and isinstance(data["font"], dict):
             merged["font"] = {**existing["font"], **data["font"]}
 
         errors = self.validate(merged)
