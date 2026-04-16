@@ -527,7 +527,6 @@
 let socket = null;
 let uploadedFiles = {};      // id → file object
 let activeFileId  = null;    // file currently loaded in video player
-let currentSid    = null;    // socket session ID
 let isTranscribing = false;
 let segments = [];           // transcript segments for active file
 let translations = {};       // fileId → array of translation objects
@@ -635,9 +634,8 @@ function renderFileList() {
 }
 
 function buildFileCard(f) {
-  const id     = f.id;
-  const safeId = escapeHtml(id);
-  const name   = f.original_name || 'unknown';
+  const id   = f.id;   // backend UUID — contains only [0-9a-f-], safe in HTML attributes
+  const name = f.original_name || 'unknown';
   const size   = formatFileSize(f.size || 0);
   const status = f.status || 'pending';
   const tStat  = f.translation_status || 'pending';
@@ -677,14 +675,14 @@ function buildFileCard(f) {
   const proofDisabled = !transDone ? 'disabled' : '';
 
   return `
-<div class="file-card${isActive ? ' fc-active' : ''}" id="fc-${safeId}" data-id="${safeId}">
+<div class="file-card${isActive ? ' fc-active' : ''}" id="fc-${id}" data-id="${id}">
 
   <!-- Row 1: icon + name + size + playing chip -->
-  <div class="fc-row1" onclick="loadMedia('${safeId}')">
+  <div class="fc-row1" onclick="loadMedia('${id}')">
     <span class="fc-icon">${name.match(/\.(mp4|mov|avi|mkv|webm|mxf)/i) ? '🎬' : '🎵'}</span>
     <span class="fc-name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
     <span class="fc-size">${size}</span>
-    <span class="fc-playing-chip${isActive ? ' visible' : ''}" id="fc-playing-${safeId}">▶ 播放中</span>
+    <span class="fc-playing-chip${isActive ? ' visible' : ''}" id="fc-playing-${id}">▶ 播放中</span>
   </div>
 
   <!-- Row 2: pipeline dots -->
@@ -692,41 +690,41 @@ function buildFileCard(f) {
     <span class="pipeline-dot${asrDone ? ' done' : asrActive ? ' active' : asrError ? ' error' : ''}">ASR</span>
     <span class="pipeline-dot${transDone ? ' done' : transActive ? ' active' : asrDone && !asrError ? '' : ' hidden'}">翻譯</span>
     <span class="pipeline-dot${proofDone ? ' done' : transDone ? '' : ' hidden'}">校對</span>
-    <span class="pipeline-dot hidden" id="fc-render-dot-${safeId}">渲染</span>
+    <span class="pipeline-dot hidden" id="fc-render-dot-${id}">渲染</span>
   </div>
 
   <!-- Row 3: detail -->
-  <div class="fc-row3" id="fc-detail-${safeId}">${escapeHtml(detail)}</div>
+  <div class="fc-row3" id="fc-detail-${id}">${escapeHtml(detail)}</div>
 
   <!-- Progress strip (visible during transcription/translation) -->
-  <div class="fc-progress${(asrActive || transActive) ? ' visible' : ''}" id="fc-progress-${safeId}">
+  <div class="fc-progress${(asrActive || transActive) ? ' visible' : ''}" id="fc-progress-${id}">
     <div class="fc-progress-bar">
-      <div class="fc-progress-fill" id="fc-fill-${safeId}" style="width:${fileProgress[id]?.pct || 0}%"></div>
+      <div class="fc-progress-fill" id="fc-fill-${id}" style="width:${fileProgress[id]?.pct || 0}%"></div>
     </div>
     <div class="fc-progress-meta">
-      <span id="fc-pct-${safeId}">${fileProgress[id]?.pct || 0}%</span>
-      <span id="fc-eta-${safeId}">${fileProgress[id]?.eta ? fileProgress[id].eta + 's' : ''}</span>
+      <span id="fc-pct-${id}">${fileProgress[id]?.pct || 0}%</span>
+      <span id="fc-eta-${id}">${fileProgress[id]?.eta ? fileProgress[id].eta + 's' : ''}</span>
     </div>
   </div>
 
   <!-- Row 4: actions -->
   <div class="fc-row4">
-    <button class="btn" onclick="navigateToProofread('${safeId}')" ${proofDisabled}>校對→</button>
+    <button class="btn" onclick="navigateToProofread('${id}')" ${proofDisabled}>校對→</button>
 
-    <div class="fc-dl-wrap" id="fc-dl-wrap-${safeId}">
-      <button class="btn" onclick="toggleDlMenu('${safeId}', event)">下載↓</button>
-      <div class="fc-dl-menu" id="fc-dl-menu-${safeId}">
-        <button class="fc-dl-item" onclick="downloadSubtitle('${safeId}','srt')">SRT</button>
-        <button class="fc-dl-item" onclick="downloadSubtitle('${safeId}','vtt')">VTT</button>
-        <button class="fc-dl-item" onclick="downloadSubtitle('${safeId}','txt')">TXT</button>
+    <div class="fc-dl-wrap" id="fc-dl-wrap-${id}">
+      <button class="btn" onclick="toggleDlMenu('${id}', event)">下載↓</button>
+      <div class="fc-dl-menu" id="fc-dl-menu-${id}">
+        <button class="fc-dl-item" onclick="downloadSubtitle('${id}','srt')">SRT</button>
+        <button class="fc-dl-item" onclick="downloadSubtitle('${id}','vtt')">VTT</button>
+        <button class="fc-dl-item" onclick="downloadSubtitle('${id}','txt')">TXT</button>
       </div>
     </div>
 
-    <div class="fc-overflow-wrap" id="fc-ov-wrap-${safeId}">
-      <button class="btn btn-icon" onclick="toggleOverflowMenu('${safeId}', event)" title="更多">⋮</button>
-      <div class="fc-overflow-menu" id="fc-ov-menu-${safeId}">
-        <button class="fc-overflow-item" onclick="retranslate('${safeId}')">重新翻譯</button>
-        <button class="fc-overflow-item danger" onclick="deleteFile('${safeId}')">刪除</button>
+    <div class="fc-overflow-wrap" id="fc-ov-wrap-${id}">
+      <button class="btn btn-icon" onclick="toggleOverflowMenu('${id}', event)" title="更多">⋮</button>
+      <div class="fc-overflow-menu" id="fc-ov-menu-${id}">
+        <button class="fc-overflow-item" onclick="retranslate('${id}')">重新翻譯</button>
+        <button class="fc-overflow-item danger" onclick="deleteFile('${id}')">刪除</button>
       </div>
     </div>
   </div>
@@ -1032,7 +1030,6 @@ function formatFileSize(bytes) {
 socket = connectSocket({
 
   connected(data) {
-    currentSid = data.sid || socket?.id || null;
     fetchFileList().then(() => {
       restoreSessionState();
     });
