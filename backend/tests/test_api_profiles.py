@@ -82,6 +82,43 @@ def test_patch_active_profile_emits_profile_updated(profile_client):
         assert font['family'] == 'Arial'  # full merged config, not just patched field
 
 
+def test_create_invalid_profile_returns_errors_as_list(profile_client):
+    """POST /api/profiles with invalid data must return errors as a list, not a string."""
+    resp = profile_client.post('/api/profiles', json={
+        # name present but asr + translation missing — triggers validation errors
+        "name": "Bad Profile"
+    })
+    assert resp.status_code == 400
+    body = resp.get_json()
+    assert "errors" in body, "Response must contain 'errors' key"
+    errors = body["errors"]
+    assert isinstance(errors, list), (
+        f"'errors' must be a list, got {type(errors).__name__}: {errors!r}"
+    )
+    assert len(errors) > 0, "'errors' list must not be empty for invalid data"
+    # Ensure no element looks like a stringified list (old bug: "Invalid profile data: [...]")
+    for item in errors:
+        assert not item.startswith("Invalid profile data:"), (
+            f"Got formatted string instead of raw error item: {item!r}"
+        )
+
+
+def test_update_invalid_profile_returns_errors_as_list(profile_client):
+    """PATCH /api/profiles/<id> with invalid data must return errors as a list, not a string."""
+    profile_id = _create_profile(profile_client)
+    resp = profile_client.patch(f'/api/profiles/{profile_id}', json={
+        "asr": "not-a-dict"   # invalid type — will fail validation
+    })
+    assert resp.status_code == 400
+    body = resp.get_json()
+    assert "errors" in body, "Response must contain 'errors' key"
+    errors = body["errors"]
+    assert isinstance(errors, list), (
+        f"'errors' must be a list, got {type(errors).__name__}: {errors!r}"
+    )
+    assert len(errors) > 0, "'errors' list must not be empty for invalid data"
+
+
 def test_patch_inactive_profile_does_not_emit(profile_client):
     """PATCH on a non-active profile must NOT emit profile_updated."""
     active_id = _create_profile(profile_client, name="Active")
