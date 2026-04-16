@@ -1742,6 +1742,28 @@ def update_segment_text(file_id, seg_id):
     return jsonify({'status': 'ok', 'id': seg_id, 'text': new_text})
 
 
+@app.route('/api/files/<file_id>', methods=['GET'])
+def get_file(file_id):
+    """Get a single file's metadata by ID"""
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+    if not entry:
+        return jsonify({'error': '文件不存在'}), 404
+    return jsonify({
+        'id': file_id,
+        'original_name': entry['original_name'],
+        'size': entry['size'],
+        'status': entry['status'],
+        'uploaded_at': entry['uploaded_at'],
+        'segment_count': len(entry.get('segments', [])),
+        'error': entry.get('error'),
+        'model': entry.get('model'),
+        'backend': entry.get('backend'),
+        'translation_status': entry.get('translation_status'),
+        'translation_engine': entry.get('translation_engine'),
+    })
+
+
 @app.route('/api/files/<file_id>', methods=['DELETE'])
 def delete_file(file_id):
     """Delete an uploaded file and its transcription data"""

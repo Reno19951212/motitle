@@ -508,9 +508,9 @@ async function loadProfiles() {
       fetch(`${API_BASE}/api/profiles`),
       fetch(`${API_BASE}/api/profiles/active`),
     ]);
-    const profiles = await profilesRes.json();
+    const profilesData = await profilesRes.json();
     const activeData = await activeRes.json();
-    state.profiles = Array.isArray(profiles) ? profiles : [];
+    state.profiles = Array.isArray(profilesData.profiles) ? profilesData.profiles : [];
     state.activeProfileId = activeData?.profile?.id ?? null;
     renderProfileList();
     // If a profile was previously selected, re-select it
@@ -703,8 +703,8 @@ async function loadGlossaryList() {
   try {
     const res = await fetch(`${API_BASE}/api/glossaries`);
     if (!res.ok) throw new Error(await res.text());
-    const glossaries = await res.json();
-    await renderGlossaryList(Array.isArray(glossaries) ? glossaries : []);
+    const glossariesData = await res.json();
+    await renderGlossaryList(Array.isArray(glossariesData.glossaries) ? glossariesData.glossaries : []);
   } catch (err) {
     showToast('無法載入詞表', 'error');
     console.error('[loadGlossaryList]', err);
@@ -890,8 +890,8 @@ async function loadLanguageList() {
   try {
     const res = await fetch(`${API_BASE}/api/languages`);
     if (!res.ok) throw new Error(await res.text());
-    const langs = await res.json();
-    renderLanguageList(Array.isArray(langs) ? langs : []);
+    const langsData = await res.json();
+    renderLanguageList(Array.isArray(langsData.languages) ? langsData.languages : []);
   } catch (err) {
     showToast('無法載入語言設定', 'error');
     console.error('[loadLanguageList]', err);

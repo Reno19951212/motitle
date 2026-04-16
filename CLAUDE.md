@@ -182,6 +182,7 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | GET | `/api/models` | Available Whisper model list |
 | POST | `/api/transcribe` | Upload + async transcription → auto-translate |
 | GET | `/api/files` | List all uploaded files with status |
+| GET | `/api/files/<id>` | Get single file metadata |
 | GET | `/api/files/<id>/media` | Serve original media file |
 | GET | `/api/files/<id>/subtitle.<fmt>` | Download subtitle (srt/vtt/txt) |
 | GET | `/api/files/<id>/segments` | Get transcription segments |

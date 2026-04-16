@@ -647,7 +647,7 @@ function buildFileCard(f) {
   const asrActive = status === 'transcribing';
   const asrError  = status === 'error';
 
-  const transDone   = tStat === 'complete';
+  const transDone   = tStat === 'done';
   const transActive = tStat === 'translating';
 
   // Proofread = translation complete; Render = hidden until render triggered
@@ -863,7 +863,7 @@ async function loadSegments(id) {
   clearTranscript();
   // Prefer translations if available
   const file = uploadedFiles[id];
-  if (file && file.translation_status === 'complete') {
+  if (file && file.translation_status === 'done') {
     try {
       const res = await fetch(`${API_BASE}/api/files/${encodeURIComponent(id)}/translations`);
       if (res.ok) {
@@ -1051,7 +1051,7 @@ socket = connectSocket({
     }
     updateFileCard(uploadedFiles[f.id]);
     // Reload transcript panel when translation completes for the active file
-    if (f.id === activeFileId && f.translation_status === 'complete') {
+    if (f.id === activeFileId && f.translation_status === 'done') {
       loadSegments(f.id);
     }
   },
