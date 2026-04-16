@@ -903,7 +903,8 @@ def api_translate_file():
     file_id = data['file_id']
     style_override = data.get('style')
 
-    entry = _file_registry.get(file_id)
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
     if not entry:
         return jsonify({"error": "File not found"}), 404
 
@@ -1141,7 +1142,8 @@ def api_update_language(lang_id):
 
 @app.route('/api/files/<file_id>/translations', methods=['GET'])
 def api_get_translations(file_id):
-    entry = _file_registry.get(file_id)
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
     if not entry:
         return jsonify({"error": "File not found"}), 404
     translations = entry.get("translations", [])
@@ -1150,7 +1152,8 @@ def api_get_translations(file_id):
 
 @app.route('/api/files/<file_id>/translations/approve-all', methods=['POST'])
 def api_approve_all_translations(file_id):
-    entry = _file_registry.get(file_id)
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
     if not entry:
         return jsonify({"error": "File not found"}), 404
     translations = entry.get("translations", [])
@@ -1168,7 +1171,8 @@ def api_approve_all_translations(file_id):
 
 @app.route('/api/files/<file_id>/translations/status', methods=['GET'])
 def api_translation_status(file_id):
-    entry = _file_registry.get(file_id)
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
     if not entry:
         return jsonify({"error": "File not found"}), 404
     translations = entry.get("translations", [])
@@ -1179,7 +1183,8 @@ def api_translation_status(file_id):
 
 @app.route('/api/files/<file_id>/translations/<int:idx>', methods=['PATCH'])
 def api_update_translation(file_id, idx):
-    entry = _file_registry.get(file_id)
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
     if not entry:
         return jsonify({"error": "File not found"}), 404
     translations = entry.get("translations", [])
@@ -1196,7 +1201,8 @@ def api_update_translation(file_id, idx):
 
 @app.route('/api/files/<file_id>/translations/<int:idx>/approve', methods=['POST'])
 def api_approve_translation(file_id, idx):
-    entry = _file_registry.get(file_id)
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
     if not entry:
         return jsonify({"error": "File not found"}), 404
     translations = entry.get("translations", [])
