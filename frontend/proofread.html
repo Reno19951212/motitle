@@ -1109,6 +1109,179 @@
     state.segments.forEach((_, i) => refreshRow(i));
   }
 
+  /**
+   * Return HTML string with all (case-insensitive) occurrences of `query`
+   * wrapped in <mark>. The occurrence at local index `activeLocalIdx`
+   * (0-based count within THIS text string) gets find-highlight-active;
+   * others get find-highlight.
+   * activeLocalIdx = -1 means no active mark in this text.
+   */
+  function highlightText(rawText, query, activeLocalIdx) {
+    if (!query || !rawText) return escapeHtml(rawText || '');
+    const lower = rawText.toLowerCase();
+    const qLower = query.toLowerCase();
+    let result = '';
+    let searchFrom = 0;
+    let occurrenceCount = 0;
+    while (searchFrom < rawText.length) {
+      const idx = lower.indexOf(qLower, searchFrom);
+      if (idx === -1) {
+        result += escapeHtml(rawText.slice(searchFrom));
+        break;
+      }
+      result += escapeHtml(rawText.slice(searchFrom, idx));
+      const cls = (occurrenceCount === activeLocalIdx)
+        ? 'find-highlight-active'
+        : 'find-highlight';
+      result += `<mark class="${cls}">${escapeHtml(rawText.slice(idx, idx + query.length))}</mark>`;
+      occurrenceCount++;
+      searchFrom = idx + query.length;
+    }
+    return result;
+  }
+
+  /**
+   * Scan state.segments for all matches of findState.query in zh_text + en_text.
+   * Populates findState.matchList and clamps currentMatchIdx.
+   * Does NOT update the DOM — call applyHighlights() after.
+   */
+  function runFind() {
+    const q = findState.query;
+    if (!q) {
+      setFindState({ matchList: [], currentMatchIdx: -1 });
+      return;
+    }
+    const qLower = q.toLowerCase();
+    const matches = [];
+    state.segments.forEach((seg) => {
+      if (findState.onlyUnapproved && seg.approved) return;
+      // zh_text matches (replaceable)
+      let text = seg.zh_text || '';
+      let lower = text.toLowerCase();
+      let from = 0;
+      while (from < text.length) {
+        const pos = lower.indexOf(qLower, from);
+        if (pos === -1) break;
+        matches.push({ segIdx: seg.idx, field: 'zh', start: pos, len: q.length });
+        from = pos + q.length;
+      }
+      // en_text matches (highlight-only)
+      text = seg.en_text || '';
+      lower = text.toLowerCase();
+      from = 0;
+      while (from < text.length) {
+        const pos = lower.indexOf(qLower, from);
+        if (pos === -1) break;
+        matches.push({ segIdx: seg.idx, field: 'en', start: pos, len: q.length });
+        from = pos + q.length;
+      }
+    });
+
+    // Clamp currentMatchIdx
+    let newIdx = findState.currentMatchIdx;
+    if (matches.length === 0) newIdx = -1;
+    else if (newIdx < 0) newIdx = 0;
+    else if (newIdx >= matches.length) newIdx = matches.length - 1;
+
+    setFindState({ matchList: matches, currentMatchIdx: newIdx });
+  }
+
+  /**
+   * Walk all rows and inject <mark> tags into zh and en cells based on
+   * findState.matchList. Skips rows where the segment is currently being edited.
+   */
+  function applyHighlights() {
+    const tableBody = document.getElementById('tableBody');
+    if (!tableBody) return;
+    const q = findState.query;
+    const matches = findState.matchList;
+
+    // Group matches by segIdx → {zh: [{globalIdx,start,len}], en: [...]}
+    const bySegIdx = {};
+    matches.forEach((m, globalIdx) => {
+      if (!bySegIdx[m.segIdx]) bySegIdx[m.segIdx] = { zh: [], en: [] };
+      bySegIdx[m.segIdx][m.field].push({ globalIdx, start: m.start, len: m.len });
+    });
+
+    state.segments.forEach((seg) => {
+      const tr = tableBody.querySelector(`tr[data-idx="${seg.idx}"]`);
+      if (!tr) return;
+
+      const segMatches = bySegIdx[seg.idx];
+      const zhCell = tr.querySelector('.td-zh');
+      const enCell = tr.querySelector('.td-en');
+
+      if (!segMatches || !q) {
+        // No matches in this seg — restore clean display
+        if (zhCell && state.editingIdx !== seg.idx) {
+          const display = escapeHtml(seg.zh_text) ||
+            '<span style="color:var(--text-dim);font-style:italic;">（空白）</span>';
+          zhCell.innerHTML = `<span class="zh-display" data-idx="${seg.idx}">${display}</span>`;
+          zhCell.querySelector('.zh-display')?.addEventListener('click', () => startEdit(seg.idx));
+        }
+        if (enCell) enCell.textContent = seg.en_text || '';
+        return;
+      }
+
+      // zh cell
+      if (zhCell && state.editingIdx !== seg.idx) {
+        const zhMs = segMatches.zh;
+        const activeGlobal = findState.currentMatchIdx;
+        const activeLocal = zhMs.findIndex(m => m.globalIdx === activeGlobal);
+        const zhHtml = zhMs.length > 0
+          ? highlightText(seg.zh_text, q, activeLocal)
+          : (escapeHtml(seg.zh_text) || '<span style="color:var(--text-dim);font-style:italic;">（空白）</span>');
+        zhCell.innerHTML = `<span class="zh-display" data-idx="${seg.idx}">${zhHtml}</span>`;
+        zhCell.querySelector('.zh-display')?.addEventListener('click', () => startEdit(seg.idx));
+      }
+
+      // en cell
+      if (enCell) {
+        const enMs = segMatches.en;
+        if (enMs.length > 0) {
+          const activeGlobal = findState.currentMatchIdx;
+          const activeLocal = enMs.findIndex(m => m.globalIdx === activeGlobal);
+          enCell.innerHTML = highlightText(seg.en_text, q, activeLocal);
+        } else {
+          enCell.textContent = seg.en_text || '';
+        }
+      }
+    });
+  }
+
+  /**
+   * Sync toolbar counter, nav buttons, and replace buttons to findState.
+   */
+  function updateFindUI() {
+    const counter = document.getElementById('findCounter');
+    const prevBtn = document.getElementById('findPrevBtn');
+    const nextBtn = document.getElementById('findNextBtn');
+    const replaceOneBtn = document.getElementById('findReplaceOneBtn');
+    const replaceAllBtn = document.getElementById('findReplaceAllBtn');
+
+    const total = findState.matchList.length;
+    const cur = findState.currentMatchIdx;
+
+    if (!findState.query) {
+      if (counter) { counter.textContent = ''; counter.className = 'find-counter'; }
+    } else if (total === 0) {
+      if (counter) { counter.textContent = '找不到'; counter.className = 'find-counter no-match'; }
+    } else {
+      if (counter) {
+        counter.textContent = `${cur + 1} / ${total}`;
+        counter.className = 'find-counter';
+      }
+    }
+
+    const hasZhMatch = findState.matchList.some(m => m.field === 'zh');
+    const isCurrentZhMatch = cur >= 0 && findState.matchList[cur]?.field === 'zh';
+
+    if (prevBtn) prevBtn.disabled = total === 0;
+    if (nextBtn) nextBtn.disabled = total === 0;
+    if (replaceOneBtn) replaceOneBtn.disabled = !isCurrentZhMatch;
+    if (replaceAllBtn) replaceAllBtn.disabled = !hasZhMatch;
+  }
+
   // ===== DOM references =====
 
   const loadingOverlay = document.getElementById('loadingOverlay');
@@ -1987,8 +2160,47 @@
 
   // ===== Find & Replace event wiring =====
   function initFindReplace() {
+    let findDebounceTimer = null;
+
     const closeBtn = document.getElementById('findCloseBtn');
     if (closeBtn) closeBtn.addEventListener('click', closeFindReplace);
+
+    const findInput = document.getElementById('findInput');
+    if (findInput) {
+      findInput.addEventListener('input', (e) => {
+        setFindState({ query: e.target.value, currentMatchIdx: 0 });
+        clearTimeout(findDebounceTimer);
+        findDebounceTimer = setTimeout(() => {
+          runFind();
+          applyHighlights();
+          updateFindUI();
+        }, 150);
+      });
+      findInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (e.shiftKey) navigateMatch(-1);
+          else navigateMatch(1);
+        }
+      });
+    }
+
+    const replaceInput = document.getElementById('replaceInput');
+    if (replaceInput) {
+      replaceInput.addEventListener('input', (e) => {
+        setFindState({ replacement: e.target.value });
+      });
+    }
+
+    const onlyUnapproved = document.getElementById('findOnlyUnapproved');
+    if (onlyUnapproved) {
+      onlyUnapproved.addEventListener('change', (e) => {
+        setFindState({ onlyUnapproved: e.target.checked, currentMatchIdx: 0 });
+        runFind();
+        applyHighlights();
+        updateFindUI();
+      });
+    }
   }
 
   // ===== Bootstrap =====
