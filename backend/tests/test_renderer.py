@@ -258,6 +258,66 @@ def test_escape_ass_path_multiple_special_chars():
     assert _escape_ass_path("/a:b,c/d.ass") == "/a\\:b\\,c/d.ass"
 
 
+# ===== L10: Zero-duration segment guard =====
+
+def test_generate_ass_skips_zero_duration_segments(tmp_path):
+    """generate_ass() must not emit a Dialogue line for segments where start == end."""
+    from renderer import SubtitleRenderer
+    segments = [
+        {"start": 1.0, "end": 3.0, "zh_text": "正常字幕"},
+        {"start": 5.0, "end": 5.0, "zh_text": "零長度字幕"},  # zero-duration — must be skipped
+        {"start": 7.0, "end": 9.0, "zh_text": "另一正常字幕"},
+    ]
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(segments, DEFAULT_FONT)
+    assert "零長度字幕" not in ass, "Zero-duration segment text must not appear in ASS output"
+    assert "正常字幕" in ass
+    assert "另一正常字幕" in ass
+
+
+# ===== L11: Raw newline in zh_text =====
+
+def test_generate_ass_replaces_newline_with_ass_linebreak(tmp_path):
+    """generate_ass() must replace \\n in zh_text with ASS \\N, not leave a bare newline."""
+    from renderer import SubtitleRenderer
+    segments = [
+        {"start": 0.0, "end": 3.0, "zh_text": "第一行\n第二行"},
+    ]
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(segments, DEFAULT_FONT)
+    # Must contain the ASS line-break escape sequence
+    assert "\\N" in ass, "zh_text newline must be converted to ASS \\N"
+    # The Dialogue record line itself must not contain a bare newline inside the text field
+    for line in ass.splitlines():
+        if line.startswith("Dialogue:"):
+            assert "\n" not in line.split(",,", 1)[-1], (
+                "Dialogue line must not contain a bare newline in the text field"
+            )
+
+
+# ===== L12: returncode=0 with fatal stderr =====
+
+def test_render_returns_false_on_returncode_0_with_stderr_error(tmp_path, monkeypatch):
+    """render() must return (False, ...) when ffmpeg exits 0 but stderr contains fatal error text."""
+    import subprocess as sp
+    from renderer import SubtitleRenderer
+
+    class FakeResult:
+        returncode = 0
+        stderr = "Error: invalid codec parameters"
+
+    monkeypatch.setattr(sp, "run", lambda *a, **kw: FakeResult())
+
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT)
+    result = renderer.render("/fake/video.mp4", ass, str(tmp_path / "out.mp4"), "mp4")
+
+    assert isinstance(result, tuple)
+    success, error = result
+    assert success is False, "render() must return False when stderr contains fatal error despite returncode=0"
+    assert error is not None, "error message must be set when fatal stderr detected"
+
+
 def test_ass_filter_escapes_colon_in_path(tmp_path, monkeypatch):
     """Paths with colons must be escaped in the FFmpeg ass= filter."""
     import subprocess as sp
