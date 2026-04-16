@@ -1096,7 +1096,9 @@
     if (!bar) return;
     bar.classList.remove('open');
     clearHighlights();
-    setFindState({ query: '', replacement: '', matchList: [], currentMatchIdx: -1 });
+    setFindState({ query: '', replacement: '', matchList: [], currentMatchIdx: -1, onlyUnapproved: false });
+    const checkboxEl = document.getElementById('findOnlyUnapproved');
+    if (checkboxEl) checkboxEl.checked = false;
     const findInput = document.getElementById('findInput');
     if (findInput) findInput.value = '';
     const replaceInput = document.getElementById('replaceInput');
@@ -1547,7 +1549,8 @@
 
     for (let i = 0; i < violations.length; i++) {
       const { seg, entry } = violations[i];
-      const existing = seg.zh_text || '';
+      const currentSeg = state.segments[seg.idx];
+      const existing = (currentSeg ? currentSeg.zh_text : seg.zh_text) || '';
       const newText = existing ? `${existing} ${entry.zh}` : entry.zh;
 
       try {
