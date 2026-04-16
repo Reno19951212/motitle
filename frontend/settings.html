@@ -609,11 +609,11 @@ function collectProfileFormData() {
     },
     font: {
       family: document.getElementById('pf-font-family').value.trim(),
-      size: parseFloat(document.getElementById('pf-font-size').value) || null,
+      size: (el => el.value.trim() === '' ? null : parseFloat(el.value))(document.getElementById('pf-font-size')),
       color: document.getElementById('pf-font-color').value.trim(),
       outline_color: document.getElementById('pf-outline-color').value.trim(),
-      outline_width: parseFloat(document.getElementById('pf-outline-width').value) || null,
-      margin_bottom: parseFloat(document.getElementById('pf-margin-bottom').value) || null,
+      outline_width: (el => el.value.trim() === '' ? null : parseFloat(el.value))(document.getElementById('pf-outline-width')),
+      margin_bottom: (el => el.value.trim() === '' ? null : parseFloat(el.value))(document.getElementById('pf-margin-bottom')),
     },
   };
 }
@@ -959,12 +959,12 @@ async function saveLanguage(lid) {
   if (!card) return;
   const data = {
     asr: {
-      max_words_per_segment: parseInt(card.querySelector('.lang-asr-max-words').value, 10) || null,
-      max_segment_duration: parseFloat(card.querySelector('.lang-asr-max-dur').value) || null,
+      max_words_per_segment: (el => el.value.trim() === '' ? null : parseInt(el.value, 10))(card.querySelector('.lang-asr-max-words')),
+      max_segment_duration: (el => el.value.trim() === '' ? null : parseFloat(el.value))(card.querySelector('.lang-asr-max-dur')),
     },
     translation: {
-      batch_size: parseInt(card.querySelector('.lang-tr-batch-size').value, 10) || null,
-      temperature: parseFloat(card.querySelector('.lang-tr-temperature').value) || null,
+      batch_size: (el => el.value.trim() === '' ? null : parseInt(el.value, 10))(card.querySelector('.lang-tr-batch-size')),
+      temperature: (el => el.value.trim() === '' ? null : parseFloat(el.value))(card.querySelector('.lang-tr-temperature')),
     },
   };
   try {
