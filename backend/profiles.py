@@ -155,12 +155,13 @@ class ProfileManager:
         """
         Merge `data` into an existing profile, validate, then persist.
 
-        The merge is a **shallow (top-level) merge**: each key in `data`
-        replaces the corresponding top-level key in the existing profile.
-        Nested blocks such as ``asr`` and ``translation`` are replaced in
-        their entirety, so callers must supply the complete nested object
-        if any of their inner fields change — partial nested updates are
-        not supported.
+        The merge is a **shallow (top-level) merge** with special handling for ``font``:
+        - For the ``font`` object, a **deep merge** is performed (existing font fields
+          are preserved, new values override)
+        - Other nested blocks such as ``asr`` and ``translation`` are replaced in
+          their entirety, so callers must supply the complete nested object
+          if any of their inner fields change — partial nested updates are
+          not supported.
 
         Returns the updated profile, or None if profile_id is not found.
         Raises ValueError if the merged data is invalid.
@@ -169,7 +170,11 @@ class ProfileManager:
         if existing is None:
             return None
 
+        # Special handling for font: deep merge to preserve all font properties
         merged = {**existing, **data, "id": profile_id}
+        if "font" in data and "font" in existing:
+            merged["font"] = {**existing["font"], **data["font"]}
+
         errors = self.validate(merged)
         if errors:
             raise ValueError(f"Invalid profile data: {errors}")
