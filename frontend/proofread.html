@@ -1414,6 +1414,60 @@
     runFind(); applyHighlights(); updateFindUI();
   }
 
+  function updateApplyGlossaryBtn() {
+    const applyBtn = document.getElementById('findApplyGlossaryBtn');
+    const select = document.getElementById('findGlossarySelect');
+    if (!applyBtn || !select) return;
+    applyBtn.disabled = !select.value;
+  }
+
+  async function loadGlossaryDropdown() {
+    const select = document.getElementById('findGlossarySelect');
+    const applyBtn = document.getElementById('findApplyGlossaryBtn');
+    if (!select) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/glossaries`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const glossaries = data.glossaries || [];
+
+      // Try to get the active profile's linked glossary
+      let profileGlossaryId = null;
+      try {
+        const profileRes = await fetch(`${API_BASE}/api/profiles/active`);
+        if (profileRes.ok) {
+          const profileData = await profileRes.json();
+          profileGlossaryId = profileData?.translation?.glossary_id || null;
+        }
+      } catch (_) { /* ignore profile fetch failure */ }
+
+      // Rebuild dropdown
+      select.innerHTML = '<option value="">— 未選擇 —</option>';
+      glossaries.forEach(g => {
+        const opt = document.createElement('option');
+        opt.value = g.id;
+        opt.textContent = g.name;
+        select.appendChild(opt);
+      });
+
+      // Pre-select profile's linked glossary if available
+      if (profileGlossaryId && glossaries.some(g => g.id === profileGlossaryId)) {
+        select.value = profileGlossaryId;
+        setFindState({ selectedGlossaryId: profileGlossaryId });
+      } else {
+        setFindState({ selectedGlossaryId: null });
+      }
+
+      setFindState({ glossaryList: glossaries });
+      updateApplyGlossaryBtn();
+
+    } catch (err) {
+      showToast('無法載入詞表', 'error');
+      if (applyBtn) applyBtn.disabled = true;
+    }
+  }
+
   // ===== DOM references =====
 
   const loadingOverlay = document.getElementById('loadingOverlay');
@@ -2307,6 +2361,14 @@
 
     const replaceAllBtn = document.getElementById('findReplaceAllBtn');
     if (replaceAllBtn) replaceAllBtn.addEventListener('click', replaceAll);
+
+    const glossarySelect = document.getElementById('findGlossarySelect');
+    if (glossarySelect) {
+      glossarySelect.addEventListener('change', (e) => {
+        setFindState({ selectedGlossaryId: e.target.value || null });
+        updateApplyGlossaryBtn();
+      });
+    }
 
     const findInput = document.getElementById('findInput');
     if (findInput) {
