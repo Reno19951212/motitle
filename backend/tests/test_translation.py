@@ -1308,3 +1308,123 @@ def test_api_translation_engine_models_returns_only_matching_engine():
         assert models[0]["engine"] == "qwen2.5-3b"
         assert models[0]["model"] == "qwen2.5:3b"
         assert models[0]["is_cloud"] is False
+
+
+# ===== parallel_batches =====
+
+def test_parallel_batches_returns_same_segment_count(monkeypatch):
+    """parallel_batches=2 must return the same number of segments as parallel_batches=1."""
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    segments = [
+        {"start": float(i), "end": float(i+1), "text": f"segment {i}"}
+        for i in range(6)
+    ]
+
+    def fake_call(self_or_prompt, prompt_or_sys=None, system_prompt=None, temperature=None):
+        # Handle both bound and unbound calls
+        if isinstance(self_or_prompt, str):
+            prompt = self_or_prompt
+        else:
+            prompt = prompt_or_sys or ""
+        import re
+        nums = re.findall(r"^\d+\.", prompt, re.MULTILINE)
+        lines = [f"{n[:-1]}. 翻譯 {n[:-1]}" for n in nums]
+        return "\n".join(lines)
+
+    engine = OllamaTranslationEngine({"engine": "mock-ollama"})
+
+    def simple_fake_call(prompt, system_prompt, temperature):
+        import re
+        nums = re.findall(r"^\d+\.", prompt, re.MULTILINE)
+        lines = [f"{n[:-1]}. 翻譯 {n[:-1]}" for n in nums]
+        return "\n".join(lines)
+
+    monkeypatch.setattr(engine, "_call_ollama", simple_fake_call)
+
+    seq_result = engine.translate(segments, batch_size=3, parallel_batches=1)
+    par_result = engine.translate(segments, batch_size=3, parallel_batches=2)
+
+    assert len(par_result) == len(seq_result) == 6
+
+
+def test_parallel_batches_disables_context_window(monkeypatch):
+    """When parallel_batches > 1, _translate_batch must be called with empty context_pairs."""
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    segments = [
+        {"start": float(i), "end": float(i+1), "text": f"seg {i}"}
+        for i in range(4)
+    ]
+    captured_contexts = []
+
+    def spy_translate_batch(self, batch, glossary, style, temperature, context_pairs):
+        captured_contexts.append(list(context_pairs))
+        return [
+            {"start": s["start"], "end": s["end"], "en_text": s["text"], "zh_text": f"譯 {s['text']}"}
+            for s in batch
+        ]
+
+    monkeypatch.setattr(OllamaTranslationEngine, "_translate_batch", spy_translate_batch)
+
+    engine = OllamaTranslationEngine({"engine": "mock-ollama", "context_window": 3})
+    engine.translate(segments, batch_size=2, parallel_batches=2)
+
+    assert all(ctx == [] for ctx in captured_contexts), (
+        "parallel path must call _translate_batch with empty context_pairs"
+    )
+
+
+def test_parallel_batches_progress_callback_called(monkeypatch):
+    """progress_callback must be called for each batch and counts must be thread-safe."""
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    segments = [
+        {"start": float(i), "end": float(i+1), "text": f"seg {i}"}
+        for i in range(6)
+    ]
+
+    def spy_translate_batch(self, batch, glossary, style, temperature, context_pairs):
+        return [
+            {"start": s["start"], "end": s["end"], "en_text": s["text"], "zh_text": f"譯 {s['text']}"}
+            for s in batch
+        ]
+
+    monkeypatch.setattr(OllamaTranslationEngine, "_translate_batch", spy_translate_batch)
+
+    calls = []
+    def on_progress(completed, total):
+        calls.append((completed, total))
+
+    engine = OllamaTranslationEngine({"engine": "mock-ollama"})
+    engine.translate(segments, batch_size=3, parallel_batches=2, progress_callback=on_progress)
+
+    assert len(calls) == 2, "progress_callback must be called once per batch"
+    assert calls[-1][0] == 6, "final completed count must equal total segments"
+    assert all(total == 6 for _, total in calls)
+
+
+def test_parallel_batches_one_uses_sequential_path(monkeypatch):
+    """parallel_batches=1 must preserve context_window behaviour (non-empty context_pairs)."""
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    segments = [
+        {"start": float(i), "end": float(i+1), "text": f"seg {i}"}
+        for i in range(4)
+    ]
+    captured_contexts = []
+
+    def spy_translate_batch(self, batch, glossary, style, temperature, context_pairs):
+        captured_contexts.append(list(context_pairs))
+        return [
+            {"start": s["start"], "end": s["end"], "en_text": s["text"], "zh_text": f"譯 {s['text']}"}
+            for s in batch
+        ]
+
+    monkeypatch.setattr(OllamaTranslationEngine, "_translate_batch", spy_translate_batch)
+
+    engine = OllamaTranslationEngine({"engine": "mock-ollama", "context_window": 2})
+    engine.translate(segments, batch_size=2, parallel_batches=1)
+
+    assert captured_contexts[0] == [], "first batch always has empty context"
+    assert len(captured_contexts[1]) > 0, "sequential path: second batch must receive context from first"
