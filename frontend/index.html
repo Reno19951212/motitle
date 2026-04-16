@@ -428,8 +428,174 @@
     }
 
     .toast.success { border-color: var(--success); }
-    .toast.error { border-color: var(--danger); }
+    .toast.error {
+      border-color: var(--danger);
+      border-left: 3px solid var(--danger);
+      background: rgba(239,68,68,0.08);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      max-width: 400px;
+    }
     .toast.warning { border-color: var(--warning); }
+    .toast .toast-body {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      flex: 1;
+      min-width: 0;
+    }
+    .toast .toast-icon { font-size: 16px; color: var(--danger); flex-shrink: 0; }
+    .toast .toast-message {
+      word-break: break-word;
+      color: var(--text);
+      line-height: 1.4;
+    }
+    .toast .toast-actions { display: flex; gap: 4px; flex-shrink: 0; }
+    .toast .toast-btn {
+      background: transparent;
+      border: 0;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .toast .toast-btn:hover { color: var(--text); background: rgba(255,255,255,0.08); }
+
+    /* Error bell indicator in the header */
+    .btn-error-bell {
+      position: relative;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      font-size: 14px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-left: 6px;
+    }
+    .btn-error-bell:hover {
+      background: var(--surface2);
+      color: var(--text);
+    }
+    .btn-error-bell-badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background: var(--danger);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 10px;
+      min-width: 16px;
+      text-align: center;
+      line-height: 1.3;
+    }
+
+    /* Error log modal */
+    .error-log-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+    }
+    .error-log-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 560px;
+      max-width: 92vw;
+      max-height: 82vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .error-log-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .error-log-actions { display: flex; gap: 8px; }
+    .error-log-clear {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .error-log-clear:hover { color: var(--danger); border-color: var(--danger); }
+    .error-log-close {
+      background: transparent;
+      border: 0;
+      color: var(--text-dim);
+      font-size: 18px;
+      cursor: pointer;
+      padding: 0 6px;
+    }
+    .error-log-close:hover { color: var(--text); }
+    .error-log-body {
+      padding: 12px 18px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .error-log-empty {
+      text-align: center;
+      padding: 30px;
+      color: var(--text-dim);
+      font-size: 13px;
+    }
+    .error-log-entry {
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      background: var(--surface2);
+      border-left: 3px solid var(--danger);
+      border-radius: 6px;
+      font-size: 12px;
+    }
+    .error-log-entry-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .error-log-entry-time {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .error-log-entry-copy {
+      background: transparent;
+      border: 0;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 13px;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+    .error-log-entry-copy:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+    .error-log-entry-message {
+      color: var(--text);
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    .error-log-entry-context {
+      color: var(--text-dim);
+      font-size: 10.5px;
+      margin-top: 4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
 
     /* ===== File info ===== */
     .file-info {
@@ -880,6 +1046,10 @@
   <div class="logo">🎙 AI 字幕轉換 APP</div>
   <span class="status-text" id="statusText">未連接</span>
   <div class="status-dot" id="statusDot"></div>
+  <button class="btn-error-bell" id="errorBell" onclick="toggleErrorLogModal()" title="錯誤記錄" aria-label="錯誤記錄">
+    🔔
+    <span class="btn-error-bell-badge" id="errorBellBadge" style="display:none;">0</span>
+  </button>
   <button class="btn-restart" id="restartBtn" onclick="restartService()" title="重啟服務">⟳</button>
 </header>
 
@@ -3104,14 +3274,182 @@ function setProgress(pct) {
   document.getElementById('progressBar').style.width = `${pct}%`;
 }
 
+// ============================================================
+// Error Log + Aggregation Center
+// ============================================================
+// Errors are recorded into window._errorLog and persisted to localStorage.
+// The bell indicator in the header shows the count of unresolved errors;
+// clicking it opens a modal listing them with copy + clear actions.
+// Error toasts do NOT auto-dismiss — the user must click ✕ to acknowledge.
+// Info / success / warning toasts still auto-dismiss after 4s as before.
+const ERROR_LOG_KEY = '_whisper_error_log';
+const MAX_ERROR_LOG = 50;
+
+function loadErrorLog() {
+  try {
+    const raw = localStorage.getItem(ERROR_LOG_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveErrorLog(log) {
+  try {
+    localStorage.setItem(ERROR_LOG_KEY, JSON.stringify(log.slice(0, MAX_ERROR_LOG)));
+  } catch (e) { /* quota / private mode — ignore */ }
+}
+
+window._errorLog = loadErrorLog();
+
+function logError(message, context = '') {
+  const entry = {
+    id: Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+    message: String(message),
+    context: String(context || ''),
+    timestamp: new Date().toISOString(),
+  };
+  window._errorLog.unshift(entry);
+  window._errorLog = window._errorLog.slice(0, MAX_ERROR_LOG);
+  saveErrorLog(window._errorLog);
+  updateErrorBellBadge();
+}
+
+function clearErrorLog() {
+  window._errorLog = [];
+  saveErrorLog(window._errorLog);
+  updateErrorBellBadge();
+  renderErrorLogModal();
+}
+
+function updateErrorBellBadge() {
+  const bell = document.getElementById('errorBellBadge');
+  if (!bell) return;
+  const count = window._errorLog.length;
+  bell.textContent = count > 99 ? '99+' : String(count);
+  bell.style.display = count > 0 ? 'inline-block' : 'none';
+}
+
 function showToast(message, type = 'info') {
   const container = document.getElementById('toastContainer');
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  toast.textContent = message;
+
+  if (type === 'error') {
+    // Errors: record to log + render as persistent banner with copy/close buttons
+    logError(message);
+    toast.innerHTML = `
+      <div class="toast-body">
+        <span class="toast-icon">⚠</span>
+        <span class="toast-message"></span>
+      </div>
+      <div class="toast-actions">
+        <button class="toast-btn" title="複製錯誤訊息" aria-label="複製">📋</button>
+        <button class="toast-btn" title="關閉" aria-label="關閉">✕</button>
+      </div>`;
+    toast.querySelector('.toast-message').textContent = message;
+    const [copyBtn, closeBtn] = toast.querySelectorAll('.toast-btn');
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard?.writeText(message).catch(() => {});
+      copyBtn.textContent = '✓';
+      setTimeout(() => { copyBtn.textContent = '📋'; }, 1200);
+    });
+    closeBtn.addEventListener('click', () => toast.remove());
+    // Persistent — no auto-dismiss
+  } else {
+    toast.textContent = message;
+    setTimeout(() => toast.remove(), 4000);
+  }
+
   container.appendChild(toast);
-  setTimeout(() => toast.remove(), 4000);
 }
+
+function toggleErrorLogModal() {
+  let modal = document.getElementById('errorLogModal');
+  if (modal && modal.style.display !== 'none') {
+    modal.style.display = 'none';
+    return;
+  }
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'errorLogModal';
+    modal.className = 'error-log-overlay';
+    modal.innerHTML = `
+      <div class="error-log-panel">
+        <div class="error-log-header">
+          <span>🔔 錯誤記錄</span>
+          <div class="error-log-actions">
+            <button class="error-log-clear" aria-label="清除全部">清除全部</button>
+            <button class="error-log-close" aria-label="關閉">✕</button>
+          </div>
+        </div>
+        <div class="error-log-body" id="errorLogBody"></div>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.querySelector('.error-log-close').addEventListener('click', () => {
+      modal.style.display = 'none';
+    });
+    modal.querySelector('.error-log-clear').addEventListener('click', () => {
+      if (confirm('清除全部錯誤記錄？')) clearErrorLog();
+    });
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.style.display = 'none';
+    });
+  }
+  modal.style.display = 'flex';
+  renderErrorLogModal();
+}
+
+function renderErrorLogModal() {
+  const body = document.getElementById('errorLogBody');
+  if (!body) return;
+  if (window._errorLog.length === 0) {
+    body.innerHTML = `<div class="error-log-empty">✓ 未有錯誤記錄</div>`;
+    return;
+  }
+  body.innerHTML = window._errorLog.map(entry => {
+    const time = new Date(entry.timestamp).toLocaleString('zh-HK', { hour12: false });
+    const msg = escapeHtml(entry.message);
+    const ctx = entry.context ? `<div class="error-log-entry-context">${escapeHtml(entry.context)}</div>` : '';
+    return `
+      <div class="error-log-entry" data-id="${entry.id}">
+        <div class="error-log-entry-header">
+          <span class="error-log-entry-time">${escapeHtml(time)}</span>
+          <button class="error-log-entry-copy" data-id="${entry.id}" title="複製">📋</button>
+        </div>
+        <div class="error-log-entry-message">${msg}</div>
+        ${ctx}
+      </div>`;
+  }).join('');
+  body.querySelectorAll('.error-log-entry-copy').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      const entry = window._errorLog.find(x => x.id === id);
+      if (entry) {
+        const text = `[${entry.timestamp}] ${entry.message}${entry.context ? '\n' + entry.context : ''}`;
+        navigator.clipboard?.writeText(text).catch(() => {});
+        btn.textContent = '✓';
+        setTimeout(() => { btn.textContent = '📋'; }, 1200);
+      }
+    });
+  });
+}
+
+// Global JS error boundaries — catch runtime errors and unhandled promise
+// rejections so nothing gets silently swallowed into the dev console.
+window.addEventListener('error', (e) => {
+  if (e && e.message) {
+    logError(e.message, `${e.filename || ''}:${e.lineno || 0}`);
+  }
+});
+window.addEventListener('unhandledrejection', (e) => {
+  const reason = e && e.reason ? (e.reason.message || String(e.reason)) : 'Unhandled promise rejection';
+  logError(reason, 'unhandledrejection');
+});
+
+// Initialise the bell badge on load
+setTimeout(updateErrorBellBadge, 0);
 
 // ============================================================
 // Restart Service
