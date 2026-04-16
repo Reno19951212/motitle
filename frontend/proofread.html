@@ -1538,8 +1538,8 @@
       await batchApplyGlossary(violations);
     }
 
-    applyBtn.addEventListener('click', onApply);
-    cancelBtn.addEventListener('click', closeModal);
+    applyBtn.addEventListener('click', onApply, { once: true });
+    cancelBtn.addEventListener('click', closeModal, { once: true });
   }
 
   async function batchApplyGlossary(violations) {
