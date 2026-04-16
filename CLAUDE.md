@@ -90,10 +90,13 @@ motitle/
 │   ├── data/                   # Runtime: uploads, registry, renders (gitignored)
 │   └── requirements.txt        # Python dependencies
 ├── frontend/
-│   ├── index.html              # Main dashboard — upload, transcribe, translate
-│   ├── proofread.html          # Proof-reading editor — review, edit, approve, render
+│   ├── index.html              # Main dashboard — upload, file list, video, transcript
+│   ├── proofread.html          # Proof-reading editor — segment table, find/replace, render
+│   ├── settings.html           # Settings — Profile CRUD, Glossary, Language Config (3 tabs)
+│   ├── shared.css              # Shared CSS variables, layout primitives, components
 │   └── js/
-│       └── font-preview.js      # Shared module: syncs subtitle overlay with active Profile font config
+│       ├── shared.js           # Shared utilities: API_BASE, escapeHtml, formatTime, showToast, connectSocket
+│       └── font-preview.js     # Subtitle overlay sync with active Profile font config
 ├── docs/superpowers/           # Design specs and implementation plans
 ├── setup.sh                    # One-shot environment setup
 ├── start.sh                    # Start backend + open browser
@@ -221,9 +224,17 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 
 ### Frontend
 
-**`index.html`** — Main dashboard. File upload, transcription with progress, auto-translation, profile selector, transcript display (auto-switches to Chinese when translations available), subtitle overlay on video playback.
+**`index.html`** — Main dashboard. Header: Profile quick-switch dropdown + settings link. Left column: video (max-height 240px) + playback strip + file list+upload zone (drag-drop). Right column (380px): transcript panel. File cards show pipeline dots (ASR/翻譯/校對/渲染), action buttons ([校對→][下載↓][⋮]). sessionStorage saves scroll+selectedFileId when navigating to proofread.
 
-**`proofread.html`** — Standalone proof-reading editor. Side-by-side layout: video player (left) + segment table (right). Inline editing of Chinese translations, per-segment and bulk approval, keyboard shortcuts, format picker (MP4/MXF), render with progress polling and download.
+**`proofread.html`** — Proof-reading editor. Grid 1fr+520px. Left: video + shortcuts bar. Right: fixed-column segment table (#32px/EN150px/ZH flex/✓48px), sticky Find&Replace bar, render export bottom bar with MP4/MXF options (CRF, preset, audio bitrate, ProRes profile, audio format, resolution). sessionStorage state restored on return to index.
+
+**`settings.html`** — Settings page. 3 tabs: Profile (2-column: 280px list + flex edit form), 詞表 (Glossary CRUD), 語言 (Language Config). URL deep-link: `?tab=profile|glossary|language`.
+
+**`shared.css`** — Unified CSS variables (colours, spacing, typography, preview font), layout primitives, button styles, toast system, pipeline dots, utility classes.
+
+**`js/shared.js`** — `API_BASE`, `escapeHtml()`, `formatTime()`, `showToast()`, `connectSocket(handlers, options)`. `connectSocket` always calls `FontPreview.init(socket)`.
+
+**`js/font-preview.js`** — Unchanged. Sets `--preview-font-*` CSS variables from active Profile font config via `profile_updated` socket event.
 
 ---
 
