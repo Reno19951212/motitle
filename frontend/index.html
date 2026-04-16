@@ -1491,6 +1491,7 @@ function connectSocket() {
         completed: data.completed,
         total: data.total,
         percent: data.percent,
+        elapsed_seconds: data.elapsed_seconds,
       };
     }
     const bar = document.querySelector(`[data-translation-progress="${data.file_id}"]`);
@@ -1498,11 +1499,22 @@ function connectSocket() {
       const fill = bar.querySelector('.file-progress-fill');
       const info = bar.querySelector('.file-progress-info');
       if (fill) fill.style.width = data.percent + '%';
-      if (info) info.textContent = `翻譯中 ${data.completed} / ${data.total} 段 · ${data.percent}%`;
+      const elapsed = data.elapsed_seconds != null ? ` — 已用 ${data.elapsed_seconds}s` : '';
+      if (info) info.textContent = `翻譯中 ${data.completed} / ${data.total} 段 · ${data.percent}%${elapsed}`;
     } else {
       // First progress event for this file — re-render so the new bar appears
       renderFileList();
     }
+  });
+
+  socket.on('pipeline_timing', (data) => {
+    if (!data) return;
+    const parts = [];
+    if (data.asr_seconds != null) parts.push(`ASR: ${data.asr_seconds}s`);
+    if (data.translation_seconds != null) parts.push(`翻譯: ${data.translation_seconds}s`);
+    if (data.total_seconds != null) parts.push(`總計: ${data.total_seconds}s`);
+    if (parts.length === 0) return;
+    showToast(parts.join(' ｜ '), 'success');
   });
 
 }
@@ -2894,6 +2906,11 @@ function buildProfileFormHTML(profile) {
           <div id="pf-tr-model-info" class="pf-model-info"></div>
           <div id="pf-tr-params" class="pf-params-area"></div>
           <div class="profile-form-row">
+            <label for="pf-tr-parallel">並發批次</label>
+            <input type="number" id="pf-tr-parallel" min="1" max="8" step="1" placeholder="1" value="${tr.parallel_batches ?? ''}">
+            <p class="pf-hint">本地模型建議 1–2（需設定 OLLAMA_NUM_PARALLEL≥N）；雲端模型建議 3–5</p>
+          </div>
+          <div class="profile-form-row">
             <label>詞彙表</label>
             <select id="pf-tr-glossary">
               <option value="" ${!tr.glossary_id ? 'selected' : ''}>無</option>
@@ -3043,11 +3060,16 @@ async function saveProfile() {
       language_config_id: document.getElementById('pf-asr-language_config_id').value.trim() || 'en',
       ...asrParams,
     },
-    translation: {
-      engine:      document.getElementById('pf-tr-engine').value,
-      glossary_id: document.getElementById('pf-tr-glossary').value || null,
-      ...trParams,
-    },
+    translation: (() => {
+      const parallelBatchesVal = document.getElementById('pf-tr-parallel').value;
+      const parallelBatches = parallelBatchesVal ? parseInt(parallelBatchesVal, 10) : undefined;
+      return {
+        engine:      document.getElementById('pf-tr-engine').value,
+        glossary_id: document.getElementById('pf-tr-glossary').value || null,
+        ...(parallelBatches !== undefined && !isNaN(parallelBatches) ? { parallel_batches: parallelBatches } : {}),
+        ...trParams,
+      };
+    })(),
     font: {
       family:        document.getElementById('pfFontFamily').value.trim() || 'Noto Sans TC',
       size:          parseInt(document.getElementById('pfFontSize').value, 10),

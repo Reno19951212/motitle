@@ -4,9 +4,11 @@ import json
 import re
 import subprocess
 import sys
+import threading
 import time
 import urllib.request
 import urllib.error
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, List
 
 from . import TranslationEngine, TranslatedSegment
@@ -140,48 +142,92 @@ class OllamaTranslationEngine(TranslationEngine):
         batch_size: Optional[int] = None,
         temperature: Optional[float] = None,
         progress_callback=None,
+        parallel_batches: int = 1,
     ) -> List[TranslatedSegment]:
         if not segments:
             return []
 
         glossary = glossary or []
-        all_translated = []
         effective_batch = batch_size if batch_size is not None else BATCH_SIZE
         effective_temp = temperature if temperature is not None else self._temperature
-        context_pairs: list = []
         total = len(segments)
+        batches = [
+            segments[i : i + effective_batch]
+            for i in range(0, len(segments), effective_batch)
+        ]
 
-        for i in range(0, len(segments), effective_batch):
-            batch = segments[i : i + effective_batch]
-            translated_batch = self._translate_batch(
-                batch, glossary, style, effective_temp, context_pairs
-            )
-            missing_indices = [
-                j for j, r in enumerate(translated_batch)
-                if "[TRANSLATION MISSING]" in r.get("zh_text", "")
-            ]
-            if missing_indices:
-                missing_segs = [batch[j] for j in missing_indices]
-                retried = list(self._retry_missing(
-                    missing_segs, glossary, style, effective_temp, context_pairs
-                ))
-                retried_iter = iter(retried)
-                translated_batch = [
-                    next(retried_iter, r) if j in missing_indices else r
-                    for j, r in enumerate(translated_batch)
+        if parallel_batches <= 1:
+            # Sequential path — identical to original behaviour
+            all_translated = []
+            context_pairs: list = []
+            for batch in batches:
+                translated_batch = self._translate_batch(
+                    batch, glossary, style, effective_temp, context_pairs
+                )
+                missing_indices = [
+                    j for j, r in enumerate(translated_batch)
+                    if "[TRANSLATION MISSING]" in r.get("zh_text", "")
                 ]
-            all_translated.extend(translated_batch)
-            if self._context_window > 0:
-                new_pairs = [(seg["text"], t["zh_text"]) for seg, t in zip(batch, translated_batch)]
-                context_pairs = (context_pairs + new_pairs)[-self._context_window:]
+                if missing_indices:
+                    missing_segs = [batch[j] for j in missing_indices]
+                    retried = list(self._retry_missing(
+                        missing_segs, glossary, style, effective_temp, context_pairs
+                    ))
+                    retried_iter = iter(retried)
+                    translated_batch = [
+                        next(retried_iter, r) if j in missing_indices else r
+                        for j, r in enumerate(translated_batch)
+                    ]
+                all_translated.extend(translated_batch)
+                if self._context_window > 0:
+                    new_pairs = [
+                        (seg["text"], t["zh_text"])
+                        for seg, t in zip(batch, translated_batch)
+                    ]
+                    context_pairs = (context_pairs + new_pairs)[-self._context_window:]
+                if progress_callback is not None:
+                    try:
+                        progress_callback(len(all_translated), total)
+                    except Exception:
+                        pass
+        else:
+            # Parallel path — context_window disabled (order non-deterministic)
+            lock = threading.Lock()
+            completed_count = 0
 
-            # Report per-batch progress to the optional callback. Wrapped in
-            # try/except so a buggy callback can never break translation.
-            if progress_callback is not None:
-                try:
-                    progress_callback(len(all_translated), total)
-                except Exception:
-                    pass
+            def _run_batch(batch):
+                nonlocal completed_count
+                result = self._translate_batch(
+                    batch, glossary, style, effective_temp, []
+                )
+                missing_indices = [
+                    j for j, r in enumerate(result)
+                    if "[TRANSLATION MISSING]" in r.get("zh_text", "")
+                ]
+                if missing_indices:
+                    missing_segs = [batch[j] for j in missing_indices]
+                    retried = list(self._retry_missing(
+                        missing_segs, glossary, style, effective_temp, []
+                    ))
+                    retried_iter = iter(retried)
+                    result = [
+                        next(retried_iter, r) if j in missing_indices else r
+                        for j, r in enumerate(result)
+                    ]
+                with lock:
+                    completed_count += len(result)
+                    if progress_callback is not None:
+                        try:
+                            progress_callback(completed_count, total)
+                        except Exception:
+                            pass
+                return result
+
+            with ThreadPoolExecutor(max_workers=parallel_batches) as executor:
+                futures = [executor.submit(_run_batch, batch) for batch in batches]
+                all_translated = []
+                for future in futures:
+                    all_translated.extend(future.result())
 
         processor = TranslationPostProcessor(max_chars=MAX_SUBTITLE_CHARS)
         return processor.process(all_translated)

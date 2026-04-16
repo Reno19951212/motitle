@@ -1308,3 +1308,196 @@ def test_api_translation_engine_models_returns_only_matching_engine():
         assert models[0]["engine"] == "qwen2.5-3b"
         assert models[0]["model"] == "qwen2.5:3b"
         assert models[0]["is_cloud"] is False
+
+
+# ===== parallel_batches =====
+
+def test_parallel_batches_returns_same_segment_count(monkeypatch):
+    """parallel_batches=2 must return the same number of segments as parallel_batches=1."""
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    segments = [
+        {"start": float(i), "end": float(i+1), "text": f"segment {i}"}
+        for i in range(6)
+    ]
+
+    engine = OllamaTranslationEngine({"engine": "mock-ollama"})
+
+    def simple_fake_call(system_prompt, user_message, temperature):
+        import re
+        nums = re.findall(r"^\d+\.", user_message, re.MULTILINE)
+        lines = [f"{n[:-1]}. 翻譯 {n[:-1]}" for n in nums]
+        return "\n".join(lines)
+
+    monkeypatch.setattr(engine, "_call_ollama", simple_fake_call)
+
+    seq_result = engine.translate(segments, batch_size=3, parallel_batches=1)
+    par_result = engine.translate(segments, batch_size=3, parallel_batches=2)
+
+    assert len(par_result) == len(seq_result) == 6
+
+
+def test_parallel_batches_disables_context_window(monkeypatch):
+    """When parallel_batches > 1, _translate_batch must be called with empty context_pairs."""
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    segments = [
+        {"start": float(i), "end": float(i+1), "text": f"seg {i}"}
+        for i in range(4)
+    ]
+    captured_contexts = []
+
+    def spy_translate_batch(self, batch, glossary, style, temperature, context_pairs):
+        captured_contexts.append(list(context_pairs))
+        return [
+            {"start": s["start"], "end": s["end"], "en_text": s["text"], "zh_text": f"譯 {s['text']}"}
+            for s in batch
+        ]
+
+    monkeypatch.setattr(OllamaTranslationEngine, "_translate_batch", spy_translate_batch)
+
+    engine = OllamaTranslationEngine({"engine": "mock-ollama", "context_window": 3})
+    engine.translate(segments, batch_size=2, parallel_batches=2)
+
+    assert all(ctx == [] for ctx in captured_contexts), (
+        "parallel path must call _translate_batch with empty context_pairs"
+    )
+
+
+def test_parallel_batches_progress_callback_called(monkeypatch):
+    """progress_callback must be called for each batch and counts must be thread-safe."""
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    segments = [
+        {"start": float(i), "end": float(i+1), "text": f"seg {i}"}
+        for i in range(6)
+    ]
+
+    def spy_translate_batch(self, batch, glossary, style, temperature, context_pairs):
+        return [
+            {"start": s["start"], "end": s["end"], "en_text": s["text"], "zh_text": f"譯 {s['text']}"}
+            for s in batch
+        ]
+
+    monkeypatch.setattr(OllamaTranslationEngine, "_translate_batch", spy_translate_batch)
+
+    calls = []
+    def on_progress(completed, total):
+        calls.append((completed, total))
+
+    engine = OllamaTranslationEngine({"engine": "mock-ollama"})
+    engine.translate(segments, batch_size=3, parallel_batches=2, progress_callback=on_progress)
+
+    assert len(calls) == 2, "progress_callback must be called once per batch"
+    assert calls[-1][0] == 6, "final completed count must equal total segments"
+    assert all(total == 6 for _, total in calls)
+
+
+def test_parallel_batches_one_uses_sequential_path(monkeypatch):
+    """parallel_batches=1 must preserve context_window behaviour (non-empty context_pairs)."""
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    segments = [
+        {"start": float(i), "end": float(i+1), "text": f"seg {i}"}
+        for i in range(4)
+    ]
+    captured_contexts = []
+
+    def spy_translate_batch(self, batch, glossary, style, temperature, context_pairs):
+        captured_contexts.append(list(context_pairs))
+        return [
+            {"start": s["start"], "end": s["end"], "en_text": s["text"], "zh_text": f"譯 {s['text']}"}
+            for s in batch
+        ]
+
+    monkeypatch.setattr(OllamaTranslationEngine, "_translate_batch", spy_translate_batch)
+
+    engine = OllamaTranslationEngine({"engine": "mock-ollama", "context_window": 2})
+    engine.translate(segments, batch_size=2, parallel_batches=1)
+
+    assert captured_contexts[0] == [], "first batch always has empty context"
+    assert len(captured_contexts[1]) > 0, "sequential path: second batch must receive context from first"
+
+
+# ===== pipeline timing — app._auto_translate =====
+
+def test_translation_progress_includes_elapsed_seconds(monkeypatch):
+    """_auto_translate must include elapsed_seconds in every translation_progress emit."""
+    import sys, os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+    import app as _app
+
+    class FakeProfileManager:
+        def get_active(self):
+            return {
+                "translation": {"engine": "mock"},
+                "asr": {"language": "en"},
+            }
+
+    class FakeLanguageConfigManager:
+        def get(self, _):
+            return None
+
+    class FakeGlossaryManager:
+        def get(self, _):
+            return None
+
+    monkeypatch.setattr(_app, "_profile_manager", FakeProfileManager())
+    monkeypatch.setattr(_app, "_language_config_manager", FakeLanguageConfigManager())
+    monkeypatch.setattr(_app, "_glossary_manager", FakeGlossaryManager())
+    monkeypatch.setattr(_app, "_update_file", lambda *a, **kw: None)
+
+    emitted = []
+    monkeypatch.setattr(_app.socketio, "emit", lambda event, data=None, **kw: emitted.append((event, data)))
+
+    segments = [{"start": 0.0, "end": 1.0, "text": "hello"}]
+    _app._auto_translate("fake-id", segments, None)
+
+    progress_events = [d for e, d in emitted if e == "translation_progress"]
+    assert len(progress_events) > 0, "translation_progress must be emitted"
+    for evt in progress_events:
+        assert "elapsed_seconds" in evt, f"elapsed_seconds missing from translation_progress: {evt}"
+        assert isinstance(evt["elapsed_seconds"], float)
+
+
+def test_pipeline_timing_event_emitted(monkeypatch):
+    """_auto_translate must emit pipeline_timing after translation completes."""
+    import sys, os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+    import app as _app
+
+    class FakeProfileManager:
+        def get_active(self):
+            return {
+                "translation": {"engine": "mock"},
+                "asr": {"language": "en"},
+            }
+
+    class FakeLanguageConfigManager:
+        def get(self, _):
+            return None
+
+    class FakeGlossaryManager:
+        def get(self, _):
+            return None
+
+    monkeypatch.setattr(_app, "_profile_manager", FakeProfileManager())
+    monkeypatch.setattr(_app, "_language_config_manager", FakeLanguageConfigManager())
+    monkeypatch.setattr(_app, "_glossary_manager", FakeGlossaryManager())
+    monkeypatch.setattr(_app, "_update_file", lambda *a, **kw: None)
+    monkeypatch.setattr(_app, "_file_registry", {"fake-id": {}})
+
+    emitted = []
+    monkeypatch.setattr(_app.socketio, "emit", lambda event, data=None, **kw: emitted.append((event, data)))
+
+    segments = [{"start": 0.0, "end": 1.0, "text": "hello"}]
+    _app._auto_translate("fake-id", segments, "fake-sid")
+
+    timing_events = [d for e, d in emitted if e == "pipeline_timing"]
+    assert len(timing_events) == 1, "pipeline_timing must be emitted exactly once"
+    evt = timing_events[0]
+    assert "translation_seconds" in evt
+    assert "total_seconds" in evt
+    assert "asr_seconds" in evt
+    assert isinstance(evt["translation_seconds"], float)
+    assert evt.get("file_id") == "fake-id"

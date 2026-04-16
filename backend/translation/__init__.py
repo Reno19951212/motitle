@@ -24,6 +24,7 @@ class TranslationEngine(ABC):
         batch_size: Optional[int] = None,
         temperature: Optional[float] = None,
         progress_callback: Optional[ProgressCallback] = None,
+        parallel_batches: int = 1,
     ) -> List[TranslatedSegment]:
         """Translate English segments to Chinese.
 
@@ -31,6 +32,9 @@ class TranslationEngine(ABC):
         (completed_segments, total_segments). Used by the API layer to emit
         per-batch progress updates over the WebSocket. If None, no progress
         is reported.
+
+        parallel_batches (optional): number of batches to process in parallel.
+        Defaults to 1 (sequential processing).
         """
 
     @abstractmethod
