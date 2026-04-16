@@ -1388,6 +1388,102 @@ def api_download_render(render_id):
     return send_file(output_path, as_attachment=True, download_name=download_name)
 
 
+def _auto_translate(fid: str, segments: list, session_id) -> None:
+    """Auto-translate segments after transcription using the active profile."""
+    try:
+        translation_start = time.time()
+        profile = _profile_manager.get_active()
+        if not profile:
+            return
+        translation_config = profile.get("translation", {})
+        engine_name = translation_config.get("engine", "")
+        if not engine_name:
+            return
+
+        _update_file(fid, translation_status='translating')
+        if session_id:
+            socketio.emit('file_updated', {
+                'id': fid,
+                'translation_status': 'translating',
+            }, room=session_id)
+        socketio.emit('translation_progress', {
+            'file_id': fid,
+            'completed': 0,
+            'total': len(segments),
+            'percent': 0,
+            'elapsed_seconds': round(time.time() - translation_start, 1),
+        })
+
+        from translation import create_translation_engine
+        engine = create_translation_engine(translation_config)
+
+        style = translation_config.get("style", "formal")
+        glossary_entries = []
+        glossary_id = translation_config.get("glossary_id")
+        if glossary_id:
+            glossary_data = _glossary_manager.get(glossary_id)
+            if glossary_data:
+                glossary_entries = glossary_data.get("entries", [])
+
+        asr_segments = [
+            {"start": s["start"], "end": s["end"], "text": s["text"]}
+            for s in segments
+        ]
+
+        lang_config_id = profile.get("asr", {}).get("language_config_id", profile.get("asr", {}).get("language", "en"))
+        lang_config = _language_config_manager.get(lang_config_id)
+        trans_params = lang_config["translation"] if lang_config else DEFAULT_TRANSLATION_CONFIG
+
+        def _emit_auto_progress(completed: int, total: int) -> None:
+            socketio.emit('translation_progress', {
+                'file_id': fid,
+                'completed': completed,
+                'total': total,
+                'percent': int((completed / total) * 100) if total else 0,
+                'elapsed_seconds': round(time.time() - translation_start, 1),
+            })
+
+        parallel_batches = int(translation_config.get("parallel_batches", 1))
+        translated = engine.translate(
+            asr_segments, glossary=glossary_entries, style=style,
+            batch_size=trans_params["batch_size"],
+            temperature=trans_params["temperature"],
+            progress_callback=_emit_auto_progress,
+            parallel_batches=parallel_batches,
+        )
+        for t in translated:
+            t["status"] = "pending"
+        _update_file(fid, translations=translated, translation_status='done',
+                     translation_engine=translation_config.get('engine', ''))
+
+        translation_seconds = round(time.time() - translation_start, 1)
+        asr_s = _file_registry.get(fid, {}).get('asr_seconds')
+        if session_id:
+            socketio.emit('pipeline_timing', {
+                'file_id': fid,
+                'asr_seconds': asr_s,
+                'translation_seconds': translation_seconds,
+                'total_seconds': round(translation_seconds + (asr_s or 0.0), 1),
+            }, room=session_id)
+
+        if session_id:
+            socketio.emit('file_updated', {
+                'id': fid,
+                'translation_status': 'done',
+                'translation_count': len(translated),
+                'translation_engine': translation_config.get('engine', ''),
+            }, room=session_id)
+    except Exception as e:
+        print(f"Auto-translate failed for {fid}: {e}")
+        _update_file(fid, translation_status=None)
+        if session_id:
+            socketio.emit('file_updated', {
+                'id': fid,
+                'translation_status': None,
+                'translation_error': str(e),
+            }, room=session_id)
+
+
 @app.route('/api/transcribe', methods=['POST'])
 def transcribe_file():
     """Upload and transcribe a video/audio file. File is kept until explicitly deleted."""
@@ -1418,85 +1514,7 @@ def transcribe_file():
     if sid:
         socketio.emit('file_added', entry, room=sid)
 
-    def _auto_translate(fid, segments, session_id):
-        """Auto-translate segments after transcription using the active profile."""
-        try:
-            profile = _profile_manager.get_active()
-            if not profile:
-                return
-            translation_config = profile.get("translation", {})
-            engine_name = translation_config.get("engine", "")
-            if not engine_name:
-                return
-
-            _update_file(fid, translation_status='translating')
-            if session_id:
-                socketio.emit('file_updated', {
-                    'id': fid,
-                    'translation_status': 'translating',
-                }, room=session_id)
-            socketio.emit('translation_progress', {
-                'file_id': fid,
-                'completed': 0,
-                'total': len(segments),
-                'percent': 0,
-            })
-
-            from translation import create_translation_engine
-            engine = create_translation_engine(translation_config)
-
-            style = translation_config.get("style", "formal")
-            glossary_entries = []
-            glossary_id = translation_config.get("glossary_id")
-            if glossary_id:
-                glossary_data = _glossary_manager.get(glossary_id)
-                if glossary_data:
-                    glossary_entries = glossary_data.get("entries", [])
-
-            asr_segments = [
-                {"start": s["start"], "end": s["end"], "text": s["text"]}
-                for s in segments
-            ]
-
-            lang_config_id = profile.get("asr", {}).get("language_config_id", profile.get("asr", {}).get("language", "en"))
-            lang_config = _language_config_manager.get(lang_config_id)
-            trans_params = lang_config["translation"] if lang_config else DEFAULT_TRANSLATION_CONFIG
-
-            def _emit_auto_progress(completed: int, total: int) -> None:
-                socketio.emit('translation_progress', {
-                    'file_id': fid,
-                    'completed': completed,
-                    'total': total,
-                    'percent': int((completed / total) * 100) if total else 0,
-                })
-
-            translated = engine.translate(
-                asr_segments, glossary=glossary_entries, style=style,
-                batch_size=trans_params["batch_size"],
-                temperature=trans_params["temperature"],
-                progress_callback=_emit_auto_progress,
-            )
-            for t in translated:
-                t["status"] = "pending"
-            _update_file(fid, translations=translated, translation_status='done',
-                         translation_engine=translation_config.get('engine', ''))
-
-            if session_id:
-                socketio.emit('file_updated', {
-                    'id': fid,
-                    'translation_status': 'done',
-                    'translation_count': len(translated),
-                    'translation_engine': translation_config.get('engine', ''),
-                }, room=session_id)
-        except Exception as e:
-            print(f"Auto-translate failed for {fid}: {e}")
-            _update_file(fid, translation_status=None)
-            if session_id:
-                socketio.emit('file_updated', {
-                    'id': fid,
-                    'translation_status': None,
-                    'translation_error': str(e),
-                }, room=session_id)
+    # Auto-translate is now a module-level function; call it below
 
     # Start transcription in background thread
     def do_transcribe():
@@ -1504,6 +1522,7 @@ def transcribe_file():
         if sid:
             socketio.emit('file_updated', {'id': file_id, 'status': 'transcribing', 'model': model_size}, room=sid)
         try:
+            asr_start_time = time.time()
             result = transcribe_with_segments(file_path, model_size, sid)
             if result:
                 actual_model = result.get('model', model_size)
@@ -1515,6 +1534,7 @@ def transcribe_file():
                     backend=result.get('backend'),
                     model=actual_model,
                 )
+                _update_file(file_id, asr_seconds=round(time.time() - asr_start_time, 1))
                 if sid:
                     socketio.emit('file_updated', {
                         'id': file_id,
