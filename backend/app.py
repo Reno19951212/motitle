@@ -1457,7 +1457,8 @@ def _auto_translate(fid: str, segments: list, session_id) -> None:
                      translation_engine=translation_config.get('engine', ''))
 
         translation_seconds = round(time.time() - translation_start, 1)
-        asr_s = _file_registry.get(fid, {}).get('asr_seconds')
+        with _registry_lock:
+            asr_s = _file_registry.get(fid, {}).get('asr_seconds')
         if session_id:
             socketio.emit('pipeline_timing', {
                 'file_id': fid,
