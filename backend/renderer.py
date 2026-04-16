@@ -87,8 +87,13 @@ class SubtitleRenderer:
         ass_content: str,
         output_path: str,
         output_format: str,
-    ) -> bool:
-        """Burn ASS subtitles into video using FFmpeg. Returns True on success."""
+    ) -> tuple:
+        """Burn ASS subtitles into video using FFmpeg.
+
+        Returns:
+            (success: bool, error: Optional[str]) — error is None on success,
+            FFmpeg stderr on failure, or exception message on unexpected error.
+        """
         ass_file = None
         try:
             fd, ass_file = tempfile.mkstemp(suffix=".ass")
@@ -113,10 +118,12 @@ class SubtitleRenderer:
                 ]
 
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-            return result.returncode == 0
+            if result.returncode == 0:
+                return True, None
+            return False, result.stderr or "FFmpeg exited with a non-zero status"
         except Exception as e:
             print(f"Render error: {e}")
-            return False
+            return False, str(e)
         finally:
             if ass_file and os.path.exists(ass_file):
                 os.remove(ass_file)

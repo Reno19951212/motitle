@@ -1105,8 +1105,12 @@ def api_start_render():
 
     render_id = uuid.uuid4().hex[:12]
     video_path = str(UPLOAD_DIR / entry["stored_name"])
-    output_filename = f"{render_id}.{output_format}"
-    output_path = str(RENDERS_DIR / output_filename)
+    internal_filename = f"{render_id}.{output_format}"
+    output_path = str(RENDERS_DIR / internal_filename)
+
+    # Build a user-friendly download filename from the original upload name
+    original_stem = Path(entry["original_name"]).stem
+    download_filename = f"{original_stem}_subtitled.{output_format}"
 
     _render_jobs[render_id] = {
         "render_id": render_id,
@@ -1114,6 +1118,7 @@ def api_start_render():
         "format": output_format,
         "status": "processing",
         "output_path": output_path,
+        "output_filename": download_filename,
         "error": None,
         "created_at": time.time(),
     }
@@ -1128,11 +1133,12 @@ def api_start_render():
     def do_render():
         try:
             ass_content = _subtitle_renderer.generate_ass(translations_snapshot, font_config)
-            success = _subtitle_renderer.render(video_path, ass_content, output_path, output_format)
+            success, ffmpeg_error = _subtitle_renderer.render(video_path, ass_content, output_path, output_format)
             if success:
                 _render_jobs[render_id] = {**_render_jobs[render_id], "status": "done"}
             else:
-                _render_jobs[render_id] = {**_render_jobs[render_id], "status": "error", "error": "FFmpeg render failed"}
+                error_msg = f"FFmpeg render failed: {ffmpeg_error}" if ffmpeg_error else "FFmpeg render failed"
+                _render_jobs[render_id] = {**_render_jobs[render_id], "status": "error", "error": error_msg}
         except Exception as exc:
             print(f"Render job {render_id} error: {exc}")
             _render_jobs[render_id] = {**_render_jobs[render_id], "status": "error", "error": str(exc)}
@@ -1172,7 +1178,8 @@ def api_download_render(render_id):
     if not os.path.exists(output_path):
         return jsonify({"error": "Rendered file not found on disk"}), 404
 
-    return send_file(output_path, as_attachment=True)
+    download_name = job.get("output_filename") or Path(output_path).name
+    return send_file(output_path, as_attachment=True, download_name=download_name)
 
 
 @app.route('/api/transcribe', methods=['POST'])

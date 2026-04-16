@@ -114,3 +114,74 @@ def test_download_render_not_found(client_with_approved_file):
     client, _ = client_with_approved_file
     resp = client.get("/api/renders/nonexistent/download")
     assert resp.status_code == 404
+
+
+def test_render_status_includes_output_filename_mp4(client_with_approved_file):
+    """Status response must include output_filename with ._subtitled.mp4 suffix."""
+    client, file_id = client_with_approved_file
+    resp = client.post("/api/render", json={"file_id": file_id, "format": "mp4"})
+    assert resp.status_code == 202
+    render_id = resp.get_json()["render_id"]
+
+    status_resp = client.get(f"/api/renders/{render_id}")
+    data = status_resp.get_json()
+
+    assert "output_filename" in data, "output_filename must be present in status response"
+    assert data["output_filename"].endswith(".mp4")
+    assert "_subtitled" in data["output_filename"]
+
+
+def test_render_status_includes_output_filename_mxf(client_with_approved_file):
+    """Status response must include output_filename with _subtitled.mxf suffix."""
+    client, file_id = client_with_approved_file
+    resp = client.post("/api/render", json={"file_id": file_id, "format": "mxf"})
+    assert resp.status_code == 202
+    render_id = resp.get_json()["render_id"]
+
+    status_resp = client.get(f"/api/renders/{render_id}")
+    data = status_resp.get_json()
+
+    assert "output_filename" in data
+    assert data["output_filename"].endswith(".mxf")
+    assert "_subtitled" in data["output_filename"]
+
+
+def test_render_output_filename_uses_original_name(client_with_approved_file):
+    """output_filename is derived from the original upload filename stem."""
+    client, file_id = client_with_approved_file
+    resp = client.post("/api/render", json={"file_id": file_id, "format": "mp4"})
+    render_id = resp.get_json()["render_id"]
+
+    status_resp = client.get(f"/api/renders/{render_id}")
+    data = status_resp.get_json()
+
+    # The fixture uploads 'test.mp4', so the stem is 'test'
+    assert data["output_filename"] == "test_subtitled.mp4"
+
+
+def test_render_ffmpeg_error_includes_details(client_with_approved_file, monkeypatch):
+    """When FFmpeg fails, the error field must contain diagnostic detail, not just a generic message."""
+    from renderer import SubtitleRenderer
+
+    def fake_render(self, video_path, ass_content, output_path, output_format):
+        return False, "No such file or directory: '/nonexistent.mp4'"
+
+    monkeypatch.setattr(SubtitleRenderer, "render", fake_render)
+
+    client, file_id = client_with_approved_file
+    resp = client.post("/api/render", json={"file_id": file_id, "format": "mp4"})
+    render_id = resp.get_json()["render_id"]
+
+    # Poll briefly for the thread to complete
+    import time as _time
+    for _ in range(10):
+        _time.sleep(0.2)
+        status_resp = client.get(f"/api/renders/{render_id}")
+        data = status_resp.get_json()
+        if data["status"] == "error":
+            break
+
+    assert data["status"] == "error"
+    assert data["error"] is not None
+    assert "FFmpeg render failed:" in data["error"]
+    assert "nonexistent" in data["error"]
