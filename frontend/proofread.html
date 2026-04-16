@@ -1282,6 +1282,34 @@
     if (replaceAllBtn) replaceAllBtn.disabled = !hasZhMatch;
   }
 
+  /**
+   * Navigate to the next or previous match (circular).
+   */
+  function navigateMatch(direction) {
+    const total = findState.matchList.length;
+    if (total === 0) return;
+    let newIdx = findState.currentMatchIdx + direction;
+    if (newIdx < 0) newIdx = total - 1;
+    if (newIdx >= total) newIdx = 0;
+    setFindState({ currentMatchIdx: newIdx });
+    applyHighlights();
+    updateFindUI();
+    scrollToCurrentMatch();
+  }
+
+  /**
+   * Scroll the table to show the current match's row.
+   */
+  function scrollToCurrentMatch() {
+    const cur = findState.currentMatchIdx;
+    if (cur < 0 || cur >= findState.matchList.length) return;
+    const match = findState.matchList[cur];
+    const tableBody = document.getElementById('tableBody');
+    if (!tableBody) return;
+    const tr = tableBody.querySelector(`tr[data-idx="${match.segIdx}"]`);
+    if (tr) tr.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
   // ===== DOM references =====
 
   const loadingOverlay = document.getElementById('loadingOverlay');
@@ -2165,6 +2193,11 @@
     const closeBtn = document.getElementById('findCloseBtn');
     if (closeBtn) closeBtn.addEventListener('click', closeFindReplace);
 
+    const prevBtn = document.getElementById('findPrevBtn');
+    if (prevBtn) prevBtn.addEventListener('click', () => navigateMatch(-1));
+    const nextBtn = document.getElementById('findNextBtn');
+    if (nextBtn) nextBtn.addEventListener('click', () => navigateMatch(1));
+
     const findInput = document.getElementById('findInput');
     if (findInput) {
       findInput.addEventListener('input', (e) => {
@@ -2179,10 +2212,8 @@
       findInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
           e.preventDefault();
-          if (typeof navigateMatch === 'function') {
-            if (e.shiftKey) navigateMatch(-1);
-            else navigateMatch(1);
-          }
+          if (e.shiftKey) navigateMatch(-1);
+          else navigateMatch(1);
         }
       });
     }
