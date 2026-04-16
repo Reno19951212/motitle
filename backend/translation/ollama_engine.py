@@ -140,6 +140,7 @@ class OllamaTranslationEngine(TranslationEngine):
         batch_size: Optional[int] = None,
         temperature: Optional[float] = None,
         progress_callback=None,
+        parallel_batches: int = 1,
     ) -> List[TranslatedSegment]:
         if not segments:
             return []
