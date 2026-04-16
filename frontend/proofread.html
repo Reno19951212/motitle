@@ -1076,6 +1076,39 @@
     findState = { ...findState, ...patch };
   }
 
+  // ===== Find & Replace open / close =====
+
+  function openFindReplace() {
+    const bar = document.getElementById('findBar');
+    if (!bar) return;
+    bar.classList.add('open');
+    const input = document.getElementById('findInput');
+    if (input) {
+      input.focus();
+      input.select();
+    }
+    // Load glossary dropdown on open (Task 8 will implement this fully)
+    if (typeof loadGlossaryDropdown === 'function') loadGlossaryDropdown();
+  }
+
+  function closeFindReplace() {
+    const bar = document.getElementById('findBar');
+    if (!bar) return;
+    bar.classList.remove('open');
+    clearHighlights();
+    setFindState({ query: '', replacement: '', matchList: [], currentMatchIdx: -1 });
+    const findInput = document.getElementById('findInput');
+    if (findInput) findInput.value = '';
+    const replaceInput = document.getElementById('replaceInput');
+    if (replaceInput) replaceInput.value = '';
+    if (typeof updateFindUI === 'function') updateFindUI();
+  }
+
+  function clearHighlights() {
+    // Re-render all rows to strip any <mark> tags
+    state.segments.forEach((_, i) => refreshRow(i));
+  }
+
   // ===== DOM references =====
 
   const loadingOverlay = document.getElementById('loadingOverlay');
@@ -1109,6 +1142,7 @@
     setState({ fileId });
 
     FontPreview.init(null);
+    initFindReplace();
 
     try {
       await Promise.all([loadTranslations(fileId), loadMedia(fileId)]);
@@ -1593,6 +1627,13 @@
   window.showShortcutHelp = showShortcutHelp;
 
   document.addEventListener('keydown', (e) => {
+    // Cmd+F / Ctrl+F: open find toolbar (intercept browser default)
+    if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+      e.preventDefault();
+      openFindReplace();
+      return;
+    }
+
     // Allow ? help shortcut to open even from anywhere (but not while typing)
     if ((e.key === '?' || (e.shiftKey && e.key === '/')) && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'INPUT') {
       e.preventDefault();
@@ -1608,6 +1649,13 @@
         e.preventDefault();
         return;
       }
+    }
+
+    // Esc from find input: close find bar
+    if (e.key === 'Escape' && (e.target.id === 'findInput' || e.target.id === 'replaceInput')) {
+      e.preventDefault();
+      closeFindReplace();
+      return;
     }
 
     // Skip when typing in an input or textarea
@@ -1935,6 +1983,12 @@
       btnRender.textContent = '匯出燒入字幕 →';
       showToast('渲染請求失敗', 'error');
     }
+  }
+
+  // ===== Find & Replace event wiring =====
+  function initFindReplace() {
+    document.getElementById('findCloseBtn')
+      .addEventListener('click', closeFindReplace);
   }
 
   // ===== Bootstrap =====
