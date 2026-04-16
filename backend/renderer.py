@@ -35,6 +35,20 @@ def seconds_to_ass_time(seconds: float) -> str:
     return f"{h}:{m:02d}:{s:02d}.{cs:02d}"
 
 
+def _escape_ass_path(path: str) -> str:
+    """Escape special FFmpeg filter syntax characters in a file path.
+
+    FFmpeg's -vf filter string uses ':' as an option separator and ',' as a
+    filter chain separator.  Any of these characters appearing literally in a
+    file path will corrupt the filter graph.  Backslashes must be escaped first
+    to prevent double-escaping.
+    """
+    path = path.replace('\\', '\\\\')
+    path = path.replace(':', '\\:')
+    path = path.replace(',', '\\,')
+    return path
+
+
 class SubtitleRenderer:
     def __init__(self, renders_dir: Path):
         self._renders_dir = Path(renders_dir)
@@ -116,7 +130,7 @@ class SubtitleRenderer:
 
             # Resolution scaling appended to ASS filter when requested
             resolution = opts.get("resolution")
-            ass_filter = f"ass={ass_file}"
+            ass_filter = f"ass={_escape_ass_path(ass_file)}"
             vf = f"{ass_filter},scale={resolution}" if resolution else ass_filter
 
             if output_format == "mxf":
