@@ -666,6 +666,7 @@ def api_update_profile(profile_id):
             return jsonify({"error": "Profile not found"}), 404
         active = _profile_manager.get_active()
         if active and active.get("id") == profile_id:
+            # Broadcast to all connected clients — all tabs should reflect the active profile change
             socketio.emit("profile_updated", {"font": profile.get("font", DEFAULT_FONT_CONFIG)})
         return jsonify({"profile": profile})
     except ValueError as e:
@@ -684,6 +685,7 @@ def api_activate_profile(profile_id):
     profile = _profile_manager.set_active(profile_id)
     if not profile:
         return jsonify({"error": "Profile not found"}), 404
+    # Broadcast to all connected clients — all tabs should reflect the active profile change
     socketio.emit("profile_updated", {"font": profile.get("font", DEFAULT_FONT_CONFIG)})
     return jsonify({"profile": profile})
 
