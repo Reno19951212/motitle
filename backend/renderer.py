@@ -81,39 +81,63 @@ class SubtitleRenderer:
 
         return "\n".join(lines) + "\n"
 
+    # ---- Valid option sets (validated by app.py before reaching here) ----
+    VALID_MP4_PRESETS = {"ultrafast", "superfast", "veryfast", "faster", "fast",
+                         "medium", "slow", "slower", "veryslow"}
+    VALID_AUDIO_BITRATES = {"64k", "96k", "128k", "192k", "256k", "320k"}
+    VALID_AUDIO_FORMATS  = {"pcm_s16le", "pcm_s24le", "pcm_s32le"}
+    VALID_RESOLUTIONS    = {"1280x720", "1920x1080", "2560x1440", "3840x2160"}
+    VALID_PRORES_PROFILES = {0, 1, 2, 3, 4, 5}
+
     def render(
         self,
         video_path: str,
         ass_content: str,
         output_path: str,
         output_format: str,
+        render_options: dict = None,
     ) -> tuple:
         """Burn ASS subtitles into video using FFmpeg.
+
+        render_options keys (all optional, fall back to sensible defaults):
+          MP4:  crf (int 0-51), preset (str), audio_bitrate (str), resolution (str)
+          MXF:  prores_profile (int 0-5), audio_format (str), resolution (str)
 
         Returns:
             (success: bool, error: Optional[str]) — error is None on success,
             FFmpeg stderr on failure, or exception message on unexpected error.
         """
+        opts = render_options or {}
         ass_file = None
         try:
             fd, ass_file = tempfile.mkstemp(suffix=".ass")
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 f.write(ass_content)
 
+            # Resolution scaling appended to ASS filter when requested
+            resolution = opts.get("resolution")
+            ass_filter = f"ass={ass_file}"
+            vf = f"{ass_filter},scale={resolution}" if resolution else ass_filter
+
             if output_format == "mxf":
+                prores_profile = int(opts.get("prores_profile", 3))
+                audio_fmt = opts.get("audio_format", "pcm_s16le")
                 cmd = [
                     "ffmpeg", "-y", "-i", video_path,
-                    "-vf", f"ass={ass_file}",
-                    "-c:v", "prores_ks", "-profile:v", "3",
-                    "-c:a", "pcm_s16le",
+                    "-vf", vf,
+                    "-c:v", "prores_ks", "-profile:v", str(prores_profile),
+                    "-c:a", audio_fmt,
                     output_path,
                 ]
             else:
+                crf = int(opts.get("crf", 18))
+                preset = opts.get("preset", "medium")
+                audio_bitrate = opts.get("audio_bitrate", "192k")
                 cmd = [
                     "ffmpeg", "-y", "-i", video_path,
-                    "-vf", f"ass={ass_file}",
-                    "-c:v", "libx264", "-preset", "medium", "-crf", "18",
-                    "-c:a", "aac", "-b:a", "192k",
+                    "-vf", vf,
+                    "-c:v", "libx264", "-preset", preset, "-crf", str(crf),
+                    "-c:a", "aac", "-b:a", audio_bitrate,
                     output_path,
                 ]
 

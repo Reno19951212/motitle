@@ -525,6 +525,148 @@
       box-shadow: none !important;
     }
 
+    /* ===== Render Options Modal ===== */
+    .render-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      animation: fadeIn 0.15s ease;
+    }
+    @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
+
+    .render-modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      width: 480px;
+      max-width: 94vw;
+      max-height: 88vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .render-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 22px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .render-modal-title {
+      font-size: 16px;
+      font-weight: 600;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .render-modal-close {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 18px;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 6px;
+      line-height: 1;
+    }
+    .render-modal-close:hover { color: var(--text); background: var(--surface2); }
+
+    .render-modal-body { padding: 20px 22px; display: flex; flex-direction: column; gap: 20px; }
+
+    .render-opt-section {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .render-opt-section-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+    }
+
+    .render-opt-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .render-opt-label {
+      font-size: 13px;
+      color: var(--text-dim);
+      min-width: 90px;
+      flex-shrink: 0;
+    }
+    .render-opt-control { flex: 1; }
+
+    .render-opt-control select,
+    .render-opt-control input[type="range"] {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+      padding: 6px 10px;
+    }
+    .render-opt-control select:focus { outline: none; border-color: var(--accent); }
+
+    .render-crf-wrap { display: flex; align-items: center; gap: 10px; }
+    .render-crf-wrap input[type="range"] { flex: 1; padding: 0; accent-color: var(--accent); }
+    .render-crf-val {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent2);
+      min-width: 24px;
+      text-align: right;
+    }
+    .render-crf-hint {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 3px;
+    }
+
+    .render-prores-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .render-prores-option {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .render-prores-option:hover { border-color: var(--accent); }
+    .render-prores-option.selected {
+      border-color: var(--accent);
+      background: rgba(167,139,250,0.08);
+    }
+    .render-prores-option input[type="radio"] { display: none; }
+    .render-prores-name { font-size: 13px; font-weight: 600; color: var(--text); }
+    .render-prores-desc { font-size: 11px; color: var(--text-dim); }
+
+    .render-modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 14px 22px 18px;
+      border-top: 1px solid var(--border);
+    }
+
     /* ===== Toast ===== */
     .toast-container {
       position: fixed;
@@ -687,10 +829,6 @@
         </div>
       </div>
       <button class="btn btn-secondary" id="btnBulkApprove">批核所有未改動</button>
-      <select id="renderFormat" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;">
-        <option value="mp4">MP4</option>
-        <option value="mxf">MXF (ProRes)</option>
-      </select>
       <button class="btn btn-render" id="btnRender" disabled>匯出燒入字幕 →</button>
     </div>
   </div>
@@ -1201,69 +1339,10 @@
     btnRender.disabled = approved < total || total === 0;
   }
 
-  // ===== Render / Export button =====
+  // ===== Render / Export button — opens options modal =====
 
-  btnRender.addEventListener('click', async () => {
-    const format = document.getElementById('renderFormat').value;
-    btnRender.disabled = true;
-    btnRender.textContent = '渲染中...';
-
-    try {
-      const resp = await fetch(`${API_BASE}/api/render`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({file_id: state.fileId, format: format}),
-      });
-
-      if (!resp.ok) {
-        const err = await resp.json();
-        showToast(err.error || '渲染失敗', 'error');
-        btnRender.disabled = false;
-        btnRender.textContent = '匯出燒入字幕 →';
-        return;
-      }
-
-      const data = await resp.json();
-      const renderId = data.render_id;
-      showToast('渲染已開始...', 'info');
-
-      const pollInterval = setInterval(async () => {
-        try {
-          const statusResp = await fetch(`${API_BASE}/api/renders/${renderId}`);
-          const statusData = await statusResp.json();
-
-          if (statusData.status === 'done') {
-            clearInterval(pollInterval);
-            btnRender.textContent = '匯出燒入字幕 →';
-            btnRender.disabled = false;
-            showToast('渲染完成！', 'success');
-
-            const downloadUrl = `${API_BASE}/api/renders/${renderId}/download`;
-            const a = document.createElement('a');
-            a.href = downloadUrl;
-            a.download = statusData.output_filename || `render.${format}`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-          } else if (statusData.status === 'error') {
-            clearInterval(pollInterval);
-            btnRender.textContent = '匯出燒入字幕 →';
-            btnRender.disabled = false;
-            showToast(statusData.error || '渲染失敗', 'error');
-          }
-        } catch (e) {
-          clearInterval(pollInterval);
-          btnRender.textContent = '匯出燒入字幕 →';
-          btnRender.disabled = false;
-          showToast('檢查渲染狀態失敗', 'error');
-        }
-      }, 2000);
-
-    } catch (e) {
-      btnRender.disabled = false;
-      btnRender.textContent = '匯出燒入字幕 →';
-      showToast('渲染請求失敗', 'error');
-    }
+  btnRender.addEventListener('click', () => {
+    if (!document.getElementById('renderModalOverlay')) buildRenderModal();
   });
 
   btnBulkApprove.addEventListener('click', bulkApprove);
@@ -1425,6 +1504,265 @@
         break;
     }
   });
+
+  // ===== Render Options Modal =====
+
+  const PRORES_PROFILES = [
+    { value: 0, name: 'Proxy',    desc: '~45 Mbps — 預覽用途' },
+    { value: 1, name: 'LT',       desc: '~102 Mbps — 輕量製作' },
+    { value: 2, name: 'Standard', desc: '~147 Mbps — 標準廣播' },
+    { value: 3, name: 'HQ',       desc: '~220 Mbps — 高品質（預設）' },
+    { value: 4, name: '4444',     desc: '~330 Mbps — 最高品質' },
+    { value: 5, name: '4444 XQ',  desc: '~500 Mbps — 最高品質+' },
+  ];
+
+  function buildRenderModal() {
+    const overlay = document.createElement('div');
+    overlay.className = 'render-modal-overlay';
+    overlay.id = 'renderModalOverlay';
+
+    overlay.innerHTML = `
+      <div class="render-modal" role="dialog" aria-modal="true" aria-labelledby="renderModalTitle">
+        <div class="render-modal-header">
+          <span class="render-modal-title" id="renderModalTitle">渲染 / 匯出設定</span>
+          <button class="render-modal-close" id="renderModalClose" aria-label="關閉">✕</button>
+        </div>
+        <div class="render-modal-body">
+
+          <div class="render-opt-section">
+            <div class="render-opt-section-title">輸出格式</div>
+            <div class="render-opt-row">
+              <span class="render-opt-label">格式</span>
+              <div class="render-opt-control">
+                <select id="rmFormat">
+                  <option value="mp4">MP4 (H.264)</option>
+                  <option value="mxf">MXF (ProRes)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="render-opt-section" id="rmMp4Section">
+            <div class="render-opt-section-title">MP4 — H.264 設定</div>
+            <div class="render-opt-row">
+              <span class="render-opt-label">畫面品質</span>
+              <div class="render-opt-control">
+                <div class="render-crf-wrap">
+                  <input type="range" id="rmCrf" min="0" max="51" value="18" step="1">
+                  <span class="render-crf-val" id="rmCrfVal">18</span>
+                </div>
+                <div class="render-crf-hint" id="rmCrfHint">高品質 — 檔案較大</div>
+              </div>
+            </div>
+            <div class="render-opt-row">
+              <span class="render-opt-label">編碼速度</span>
+              <div class="render-opt-control">
+                <select id="rmPreset">
+                  <option value="ultrafast">極快速（最大檔案）</option>
+                  <option value="fast">快速</option>
+                  <option value="medium" selected>平衡（預設）</option>
+                  <option value="slow">慢速（較小檔案）</option>
+                  <option value="veryslow">最慢（最小檔案）</option>
+                </select>
+              </div>
+            </div>
+            <div class="render-opt-row">
+              <span class="render-opt-label">音頻碼率</span>
+              <div class="render-opt-control">
+                <select id="rmAudioBitrate">
+                  <option value="128k">128 kbps</option>
+                  <option value="192k" selected>192 kbps（預設）</option>
+                  <option value="256k">256 kbps</option>
+                  <option value="320k">320 kbps</option>
+                </select>
+              </div>
+            </div>
+            <div class="render-opt-row">
+              <span class="render-opt-label">輸出解像度</span>
+              <div class="render-opt-control">
+                <select id="rmMp4Resolution">
+                  <option value="">原始（保持不變）</option>
+                  <option value="1280x720">1280 × 720（HD）</option>
+                  <option value="1920x1080">1920 × 1080（Full HD）</option>
+                  <option value="3840x2160">3840 × 2160（4K UHD）</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="render-opt-section" id="rmMxfSection" style="display:none">
+            <div class="render-opt-section-title">MXF — ProRes 設定</div>
+            <div class="render-opt-row" style="align-items:flex-start">
+              <span class="render-opt-label" style="padding-top:4px">ProRes 規格</span>
+              <div class="render-opt-control">
+                <div class="render-prores-grid" id="rmProresGrid"></div>
+              </div>
+            </div>
+            <div class="render-opt-row">
+              <span class="render-opt-label">音頻位深</span>
+              <div class="render-opt-control">
+                <select id="rmAudioFormat">
+                  <option value="pcm_s16le">16-bit PCM</option>
+                  <option value="pcm_s24le" selected>24-bit PCM（廣播標準）</option>
+                  <option value="pcm_s32le">32-bit PCM</option>
+                </select>
+              </div>
+            </div>
+            <div class="render-opt-row">
+              <span class="render-opt-label">輸出解像度</span>
+              <div class="render-opt-control">
+                <select id="rmMxfResolution">
+                  <option value="">原始（保持不變）</option>
+                  <option value="1920x1080">1920 × 1080（Full HD）</option>
+                  <option value="3840x2160">3840 × 2160（4K UHD）</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        <div class="render-modal-footer">
+          <button class="btn btn-secondary" id="renderModalCancel">取消</button>
+          <button class="btn btn-render" id="renderModalConfirm">開始渲染 →</button>
+        </div>
+      </div>
+    `;
+
+    // Build ProRes profile grid
+    const grid = overlay.querySelector('#rmProresGrid');
+    PRORES_PROFILES.forEach((p) => {
+      const div = document.createElement('div');
+      div.className = 'render-prores-option' + (p.value === 3 ? ' selected' : '');
+      div.dataset.profile = p.value;
+      div.innerHTML = `<input type="radio" name="prores" value="${p.value}" ${p.value === 3 ? 'checked' : ''}>
+        <span class="render-prores-name">${p.name}</span>
+        <span class="render-prores-desc">${p.desc}</span>`;
+      div.addEventListener('click', () => {
+        grid.querySelectorAll('.render-prores-option').forEach(el => el.classList.remove('selected'));
+        div.classList.add('selected');
+        div.querySelector('input').checked = true;
+      });
+      grid.appendChild(div);
+    });
+
+    // CRF slider live update
+    const crfSlider = overlay.querySelector('#rmCrf');
+    const crfVal    = overlay.querySelector('#rmCrfVal');
+    const crfHint   = overlay.querySelector('#rmCrfHint');
+    function updateCrfHint(v) {
+      crfVal.textContent = v;
+      if      (v <= 16) crfHint.textContent = '高品質 — 檔案較大';
+      else if (v <= 22) crfHint.textContent = '良好品質 — 平衡';
+      else if (v <= 28) crfHint.textContent = '標準品質 — 檔案較小';
+      else              crfHint.textContent = '低品質 — 檔案最小';
+    }
+    crfSlider.addEventListener('input', () => updateCrfHint(parseInt(crfSlider.value, 10)));
+    updateCrfHint(18);
+
+    // Format toggle
+    const fmtSelect  = overlay.querySelector('#rmFormat');
+    const mp4Section = overlay.querySelector('#rmMp4Section');
+    const mxfSection = overlay.querySelector('#rmMxfSection');
+    fmtSelect.addEventListener('change', () => {
+      const isMxf = fmtSelect.value === 'mxf';
+      mp4Section.style.display = isMxf ? 'none' : '';
+      mxfSection.style.display = isMxf ? ''     : 'none';
+    });
+
+    function closeModal() {
+      const el = document.getElementById('renderModalOverlay');
+      if (el) el.remove();
+    }
+    overlay.querySelector('#renderModalClose').addEventListener('click', closeModal);
+    overlay.querySelector('#renderModalCancel').addEventListener('click', closeModal);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+
+    overlay.querySelector('#renderModalConfirm').addEventListener('click', async () => {
+      const format = fmtSelect.value;
+      const render_options = {};
+
+      if (format === 'mp4') {
+        render_options.crf           = parseInt(overlay.querySelector('#rmCrf').value, 10);
+        render_options.preset        = overlay.querySelector('#rmPreset').value;
+        render_options.audio_bitrate = overlay.querySelector('#rmAudioBitrate').value;
+        const res = overlay.querySelector('#rmMp4Resolution').value;
+        if (res) render_options.resolution = res;
+      } else {
+        const checked = overlay.querySelector('#rmProresGrid input[type="radio"]:checked');
+        render_options.prores_profile = checked ? parseInt(checked.value, 10) : 3;
+        render_options.audio_format   = overlay.querySelector('#rmAudioFormat').value;
+        const res = overlay.querySelector('#rmMxfResolution').value;
+        if (res) render_options.resolution = res;
+      }
+
+      closeModal();
+      await startRender(format, render_options);
+    });
+
+    document.body.appendChild(overlay);
+  }
+
+  async function startRender(format, render_options) {
+    btnRender.disabled = true;
+    btnRender.textContent = '渲染中...';
+
+    try {
+      const resp = await fetch(`${API_BASE}/api/render`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ file_id: state.fileId, format, render_options }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json();
+        showToast(err.error || '渲染失敗', 'error');
+        btnRender.disabled = false;
+        btnRender.textContent = '匯出燒入字幕 →';
+        return;
+      }
+
+      const data = await resp.json();
+      const renderId = data.render_id;
+      showToast('渲染已開始...', 'info');
+
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusResp = await fetch(`${API_BASE}/api/renders/${renderId}`);
+          const statusData = await statusResp.json();
+
+          if (statusData.status === 'done') {
+            clearInterval(pollInterval);
+            btnRender.textContent = '匯出燒入字幕 →';
+            btnRender.disabled = false;
+            showToast('渲染完成！', 'success');
+
+            const downloadUrl = `${API_BASE}/api/renders/${renderId}/download`;
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = statusData.output_filename || `render.${format}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          } else if (statusData.status === 'error') {
+            clearInterval(pollInterval);
+            btnRender.textContent = '匯出燒入字幕 →';
+            btnRender.disabled = false;
+            showToast(statusData.error || '渲染失敗', 'error');
+          }
+        } catch (e) {
+          clearInterval(pollInterval);
+          btnRender.textContent = '匯出燒入字幕 →';
+          btnRender.disabled = false;
+          showToast('檢查渲染狀態失敗', 'error');
+        }
+      }, 2000);
+
+    } catch (e) {
+      btnRender.disabled = false;
+      btnRender.textContent = '匯出燒入字幕 →';
+      showToast('渲染請求失敗', 'error');
+    }
+  }
 
   // ===== Bootstrap =====
 

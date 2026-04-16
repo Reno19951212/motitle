@@ -163,7 +163,7 @@ def test_render_ffmpeg_error_includes_details(client_with_approved_file, monkeyp
     """When FFmpeg fails, the error field must contain diagnostic detail, not just a generic message."""
     from renderer import SubtitleRenderer
 
-    def fake_render(self, video_path, ass_content, output_path, output_format):
+    def fake_render(self, video_path, ass_content, output_path, output_format, render_options=None):
         return False, "No such file or directory: '/nonexistent.mp4'"
 
     monkeypatch.setattr(SubtitleRenderer, "render", fake_render)
@@ -185,3 +185,136 @@ def test_render_ffmpeg_error_includes_details(client_with_approved_file, monkeyp
     assert data["error"] is not None
     assert "FFmpeg render failed:" in data["error"]
     assert "nonexistent" in data["error"]
+
+
+# ===== render_options validation =====
+
+def test_render_options_mp4_defaults_accepted(client_with_approved_file):
+    """POST /api/render with no render_options uses defaults and returns 202."""
+    client, file_id = client_with_approved_file
+    resp = client.post("/api/render", json={"file_id": file_id, "format": "mp4"})
+    assert resp.status_code == 202
+
+
+def test_render_options_mp4_explicit_valid(client_with_approved_file):
+    """Explicit valid MP4 render_options are accepted."""
+    client, file_id = client_with_approved_file
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mp4",
+        "render_options": {"crf": 22, "preset": "slow", "audio_bitrate": "256k", "resolution": "1920x1080"},
+    })
+    assert resp.status_code == 202
+    # render_options stored in job
+    job = client.get(f"/api/renders/{resp.get_json()['render_id']}").get_json()
+    assert job["render_options"]["crf"] == 22
+    assert job["render_options"]["preset"] == "slow"
+    assert job["render_options"]["audio_bitrate"] == "256k"
+    assert job["render_options"]["resolution"] == "1920x1080"
+
+
+def test_render_options_mp4_invalid_crf_out_of_range(client_with_approved_file):
+    """CRF > 51 must return 400."""
+    client, file_id = client_with_approved_file
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mp4",
+        "render_options": {"crf": 99},
+    })
+    assert resp.status_code == 400
+    assert "crf" in resp.get_json()["error"]
+
+
+def test_render_options_mp4_invalid_preset(client_with_approved_file):
+    """Unknown preset must return 400."""
+    client, file_id = client_with_approved_file
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mp4",
+        "render_options": {"preset": "ludicrous-speed"},
+    })
+    assert resp.status_code == 400
+    assert "preset" in resp.get_json()["error"]
+
+
+def test_render_options_mp4_invalid_audio_bitrate(client_with_approved_file):
+    """Unknown audio_bitrate must return 400."""
+    client, file_id = client_with_approved_file
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mp4",
+        "render_options": {"audio_bitrate": "999k"},
+    })
+    assert resp.status_code == 400
+    assert "audio_bitrate" in resp.get_json()["error"]
+
+
+def test_render_options_mp4_invalid_resolution(client_with_approved_file):
+    """Unknown resolution must return 400."""
+    client, file_id = client_with_approved_file
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mp4",
+        "render_options": {"resolution": "800x600"},
+    })
+    assert resp.status_code == 400
+    assert "resolution" in resp.get_json()["error"]
+
+
+def test_render_options_mxf_explicit_valid(client_with_approved_file):
+    """Explicit valid MXF render_options are accepted."""
+    client, file_id = client_with_approved_file
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mxf",
+        "render_options": {"prores_profile": 2, "audio_format": "pcm_s24le", "resolution": "1920x1080"},
+    })
+    assert resp.status_code == 202
+    job = client.get(f"/api/renders/{resp.get_json()['render_id']}").get_json()
+    assert job["render_options"]["prores_profile"] == 2
+    assert job["render_options"]["audio_format"] == "pcm_s24le"
+
+
+def test_render_options_mxf_invalid_prores_profile(client_with_approved_file):
+    """ProRes profile outside 0-5 must return 400."""
+    client, file_id = client_with_approved_file
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mxf",
+        "render_options": {"prores_profile": 9},
+    })
+    assert resp.status_code == 400
+    assert "prores_profile" in resp.get_json()["error"]
+
+
+def test_render_options_mxf_invalid_audio_format(client_with_approved_file):
+    """Unknown audio_format must return 400."""
+    client, file_id = client_with_approved_file
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mxf",
+        "render_options": {"audio_format": "mp3"},
+    })
+    assert resp.status_code == 400
+    assert "audio_format" in resp.get_json()["error"]
+
+
+def test_render_options_passed_to_renderer(client_with_approved_file, monkeypatch):
+    """render_options dict is forwarded to SubtitleRenderer.render()."""
+    from renderer import SubtitleRenderer
+    captured = {}
+
+    def fake_render(self, video_path, ass_content, output_path, output_format, render_options=None):
+        captured["render_options"] = render_options
+        return True, None
+
+    monkeypatch.setattr(SubtitleRenderer, "render", fake_render)
+
+    client, file_id = client_with_approved_file
+    opts = {"crf": 16, "preset": "fast", "audio_bitrate": "256k"}
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mp4", "render_options": opts,
+    })
+    assert resp.status_code == 202
+
+    import time as _time
+    for _ in range(20):
+        _time.sleep(0.1)
+        if captured.get("render_options") is not None:
+            break
+
+    assert captured["render_options"]["crf"] == 16
+    assert captured["render_options"]["preset"] == "fast"
+    assert captured["render_options"]["audio_bitrate"] == "256k"

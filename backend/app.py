@@ -1075,6 +1075,60 @@ def api_approve_translation(file_id, idx):
 
 VALID_RENDER_FORMATS = {"mp4", "mxf"}
 
+# Allowed values for render_options fields
+_VALID_MP4_PRESETS     = {"ultrafast", "superfast", "veryfast", "faster", "fast",
+                           "medium", "slow", "slower", "veryslow"}
+_VALID_AUDIO_BITRATES  = {"64k", "96k", "128k", "192k", "256k", "320k"}
+_VALID_AUDIO_FORMATS   = {"pcm_s16le", "pcm_s24le", "pcm_s32le"}
+_VALID_RESOLUTIONS     = {None, "1280x720", "1920x1080", "2560x1440", "3840x2160"}
+_VALID_PRORES_PROFILES = {0, 1, 2, 3, 4, 5}
+
+
+def _validate_render_options(output_format: str, opts: dict):
+    """Return (clean_opts, error_str).  error_str is None when valid."""
+    clean = {}
+    if output_format == "mp4":
+        crf = opts.get("crf", 18)
+        try:
+            crf = int(crf)
+        except (TypeError, ValueError):
+            return None, f"render_options.crf must be an integer, got {crf!r}"
+        if not (0 <= crf <= 51):
+            return None, f"render_options.crf must be 0–51, got {crf}"
+        clean["crf"] = crf
+
+        preset = opts.get("preset", "medium")
+        if preset not in _VALID_MP4_PRESETS:
+            return None, f"render_options.preset must be one of {sorted(_VALID_MP4_PRESETS)}, got {preset!r}"
+        clean["preset"] = preset
+
+        audio_bitrate = opts.get("audio_bitrate", "192k")
+        if audio_bitrate not in _VALID_AUDIO_BITRATES:
+            return None, f"render_options.audio_bitrate must be one of {sorted(_VALID_AUDIO_BITRATES)}, got {audio_bitrate!r}"
+        clean["audio_bitrate"] = audio_bitrate
+
+    elif output_format == "mxf":
+        prores_profile = opts.get("prores_profile", 3)
+        try:
+            prores_profile = int(prores_profile)
+        except (TypeError, ValueError):
+            return None, f"render_options.prores_profile must be an integer, got {prores_profile!r}"
+        if prores_profile not in _VALID_PRORES_PROFILES:
+            return None, f"render_options.prores_profile must be 0–5, got {prores_profile}"
+        clean["prores_profile"] = prores_profile
+
+        audio_fmt = opts.get("audio_format", "pcm_s16le")
+        if audio_fmt not in _VALID_AUDIO_FORMATS:
+            return None, f"render_options.audio_format must be one of {sorted(_VALID_AUDIO_FORMATS)}, got {audio_fmt!r}"
+        clean["audio_format"] = audio_fmt
+
+    resolution = opts.get("resolution", None)
+    if resolution not in _VALID_RESOLUTIONS:
+        return None, f"render_options.resolution must be one of {sorted(r for r in _VALID_RESOLUTIONS if r)}, got {resolution!r}"
+    clean["resolution"] = resolution
+
+    return clean, None
+
 
 @app.route('/api/render', methods=['POST'])
 def api_start_render():
@@ -1088,6 +1142,11 @@ def api_start_render():
     output_format = data.get("format", "mp4")
     if output_format not in VALID_RENDER_FORMATS:
         return jsonify({"error": f"Invalid format '{output_format}'. Must be one of: {sorted(VALID_RENDER_FORMATS)}"}), 400
+
+    raw_opts = data.get("render_options", {}) or {}
+    render_options, opt_error = _validate_render_options(output_format, raw_opts)
+    if opt_error:
+        return jsonify({"error": opt_error}), 400
 
     with _registry_lock:
         entry = _file_registry.get(file_id)
@@ -1116,6 +1175,7 @@ def api_start_render():
         "render_id": render_id,
         "file_id": file_id,
         "format": output_format,
+        "render_options": render_options,
         "status": "processing",
         "output_path": output_path,
         "output_filename": download_filename,
@@ -1129,11 +1189,14 @@ def api_start_render():
 
     # Snapshot translations to pass into thread (immutable)
     translations_snapshot = list(translations)
+    render_options_snapshot = dict(render_options)
 
     def do_render():
         try:
             ass_content = _subtitle_renderer.generate_ass(translations_snapshot, font_config)
-            success, ffmpeg_error = _subtitle_renderer.render(video_path, ass_content, output_path, output_format)
+            success, ffmpeg_error = _subtitle_renderer.render(
+                video_path, ass_content, output_path, output_format, render_options_snapshot
+            )
             if success:
                 _render_jobs[render_id] = {**_render_jobs[render_id], "status": "done"}
             else:

@@ -194,6 +194,16 @@ def _setup_page(playwright, frontend_server, translations=None, render_status="d
 
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _open_render_modal(page):
+    """Click the render button and wait for the modal to appear."""
+    page.click("#btnRender")
+    page.wait_for_selector("#renderModalOverlay", timeout=5000)
+
+
+# ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
 
@@ -227,8 +237,89 @@ def test_render_button_disabled_when_unapproved_segments(playwright, frontend_se
 
 
 @pytest.mark.playwright
+def test_render_modal_opens_on_button_click(playwright, frontend_server):
+    """Clicking the render button opens the render options modal."""
+    browser, page = _setup_page(playwright, frontend_server)
+    try:
+        page.goto(f"{frontend_server}/proofread.html?file_id={SAMPLE_FILE_ID}")
+        page.wait_for_selector("#btnRender:not([disabled])", timeout=5000)
+        _open_render_modal(page)
+
+        assert page.locator("#renderModalOverlay").is_visible(), "Modal should be visible"
+        assert page.locator("#rmFormat").is_visible(), "Format selector should be visible in modal"
+    finally:
+        browser.close()
+
+
+@pytest.mark.playwright
+def test_render_modal_cancel_closes_modal(playwright, frontend_server):
+    """Clicking Cancel in the modal closes it without starting a render."""
+    browser, page = _setup_page(playwright, frontend_server)
+    try:
+        page.goto(f"{frontend_server}/proofread.html?file_id={SAMPLE_FILE_ID}")
+        page.wait_for_selector("#btnRender:not([disabled])", timeout=5000)
+        _open_render_modal(page)
+        page.click("#renderModalCancel")
+
+        page.wait_for_selector("#renderModalOverlay", state="detached", timeout=3000)
+        assert not page.locator("#renderModalOverlay").is_visible(), "Modal should be closed"
+        assert not page.locator("#btnRender").is_disabled(), "Render button should not be disabled after cancel"
+    finally:
+        browser.close()
+
+
+@pytest.mark.playwright
+def test_render_modal_format_defaults_to_mp4(playwright, frontend_server):
+    """The format selector inside the modal must default to 'mp4'."""
+    browser, page = _setup_page(playwright, frontend_server)
+    try:
+        page.goto(f"{frontend_server}/proofread.html?file_id={SAMPLE_FILE_ID}")
+        page.wait_for_selector("#btnRender:not([disabled])", timeout=5000)
+        _open_render_modal(page)
+
+        value = page.locator("#rmFormat").input_value()
+        assert value == "mp4", f"Expected default format 'mp4', got '{value}'"
+    finally:
+        browser.close()
+
+
+@pytest.mark.playwright
+def test_render_modal_has_mxf_option(playwright, frontend_server):
+    """The format selector inside the modal must contain an MXF / ProRes option."""
+    browser, page = _setup_page(playwright, frontend_server)
+    try:
+        page.goto(f"{frontend_server}/proofread.html?file_id={SAMPLE_FILE_ID}")
+        page.wait_for_selector("#btnRender:not([disabled])", timeout=5000)
+        _open_render_modal(page)
+
+        options = page.locator("#rmFormat option").all_text_contents()
+        mxf_options = [o for o in options if "mxf" in o.lower() or "prores" in o.lower()]
+        assert mxf_options, f"No MXF option found. Options: {options}"
+    finally:
+        browser.close()
+
+
+@pytest.mark.playwright
+def test_render_modal_switching_to_mxf_shows_prores_section(playwright, frontend_server):
+    """Switching format to MXF shows the ProRes section and hides the H.264 section."""
+    browser, page = _setup_page(playwright, frontend_server)
+    try:
+        page.goto(f"{frontend_server}/proofread.html?file_id={SAMPLE_FILE_ID}")
+        page.wait_for_selector("#btnRender:not([disabled])", timeout=5000)
+        _open_render_modal(page)
+
+        page.select_option("#rmFormat", "mxf")
+
+        assert page.locator("#rmMxfSection").is_visible(), "MXF section should be visible"
+        assert not page.locator("#rmMp4Section").is_visible(), "MP4 section should be hidden"
+        assert page.locator("#rmProresGrid").is_visible(), "ProRes profile grid should be visible"
+    finally:
+        browser.close()
+
+
+@pytest.mark.playwright
 def test_render_mp4_triggers_download_with_correct_filename(playwright, frontend_server):
-    """Clicking render (MP4) triggers a download named *_subtitled.mp4."""
+    """MP4 render: confirm in modal → download named *_subtitled.mp4."""
     browser, page = _setup_page(playwright, frontend_server,
                                 render_status="done", render_format="mp4")
     try:
@@ -236,8 +327,9 @@ def test_render_mp4_triggers_download_with_correct_filename(playwright, frontend
         page.wait_for_selector("#btnRender:not([disabled])", timeout=5000)
 
         with page.expect_download(timeout=10000) as download_info:
-            page.select_option("#renderFormat", "mp4")
-            page.click("#btnRender")
+            _open_render_modal(page)
+            page.select_option("#rmFormat", "mp4")
+            page.click("#renderModalConfirm")
 
         download = download_info.value
         assert download.suggested_filename.endswith(".mp4"), (
@@ -252,7 +344,7 @@ def test_render_mp4_triggers_download_with_correct_filename(playwright, frontend
 
 @pytest.mark.playwright
 def test_render_mxf_triggers_download_with_correct_filename(playwright, frontend_server):
-    """Clicking render (MXF) triggers a download named *_subtitled.mxf."""
+    """MXF render: select MXF in modal, confirm → download named *_subtitled.mxf."""
     browser, page = _setup_page(playwright, frontend_server,
                                 render_status="done", render_format="mxf")
     try:
@@ -260,8 +352,9 @@ def test_render_mxf_triggers_download_with_correct_filename(playwright, frontend
         page.wait_for_selector("#btnRender:not([disabled])", timeout=5000)
 
         with page.expect_download(timeout=10000) as download_info:
-            page.select_option("#renderFormat", "mxf")
-            page.click("#btnRender")
+            _open_render_modal(page)
+            page.select_option("#rmFormat", "mxf")
+            page.click("#renderModalConfirm")
 
         download = download_info.value
         assert download.suggested_filename.endswith(".mxf"), (
@@ -281,9 +374,10 @@ def test_render_error_shows_toast_with_message(playwright, frontend_server):
     try:
         page.goto(f"{frontend_server}/proofread.html?file_id={SAMPLE_FILE_ID}")
         page.wait_for_selector("#btnRender:not([disabled])", timeout=5000)
-        page.click("#btnRender")
+        _open_render_modal(page)
+        page.click("#renderModalConfirm")
 
-        # First poll fires at 2 s; toast disappears at 5 s → wait 6 s
+        # First poll fires at 2 s; wait 6 s to be safe
         toast_el = page.locator(".toast.error")
         toast_el.wait_for(state="visible", timeout=6000)
 
@@ -299,29 +393,19 @@ def test_render_error_shows_toast_with_message(playwright, frontend_server):
 
 
 @pytest.mark.playwright
-def test_format_selector_defaults_to_mp4(playwright, frontend_server):
-    """The format selector must default to 'mp4'."""
+def test_render_modal_crf_slider_updates_label(playwright, frontend_server):
+    """Moving the CRF slider updates the displayed CRF value label."""
     browser, page = _setup_page(playwright, frontend_server)
     try:
         page.goto(f"{frontend_server}/proofread.html?file_id={SAMPLE_FILE_ID}")
-        page.wait_for_selector("#renderFormat", timeout=5000)
+        page.wait_for_selector("#btnRender:not([disabled])", timeout=5000)
+        _open_render_modal(page)
 
-        value = page.locator("#renderFormat").input_value()
-        assert value == "mp4", f"Expected default format 'mp4', got '{value}'"
-    finally:
-        browser.close()
+        # Default CRF should be 18
+        assert page.locator("#rmCrfVal").text_content() == "18"
 
-
-@pytest.mark.playwright
-def test_format_selector_has_mxf_option(playwright, frontend_server):
-    """The format selector must contain an MXF option."""
-    browser, page = _setup_page(playwright, frontend_server)
-    try:
-        page.goto(f"{frontend_server}/proofread.html?file_id={SAMPLE_FILE_ID}")
-        page.wait_for_selector("#renderFormat", timeout=5000)
-
-        options = page.locator("#renderFormat option").all_text_contents()
-        mxf_options = [o for o in options if "mxf" in o.lower() or "prores" in o.lower()]
-        assert mxf_options, f"No MXF option found. Options: {options}"
+        # Move slider to 28 via JavaScript
+        page.eval_on_selector("#rmCrf", "el => { el.value = 28; el.dispatchEvent(new Event('input')); }")
+        assert page.locator("#rmCrfVal").text_content() == "28"
     finally:
         browser.close()
