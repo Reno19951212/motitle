@@ -38,3 +38,6 @@ backend/data/
 
 # Playwright / pytest output
 test-results/
+
+# Git worktrees
+.worktrees/
