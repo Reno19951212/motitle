@@ -91,7 +91,9 @@ whisper-subtitle-ai/
 │   └── requirements.txt        # Python dependencies
 ├── frontend/
 │   ├── index.html              # Main dashboard — upload, transcribe, translate
-│   └── proofread.html          # Proof-reading editor — review, edit, approve, render
+│   ├── proofread.html          # Proof-reading editor — review, edit, approve, render
+│   └── js/
+│       └── font-preview.js      # Shared module: syncs subtitle overlay with active Profile font config
 ├── docs/superpowers/           # Design specs and implementation plans
 ├── setup.sh                    # One-shot environment setup
 ├── start.sh                    # Start backend + open browser
@@ -161,6 +163,7 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | `transcription_error` | `{error}` | Any failure |
 | `file_added` | `{id, original_name, ...}` | New file uploaded |
 | `file_updated` | `{id, status, translation_status, ...}` | File status changed |
+| `profile_updated` | `{font: {family, size, color, outline_color, outline_width, margin_bottom}}` | Active profile activated or font config updated |
 
 **WebSocket events (client → server)**
 | Event | Payload |
@@ -273,7 +276,8 @@ Whenever a new feature is completed or existing functionality is modified, you *
 - **Ollama Cloud 模型支援**：新增 3 個 cloud engine（`glm-4.6-cloud`、`qwen3.5-397b-cloud`、`gpt-oss-120b-cloud`），透過現有 Ollama CLI `signin` 機制存取；前端 Profile 翻譯引擎 dropdown 分「本地模型」同「雲端模型（需要 ollama signin）」兩個 `<optgroup>`，未可用嘅選項顯示 `⚠` + tooltip 提示
 - **MP4/MXF 渲染 Bug 修正**：修正 6 個渲染相關 bug：(1) `renderer.render()` 返回 `(bool, Optional[str])` tuple 而非 bool，FFmpeg stderr 正確傳遞；(2) render job 加入 `output_filename` 欄位（格式：`{stem}_subtitled.{ext}`）；(3) `send_file()` 加入 `download_name` 參數確保正確檔名；(4) `proofread.html` 修正 `approved` 欄位映射（`seg.status === 'approved'`）；(5) `loadMedia()` 在影片載入失敗時 resolve 而非 reject；(6) 渲染按鈕 click handler 修正 `fileId` → `state.fileId` scope 問題（關鍵 bug：`const fileId` 在 `init()` 內，click handler 在外層 scope，`'use strict'` 下拋出 `ReferenceError` 導致渲染完全失效）
 - **渲染匯出參數面板**：點擊「匯出燒入字幕」開啟渲染設定 Modal；MP4 可調 CRF（0-51 slider）、編碼速度（ultrafast→veryslow）、音頻碼率、輸出解像度；MXF 可選 ProRes 規格（Proxy/LT/Standard/HQ/4444/4444XQ + 碼率說明）、音頻位深（16/24/32-bit PCM）、輸出解像度；後端 `_validate_render_options()` 完整驗證所有欄位並返回 400 + 明確錯誤信息；`render_options` 存入 job dict 並出現在 status API 響應
-- **271 automated tests**（+14 new: render_options validation × 10, renderer options passing × 1, E2E modal flow × 4 new + 4 updated）
+- **Preview Font Sync**: SVG subtitle overlays in `index.html` and `proofread.html` now reflect Active Profile font config (family, size, color, outline, margin) in real-time via Socket.IO `profile_updated` event; replaced hardcoded CSS div with SVG `<text paint-order="stroke fill">` for true per-character outline matching ASS renderer output
+- **274 automated tests**（+3 new: profile_updated emit on activate, PATCH-active, PATCH-inactive）
 
 ### v2.1 — Language Config, Frontend UI, Bug Fixes
 - **Language config system**: Per-language ASR params (max_words_per_segment, max_segment_duration) and translation params (batch_size, temperature) with validation
