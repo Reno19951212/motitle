@@ -3,152 +3,89 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI 字幕轉換 APP</title>
+  <title>MoTitle</title>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  <script src="js/font-preview.js"></script>
+  <link rel="stylesheet" href="shared.css" />
   <style>
-    /* ===== CSS Variables ===== */
-    :root {
-      --bg: #0a0a0f;
-      --surface: #13131a;
-      --surface2: #1c1c28;
-      --border: #2a2a3d;
-      --accent: #6c63ff;
-      --accent2: #a78bfa;
-      --text: #e2e2f0;
-      --text-dim: #888899;
-      --success: #22c55e;
-      --warning: #f59e0b;
-      --danger: #ef4444;
-      --subtitle-bg: rgba(0,0,0,0.78);
-      --subtitle-text: #ffffff;
-      --radius: 12px;
-      --shadow: 0 8px 32px rgba(0,0,0,0.4);
-    }
-
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
+    /* ── Layout ─────────────────────────────────── */
     body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Segoe UI', 'Microsoft JhengHei', 'PingFang TC', system-ui, sans-serif;
-      min-height: 100vh;
       display: flex;
       flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
     }
 
-    /* ===== Header ===== */
-    header {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 16px 24px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      position: sticky;
-      top: 0;
-      z-index: 100;
+    /* Header overrides */
+    .header select#profileSelect {
+      max-width: 200px;
+      font-size: 12px;
+      padding: 3px 8px;
+      height: 28px;
     }
-
-    .logo {
-      font-size: 22px;
-      font-weight: 700;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .status-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--danger);
-      transition: background 0.3s;
-      margin-left: auto;
-    }
-    .status-dot.connected { background: var(--success); }
-
-    .status-text {
-      font-size: 13px;
-      color: var(--text-dim);
-    }
-
-    .btn-restart {
-      background: none;
-      border: 1px solid var(--border);
-      color: var(--text-dim);
-      font-size: 18px;
-      width: 34px;
-      height: 34px;
-      border-radius: 8px;
-      cursor: pointer;
-      display: flex;
+    .header-spacer { flex: 1; }
+    .header-link {
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      transition: all 0.2s;
-      line-height: 1;
-    }
-    .btn-restart:hover { border-color: var(--accent); color: var(--accent2); }
-    .btn-restart.spinning { animation: spin 0.8s linear infinite; pointer-events: none; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* ===== Main Layout ===== */
-    main {
-      display: grid;
-      grid-template-columns: 1fr 360px;
-      gap: 20px;
-      padding: 20px 24px;
-      flex: 1;
-      max-width: 1600px;
-      margin: 0 auto;
-      width: 100%;
-    }
-
-    @media (max-width: 1024px) {
-      main { grid-template-columns: 1fr; }
-    }
-
-    /* ===== Panel ===== */
-    .panel {
-      background: var(--surface);
-      border: 1px solid var(--border);
+      width: 28px;
+      height: 28px;
       border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .header-link:hover { background: var(--border); color: var(--text); }
+
+    /* Main grid */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 0;
+      flex: 1;
+      min-height: 0;
       overflow: hidden;
     }
 
-    .panel-header {
-      padding: 14px 18px;
-      border-bottom: 1px solid var(--border);
-      font-weight: 600;
-      font-size: 14px;
+    /* ── Left column ─────────────────────────────── */
+    .left-col {
       display: flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--text-dim);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      overflow: hidden;
     }
 
-    .panel-body { padding: 18px; }
-
-    /* ===== Video Container ===== */
-    .video-area {
+    /* Video wrap */
+    .video-section {
       position: relative;
       background: #000;
-      border-radius: var(--radius);
-      overflow: hidden;
-      aspect-ratio: 16/9;
+      flex-shrink: 0;
+      max-height: 240px;
+      aspect-ratio: 16 / 9;
+      width: 100%;
     }
-
-    .video-area video,
-    .video-area canvas {
+    .video-section video {
+      display: block;
       width: 100%;
       height: 100%;
       object-fit: contain;
     }
+    .video-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+    .video-placeholder .vp-icon { font-size: 32px; opacity: 0.5; }
 
-    /* ===== Subtitle Overlay ===== */
+    /* Subtitle overlay on video */
     .subtitle-overlay {
       position: absolute;
       bottom: var(--preview-margin-bottom, 40px);
@@ -159,3498 +96,1046 @@
       pointer-events: none;
     }
 
-    .subtitle-svg {
-      max-width: 90%;
-      overflow: visible;
-    }
-
-    /* ===== Placeholder ===== */
-    .video-placeholder {
-      position: absolute;
-      inset: 0;
+    /* Playback strip */
+    .playback-strip {
+      height: 32px;
+      flex-shrink: 0;
       display: flex;
-      flex-direction: column;
       align-items: center;
-      justify-content: center;
-      gap: 12px;
-      color: var(--text-dim);
-    }
-
-    .video-placeholder .icon {
-      font-size: 48px;
-      opacity: 0.5;
-    }
-
-    .video-placeholder p { font-size: 15px; }
-
-    /* ===== Upload Zone ===== */
-    .upload-zone {
-      border: 2px dashed var(--border);
-      border-radius: var(--radius);
-      padding: 40px 20px;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.2s;
-      color: var(--text-dim);
-    }
-    .upload-zone:hover,
-    .upload-zone.drag-over {
-      border-color: var(--accent);
-      background: rgba(108,99,255,0.08);
-      color: var(--text);
-    }
-
-    .upload-zone .upload-icon { font-size: 40px; margin-bottom: 12px; }
-    .upload-zone .upload-hint { font-size: 12px; margin-top: 6px; color: var(--text-dim); }
-
-    /* ===== Controls ===== */
-    .controls { display: flex; flex-direction: column; gap: 14px; padding: 18px; }
-
-    .control-group { display: flex; flex-direction: column; gap: 6px; }
-
-    label {
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--text-dim);
-    }
-
-    select, input[type="range"], input[type="number"] {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      color: var(--text);
-      border-radius: 8px;
-      padding: 9px 12px;
-      font-size: 14px;
-      width: 100%;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    select:focus, input:focus { border-color: var(--accent); }
-
-    input[type="range"] {
-      padding: 4px 0;
-      cursor: pointer;
-      accent-color: var(--accent);
-    }
-
-    .range-value {
-      font-size: 13px;
-      color: var(--accent2);
-      font-weight: 600;
-      text-align: right;
-    }
-
-    /* ===== Buttons ===== */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 11px 20px;
-      border-radius: 10px;
-      border: none;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      white-space: nowrap;
-    }
-
-    .btn-primary {
-      background: var(--accent);
-      color: white;
-    }
-    .btn-primary:hover { background: #5b52e0; transform: translateY(-1px); }
-
-    .btn-secondary {
-      background: var(--surface2);
-      color: var(--text);
-      border: 1px solid var(--border);
-    }
-    .btn-secondary:hover { border-color: var(--accent); color: var(--accent2); }
-
-    .btn-danger {
-      background: var(--danger);
-      color: white;
-    }
-    .btn-danger:hover { background: #dc2626; }
-
-    .btn-success {
-      background: var(--success);
-      color: white;
-    }
-
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none !important;
-    }
-
-    .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
-
-    /* ===== Progress ===== */
-    .progress-bar {
-      height: 4px;
-      background: var(--border);
-      border-radius: 2px;
-      overflow: hidden;
-    }
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--accent), var(--accent2));
-      border-radius: 2px;
-      transition: width 0.3s ease;
-    }
-
-    /* ===== Status Badge ===== */
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 4px 10px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-    .badge-idle { background: rgba(136,136,153,0.2); color: var(--text-dim); }
-    .badge-processing { background: rgba(245,158,11,0.2); color: var(--warning); }
-    .badge-recording { background: rgba(239,68,68,0.2); color: var(--danger); animation: pulse 1.5s infinite; }
-    /* Transcription-done uses an OUTLINED pill so it is visibly distinct from
-       the FILLED .badge-translated pill below. Two "done" states on the same
-       card should not look identical. */
-    .badge-done {
-      background: transparent;
-      color: var(--success);
-      border: 1px solid var(--success);
-      padding: 3px 9px; /* compensate for border so total size matches */
-    }
-
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
-
-    /* ===== Transcript Panel ===== */
-    .transcript-list {
-      max-height: calc(100vh - 350px);
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 4px;
-    }
-
-    .transcript-list::-webkit-scrollbar { width: 4px; }
-    .transcript-list::-webkit-scrollbar-track { background: transparent; }
-    .transcript-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
-    .transcript-item {
-      display: flex;
       gap: 10px;
-      padding: 10px;
-      background: var(--surface2);
-      border-radius: 8px;
-      font-size: 14px;
-      line-height: 1.5;
-      animation: slideIn 0.3s ease;
-      border-left: 3px solid transparent;
-      transition: border-color 0.15s, background 0.15s;
-    }
-    .transcript-item-active {
-      border-left-color: var(--accent);
-      background: rgba(108,99,255,0.12);
-    }
-
-    @keyframes slideIn {
-      from { opacity: 0; transform: translateX(-10px); }
-      to { opacity: 1; transform: translateX(0); }
-    }
-
-    .transcript-time {
-      color: var(--accent2);
-      font-size: 11px;
-      font-family: monospace;
-      white-space: nowrap;
-      padding-top: 2px;
-    }
-
-    .transcript-text {
-      flex: 1;
-      border-radius: 4px;
-      padding: 2px 4px;
-      margin: -2px -4px;
-      transition: background 0.15s;
-    }
-    .transcript-text:hover {
-      background: rgba(108,99,255,0.1);
-    }
-
-    /* ===== Toast ===== */
-    .toast-container {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      z-index: 9999;
-    }
-
-    .toast {
-      padding: 12px 18px;
+      padding: 0 12px;
       background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      font-size: 14px;
-      box-shadow: var(--shadow);
-      animation: toastIn 0.3s ease;
-      max-width: 320px;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
     }
-
-    @keyframes toastIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .toast.success { border-color: var(--success); }
-    .toast.error {
-      border-color: var(--danger);
-      border-left: 3px solid var(--danger);
-      background: rgba(239,68,68,0.08);
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 10px;
-      max-width: 400px;
-    }
-    .toast.warning { border-color: var(--warning); }
-    .toast .toast-body {
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
-      flex: 1;
-      min-width: 0;
-    }
-    .toast .toast-icon { font-size: 16px; color: var(--danger); flex-shrink: 0; }
-    .toast .toast-message {
-      word-break: break-word;
+    .playback-btn {
+      background: none;
+      border: none;
       color: var(--text);
-      line-height: 1.4;
-    }
-    .toast .toast-actions { display: flex; gap: 4px; flex-shrink: 0; }
-    .toast .toast-btn {
-      background: transparent;
-      border: 0;
-      color: var(--text-dim);
       cursor: pointer;
       font-size: 14px;
       padding: 2px 6px;
       border-radius: 4px;
+      line-height: 1;
     }
-    .toast .toast-btn:hover { color: var(--text); background: rgba(255,255,255,0.08); }
-
-    /* Error bell indicator in the header */
-    .btn-error-bell {
-      position: relative;
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text-dim);
-      font-size: 14px;
-      padding: 6px 10px;
-      border-radius: 8px;
-      cursor: pointer;
-      margin-left: 6px;
-    }
-    .btn-error-bell:hover {
-      background: var(--surface2);
-      color: var(--text);
-    }
-    .btn-error-bell-badge {
-      position: absolute;
-      top: -4px;
-      right: -4px;
-      background: var(--danger);
-      color: #fff;
-      font-size: 10px;
-      font-weight: 700;
-      padding: 1px 5px;
-      border-radius: 10px;
-      min-width: 16px;
-      text-align: center;
-      line-height: 1.3;
-    }
-
-    /* Error log modal */
-    .error-log-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.65);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 10000;
-    }
-    .error-log-panel {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      width: 560px;
-      max-width: 92vw;
-      max-height: 82vh;
-      display: flex;
-      flex-direction: column;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-    }
-    .error-log-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 14px 18px;
-      border-bottom: 1px solid var(--border);
-      font-weight: 600;
-      font-size: 14px;
-    }
-    .error-log-actions { display: flex; gap: 8px; }
-    .error-log-clear {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text-dim);
-      padding: 4px 10px;
-      border-radius: 6px;
+    .playback-btn:hover { background: var(--surface2); }
+    .playback-timecode {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 11px;
-      cursor: pointer;
-    }
-    .error-log-clear:hover { color: var(--danger); border-color: var(--danger); }
-    .error-log-close {
-      background: transparent;
-      border: 0;
-      color: var(--text-dim);
-      font-size: 18px;
-      cursor: pointer;
-      padding: 0 6px;
-    }
-    .error-log-close:hover { color: var(--text); }
-    .error-log-body {
-      padding: 12px 18px;
-      overflow-y: auto;
+      color: var(--text-muted);
       flex: 1;
     }
-    .error-log-empty {
-      text-align: center;
-      padding: 30px;
-      color: var(--text-dim);
-      font-size: 13px;
-    }
-    .error-log-entry {
-      padding: 10px 12px;
-      margin-bottom: 8px;
-      background: var(--surface2);
-      border-left: 3px solid var(--danger);
-      border-radius: 6px;
-      font-size: 12px;
-    }
-    .error-log-entry-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 4px;
-    }
-    .error-log-entry-time {
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 11px;
-      color: var(--text-dim);
-    }
-    .error-log-entry-copy {
-      background: transparent;
-      border: 0;
-      color: var(--text-dim);
+    .playback-progress {
+      flex: 1;
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      position: relative;
       cursor: pointer;
-      font-size: 13px;
-      padding: 2px 4px;
-      border-radius: 4px;
     }
-    .error-log-entry-copy:hover { color: var(--text); background: rgba(255,255,255,0.05); }
-    .error-log-entry-message {
-      color: var(--text);
-      line-height: 1.5;
-      word-break: break-word;
-    }
-    .error-log-entry-context {
-      color: var(--text-dim);
-      font-size: 10.5px;
-      margin-top: 4px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    .playback-progress-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      width: 0%;
+      transition: width 0.1s linear;
     }
 
-    /* ===== File info ===== */
-    .file-info {
+    /* File zone = upload prompt + file list, full drag-drop target */
+    .file-zone {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .file-zone.drag-over {
+      background: rgba(108, 99, 255, 0.06);
+      outline: 2px dashed var(--accent);
+      outline-offset: -4px;
+    }
+
+    /* Upload prompt (shown when no files or always at top) */
+    .upload-prompt {
       display: flex;
       align-items: center;
       gap: 10px;
       padding: 10px 14px;
-      background: var(--surface2);
-      border-radius: 8px;
-      font-size: 13px;
-    }
-
-    .file-info .file-icon { font-size: 20px; }
-    .file-info .file-name { font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .file-info .file-size { color: var(--text-dim); font-size: 11px; }
-
-    /* ===== File List ===== */
-    .file-list { display: flex; flex-direction: column; gap: 8px; }
-
-    .file-card {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-left: 3px solid var(--border);
-      border-radius: 10px;
-      padding: 12px 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      animation: slideIn 0.3s ease;
-      transition: border-color 0.2s, background 0.2s;
-    }
-    .file-card.active {
-      border-color: var(--accent);
-      border-left: 3px solid var(--accent);
-      background: rgba(108,99,255,0.08);
-    }
-
-    .file-card-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+      color: var(--text-muted);
+      font-size: 12px;
       cursor: pointer;
-    }
-    .file-card-header:hover .file-card-name { color: var(--accent2); }
-    .file-card-header:hover .file-card-name-arrow { opacity: 1; }
-    .file-card-icon { font-size: 20px; flex-shrink: 0; }
-    .file-card-name {
-      font-weight: 500;
-      font-size: 13px;
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      transition: color 0.2s;
-    }
-    .file-card-name-arrow {
-      font-size: 10px;
-      color: var(--accent2);
-      opacity: 0.45;
-      transition: opacity 0.2s;
-      margin-left: 2px;
-    }
-    .file-card-now-playing {
-      font-size: 10px;
-      font-weight: 600;
-      color: var(--accent);
-      background: rgba(108,99,255,0.18);
-      padding: 2px 8px;
-      border-radius: 10px;
-      white-space: nowrap;
-      letter-spacing: 0.02em;
-      animation: nowPlayingPulse 1.8s ease-in-out infinite;
-    }
-    @keyframes nowPlayingPulse {
-      0%, 100% { opacity: 1; }
-      50%      { opacity: 0.65; }
-    }
-    .file-card-meta-chip {
-      font-size: 10.5px;
-      color: var(--text-dim);
-      background: rgba(255,255,255,0.04);
-      padding: 2px 7px;
-      border-radius: 10px;
-      white-space: nowrap;
-    }
-    .file-card-meta {
-      font-size: 11px;
-      color: var(--text-dim);
-      white-space: nowrap;
-    }
-
-    /* Overflow menu trigger + dropdown */
-    .file-card-overflow {
-      display: flex;
-      align-items: center;
+      transition: border-color 0.15s, background 0.15s;
       flex-shrink: 0;
     }
-    .btn-overflow {
-      font-size: 16px;
-      font-weight: 700;
-      line-height: 1;
-      letter-spacing: 2px;
+    .upload-prompt:hover {
+      border-color: var(--accent);
+      background: rgba(108, 99, 255, 0.05);
+      color: var(--text);
     }
-    .btn-overflow:hover { color: var(--accent2) !important; background: rgba(108,99,255,0.15) !important; }
-    .file-overflow-menu {
+    .upload-prompt-icon { font-size: 20px; }
+    .upload-prompt-text { flex: 1; }
+    .upload-prompt-hint { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ── File cards ──────────────────────────────── */
+    .file-card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-      padding: 4px;
-      min-width: 140px;
-      z-index: 10001;
-    }
-    .file-overflow-item {
-      display: block;
-      width: 100%;
-      background: transparent;
-      border: 0;
-      color: var(--text);
-      text-align: left;
-      padding: 8px 12px;
-      font-size: 12px;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    .file-overflow-item:hover { background: rgba(255,255,255,0.06); }
-    .file-overflow-item-danger { color: var(--danger); }
-    .file-overflow-item-danger:hover { background: rgba(239,68,68,0.15); }
-
-    .file-card-actions {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-
-    .file-card-actions .btn { padding: 5px 10px; font-size: 12px; border-radius: 6px; }
-
-    .btn-icon {
-      background: none;
-      border: none;
-      color: var(--text-dim);
-      cursor: pointer;
-      padding: 4px;
-      font-size: 16px;
-      border-radius: 4px;
-      transition: all 0.2s;
-      line-height: 1;
-    }
-    .btn-icon:hover { color: var(--danger); background: rgba(239,68,68,0.15); }
-
-    /* ===== File Card Progress ===== */
-    .file-card-progress {
+      border-radius: var(--radius);
+      padding: 10px 12px;
       display: flex;
       flex-direction: column;
       gap: 6px;
+      flex-shrink: 0;
+      transition: border-color 0.2s;
     }
-    .file-progress-bar {
-      height: 6px;
+    .file-card.fc-active {
+      border-color: var(--accent);
+      background: rgba(108, 99, 255, 0.06);
+    }
+
+    /* Row 1: icon + name + size + playing chip */
+    .fc-row1 {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      cursor: pointer;
+    }
+    .fc-icon { font-size: 16px; flex-shrink: 0; }
+    .fc-name {
+      flex: 1;
+      min-width: 0;
+      font-size: 12px;
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .fc-size {
+      font-size: 10px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .fc-playing-chip {
+      display: none;
+      align-items: center;
+      gap: 3px;
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 10px;
+      background: rgba(108, 99, 255, 0.2);
+      color: var(--accent2);
+      border: 1px solid var(--accent);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .fc-playing-chip.visible { display: inline-flex; }
+
+    /* Row 2: pipeline dots */
+    .fc-row2 {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* Row 3: detail text */
+    .fc-row3 {
+      font-size: 11px;
+      color: var(--text-muted);
+      min-height: 14px;
+    }
+
+    /* Row 4: actions */
+    .fc-row4 {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .fc-row4 .btn { font-size: 11px; padding: 3px 9px; height: auto; }
+
+    /* Download dropdown wrapper */
+    .fc-dl-wrap {
+      position: relative;
+      display: inline-block;
+    }
+    .fc-dl-menu {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 4px);
+      left: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 4px;
+      min-width: 100px;
+      z-index: 200;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+    .fc-dl-menu.open { display: block; }
+    .fc-dl-item {
+      display: block;
+      width: 100%;
+      padding: 5px 10px;
+      font-size: 11px;
+      text-align: left;
+      background: none;
+      border: none;
+      color: var(--text);
+      cursor: pointer;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+    .fc-dl-item:hover { background: var(--surface2); }
+
+    /* Overflow menu */
+    .fc-overflow-wrap {
+      position: relative;
+      margin-left: auto;
+    }
+    .fc-overflow-menu {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 4px);
+      right: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 4px;
+      min-width: 120px;
+      z-index: 200;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+    .fc-overflow-menu.open { display: block; }
+    .fc-overflow-item {
+      display: block;
+      width: 100%;
+      padding: 6px 10px;
+      font-size: 11px;
+      text-align: left;
+      background: none;
+      border: none;
+      color: var(--text);
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .fc-overflow-item:hover { background: var(--surface2); }
+    .fc-overflow-item.danger { color: var(--danger); }
+    .fc-overflow-item.danger:hover { background: rgba(239, 68, 68, 0.12); }
+
+    /* Progress strip inside file card */
+    .fc-progress {
+      display: none;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .fc-progress.visible { display: flex; }
+    .fc-progress-bar {
+      height: 3px;
       background: var(--border);
-      border-radius: 3px;
+      border-radius: 2px;
       overflow: hidden;
     }
-    .file-progress-fill {
+    .fc-progress-fill {
       height: 100%;
-      background: linear-gradient(90deg, var(--accent), var(--accent2));
-      border-radius: 3px;
-      transition: width 0.4s ease;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.3s ease;
     }
-    .file-progress-info {
+    .fc-progress-meta {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      font-size: 11px;
-      color: var(--text-dim);
-    }
-    .file-progress-info .eta {
-      color: var(--accent2);
-      font-weight: 600;
-      font-family: monospace;
-    }
-    .file-progress-info .pct {
-      font-weight: 600;
-      color: var(--text);
-    }
-    @keyframes indeterminate {
-      0% { transform: translateX(-100%); width: 40%; }
-      50% { width: 60%; }
-      100% { transform: translateX(250%); width: 40%; }
+      font-size: 10px;
+      color: var(--text-muted);
     }
 
-    /* ===== Export ===== */
-    .export-section {
-      border-top: 1px solid var(--border);
-      padding: 14px 18px;
+    /* ── Right column — Transcript ───────────────── */
+    .right-col {
       display: flex;
-      gap: 10px;
-      align-items: center;
+      flex-direction: column;
+      overflow: hidden;
     }
-
-    /* ===== Delay settings ===== */
-    .delay-badge {
-      font-size: 11px;
-      padding: 2px 8px;
-      background: rgba(108,99,255,0.2);
-      color: var(--accent2);
-      border-radius: 20px;
-    }
-
-    /* ===== Collapsible Panels ===== */
-    .collapsible-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      cursor: pointer;
-      padding: 8px 0;
-      user-select: none;
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text);
-    }
-    .collapsible-header:hover { color: var(--accent2); }
-    .collapsible-header .arrow { transition: transform 0.3s; font-size: 10px; color: var(--text-dim); }
-    .collapsible-header.open .arrow { transform: rotate(90deg); }
-    .collapsible-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
-    .collapsible-body.open { max-height: 600px; }
-    .collapsible-body .control-group { margin-top: 8px; }
-    .config-input { width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 13px; }
-    .config-input:focus { border-color: var(--accent); outline: none; }
-    .config-save-btn { width: 100%; padding: 6px; margin-top: 8px; border: none; border-radius: 6px; background: var(--accent); color: #fff; font-size: 12px; cursor: pointer; }
-    .config-save-btn:hover { background: var(--accent2); }
-
-    /* ===== Glossary Table ===== */
-    .glossary-table { width: 100%; font-size: 12px; border-collapse: collapse; margin-top: 6px; }
-    .glossary-table th { text-align: left; padding: 4px 6px; color: var(--text-dim); border-bottom: 1px solid var(--border); font-weight: 500; }
-    .glossary-table td { padding: 4px 6px; border-bottom: 1px solid var(--border); }
-    .glossary-table .btn-del { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 14px; padding: 0 4px; }
-    .glossary-table .btn-del:hover { color: var(--error); }
-    .glossary-add-row { display: flex; gap: 4px; margin-top: 6px; }
-    .glossary-add-row input { flex: 1; }
-    .glossary-add-row button { flex-shrink: 0; padding: 4px 10px; border: none; border-radius: 4px; background: var(--accent); color: #fff; font-size: 12px; cursor: pointer; }
-    .glossary-import-row { margin-top: 6px; }
-    .glossary-import-row label { font-size: 11px; color: var(--accent); cursor: pointer; text-decoration: underline; }
-
-    /* ===== Profile List ===== */
-    .profile-list { display: flex; flex-direction: column; gap: 6px; }
-    .profile-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-    .profile-item-header { display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer; }
-    .profile-item-header:hover { background: rgba(108,99,255,0.1); }
-    .profile-active-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); flex-shrink: 0; }
-    .profile-inactive-dot { width: 8px; height: 8px; border-radius: 50%; background: transparent; flex-shrink: 0; }
-    .profile-item-name { flex: 1; font-size: 13px; font-weight: 500; }
-    .profile-item-actions { display: flex; gap: 4px; }
-    .profile-item-actions button { background: none; border: none; cursor: pointer; padding: 2px 6px; border-radius: 4px; font-size: 12px; color: var(--text-dim); }
-    .profile-item-actions button:hover:not(:disabled) { color: var(--accent2); background: rgba(108,99,255,0.15); }
-    .profile-item-actions .btn-del-profile:hover:not(:disabled) { color: var(--danger); background: rgba(239,68,68,0.15); }
-    .profile-item-actions button:disabled { opacity: 0.4; cursor: not-allowed; }
-    .profile-edit-form { border-top: 1px solid var(--border); padding: 10px; }
-    .profile-form-section { margin-bottom: 6px; }
-    .profile-form-section-header { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text-dim); border-bottom: 1px solid var(--border); margin-bottom: 6px; }
-    .profile-form-section-header .pf-arrow { font-size: 9px; transition: transform 0.2s; }
-    .profile-form-section-header.open .pf-arrow { transform: rotate(90deg); }
-    .profile-form-section-body { display: none; flex-direction: column; gap: 6px; padding: 4px 0; }
-    .profile-form-section-body.open { display: flex; }
-    .profile-form-row { display: flex; flex-direction: column; gap: 3px; }
-    .profile-form-row label { font-size: 11px; color: var(--text-dim); }
-    .profile-form-row input, .profile-form-row select, .profile-form-row textarea { width: 100%; padding: 5px 8px; border-radius: 5px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 12px; }
-    .profile-form-row input:focus, .profile-form-row select:focus, .profile-form-row textarea:focus { border-color: var(--accent); outline: none; }
-    .profile-form-row textarea { resize: vertical; min-height: 48px; }
-    .profile-form-actions { display: flex; gap: 6px; margin-top: 8px; }
-    .profile-form-actions button { flex: 1; padding: 5px; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; }
-    .profile-form-actions .btn-pf-save { background: var(--accent); color: #fff; }
-    .profile-form-actions .btn-pf-save:hover:not(:disabled) { background: var(--accent2); }
-    .profile-form-actions .btn-pf-save:disabled { opacity: 0.5; cursor: not-allowed; }
-    .profile-form-actions .btn-pf-cancel { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
-    .profile-form-actions .btn-pf-cancel:hover { border-color: var(--accent); }
-    .profile-new-btn { width: 100%; padding: 6px; margin-bottom: 8px; border: 1px dashed var(--border); border-radius: 8px; background: none; color: var(--text-dim); font-size: 12px; cursor: pointer; }
-    .profile-new-btn:hover { border-color: var(--accent); color: var(--accent2); }
-
-    /* ===== Engine Selector ===== */
-    .pf-engine-row {
+    .transcript-header {
+      height: 40px;
       display: flex;
       align-items: center;
       gap: 8px;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      background: var(--surface);
     }
-
-    .pf-engine-row select {
+    .transcript-header span { margin-left: auto; font-size: 11px; font-weight: 400; }
+    .transcript-panel {
       flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
-
-    .pf-avail-dot {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
+    .transcript-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-muted);
+      font-size: 12px;
+      gap: 8px;
+    }
+    .transcript-empty .te-icon { font-size: 28px; opacity: 0.4; }
+    .transcript-item {
+      display: flex;
+      gap: 8px;
+      padding: 7px 8px;
+      background: var(--surface2);
+      border-radius: 6px;
+      font-size: 12px;
+      line-height: 1.5;
+      border-left: 2px solid transparent;
+      transition: border-color 0.15s, background 0.15s;
       flex-shrink: 0;
     }
-    .pf-avail-dot.available   { background: var(--success); }
-    .pf-avail-dot.unavailable { background: var(--text-dim); }
-
-    .pf-avail-label {
-      font-size: 11px;
-      color: var(--text-dim);
-      white-space: nowrap;
+    .transcript-item.active {
+      border-left-color: var(--accent);
+      background: rgba(108, 99, 255, 0.1);
     }
-
-    .pf-model-info {
-      font-size: 12px;
-      color: var(--text-dim);
-      padding: 2px 0 6px;
-    }
-    .pf-model-info .pf-model-ok  { color: var(--success); }
-    .pf-model-info .pf-model-err { color: var(--danger); }
-
-    .pf-params-area {
-      margin-top: 4px;
-    }
-
-    .pf-params-loading {
-      font-size: 12px;
-      color: var(--text-dim);
-      padding: 6px 0;
-    }
-
-    .pf-params-error {
-      font-size: 12px;
-      color: var(--danger);
-      padding: 6px 0;
-    }
-
-    .pf-ollama-signin-btn {
-      margin-left: 8px;
-      padding: 4px 10px;
-      font-size: 12px;
-      background: #eef2ff;
-      border: 1px solid #c7d2fe;
-      border-radius: 4px;
-      cursor: pointer;
-      color: #4338ca;
-    }
-    .pf-ollama-signin-btn:hover {
-      background: #e0e7ff;
-    }
-
-    /* ===== Schema-driven param widgets ===== */
-    .pf-hint {
-      font-size: 10.5px;
-      color: var(--text-dim);
-      margin-top: 2px;
-      line-height: 1.4;
-    }
-    /* Toggle switch */
-    .pf-switch {
-      position: relative;
-      display: inline-block;
-      width: 38px;
-      height: 20px;
-    }
-    .pf-switch input { opacity: 0; width: 0; height: 0; }
-    .pf-switch-slider {
-      position: absolute;
-      cursor: pointer;
-      inset: 0;
-      background: rgba(255,255,255,0.15);
-      border-radius: 20px;
-      transition: 0.2s;
-    }
-    .pf-switch-slider::before {
-      content: '';
-      position: absolute;
-      height: 14px;
-      width: 14px;
-      left: 3px;
-      top: 3px;
-      background: #fff;
-      border-radius: 50%;
-      transition: 0.2s;
-    }
-    .pf-switch input:checked + .pf-switch-slider { background: var(--accent); }
-    .pf-switch input:checked + .pf-switch-slider::before { transform: translateX(18px); }
-
-    /* Segmented control */
-    .pf-segmented {
-      display: inline-flex;
-      gap: 0;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 2px;
-    }
-    .pf-segmented-option {
-      background: transparent;
-      border: 0;
-      padding: 4px 12px;
-      font-size: 12px;
-      color: var(--text-dim);
-      cursor: pointer;
-      border-radius: 4px;
-      transition: all 0.15s;
-    }
-    .pf-segmented-option:hover { color: var(--text); }
-    .pf-segmented-option.pf-segmented-active {
-      background: var(--accent);
-      color: #fff;
-    }
-
-    /* Slider with readout */
-    .pf-slider-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .pf-slider-row input[type="range"] {
-      flex: 1;
-      accent-color: var(--accent);
-    }
-    .pf-slider-readout {
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 12px;
-      color: var(--accent);
-      min-width: 36px;
-      text-align: right;
-    }
-
-    /* Font live preview strip */
-    .pf-font-preview {
-      margin-bottom: 10px;
-    }
-    .pf-font-preview-frame {
-      background: linear-gradient(135deg, #1a1a2e, #2d1b3d);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      height: 70px;
-      position: relative;
-      overflow: hidden;
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-    }
-    .pf-font-preview-text {
-      padding-bottom: 10px;
-      transition: all 0.1s ease;
-      white-space: nowrap;
-      max-width: 95%;
-      text-overflow: ellipsis;
-      overflow: hidden;
-    }
-
-    .pf-params-label {
-      font-size: 11px;
-      color: var(--text-dim);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      padding: 6px 0 2px;
-      border-top: 1px solid var(--border);
-      margin-top: 4px;
-    }
-
-    /* ===== Translation Status ===== */
-    .badge-translating {
-      background: rgba(251,191,36,0.2);
-      color: var(--warning);
-      animation: badgePulse 1.4s ease-in-out infinite;
-    }
-    @keyframes badgePulse {
-      0%, 100% { background: rgba(251,191,36,0.2); }
-      50%      { background: rgba(251,191,36,0.45); }
-    }
-    .badge-translated { background: rgba(74,222,128,0.2); color: var(--success); }
-    .badge-pending-trans { background: rgba(136,136,136,0.2); color: var(--text-dim); }
-    .btn-retranslate { padding: 4px 10px; font-size: 11px; border-radius: 6px; border: 1px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; }
-    .btn-retranslate:hover { background: var(--accent); color: #fff; }
-    .btn-retranslate:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    /* ===== Empty state ===== */
-    .empty-state {
-      text-align: center;
-      padding: 40px 20px;
-      color: var(--text-dim);
-    }
-    .empty-state .empty-icon { font-size: 36px; margin-bottom: 10px; opacity: 0.5; }
-
-    /* ===== Panel scope hint (small tag-line under panel headers) ===== */
-    .panel-scope-hint {
-      font-size: 10.5px;
-      font-weight: 400;
-      color: var(--text-dim);
-      margin-left: 10px;
-      text-transform: none;
-      letter-spacing: 0;
-    }
-    .panel-management-header:hover .panel-scope-hint { color: var(--text); }
-
-    /* Tint the left border of each sidebar panel in a distinct colour so users
-       can see at a glance which concern they are editing. */
-    .panel-pipeline   { border-left: 3px solid var(--accent); }
-    .panel-playback   { border-left: 3px solid var(--accent2); }
-    .panel-management { border-left: 3px solid var(--border); }
-
-    /* Management panel — sub-sections get a thin divider rule */
-    .management-subsection {
-      border-top: 1px solid var(--border);
-      margin-top: 8px;
-      padding-top: 8px;
-    }
-    .management-subsection:first-child {
-      border-top: 0;
-      margin-top: 0;
-      padding-top: 0;
-    }
-    .panel-management-header .arrow {
-      transition: transform 0.2s ease;
+    .transcript-time {
+      color: var(--accent2);
       font-size: 10px;
-      color: var(--text-dim);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      white-space: nowrap;
+      padding-top: 2px;
+      flex-shrink: 0;
     }
-    .panel-management-header.open .arrow { transform: rotate(90deg); }
+    .transcript-text { flex: 1; }
+    .transcript-zh { color: var(--text); }
+    .transcript-en { color: var(--text-muted); font-size: 11px; }
   </style>
 </head>
 <body>
 
-<!-- Header -->
-<header>
-  <div class="logo">🎙 AI 字幕轉換 APP</div>
-  <span class="status-text" id="statusText">未連接</span>
-  <div class="status-dot" id="statusDot"></div>
-  <button class="btn-error-bell" id="errorBell" onclick="toggleErrorLogModal()" title="錯誤記錄" aria-label="錯誤記錄">
-    🔔
-    <span class="btn-error-bell-badge" id="errorBellBadge" style="display:none;">0</span>
-  </button>
-  <button class="btn-restart" id="restartBtn" onclick="restartService()" title="重啟服務">⟳</button>
+<!-- ── Header ──────────────────────────────────── -->
+<header class="header">
+  <div class="logo">MoTitle</div>
+  <label for="profileSelect" class="sr-only">Profile</label>
+  <select id="profileSelect" title="切換 Profile">
+    <option value="">載入中...</option>
+  </select>
+  <div class="header-spacer"></div>
+  <a href="settings.html" class="header-link" title="設定">⚙</a>
 </header>
 
-<!-- Main -->
-<main>
-  <!-- Left: Video + Controls -->
-  <div style="display:flex;flex-direction:column;gap:16px;">
+<!-- ── Main grid ───────────────────────────────── -->
+<div class="main-grid">
 
-    <!-- Video Player / Preview -->
-    <div class="panel">
-      <div class="panel-header">
-        ▶ 視頻預覽
-        <span style="margin-left:auto;" id="statusBadge" class="badge badge-idle">待機</span>
+  <!-- ── Left column ─────────────────────────── -->
+  <div class="left-col">
+
+    <!-- Video -->
+    <div class="video-section" id="videoSection">
+      <div class="video-placeholder" id="videoPlaceholder">
+        <div class="vp-icon">📹</div>
+        <div>選擇文件以預覽</div>
       </div>
-      <div class="panel-body" style="padding:0;">
-        <div class="video-area" id="videoArea">
-          <div class="video-placeholder" id="videoPlaceholder">
-            <div class="icon">📹</div>
-            <p>選擇文件以預覽視頻</p>
-          </div>
-          <video id="videoPlayer" style="display:none;" controls></video>
+      <video id="videoPlayer" style="display:none;"></video>
 
-          <!-- Subtitle Overlay -->
-          <div class="subtitle-overlay">
-            <svg class="subtitle-svg" id="subtitleSvg"
-                 xmlns="http://www.w3.org/2000/svg"
-                 width="100%" height="60" overflow="visible">
-              <text id="subtitleSvgText"
-                    x="50%" y="50"
-                    text-anchor="middle"
-                    font-weight="600"
-                    paint-order="stroke fill"
-                    stroke-linejoin="round"
-                    opacity="0"
-                    style="transition: opacity 0.35s ease;">
-              </text>
-            </svg>
-          </div>
-        </div>
-
-        <!-- Progress -->
-        <div style="padding:0 2px;">
-          <div class="progress-bar">
-            <div class="progress-fill" id="progressBar" style="width:0%"></div>
-          </div>
-        </div>
+      <!-- Subtitle overlay -->
+      <div class="subtitle-overlay">
+        <svg id="subtitleSvg"
+             xmlns="http://www.w3.org/2000/svg"
+             width="100%" height="60" overflow="visible">
+          <text id="subtitleSvgText"
+                x="50%" y="50"
+                text-anchor="middle"
+                font-weight="600"
+                paint-order="stroke fill"
+                stroke-linejoin="round"
+                opacity="0"
+                style="transition: opacity 0.3s ease;">
+          </text>
+        </svg>
       </div>
     </div>
 
-    <!-- Upload Panel -->
-    <div class="panel">
-      <div class="panel-header">📁 文件上傳</div>
-      <div class="controls">
-        <!-- Upload Zone -->
-        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
-          <div class="upload-icon">⬆</div>
+    <!-- Playback strip -->
+    <div class="playback-strip">
+      <button class="playback-btn" id="playBtn" onclick="togglePlay()" title="播放/暫停">▶</button>
+      <div class="playback-progress" id="playbackProgress" onclick="seekVideo(event)">
+        <div class="playback-progress-fill" id="playbackFill"></div>
+      </div>
+      <span class="playback-timecode" id="timecode">--:--</span>
+    </div>
+
+    <!-- File zone: drag-drop target + upload prompt + file list -->
+    <div class="file-zone" id="fileZone">
+      <!-- Upload prompt -->
+      <div class="upload-prompt" id="uploadPrompt" onclick="document.getElementById('fileInput').click()">
+        <div class="upload-prompt-icon">⬆</div>
+        <div class="upload-prompt-text">
           <div>拖放或點擊選擇文件</div>
-          <div class="upload-hint">支持: MP4 · MXF · MOV · AVI · MKV · WebM · MP3 · WAV · M4A</div>
+          <div class="upload-prompt-hint">支持: MP4 · MXF · MOV · AVI · MKV · WebM · MP3 · WAV · M4A</div>
         </div>
-        <input type="file" id="fileInput" accept="video/*,audio/*,.mxf" style="display:none"
-               onchange="handleFileSelect(event)">
+      </div>
+      <input type="file" id="fileInput" accept="video/*,audio/*,.mxf" style="display:none;" />
 
-        <!-- Pending file (selected but not yet uploaded) -->
-        <div id="pendingFileBox" style="display:none;" class="file-info">
-          <div class="file-icon">🎬</div>
-          <div class="file-name" id="pendingFileName"></div>
-          <div class="file-size" id="pendingFileSize"></div>
-        </div>
+      <!-- File list rendered here -->
+      <div id="fileList"></div>
+    </div>
 
-        <div class="btn-group">
-          <button class="btn btn-primary" id="startTranscribeBtn" onclick="startTranscription()" disabled>
-            🚀 上傳並轉錄
-          </button>
-          <button class="btn btn-secondary" onclick="clearPending()">🗑 清除</button>
-        </div>
+  </div><!-- /left-col -->
 
-        <!-- Uploaded file list -->
-        <div class="file-list" id="fileList"></div>
+  <!-- ── Right column — Transcript ──────────── -->
+  <div class="right-col">
+    <div class="transcript-header">
+      📄 轉錄文字
+      <span id="segmentCount">0 段</span>
+    </div>
+    <div class="transcript-panel" id="transcriptPanel">
+      <div class="transcript-empty" id="transcriptEmpty">
+        <div class="te-icon">📝</div>
+        <div>轉錄文字將顯示在這裡</div>
       </div>
     </div>
   </div>
 
-  <!-- Right: Transcript + Settings -->
-  <div style="display:flex;flex-direction:column;gap:16px;">
+</div><!-- /main-grid -->
 
-    <!-- Transcript (right column, top) -->
-    <div class="panel">
-      <div class="panel-header" style="flex-shrink:0;">
-        📄 轉錄文字
-        <span id="segmentCount" style="margin-left:auto;font-size:12px;color:var(--text-dim);">0 段</span>
-      </div>
-      <div class="panel-body" style="padding:12px;flex:1;overflow:hidden;display:flex;flex-direction:column;">
-        <div class="transcript-list" id="transcriptList">
-          <div class="empty-state">
-            <div class="empty-icon">📝</div>
-            <div>轉錄文字將顯示在這裡</div>
-          </div>
-        </div>
-      </div>
-      <div class="export-section">
-        <button class="btn btn-secondary" onclick="exportSRT()" id="exportSrtBtn" disabled>
-          💾 SRT
-        </button>
-        <button class="btn btn-secondary" onclick="exportVTT()" id="exportVttBtn" disabled>
-          💾 VTT
-        </button>
-        <button class="btn btn-secondary" onclick="exportTXT()" id="exportTxtBtn" disabled>
-          📃 TXT
-        </button>
-        <button class="btn btn-secondary" onclick="clearTranscript()" style="margin-left:auto;">
-          🗑 清除
-        </button>
-      </div>
-    </div>
+<!-- Toast container -->
+<div id="toastContainer" class="toast-container"></div>
 
-    <!-- Panel 1: Pipeline 配置 (affects NEXT transcription run) -->
-    <div class="panel panel-pipeline">
-      <div class="panel-header">
-        🎬 Pipeline 配置
-        <span class="panel-scope-hint">下一次轉譯會用嘅設定</span>
-      </div>
-      <div class="controls">
-        <div class="control-group">
-          <div id="profileList" class="profile-list">
-            <div style="color:var(--text-dim);font-size:12px;padding:4px 0;">載入中...</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Panel 2: 播放調整 (affects CURRENT video playback only) -->
-    <div class="panel panel-playback">
-      <div class="panel-header">
-        ▶ 播放調整
-        <span class="panel-scope-hint">只影響目前播放嘅字幕顯示</span>
-      </div>
-      <div class="controls">
-        <div class="control-group">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <label>字幕延遲 <span class="delay-badge">同步補償</span></label>
-            <span class="range-value" id="delayValue">0s</span>
-          </div>
-          <input type="range" id="subtitleDelay" min="0" max="5" step="0.1" value="0"
-                 oninput="updateDelay(this.value)">
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-top:2px;">
-            <span>無延遲</span>
-            <span>5 秒</span>
-          </div>
-        </div>
-
-        <div class="control-group">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <label>字幕顯示時長</label>
-            <span class="range-value" id="durationValue">4.0s</span>
-          </div>
-          <input type="range" id="subtitleDuration" min="1" max="10" step="0.5" value="4"
-                 oninput="updateDuration(this.value)">
-        </div>
-      </div>
-    </div>
-
-    <!-- Panel 3: 管理 (global config — collapsed by default) -->
-    <div class="panel panel-management">
-      <div class="panel-header panel-management-header" onclick="toggleManagementPanel()" style="cursor:pointer;">
-        ⚙ 管理
-        <span class="panel-scope-hint">全域配置 — 影響所有 Profile</span>
-        <span id="panelManagementArrow" class="arrow" style="margin-left:auto;">▶</span>
-      </div>
-      <div class="controls" id="panelManagementBody" style="display:none;">
-        <!-- Language Config (collapsible) -->
-        <div class="management-subsection">
-          <div class="collapsible-header" onclick="toggleCollapsible(this)">
-            <span>🌐 語言配置</span>
-            <span class="arrow">▶</span>
-          </div>
-          <div class="collapsible-body">
-            <div class="control-group">
-              <label style="font-size:12px;">Language</label>
-              <select id="langSelect" class="config-input" onchange="loadLanguageConfig(this.value)">
-                <option value="">Select...</option>
-              </select>
-            </div>
-            <div class="control-group">
-              <label style="font-size:12px;">每句最大字數</label>
-              <input type="number" id="langMaxWords" class="config-input" min="5" max="200" value="40">
-            </div>
-            <div class="control-group">
-              <label style="font-size:12px;">每句最大時長 (秒)</label>
-              <input type="number" id="langMaxDuration" class="config-input" min="1" max="60" step="0.5" value="10">
-            </div>
-            <div class="control-group">
-              <label style="font-size:12px;">翻譯 Batch Size</label>
-              <input type="number" id="langBatchSize" class="config-input" min="1" max="50" value="10">
-            </div>
-            <div class="control-group">
-              <label style="font-size:12px;">翻譯 Temperature</label>
-              <input type="number" id="langTemperature" class="config-input" min="0" max="2" step="0.05" value="0.1">
-            </div>
-            <button class="config-save-btn" onclick="saveLanguageConfig()">儲存語言配置</button>
-          </div>
-        </div>
-
-        <!-- Glossary Manager (collapsible) -->
-        <div class="management-subsection">
-          <div class="collapsible-header" onclick="toggleCollapsible(this)">
-            <span>📖 術語表</span>
-            <span class="arrow">▶</span>
-          </div>
-          <div class="collapsible-body">
-            <div class="control-group">
-              <label style="font-size:12px;">Glossary</label>
-              <select id="glossarySelect" class="config-input" onchange="loadGlossaryEntries(this.value)">
-                <option value="">Select...</option>
-              </select>
-            </div>
-            <div id="glossaryEntries"></div>
-            <div class="glossary-add-row">
-              <input type="text" id="newEntryEn" class="config-input" placeholder="English term" style="font-size:11px;">
-              <input type="text" id="newEntryZh" class="config-input" placeholder="中文翻譯" style="font-size:11px;">
-              <button onclick="addGlossaryEntry()">新增</button>
-            </div>
-            <div class="glossary-import-row">
-              <label>
-                📥 匯入 CSV
-                <input type="file" accept=".csv" style="display:none;" onchange="importGlossaryCSV(this)">
-              </label>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-  </div>
-</main>
-
-<!-- Toast Container -->
-<div class="toast-container" id="toastContainer"></div>
-
+<!-- Scripts -->
+<script src="js/font-preview.js"></script>
+<script src="js/shared.js"></script>
 <script>
-// ============================================================
-// Configuration
-// ============================================================
-const API_BASE = 'http://localhost:5001';
+'use strict';
+
+/* ══════════════════════════════════════════════════
+   State
+══════════════════════════════════════════════════ */
 let socket = null;
-let currentSid = null;
-let selectedFile = null;       // File object pending upload
-let activeFileId = null;       // Currently-selected uploaded file
-let uploadedFiles = {};        // file_id -> server metadata
-let fileProgress = {};         // file_id -> { progress, eta, totalDuration, processedTime }
-let subtitleTimeout = null;
-let subtitleQueue = [];
-let segments = [];
-let isProcessing = false;
-let subtitleDelay = 0;
-let subtitleDuration = 4.0;
+let uploadedFiles = {};      // id → file object
+let activeFileId  = null;    // file currently loaded in video player
+let isTranscribing = false;
+let segments = [];           // transcript segments for active file
+let translations = {};       // fileId → array of translation objects
+let fileProgress = {};       // fileId → { pct, eta, elapsed }
 
-// ============================================================
-// Socket.IO Connection
-// ============================================================
-function connectSocket() {
-  socket = io(API_BASE, {
-    transports: ['websocket', 'polling'],
-    reconnectionDelay: 2000,
-    reconnectionAttempts: 10
-  });
-  FontPreview.init(socket);
-
-  socket.on('connect', () => {
-    setConnectionStatus(true);
-  });
-
-  socket.on('disconnect', () => {
-    setConnectionStatus(false);
-    currentSid = null;
-  });
-
-  socket.on('connected', (data) => {
-    currentSid = data.sid;
-    showToast('已連接到 Whisper 服務器', 'success');
-    fetchFileList();
-  });
-
-  socket.on('transcription_status', (data) => {
-    updateStatus('processing', data.message);
-    setProgress(data.status === 'extracting' ? 20 : 40);
-
-    // Store total duration when transcription starts
-    if (activeFileId && data.total_duration) {
-      fileProgress[activeFileId] = {
-        progress: 0,
-        eta: null,
-        totalDuration: data.total_duration,
-        processedTime: 0,
-      };
-      renderFileList();
-    }
-  });
-
-  socket.on('subtitle_segment', (segment) => {
-    addSegment(segment);
-    scheduleSubtitle(segment);
-
-    // Update progress for active file
-    if (activeFileId && segment.progress !== undefined) {
-      fileProgress[activeFileId] = {
-        progress: segment.progress,
-        eta: segment.eta_seconds,
-        totalDuration: segment.total_duration,
-        processedTime: segment.end,
-      };
-      renderFileList();
-    }
-  });
-
-  socket.on('transcription_complete', (data) => {
-    setProgress(100);
-    updateStatus('done', '完成');
-    isProcessing = false;
-    document.getElementById('startTranscribeBtn').disabled = false;
-    showToast(`轉錄完成! 共 ${data.segment_count} 個字幕段落`, 'success');
-    enableExport();
-    setTimeout(() => setProgress(0), 2000);
-
-    // Update file card
-    if (data.file_id && uploadedFiles[data.file_id]) {
-      uploadedFiles[data.file_id].status = 'done';
-      uploadedFiles[data.file_id].segment_count = data.segment_count;
-      delete fileProgress[data.file_id];
-      renderFileList();
-    }
-  });
-
-  socket.on('transcription_error', (data) => {
-    showToast(`轉錄失敗: ${data.error}`, 'error');
-    updateStatus('idle', '錯誤');
-    isProcessing = false;
-    document.getElementById('startTranscribeBtn').disabled = false;
-    setProgress(0);
-  });
-
-  // Heartbeat from openai-whisper (blocking) — show elapsed time
-  socket.on('transcription_progress', (data) => {
-    if (activeFileId) {
-      const fp = fileProgress[activeFileId] || {};
-      fileProgress[activeFileId] = {
-        ...fp,
-        totalDuration: data.total_duration,
-        elapsed: data.elapsed,
-        // For openai-whisper we don't know exact progress, estimate from elapsed
-        // Whisper typically processes at ~1x-4x real-time depending on model
-        progress: null,  // null = indeterminate
-        eta: null,
-        processedTime: 0,
-      };
-      renderFileList();
-    }
-  });
-
-  socket.on('file_updated', (data) => {
-    if (data.id && uploadedFiles[data.id]) {
-      Object.assign(uploadedFiles[data.id], data);
-      renderFileList();
-
-      // When translation completes, overlay zh_text onto displayed segments
-      if (data.translation_status === 'done' && data.id === activeFileId) {
-        loadTranslationsForActiveFile(data.id);
-      }
-    }
-  });
-
-  // Per-batch translation progress: update an inline progress bar on the file card
-  // without re-rendering the whole list (DOM thrash). Stash latest progress on the
-  // file and patch only the matching card's progress strip.
-  socket.on('translation_progress', (data) => {
-    if (!data || !data.file_id) return;
-    const f = uploadedFiles[data.file_id];
-    if (f) {
-      f.translation_progress = {
-        completed: data.completed,
-        total: data.total,
-        percent: data.percent,
-        elapsed_seconds: data.elapsed_seconds,
-      };
-    }
-    const bar = document.querySelector(`[data-translation-progress="${data.file_id}"]`);
-    if (bar) {
-      const fill = bar.querySelector('.file-progress-fill');
-      const info = bar.querySelector('.file-progress-info');
-      if (fill) fill.style.width = data.percent + '%';
-      const elapsed = data.elapsed_seconds != null ? ` — 已用 ${data.elapsed_seconds}s` : '';
-      if (info) info.textContent = `翻譯中 ${data.completed} / ${data.total} 段 · ${data.percent}%${elapsed}`;
-    } else {
-      // First progress event for this file — re-render so the new bar appears
-      renderFileList();
-    }
-  });
-
-  socket.on('pipeline_timing', (data) => {
-    if (!data) return;
-    const parts = [];
-    if (data.asr_seconds != null) parts.push(`ASR: ${data.asr_seconds}s`);
-    if (data.translation_seconds != null) parts.push(`翻譯: ${data.translation_seconds}s`);
-    if (data.total_seconds != null) parts.push(`總計: ${data.total_seconds}s`);
-    if (parts.length === 0) return;
-    showToast(parts.join(' ｜ '), 'success');
-  });
-
-}
-
-function setConnectionStatus(connected) {
-  const dot = document.getElementById('statusDot');
-  const text = document.getElementById('statusText');
-  dot.className = 'status-dot' + (connected ? ' connected' : '');
-  text.textContent = connected ? '已連接' : '未連接';
-}
-
-// ============================================================
-// File Upload
-// ============================================================
-const uploadZone = document.getElementById('uploadZone');
-
-uploadZone.addEventListener('dragover', (e) => {
-  e.preventDefault();
-  uploadZone.classList.add('drag-over');
-});
-
-uploadZone.addEventListener('dragleave', () => {
-  uploadZone.classList.remove('drag-over');
-});
-
-uploadZone.addEventListener('drop', (e) => {
-  e.preventDefault();
-  uploadZone.classList.remove('drag-over');
-  const file = e.dataTransfer.files[0];
-  if (file) setPendingFile(file);
-});
-
-function handleFileSelect(e) {
-  const file = e.target.files[0];
-  if (file) setPendingFile(file);
-}
-
-function setPendingFile(file) {
-  selectedFile = file;
-  const mb = (file.size / 1024 / 1024).toFixed(1);
-  document.getElementById('pendingFileBox').style.display = 'flex';
-  document.getElementById('pendingFileName').textContent = file.name;
-  document.getElementById('pendingFileSize').textContent = `${mb} MB`;
-  document.getElementById('startTranscribeBtn').disabled = false;
-}
-
-function clearPending() {
-  selectedFile = null;
-  document.getElementById('fileInput').value = '';
-  document.getElementById('pendingFileBox').style.display = 'none';
-  document.getElementById('startTranscribeBtn').disabled = true;
-}
-
-async function startTranscription() {
-  if (!selectedFile || isProcessing) return;
-  if (!socket?.connected) {
-    showToast('請先連接到服務器', 'error');
-    return;
-  }
-
-  isProcessing = true;
-  segments = [];
-  clearTranscriptDisplay();
-  document.getElementById('startTranscribeBtn').disabled = true;
-  updateStatus('processing', '上傳中...');
-  setProgress(10);
-
-  const formData = new FormData();
-  formData.append('file', selectedFile);
-  formData.append('sid', currentSid);
-
+/* ══════════════════════════════════════════════════
+   Profile dropdown
+══════════════════════════════════════════════════ */
+async function loadProfiles() {
   try {
-    const resp = await fetch(`${API_BASE}/api/transcribe`, {
-      method: 'POST',
-      body: formData
-    });
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error);
+    const [allRes, activeRes] = await Promise.all([
+      fetch(`${API_BASE}/api/profiles`),
+      fetch(`${API_BASE}/api/profiles/active`),
+    ]);
+    if (!allRes.ok || !activeRes.ok) throw new Error('profile fetch failed');
+    const allData    = await allRes.json();
+    const activeData = await activeRes.json();
 
-    // Add to local file list
-    uploadedFiles[data.file_id] = {
-      id: data.file_id,
-      original_name: selectedFile.name,
-      size: selectedFile.size,
-      status: 'transcribing',
-      segment_count: 0,
-    };
-    activeFileId = data.file_id;
-    renderFileList();
+    const profiles  = allData.profiles || [];
+    const activeId  = activeData.profile?.id || null;
+    const sel       = document.getElementById('profileSelect');
 
-    // Show video preview from server
-    loadMediaPreview(data.file_id);
-
-    // Clear pending
-    clearPending();
-
-    setProgress(30);
-    showToast('文件上傳成功，開始轉錄...', 'success');
+    sel.innerHTML = profiles.map(p =>
+      `<option value="${escapeHtml(p.id)}"${p.id === activeId ? ' selected' : ''}>${escapeHtml(p.name)}</option>`
+    ).join('');
+    if (profiles.length === 0) sel.innerHTML = '<option value="">（無 Profile）</option>';
   } catch (err) {
-    showToast(`上傳失敗: ${err.message}`, 'error');
-    isProcessing = false;
-    document.getElementById('startTranscribeBtn').disabled = false;
-    setProgress(0);
+    console.warn('[profiles] load failed:', err);
   }
 }
 
-// ============================================================
-// File List Management
-// ============================================================
-async function fetchFileList() {
+document.getElementById('profileSelect').addEventListener('change', async function () {
+  const id   = this.value;
+  const prev = [...this.options].find(o => o.selected === false)?.value || '';
+  if (!id) return;
   try {
-    const resp = await fetch(`${API_BASE}/api/files`);
-    const data = await resp.json();
-    uploadedFiles = {};
-    for (const f of data.files) {
-      uploadedFiles[f.id] = f;
+    const res = await fetch(`${API_BASE}/api/profiles/${encodeURIComponent(id)}/activate`, { method: 'POST' });
+    if (!res.ok) throw new Error((await res.json()).error || 'activate failed');
+    showToast('Profile 已切換', 'success', 2000);
+  } catch (err) {
+    showToast(`切換失敗：${err.message}`, 'error');
+    // Revert
+    await loadProfiles();
+  }
+});
+
+/* ══════════════════════════════════════════════════
+   File upload & drag-drop
+══════════════════════════════════════════════════ */
+const fileZone   = document.getElementById('fileZone');
+const fileInput  = document.getElementById('fileInput');
+
+fileZone.addEventListener('dragover',  e => { e.preventDefault(); fileZone.classList.add('drag-over'); });
+fileZone.addEventListener('dragleave', e => { if (!fileZone.contains(e.relatedTarget)) fileZone.classList.remove('drag-over'); });
+fileZone.addEventListener('drop',      e => {
+  e.preventDefault();
+  fileZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) uploadFile(file);
+});
+fileInput.addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (file) uploadFile(file);
+  fileInput.value = '';
+});
+
+async function uploadFile(file) {
+  if (isTranscribing) { showToast('轉錄進行中，請稍候', 'error'); return; }
+  if (!socket?.id) { showToast('未連接伺服器', 'error'); return; }
+
+  isTranscribing = true;
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('sid', socket.id);
+
+  try {
+    showToast(`上傳中：${file.name}`, 'info', 2000);
+    const res = await fetch(`${API_BASE}/api/transcribe`, { method: 'POST', body: fd });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `HTTP ${res.status}`);
     }
-    renderFileList();
-  } catch (e) { /* server not ready yet */ }
+    // file_added socket event will update UI
+  } catch (err) {
+    isTranscribing = false;
+    showToast(`上傳失敗：${err.message}`, 'error');
+  }
 }
 
+/* ══════════════════════════════════════════════════
+   File list rendering
+══════════════════════════════════════════════════ */
 function renderFileList() {
   const container = document.getElementById('fileList');
-  const ids = Object.keys(uploadedFiles);
+  const files = Object.values(uploadedFiles).sort((a, b) => b.uploaded_at - a.uploaded_at);
 
-  if (ids.length === 0) {
+  if (files.length === 0) {
     container.innerHTML = '';
     return;
   }
 
-  // Sort newest first
-  ids.sort((a, b) => (uploadedFiles[b].uploaded_at || 0) - (uploadedFiles[a].uploaded_at || 0));
-
-  container.innerHTML = ids.map(id => {
-    const f = uploadedFiles[id];
-    const mb = (f.size / 1024 / 1024).toFixed(1);
-    const isActive = id === activeFileId;
-    const isDone = f.status === 'done';
-    const isError = f.status === 'error';
-    const isBusy = f.status === 'transcribing';
-
-    let statusHtml = '';
-    if (isDone) statusHtml = '<span class="badge badge-done">✓ 轉譯</span>';
-    else if (isBusy) statusHtml = '<span class="badge badge-processing">轉錄中</span>';
-    else if (isError) statusHtml = '<span class="badge badge-idle">錯誤</span>';
-    else statusHtml = '<span class="badge badge-idle">已上傳</span>';
-
-    // Model info
-    let modelBadge = '';
-    if (f.model) {
-      const bkLabel = f.backend || '';
-      const bkSuffix = bkLabel ? ` · ${bkLabel}` : '';
-      modelBadge = `<span class="delay-badge" style="margin-left:0;">${f.model}${bkSuffix}</span>`;
-    }
-    let transEngineBadge = '';
-    if (f.translation_engine) {
-      transEngineBadge = `<span class="delay-badge" style="margin-left:0;">${f.translation_engine}</span>`;
-    }
-
-    let extraHtml = '';
-    if (isDone) {
-      const hasTranslations = f.translation_status === 'done';
-      const isTranslating = f.translation_status === 'translating';
-      const proofreadBtn = hasTranslations
-        ? `<a class="btn btn-secondary" href="proofread.html?file_id=${id}" style="background:var(--accent);color:#fff;">校對</a>`
-        : '';
-
-      let transBadge = '<span class="badge badge-pending-trans">待翻譯</span>';
-      if (hasTranslations) transBadge = '<span class="badge badge-translated">✓ 翻譯</span>';
-      else if (isTranslating) transBadge = '<span class="badge badge-translating">翻譯中...</span>';
-
-      const translateBtn = isTranslating
-        ? ''
-        : hasTranslations
-          ? `<button class="btn-retranslate" onclick="event.stopPropagation(); reTranslateFile('${id}', this)">🔄 重新翻譯</button>`
-          : `<button class="btn-retranslate" onclick="event.stopPropagation(); reTranslateFile('${id}', this)">▶ 翻譯</button>`;
-
-      // Translation progress strip — only shown while a batch is in progress
-      let translationProgressHtml = '';
-      if (isTranslating) {
-        const tp = f.translation_progress || { completed: 0, total: f.segment_count || 0, percent: 0 };
-        translationProgressHtml = `
-          <div class="file-card-progress" data-translation-progress="${id}">
-            <div class="file-progress-bar">
-              <div class="file-progress-fill" style="width:${tp.percent || 0}%"></div>
-            </div>
-            <div class="file-progress-info">翻譯中 ${tp.completed} / ${tp.total} 段 · ${tp.percent || 0}%</div>
-          </div>`;
-      }
-
-      extraHtml = `
-        <div class="file-card-actions">
-          ${modelBadge}
-          ${transEngineBadge}
-          ${transBadge}
-          <a class="btn btn-secondary" href="${API_BASE}/api/files/${id}/subtitle.srt" download>SRT</a>
-          <a class="btn btn-secondary" href="${API_BASE}/api/files/${id}/subtitle.vtt" download>VTT</a>
-          <a class="btn btn-secondary" href="${API_BASE}/api/files/${id}/subtitle.txt" download>TXT</a>
-          ${translateBtn}
-          ${proofreadBtn}
-        </div>
-        ${translationProgressHtml}`;
-    } else if (isBusy && fileProgress[id]) {
-      const fp = fileProgress[id];
-      const hasDeterminateProgress = fp.progress != null && fp.progress > 0;
-
-      if (hasDeterminateProgress) {
-        // Determinate progress (faster-whisper streams segments)
-        const pct = Math.round(fp.progress * 100);
-        const processed = formatDuration(fp.processedTime || 0);
-        const total = formatDuration(fp.totalDuration || 0);
-        const etaStr = fp.eta != null ? formatDuration(fp.eta) : '--:--';
-        extraHtml = `
-          <div class="file-card-progress">
-            <div class="file-progress-bar">
-              <div class="file-progress-fill" style="width:${pct}%"></div>
-            </div>
-            <div class="file-progress-info">
-              <span>${processed} / ${total}</span>
-              <span class="pct">${pct}%</span>
-              <span>預計剩餘 <span class="eta">${etaStr}</span></span>
-            </div>
-          </div>`;
-      } else {
-        // Indeterminate progress (openai-whisper blocks, we show elapsed time)
-        const elapsed = formatDuration(fp.elapsed || 0);
-        const total = formatDuration(fp.totalDuration || 0);
-        extraHtml = `
-          <div class="file-card-progress">
-            <div class="file-progress-bar">
-              <div class="file-progress-fill" style="width:100%;animation:indeterminate 1.8s infinite linear"></div>
-            </div>
-            <div class="file-progress-info">
-              <span>音頻時長 ${total}</span>
-              <span class="pct">轉錄中...</span>
-              <span>已耗時 <span class="eta">${elapsed}</span></span>
-            </div>
-          </div>`;
-      }
-    } else if (isBusy) {
-      // Busy but no progress data yet (still extracting audio)
-      extraHtml = `
-        <div class="file-card-progress">
-          <div class="file-progress-bar">
-            <div class="file-progress-fill" style="width:100%;animation:indeterminate 1.8s infinite linear"></div>
-          </div>
-          <div class="file-progress-info">
-            <span>準備中...</span>
-          </div>
-        </div>`;
-    }
-
-    // Metadata chips: size + segment count + relative upload time
-    const segCount = f.segment_count || 0;
-    const relTime = f.uploaded_at ? formatRelativeTime(f.uploaded_at) : '';
-    const metaPieces = [`${mb} MB`];
-    if (segCount > 0) metaPieces.push(`${segCount} 段`);
-    if (relTime) metaPieces.push(relTime);
-    const metaHtml = metaPieces.map(m => `<span class="file-card-meta-chip">${escapeHtml(m)}</span>`).join('');
-
-    // Active "currently playing" chip — only when this card is selected
-    const activeChip = isActive
-      ? `<span class="file-card-now-playing" title="目前播放中">▶ 播放中</span>`
-      : '';
-
-    // Filename becomes an explicit link cue — hover underline + trailing ↗ icon.
-    // The entire header is still click-to-select, but the name itself signals
-    // interactability via the standard link affordance vocabulary.
-    const nameHtml = `<span class="file-card-name" title="打開此檔案">${escapeHtml(f.original_name)} <span class="file-card-name-arrow">↗</span></span>`;
-
-    return `
-      <div class="file-card ${isActive ? 'active' : ''}" data-file-id="${id}">
-        <div class="file-card-header" onclick="selectFile('${id}')">
-          <span class="file-card-icon">${isDone ? '✅' : isBusy ? '⏳' : isError ? '❌' : '🎬'}</span>
-          ${nameHtml}
-          ${activeChip}
-          ${metaHtml}
-          ${statusHtml}
-          <div class="file-card-overflow" onclick="event.stopPropagation(); toggleFileOverflow(this, '${id}')" title="更多操作">
-            <button class="btn-icon btn-overflow" aria-label="更多操作">⋯</button>
-          </div>
-        </div>
-        ${extraHtml}
-      </div>`;
-  }).join('');
+  container.innerHTML = files.map(f => buildFileCard(f)).join('');
+  // Wire events after DOM insertion
+  files.forEach(f => wireFileCard(f.id));
 }
 
-// Format a unix timestamp into a relative-time string ("2 分鐘前", "3 小時前", "2 天前")
-function formatRelativeTime(unixTs) {
-  if (!unixTs) return '';
-  const now = Date.now() / 1000;
-  const diff = Math.floor(now - unixTs);
-  if (diff < 60) return '剛剛';
-  if (diff < 3600) return `${Math.floor(diff / 60)} 分鐘前`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} 小時前`;
-  if (diff < 2592000) return `${Math.floor(diff / 86400)} 天前`;
-  if (diff < 31536000) return `${Math.floor(diff / 2592000)} 個月前`;
-  return `${Math.floor(diff / 31536000)} 年前`;
-}
+function buildFileCard(f) {
+  const id     = f.id;
+  const name   = f.original_name || 'unknown';
+  const size   = formatFileSize(f.size || 0);
+  const status = f.status || 'pending';
+  const tStat  = f.translation_status || 'pending';
+  const segs   = f.segment_count || 0;
+  const isActive = id === activeFileId;
 
-// Toggle a small dropdown menu next to the overflow button.
-// Clicking outside the menu closes it.
-function toggleFileOverflow(anchor, fileId) {
-  // Close any existing menu first
-  const existing = document.querySelector('.file-overflow-menu');
-  if (existing) {
-    const wasForThis = existing.dataset.fileId === fileId;
-    existing.remove();
-    if (wasForThis) return;
+  // Pipeline dot states
+  const asrDone   = ['transcribed', 'translating', 'translated'].includes(status);
+  const asrActive = status === 'transcribing';
+  const asrError  = status === 'error';
+
+  const transDone   = tStat === 'complete';
+  const transActive = tStat === 'translating';
+
+  // Proofread = translation complete; Render = hidden until render triggered
+  const proofDone = transDone;
+
+  // Detail text
+  let detail = '';
+  if (status === 'transcribing') {
+    const p = fileProgress[id];
+    detail = p ? `轉錄中… ${p.pct}%` : '轉錄中…';
+  } else if (asrError) {
+    detail = '轉錄失敗';
+  } else if (transDone) {
+    detail = `${segs} 段 · 翻譯完成`;
+  } else if (transActive) {
+    const p = fileProgress[id];
+    detail = p ? `翻譯中… ${p.pct}%` : '翻譯中…';
+  } else if (asrDone) {
+    detail = `${segs} 段 · 待翻譯`;
+  } else {
+    detail = segs > 0 ? `${segs} 段` : '待轉錄';
   }
 
-  const menu = document.createElement('div');
-  menu.className = 'file-overflow-menu';
-  menu.dataset.fileId = fileId;
-  menu.innerHTML = `
-    <button class="file-overflow-item file-overflow-item-danger">🗑 刪除檔案</button>
-  `;
-  menu.querySelector('.file-overflow-item-danger').addEventListener('click', (e) => {
-    e.stopPropagation();
-    menu.remove();
-    deleteFile(fileId);
-  });
+  // Proofread button disabled unless translation complete
+  const proofDisabled = !transDone ? 'disabled' : '';
 
-  // Position menu relative to the anchor
-  document.body.appendChild(menu);
-  const rect = anchor.getBoundingClientRect();
-  menu.style.position = 'fixed';
-  menu.style.top = (rect.bottom + 4) + 'px';
-  menu.style.left = Math.max(8, rect.right - 140) + 'px';
+  return `
+<div class="file-card${isActive ? ' fc-active' : ''}" id="fc-${id}" data-id="${id}">
 
-  // Close on outside click (next tick so the opening click doesn't close it)
-  setTimeout(() => {
-    const closeHandler = (ev) => {
-      if (!menu.contains(ev.target)) {
-        menu.remove();
-        document.removeEventListener('click', closeHandler);
-      }
-    };
-    document.addEventListener('click', closeHandler);
-  }, 0);
+  <!-- Row 1: icon + name + size + playing chip -->
+  <div class="fc-row1" onclick="loadMedia('${id}')">
+    <span class="fc-icon">${name.match(/\.(mp4|mov|avi|mkv|webm|mxf)/i) ? '🎬' : '🎵'}</span>
+    <span class="fc-name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
+    <span class="fc-size">${size}</span>
+    <span class="fc-playing-chip${isActive ? ' visible' : ''}" id="fc-playing-${id}">▶ 播放中</span>
+  </div>
+
+  <!-- Row 2: pipeline dots -->
+  <div class="fc-row2 pipeline-dots">
+    <span class="pipeline-dot${asrDone ? ' done' : asrActive ? ' active' : asrError ? ' error' : ''}">ASR</span>
+    <span class="pipeline-dot${transDone ? ' done' : transActive ? ' active' : asrDone && !asrError ? '' : ' hidden'}">翻譯</span>
+    <span class="pipeline-dot${proofDone ? ' done' : transDone ? '' : ' hidden'}">校對</span>
+    <span class="pipeline-dot hidden" id="fc-render-dot-${id}">渲染</span>
+  </div>
+
+  <!-- Row 3: detail -->
+  <div class="fc-row3" id="fc-detail-${id}">${escapeHtml(detail)}</div>
+
+  <!-- Progress strip (visible during transcription/translation) -->
+  <div class="fc-progress${(asrActive || transActive) ? ' visible' : ''}" id="fc-progress-${id}">
+    <div class="fc-progress-bar">
+      <div class="fc-progress-fill" id="fc-fill-${id}" style="width:${fileProgress[id]?.pct || 0}%"></div>
+    </div>
+    <div class="fc-progress-meta">
+      <span id="fc-pct-${id}">${fileProgress[id]?.pct || 0}%</span>
+      <span id="fc-eta-${id}">${fileProgress[id]?.eta ? fileProgress[id].eta + 's' : ''}</span>
+    </div>
+  </div>
+
+  <!-- Row 4: actions -->
+  <div class="fc-row4">
+    <button class="btn" onclick="navigateToProofread('${id}')" ${proofDisabled}>校對→</button>
+
+    <div class="fc-dl-wrap" id="fc-dl-wrap-${id}">
+      <button class="btn" onclick="toggleDlMenu('${id}', event)">下載↓</button>
+      <div class="fc-dl-menu" id="fc-dl-menu-${id}">
+        <button class="fc-dl-item" onclick="downloadSubtitle('${id}','srt')">SRT</button>
+        <button class="fc-dl-item" onclick="downloadSubtitle('${id}','vtt')">VTT</button>
+        <button class="fc-dl-item" onclick="downloadSubtitle('${id}','txt')">TXT</button>
+      </div>
+    </div>
+
+    <div class="fc-overflow-wrap" id="fc-ov-wrap-${id}">
+      <button class="btn btn-icon" onclick="toggleOverflowMenu('${id}', event)" title="更多">⋮</button>
+      <div class="fc-overflow-menu" id="fc-ov-menu-${id}">
+        <button class="fc-overflow-item" onclick="retranslate('${id}')">重新翻譯</button>
+        <button class="fc-overflow-item danger" onclick="deleteFile('${id}')">刪除</button>
+      </div>
+    </div>
+  </div>
+
+</div>`;
 }
 
-function selectFile(fileId) {
-  activeFileId = fileId;
-  renderFileList();
-  loadMediaPreview(fileId);
-
-  // Load segments for this file from server
-  loadFileSegments(fileId);
+function wireFileCard(id) {
+  // No complex delegation needed — onclick attrs handle it
 }
 
-async function loadFileSegments(fileId) {
+function updateFileCard(f) {
+  const id   = f.id;
+  const card = document.getElementById(`fc-${id}`);
+  if (!card) {
+    // Card doesn't exist yet — re-render entire list
+    renderFileList();
+    return;
+  }
+  // Re-build and replace
+  const tmp = document.createElement('div');
+  tmp.innerHTML = buildFileCard(f);
+  const newCard = tmp.firstElementChild;
+  card.replaceWith(newCard);
+}
+
+/* ══════════════════════════════════════════════════
+   Dropdown menus (dl + overflow)
+══════════════════════════════════════════════════ */
+function toggleDlMenu(id, e) {
+  e.stopPropagation();
+  closeAllMenus();
+  document.getElementById(`fc-dl-menu-${id}`)?.classList.toggle('open');
+}
+function toggleOverflowMenu(id, e) {
+  e.stopPropagation();
+  closeAllMenus();
+  document.getElementById(`fc-ov-menu-${id}`)?.classList.toggle('open');
+}
+function closeAllMenus() {
+  document.querySelectorAll('.fc-dl-menu.open, .fc-overflow-menu.open').forEach(m => m.classList.remove('open'));
+}
+document.addEventListener('click', closeAllMenus);
+
+/* ══════════════════════════════════════════════════
+   File actions
+══════════════════════════════════════════════════ */
+async function deleteFile(id) {
+  closeAllMenus();
+  if (!confirm('確定刪除此文件？')) return;
   try {
-    const resp = await fetch(`${API_BASE}/api/files/${fileId}/segments`);
-    const data = await resp.json();
-    if (data.status === 'done' && data.segments && data.segments.length > 0) {
-      segments = data.segments;
-
-      // Always try to fetch translations — overlay zh_text onto segments before rendering
-      try {
-        const tResp = await fetch(`${API_BASE}/api/files/${fileId}/translations`);
-        if (tResp.ok) {
-          const tData = await tResp.json();
-          const translations = tData.translations || [];
-          if (translations.length > 0) {
-            for (let i = 0; i < segments.length && i < translations.length; i++) {
-              segments[i]._en_text = segments[i].text;
-              segments[i].text = translations[i].zh_text || segments[i].text;
-            }
-          }
-        }
-      } catch (e) { /* translation fetch failed, keep English */ }
-
-      // Rebuild transcript display (with Chinese if translations were loaded)
-      clearTranscriptDisplay();
-      for (const seg of segments) {
-        addSegment(seg, true);
-      }
-      enableExport();
+    const res = await fetch(`${API_BASE}/api/files/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error((await res.json()).error || `HTTP ${res.status}`);
+    delete uploadedFiles[id];
+    if (activeFileId === id) {
+      activeFileId = null;
+      unloadVideo();
+      clearTranscript();
     }
-  } catch (e) { /* ignore */ }
+    renderFileList();
+  } catch (err) {
+    showToast(`刪除失敗：${err.message}`, 'error');
+  }
 }
 
-function loadMediaPreview(fileId) {
-  const video = document.getElementById('videoPlayer');
-  video.src = `${API_BASE}/api/files/${fileId}/media`;
-  video.style.display = 'block';
-  document.getElementById('videoPlaceholder').style.display = 'none';
-}
-
-async function deleteFile(fileId) {
-  const entry = uploadedFiles[fileId];
-  const displayName = entry && entry.original_name ? entry.original_name : fileId;
-  if (!confirm(`確定刪除「${displayName}」？\n此操作會永久刪除檔案、轉譯同翻譯結果。`)) return;
+async function retranslate(id) {
+  closeAllMenus();
+  if (!socket?.id) { showToast('未連接伺服器', 'error'); return; }
   try {
-    const resp = await fetch(`${API_BASE}/api/files/${fileId}`, { method: 'DELETE' });
-    const data = await resp.json();
-    if (data.status === 'deleted') {
-      delete uploadedFiles[fileId];
-      if (activeFileId === fileId) {
-        activeFileId = null;
-        document.getElementById('videoPlayer').style.display = 'none';
-        document.getElementById('videoPlayer').src = '';
-        document.getElementById('videoPlaceholder').style.display = 'flex';
-        segments = [];
-        clearTranscriptDisplay();
-        disableExport();
-        hideSubtitle();
+    const res = await fetch(`${API_BASE}/api/translate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file_id: id, sid: socket.id }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || `HTTP ${res.status}`);
+    showToast('翻譯已開始', 'info', 2000);
+  } catch (err) {
+    showToast(`翻譯失敗：${err.message}`, 'error');
+  }
+}
+
+function downloadSubtitle(id, fmt) {
+  closeAllMenus();
+  window.open(`${API_BASE}/api/files/${encodeURIComponent(id)}/subtitle.${fmt}`, '_blank');
+}
+
+function navigateToProofread(id) {
+  // Save sessionStorage before navigate
+  const fileZoneEl = document.getElementById('fileZone');
+  const state = { scrollTop: fileZoneEl.scrollTop, selectedFileId: id };
+  try { sessionStorage.setItem('motitle_state', JSON.stringify(state)); } catch (_) {}
+  location.href = `proofread.html?file_id=${encodeURIComponent(id)}`;
+}
+
+/* ══════════════════════════════════════════════════
+   Media loading
+══════════════════════════════════════════════════ */
+function loadMedia(id) {
+  if (activeFileId === id) return;
+  activeFileId = id;
+
+  // Update playing chip
+  document.querySelectorAll('.fc-playing-chip').forEach(c => c.classList.remove('visible'));
+  document.querySelectorAll('.file-card').forEach(c => c.classList.remove('fc-active'));
+  const chip = document.getElementById(`fc-playing-${id}`);
+  if (chip) chip.classList.add('visible');
+  const card = document.getElementById(`fc-${id}`);
+  if (card) card.classList.add('fc-active');
+
+  const video   = document.getElementById('videoPlayer');
+  const ph      = document.getElementById('videoPlaceholder');
+  video.src     = `${API_BASE}/api/files/${encodeURIComponent(id)}/media`;
+  video.style.display = 'block';
+  ph.style.display    = 'none';
+
+  video.load();
+  video.play().catch(() => {});
+
+  // Load segments for transcript
+  loadSegments(id);
+}
+
+function unloadVideo() {
+  const video = document.getElementById('videoPlayer');
+  const ph    = document.getElementById('videoPlaceholder');
+  video.pause();
+  video.src = '';
+  video.style.display = 'none';
+  ph.style.display    = 'flex';
+  document.getElementById('playBtn').textContent = '▶';
+  document.getElementById('playbackFill').style.width = '0%';
+  document.getElementById('timecode').textContent = '--:--';
+}
+
+async function loadSegments(id) {
+  clearTranscript();
+  // Prefer translations if available
+  const file = uploadedFiles[id];
+  if (file && file.translation_status === 'complete') {
+    try {
+      const res = await fetch(`${API_BASE}/api/files/${encodeURIComponent(id)}/translations`);
+      if (res.ok) {
+        const data = await res.json();
+        const segs = data.translations || data;
+        renderTranscript(segs.map(s => ({ id: s.id, start: s.start, end: s.end, text: s.zh_text || s.text, en_text: s.text })), true);
+        return;
       }
-      renderFileList();
-      showToast('文件已刪除', 'success');
+    } catch (_) {}
+  }
+  // Fallback to EN segments
+  try {
+    const res = await fetch(`${API_BASE}/api/files/${encodeURIComponent(id)}/segments`);
+    if (res.ok) {
+      const data = await res.json();
+      renderTranscript(data.segments || data, false);
     }
   } catch (err) {
-    showToast(`刪除失敗: ${err.message}`, 'error');
+    console.warn('[loadSegments]', err);
   }
 }
 
-function clearAll() {
-  clearPending();
-  activeFileId = null;
-  document.getElementById('videoPlayer').style.display = 'none';
-  document.getElementById('videoPlayer').src = '';
-  document.getElementById('videoPlaceholder').style.display = 'flex';
-  clearTranscript();
-  setProgress(0);
-  updateStatus('idle', '待機');
-  hideSubtitle();
-}
-
-// ============================================================
-// Subtitle Display
-// ============================================================
-function scheduleSubtitle(segment) {
-  // Segments are added to the array and the timeupdate handler
-  // (below) handles display during actual video playback.
-  // Nothing extra to do at arrival time.
-}
-
-function showSubtitleText(text) {
-  if (!text?.trim()) return;
-
-  const duration = subtitleDuration * 1000;
-
-  FontPreview.updateText(text);
-
-  if (subtitleTimeout) clearTimeout(subtitleTimeout);
-  subtitleTimeout = setTimeout(hideSubtitle, duration);
-}
-
-function hideSubtitle() {
-  FontPreview.updateText('');
-}
-
-// ============================================================
-// Video sync subtitles (for file playback)
-// The delay slider shifts when subtitles appear relative to video time:
-//   delay > 0 → subtitles appear later (compensate for processing lag)
-//   delay < 0 would appear earlier (not exposed in UI)
-// We show a segment when: videoTime >= segment.start + delay
-// and hide it when:        videoTime >  segment.end   + delay
-// ============================================================
-document.getElementById('videoPlayer').addEventListener('timeupdate', function() {
-  const currentTime = this.currentTime;
-  const d = subtitleDelay;  // seconds, typically 0–5
-
-  // Find segment whose shifted window covers current playback time
-  const active = segments.find(s =>
-    currentTime >= (s.start + d) &&
-    currentTime <= (s.end   + d + 0.3)  // 0.3s grace to avoid flicker
-  );
-
-  if (active && active.text?.trim()) {
-    FontPreview.updateText(active.text);
-  } else {
-    FontPreview.updateText('');
-  }
-
-  // Highlight the matching transcript row (without delay offset — the row
-  // is keyed to original segment.start). Only update if the active item
-  // changed, to avoid thrashing the DOM on every timeupdate tick.
-  const list = document.getElementById('transcriptList');
-  if (!list) return;
-  const items = list.querySelectorAll('.transcript-item');
-  let activeRow = null;
-  if (active) {
-    for (const item of items) {
-      const s = parseFloat(item.dataset.start);
-      if (Math.abs(s - active.start) < 0.01) {
-        activeRow = item;
-        break;
-      }
-    }
-  }
-  if (activeRow !== window._lastActiveTranscriptRow) {
-    if (window._lastActiveTranscriptRow) {
-      window._lastActiveTranscriptRow.classList.remove('transcript-item-active');
-    }
-    if (activeRow) {
-      activeRow.classList.add('transcript-item-active');
-      // Auto-scroll into view, but only if not already visible
-      const rect = activeRow.getBoundingClientRect();
-      const listRect = list.getBoundingClientRect();
-      if (rect.top < listRect.top || rect.bottom > listRect.bottom) {
-        activeRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
-    }
-    window._lastActiveTranscriptRow = activeRow;
-  }
-});
-
-// ============================================================
-// Transcript Display
-// ============================================================
-function addSegment(segment, skipPush) {
-  if (!skipPush) segments.push(segment);
-  const count = document.getElementById('segmentCount');
-  count.textContent = `${segments.length} 段`;
-
-  const list = document.getElementById('transcriptList');
-
-  // Remove empty state
-  const empty = list.querySelector('.empty-state');
-  if (empty) empty.remove();
-
-  const item = document.createElement('div');
-  item.className = 'transcript-item';
-  // Tag with start/end so the timeupdate handler can find the active row
-  item.dataset.start = segment.start;
-  item.dataset.end = segment.end;
-
-  const timeEl = document.createElement('div');
-  timeEl.className = 'transcript-time';
-  timeEl.textContent = formatTime(segment.start);
-  // Click time cell → seek video to segment start (not editable)
-  timeEl.title = '跳到段落';
-  timeEl.style.cursor = 'pointer';
-  timeEl.addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    const video = document.getElementById('videoPlayer');
-    if (video) {
-      video.currentTime = Math.max(0, segment.start);
-      video.play().catch(() => {});
-    }
-  });
-
-  const textEl = document.createElement('div');
-  textEl.className = 'transcript-text';
-  textEl.textContent = segment.text;
-  textEl.title = '點擊編輯';
-  textEl.style.cursor = 'text';
-  textEl.addEventListener('click', () => startEditSegment(textEl, segment));
-
-  item.appendChild(timeEl);
-  item.appendChild(textEl);
-  list.appendChild(item);
-}
-
-function startEditSegment(textEl, segment) {
-  // Already editing
-  if (textEl.querySelector('input')) return;
-
-  const original = segment.text;
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.value = original;
-  input.style.cssText = 'width:100%;background:var(--bg);color:var(--text);border:1px solid var(--accent);border-radius:4px;padding:4px 6px;font-size:14px;outline:none;';
-
-  textEl.textContent = '';
-  textEl.appendChild(input);
-  input.focus();
-  input.select();
-
-  function save() {
-    const newText = input.value.trim();
-    textEl.textContent = newText || original;
-    textEl.style.cursor = 'text';
-
-    if (newText && newText !== original) {
-      segment.text = newText;
-      // Also update the segments array
-      const seg = segments.find(s => s.id === segment.id && s.start === segment.start);
-      if (seg) seg.text = newText;
-
-      // Save to backend if we have an active file
-      if (activeFileId) {
-        fetch(`${API_BASE}/api/files/${activeFileId}/segments/${segment.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: newText })
-        }).catch(() => showToast('保存失敗', 'error'));
-      }
-    }
-  }
-
-  input.addEventListener('blur', save);
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-    if (e.key === 'Escape') { input.value = original; input.blur(); }
-  });
-}
-
-function formatTime(seconds) {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  const ms = Math.floor((seconds % 1) * 100);
-  if (h > 0) return `${h}:${pad(m)}:${pad(s)}`;
-  return `${pad(m)}:${pad(s)}.${pad(ms)}`;
-}
-
-function pad(n) { return String(n).padStart(2, '0'); }
-
-function formatDuration(seconds) {
-  if (seconds == null || isNaN(seconds)) return '--:--';
-  const s = Math.round(seconds);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  if (h > 0) return `${h}:${pad(m)}:${pad(sec)}`;
-  return `${pad(m)}:${pad(sec)}`;
-}
-
+/* ══════════════════════════════════════════════════
+   Transcript
+══════════════════════════════════════════════════ */
 function clearTranscript() {
   segments = [];
-  clearTranscriptDisplay();
+  document.getElementById('transcriptPanel').innerHTML = `
+    <div class="transcript-empty" id="transcriptEmpty">
+      <div class="te-icon">📝</div>
+      <div>轉錄文字將顯示在這裡</div>
+    </div>`;
   document.getElementById('segmentCount').textContent = '0 段';
-  disableExport();
 }
 
-function clearTranscriptDisplay() {
-  const list = document.getElementById('transcriptList');
-  list.innerHTML = `<div class="empty-state">
-    <div class="empty-icon">📝</div>
-    <div>轉錄文字將顯示在這裡</div>
-  </div>`;
-}
-
-// ============================================================
-// Export
-// ============================================================
-function exportSRT() {
-  if (!segments.length) return;
-
-  let srt = '';
-  segments.forEach((seg, i) => {
-    srt += `${i + 1}\n`;
-    srt += `${formatSRTTime(seg.start)} --> ${formatSRTTime(seg.end)}\n`;
-    srt += `${seg.text}\n\n`;
-  });
-
-  downloadFile(srt, 'subtitles.srt', 'text/plain');
-}
-
-function exportVTT() {
-  if (!segments.length) return;
-
-  let vtt = 'WEBVTT\n\n';
-  segments.forEach((seg, i) => {
-    vtt += `${i + 1}\n`;
-    vtt += `${formatVTTTime(seg.start)} --> ${formatVTTTime(seg.end)}\n`;
-    vtt += `${seg.text}\n\n`;
-  });
-
-  downloadFile(vtt, 'subtitles.vtt', 'text/vtt');
-}
-
-function exportTXT() {
-  if (!segments.length) return;
-  const text = segments.map(s => s.text).join('\n');
-  downloadFile(text, 'transcript.txt', 'text/plain');
-}
-
-function formatVTTTime(seconds) {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  const ms = Math.floor((seconds % 1) * 1000);
-  return `${pad(h)}:${pad(m)}:${pad(s)}.${String(ms).padStart(3,'0')}`;
-}
-
-function formatSRTTime(seconds) {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  const ms = Math.floor((seconds % 1) * 1000);
-  return `${pad(h)}:${pad(m)}:${pad(s)},${String(ms).padStart(3,'0')}`;
-}
-
-function downloadFile(content, filename, type) {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function enableExport() {
-  document.getElementById('exportSrtBtn').disabled = false;
-  document.getElementById('exportVttBtn').disabled = false;
-  document.getElementById('exportTxtBtn').disabled = false;
-}
-
-function disableExport() {
-  document.getElementById('exportSrtBtn').disabled = true;
-  document.getElementById('exportVttBtn').disabled = true;
-  document.getElementById('exportTxtBtn').disabled = true;
-}
-
-// ============================================================
-// Profile Management
-// ============================================================
-let profilesData = [];
-let activeProfileId = null;
-let editingProfileId = null;
-let isCreating = false;
-let asrEnginesData = [];          // [{ engine, available, description }, ...]
-let translationEnginesData = [];  // [{ engine, available, description }, ...]
-let currentAsrSchema = null;      // last-fetched ASR params schema ({ engine, params: {...} })
-let currentTranslationSchema = null; // last-fetched translation params schema
-
-async function loadProfiles() {
-  try {
-    const [profResp, activeResp] = await Promise.all([
-      fetch(`${API_BASE}/api/profiles`),
-      fetch(`${API_BASE}/api/profiles/active`),
-    ]);
-    const profData = await profResp.json();
-    const activeData = await activeResp.json();
-    profilesData = profData.profiles || [];
-    activeProfileId = activeData.profile ? activeData.profile.id : null;
-    renderProfileList();
-  } catch (e) {
-    console.warn('Failed to load profiles:', e);
-  }
-}
-
-async function loadAsrEngines() {
-  try {
-    const resp = await fetch(`${API_BASE}/api/asr/engines`);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data = await resp.json();
-    asrEnginesData = data.engines || [];
-  } catch (e) {
-    console.warn('Failed to load ASR engines:', e);
-  }
-}
-
-async function loadTranslationEngines() {
-  try {
-    const resp = await fetch(`${API_BASE}/api/translation/engines`);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data = await resp.json();
-    translationEnginesData = data.engines || [];
-  } catch (e) {
-    console.warn('Failed to load translation engines:', e);
-  }
-}
-
-function escapeHtml(str) {
-  return String(str ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-// Engine params that should NOT be rendered as form fields
-const EXCLUDED_ASR_PARAMS = [];
-const EXCLUDED_TRANSLATION_PARAMS = ['model'];
-// 'model' from Ollama schema is the Ollama model tag (e.g. "qwen2.5:72b").
-// The engine dropdown already handles model selection; rendering 'model' separately
-// would let users create a mismatch between engine and model fields.
-
-/**
- * Render one form field from a param schema entry.
- * Returns an HTML string for a .profile-form-row div.
- *
- * @param {string} name         - Param name (used as element id: `pf-asr-${name}` or `pf-tr-${name}`)
- * @param {string} idPrefix     - Element id prefix: 'pf-asr' or 'pf-tr'
- * @param {Object} paramSchema  - { type, description, enum?, default, minimum?, maximum? }
- * @param {*}      currentValue - Pre-fill value from existing profile (undefined → use schema default)
- */
-function renderParamField(name, idPrefix, paramSchema, currentValue) {
-  const id = `${idPrefix}-${name}`;
-  const value = currentValue !== undefined ? currentValue : (paramSchema.default ?? '');
-  // Prefer the schema-provided localized label; fall back to humanized field name
-  const label = paramSchema.label || name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  const tooltip = paramSchema.description ? ` title="${escapeHtml(paramSchema.description)}"` : '';
-  const hint = paramSchema.hint
-    ? `<div class="pf-hint">${escapeHtml(paramSchema.hint)}</div>`
-    : '';
-
-  let input;
-  const widget = paramSchema.widget; // may be undefined; falls through to type-based default
-
-  if (widget === 'segmented' && paramSchema.enum) {
-    // Render as a row of toggle pills (one per enum option)
-    const labels = paramSchema.enum_labels || {};
-    const pills = paramSchema.enum.map(opt => {
-      const optStr = String(opt);
-      const display = labels[optStr] || optStr;
-      const active = String(value) === optStr ? 'pf-segmented-active' : '';
-      return `<button type="button" class="pf-segmented-option ${active}" data-value="${escapeHtml(optStr)}" onclick="selectSegmented('${id}', this)">${escapeHtml(display)}</button>`;
-    }).join('');
-    input = `<div class="pf-segmented" id="${id}-group" data-value="${escapeHtml(String(value))}">${pills}</div>`
-          + `<input type="hidden" id="${id}" value="${escapeHtml(String(value))}">`;
-
-  } else if (widget === 'switch' && paramSchema.type === 'boolean') {
-    // Render as a toggle switch (checkbox styled as a slider)
-    const checked = (value === true || String(value) === 'true') ? 'checked' : '';
-    input = `<label class="pf-switch"><input type="checkbox" id="${id}" ${checked}><span class="pf-switch-slider"></span></label>`;
-
-  } else if (widget === 'slider' && (paramSchema.type === 'number' || paramSchema.type === 'integer')) {
-    // Render as a range slider with live numeric readout
-    const min = paramSchema.minimum !== undefined ? paramSchema.minimum : 0;
-    const max = paramSchema.maximum !== undefined ? paramSchema.maximum : 100;
-    const step = paramSchema.step !== undefined ? paramSchema.step : (paramSchema.type === 'number' ? 0.1 : 1);
-    input = `<div class="pf-slider-row">
-        <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${escapeHtml(String(value))}" oninput="document.getElementById('${id}-readout').textContent = this.value">
-        <span id="${id}-readout" class="pf-slider-readout">${escapeHtml(String(value))}</span>
-      </div>`;
-
-  } else if (paramSchema.enum) {
-    // Standard dropdown with enum_labels support
-    const labels = paramSchema.enum_labels || {};
-    const options = paramSchema.enum.map(opt => {
-      const optStr = String(opt);
-      const display = labels[optStr] || optStr;
-      return `<option value="${escapeHtml(optStr)}" ${String(value) === optStr ? 'selected' : ''}>${escapeHtml(display)}</option>`;
-    }).join('');
-    input = `<select id="${id}">${options}</select>`;
-
-  } else if (paramSchema.type === 'boolean') {
-    const trueSelected  = String(value) === 'true'  ? 'selected' : '';
-    const falseSelected = String(value) === 'false' ? 'selected' : '';
-    input = `<select id="${id}">
-      <option value="true"  ${trueSelected}>true</option>
-      <option value="false" ${falseSelected}>false</option>
-    </select>`;
-
-  } else if (paramSchema.type === 'number' || paramSchema.type === 'integer') {
-    const min = paramSchema.minimum !== undefined ? ` min="${paramSchema.minimum}"` : '';
-    const max = paramSchema.maximum !== undefined ? ` max="${paramSchema.maximum}"` : '';
-    const step = paramSchema.type === 'number' ? ' step="0.1"' : '';
-    const displayValue = (value === null || value === undefined || value === '') ? '' : String(value);
-    const placeholder = paramSchema.default === null ? ' placeholder="留空 = 無限制"' : '';
-    input = `<input type="number" id="${id}" value="${escapeHtml(displayValue)}"${min}${max}${step}${placeholder}>`;
-
-  } else {
-    input = `<input type="text" id="${id}" value="${escapeHtml(String(value))}">`;
-  }
-
-  return `
-    <div class="profile-form-row">
-      <label${tooltip}>${escapeHtml(label)}</label>
-      ${input}
-      ${hint}
-    </div>`;
-}
-
-// Helper for the segmented control widget — sets the hidden input value and
-// updates which pill has the active class.
-function selectSegmented(inputId, btn) {
-  const value = btn.dataset.value;
-  document.getElementById(inputId).value = value;
-  const group = document.getElementById(inputId + '-group');
-  if (group) {
-    group.dataset.value = value;
-    group.querySelectorAll('.pf-segmented-option').forEach(el => {
-      el.classList.toggle('pf-segmented-active', el === btn);
-    });
-  }
-}
-
-/**
- * Fetch params schemas for the currently-selected engines and render
- * dynamic fields into the params containers.
- * Called after buildProfileFormHTML inserts the skeleton HTML into the DOM.
- *
- * @param {Object|null} profile - Existing profile for pre-fill, or null for new profile
- */
-async function initEngineParamsForForm(profile) {
-  const asrContainer  = document.getElementById('pf-asr-params');
-  const trContainer   = document.getElementById('pf-tr-params');
-  const modelInfoEl   = document.getElementById('pf-tr-model-info');
-  const saveBtn       = document.getElementById('pfSaveBtn');
-
-  // Form may have been closed before this async call ran
-  if (!asrContainer || !trContainer) return;
-
-  const asrEngineEl = document.getElementById('pf-asr-engine');
-  const trEngineEl  = document.getElementById('pf-tr-engine');
-  if (!asrEngineEl || !trEngineEl) return;
-
-  const asrEngine = asrEngineEl.value;
-  const trEngine  = trEngineEl.value;
-
-  const asr = profile ? (profile.asr || {}) : {};
-  const tr  = profile ? (profile.translation || {}) : {};
-
-  // Show loading state
-  asrContainer.innerHTML = `<div class="pf-params-loading">載入中...</div>`;
-  trContainer.innerHTML  = `<div class="pf-params-loading">載入中...</div>`;
-  if (saveBtn) saveBtn.disabled = true;
-
-  // Render the Ollama Cloud signin pill (only appears for cloud engines)
-  updateOllamaSigninSlot();
-
-  // Fetch ASR params
-  let asrSchemaOk = false;
-  try {
-    const resp = await fetch(`${API_BASE}/api/asr/engines/${encodeURIComponent(asrEngine)}/params`);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data = await resp.json();
-    currentAsrSchema = data;
-
-    // Guard: form may have been closed while fetching
-    if (!document.getElementById('pf-asr-params')) return;
-
-    let asrHtml = '';
-    for (const [name, schema] of Object.entries(data.params || {})) {
-      if (EXCLUDED_ASR_PARAMS.includes(name)) continue;
-      asrHtml += renderParamField(name, 'pf-asr', schema, asr[name]);
-    }
-    document.getElementById('pf-asr-params').innerHTML =
-      asrHtml ? `<div class="pf-params-label">引擎參數</div>${asrHtml}` : '';
-    asrSchemaOk = true;
-  } catch (e) {
-    currentAsrSchema = null;
-    if (document.getElementById('pf-asr-params')) {
-      document.getElementById('pf-asr-params').innerHTML =
-        `<div class="pf-params-error">無法載入引擎參數，請重試</div>`;
-    }
-  }
-
-  // Fetch translation params + models in parallel
-  let trSchemaOk = false;
-  try {
-    const [paramsResp, modelsResp] = await Promise.all([
-      fetch(`${API_BASE}/api/translation/engines/${encodeURIComponent(trEngine)}/params`),
-      fetch(`${API_BASE}/api/translation/engines/${encodeURIComponent(trEngine)}/models`),
-    ]);
-
-    // Guard: form may have been closed
-    if (!document.getElementById('pf-tr-params')) return;
-
-    // Render model info. Defensively match by engine key in case the
-    // endpoint ever returns multiple entries (it currently filters to one).
-    if (modelsResp.ok && modelInfoEl) {
-      const modelsData = await modelsResp.json();
-      const models = modelsData.models || [];
-      const m = models.find(x => x.engine === trEngine) || models[0];
-      if (m) {
-        const icon = m.available
-          ? `<span class="pf-model-ok">✓ 已載入</span>`
-          : `<span class="pf-model-err">✗ 未載入</span>`;
-        modelInfoEl.innerHTML = `Model: ${escapeHtml(m.model)} ${icon}`;
-      } else {
-        modelInfoEl.textContent = 'Model: —';
-      }
-    } else if (modelInfoEl) {
-      modelInfoEl.textContent = 'Model: —';
-    }
-
-    // Render translation params
-    if (paramsResp.ok) {
-      const data = await paramsResp.json();
-      currentTranslationSchema = data;
-
-      let trHtml = '';
-      for (const [name, schema] of Object.entries(data.params || {})) {
-        if (EXCLUDED_TRANSLATION_PARAMS.includes(name)) continue;
-        trHtml += renderParamField(name, 'pf-tr', schema, tr[name]);
-      }
-      document.getElementById('pf-tr-params').innerHTML =
-        trHtml ? `<div class="pf-params-label">引擎參數</div>${trHtml}` : '';
-      trSchemaOk = true;
-    } else {
-      throw new Error(`HTTP ${paramsResp.status}`);
-    }
-  } catch (e) {
-    currentTranslationSchema = null;
-    if (document.getElementById('pf-tr-params')) {
-      document.getElementById('pf-tr-params').innerHTML =
-        `<div class="pf-params-error">無法載入引擎參數，請重試</div>`;
-    }
-  }
-
-  // Re-enable Save only if both schemas loaded successfully
-  if (document.getElementById('pfSaveBtn')) {
-    document.getElementById('pfSaveBtn').disabled = !(asrSchemaOk && trSchemaOk);
-  }
-}
-
-async function onAsrEngineChange() {
-  const engineEl  = document.getElementById('pf-asr-engine');
-  const container = document.getElementById('pf-asr-params');
-  const saveBtn   = document.getElementById('pfSaveBtn');
-  if (!engineEl || !container) return;
-
-  engineEl.disabled = true;
-  if (saveBtn) saveBtn.disabled = true;
-  container.innerHTML = `<div class="pf-params-loading">載入中...</div>`;
-
-  try {
-    const resp = await fetch(`${API_BASE}/api/asr/engines/${encodeURIComponent(engineEl.value)}/params`);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data = await resp.json();
-    currentAsrSchema = data;
-
-    if (!document.getElementById('pf-asr-params')) return;
-    let html = '';
-    for (const [name, schema] of Object.entries(data.params || {})) {
-      if (EXCLUDED_ASR_PARAMS.includes(name)) continue;
-      html += renderParamField(name, 'pf-asr', schema, undefined); // use schema defaults
-    }
-    document.getElementById('pf-asr-params').innerHTML =
-      html ? `<div class="pf-params-label">引擎參數</div>${html}` : '';
-
-    // Update availability dot
-    const eng = asrEnginesData.find(e => e.engine === engineEl.value);
-    const dotEl = document.getElementById('pf-asr-avail-dot');
-    const lblEl = document.getElementById('pf-asr-avail-label');
-    if (eng && dotEl && lblEl) {
-      dotEl.className = `pf-avail-dot ${eng.available ? 'available' : 'unavailable'}`;
-      lblEl.textContent = eng.available ? '可用' : '不可用';
-    }
-  } catch (e) {
-    currentAsrSchema = null;
-    if (document.getElementById('pf-asr-params')) {
-      document.getElementById('pf-asr-params').innerHTML =
-        `<div class="pf-params-error">無法載入引擎參數，請重試</div>`;
-    }
-  } finally {
-    if (document.getElementById('pf-asr-engine')) {
-      document.getElementById('pf-asr-engine').disabled = false;
-    }
-    if (document.getElementById('pfSaveBtn')) {
-      document.getElementById('pfSaveBtn').disabled = !currentAsrSchema || !currentTranslationSchema;
-    }
-  }
-}
-
-async function onTranslationEngineChange() {
-  const engineEl   = document.getElementById('pf-tr-engine');
-  const container  = document.getElementById('pf-tr-params');
-  const modelInfoEl = document.getElementById('pf-tr-model-info');
-  const saveBtn    = document.getElementById('pfSaveBtn');
-  if (!engineEl || !container) return;
-
-  engineEl.disabled = true;
-  if (saveBtn) saveBtn.disabled = true;
-  container.innerHTML = `<div class="pf-params-loading">載入中...</div>`;
-  updateOllamaSigninSlot();
-  if (modelInfoEl) modelInfoEl.textContent = 'Model: 載入中...';
-
-  try {
-    const [paramsResp, modelsResp] = await Promise.all([
-      fetch(`${API_BASE}/api/translation/engines/${encodeURIComponent(engineEl.value)}/params`),
-      fetch(`${API_BASE}/api/translation/engines/${encodeURIComponent(engineEl.value)}/models`),
-    ]);
-
-    if (!document.getElementById('pf-tr-params')) return;
-
-    // Update model info. Match by engine key defensively.
-    if (modelsResp.ok && document.getElementById('pf-tr-model-info')) {
-      const modelsData = await modelsResp.json();
-      if (!document.getElementById('pf-tr-params')) return;
-      const models = modelsData.models || [];
-      const infoEl = document.getElementById('pf-tr-model-info');
-      if (infoEl) {
-        const m = models.find(x => x.engine === engineEl.value) || models[0];
-        if (m) {
-          const icon = m.available
-            ? `<span class="pf-model-ok">✓ 已載入</span>`
-            : `<span class="pf-model-err">✗ 未載入</span>`;
-          infoEl.innerHTML = `Model: ${escapeHtml(m.model)} ${icon}`;
-        } else {
-          infoEl.textContent = 'Model: —';
-        }
-      }
-    } else if (document.getElementById('pf-tr-model-info')) {
-      document.getElementById('pf-tr-model-info').textContent = 'Model: —';
-    }
-
-    if (!paramsResp.ok) throw new Error(`HTTP ${paramsResp.status}`);
-    const data = await paramsResp.json();
-    currentTranslationSchema = data;
-
-    if (!document.getElementById('pf-tr-params')) return;
-    let html = '';
-    for (const [name, schema] of Object.entries(data.params || {})) {
-      if (EXCLUDED_TRANSLATION_PARAMS.includes(name)) continue;
-      html += renderParamField(name, 'pf-tr', schema, undefined); // use schema defaults
-    }
-    document.getElementById('pf-tr-params').innerHTML =
-      html ? `<div class="pf-params-label">引擎參數</div>${html}` : '';
-
-    // Update availability dot
-    const eng = translationEnginesData.find(e => e.engine === engineEl.value);
-    const dotEl = document.getElementById('pf-tr-avail-dot');
-    const lblEl = document.getElementById('pf-tr-avail-label');
-    if (eng && dotEl && lblEl) {
-      dotEl.className = `pf-avail-dot ${eng.available ? 'available' : 'unavailable'}`;
-      lblEl.textContent = eng.available ? '可用' : '不可用';
-    }
-  } catch (e) {
-    currentTranslationSchema = null;
-    if (document.getElementById('pf-tr-params')) {
-      document.getElementById('pf-tr-params').innerHTML =
-        `<div class="pf-params-error">無法載入引擎參數，請重試</div>`;
-    }
-  } finally {
-    if (document.getElementById('pf-tr-engine')) {
-      document.getElementById('pf-tr-engine').disabled = false;
-    }
-    if (document.getElementById('pfSaveBtn')) {
-      document.getElementById('pfSaveBtn').disabled = !currentAsrSchema || !currentTranslationSchema;
-    }
-  }
-}
-
-async function ollamaSignin() {
-  try {
-    const resp = await fetch(`${API_BASE}/api/ollama/signin`, { method: 'POST' });
-    const data = await resp.json();
-    if (!resp.ok) {
-      alert('啟動失敗：' + (data.error || '未知錯誤'));
-      return;
-    }
-    if (data.signed_in) {
-      alert(`你已經登入為 '${data.user}'。雲端模型應該可用。`);
-    } else {
-      alert('Ollama 登入已啟動，請喺瀏覽器完成登入。登入後請 refresh 頁面。');
-    }
-    // Refresh engine list and signin slot to update availability
-    if (typeof loadTranslationEngines === 'function') {
-      await loadTranslationEngines();
-      if (typeof renderProfileList === 'function') {
-        renderProfileList();
-      }
-    }
-    updateOllamaSigninSlot();
-  } catch (e) {
-    alert('無法連接後端：' + e.message);
-  }
-}
-
-// Renders the Ollama Cloud signin pill into #pf-tr-signin-slot based on the
-// currently-selected engine and live signin status.
-//
-// - Local engine selected → slot is empty (hidden)
-// - Cloud engine + signed in → non-clickable info pill '✓ 已登入 (user)'
-// - Cloud engine + not signed in → clickable primary pill '☁ Ollama Cloud 登入'
-async function updateOllamaSigninSlot() {
-  const slot = document.getElementById('pf-tr-signin-slot');
-  if (!slot) return;
-
-  const engineEl = document.getElementById('pf-tr-engine');
-  const engineKey = engineEl ? engineEl.value : null;
-  const selected = translationEnginesData.find(e => e.engine === engineKey);
-
-  // Not a cloud engine → hide the slot entirely
-  if (!selected || !selected.is_cloud) {
-    slot.innerHTML = '';
+function renderTranscript(segs, isZh) {
+  segments = segs;
+  document.getElementById('segmentCount').textContent = `${segs.length} 段`;
+  const panel = document.getElementById('transcriptPanel');
+  if (segs.length === 0) {
+    clearTranscript();
     return;
   }
-
-  // Cloud engine — show a placeholder while fetching status
-  slot.innerHTML = `<span class="pf-ollama-signin-btn" style="opacity:0.6;cursor:default;">⟳ 檢查登入...</span>`;
-
-  try {
-    const resp = await fetch(`${API_BASE}/api/ollama/status`);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const status = await resp.json();
-    if (status.signed_in) {
-      slot.innerHTML = `<span class="pf-ollama-signin-btn" style="cursor:default;" title="已登入 Ollama Cloud">✓ 已登入 (${escapeHtml(status.user || 'ollama')})</span>`;
-    } else {
-      slot.innerHTML = `<button type="button" class="pf-ollama-signin-btn" onclick="ollamaSignin()" title="Spawn 'ollama signin' to log in to Ollama Cloud">☁ Ollama Cloud 登入</button>`;
-    }
-  } catch (e) {
-    // On status check failure, fall back to the clickable signin button
-    slot.innerHTML = `<button type="button" class="pf-ollama-signin-btn" onclick="ollamaSignin()" title="Spawn 'ollama signin' to log in to Ollama Cloud">☁ Ollama Cloud 登入</button>`;
-  }
-}
-
-function renderProfileList() {
-  const container = document.getElementById('profileList');
-  if (!container) return;
-
-  let html = `<button class="profile-new-btn" onclick="openCreateForm()">＋ New Profile</button>`;
-
-  if (isCreating) {
-    html += buildProfileFormHTML(null);
-  }
-
-  for (const p of profilesData) {
-    const isActive = p.id === activeProfileId;
-    const isEditing = p.id === editingProfileId;
-    const dot = isActive
-      ? `<span class="profile-active-dot" title="Active"></span>`
-      : `<span class="profile-inactive-dot"></span>`;
-    const delDisabled = isActive ? 'disabled title="請先切換至其他 Profile"' : '';
-
-    html += `
-      <div class="profile-item">
-        <div class="profile-item-header" onclick="activateProfile('${escapeHtml(p.id)}')">
-          ${dot}
-          <span class="profile-item-name">${escapeHtml(p.name)}</span>
-          <div class="profile-item-actions" onclick="event.stopPropagation()">
-            <button onclick="openEditForm('${escapeHtml(p.id)}')">Edit</button>
-            <button class="btn-del-profile" ${delDisabled}
-              onclick="deleteProfile('${escapeHtml(p.id)}', '${escapeHtml(p.name)}')">Del</button>
-          </div>
-        </div>
-        ${isEditing ? buildProfileFormHTML(p) : ''}
-      </div>`;
-  }
-
-  container.innerHTML = html;
-
-  // Fire async param loading if a form is currently open
-  // (Not awaited — runs asynchronously after DOM is ready)
-  if (isCreating) {
-    initEngineParamsForForm(null);
-  } else if (editingProfileId) {
-    const editingProfile = profilesData.find(p => p.id === editingProfileId);
-    if (editingProfile) initEngineParamsForForm(editingProfile);
-  }
-
-  // Initialise the font preview strip with the current font config values
-  if (typeof updateFontPreview === 'function' && document.getElementById('pfFontPreviewText')) {
-    updateFontPreview();
-  }
-}
-
-function openEditForm(profileId) {
-  isCreating = false;
-  editingProfileId = profileId;
-  renderProfileList();
-}
-
-function openCreateForm() {
-  editingProfileId = null;
-  isCreating = true;
-  renderProfileList();
-}
-
-function cancelProfileForm() {
-  editingProfileId = null;
-  isCreating = false;
-  currentAsrSchema = null;
-  currentTranslationSchema = null;
-  renderProfileList();
-}
-
-function toggleProfileSection(header) {
-  header.classList.toggle('open');
-  header.nextElementSibling.classList.toggle('open');
-}
-
-function buildProfileFormHTML(profile) {
-  const asr   = profile ? (profile.asr   || {}) : {};
-  const tr    = profile ? (profile.translation || {}) : {};
-  const font  = profile ? (profile.font  || {}) : {};
-  const pid   = profile ? profile.id : '';
-
-  const glossaryOptions = glossariesData.map(g =>
-    `<option value="${escapeHtml(g.id)}" ${tr.glossary_id === g.id ? 'selected' : ''}>${escapeHtml(g.name)}</option>`
-  ).join('');
-
-  return `
-    <div class="profile-edit-form">
-      <input type="hidden" id="pfId" value="${escapeHtml(pid)}">
-
-      <!-- 基本資訊 -->
-      <div class="profile-form-section">
-        <div class="profile-form-section-header open" onclick="toggleProfileSection(this)">
-          <span>基本資訊</span><span class="pf-arrow">▶</span>
-        </div>
-        <div class="profile-form-section-body open">
-          <div class="profile-form-row">
-            <label>名稱 *</label>
-            <input type="text" id="pfName" value="${escapeHtml(profile ? profile.name : '')}" placeholder="Profile 名稱">
-          </div>
-          <div class="profile-form-row">
-            <label>描述</label>
-            <textarea id="pfDesc" placeholder="選填描述">${escapeHtml(profile ? (profile.description || '') : '')}</textarea>
-          </div>
-        </div>
+  panel.innerHTML = segs.map(s => `
+    <div class="transcript-item" id="ti-${s.id}" data-start="${s.start}" data-end="${s.end}">
+      <span class="transcript-time">${formatTime(s.start)}</span>
+      <div class="transcript-text">
+        ${isZh ? `<div class="transcript-zh">${escapeHtml(s.text)}</div>` : ''}
+        ${isZh && s.en_text ? `<div class="transcript-en">${escapeHtml(s.en_text)}</div>` : ''}
+        ${!isZh ? `<div>${escapeHtml(s.text)}</div>` : ''}
       </div>
-
-      <!-- ASR 設定 -->
-      <div class="profile-form-section">
-        <div class="profile-form-section-header" onclick="toggleProfileSection(this)">
-          <span>ASR 設定</span><span class="pf-arrow">▶</span>
-        </div>
-        <div class="profile-form-section-body">
-          <div class="profile-form-row">
-            <label>引擎</label>
-            <div class="pf-engine-row">
-              <select id="pf-asr-engine" onchange="onAsrEngineChange()">
-                ${asrEnginesData.length === 0
-                  ? `<option value="">-- 載入失敗 --</option>`
-                  : asrEnginesData.map(e => {
-                      const selected = (asr.engine || asrEnginesData.find(x => x.available)?.engine || asrEnginesData[0]?.engine) === e.engine ? 'selected' : '';
-                      const isCurrentEngine = (asr.engine === e.engine);
-                      const disabled = (!e.available && !isCurrentEngine) ? 'disabled' : '';
-                      return `<option value="${escapeHtml(e.engine)}" ${selected} ${disabled}>${escapeHtml(e.engine)}</option>`;
-                    }).join('')
-                }
-              </select>
-              ${(() => {
-                const selectedEngine = asrEnginesData.find(e => e.engine === (asr.engine || asrEnginesData.find(x => x.available)?.engine || asrEnginesData[0]?.engine));
-                if (!selectedEngine) return '';
-                const cls = selectedEngine.available ? 'available' : 'unavailable';
-                const label = selectedEngine.available ? '可用' : '不可用';
-                return `<span id="pf-asr-avail-dot" class="pf-avail-dot ${cls}"></span><span id="pf-asr-avail-label" class="pf-avail-label">${label}</span>`;
-              })()}
-            </div>
-          </div>
-          <div id="pf-asr-params" class="pf-params-area"></div>
-          <div class="profile-form-row">
-            <label title="Language config ID for ASR segmentation params">Language Config ID</label>
-            <input type="text" id="pf-asr-language_config_id" value="${escapeHtml(asr.language_config_id || 'en')}" placeholder="en">
-          </div>
-        </div>
-      </div>
-
-      <!-- 翻譯設定 -->
-      <div class="profile-form-section">
-        <div class="profile-form-section-header" onclick="toggleProfileSection(this)">
-          <span>翻譯設定</span><span class="pf-arrow">▶</span>
-        </div>
-        <div class="profile-form-section-body">
-          <div class="profile-form-row">
-            <label>引擎</label>
-            <div class="pf-engine-row">
-              <select id="pf-tr-engine" onchange="onTranslationEngineChange()">
-                ${(() => {
-                  if (translationEnginesData.length === 0) {
-                    return `<option value="">-- 載入失敗 --</option>`;
-                  }
-
-                  const currentEngine = tr.engine
-                    || translationEnginesData.find(x => x.available)?.engine
-                    || translationEnginesData[0]?.engine;
-
-                  const renderOption = (e) => {
-                    const selected = currentEngine === e.engine ? 'selected' : '';
-                    const isCurrent = (tr.engine === e.engine);
-                    const disabled = (!e.available && !isCurrent) ? 'disabled' : '';
-                    const status = e.available ? '✓' : '⚠';
-                    const tooltip = !e.available
-                      ? (e.is_cloud
-                          ? '需要先執行 `ollama signin` 登入 Ollama Cloud'
-                          : '需要先 `ollama pull` 對應 model')
-                      : '';
-                    const titleAttr = tooltip ? `title="${escapeHtml(tooltip)}"` : '';
-                    return `<option value="${escapeHtml(e.engine)}" ${selected} ${disabled} ${titleAttr}>${status} ${escapeHtml(e.engine)}</option>`;
-                  };
-
-                  const local = translationEnginesData.filter(e => !e.is_cloud);
-                  const cloud = translationEnginesData.filter(e => e.is_cloud);
-
-                  let html = '';
-                  if (local.length) {
-                    html += `<optgroup label="${escapeHtml('本地模型')}">${local.map(renderOption).join('')}</optgroup>`;
-                  }
-                  if (cloud.length) {
-                    html += `<optgroup label="${escapeHtml('雲端模型（需要 ollama signin）')}">${cloud.map(renderOption).join('')}</optgroup>`;
-                  }
-                  return html;
-                })()}
-              </select>
-              ${(() => {
-                const selectedEngine = translationEnginesData.find(e => e.engine === (tr.engine || translationEnginesData.find(x => x.available)?.engine || translationEnginesData[0]?.engine));
-                if (!selectedEngine) return '';
-                const cls = selectedEngine.available ? 'available' : 'unavailable';
-                const label = selectedEngine.available ? '可用' : '不可用';
-                return `<span id="pf-tr-avail-dot" class="pf-avail-dot ${cls}"></span><span id="pf-tr-avail-label" class="pf-avail-label">${label}</span>`;
-              })()}
-              <span id="pf-tr-signin-slot"></span>
-            </div>
-          </div>
-          <div id="pf-tr-model-info" class="pf-model-info"></div>
-          <div id="pf-tr-params" class="pf-params-area"></div>
-          <div class="profile-form-row">
-            <label for="pf-tr-parallel">並發批次</label>
-            <input type="number" id="pf-tr-parallel" min="1" max="8" step="1" placeholder="1" value="${tr.parallel_batches ?? ''}">
-            <p class="pf-hint">本地模型建議 1–2（需設定 OLLAMA_NUM_PARALLEL≥N）；雲端模型建議 3–5</p>
-          </div>
-          <div class="profile-form-row">
-            <label>詞彙表</label>
-            <select id="pf-tr-glossary">
-              <option value="" ${!tr.glossary_id ? 'selected' : ''}>無</option>
-              ${glossaryOptions}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <!-- 字型設定 -->
-      <div class="profile-form-section">
-        <div class="profile-form-section-header" onclick="toggleProfileSection(this)">
-          <span>字型設定</span><span class="pf-arrow">▶</span>
-        </div>
-        <div class="profile-form-section-body">
-          <!-- Live preview strip (re-renders on every font input change) -->
-          <div class="pf-font-preview" id="pfFontPreview">
-            <div class="pf-font-preview-frame">
-              <div class="pf-font-preview-text" id="pfFontPreviewText">🎬 各位晚上好 · Preview Sample</div>
-            </div>
-          </div>
-          <div class="profile-form-row">
-            <label>字體</label>
-            <input type="text" id="pfFontFamily" value="${escapeHtml(font.family || 'Noto Sans TC')}" oninput="updateFontPreview()">
-          </div>
-          <div class="profile-form-row">
-            <label>字號 (12-120 px)</label>
-            <input type="number" id="pfFontSize" value="${font.size !== undefined ? font.size : 48}" min="12" max="120" oninput="updateFontPreview()">
-          </div>
-          <div class="profile-form-row">
-            <label>字體顏色</label>
-            <input type="color" id="pfFontColor" value="${font.color || '#ffffff'}" oninput="updateFontPreview()">
-          </div>
-          <div class="profile-form-row">
-            <label>描邊顏色</label>
-            <input type="color" id="pfFontOutlineColor" value="${font.outline_color || '#000000'}" oninput="updateFontPreview()">
-          </div>
-          <div class="profile-form-row">
-            <label>描邊粗度 (0-10 px)</label>
-            <input type="number" id="pfFontOutlineWidth" value="${font.outline_width !== undefined ? font.outline_width : 2}" min="0" max="10" oninput="updateFontPreview()">
-          </div>
-          <div class="profile-form-row">
-            <label>位置</label>
-            <select id="pfFontPosition" onchange="updateFontPreview()">
-              <option value="bottom" ${(font.position || 'bottom') === 'bottom' ? 'selected' : ''}>底部</option>
-              <option value="top"    ${font.position === 'top'                  ? 'selected' : ''}>頂部</option>
-            </select>
-          </div>
-          <div class="profile-form-row">
-            <label>底部邊距 (0-200 px)</label>
-            <input type="number" id="pfFontMargin" value="${font.margin_bottom !== undefined ? font.margin_bottom : 40}" min="0" max="200">
-          </div>
-        </div>
-      </div>
-
-      <!-- Actions -->
-      <div class="profile-form-actions">
-        <button class="btn-pf-save" id="pfSaveBtn" onclick="saveProfile()">
-          ${pid ? '儲存' : '建立'}
-        </button>
-        <button class="btn-pf-cancel" onclick="cancelProfileForm()">取消</button>
-      </div>
-    </div>`;
+    </div>`).join('');
 }
 
-// Updates the font preview strip in the profile form using the current
-// font config inputs. Wired via oninput on every font field so the
-// preview reflects edits in real time without saving the profile.
-function updateFontPreview() {
-  const previewEl = document.getElementById('pfFontPreviewText');
-  const frameEl = document.querySelector('.pf-font-preview-frame');
-  if (!previewEl || !frameEl) return;
+function appendTranscriptSegment(seg) {
+  const empty = document.getElementById('transcriptEmpty');
+  if (empty) empty.remove();
 
-  const family = (document.getElementById('pfFontFamily').value || 'Noto Sans TC').trim();
-  const size = parseInt(document.getElementById('pfFontSize').value, 10) || 48;
-  const color = document.getElementById('pfFontColor').value || '#ffffff';
-  const outlineColor = document.getElementById('pfFontOutlineColor').value || '#000000';
-  const outlineWidth = parseInt(document.getElementById('pfFontOutlineWidth').value, 10) || 0;
-  const position = document.getElementById('pfFontPosition').value || 'bottom';
+  const panel = document.getElementById('transcriptPanel');
+  const div = document.createElement('div');
+  div.className = 'transcript-item';
+  div.id = `ti-${seg.id}`;
+  div.dataset.start = seg.start;
+  div.dataset.end   = seg.end;
+  div.innerHTML = `
+    <span class="transcript-time">${formatTime(seg.start)}</span>
+    <div class="transcript-text">${escapeHtml(seg.text)}</div>`;
+  panel.appendChild(div);
 
-  // Scale the preview down by ~50% so a 48px subtitle reads as 24px in the strip.
-  // (Keeps the preview compact while preserving relative proportions.)
-  const previewSize = Math.max(10, Math.round(size * 0.5));
-
-  // Compose a 4-direction text-shadow to approximate ASS subtitle outlines.
-  const w = outlineWidth;
-  const shadow = w > 0
-    ? `${-w}px ${-w}px 0 ${outlineColor}, ${w}px ${-w}px 0 ${outlineColor}, ${-w}px ${w}px 0 ${outlineColor}, ${w}px ${w}px 0 ${outlineColor}`
-    : 'none';
-
-  previewEl.style.fontFamily = `'${family}', 'Noto Sans TC', sans-serif`;
-  previewEl.style.fontSize = previewSize + 'px';
-  previewEl.style.color = color;
-  previewEl.style.textShadow = shadow;
-
-  frameEl.style.alignItems = position === 'top' ? 'flex-start' : 'flex-end';
-  previewEl.style.paddingTop = position === 'top' ? '10px' : '';
-  previewEl.style.paddingBottom = position === 'bottom' ? '10px' : '';
+  segments.push(seg);
+  document.getElementById('segmentCount').textContent = `${segments.length} 段`;
 }
 
-async function saveProfile() {
-  // Guard: schemas must be loaded before saving
-  if (!currentAsrSchema || !currentTranslationSchema) {
-    showToast('引擎參數未載入，請重試', 'error');
-    return;
-  }
+/* ══════════════════════════════════════════════════
+   Video controls
+══════════════════════════════════════════════════ */
+const video = document.getElementById('videoPlayer');
 
-  const name = document.getElementById('pfName').value.trim();
-  if (!name) { showToast('請輸入 Profile 名稱', 'error'); return; }
+function togglePlay() {
+  if (!video.src) return;
+  if (video.paused) { video.play(); } else { video.pause(); }
+}
+function seekVideo(e) {
+  if (!video.src || !video.duration) return;
+  const bar = document.getElementById('playbackProgress');
+  const rect = bar.getBoundingClientRect();
+  const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  video.currentTime = pct * video.duration;
+}
 
-  const profileId = document.getElementById('pfId').value;
+video.addEventListener('play',  () => { document.getElementById('playBtn').textContent = '⏸'; });
+video.addEventListener('pause', () => { document.getElementById('playBtn').textContent = '▶'; });
+video.addEventListener('ended', () => { document.getElementById('playBtn').textContent = '▶'; });
 
-  // Collect dynamic ASR params from schema keys.
-  // Handles: boolean (checkbox vs select), nullable integer, segmented hidden input.
-  const collectParam = (el, schema) => {
-    if (schema.type === 'boolean') {
-      // Toggle switch (checkbox) reports via .checked; legacy select uses .value
-      return (el.tagName === 'INPUT' && el.type === 'checkbox') ? el.checked : (el.value === 'true');
-    }
-    if (schema.type === 'number' || schema.type === 'integer') {
-      return el.value === '' ? null : Number(el.value);
-    }
-    return el.value;
-  };
+video.addEventListener('timeupdate', () => {
+  const cur = video.currentTime;
+  const dur = video.duration || 1;
+  document.getElementById('playbackFill').style.width = `${(cur / dur) * 100}%`;
+  document.getElementById('timecode').textContent = `${formatTime(cur)} / ${formatTime(dur)}`;
 
-  const asrParams = {};
-  for (const [paramName, schema] of Object.entries(currentAsrSchema.params || {})) {
-    if (EXCLUDED_ASR_PARAMS.includes(paramName)) continue;
-    const el = document.getElementById(`pf-asr-${paramName}`);
-    if (!el) continue;
-    asrParams[paramName] = collectParam(el, schema);
-  }
+  // Subtitle overlay
+  const activeSeg = segments.find(s => cur >= s.start && cur <= s.end);
+  FontPreview.updateText(activeSeg ? activeSeg.text : '');
 
-  const trParams = {};
-  for (const [paramName, schema] of Object.entries(currentTranslationSchema.params || {})) {
-    if (EXCLUDED_TRANSLATION_PARAMS.includes(paramName)) continue;
-    const el = document.getElementById(`pf-tr-${paramName}`);
-    if (!el) continue;
-    trParams[paramName] = collectParam(el, schema);
-  }
+  // Highlight active transcript item
+  document.querySelectorAll('.transcript-item').forEach(el => {
+    const s = parseFloat(el.dataset.start);
+    const e = parseFloat(el.dataset.end);
+    el.classList.toggle('active', cur >= s && cur <= e);
+  });
+});
 
-  const payload = {
-    name,
-    description: document.getElementById('pfDesc').value.trim(),
-    asr: {
-      engine:             document.getElementById('pf-asr-engine').value,
-      language_config_id: document.getElementById('pf-asr-language_config_id').value.trim() || 'en',
-      ...asrParams,
-    },
-    translation: (() => {
-      const parallelBatchesVal = document.getElementById('pf-tr-parallel').value;
-      const parallelBatches = parallelBatchesVal ? parseInt(parallelBatchesVal, 10) : undefined;
-      return {
-        engine:      document.getElementById('pf-tr-engine').value,
-        glossary_id: document.getElementById('pf-tr-glossary').value || null,
-        ...(parallelBatches !== undefined && !isNaN(parallelBatches) ? { parallel_batches: parallelBatches } : {}),
-        ...trParams,
-      };
-    })(),
-    font: {
-      family:        document.getElementById('pfFontFamily').value.trim() || 'Noto Sans TC',
-      size:          parseInt(document.getElementById('pfFontSize').value, 10),
-      color:         document.getElementById('pfFontColor').value,
-      outline_color: document.getElementById('pfFontOutlineColor').value,
-      outline_width: parseInt(document.getElementById('pfFontOutlineWidth').value, 10),
-      position:      document.getElementById('pfFontPosition').value,
-      margin_bottom: parseInt(document.getElementById('pfFontMargin').value, 10),
-    },
-  };
-
-  const btn = document.getElementById('pfSaveBtn');
-  btn.disabled = true;
-  btn.textContent = '儲存中...';
-
+/* ══════════════════════════════════════════════════
+   Fetch file list on load
+══════════════════════════════════════════════════ */
+async function fetchFileList() {
   try {
-    const url    = profileId ? `${API_BASE}/api/profiles/${profileId}` : `${API_BASE}/api/profiles`;
-    const method = profileId ? 'PATCH' : 'POST';
-    const resp   = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+    const res = await fetch(`${API_BASE}/api/files`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data  = await res.json();
+    const files = data.files || data;
+    uploadedFiles = {};
+    files.forEach(f => { uploadedFiles[f.id] = f; });
+    renderFileList();
+  } catch (err) {
+    console.warn('[fetchFileList]', err);
+  }
+}
+
+/* ══════════════════════════════════════════════════
+   sessionStorage restore
+══════════════════════════════════════════════════ */
+function restoreSessionState() {
+  try {
+    const raw = sessionStorage.getItem('motitle_state');
+    if (!raw) return;
+    const state = JSON.parse(raw);
+    sessionStorage.removeItem('motitle_state');
+
+    const { scrollTop, selectedFileId } = state;
+    if (selectedFileId && uploadedFiles[selectedFileId]) {
+      loadMedia(selectedFileId);
+    }
+    if (scrollTop != null) {
+      const fz = document.getElementById('fileZone');
+      fz.scrollTop = scrollTop;
+    }
+  } catch (_) {}
+}
+
+/* ══════════════════════════════════════════════════
+   Utility
+══════════════════════════════════════════════════ */
+function formatFileSize(bytes) {
+  if (!bytes) return '—';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/* ══════════════════════════════════════════════════
+   Socket handlers
+══════════════════════════════════════════════════ */
+socket = connectSocket({
+
+  connected(data) {
+    fetchFileList().then(() => {
+      restoreSessionState();
     });
-    const data = await resp.json();
-    if (resp.ok) {
-      showToast(profileId ? 'Profile 已更新' : 'Profile 已建立', 'success');
-      editingProfileId = null;
-      isCreating = false;
-      currentAsrSchema = null;
-      currentTranslationSchema = null;
-      await loadProfiles();
-    } else {
-      const msg = Array.isArray(data.errors)
-        ? data.errors.join(', ')
-        : (data.error || '操作失敗');
-      showToast(msg, 'error');
-      btn.disabled = false;
-      btn.textContent = profileId ? '儲存' : '建立';
+  },
+
+  file_added(data) {
+    const f = data.file || data;
+    uploadedFiles[f.id] = f;
+    renderFileList();
+  },
+
+  file_updated(data) {
+    const f = data.file || data;
+    if (!f || !f.id) return;
+    // Merge into existing record
+    uploadedFiles[f.id] = Object.assign({}, uploadedFiles[f.id] || {}, f);
+    if (f.status && !['transcribing', 'translating'].includes(f.status)) {
+      isTranscribing = false;
     }
-  } catch (e) {
-    showToast('操作失敗，請重試', 'error');
-    btn.disabled = false;
-    btn.textContent = profileId ? '儲存' : '建立';
-  }
-}
+    updateFileCard(uploadedFiles[f.id]);
+  },
 
-async function deleteProfile(profileId, name) {
-  if (!confirm(`確定刪除 Profile「${name}」？`)) return;
-  try {
-    const resp = await fetch(`${API_BASE}/api/profiles/${profileId}`, { method: 'DELETE' });
-    if (resp.ok) {
-      showToast('Profile 已刪除', 'success');
-      if (editingProfileId === profileId) editingProfileId = null;
-      await loadProfiles();
-    } else {
-      const data = await resp.json();
-      showToast(data.error || '刪除失敗', 'error');
-    }
-  } catch (e) {
-    showToast('操作失敗，請重試', 'error');
-  }
-}
+  subtitle_segment(data) {
+    if (!data) return;
+    // If this segment's file isn't the active one, skip transcript update
+    const fileId = data.file_id;
 
-async function activateProfile(profileId) {
-  if (!profileId) return;
-  try {
-    const resp = await fetch(`${API_BASE}/api/profiles/${profileId}/activate`, { method: 'POST' });
-    if (resp.ok) {
-      activeProfileId = profileId;
-      renderProfileList();
-      showToast('Profile activated', 'success');
-    } else {
-      showToast('Failed to activate profile', 'error');
-    }
-  } catch (e) {
-    showToast('Failed to activate profile', 'error');
-  }
-}
-
-// ============================================================
-// Language Config Management
-// ============================================================
-let languagesData = [];
-
-async function loadLanguages() {
-  try {
-    const resp = await fetch(`${API_BASE}/api/languages`);
-    const data = await resp.json();
-    languagesData = data.languages || [];
-    const select = document.getElementById('langSelect');
-    select.innerHTML = '<option value="">Select...</option>';
-    for (const lang of languagesData) {
-      const opt = document.createElement('option');
-      opt.value = lang.id;
-      opt.textContent = `${lang.name} (${lang.id})`;
-      select.appendChild(opt);
-    }
-    if (languagesData.length > 0) {
-      select.value = languagesData[0].id;
-      loadLanguageConfig(languagesData[0].id);
-    }
-  } catch (e) { console.warn('Failed to load languages:', e); }
-}
-
-async function loadLanguageConfig(langId) {
-  if (!langId) return;
-  try {
-    const resp = await fetch(`${API_BASE}/api/languages/${langId}`);
-    if (!resp.ok) return;
-    const data = await resp.json();
-    const cfg = data.language;
-    document.getElementById('langMaxWords').value = cfg.asr.max_words_per_segment;
-    document.getElementById('langMaxDuration').value = cfg.asr.max_segment_duration;
-    document.getElementById('langBatchSize').value = cfg.translation.batch_size;
-    document.getElementById('langTemperature').value = cfg.translation.temperature;
-  } catch (e) { console.warn('Failed to load language config:', e); }
-}
-
-async function saveLanguageConfig() {
-  const langId = document.getElementById('langSelect').value;
-  if (!langId) { showToast('請先選擇語言', 'warning'); return; }
-  const data = {
-    asr: {
-      max_words_per_segment: parseInt(document.getElementById('langMaxWords').value),
-      max_segment_duration: parseFloat(document.getElementById('langMaxDuration').value),
-    },
-    translation: {
-      batch_size: parseInt(document.getElementById('langBatchSize').value),
-      temperature: parseFloat(document.getElementById('langTemperature').value),
-    },
-  };
-  try {
-    const resp = await fetch(`${API_BASE}/api/languages/${langId}`, {
-      method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data),
-    });
-    if (resp.ok) { showToast('語言配置已儲存', 'success'); }
-    else { const err = await resp.json(); showToast(err.errors || err.error || '儲存失敗', 'error'); }
-  } catch (e) { showToast('儲存失敗', 'error'); }
-}
-
-function toggleCollapsible(header) {
-  header.classList.toggle('open');
-  header.nextElementSibling.classList.toggle('open');
-}
-
-// Management panel is collapsed by default — expand/collapse on header click.
-// Persists the user's preference in localStorage so their choice sticks.
-function toggleManagementPanel() {
-  const header = document.querySelector('.panel-management-header');
-  const body = document.getElementById('panelManagementBody');
-  if (!header || !body) return;
-  const willOpen = body.style.display === 'none';
-  body.style.display = willOpen ? 'flex' : 'none';
-  header.classList.toggle('open', willOpen);
-  try {
-    localStorage.setItem('panelManagementOpen', willOpen ? '1' : '0');
-  } catch (e) { /* ignore quota / private-mode errors */ }
-}
-
-// Restore management panel state from localStorage on load
-try {
-  if (localStorage.getItem('panelManagementOpen') === '1') {
-    // Defer to next tick so DOM is ready
-    setTimeout(() => {
-      const body = document.getElementById('panelManagementBody');
-      const header = document.querySelector('.panel-management-header');
-      if (body && header) {
-        body.style.display = 'flex';
-        header.classList.add('open');
-      }
-    }, 0);
-  }
-} catch (e) { /* ignore */ }
-
-// ============================================================
-// Glossary Management
-// ============================================================
-let glossariesData = [];
-let currentGlossaryId = null;
-
-async function loadGlossaries() {
-  try {
-    const resp = await fetch(`${API_BASE}/api/glossaries`);
-    const data = await resp.json();
-    glossariesData = data.glossaries || [];
-    const select = document.getElementById('glossarySelect');
-    select.innerHTML = '<option value="">Select...</option>';
-    for (const g of glossariesData) {
-      const opt = document.createElement('option');
-      opt.value = g.id;
-      opt.textContent = `${g.name} (${g.entry_count} entries)`;
-      select.appendChild(opt);
-    }
-  } catch (e) { console.warn('Failed to load glossaries:', e); }
-}
-
-async function loadGlossaryEntries(glossaryId) {
-  currentGlossaryId = glossaryId;
-  const container = document.getElementById('glossaryEntries');
-  if (!glossaryId) { container.innerHTML = ''; return; }
-  try {
-    const resp = await fetch(`${API_BASE}/api/glossaries/${glossaryId}`);
-    if (!resp.ok) return;
-    const data = await resp.json();
-    const entries = data.entries || [];
-    if (entries.length === 0) {
-      container.innerHTML = '<div style="font-size:11px;color:var(--text-dim);padding:4px;">無術語</div>';
-      return;
-    }
-    let html = '<table class="glossary-table"><thead><tr><th>EN</th><th>中文</th><th></th></tr></thead><tbody>';
-    for (const entry of entries) {
-      const eid = entry.id || '';
-      const enAttr = escapeHtml(entry.en || '');
-      const zhAttr = escapeHtml(entry.zh || '');
-      html += `<tr><td>${enAttr}</td><td>${zhAttr}</td><td><button class="btn-del" onclick="deleteGlossaryEntry('${eid}', '${enAttr.replace(/'/g, '&#39;')}', '${zhAttr.replace(/'/g, '&#39;')}')">✕</button></td></tr>`;
-    }
-    html += '</tbody></table>';
-    container.innerHTML = html;
-  } catch (e) { console.warn('Failed to load glossary entries:', e); }
-}
-
-async function addGlossaryEntry() {
-  if (!currentGlossaryId) { showToast('請先選擇術語表', 'warning'); return; }
-  const en = document.getElementById('newEntryEn').value.trim();
-  const zh = document.getElementById('newEntryZh').value.trim();
-  if (!en || !zh) { showToast('請填寫英文和中文', 'warning'); return; }
-  try {
-    const resp = await fetch(`${API_BASE}/api/glossaries/${currentGlossaryId}/entries`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({en, zh}),
-    });
-    if (resp.ok) {
-      document.getElementById('newEntryEn').value = '';
-      document.getElementById('newEntryZh').value = '';
-      loadGlossaryEntries(currentGlossaryId);
-      loadGlossaries();
-      showToast('術語已新增', 'success');
-    } else { showToast('新增失敗', 'error'); }
-  } catch (e) { showToast('新增失敗', 'error'); }
-}
-
-async function deleteGlossaryEntry(entryId, enText, zhText) {
-  if (!currentGlossaryId || !entryId) return;
-  const label = (enText && zhText) ? `「${enText} → ${zhText}」` : '此術語';
-  if (!confirm(`確定刪除 ${label}？`)) return;
-  try {
-    const resp = await fetch(`${API_BASE}/api/glossaries/${currentGlossaryId}/entries/${entryId}`, {method: 'DELETE'});
-    if (resp.ok) { loadGlossaryEntries(currentGlossaryId); loadGlossaries(); showToast('術語已刪除', 'success'); }
-  } catch (e) { showToast('刪除失敗', 'error'); }
-}
-
-async function importGlossaryCSV(fileInput) {
-  if (!currentGlossaryId) { showToast('請先選擇術語表', 'warning'); return; }
-  const file = fileInput.files[0];
-  if (!file) return;
-  const text = await file.text();
-  try {
-    const resp = await fetch(`${API_BASE}/api/glossaries/${currentGlossaryId}/import`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({csv_content: text}),
-    });
-    if (resp.ok) {
-      const data = await resp.json();
-      loadGlossaryEntries(currentGlossaryId);
-      loadGlossaries();
-      showToast(`匯入完成，共 ${(data.entries || []).length} 個術語`, 'success');
-    } else { showToast('匯入失敗', 'error'); }
-  } catch (e) { showToast('匯入失敗', 'error'); }
-  fileInput.value = '';
-}
-
-// ============================================================
-// Re-translate
-// ============================================================
-async function reTranslateFile(fileId, btnEl) {
-  if (btnEl) { btnEl.disabled = true; btnEl.textContent = '翻譯中...'; }
-  try {
-    const resp = await fetch(`${API_BASE}/api/translate`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({file_id: fileId}),
-    });
-    if (resp.ok) {
-      showToast('重新翻譯完成', 'success');
-      await fetchFileList();
-      if (activeFileId === fileId) {
-        await loadFileSegments(fileId);
-      }
-    } else {
-      const err = await resp.json();
-      showToast(err.error || '翻譯失敗', 'error');
-    }
-  } catch (e) {
-    showToast('翻譯失敗', 'error');
-  }
-  if (btnEl) { btnEl.disabled = false; btnEl.textContent = '🔄 重新翻譯'; }
-}
-
-// ============================================================
-// Translation overlay — replace segment text with zh_text
-// ============================================================
-async function loadTranslationsForActiveFile(fileId) {
-  try {
-    const resp = await fetch(`${API_BASE}/api/files/${fileId}/translations`);
-    if (!resp.ok) return;
-    const data = await resp.json();
-    const translations = data.translations || [];
-    if (translations.length === 0) return;
-
-    // Overlay zh_text onto segments array for subtitle display
-    for (let i = 0; i < segments.length && i < translations.length; i++) {
-      segments[i]._en_text = segments[i].text;  // preserve original
-      segments[i].text = translations[i].zh_text || segments[i].text;
-    }
-
-    // Re-render transcript panel with translated text
-    const container = document.getElementById('transcriptList');
-    if (container) {
-      container.querySelectorAll('.transcript-text').forEach((el, i) => {
-        if (i < segments.length) {
-          el.textContent = segments[i].text;
-        }
+    // Update progress
+    if (data.progress != null) {
+      fileProgress[fileId] = Object.assign({}, fileProgress[fileId] || {}, {
+        pct: Math.round(data.progress),
+        eta: data.eta_seconds != null ? Math.round(data.eta_seconds) : null,
       });
+      const fill = document.getElementById(`fc-fill-${fileId}`);
+      const pct  = document.getElementById(`fc-pct-${fileId}`);
+      const eta  = document.getElementById(`fc-eta-${fileId}`);
+      if (fill) fill.style.width = `${fileProgress[fileId].pct}%`;
+      if (pct)  pct.textContent  = `${fileProgress[fileId].pct}%`;
+      if (eta)  eta.textContent  = fileProgress[fileId].eta != null ? `${fileProgress[fileId].eta}s` : '';
+
+      // Show progress strip
+      const prog = document.getElementById(`fc-progress-${fileId}`);
+      if (prog) prog.classList.add('visible');
     }
 
-    showToast('翻譯完成，字幕已更新為中文', 'success');
-  } catch (e) {
-    console.warn('Failed to load translations:', e);
-  }
-}
-
-// ============================================================
-// Settings
-// ============================================================
-function updateDelay(val) {
-  subtitleDelay = parseFloat(val);
-  document.getElementById('delayValue').textContent = `${val}s`;
-}
-
-function updateDuration(val) {
-  subtitleDuration = parseFloat(val);
-  document.getElementById('durationValue').textContent = `${val}s`;
-}
-
-
-// ============================================================
-// UI Helpers
-// ============================================================
-function updateStatus(type, label) {
-  const badge = document.getElementById('statusBadge');
-  badge.className = `badge badge-${type}`;
-  badge.textContent = label;
-}
-
-function setProgress(pct) {
-  document.getElementById('progressBar').style.width = `${pct}%`;
-}
-
-// ============================================================
-// Error Log + Aggregation Center
-// ============================================================
-// Errors are recorded into window._errorLog and persisted to localStorage.
-// The bell indicator in the header shows the count of unresolved errors;
-// clicking it opens a modal listing them with copy + clear actions.
-// Error toasts do NOT auto-dismiss — the user must click ✕ to acknowledge.
-// Info / success / warning toasts still auto-dismiss after 4s as before.
-const ERROR_LOG_KEY = '_whisper_error_log';
-const MAX_ERROR_LOG = 50;
-
-function loadErrorLog() {
-  try {
-    const raw = localStorage.getItem(ERROR_LOG_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch (e) {
-    return [];
-  }
-}
-
-function saveErrorLog(log) {
-  try {
-    localStorage.setItem(ERROR_LOG_KEY, JSON.stringify(log.slice(0, MAX_ERROR_LOG)));
-  } catch (e) { /* quota / private mode — ignore */ }
-}
-
-window._errorLog = loadErrorLog();
-
-function logError(message, context = '') {
-  const entry = {
-    id: Date.now() + '-' + Math.random().toString(36).slice(2, 8),
-    message: String(message),
-    context: String(context || ''),
-    timestamp: new Date().toISOString(),
-  };
-  window._errorLog.unshift(entry);
-  window._errorLog = window._errorLog.slice(0, MAX_ERROR_LOG);
-  saveErrorLog(window._errorLog);
-  updateErrorBellBadge();
-}
-
-function clearErrorLog() {
-  window._errorLog = [];
-  saveErrorLog(window._errorLog);
-  updateErrorBellBadge();
-  renderErrorLogModal();
-}
-
-function updateErrorBellBadge() {
-  const bell = document.getElementById('errorBellBadge');
-  if (!bell) return;
-  const count = window._errorLog.length;
-  bell.textContent = count > 99 ? '99+' : String(count);
-  bell.style.display = count > 0 ? 'inline-block' : 'none';
-}
-
-function showToast(message, type = 'info') {
-  const container = document.getElementById('toastContainer');
-  const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-
-  if (type === 'error') {
-    // Errors: record to log + render as persistent banner with copy/close buttons
-    logError(message);
-    toast.innerHTML = `
-      <div class="toast-body">
-        <span class="toast-icon">⚠</span>
-        <span class="toast-message"></span>
-      </div>
-      <div class="toast-actions">
-        <button class="toast-btn" title="複製錯誤訊息" aria-label="複製">📋</button>
-        <button class="toast-btn" title="關閉" aria-label="關閉">✕</button>
-      </div>`;
-    toast.querySelector('.toast-message').textContent = message;
-    const [copyBtn, closeBtn] = toast.querySelectorAll('.toast-btn');
-    copyBtn.addEventListener('click', () => {
-      navigator.clipboard?.writeText(message).catch(() => {});
-      copyBtn.textContent = '✓';
-      setTimeout(() => { copyBtn.textContent = '📋'; }, 1200);
-    });
-    closeBtn.addEventListener('click', () => toast.remove());
-    // Persistent — no auto-dismiss
-  } else {
-    toast.textContent = message;
-    setTimeout(() => toast.remove(), 4000);
-  }
-
-  container.appendChild(toast);
-}
-
-function toggleErrorLogModal() {
-  let modal = document.getElementById('errorLogModal');
-  if (modal && modal.style.display !== 'none') {
-    modal.style.display = 'none';
-    return;
-  }
-  if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'errorLogModal';
-    modal.className = 'error-log-overlay';
-    modal.innerHTML = `
-      <div class="error-log-panel">
-        <div class="error-log-header">
-          <span>🔔 錯誤記錄</span>
-          <div class="error-log-actions">
-            <button class="error-log-clear" aria-label="清除全部">清除全部</button>
-            <button class="error-log-close" aria-label="關閉">✕</button>
-          </div>
-        </div>
-        <div class="error-log-body" id="errorLogBody"></div>
-      </div>`;
-    document.body.appendChild(modal);
-    modal.querySelector('.error-log-close').addEventListener('click', () => {
-      modal.style.display = 'none';
-    });
-    modal.querySelector('.error-log-clear').addEventListener('click', () => {
-      if (confirm('清除全部錯誤記錄？')) clearErrorLog();
-    });
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) modal.style.display = 'none';
-    });
-  }
-  modal.style.display = 'flex';
-  renderErrorLogModal();
-}
-
-function renderErrorLogModal() {
-  const body = document.getElementById('errorLogBody');
-  if (!body) return;
-  if (window._errorLog.length === 0) {
-    body.innerHTML = `<div class="error-log-empty">✓ 未有錯誤記錄</div>`;
-    return;
-  }
-  body.innerHTML = window._errorLog.map(entry => {
-    const time = new Date(entry.timestamp).toLocaleString('zh-HK', { hour12: false });
-    const msg = escapeHtml(entry.message);
-    const ctx = entry.context ? `<div class="error-log-entry-context">${escapeHtml(entry.context)}</div>` : '';
-    return `
-      <div class="error-log-entry" data-id="${entry.id}">
-        <div class="error-log-entry-header">
-          <span class="error-log-entry-time">${escapeHtml(time)}</span>
-          <button class="error-log-entry-copy" data-id="${entry.id}" title="複製">📋</button>
-        </div>
-        <div class="error-log-entry-message">${msg}</div>
-        ${ctx}
-      </div>`;
-  }).join('');
-  body.querySelectorAll('.error-log-entry-copy').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const id = btn.dataset.id;
-      const entry = window._errorLog.find(x => x.id === id);
-      if (entry) {
-        const text = `[${entry.timestamp}] ${entry.message}${entry.context ? '\n' + entry.context : ''}`;
-        navigator.clipboard?.writeText(text).catch(() => {});
-        btn.textContent = '✓';
-        setTimeout(() => { btn.textContent = '📋'; }, 1200);
-      }
-    });
-  });
-}
-
-// Global JS error boundaries — catch runtime errors and unhandled promise
-// rejections so nothing gets silently swallowed into the dev console.
-window.addEventListener('error', (e) => {
-  if (e && e.message) {
-    logError(e.message, `${e.filename || ''}:${e.lineno || 0}`);
-  }
-});
-window.addEventListener('unhandledrejection', (e) => {
-  const reason = e && e.reason ? (e.reason.message || String(e.reason)) : 'Unhandled promise rejection';
-  logError(reason, 'unhandledrejection');
-});
-
-// Initialise the bell badge on load
-setTimeout(updateErrorBellBadge, 0);
-
-// ============================================================
-// Restart Service
-// ============================================================
-async function restartService() {
-  const btn = document.getElementById('restartBtn');
-  btn.classList.add('spinning');
-
-  // Try to trigger server restart
-  try {
-    await fetch(`${API_BASE}/api/restart`, { method: 'POST' });
-  } catch (e) { /* server may already be restarting */ }
-
-  showToast('正在重啟服務器...', 'warning');
-  setConnectionStatus(false);
-
-  // Poll until server is back
-  let attempts = 0;
-  const poll = setInterval(async () => {
-    attempts++;
-    try {
-      const resp = await fetch(`${API_BASE}/api/health`, { signal: AbortSignal.timeout(2000) });
-      if (resp.ok) {
-        clearInterval(poll);
-        btn.classList.remove('spinning');
-        showToast('服務器已重啟!', 'success');
-
-        // Reconnect socket
-        if (socket) { socket.disconnect(); }
-        connectSocket();
-      }
-    } catch (e) { /* still restarting */ }
-
-    if (attempts > 30) {
-      clearInterval(poll);
-      btn.classList.remove('spinning');
-      showToast('重啟超時，請手動檢查服務器', 'error');
+    if (fileId === activeFileId) {
+      appendTranscriptSegment({ id: data.id, start: data.start, end: data.end, text: data.text });
     }
-  }, 2000);
-}
+  },
 
-// ============================================================
-// Init
-// ============================================================
-connectSocket();
-Promise.all([loadAsrEngines(), loadTranslationEngines()])
-  .then(() => loadProfiles());
-loadLanguages();
-loadGlossaries();
+  transcription_complete(data) {
+    isTranscribing = false;
+    showToast(`轉錄完成：${data.segment_count || 0} 段`, 'success', 3000);
+  },
+
+  transcription_error(data) {
+    isTranscribing = false;
+    showToast(`轉錄失敗：${data.error || '未知錯誤'}`, 'error');
+  },
+
+  translation_progress(data) {
+    if (!data || !data.file_id) return;
+    const id = data.file_id;
+    fileProgress[id] = Object.assign({}, fileProgress[id] || {}, {
+      pct:     Math.round(data.percent || 0),
+      elapsed: data.elapsed_seconds,
+    });
+    const fill = document.getElementById(`fc-fill-${id}`);
+    const pct  = document.getElementById(`fc-pct-${id}`);
+    if (fill) fill.style.width = `${fileProgress[id].pct}%`;
+    if (pct)  pct.textContent  = `${fileProgress[id].pct}%`;
+
+    // Show progress strip
+    const prog = document.getElementById(`fc-progress-${id}`);
+    if (prog) prog.classList.add('visible');
+  },
+
+  pipeline_timing(data) {
+    if (!data) return;
+    const parts = [];
+    if (data.asr_seconds != null)         parts.push(`ASR ${data.asr_seconds.toFixed(1)}s`);
+    if (data.translation_seconds != null) parts.push(`翻譯 ${data.translation_seconds.toFixed(1)}s`);
+    if (data.total_seconds != null)       parts.push(`總計 ${data.total_seconds.toFixed(1)}s`);
+    if (parts.length === 0) return;
+    showToast(`⏱ ${parts.join(' · ')}`, 'info', 5000);
+  },
+
+}, {
+  onConnect:    () => {},
+  onDisconnect: () => {},
+});
+
+/* ══════════════════════════════════════════════════
+   beforeunload guard
+══════════════════════════════════════════════════ */
+window.addEventListener('beforeunload', e => {
+  if (isTranscribing) {
+    e.preventDefault();
+    e.returnValue = '轉錄進行中，確定離開？';
+  }
+});
+
+/* ══════════════════════════════════════════════════
+   Init
+══════════════════════════════════════════════════ */
+loadProfiles();
 </script>
 </body>
 </html>
