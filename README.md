@@ -1,4 +1,4 @@
-# 🎙 廣播字幕製作系統
+# 🎙 MoTitle — 廣播字幕製作系統
 
 基於 [OpenAI Whisper](https://github.com/openai/whisper) 及本地 AI 翻譯模型嘅專業字幕製作工具。將英文影片自動轉錄、翻譯為**繁體中文（粵語/書面語）**字幕，經人工校對後燒入影片輸出。
 
@@ -315,7 +315,7 @@ ollama signin
 ## 項目結構
 
 ```
-whisper-subtitle-ai/
+motitle/
 ├── backend/
 │   ├── app.py              # Flask 後端服務器（REST API + WebSocket）
 │   ├── profiles.py         # Profile 管理模組（ASR + 翻譯 + 字體配置）
