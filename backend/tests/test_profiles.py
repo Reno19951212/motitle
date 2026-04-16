@@ -285,3 +285,31 @@ def test_api_get_active_when_none(client):
     resp = client.get("/api/profiles/active")
     assert resp.status_code == 200
     assert resp.get_json()["profile"] is None
+
+
+# ============================================================
+# Bug regression tests
+# ============================================================
+
+def test_update_profile_font_null_raises_value_error_not_type_error(tmp_path):
+    """PATCH {"font": null} must raise ValueError (validation), not TypeError (crash).
+
+    Regression test for: ProfileManager.update() performing font deep-merge
+    ({**existing["font"], **None}) before calling validate(), causing a TypeError
+    instead of a clean validation error.
+
+    The bug only triggers when the existing profile already has a font dict set,
+    because the deep-merge condition checks both "font" in data AND "font" in existing.
+    """
+    from profiles import ProfileManager
+    mgr = ProfileManager(tmp_path)
+
+    # Create a profile that already has a font block (this is the precondition
+    # that makes the deep-merge path execute and crash with TypeError).
+    profile_with_font = {**VALID_PROFILE, "font": {"family": "Arial", "size": 36}}
+    created = mgr.create(profile_with_font)
+
+    # Sending font=None should be rejected by validation (font must be a dict),
+    # but must NOT crash with a TypeError from the deep-merge.
+    with pytest.raises(ValueError):
+        mgr.update(created["id"], {"font": None})
