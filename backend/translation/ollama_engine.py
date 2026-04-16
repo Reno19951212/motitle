@@ -193,9 +193,10 @@ class OllamaTranslationEngine(TranslationEngine):
         else:
             # Parallel path — context_window disabled (order non-deterministic)
             lock = threading.Lock()
-            completed_count = [0]
+            completed_count = 0
 
             def _run_batch(batch):
+                nonlocal completed_count
                 result = self._translate_batch(
                     batch, glossary, style, effective_temp, []
                 )
@@ -214,10 +215,10 @@ class OllamaTranslationEngine(TranslationEngine):
                         for j, r in enumerate(result)
                     ]
                 with lock:
-                    completed_count[0] += len(result)
+                    completed_count += len(result)
                     if progress_callback is not None:
                         try:
-                            progress_callback(completed_count[0], total)
+                            progress_callback(completed_count, total)
                         except Exception:
                             pass
                 return result

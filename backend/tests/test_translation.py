@@ -1321,22 +1321,11 @@ def test_parallel_batches_returns_same_segment_count(monkeypatch):
         for i in range(6)
     ]
 
-    def fake_call(self_or_prompt, prompt_or_sys=None, system_prompt=None, temperature=None):
-        # Handle both bound and unbound calls
-        if isinstance(self_or_prompt, str):
-            prompt = self_or_prompt
-        else:
-            prompt = prompt_or_sys or ""
-        import re
-        nums = re.findall(r"^\d+\.", prompt, re.MULTILINE)
-        lines = [f"{n[:-1]}. 翻譯 {n[:-1]}" for n in nums]
-        return "\n".join(lines)
-
     engine = OllamaTranslationEngine({"engine": "mock-ollama"})
 
-    def simple_fake_call(prompt, system_prompt, temperature):
+    def simple_fake_call(system_prompt, user_message, temperature):
         import re
-        nums = re.findall(r"^\d+\.", prompt, re.MULTILINE)
+        nums = re.findall(r"^\d+\.", user_message, re.MULTILINE)
         lines = [f"{n[:-1]}. 翻譯 {n[:-1]}" for n in nums]
         return "\n".join(lines)
 
