@@ -271,6 +271,8 @@ Whenever a new feature is completed or existing functionality is modified, you *
 - **Whisper Layer 1 Segment Control**: ASR 引擎 schema 加入三個 faster-whisper 原生分段參數（`max_new_tokens`／每句字幕長度上限、`condition_on_previous_text`、`vad_filter`），透過 Profile 表單動態參數面板控制；前端新增 boolean 類型欄位支援同 nullable integer placeholder
 - **Legacy UI cleanup**: 移除 sidebar 遺留嘅 `#modelSelect` Whisper 模型選擇器及相關函數（`preloadModel()`、`populateModelSelect()`、`updateModelHint()`）；Profile 系統已接管所有引擎控制，legacy 控制項已無用
 - **Ollama Cloud 模型支援**：新增 3 個 cloud engine（`glm-4.6-cloud`、`qwen3.5-397b-cloud`、`gpt-oss-120b-cloud`），透過現有 Ollama CLI `signin` 機制存取；前端 Profile 翻譯引擎 dropdown 分「本地模型」同「雲端模型（需要 ollama signin）」兩個 `<optgroup>`，未可用嘅選項顯示 `⚠` + tooltip 提示
+- **MP4/MXF 渲染 Bug 修正**：修正 6 個渲染相關 bug：(1) `renderer.render()` 返回 `(bool, Optional[str])` tuple 而非 bool，FFmpeg stderr 正確傳遞；(2) render job 加入 `output_filename` 欄位（格式：`{stem}_subtitled.{ext}`）；(3) `send_file()` 加入 `download_name` 參數確保正確檔名；(4) `proofread.html` 修正 `approved` 欄位映射（`seg.status === 'approved'`）；(5) `loadMedia()` 在影片載入失敗時 resolve 而非 reject；(6) 渲染按鈕 click handler 修正 `fileId` → `state.fileId` scope 問題（關鍵 bug：`const fileId` 在 `init()` 內，click handler 在外層 scope，`'use strict'` 下拋出 `ReferenceError` 導致渲染完全失效）
+- **257 automated tests**（+100 new: renderer tuple contract, render API output_filename, Playwright E2E render flow）
 
 ### v2.1 — Language Config, Frontend UI, Bug Fixes
 - **Language config system**: Per-language ASR params (max_words_per_segment, max_segment_duration) and translation params (batch_size, temperature) with validation

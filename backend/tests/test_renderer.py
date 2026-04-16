@@ -109,3 +109,68 @@ def test_get_default_font_config(tmp_path):
     from renderer import DEFAULT_FONT_CONFIG
     assert DEFAULT_FONT_CONFIG["family"] == "Noto Sans TC"
     assert DEFAULT_FONT_CONFIG["size"] == 48
+
+
+# ===== render() return-value contract =====
+
+def test_render_returns_tuple_on_ffmpeg_not_found(tmp_path, monkeypatch):
+    """render() returns (False, <error_str>) when ffmpeg binary is missing."""
+    import subprocess as sp
+    from renderer import SubtitleRenderer
+
+    def fake_run(*args, **kwargs):
+        raise FileNotFoundError("No such file or directory: 'ffmpeg'")
+
+    monkeypatch.setattr(sp, "run", fake_run)
+
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT)
+    result = renderer.render("/fake/video.mp4", ass, str(tmp_path / "out.mp4"), "mp4")
+
+    assert isinstance(result, tuple), "render() must return a tuple"
+    success, error = result
+    assert success is False
+    assert error is not None
+    assert isinstance(error, str)
+
+
+def test_render_returns_tuple_on_ffmpeg_error(tmp_path, monkeypatch):
+    """render() returns (False, stderr) when ffmpeg exits non-zero."""
+    import subprocess as sp
+    from renderer import SubtitleRenderer
+
+    class FakeResult:
+        returncode = 1
+        stderr = "ffmpeg: error opening filters!"
+
+    monkeypatch.setattr(sp, "run", lambda *a, **kw: FakeResult())
+
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT)
+    result = renderer.render("/fake/video.mp4", ass, str(tmp_path / "out.mp4"), "mp4")
+
+    assert isinstance(result, tuple)
+    success, error = result
+    assert success is False
+    assert "ffmpeg: error opening filters!" in error
+
+
+def test_render_returns_true_none_on_success(tmp_path, monkeypatch):
+    """render() returns (True, None) when ffmpeg exits zero."""
+    import subprocess as sp
+    from renderer import SubtitleRenderer
+
+    class FakeResult:
+        returncode = 0
+        stderr = ""
+
+    monkeypatch.setattr(sp, "run", lambda *a, **kw: FakeResult())
+
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT)
+    result = renderer.render("/fake/video.mp4", ass, str(tmp_path / "out.mp4"), "mp4")
+
+    assert isinstance(result, tuple)
+    success, error = result
+    assert success is True
+    assert error is None

@@ -825,7 +825,7 @@
       end: seg.end ?? seg.end_time ?? 0,
       en_text: seg.en_text ?? seg.original_text ?? seg.text ?? '',
       zh_text: seg.zh_text ?? seg.translated_text ?? '',
-      approved: Boolean(seg.approved),
+      approved: seg.status === 'approved' || Boolean(seg.approved),
     }));
 
     setState({
@@ -843,13 +843,18 @@
     const mediaUrl = `${API_BASE}/api/files/${encodeURIComponent(fileId)}/media`;
     videoEl.src = mediaUrl;
 
-    await new Promise((resolve, reject) => {
-      videoEl.addEventListener('loadedmetadata', resolve, { once: true });
-      videoEl.addEventListener('error', () => reject(new Error('影片載入失敗，請確認檔案存在')), { once: true });
+    await new Promise((resolve) => {
+      videoEl.addEventListener('loadedmetadata', () => {
+        videoPlaceholder.style.display = 'none';
+        videoEl.style.display = 'block';
+        resolve();
+      }, { once: true });
+      videoEl.addEventListener('error', () => {
+        // Video failed to load — keep the placeholder and continue without blocking init
+        console.warn('Video failed to load; showing placeholder.');
+        resolve();
+      }, { once: true });
     });
-
-    videoPlaceholder.style.display = 'none';
-    videoEl.style.display = 'block';
   }
 
   function hideLoading() {
@@ -1207,7 +1212,7 @@
       const resp = await fetch(`${API_BASE}/api/render`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({file_id: fileId, format: format}),
+        body: JSON.stringify({file_id: state.fileId, format: format}),
       });
 
       if (!resp.ok) {
