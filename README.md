@@ -382,6 +382,40 @@ whisper-subtitle-ai/
 
 ---
 
+## 效能調校
+
+### 並發批次翻譯（parallel_batches）
+
+Profile 的翻譯設定支援 `parallel_batches`（預設 1）。設定後，翻譯引擎會同時發送多個 batch 請求，縮短總翻譯時間。
+
+| 使用情境 | 建議值 |
+|---------|--------|
+| 本地 Ollama（3B/7B 模型） | 1–2 |
+| 雲端模型（qwen3.5-397b-cloud 等） | 3–5 |
+
+在 Profile 編輯器的「翻譯設定」區塊設定「並發批次」欄位即可。
+
+> **注意：** 使用本地 Ollama 時，需同時設定 `OLLAMA_NUM_PARALLEL` 環境變量，數值須 ≥ `parallel_batches`：
+>
+> ```bash
+> OLLAMA_NUM_PARALLEL=2 ollama serve
+> ```
+>
+> 16 GB RAM 的 Apple Silicon Mac 跑 7B 模型時，建議不超過 2，以免記憶體不足。  
+> 雲端模型（`ollama signin` 後使用）無此限制，可設至 3–5。
+
+### 處理時間顯示
+
+每次翻譯完成後，介面會顯示各階段耗時：
+
+```
+ASR: 8s ｜ 翻譯: 34s ｜ 總計: 42s
+```
+
+翻譯進行中也會即時顯示已用時間，方便確認處理速度是否符合預期。
+
+---
+
 ## API 參考
 
 後端提供以下 REST 端點（基礎 URL：`http://localhost:5001`）：
