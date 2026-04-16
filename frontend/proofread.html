@@ -1310,6 +1310,54 @@
     if (tr) tr.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 
+  async function replaceOne() {
+    const cur = findState.currentMatchIdx;
+    if (cur < 0 || cur >= findState.matchList.length) return;
+    const match = findState.matchList[cur];
+    if (match.field !== 'zh') return;  // only zh_text is replaceable
+
+    const seg = state.segments[match.segIdx];
+    if (!seg) return;
+
+    const q = findState.query;
+    const rep = findState.replacement;
+    const oldText = seg.zh_text || '';
+
+    // Replace only this specific occurrence (by its start position)
+    const newText = oldText.slice(0, match.start) + rep + oldText.slice(match.start + match.len);
+
+    // Optimistic update
+    updateSegment(match.segIdx, { zh_text: newText });
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/files/${encodeURIComponent(state.fileId)}/translations/${match.segIdx}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ zh_text: newText }),
+        }
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `替換失敗 (HTTP ${res.status})`);
+      }
+      // Re-run find from current position, then advance
+      const prevIdx = findState.currentMatchIdx;
+      runFind();
+      const newTotal = findState.matchList.length;
+      setFindState({ currentMatchIdx: newTotal === 0 ? -1 : Math.min(prevIdx, newTotal - 1) });
+      applyHighlights();
+      updateFindUI();
+      scrollToCurrentMatch();
+    } catch (err) {
+      // Rollback
+      updateSegment(match.segIdx, { zh_text: oldText });
+      refreshRow(match.segIdx);
+      showToast(`替換失敗：${err.message}`, 'error');
+    }
+  }
+
   // ===== DOM references =====
 
   const loadingOverlay = document.getElementById('loadingOverlay');
@@ -2197,6 +2245,9 @@
     if (prevBtn) prevBtn.addEventListener('click', () => navigateMatch(-1));
     const nextBtn = document.getElementById('findNextBtn');
     if (nextBtn) nextBtn.addEventListener('click', () => navigateMatch(1));
+
+    const replaceOneBtn = document.getElementById('findReplaceOneBtn');
+    if (replaceOneBtn) replaceOneBtn.addEventListener('click', replaceOne);
 
     const findInput = document.getElementById('findInput');
     if (findInput) {
