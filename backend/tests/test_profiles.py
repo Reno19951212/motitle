@@ -434,3 +434,60 @@ def test_create_and_update_profile_sets_updated_at(tmp_path):
     on_disk_after = mgr.get(created["id"])
     assert "updated_at" in on_disk_after, "updated_at must be persisted to disk by update()"
     assert on_disk_after["updated_at"] == updated["updated_at"]
+
+
+# ============================================================
+# parallel_batches validation
+# ============================================================
+
+def _make_valid_data():
+    return {
+        "name": "Test",
+        "asr": {"engine": "whisper", "language": "en"},
+        "translation": {"engine": "mock"},
+    }
+
+
+def test_parallel_batches_absent_is_valid(tmp_path):
+    """parallel_batches is optional — absent profile must validate cleanly."""
+    from profiles import ProfileManager
+    pm = ProfileManager(tmp_path)
+    errors = pm.validate(_make_valid_data())
+    assert errors == []
+
+
+def test_parallel_batches_valid_range(tmp_path):
+    """parallel_batches 1–8 are all valid."""
+    from profiles import ProfileManager
+    pm = ProfileManager(tmp_path)
+    for n in [1, 2, 4, 8]:
+        data = _make_valid_data()
+        data["translation"]["parallel_batches"] = n
+        assert pm.validate(data) == [], f"Expected no errors for parallel_batches={n}"
+
+
+def test_parallel_batches_zero_invalid(tmp_path):
+    from profiles import ProfileManager
+    pm = ProfileManager(tmp_path)
+    data = _make_valid_data()
+    data["translation"]["parallel_batches"] = 0
+    errors = pm.validate(data)
+    assert any("parallel_batches" in e for e in errors)
+
+
+def test_parallel_batches_nine_invalid(tmp_path):
+    from profiles import ProfileManager
+    pm = ProfileManager(tmp_path)
+    data = _make_valid_data()
+    data["translation"]["parallel_batches"] = 9
+    errors = pm.validate(data)
+    assert any("parallel_batches" in e for e in errors)
+
+
+def test_parallel_batches_non_int_invalid(tmp_path):
+    from profiles import ProfileManager
+    pm = ProfileManager(tmp_path)
+    data = _make_valid_data()
+    data["translation"]["parallel_batches"] = "2"
+    errors = pm.validate(data)
+    assert any("parallel_batches" in e for e in errors)

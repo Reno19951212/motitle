@@ -311,4 +311,11 @@ def _validate_translation(translation: dict) -> list:
             f"must be one of {sorted(VALID_TRANSLATION_ENGINES)}"
         )
 
+    parallel_batches = translation.get("parallel_batches")
+    if parallel_batches is not None:
+        if not isinstance(parallel_batches, int) or not (1 <= parallel_batches <= 8):
+            errors.append(
+                "translation.parallel_batches must be an integer between 1 and 8"
+            )
+
     return errors
