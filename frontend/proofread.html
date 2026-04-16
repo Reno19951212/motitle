@@ -1468,6 +1468,117 @@
     }
   }
 
+  async function applyGlossary() {
+    const glossaryId = findState.selectedGlossaryId;
+    if (!glossaryId) return;
+
+    let entries = [];
+    try {
+      const res = await fetch(`${API_BASE}/api/glossaries/${encodeURIComponent(glossaryId)}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      entries = data.entries || [];
+    } catch (err) {
+      showToast(`無法載入詞表內容：${err.message}`, 'error');
+      return;
+    }
+
+    if (entries.length === 0) {
+      showToast('所選詞表沒有詞條', 'info');
+      return;
+    }
+
+    // Detect violations: en_text contains entry.en AND zh_text does NOT contain entry.zh
+    const violations = [];
+    state.segments.forEach(seg => {
+      const enLower = (seg.en_text || '').toLowerCase();
+      entries.forEach(entry => {
+        if (!entry.en || !entry.zh) return;
+        if (enLower.includes(entry.en.toLowerCase())) {
+          if (!(seg.zh_text || '').includes(entry.zh)) {
+            violations.push({ seg, entry });
+          }
+        }
+      });
+    });
+
+    if (violations.length === 0) {
+      showToast('所有段落均符合詞表，無需替換', 'success');
+      return;
+    }
+
+    showGlossaryModal(violations);
+  }
+
+  function showGlossaryModal(violations) {
+    const overlay = document.getElementById('glossaryModalOverlay');
+    const title = document.getElementById('glossaryModalTitle');
+    const list = document.getElementById('glossaryViolationList');
+    if (!overlay || !title || !list) return;
+
+    title.textContent = `發現 ${violations.length} 處詞表不符：`;
+    list.innerHTML = violations.map(({ seg, entry }) =>
+      `<div>#${seg.idx + 1} &nbsp;「${escapeHtml(entry.en)}」→ 建議加入「${escapeHtml(entry.zh)}」</div>`
+    ).join('');
+
+    overlay.classList.add('open');
+
+    const applyBtn = document.getElementById('glossaryModalApplyBtn');
+    const cancelBtn = document.getElementById('glossaryModalCancelBtn');
+    if (!applyBtn || !cancelBtn) return;
+
+    function closeModal() {
+      overlay.classList.remove('open');
+      applyBtn.removeEventListener('click', onApply);
+      cancelBtn.removeEventListener('click', closeModal);
+    }
+
+    async function onApply() {
+      closeModal();
+      await batchApplyGlossary(violations);
+    }
+
+    applyBtn.addEventListener('click', onApply);
+    cancelBtn.addEventListener('click', closeModal);
+  }
+
+  async function batchApplyGlossary(violations) {
+    let appliedCount = 0;
+
+    for (let i = 0; i < violations.length; i++) {
+      const { seg, entry } = violations[i];
+      const existing = seg.zh_text || '';
+      const newText = existing ? `${existing} ${entry.zh}` : entry.zh;
+
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/files/${encodeURIComponent(state.fileId)}/translations/${seg.idx}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ zh_text: newText }),
+          }
+        );
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error || `PATCH 失敗 (HTTP ${res.status})`);
+        }
+        updateSegment(seg.idx, { zh_text: newText });
+        refreshRow(seg.idx);
+        appliedCount++;
+      } catch (err) {
+        showToast(`替換中斷（第 ${appliedCount + 1} 處失敗）：${err.message}`, 'error');
+        return;
+      }
+    }
+
+    showToast(`已套用 ${appliedCount} 處詞表`, 'success');
+    // Re-run find if toolbar is showing search results
+    if (findState.query) {
+      runFind(); applyHighlights(); updateFindUI();
+    }
+  }
+
   // ===== DOM references =====
 
   const loadingOverlay = document.getElementById('loadingOverlay');
@@ -2369,6 +2480,9 @@
         updateApplyGlossaryBtn();
       });
     }
+
+    const applyGlossaryBtn = document.getElementById('findApplyGlossaryBtn');
+    if (applyGlossaryBtn) applyGlossaryBtn.addEventListener('click', applyGlossary);
 
     const findInput = document.getElementById('findInput');
     if (findInput) {
