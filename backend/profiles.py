@@ -119,7 +119,7 @@ class ProfileManager:
         """
         errors = self.validate(data)
         if errors:
-            raise ValueError(f"Invalid profile data: {errors}")
+            raise ValueError(errors)
 
         profile_id = str(uuid.uuid4())
         profile = {**data, "id": profile_id, "created_at": time.time()}
@@ -180,7 +180,7 @@ class ProfileManager:
 
         errors = self.validate(merged)
         if errors:
-            raise ValueError(f"Invalid profile data: {errors}")
+            raise ValueError(errors)
 
         self._write_profile(profile_id, merged)
         return merged
