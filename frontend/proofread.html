@@ -780,6 +780,7 @@
       padding: 3px 8px;
     }
     .find-nav-btn:hover { border-color: var(--accent); }
+    .find-nav-btn:disabled { opacity: 0.45; cursor: not-allowed; }
     .find-close-btn {
       background: transparent;
       border: none;
@@ -822,7 +823,7 @@
       position: fixed;
       inset: 0;
       background: rgba(0,0,0,0.6);
-      z-index: 1000;
+      z-index: 2000;
       align-items: center;
       justify-content: center;
     }
@@ -852,6 +853,11 @@
       justify-content: flex-end;
       gap: 8px;
     }
+    .btn-primary {
+      background: var(--accent);
+      color: #0a0a0f;
+    }
+    .btn-primary:hover { background: var(--accent2); transform: translateY(-1px); }
   </style>
 </head>
 <body>
