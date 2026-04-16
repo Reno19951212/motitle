@@ -64,7 +64,7 @@ A browser-based broadcast subtitle production pipeline that converts English vid
 ## Repository Structure
 
 ```
-whisper-subtitle-ai/
+motitle/
 ├── backend/
 │   ├── app.py                  # Flask server — REST API + WebSocket events
 │   ├── profiles.py             # Profile management (ASR + Translation model routing)
