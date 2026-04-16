@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI 字幕轉換 APP</title>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="js/font-preview.js"></script>
   <style>
     /* ===== CSS Variables ===== */
     :root {
@@ -150,34 +151,17 @@
     /* ===== Subtitle Overlay ===== */
     .subtitle-overlay {
       position: absolute;
-      bottom: 0;
+      bottom: var(--preview-margin-bottom, 40px);
       left: 0;
       right: 0;
       display: flex;
       justify-content: center;
-      padding: 0 5% 4%;
       pointer-events: none;
     }
 
-    .subtitle-text {
-      background: var(--subtitle-bg);
-      color: var(--subtitle-text);
-      font-size: clamp(14px, 2.5vw, 24px);
-      font-weight: 600;
-      padding: 8px 20px;
-      border-radius: 6px;
-      text-align: center;
+    .subtitle-svg {
       max-width: 90%;
-      line-height: 1.5;
-      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
-      opacity: 0;
-      transform: translateY(8px);
-      transition: opacity 0.35s ease, transform 0.35s ease;
-      letter-spacing: 0.5px;
-    }
-    .subtitle-text.visible {
-      opacity: 1;
-      transform: translateY(0);
+      overflow: visible;
     }
 
     /* ===== Placeholder ===== */
@@ -1150,7 +1134,19 @@
 
           <!-- Subtitle Overlay -->
           <div class="subtitle-overlay">
-            <div class="subtitle-text" id="subtitleText"></div>
+            <svg class="subtitle-svg" id="subtitleSvg"
+                 xmlns="http://www.w3.org/2000/svg"
+                 width="100%" height="60" overflow="visible">
+              <text id="subtitleSvgText"
+                    x="50%" y="50"
+                    text-anchor="middle"
+                    font-weight="600"
+                    paint-order="stroke fill"
+                    stroke-linejoin="round"
+                    opacity="0"
+                    style="transition: opacity 0.35s ease;">
+              </text>
+            </svg>
           </div>
         </div>
 
@@ -1388,6 +1384,7 @@ function connectSocket() {
     reconnectionDelay: 2000,
     reconnectionAttempts: 10
   });
+  FontPreview.init(socket);
 
   socket.on('connect', () => {
     setConnectionStatus(true);
@@ -1956,19 +1953,16 @@ function scheduleSubtitle(segment) {
 function showSubtitleText(text) {
   if (!text?.trim()) return;
 
-  const el = document.getElementById('subtitleText');
   const duration = subtitleDuration * 1000;
 
-  el.textContent = text;
-  el.classList.add('visible');
+  FontPreview.updateText(text);
 
   if (subtitleTimeout) clearTimeout(subtitleTimeout);
   subtitleTimeout = setTimeout(hideSubtitle, duration);
 }
 
 function hideSubtitle() {
-  const el = document.getElementById('subtitleText');
-  el.classList.remove('visible');
+  FontPreview.updateText('');
 }
 
 // ============================================================
@@ -1989,12 +1983,10 @@ document.getElementById('videoPlayer').addEventListener('timeupdate', function()
     currentTime <= (s.end   + d + 0.3)  // 0.3s grace to avoid flicker
   );
 
-  const el = document.getElementById('subtitleText');
   if (active && active.text?.trim()) {
-    el.textContent = active.text;
-    el.classList.add('visible');
+    FontPreview.updateText(active.text);
   } else {
-    el.classList.remove('visible');
+    FontPreview.updateText('');
   }
 
   // Highlight the matching transcript row (without delay offset — the row
@@ -3408,7 +3400,6 @@ function updateDuration(val) {
 }
 
 function updateFontSize(val) {
-  document.getElementById('subtitleText').style.fontSize = `${val}px`;
   document.getElementById('fontSizeValue').textContent = `${val}px`;
 }
 
