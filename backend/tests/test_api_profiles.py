@@ -77,7 +77,9 @@ def test_patch_active_profile_emits_profile_updated(profile_client):
         assert 'profile_updated' in event_names
 
         update_call = next(c for c in mock_emit.call_args_list if c[0][0] == 'profile_updated')
-        assert update_call[0][1]['font']['size'] == 60
+        font = update_call[0][1]['font']
+        assert font['size'] == 60
+        assert font['family'] == 'Arial'  # full merged config, not just patched field
 
 
 def test_patch_inactive_profile_does_not_emit(profile_client):
