@@ -88,8 +88,8 @@ class SubtitleRenderer:
         )
 
         for seg in segments:
-            # L10: skip zero-duration segments — ASS renderers mishandle them
-            if seg["start"] == seg["end"]:
+            # L10: skip zero/reversed-duration segments — ASS renderers mishandle them
+            if seg["start"] >= seg["end"]:
                 continue
             start = seconds_to_ass_time(seg["start"])
             end = seconds_to_ass_time(seg["end"])
@@ -161,9 +161,12 @@ class SubtitleRenderer:
 
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
             if result.returncode == 0:
-                # L12: FFmpeg can exit 0 while printing fatal errors to stderr in rare cases
+                # L12: FFmpeg can exit 0 with fatal-level stderr in rare edge cases.
+                # Use specific terminal phrases only — broad terms like "error" or "invalid"
+                # also appear in normal verbose output (codec params, timestamp warnings).
+                _FFMPEG_FATAL = ("conversion failed!", "no streams were found", "invalid option")
                 stderr_lower = (result.stderr or "").lower()
-                if any(p in stderr_lower for p in ("error", "invalid", "no such file")):
+                if any(p in stderr_lower for p in _FFMPEG_FATAL):
                     return False, f"FFmpeg reported errors: {result.stderr[:200]}"
                 return True, None
             return False, result.stderr or "FFmpeg exited with a non-zero status"

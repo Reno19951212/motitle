@@ -215,8 +215,7 @@ class ProfileManager:
 
         If the profile file was deleted externally (not via delete()), the stale
         active_profile ID is cleared from settings.json before returning None so
-        that callers can distinguish "never set" from "was set but file is gone",
-        and subsequent calls skip a pointless file-read.
+        that subsequent calls skip a redundant file-read.
         """
         settings = self._read_settings()
         active_id = settings.get("active_profile")

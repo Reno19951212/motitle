@@ -304,7 +304,7 @@ def test_render_returns_false_on_returncode_0_with_stderr_error(tmp_path, monkey
 
     class FakeResult:
         returncode = 0
-        stderr = "Error: invalid codec parameters"
+        stderr = "Conversion failed!"
 
     monkeypatch.setattr(sp, "run", lambda *a, **kw: FakeResult())
 
