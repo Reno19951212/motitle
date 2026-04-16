@@ -164,6 +164,8 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | `file_added` | `{id, original_name, ...}` | New file uploaded |
 | `file_updated` | `{id, status, translation_status, ...}` | File status changed |
 | `profile_updated` | `{font: {family, size, color, outline_color, outline_width, margin_bottom}}` | Active profile activated or font config updated |
+| `translation_progress` | `{file_id, completed, total, percent, elapsed_seconds}` | Each translation batch completes |
+| `pipeline_timing` | `{file_id, asr_seconds: float\|null, translation_seconds: float, total_seconds: float}` | Translation completes (auto-translate path only) |
 
 **WebSocket events (client → server)**
 | Event | Payload |
@@ -279,6 +281,8 @@ Whenever a new feature is completed or existing functionality is modified, you *
 - **Preview Font Sync**: SVG subtitle overlays in `index.html` and `proofread.html` now reflect Active Profile font config (family, size, color, outline, margin) in real-time via Socket.IO `profile_updated` event; replaced hardcoded CSS div with SVG `<text paint-order="stroke fill">` for true per-character outline matching ASS renderer output
 - **274 automated tests**（+3 new: profile_updated emit on activate, PATCH-active, PATCH-inactive）
 - **Find & Replace + Apply Glossary**: Find & Replace toolbar in `proofread.html` — search zh/en columns with live highlight, match navigation (▲/▼, Enter/Shift+Enter), Replace One/All (zh_text only), 只搜未批核 checkbox, Apply Glossary (violation detection + preview modal + batch PATCH). Opened via `Cmd+F`. No backend changes.
+- **Processing Time Visibility + Parallel Batch Translation**: `asr_seconds` stored in file registry after transcription; `elapsed_seconds` added to `translation_progress` event; new `pipeline_timing` WebSocket event on translation completion shows ASR/translation/total breakdown; `parallel_batches` parameter (1–8) in Profile translation block enables `ThreadPoolExecutor` parallelism in `OllamaTranslationEngine`; context window disabled in parallel mode; Profile form field with hint text.
+- **303 automated tests**（+29 new: parallel_batches validation, parallel translation, pipeline timing）
 
 ### v2.1 — Language Config, Frontend UI, Bug Fixes
 - **Language config system**: Per-language ASR params (max_words_per_segment, max_segment_duration) and translation params (batch_size, temperature) with validation

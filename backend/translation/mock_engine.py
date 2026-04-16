@@ -15,6 +15,7 @@ class MockTranslationEngine(TranslationEngine):
         batch_size: Optional[int] = None,
         temperature: Optional[float] = None,
         progress_callback=None,
+        parallel_batches: int = 1,
     ) -> List[TranslatedSegment]:
         result = [
             TranslatedSegment(start=seg["start"], end=seg["end"], en_text=seg["text"], zh_text=f"[EN\u2192ZH] {seg['text']}")
