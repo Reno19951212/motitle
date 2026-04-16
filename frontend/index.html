@@ -1167,9 +1167,9 @@
         <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
           <div class="upload-icon">⬆</div>
           <div>拖放或點擊選擇文件</div>
-          <div class="upload-hint">支持: MP4 · MOV · AVI · MKV · WebM · MP3 · WAV · M4A</div>
+          <div class="upload-hint">支持: MP4 · MXF · MOV · AVI · MKV · WebM · MP3 · WAV · M4A</div>
         </div>
-        <input type="file" id="fileInput" accept="video/*,audio/*" style="display:none"
+        <input type="file" id="fileInput" accept="video/*,audio/*,.mxf" style="display:none"
                onchange="handleFileSelect(event)">
 
         <!-- Pending file (selected but not yet uploaded) -->
