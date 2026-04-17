@@ -24,11 +24,54 @@
 
 ## 系統需求
 
-- **Python** 3.8 或以上
+- **Python** 3.8 或以上（推薦 3.11）
 - **FFmpeg**（用於從影片提取音頻及燒入字幕）
 - **Ollama**（本地 LLM 翻譯引擎）— [下載](https://ollama.com/download)
 - **pip**（Python 套件管理工具）
 - 現代瀏覽器（Chrome / Firefox / Safari / Edge）
+
+### Windows 安裝 Python + FFmpeg
+
+Windows 預設**冇**安裝 Python（PATH 入面嘅 `python` 只係 Microsoft Store 嘅 stub），亦冇 FFmpeg。建議透過 `winget` 一次過安裝：
+
+```powershell
+winget install --id Python.Python.3.11 -e --source winget
+winget install --id Gyan.FFmpeg -e --source winget
+```
+
+安裝後請重啟 shell（或登出再登入）令 PATH 生效，再執行 `python --version` 同 `ffmpeg -version` 確認。
+
+#### Windows 常見問題
+
+**1. `pip install -r requirements.txt` build 失敗（`pyalsaaudio` / `opus-fast-mosestokenizer`）**
+
+`whisper-streaming` 依賴 `pyalsaaudio`（Linux-only ALSA）及 `opus-fast-mosestokenizer`（需 C++ 編譯環境），兩者喺 Windows 會 build 失敗。由於 v2.0 已移除串流模式（`app.py` 嘅 import 有 `try/except` 保護），可以**跳過**此依賴，改為直接安裝其餘套件：
+
+```bash
+source backend/venv/Scripts/activate
+pip install openai-whisper faster-whisper flask flask-cors flask-socketio \
+  werkzeug eventlet numpy torch torchaudio ffmpeg-python python-socketio \
+  gevent gevent-websocket pysbd opencc-python-reimplemented librosa soundfile
+```
+
+**2. 轉錄失敗：`Library cublas64_12.dll is not found or cannot be loaded`**
+
+若系統裝咗 NVIDIA 顯示驅動但**未裝 CUDA Toolkit**，`faster-whisper` 嘅 `device: "auto"` 會偵測到 GPU 並嘗試載入 CUDA 12 runtime（`cublas64_12.dll`），結果失敗。解決方法有兩個：
+
+- **（推薦）強制用 CPU**：編輯當前 Profile，將 ASR 設定嘅「Device」由 `auto` 改為 `cpu`，重啟後端。或直接 `curl`：
+
+  ```bash
+  curl -X PATCH http://127.0.0.1:5001/api/profiles/<profile_id> \
+    -H "Content-Type: application/json" \
+    -d '{"asr":{"engine":"whisper","model_size":"small","language":"en","device":"cpu","condition_on_previous_text":true,"vad_filter":true,"language_config_id":"en"}}'
+  ```
+
+- **使用 GPU 加速**：安裝 [NVIDIA CUDA Toolkit 12.x](https://developer.nvidia.com/cuda-downloads) 及 cuDNN，確保 `cublas64_12.dll` 喺 PATH 上（通常位於 `C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.x\bin`）。安裝後 Profile `device` 可保留為 `auto` 或 `cuda`。
+
+### macOS / Linux
+
+- macOS：`brew install python@3.11 ffmpeg`
+- Ubuntu/Debian：`sudo apt-get install python3 python3-venv ffmpeg`
 
 ---
 
@@ -41,9 +84,11 @@
 ```
 
 安裝腳本會自動：
-- 檢查 Python 3 及 FFmpeg 是否已安裝
+- 檢查 Python 3 及 FFmpeg 是否已安裝（**請先完成「系統需求」章節嘅安裝步驟**）
 - 建立 Python 虛擬環境（`backend/venv/`）
 - 安裝所有 Python 依賴套件
+
+> **Windows 提示**：`whisper-streaming` 依賴 `pyalsaaudio`（Linux-only）及 `opus-fast-mosestokenizer`（需要 C++ 編譯環境），兩者喺 Windows 會 build 失敗。由於 v2.0 已移除串流模式，此依賴屬**選用**，可直接 `pip install -r requirements.txt` 失敗之後手動安裝其餘套件（或使用 `requirements.txt` 不含 `whisper-streaming` 嘅版本）。
 
 ### 第二步：安裝 Ollama 及翻譯模型
 

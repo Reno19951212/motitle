@@ -1,9 +1,9 @@
 #!/bin/bash
-# Whisper AI Web App - Setup Script
+# MoTitle - Setup Script
 set -e
 
 echo "=================================================="
-echo "  AI 字幕轉換 APP - 安裝設置"
+echo "  MoTitle — 廣播字幕製作系統 — 安裝設置"
 echo "=================================================="
 
 # Check Python

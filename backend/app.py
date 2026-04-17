@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Whisper AI Web Application - Backend Server
+MoTitle - Backend Server
 Supports video/audio file upload and live transcription to Traditional Chinese subtitles
 """
 
@@ -1962,7 +1962,7 @@ def streaming_available():
 
 if __name__ == '__main__':
     print("=" * 60)
-    print("AI 字幕轉換 APP - 後端服務器")
+    print("MoTitle - Backend Server")
     print("=" * 60)
     print(f"上傳目錄: {UPLOAD_DIR}")
     print(f"結果目錄: {RESULTS_DIR}")
