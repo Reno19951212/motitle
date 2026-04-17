@@ -1,5 +1,5 @@
 #!/bin/bash
-# Whisper AI Web App - Start Script
+# MoTitle - Start Script
 set -e
 
 SCRIPT_DIR="$(dirname "$0")"
@@ -7,7 +7,7 @@ BACKEND_DIR="$SCRIPT_DIR/backend"
 FRONTEND_DIR="$SCRIPT_DIR/frontend"
 
 echo "=================================================="
-echo "  AI 字幕轉換 APP"
+echo "  MoTitle — 廣播字幕製作系統"
 echo "=================================================="
 
 # Check venv

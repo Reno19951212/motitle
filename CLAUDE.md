@@ -9,10 +9,32 @@ This file is the authoritative development reference for Claude Code.
 
 ## Development Commands
 
+### Prerequisites
+
+Python 3.8+ (3.11 recommended) and FFmpeg must be on PATH before running `setup.sh`.
+
+**Windows** — install via winget (the default `python` in PATH is a Microsoft Store stub; it does not work):
+```powershell
+winget install --id Python.Python.3.11 -e --source winget
+winget install --id Gyan.FFmpeg -e --source winget
+```
+Restart the shell after install so PATH updates take effect.
+
+**macOS**: `brew install python@3.11 ffmpeg`
+**Linux (apt)**: `sudo apt-get install python3 python3-venv ffmpeg`
+
 ### Setup
 ```bash
 ./setup.sh                          # First-time: creates backend/venv, installs deps
 ```
+
+> On Windows, `whisper-streaming` (plus its transitive `pyalsaaudio` + `opus-fast-mosestokenizer`) fails to build — ALSA is Linux-only and the Moses tokenizer needs a C++ toolchain. Streaming mode was removed in v2.0 and the import is guarded in `app.py`, so install the other packages directly:
+> ```bash
+> source backend/venv/Scripts/activate   # Windows Git Bash path
+> pip install openai-whisper faster-whisper flask flask-cors flask-socketio \
+>   werkzeug eventlet numpy torch torchaudio ffmpeg-python python-socketio \
+>   gevent gevent-websocket pysbd opencc-python-reimplemented librosa soundfile
+> ```
 
 ### Running the backend
 ```bash
@@ -20,7 +42,8 @@ This file is the authoritative development reference for Claude Code.
 ./start.sh
 
 # Manually (from backend/)
-source venv/bin/activate
+source venv/bin/activate            # macOS/Linux
+source venv/Scripts/activate        # Windows (Git Bash)
 python app.py                       # Runs on http://localhost:5001
 ```
 
