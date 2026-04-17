@@ -287,7 +287,7 @@
       <h3 style="margin-bottom:16px;font-size:15px;">匯出設定</h3>
       <div id="renderOptions"></div>
       <div style="display:flex;gap:8px;margin-top:20px;justify-content:flex-end;">
-        <button class="btn" onclick="closeRenderModal()">取消</button>
+        <button class="btn" id="renderModalCancel" onclick="closeRenderModal()">取消</button>
         <button class="btn btn-primary" id="btnStartRender">開始渲染</button>
       </div>
     </div>
@@ -334,9 +334,11 @@
       fetch(`${API_BASE}/api/files/${fileId}/translations`),
       fetch(`${API_BASE}/api/glossaries`),
     ]);
+    const transData  = transRes.ok  ? await transRes.json()  : {};
+    const glossData  = glossRes.ok  ? await glossRes.json()  : {};
     state = Object.assign({}, state, {
-      segments:   transRes.ok ? await transRes.json() : [],
-      glossaries: glossRes.ok ? await glossRes.json() : [],
+      segments:   Array.isArray(transData.translations) ? transData.translations : [],
+      glossaries: Array.isArray(glossData.glossaries)   ? glossData.glossaries   : [],
     });
 
     renderTable();
