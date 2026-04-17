@@ -74,13 +74,13 @@ ollama pull qwen2.5:3b
 
 ### 1. 選擇 Profile
 
-在右側「設置」面板嘅「Pipeline Profile」下拉選單中選擇配置：
+頁首嘅 Profile 下拉選單可快速切換配置：
 - **Development** — Whisper tiny + Mock 翻譯（開發測試用）
 - **Broadcast Production** — Whisper + Qwen2.5 翻譯（正式使用）
 
-可直接喺側邊欄 Profile 管理介面**建立、編輯、刪除** Profile，或按下「＋ New Profile」按鈕建立新配置。點擊任何 Profile 列表行可立即激活該 Profile（綠點指示）。
+進入「設定」頁（`settings.html`）可**建立、編輯、刪除** Profile。Profile 分 4 個折疊區塊：基本資訊 / ASR 設定 / 翻譯設定 / 字體設定。
 
-- **引擎選擇**：編輯 Profile 時，ASR 和翻譯引擎選單會從後端動態載入，顯示每個引擎的可用狀態（綠點 = 可用、灰點 = 不可用）。切換引擎後，對應的參數欄位會自動更新。
+- **引擎選擇**：ASR 和翻譯引擎選單從後端動態載入，顯示可用狀態（綠點 = 可用、灰點 = 不可用）。切換引擎後，參數欄位自動更新。
 
 ### 2. 上傳英文影片
 
@@ -106,16 +106,16 @@ ollama pull qwen2.5:3b
 **鍵盤快捷鍵：**
 | 按鍵 | 功能 |
 |------|------|
-| ↑↓ | 切換段落 |
-| Enter | 批核當前段落 |
-| E | 編輯翻譯 |
-| Esc | 取消編輯 |
-| Space | 播放/暫停影片 |
+| Tab | 跳至下一段 |
+| Shift+Tab | 跳至上一段 |
+| ⌘Enter（Ctrl+Enter） | 批核當前段落 |
+| ⌘F（Ctrl+F） | 開啟尋找 / 取代列 |
+| Esc | 關閉尋找列 |
 
 ### 5. 燒入字幕輸出
 
-- 所有段落批核完成後，「匯出燒入字幕」按鈕啟用
-- 點擊按鈕後，會開啟**渲染設定 Modal**，可在此選擇格式及調整編碼參數：
+- 底欄選擇輸出格式（MP4 / MXF）
+- 點擊「匯出燒入字幕 →」開啟**渲染設定 Modal**，可調整編碼參數：
 
 **MP4 (H.264) 選項：**
 | 參數 | 說明 | 預設值 |
@@ -264,15 +264,20 @@ ollama signin
 
 | 頁面 | 功能 | 與後端通訊 |
 |------|------|-----------|
-| **index.html** | 主控台 — 上傳、轉錄、翻譯、設定 | REST API + WebSocket（即時進度） |
-| **proofread.html** | 校對編輯器 — 審核、編輯、批核、渲染 | REST API（輪詢渲染狀態） |
+| **index.html** | 主控台 — 上傳、文件列表、轉錄預覽、Profile 快切 | REST API + WebSocket（即時進度） |
+| **proofread.html** | 校對編輯器 — 審核、編輯、批核、尋找取代、渲染 | REST API（輪詢渲染狀態） |
+| **settings.html** | 設定 — Profile CRUD、術語表、語言配置（3 分頁） | REST API |
 
-**index.html 右側面板：**
-- ⚙️ Profile 選擇器
-- 📦 模型預加載
-- 🎬 字幕延遲 / 大小控制
-- 🌐 語言配置（可展開收合）
-- 📖 術語表管理（可展開收合）
+**index.html 版面：**
+- 頁首：Profile 快速切換下拉 + 設定連結
+- 左欄：影片播放器 + 文件列表 / 上傳區
+- 右欄：轉錄面板（英中字幕預覽，播放時同步高亮）
+- 文件卡片：Pipeline 進度點（ASR / 翻譯 / 校對 / 渲染）+ 操作按鈕
+
+**proofread.html 版面：**
+- 左欄：影片播放器 + 字幕覆蓋 + 快捷鍵列
+- 右欄：英中對照表格（# 32px / EN 150px / ZH flex / ✓ 48px）+ 黏性尋找列
+- 底欄：批核進度 + MP4/MXF 格式切換 + 渲染按鈕
 
 ### 資料流（完整流程）
 
@@ -337,11 +342,16 @@ motitle/
 │   │   ├── profiles/       #   Profile JSON 文件
 │   │   ├── glossaries/     #   術語表 JSON 文件
 │   │   └── languages/      #   語言參數 JSON 文件 (en.json, zh.json)
-│   ├── tests/              # 測試套件（271 個測試）
+│   ├── tests/              # 測試套件（303 個測試，含 11 個 Playwright e2e）
 │   └── data/               # 上傳文件及渲染輸出（自動生成，gitignore）
 ├── frontend/
-│   ├── index.html          # 主控台 — 上傳、轉錄、翻譯、設定
-│   └── proofread.html      # 校對編輯器 — 審核、編輯、批核、渲染
+│   ├── index.html          # 主控台 — 上傳、文件列表、轉錄預覽、Profile 快切
+│   ├── proofread.html      # 校對編輯器 — 審核、編輯、批核、尋找取代、渲染
+│   ├── settings.html       # 設定 — Profile CRUD、術語表、語言配置（3 分頁）
+│   ├── shared.css          # 共用 CSS 變數、版面元件、Toast 系統
+│   └── js/
+│       ├── shared.js       # 共用工具：API_BASE、escapeHtml、showToast、connectSocket
+│       └── font-preview.js # 字幕預覽同步（從 profile_updated 事件更新 CSS 變數）
 ├── docs/superpowers/       # 設計文檔及實作計劃
 ├── setup.sh                # 一鍵安裝腳本
 ├── start.sh                # 一鍵啟動腳本
@@ -425,6 +435,7 @@ ASR: 8s ｜ 翻譯: 34s ｜ 總計: 42s
 |------|------|------|
 | POST | `/api/transcribe` | 上傳並轉錄（自動觸發翻譯） |
 | GET | `/api/files` | 列出所有文件 |
+| GET | `/api/files/<id>` | 取得單一文件 metadata |
 | GET | `/api/files/<id>/media` | 取得媒體文件 |
 | GET | `/api/files/<id>/subtitle.<fmt>` | 下載字幕（srt/vtt/txt） |
 | DELETE | `/api/files/<id>` | 刪除文件 |
@@ -472,6 +483,17 @@ ASR: 8s ｜ 翻譯: 34s ｜ 總計: 42s
 
 ## 更新記錄
 
+### v3.1 — 前端 UI 全面重設計
+
+- **全新版面**：`index.html` 重寫 — 頁首 Profile 快切下拉、左欄影片 + 文件列表、右欄轉錄面板、Pipeline 進度點（ASR / 翻譯 / 校對 / 渲染）
+- **設定頁面**：`settings.html` — Profile CRUD（4 折疊區塊）、術語表管理、語言配置，3 個分頁以 URL query string 深度連結
+- **校對編輯器重寫**：`proofread.html` — 雙欄 grid、固定列寬表格、黏性尋找 / 取代列（⌘F）、底欄 MP4/MXF 格式切換、渲染設定 Modal
+- **共用基礎設施**：`shared.css`（CSS 變數 / Toast 系統）、`js/shared.js`（API_BASE / showToast / connectSocket）、`js/font-preview.js`（字幕預覽同步）
+- **新增 API**：`GET /api/files/<id>` — 取得單一文件 metadata（校對頁驗證 file_id 用）
+- **Bug 修正**：response envelope 正確 unwrap（profiles / glossaries / languages / translations）、`translation_status` 統一為 `'done'`
+- **e2e 測試更新**：11 個 Playwright 測試更新至符合新 HTML 結構
+- **303 個自動化測試**（全部通過）
+
 ### v3.0 — 模組化引擎選擇 + 渲染匯出參數
 
 - **引擎模組化**：ASR 同翻譯引擎可獨立選擇、獨立配置，不再綁定 Profile
@@ -484,7 +506,7 @@ ASR: 8s ｜ 翻譯: 34s ｜ 總計: 42s
   - MP4：CRF slider (0–51)、編碼速度（9 級）、音頻碼率（6 選項）、輸出解像度
   - MXF：ProRes 規格卡片格（Proxy / LT / Standard / HQ / 4444 / 4444 XQ + 碼率說明）、音頻位深（16/24/32-bit PCM）、輸出解像度
   - 後端完整驗證所有參數，返回 400 + 明確錯誤訊息
-- **271 個自動化測試**（+126 個新增）
+- **292 個自動化測試**（+126 個新增）
 
 ### v2.1 — 語言配置、前端 UI 整合、Bug 修復
 - 語言參數配置：每種語言獨立設定 ASR 分段參數及翻譯參數
