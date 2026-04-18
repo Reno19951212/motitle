@@ -616,17 +616,31 @@
       transition: opacity 0.25s ease, font-size 0.15s ease, color 0.15s ease;
     }
     .waveform-strip {
-      border-top: 1px solid var(--border);
-      padding: 10px 16px;
+      /* Bolts directly to the bottom of the video area — no border/gap so it reads
+         as a continuation of the player chrome. */
+      padding: 8px 14px 10px;
       display: flex; align-items: center; gap: 10px;
-      background: var(--surface);
+      background: #0b0b14;
+      border-top: 1px solid rgba(255,255,255,0.04);
     }
     .waveform-bars {
-      flex: 1; display: flex; gap: 2px; align-items: center; height: 28px;
+      flex: 1;
+      display: flex;
+      gap: 1px;
+      align-items: center;
+      height: 48px;
+      min-width: 0;
+      cursor: pointer;
+      user-select: none;
     }
     .waveform-bars > div {
-      width: 3px; background: var(--border-strong); border-radius: 1px; flex-shrink: 0;
+      flex: 1 1 0;
+      min-width: 1px;
+      background: var(--border-strong);
+      border-radius: 0.5px;
+      transition: background 0.1s;
     }
+    .waveform-bars:hover > div { opacity: 0.95; }
 
     /* Inspector */
     .inspector { min-height: 0; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
@@ -686,6 +700,10 @@
     .inspector-body {
       padding: 14px;
       overflow: auto; flex: 1; min-height: 0;
+      /* flex column so children (e.g. .transcript-sub) can use flex:1 + min-height:0
+         to properly constrain their inner scroll region. Without this the inspector
+         body renders as block and any flex child explodes to its content height. */
+      display: flex; flex-direction: column;
     }
     .inspector-body.no-pad { padding: 0; }
 
@@ -1640,20 +1658,100 @@
         </div>`;
     }
 
+    // Waveform peaks cache (per file id) — avoids re-fetching when user flips between tabs
+    const waveformCache = {};
+    const WAVEFORM_BINS = 320;   // higher density — ~2× previous
+
     function renderWaveform() {
       const el = document.getElementById('waveformBars');
-      const n = 80;
+      if (!el) return;
       const f = activeFileId ? uploadedFiles[activeFileId] : null;
-      const cat = f ? fileStatusCategory(f) : 'pending';
-      const fp = f ? fileProgress[f.id] : null;
-      const activeBars = cat === 'transcribing' && fp?.progress != null
-        ? Math.round(fp.progress * n)
-        : cat === 'done' ? n : 0;
-      el.innerHTML = Array.from({length: n}).map((_, i) => {
-        const h = 8 + Math.abs(Math.sin(i * 0.31)) * 18;
-        const on = i < activeBars;
-        return `<div style="height:${h}px;background:${on ? 'var(--accent-2)' : 'var(--border-strong)'}"></div>`;
-      }).join('');
+
+      // Dummy placeholder state when no active file
+      if (!f || f._local) {
+        el.innerHTML = Array.from({length: WAVEFORM_BINS}).map((_, i) => {
+          const h = 6 + Math.abs(Math.sin(i * 0.31)) * 14;
+          return `<div style="height:${h}px;background:var(--border)"></div>`;
+        }).join('');
+        return;
+      }
+
+      const peaks = waveformCache[f.id];
+      if (!peaks) {
+        // Fetch lazily on first render for this file
+        fetchWaveformPeaks(f.id);
+        // Meanwhile show faint bars derived from ASR progress as feedback
+        const fp = fileProgress[f.id];
+        const cat = fileStatusCategory(f);
+        const activeBars = cat === 'transcribing' && fp?.progress != null
+          ? Math.round(fp.progress * WAVEFORM_BINS)
+          : cat === 'done' ? WAVEFORM_BINS : 0;
+        el.innerHTML = Array.from({length: WAVEFORM_BINS}).map((_, i) => {
+          const h = 6 + Math.abs(Math.sin(i * 0.31)) * 14;
+          const on = i < activeBars;
+          return `<div style="height:${h}px;background:${on ? 'var(--accent-2)' : 'var(--border-strong)'}"></div>`;
+        }).join('');
+        return;
+      }
+
+      // Real peaks — height proportional to amplitude; colour accent-2 up to playback position
+      const video = document.getElementById('videoPlayer');
+      const totalDur = video?.duration || f.duration || 0;
+      const curTime = video?.currentTime || 0;
+      const progressRatio = totalDur > 0 ? Math.min(1, curTime / totalDur) : 0;
+      const playedBars = Math.floor(progressRatio * peaks.length);
+
+      // Render with a DocumentFragment for perf
+      const frag = document.createDocumentFragment();
+      const maxH = 44;  // matches new strip height
+      for (let i = 0; i < peaks.length; i++) {
+        const amp = peaks[i];
+        const h = Math.max(2, Math.round(2 + amp * maxH));
+        const bar = document.createElement('div');
+        bar.style.height = h + 'px';
+        bar.style.background = i < playedBars ? 'var(--accent-2)' : 'var(--border-strong)';
+        frag.appendChild(bar);
+      }
+      el.innerHTML = '';
+      el.appendChild(frag);
+    }
+
+    function updateWaveformProgress() {
+      // Cheaper than full re-render: just toggle colour by class on existing bars
+      const el = document.getElementById('waveformBars');
+      if (!el) return;
+      const f = activeFileId ? uploadedFiles[activeFileId] : null;
+      const peaks = f ? waveformCache[f.id] : null;
+      if (!peaks) return;
+      const video = document.getElementById('videoPlayer');
+      const totalDur = video?.duration || f?.duration || 0;
+      const curTime = video?.currentTime || 0;
+      const ratio = totalDur > 0 ? Math.min(1, curTime / totalDur) : 0;
+      const playedBars = Math.floor(ratio * peaks.length);
+      // Walk bars once; avoid layout thrash
+      const bars = el.children;
+      for (let i = 0; i < bars.length; i++) {
+        const desired = i < playedBars ? 'var(--accent-2)' : 'var(--border-strong)';
+        if (bars[i].style.background !== desired) bars[i].style.background = desired;
+      }
+    }
+
+    async function fetchWaveformPeaks(fileId) {
+      if (waveformCache[fileId] === 'loading') return;
+      waveformCache[fileId] = 'loading';
+      try {
+        const r = await fetch(`${API_BASE}/api/files/${fileId}/waveform?bins=${WAVEFORM_BINS}`);
+        if (!r.ok) { delete waveformCache[fileId]; return; }
+        const data = await r.json();
+        if (Array.isArray(data.peaks)) {
+          waveformCache[fileId] = data.peaks;
+          if (fileId === activeFileId) renderWaveform();
+        } else {
+          delete waveformCache[fileId];
+        }
+      } catch (e) {
+        delete waveformCache[fileId];
+      }
     }
 
     // ===== Inspector tabs =====
@@ -1679,6 +1777,31 @@
       }
     }
 
+    function wireTranscriptScrollListener() {
+      const scroll = document.querySelector('.transcript-scroll');
+      if (!scroll || scroll.dataset.wiredAutofollow) return;
+      scroll.dataset.wiredAutofollow = '1';
+      // Pause auto-follow briefly when user scrolls with wheel/touch — resume after 4s idle.
+      // Programmatic `scrollTo({behavior:'smooth'})` also fires scroll events, so we watch
+      // for the specific "user-initiated" signals (wheel, touchmove, mousedown on scrollbar).
+      let pauseOnScroll = false;
+      const onUser = () => {
+        _transcriptAutoFollow = false;
+        if (_transcriptAutoFollowResume) clearTimeout(_transcriptAutoFollowResume);
+        _transcriptAutoFollowResume = setTimeout(() => {
+          _transcriptAutoFollow = true;
+          // Re-sync now that we're auto-following again
+          const v = document.getElementById('videoPlayer');
+          if (v) {
+            _lastActiveTranscriptIdx = -1;
+            updateSubtitleOverlay(v.currentTime || 0);
+          }
+        }, 4000);
+      };
+      scroll.addEventListener('wheel', onUser, { passive: true });
+      scroll.addEventListener('touchmove', onUser, { passive: true });
+    }
+
     function renderTranscriptTab(body, f) {
       const approved = f?.approved_count || 0;
       const total = f?.segment_count || 0;
@@ -1691,14 +1814,16 @@
           if (transcriptFilter === 'edited') return s._edited;
           return true;
         });
-        rows = filtered.map((s, i) => {
-          const active = s._active ? 'active' : '';
+        rows = filtered.map((s) => {
+          const origIdx = segments.indexOf(s);
+          const isActive = origIdx === _lastActiveTranscriptIdx;
+          const active = isActive ? 'active' : '';
           const ok = s._approved ? 'ok' : 'pending';
           return `
-            <div class="t-row ${active} ${ok}" onclick="jumpToSegment(${i})">
+            <div class="t-row ${active} ${ok}" data-seg="${origIdx}" onclick="jumpToSegment(${origIdx})">
               <div class="t-meta">
                 <span class="t-ts">${formatDuration(s.start)}</span>
-                ${s._active ? '<span class="t-play">▶</span>' : ''}
+                ${isActive ? '<span class="t-play">▶</span>' : ''}
                 ${s._approved ? '<span class="t-ok">✓</span>' : ''}
                 ${s._edited ? '<span class="t-ed">●</span>' : ''}
               </div>
@@ -1721,9 +1846,16 @@
           <div class="ts-foot">
             <span class="kbd">↑</span><span class="kbd">↓</span>
             <span class="dim" style="font-size:11px;">切換上/下一句</span>
-            <span style="margin-left:auto;font-size:11px;" class="dim mono">自動跟隨播放</span>
+            <span style="margin-left:auto;font-size:11px;" class="dim mono" id="tsAutofollowLbl">自動跟隨播放</span>
           </div>
         </div>`;
+      wireTranscriptScrollListener();
+      // Kick an initial sync so whatever segment matches current video time lights up
+      const v = document.getElementById('videoPlayer');
+      if (v && segments.length) {
+        _lastActiveTranscriptIdx = -1;
+        updateSubtitleOverlay(v.currentTime || 0);
+      }
     }
 
     function setTranscriptFilter(f) {
@@ -1974,21 +2106,78 @@
         return;
       }
       const t = currentTime + subtitleDelay;
-      const active = segments.find(s => t >= s.start && t < s.end);
-      if (active) {
-        el.textContent = active.text || active._en_text || '';
+      let activeIdx = -1;
+      for (let i = 0; i < segments.length; i++) {
+        if (t >= segments[i].start && t < segments[i].end) { activeIdx = i; break; }
+      }
+      if (activeIdx >= 0) {
+        const s = segments[activeIdx];
+        el.textContent = s.text || s._en_text || '';
         el.style.display = 'inline-block';
       } else {
         el.style.display = 'none';
       }
+      syncActiveTranscriptRow(activeIdx);
     }
+
+    // Track which transcript row is the highlighted (playing) one; only mutate
+    // DOM + scroll when it changes so we don't fight user scrolling.
+    let _lastActiveTranscriptIdx = -1;
+    let _transcriptAutoFollow = true;  // disables briefly when user scrolls manually
+    let _transcriptAutoFollowResume = null;
+
+    function syncActiveTranscriptRow(activeIdx) {
+      if (currentTab !== 'transcript') return;
+      if (activeIdx === _lastActiveTranscriptIdx) return;
+      _lastActiveTranscriptIdx = activeIdx;
+
+      const scroll = document.querySelector('.transcript-scroll');
+      if (!scroll) return;
+      scroll.querySelectorAll('.t-row.active').forEach(r => r.classList.remove('active'));
+      if (activeIdx < 0) return;
+      const row = scroll.querySelector(`.t-row[data-seg="${activeIdx}"]`);
+      if (!row) return;
+      row.classList.add('active');
+      if (_transcriptAutoFollow) {
+        // Pin active row to the TOP of the scroll container with an 8px gutter.
+        // Use bounding-rect delta because .transcript-scroll is not `position: relative`,
+        // so `row.offsetTop` isn't relative to the scroll container.
+        const rBox = row.getBoundingClientRect();
+        const sBox = scroll.getBoundingClientRect();
+        const delta = rBox.top - sBox.top - 8;
+        scroll.scrollTo({
+          top: Math.max(0, scroll.scrollTop + delta),
+          behavior: 'smooth',
+        });
+      }
+    }
+
+    // Click on waveform seeks video
+    (function bindWaveformClick() {
+      const el = document.getElementById('waveformBars');
+      if (!el) return;
+      el.addEventListener('click', (e) => {
+        const video = document.getElementById('videoPlayer');
+        if (!video || !video.duration) return;
+        const rect = el.getBoundingClientRect();
+        const ratio = (e.clientX - rect.left) / rect.width;
+        video.currentTime = Math.max(0, Math.min(video.duration, video.duration * ratio));
+      });
+    })();
 
     // Wire video timeupdate once
     (function bindVideoTimeupdate() {
       const v = document.getElementById('videoPlayer');
       if (!v) return;
-      v.addEventListener('timeupdate', () => updateSubtitleOverlay(v.currentTime));
-      v.addEventListener('seeked', () => updateSubtitleOverlay(v.currentTime));
+      v.addEventListener('timeupdate', () => {
+        updateSubtitleOverlay(v.currentTime);
+        updateWaveformProgress();
+      });
+      v.addEventListener('seeked', () => {
+        updateSubtitleOverlay(v.currentTime);
+        updateWaveformProgress();
+      });
+      v.addEventListener('loadedmetadata', () => updateWaveformProgress());
     })();
 
     async function loadFileSegments(id) {
