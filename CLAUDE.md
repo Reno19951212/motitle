@@ -36,6 +36,18 @@ Restart the shell after install so PATH updates take effect.
 >   gevent gevent-websocket pysbd opencc-python-reimplemented librosa soundfile
 > ```
 
+### Windows CUDA runtime (GPU acceleration)
+
+If you want GPU transcription on Windows and hit `Library cublas64_12.dll is not found or cannot be loaded`, install the CUDA runtime via pip (venv-only, no system install):
+```bash
+pip install nvidia-cublas-cu12==12.4.5.8 nvidia-cudnn-cu12
+```
+`app.py` registers these DLL directories on startup (guarded, Windows-only). After install, Profile `device: "auto"` or `"cuda"` will just work.
+
+- The full NVIDIA CUDA Toolkit is **not** required — ctranslate2 4.7.x only needs `cublas64_12.dll` + `cudnn64_9.dll` runtime, which those two pip wheels provide.
+- Do **not** use `winget install Nvidia.CUDA` — the winget package is v13, whose DLLs are named `cublas64_13.dll` and will not satisfy ctranslate2 4.7.
+- Full README troubleshooting (three routes: pip / CPU-only / full Toolkit) is in README.md under "Windows 常見問題".
+
 ### Running the backend
 ```bash
 # Via start.sh (recommended — activates venv + opens browser)
