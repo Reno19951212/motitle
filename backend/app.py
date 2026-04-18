@@ -14,6 +14,31 @@ import tempfile
 import subprocess
 from pathlib import Path
 
+# --- Windows GPU: register bundled CUDA DLLs (cublas / cudnn) before any CUDA-using import ---
+# Install with: pip install nvidia-cublas-cu12 nvidia-cudnn-cu12
+# Without this, faster-whisper on device="auto"/"cuda" fails with:
+#   "Library cublas64_12.dll is not found or cannot be loaded"
+# when the system has an NVIDIA driver but no CUDA Toolkit installed.
+#
+# We do BOTH `os.add_dll_directory()` AND `os.environ['PATH']` prepend because
+# some native libraries (e.g. ctranslate2) use `LoadLibraryEx` paths that bypass
+# add_dll_directory. PATH prepend covers that case reliably.
+if sys.platform == "win32":
+    try:
+        import sysconfig
+        _purelib = sysconfig.get_paths()["purelib"]
+        _added = []
+        for _sub in ("cublas", "cudnn"):
+            _bin = os.path.join(_purelib, "nvidia", _sub, "bin")
+            if os.path.isdir(_bin):
+                os.add_dll_directory(_bin)
+                _added.append(_bin)
+        if _added:
+            os.environ["PATH"] = os.pathsep.join(_added) + os.pathsep + os.environ.get("PATH", "")
+            print(f"[cuda-dll] registered {len(_added)} NVIDIA DLL path(s) for GPU acceleration")
+    except Exception as _e:
+        print(f"[cuda-dll] skipped DLL path registration: {_e}")
+
 import whisper
 import numpy as np
 from flask import Flask, request, jsonify, send_file

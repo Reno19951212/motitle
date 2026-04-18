@@ -56,17 +56,26 @@ pip install openai-whisper faster-whisper flask flask-cors flask-socketio \
 
 **2. 轉錄失敗：`Library cublas64_12.dll is not found or cannot be loaded`**
 
-若系統裝咗 NVIDIA 顯示驅動但**未裝 CUDA Toolkit**，`faster-whisper` 嘅 `device: "auto"` 會偵測到 GPU 並嘗試載入 CUDA 12 runtime（`cublas64_12.dll`），結果失敗。解決方法有兩個：
+當系統有 NVIDIA 顯示驅動但**未裝 CUDA runtime libraries**，`faster-whisper`（靠 `ctranslate2`）嘅 `device: "auto"` 會偵測到 GPU 並嘗試載入 CUDA 12 libs（`cublas64_12.dll` / `cudnn64_9.dll`），但搵唔到就報呢個錯。三條解法揀一：
 
-- **（推薦）強制用 CPU**：編輯當前 Profile，將 ASR 設定嘅「Device」由 `auto` 改為 `cpu`，重啟後端。或直接 `curl`：
+- **🚀 路線 A（推薦 GPU）—— 用 pip 裝 CUDA runtime**：唔需要成個 CUDA Toolkit（3GB+），只需要兩個 pip package（約 1GB），裝完 backend 會自動於啟動時 register DLL path。
+  ```bash
+  source backend/venv/Scripts/activate     # Windows Git Bash
+  pip install nvidia-cublas-cu12==12.4.5.8 nvidia-cudnn-cu12
+  ```
+  Profile 嘅 `device` 保持 `auto` 即可，重啟 `python backend/app.py` 後 log 應該 print `[cuda-dll] registered 2 NVIDIA DLL path(s) for GPU acceleration`。如果冇呢行 log 或見到 `[cuda-dll] skipped DLL path registration: ...`，代表兩個 pip package 冇裝或 venv 唔啱，重覆 pip install 指令。
 
+- **💻 路線 B（純 CPU，最穩陣）—— 強制 Profile device=cpu**：
   ```bash
   curl -X PATCH http://127.0.0.1:5001/api/profiles/<profile_id> \
     -H "Content-Type: application/json" \
     -d '{"asr":{"engine":"whisper","model_size":"small","language":"en","device":"cpu","condition_on_previous_text":true,"vad_filter":true,"language_config_id":"en"}}'
   ```
+  或者前端 Profile 編輯表單將「Device」由 `auto` 改 `cpu`，再重啟 backend。
 
-- **使用 GPU 加速**：安裝 [NVIDIA CUDA Toolkit 12.x](https://developer.nvidia.com/cuda-downloads) 及 cuDNN，確保 `cublas64_12.dll` 喺 PATH 上（通常位於 `C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.x\bin`）。安裝後 Profile `device` 可保留為 `auto` 或 `cuda`。
+- **🛠 路線 C（完整系統級 CUDA Toolkit）**：去 [NVIDIA 下載頁](https://developer.nvidia.com/cuda-12-4-0-download-archive) 下載 CUDA Toolkit 12.4（**唔好用 winget 嘅 v13**，DLL 文件名唔匹配），加埋 cuDNN 9.x。安裝後 `cublas64_12.dll` 會喺 `C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4\bin`，已經喺系統 PATH。
+
+> **診斷 tips**：backend 啟動時 print `faster-whisper available — will use for live transcription` 之後，如果見到 `[cuda-dll] skipped DLL path registration` 就代表走咗 fallback；如果冇呢行錯誤，但仍然 crash，多數係版本夾唔 match（ctranslate2 4.7 對應 CUDA 12 + cuDNN 9；CUDA 13 會唔 work）。
 
 ### macOS / Linux
 
