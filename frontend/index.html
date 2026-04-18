@@ -1300,6 +1300,14 @@
       const lang = f.language ? f.language : (activeProfile?.asr?.language === 'zh' ? '中文 → 中文' : 'English → 繁體中文');
       const hasTrans = f.translation_status === 'done';
       const disabled = f._local || f.status !== 'done';
+      // Render requires ALL segments approved (backend rejects with 400 otherwise)
+      const fullyApproved = segCount > 0 && approved >= segCount;
+      const renderDisabled = !hasTrans || !fullyApproved;
+      const renderTooltip = !hasTrans
+        ? '需要先翻譯'
+        : !fullyApproved
+          ? `仲有 ${segCount - approved} / ${segCount} 段未批核 — 撳「校對 →」完成`
+          : '下載燒入字幕後嘅影片';
 
       const subtitleMenu = `
         <div class="split-menu" role="menu">
@@ -1342,11 +1350,11 @@
             ${subtitleMenu}
           </div>
           <div class="split-btn">
-            <button class="btn btn-secondary split-main" onclick="requestRender('${f.id}', 'mp4')" title="下載燒入字幕後嘅影片" ${!hasTrans ? 'disabled' : ''}>
+            <button class="btn btn-secondary split-main" onclick="requestRender('${f.id}', 'mp4')" title="${escapeHtml(renderTooltip)}" ${renderDisabled ? 'disabled' : ''}>
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 6h12M2 10h12M5 3v10M11 3v10"/></svg>
-              影片 · MP4
+              影片 · MP4 ${!fullyApproved && hasTrans ? `<span style="font-size:10px;opacity:0.7;margin-left:4px;">${approved}/${segCount}</span>` : ''}
             </button>
-            <button class="btn btn-secondary split-caret" title="更多影片格式" ${!hasTrans ? 'disabled' : ''}><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></button>
+            <button class="btn btn-secondary split-caret" title="更多影片格式" ${renderDisabled ? 'disabled' : ''}><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></button>
             ${videoMenu}
           </div>
           <a class="btn btn-primary" href="proofread.html?file_id=${f.id}" ${disabled ? 'style="opacity:0.5;pointer-events:none;"' : ''}>
@@ -2066,20 +2074,32 @@
     // ============================================================
     // Subtitle overlay — sync with video time + apply font config
     // ============================================================
+    // fontConfig values are stored at ASS reference resolution (PlayResX=1920,
+    // PlayResY=1080). The HTML <video> + overlay <div> in preview is rendered
+    // at an arbitrary smaller container width, so scale by (containerWidth / 1920)
+    // so the preview appearance matches the final burnt-in 1080p output and is
+    // consistent across Dashboard preview / Proofread preview / Playout.
+    const REFERENCE_WIDTH = 1920;
+
     function applySubtitleStyle() {
       const el = document.getElementById('subtitleOverlay');
       const overlay = el && el.parentElement;
       if (!el || !overlay) return;
-      // Font size + color + family
-      el.style.fontSize = fontConfig.size + 'px';
+      const videoArea = document.getElementById('videoArea');
+      const cw = (videoArea && videoArea.clientWidth) || REFERENCE_WIDTH;
+      const scale = cw / REFERENCE_WIDTH;
+
+      const size = Math.max(8, (Number(fontConfig.size) || 32) * scale);
+      const ow   = Math.max(0, (Number(fontConfig.outline_width) || 0) * scale);
+      const mb   = Math.max(8, (Number(fontConfig.margin_bottom) || 0) * scale);
+
+      el.style.fontSize = size.toFixed(2) + 'px';
       el.style.color = fontConfig.color;
       el.style.fontFamily = `'${fontConfig.family}', 'Microsoft JhengHei', 'PingFang TC', system-ui, sans-serif`;
-      // Outline via layered text-shadow (paint-order stroke emulation)
-      const ow = fontConfig.outline_width || 0;
+
       const oc = fontConfig.outline_color || '#000';
       if (ow > 0) {
         const r = ow;
-        // 8 offsets around the glyph for a solid stroke
         const shadows = [
           `-${r}px -${r}px 0 ${oc}`, `${r}px -${r}px 0 ${oc}`,
           `-${r}px ${r}px 0 ${oc}`,  `${r}px ${r}px 0 ${oc}`,
@@ -2094,9 +2114,16 @@
         el.style.background = 'rgba(0,0,0,0.72)';
         el.style.borderRadius = '3px';
       }
-      // Position — margin from bottom
-      overlay.style.bottom = (fontConfig.margin_bottom || 0) + 'px';
+      overlay.style.bottom = mb.toFixed(2) + 'px';
     }
+
+    // Re-apply on video-area resize so the scale stays true during layout reflows
+    (function observeVideoAreaResize() {
+      if (typeof ResizeObserver === 'undefined') return;
+      const videoArea = document.getElementById('videoArea');
+      if (!videoArea) return;
+      new ResizeObserver(() => applySubtitleStyle()).observe(videoArea);
+    })();
 
     function updateSubtitleOverlay(currentTime) {
       const el = document.getElementById('subtitleOverlay');
@@ -2341,15 +2368,40 @@
       }
     }
 
-    function requestRender(id, format) {
+    async function requestRender(id, format) {
       if (format === 'custom') { showToast('自訂匯出設定暫未實作', 'warning'); return; }
+
+      // Pre-flight: check approval progress so we can warn before hitting backend 400
+      const f = uploadedFiles[id];
+      if (f && f.segment_count > 0) {
+        const approved = f.approved_count != null ? f.approved_count : 0;
+        if (approved < f.segment_count) {
+          const pending = f.segment_count - approved;
+          showToast(`仲有 ${pending} 段未批核，需要全部批核先可以渲染`, 'warning');
+          // Auto-jump to proofread so user can finish
+          if (confirm(`仲有 ${pending} 段未批核。要去校對頁完成嗎？`)) {
+            window.location.href = `proofread.html?file_id=${id}`;
+          }
+          return;
+        }
+      }
+
       showToast(`開始渲染 ${format.toUpperCase()}…`, 'info');
-      fetch(`${API_BASE}/api/render`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ file_id: id, format }),
-      }).then(r => r.ok ? r.json() : Promise.reject('render failed'))
-        .then(data => pollRender(data.render_id))
-        .catch(e => showToast('渲染失敗', 'error'));
+      try {
+        const r = await fetch(`${API_BASE}/api/render`, {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ file_id: id, format }),
+        });
+        if (!r.ok) {
+          let msg = `HTTP ${r.status}`;
+          try { const err = await r.json(); if (err.error) msg = err.error; } catch {}
+          throw new Error(msg);
+        }
+        const data = await r.json();
+        pollRender(data.render_id);
+      } catch (e) {
+        showToast(`渲染失敗: ${e.message}`, 'error');
+      }
     }
 
     function pollRender(renderId) {
