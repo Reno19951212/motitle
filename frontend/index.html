@@ -96,17 +96,22 @@
     /* ===== Main Layout ===== */
     main {
       display: grid;
-      grid-template-columns: 1fr 360px;
-      gap: 20px;
-      padding: 20px 24px;
+      grid-template-columns: auto 1fr 360px;
+      gap: 16px;
+      padding: 16px 20px;
       flex: 1;
-      max-width: 1600px;
+      max-width: 1800px;
       margin: 0 auto;
       width: 100%;
+      min-height: 0;
     }
 
+    @media (max-width: 1280px) {
+      main { grid-template-columns: auto 1fr 320px; gap: 14px; padding: 14px 16px; }
+    }
     @media (max-width: 1024px) {
       main { grid-template-columns: 1fr; }
+      .media-rail { width: 100% !important; }
     }
 
     /* ===== Panel ===== */
@@ -582,6 +587,361 @@
     }
 
     /* ===== File info ===== */
+    /* ======================================================= */
+    /* =====     Media Rail (left sidebar, 媒體庫)         ===== */
+    /* ======================================================= */
+    .media-rail {
+      width: 280px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      transition: width 200ms ease;
+      overflow: hidden;
+      min-height: 0;
+      align-self: stretch;
+    }
+    .media-rail.collapsed { width: 80px; }
+
+    .rail-header {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+      min-height: 48px;
+    }
+    .rail-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .media-rail.collapsed .rail-title { display: none; }
+    .rail-toggle {
+      margin-left: auto;
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    .rail-toggle:hover { border-color: var(--accent); color: var(--accent2); }
+    .media-rail.collapsed .rail-toggle { margin: 0 auto; }
+
+    .rail-dropzone {
+      margin: 10px;
+      padding: 12px 14px;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      flex-shrink: 0;
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+    .rail-dropzone:hover,
+    .rail-dropzone.drag-over {
+      border-color: var(--accent);
+      background: rgba(108, 99, 255, 0.08);
+      color: var(--text);
+    }
+    .rail-dropzone .dz-icon { font-size: 18px; color: var(--accent2); }
+    .media-rail.collapsed .rail-dropzone { justify-content: center; padding: 12px 0; margin: 10px 8px; }
+    .media-rail.collapsed .rail-dropzone .dz-text { display: none; }
+
+    .rail-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 10px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+    }
+    .rail-list::-webkit-scrollbar { width: 4px; }
+    .rail-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .rail-empty {
+      padding: 20px 12px;
+      text-align: center;
+      color: var(--text-faint);
+      font-size: 11px;
+      line-height: 1.6;
+    }
+    .media-rail.collapsed .rail-empty { display: none; }
+
+    /* ========== Media Bin Card ========== */
+    .mb-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      animation: slideIn 0.3s ease;
+    }
+    .mb-card:hover { border-color: var(--accent); background: var(--surface3); }
+    .mb-card.selected {
+      border-color: var(--accent);
+      background: rgba(108, 99, 255, 0.08);
+      box-shadow: 0 0 0 1px var(--accent), 0 0 20px rgba(108, 99, 255, 0.15);
+    }
+    .mb-card.pending { border-style: dashed; opacity: 0.92; }
+
+    .mb-card-top {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .mb-thumb {
+      width: 72px;
+      height: 41px;
+      border-radius: 5px;
+      flex-shrink: 0;
+      position: relative;
+      overflow: hidden;
+      background: var(--surface3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-faint);
+      font-size: 18px;
+    }
+    .mb-thumb .dur {
+      position: absolute;
+      bottom: 2px;
+      right: 3px;
+      font-size: 9px;
+      padding: 1px 4px;
+      background: rgba(0, 0, 0, 0.7);
+      color: #fff;
+      border-radius: 3px;
+      font-weight: 600;
+    }
+    /* Auto gradient thumbnails via nth-child (stable by order) */
+    .mb-thumb.gr-0 { background: linear-gradient(135deg, #1e3a8a, #6366f1 60%, #a78bfa); }
+    .mb-thumb.gr-1 { background: linear-gradient(135deg, #14532d, #16a34a 60%, #4ade80); }
+    .mb-thumb.gr-2 { background: linear-gradient(135deg, #7c2d12, #ea580c 60%, #fdba74); }
+    .mb-thumb.gr-3 { background: linear-gradient(135deg, #831843, #db2777 60%, #f9a8d4); }
+    .mb-thumb.gr-4 { background: linear-gradient(135deg, #1e40af, #0284c7 60%, #7dd3fc); }
+    .mb-thumb.gr-5 { background: linear-gradient(135deg, #4c1d95, #7c3aed 60%, #c4b5fd); }
+    .mb-thumb.gr-6 { background: linear-gradient(135deg, #065f46, #10b981 60%, #6ee7b7); }
+    .mb-thumb.gr-7 { background: linear-gradient(135deg, #581c87, #8b5cf6 60%, #d8b4fe); }
+
+    .mb-meta {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .mb-name {
+      font-size: 12.5px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.35;
+    }
+    .mb-sub {
+      font-size: 10.5px;
+      color: var(--text-dim);
+      display: flex;
+      gap: 5px;
+      align-items: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .mb-sub .sep { color: var(--text-faint); }
+    .mb-sub.uploaded { color: var(--text-faint); font-size: 10px; }
+    .mb-sub .sdot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    .sdot-done { background: var(--success); box-shadow: 0 0 5px var(--success); }
+    .sdot-transcribing { background: #3b82f6; animation: mbpulse 1.2s ease-in-out infinite; }
+    .sdot-translating { background: var(--warning); animation: mbpulse 1.2s ease-in-out infinite; }
+    .sdot-pending { background: var(--text-faint); }
+    .sdot-error { background: var(--danger); }
+    @keyframes mbpulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+    /* Collapsed card inside collapsed rail */
+    .media-rail.collapsed .mb-card { padding: 4px; flex-direction: column; align-items: center; gap: 0; }
+    .media-rail.collapsed .mb-card-top { flex-direction: column; align-items: center; }
+    .media-rail.collapsed .mb-thumb { width: 52px; height: 30px; }
+    .media-rail.collapsed .mb-thumb .dur { display: none; }
+    .media-rail.collapsed .mb-meta,
+    .media-rail.collapsed .mb-expand,
+    .media-rail.collapsed .mb-progress { display: none; }
+    .media-rail.collapsed .mb-card::after {
+      content: '';
+      width: 6px; height: 6px; border-radius: 50%;
+      position: absolute; top: 6px; right: 6px;
+    }
+    .media-rail.collapsed .mb-card[data-status="done"]::after { background: var(--success); }
+    .media-rail.collapsed .mb-card[data-status="transcribing"]::after { background: #3b82f6; animation: mbpulse 1.2s infinite; }
+    .media-rail.collapsed .mb-card[data-status="translating"]::after { background: var(--warning); animation: mbpulse 1.2s infinite; }
+    .media-rail.collapsed .mb-card[data-status="pending"]::after { background: var(--text-faint); }
+    .media-rail.collapsed .mb-card[data-status="error"]::after { background: var(--danger); }
+
+    /* Progress bar (ambient, shown even when collapsed card) */
+    .mb-progress {
+      height: 3px;
+      background: var(--surface3);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .mb-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 2px;
+      transition: width 0.4s ease;
+    }
+    .mb-progress.info .mb-progress-fill { background: #3b82f6; }
+    .mb-progress.warning .mb-progress-fill { background: var(--warning); }
+
+    /* Expand panel using grid row trick */
+    .mb-expand {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 0.25s ease;
+    }
+    .mb-card.selected .mb-expand { grid-template-rows: 1fr; }
+    .mb-expand > .mb-expand-inner { overflow: hidden; min-height: 0; }
+    .mb-expand-inner {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .mb-section {
+      padding-top: 6px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    /* Variant C layout */
+    .mb-pipe {
+      font-size: 11px;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .mb-pipe .arrow { color: var(--text-faint); }
+    .mb-pipe .asr { color: #93c5fd; }
+    .mb-pipe .mt  { color: #c4b5fd; }
+    .mb-timing {
+      font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+      font-size: 11px;
+      color: var(--text);
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .mb-timing .seg { display: inline-flex; gap: 3px; align-items: baseline; }
+    .mb-timing .seg .k { color: var(--text-faint); font-size: 10px; }
+    .mb-timing .op { color: var(--text-faint); }
+    .mb-timing .sigma { color: var(--accent2); font-weight: 600; }
+    .mb-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 10.5px;
+      color: var(--text-dim);
+    }
+    .mb-bar-row .k {
+      font-size: 10px;
+      color: var(--text-faint);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      flex-shrink: 0;
+    }
+    .mb-bar-row .bar {
+      flex: 1;
+      height: 5px;
+      background: var(--surface3);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .mb-bar-row .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 3px;
+      transition: width 0.4s ease;
+    }
+    .mb-bar-row .frac {
+      font-family: ui-monospace, monospace;
+      font-size: 10.5px;
+      color: var(--text);
+      flex-shrink: 0;
+    }
+
+    /* Action button row (inside expand) */
+    .mb-actions {
+      display: flex;
+      gap: 6px;
+      padding-top: 6px;
+      border-top: 1px solid var(--border);
+    }
+    .mb-btn {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 11.5px;
+      padding: 6px 8px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      white-space: nowrap;
+      font-weight: 500;
+      text-decoration: none;
+    }
+    .mb-btn:hover { border-color: var(--accent); background: rgba(108,99,255,0.12); color: var(--accent2); }
+    .mb-btn.primary {
+      background: rgba(108, 99, 255, 0.15);
+      border-color: rgba(108, 99, 255, 0.5);
+      color: var(--accent2);
+    }
+    .mb-btn.primary:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .mb-btn.icon-only { flex: 0 0 32px; padding: 5px; }
+    .mb-btn.danger:hover { border-color: var(--danger); background: rgba(239,68,68,0.15); color: var(--danger); }
+    .mb-btn[disabled] { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+
+    /* ======================================================= */
+    /* Legacy .file-info kept for pending-file summary (if any) */
     .file-info {
       display: flex;
       align-items: center;
@@ -779,6 +1139,7 @@
       display: flex;
       gap: 10px;
       align-items: center;
+      flex-shrink: 0;
     }
 
     /* ===== Delay settings ===== */
@@ -1115,11 +1476,33 @@
 
 <!-- Main -->
 <main>
-  <!-- Left: Video + Controls -->
-  <div style="display:flex;flex-direction:column;gap:16px;">
+
+  <!-- ============ Media Bin Rail (left) ============ -->
+  <aside class="media-rail" id="mediaRail">
+    <div class="rail-header">
+      <div class="rail-title">📁 媒體庫</div>
+      <button class="rail-toggle" id="railToggle" title="收合/展開">◀</button>
+    </div>
+
+    <div class="rail-dropzone" id="uploadZone"
+         onclick="document.getElementById('fileInput').click()"
+         title="拖放檔案或點擊選擇">
+      <span class="dz-icon">⬆</span>
+      <span class="dz-text">拖放或 <strong style="color:var(--accent2)">+ 新增檔案</strong></span>
+    </div>
+    <input type="file" id="fileInput" accept="video/*,audio/*,.mxf" style="display:none"
+           onchange="handleFileSelect(event)">
+
+    <div class="rail-list" id="fileList">
+      <div class="rail-empty">尚未上傳檔案<br>拖放或撳上面按鈕開始</div>
+    </div>
+  </aside>
+
+  <!-- ============ Center: Video (+ future slots) ============ -->
+  <div style="display:flex;flex-direction:column;gap:16px;min-width:0;min-height:0;">
 
     <!-- Video Player / Preview -->
-    <div class="panel">
+    <div class="panel" id="videoPanel">
       <div class="panel-header">
         ▶ 視頻預覽
         <span style="margin-left:auto;" id="statusBadge" class="badge badge-idle">待機</span>
@@ -1158,45 +1541,13 @@
         </div>
       </div>
     </div>
-
-    <!-- Upload Panel -->
-    <div class="panel">
-      <div class="panel-header">📁 文件上傳</div>
-      <div class="controls">
-        <!-- Upload Zone -->
-        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
-          <div class="upload-icon">⬆</div>
-          <div>拖放或點擊選擇文件</div>
-          <div class="upload-hint">支持: MP4 · MXF · MOV · AVI · MKV · WebM · MP3 · WAV · M4A</div>
-        </div>
-        <input type="file" id="fileInput" accept="video/*,audio/*,.mxf" style="display:none"
-               onchange="handleFileSelect(event)">
-
-        <!-- Pending file (selected but not yet uploaded) -->
-        <div id="pendingFileBox" style="display:none;" class="file-info">
-          <div class="file-icon">🎬</div>
-          <div class="file-name" id="pendingFileName"></div>
-          <div class="file-size" id="pendingFileSize"></div>
-        </div>
-
-        <div class="btn-group">
-          <button class="btn btn-primary" id="startTranscribeBtn" onclick="startTranscription()" disabled>
-            🚀 上傳並轉錄
-          </button>
-          <button class="btn btn-secondary" onclick="clearPending()">🗑 清除</button>
-        </div>
-
-        <!-- Uploaded file list -->
-        <div class="file-list" id="fileList"></div>
-      </div>
-    </div>
   </div>
 
   <!-- Right: Transcript + Settings -->
   <div style="display:flex;flex-direction:column;gap:16px;">
 
     <!-- Transcript (right column, top) -->
-    <div class="panel">
+    <div class="panel" id="transcriptPanel" style="display:flex;flex-direction:column;">
       <div class="panel-header" style="flex-shrink:0;">
         📄 轉錄文字
         <span id="segmentCount" style="margin-left:auto;font-size:12px;color:var(--text-dim);">0 段</span>
@@ -1428,7 +1779,7 @@ function connectSocket() {
     setProgress(100);
     updateStatus('done', '完成');
     isProcessing = false;
-    document.getElementById('startTranscribeBtn').disabled = false;
+    // startTranscribeBtn removed in media-rail redesign; upload button now lives inside pending card actions
     showToast(`轉錄完成! 共 ${data.segment_count} 個字幕段落`, 'success');
     enableExport();
     setTimeout(() => setProgress(0), 2000);
@@ -1446,7 +1797,7 @@ function connectSocket() {
     showToast(`轉錄失敗: ${data.error}`, 'error');
     updateStatus('idle', '錯誤');
     isProcessing = false;
-    document.getElementById('startTranscribeBtn').disabled = false;
+    // startTranscribeBtn removed in media-rail redesign; upload button now lives inside pending card actions
     setProgress(0);
   });
 
@@ -1554,18 +1905,26 @@ function handleFileSelect(e) {
 
 function setPendingFile(file) {
   selectedFile = file;
-  const mb = (file.size / 1024 / 1024).toFixed(1);
-  document.getElementById('pendingFileBox').style.display = 'flex';
-  document.getElementById('pendingFileName').textContent = file.name;
-  document.getElementById('pendingFileSize').textContent = `${mb} MB`;
-  document.getElementById('startTranscribeBtn').disabled = false;
+  // Treat pending as a virtual card in the media rail
+  uploadedFiles['__pending__'] = {
+    id: '__pending__',
+    original_name: file.name,
+    size: file.size,
+    status: 'pending',
+    uploaded_at: Date.now() / 1000,
+    _local: true,
+  };
+  activeFileId = '__pending__';
+  renderFileList();
 }
 
 function clearPending() {
   selectedFile = null;
-  document.getElementById('fileInput').value = '';
-  document.getElementById('pendingFileBox').style.display = 'none';
-  document.getElementById('startTranscribeBtn').disabled = true;
+  const input = document.getElementById('fileInput');
+  if (input) input.value = '';
+  delete uploadedFiles['__pending__'];
+  if (activeFileId === '__pending__') activeFileId = null;
+  renderFileList();
 }
 
 async function startTranscription() {
@@ -1578,7 +1937,6 @@ async function startTranscription() {
   isProcessing = true;
   segments = [];
   clearTranscriptDisplay();
-  document.getElementById('startTranscribeBtn').disabled = true;
   updateStatus('processing', '上傳中...');
   setProgress(10);
 
@@ -1594,29 +1952,30 @@ async function startTranscription() {
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
 
-    // Add to local file list
+    // Remove pending virtual entry; add real file
+    delete uploadedFiles['__pending__'];
     uploadedFiles[data.file_id] = {
       id: data.file_id,
       original_name: selectedFile.name,
       size: selectedFile.size,
       status: 'transcribing',
       segment_count: 0,
+      uploaded_at: Date.now() / 1000,
     };
     activeFileId = data.file_id;
+    selectedFile = null;
+    const input = document.getElementById('fileInput');
+    if (input) input.value = '';
     renderFileList();
 
     // Show video preview from server
     loadMediaPreview(data.file_id);
-
-    // Clear pending
-    clearPending();
 
     setProgress(30);
     showToast('文件上傳成功，開始轉錄...', 'success');
   } catch (err) {
     showToast(`上傳失敗: ${err.message}`, 'error');
     isProcessing = false;
-    document.getElementById('startTranscribeBtn').disabled = false;
     setProgress(0);
   }
 }
@@ -1636,168 +1995,229 @@ async function fetchFileList() {
   } catch (e) { /* server not ready yet */ }
 }
 
+// Stable hash → 0..7 gradient index for thumb placeholder
+function gradientIdxForId(id) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
+  return Math.abs(h) % 8;
+}
+
+// Classify a file into one of: done / transcribing / translating / pending / error
+function fileStatusCategory(f) {
+  if (f.status === 'error') return 'error';
+  if (f.status === 'transcribing') return 'transcribing';
+  if (f.status === 'pending' || f._local) return 'pending';
+  if (f.status === 'done' && f.translation_status === 'translating') return 'translating';
+  return 'done';  // done (approved or not), or uploaded-but-idle
+}
+
+function statusLabel(cat, f) {
+  switch (cat) {
+    case 'done':
+      if (f.translation_status === 'done') return '已完成';
+      if (f.translation_status === 'translating') return '翻譯中';
+      return '待翻譯';
+    case 'transcribing': {
+      const fp = fileProgress[f.id];
+      if (fp && fp.progress != null) return `轉錄中 ${Math.round(fp.progress * 100)}%`;
+      return '轉錄中';
+    }
+    case 'translating': {
+      const tp = f.translation_progress || {};
+      return `翻譯中 ${tp.percent || 0}%`;
+    }
+    case 'pending':  return '待上傳';
+    case 'error':    return '錯誤';
+  }
+  return '';
+}
+
 function renderFileList() {
   const container = document.getElementById('fileList');
+  if (!container) return;
   const ids = Object.keys(uploadedFiles);
 
   if (ids.length === 0) {
-    container.innerHTML = '';
+    container.innerHTML = '<div class="rail-empty">尚未上傳檔案<br>拖放或撳上面按鈕開始</div>';
     return;
   }
 
-  // Sort newest first
-  ids.sort((a, b) => (uploadedFiles[b].uploaded_at || 0) - (uploadedFiles[a].uploaded_at || 0));
+  // Sort: pending first, then newest real files
+  ids.sort((a, b) => {
+    const fa = uploadedFiles[a], fb = uploadedFiles[b];
+    if (fa._local && !fb._local) return -1;
+    if (!fa._local && fb._local) return 1;
+    return (fb.uploaded_at || 0) - (fa.uploaded_at || 0);
+  });
 
   container.innerHTML = ids.map(id => {
     const f = uploadedFiles[id];
-    const mb = (f.size / 1024 / 1024).toFixed(1);
-    const isActive = id === activeFileId;
-    const isDone = f.status === 'done';
-    const isError = f.status === 'error';
-    const isBusy = f.status === 'transcribing';
+    const cat = fileStatusCategory(f);
+    const isSelected = id === activeFileId;
+    const mbStr = `${(f.size / 1024 / 1024).toFixed(1)} MB`;
+    const durStr = f.duration ? formatDuration(f.duration) : '—:—';
+    const relTime = f.uploaded_at ? formatRelativeTime(f.uploaded_at) : '';
+    const thumbIdx = gradientIdxForId(id);
 
-    let statusHtml = '';
-    if (isDone) statusHtml = '<span class="badge badge-done">✓ 轉譯</span>';
-    else if (isBusy) statusHtml = '<span class="badge badge-processing">轉錄中</span>';
-    else if (isError) statusHtml = '<span class="badge badge-idle">錯誤</span>';
-    else statusHtml = '<span class="badge badge-idle">已上傳</span>';
-
-    // Model info
-    let modelBadge = '';
-    if (f.model) {
-      const bkLabel = f.backend || '';
-      const bkSuffix = bkLabel ? ` · ${bkLabel}` : '';
-      modelBadge = `<span class="delay-badge" style="margin-left:0;">${f.model}${bkSuffix}</span>`;
-    }
-    let transEngineBadge = '';
-    if (f.translation_engine) {
-      transEngineBadge = `<span class="delay-badge" style="margin-left:0;">${f.translation_engine}</span>`;
-    }
-
-    let extraHtml = '';
-    if (isDone) {
-      const hasTranslations = f.translation_status === 'done';
-      const isTranslating = f.translation_status === 'translating';
-      const proofreadBtn = hasTranslations
-        ? `<a class="btn btn-secondary" href="proofread.html?file_id=${id}" style="background:var(--accent);color:#fff;">校對</a>`
-        : '';
-
-      let transBadge = '<span class="badge badge-pending-trans">待翻譯</span>';
-      if (hasTranslations) transBadge = '<span class="badge badge-translated">✓ 翻譯</span>';
-      else if (isTranslating) transBadge = '<span class="badge badge-translating">翻譯中...</span>';
-
-      const translateBtn = isTranslating
-        ? ''
-        : hasTranslations
-          ? `<button class="btn-retranslate" onclick="event.stopPropagation(); reTranslateFile('${id}', this)">🔄 重新翻譯</button>`
-          : `<button class="btn-retranslate" onclick="event.stopPropagation(); reTranslateFile('${id}', this)">▶ 翻譯</button>`;
-
-      // Translation progress strip — only shown while a batch is in progress
-      let translationProgressHtml = '';
-      if (isTranslating) {
-        const tp = f.translation_progress || { completed: 0, total: f.segment_count || 0, percent: 0 };
-        translationProgressHtml = `
-          <div class="file-card-progress" data-translation-progress="${id}">
-            <div class="file-progress-bar">
-              <div class="file-progress-fill" style="width:${tp.percent || 0}%"></div>
-            </div>
-            <div class="file-progress-info">翻譯中 ${tp.completed} / ${tp.total} 段 · ${tp.percent || 0}%</div>
-          </div>`;
-      }
-
-      extraHtml = `
-        <div class="file-card-actions">
-          ${modelBadge}
-          ${transEngineBadge}
-          ${transBadge}
-          <a class="btn btn-secondary" href="${API_BASE}/api/files/${id}/subtitle.srt" download>SRT</a>
-          <a class="btn btn-secondary" href="${API_BASE}/api/files/${id}/subtitle.vtt" download>VTT</a>
-          <a class="btn btn-secondary" href="${API_BASE}/api/files/${id}/subtitle.txt" download>TXT</a>
-          ${translateBtn}
-          ${proofreadBtn}
-        </div>
-        ${translationProgressHtml}`;
-    } else if (isBusy && fileProgress[id]) {
+    // Ambient progress bar (transcribing / translating)
+    let progressHtml = '';
+    if (cat === 'transcribing') {
       const fp = fileProgress[id];
-      const hasDeterminateProgress = fp.progress != null && fp.progress > 0;
+      const pct = fp && fp.progress != null ? Math.round(fp.progress * 100) : 0;
+      progressHtml = `<div class="mb-progress info"><div class="mb-progress-fill" style="width:${pct}%"></div></div>`;
+    } else if (cat === 'translating') {
+      const tp = f.translation_progress || {};
+      const pct = tp.percent || 0;
+      progressHtml = `<div class="mb-progress warning"><div class="mb-progress-fill" style="width:${pct}%"></div></div>`;
+    }
 
-      if (hasDeterminateProgress) {
-        // Determinate progress (faster-whisper streams segments)
-        const pct = Math.round(fp.progress * 100);
-        const processed = formatDuration(fp.processedTime || 0);
-        const total = formatDuration(fp.totalDuration || 0);
-        const etaStr = fp.eta != null ? formatDuration(fp.eta) : '--:--';
-        extraHtml = `
-          <div class="file-card-progress">
-            <div class="file-progress-bar">
-              <div class="file-progress-fill" style="width:${pct}%"></div>
-            </div>
-            <div class="file-progress-info">
-              <span>${processed} / ${total}</span>
-              <span class="pct">${pct}%</span>
-              <span>預計剩餘 <span class="eta">${etaStr}</span></span>
-            </div>
-          </div>`;
-      } else {
-        // Indeterminate progress (openai-whisper blocks, we show elapsed time)
-        const elapsed = formatDuration(fp.elapsed || 0);
-        const total = formatDuration(fp.totalDuration || 0);
-        extraHtml = `
-          <div class="file-card-progress">
-            <div class="file-progress-bar">
-              <div class="file-progress-fill" style="width:100%;animation:indeterminate 1.8s infinite linear"></div>
-            </div>
-            <div class="file-progress-info">
-              <span>音頻時長 ${total}</span>
-              <span class="pct">轉錄中...</span>
-              <span>已耗時 <span class="eta">${elapsed}</span></span>
-            </div>
-          </div>`;
-      }
-    } else if (isBusy) {
-      // Busy but no progress data yet (still extracting audio)
-      extraHtml = `
-        <div class="file-card-progress">
-          <div class="file-progress-bar">
-            <div class="file-progress-fill" style="width:100%;animation:indeterminate 1.8s infinite linear"></div>
-          </div>
-          <div class="file-progress-info">
-            <span>準備中...</span>
-          </div>
+    // Pipeline chips
+    const asrLabel = f.model ? `📝 Whisper·${f.model}` : '📝 Whisper';
+    const mtLabel  = f.translation_engine ? `🌐 ${f.translation_engine}` : '🌐 翻譯';
+
+    // Timing (Variant C style)
+    let timingHtml = '';
+    const asrSec = f.asr_seconds, mtSec = f.translation_seconds, totalSec = f.pipeline_seconds;
+    if (cat === 'done' && asrSec != null && mtSec != null) {
+      const total = totalSec != null ? totalSec : asrSec + mtSec;
+      timingHtml = `
+        <div class="mb-timing">
+          <span class="seg"><span class="k">ASR</span>${asrSec.toFixed(1)}s</span>
+          <span class="op">+</span>
+          <span class="seg"><span class="k">MT</span>${mtSec.toFixed(1)}s</span>
+          <span class="op">=</span>
+          <span class="seg sigma"><span class="k" style="color:var(--accent2);">Σ</span>${total.toFixed(1)}s</span>
+        </div>`;
+    } else if (cat === 'translating' && asrSec != null) {
+      timingHtml = `
+        <div class="mb-timing">
+          <span class="seg"><span class="k">ASR</span>${asrSec.toFixed(1)}s</span>
+          <span class="op">+</span>
+          <span class="seg" style="color:var(--warning);"><span class="k" style="color:var(--warning);opacity:0.7;">MT</span>…</span>
+        </div>`;
+    } else if (cat === 'transcribing') {
+      const fp = fileProgress[id];
+      const elapsed = fp && fp.elapsed ? formatDuration(fp.elapsed) : '';
+      timingHtml = elapsed
+        ? `<div class="mb-timing"><span class="seg" style="color:#3b82f6;"><span class="k" style="color:#3b82f6;opacity:0.7;">ASR</span>${elapsed}…</span></div>`
+        : '';
+    } else if (cat === 'pending') {
+      timingHtml = `<div class="mb-timing" style="color:var(--text-faint);"><span>${mbStr} · ${(f.original_name.split('.').pop() || '').toUpperCase()}</span></div>`;
+    }
+
+    // Bar row (批核 / 翻譯 / 轉錄 progress)
+    let barRowHtml = '';
+    if (cat === 'done' && f.translation_status === 'done') {
+      const approved = f.approved_count != null ? f.approved_count : 0;
+      const total = f.segment_count || 0;
+      const pct = total > 0 ? Math.round((approved / total) * 100) : 0;
+      barRowHtml = `
+        <div class="mb-bar-row">
+          <span class="k">批核</span>
+          <div class="bar"><div class="bar-fill" style="width:${pct}%"></div></div>
+          <span class="frac">${approved}/${total}</span>
+        </div>`;
+    } else if (cat === 'translating') {
+      const tp = f.translation_progress || {};
+      const done = tp.completed || 0, total = tp.total || f.segment_count || 0;
+      barRowHtml = `
+        <div class="mb-bar-row">
+          <span class="k">翻譯</span>
+          <div class="bar"><div class="bar-fill" style="width:${tp.percent || 0}%;background:var(--warning);"></div></div>
+          <span class="frac">${done}/${total}</span>
+        </div>`;
+    } else if (cat === 'transcribing') {
+      const fp = fileProgress[id];
+      const pct = fp && fp.progress != null ? Math.round(fp.progress * 100) : 0;
+      const eta = fp && fp.eta != null ? formatDuration(fp.eta) : '—';
+      barRowHtml = `
+        <div class="mb-bar-row">
+          <span class="k">轉錄</span>
+          <div class="bar"><div class="bar-fill" style="width:${pct}%;background:#3b82f6;"></div></div>
+          <span class="frac">${pct}% · 剩 ${eta}</span>
         </div>`;
     }
 
-    // Metadata chips: size + segment count + relative upload time
-    const segCount = f.segment_count || 0;
-    const relTime = f.uploaded_at ? formatRelativeTime(f.uploaded_at) : '';
-    const metaPieces = [`${mb} MB`];
-    if (segCount > 0) metaPieces.push(`${segCount} 段`);
-    if (relTime) metaPieces.push(relTime);
-    const metaHtml = metaPieces.map(m => `<span class="file-card-meta-chip">${escapeHtml(m)}</span>`).join('');
+    // Action buttons by state
+    let actionsHtml = '';
+    if (cat === 'done') {
+      const hasTrans = f.translation_status === 'done';
+      const proofreadBtn = hasTrans
+        ? `<a class="mb-btn primary" href="proofread.html?file_id=${id}" onclick="event.stopPropagation()">✏ 校對</a>`
+        : `<button class="mb-btn primary" onclick="event.stopPropagation(); reTranslateFile('${id}', this)">▶ 翻譯</button>`;
+      const retransBtn = hasTrans
+        ? `<button class="mb-btn" onclick="event.stopPropagation(); reTranslateFile('${id}', this)">🔄 重譯</button>`
+        : '';
+      actionsHtml = `
+        <div class="mb-actions">
+          ${proofreadBtn}
+          ${retransBtn}
+          <button class="mb-btn icon-only danger" title="刪除" onclick="event.stopPropagation(); deleteFile('${id}')">🗑</button>
+        </div>`;
+    } else if (cat === 'transcribing' || cat === 'translating') {
+      actionsHtml = `
+        <div class="mb-actions">
+          <button class="mb-btn" disabled>✏ 校對</button>
+          <button class="mb-btn" disabled>🔄 重譯</button>
+          <button class="mb-btn icon-only danger" title="刪除" onclick="event.stopPropagation(); deleteFile('${id}')">🗑</button>
+        </div>`;
+    } else if (cat === 'pending') {
+      actionsHtml = `
+        <div class="mb-actions">
+          <button class="mb-btn primary" onclick="event.stopPropagation(); startTranscription()">⬆ 上傳並轉錄</button>
+          <button class="mb-btn icon-only danger" title="取消" onclick="event.stopPropagation(); clearPending()">✕</button>
+        </div>`;
+    } else if (cat === 'error') {
+      // Retry requires re-uploading the original file (/api/transcribe needs file blob).
+      // The entry itself has no segments to re-translate, so we expose only
+      // "copy error" + delete. User re-drops the file in the drop zone to retry.
+      const errMsg = (f.error || '處理失敗').replace(/'/g, "\\'");
+      actionsHtml = `
+        <div class="mb-actions">
+          <button class="mb-btn" onclick="event.stopPropagation(); navigator.clipboard.writeText('${errMsg}'); showToast('錯誤已複製', 'success');">📋 複製錯誤</button>
+          <button class="mb-btn icon-only danger" title="刪除" onclick="event.stopPropagation(); deleteFile('${id}')">🗑</button>
+        </div>`;
+    }
 
-    // Active "currently playing" chip — only when this card is selected
-    const activeChip = isActive
-      ? `<span class="file-card-now-playing" title="目前播放中">▶ 播放中</span>`
-      : '';
-
-    // Filename becomes an explicit link cue — hover underline + trailing ↗ icon.
-    // The entire header is still click-to-select, but the name itself signals
-    // interactability via the standard link affordance vocabulary.
-    const nameHtml = `<span class="file-card-name" title="打開此檔案">${escapeHtml(f.original_name)} <span class="file-card-name-arrow">↗</span></span>`;
+    // Pipeline row (varies per state)
+    let pipeHtml = `
+      <div class="mb-pipe">
+        <span class="asr">${escapeHtml(asrLabel)}</span>
+        <span class="arrow">→</span>
+        <span class="mt">${escapeHtml(mtLabel)}</span>
+      </div>`;
+    if (cat === 'error') {
+      pipeHtml = `<div class="mb-pipe"><span style="color:var(--danger);">❌ ${escapeHtml(f.error || '處理失敗')}</span></div>`;
+    }
 
     return `
-      <div class="file-card ${isActive ? 'active' : ''}" data-file-id="${id}">
-        <div class="file-card-header" onclick="selectFile('${id}')">
-          <span class="file-card-icon">${isDone ? '✅' : isBusy ? '⏳' : isError ? '❌' : '🎬'}</span>
-          ${nameHtml}
-          ${activeChip}
-          ${metaHtml}
-          ${statusHtml}
-          <div class="file-card-overflow" onclick="event.stopPropagation(); toggleFileOverflow(this, '${id}')" title="更多操作">
-            <button class="btn-icon btn-overflow" aria-label="更多操作">⋯</button>
+      <div class="mb-card ${isSelected ? 'selected' : ''} ${cat === 'pending' ? 'pending' : ''}"
+           data-file-id="${id}" data-status="${cat}"
+           onclick="selectFile('${id}')">
+        <div class="mb-card-top">
+          <div class="mb-thumb gr-${thumbIdx}"><span class="dur">${durStr}</span></div>
+          <div class="mb-meta">
+            <div class="mb-name" title="${escapeHtml(f.original_name)}">${escapeHtml(f.original_name)}</div>
+            <div class="mb-sub">
+              ${durStr}
+              <span class="sep">·</span>
+              <span class="sdot sdot-${cat}"></span>
+              ${escapeHtml(statusLabel(cat, f))}
+            </div>
+            <div class="mb-sub uploaded">🕓 ${escapeHtml(relTime || '—')}</div>
           </div>
         </div>
-        ${extraHtml}
+        ${progressHtml}
+        <div class="mb-expand">
+          <div class="mb-expand-inner">
+            <div class="mb-section">
+              ${pipeHtml}
+              ${timingHtml}
+              ${barRowHtml}
+            </div>
+            ${actionsHtml}
+          </div>
+        </div>
       </div>`;
   }).join('');
 }
@@ -1860,9 +2280,13 @@ function toggleFileOverflow(anchor, fileId) {
 function selectFile(fileId) {
   activeFileId = fileId;
   renderFileList();
-  loadMediaPreview(fileId);
 
-  // Load segments for this file from server
+  // Guard: virtual/local-only entries (e.g. '__pending__') have no server-side media
+  // or segments — skip the backend fetches to avoid spurious 404s.
+  const f = uploadedFiles[fileId];
+  if (!f || f._local || fileId === '__pending__') return;
+
+  loadMediaPreview(fileId);
   loadFileSegments(fileId);
 }
 
@@ -3642,6 +4066,40 @@ async function restartService() {
     }
   }, 2000);
 }
+
+// ============================================================
+// Sync transcript panel height to video panel height
+// ============================================================
+(function syncTranscriptHeight() {
+  const video = document.getElementById('videoPanel');
+  const transcript = document.getElementById('transcriptPanel');
+  if (!video || !transcript || typeof ResizeObserver === 'undefined') return;
+  const apply = () => {
+    transcript.style.height = video.getBoundingClientRect().height + 'px';
+  };
+  new ResizeObserver(apply).observe(video);
+  apply();
+})();
+
+// ============================================================
+// Media rail collapse/expand toggle
+// ============================================================
+(function setupRailToggle() {
+  const rail = document.getElementById('mediaRail');
+  const btn = document.getElementById('railToggle');
+  if (!rail || !btn) return;
+  const KEY = 'motitle_rail_collapsed';
+  if (localStorage.getItem(KEY) === '1') {
+    rail.classList.add('collapsed');
+    btn.textContent = '▶';
+  }
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const collapsed = rail.classList.toggle('collapsed');
+    btn.textContent = collapsed ? '▶' : '◀';
+    try { localStorage.setItem(KEY, collapsed ? '1' : '0'); } catch {}
+  });
+})();
 
 // ============================================================
 // Init
