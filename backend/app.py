@@ -1668,6 +1668,70 @@ def serve_media(file_id):
     return send_file(str(media_path), as_attachment=False)
 
 
+@app.route('/api/files/<file_id>/waveform')
+def get_waveform(file_id):
+    """
+    Return downsampled audio waveform peaks for timeline-strip rendering.
+
+    Query params:
+        bins: number of peak buckets (default 200, clamped [20, 2000])
+
+    Response: {"peaks": [float, ...], "duration": float | null, "bins": int, "cached": bool}
+
+    Result is cached per-file in _file_registry[id]['waveform_peaks'] (keyed
+    by bin count) so repeat calls are instant. Computation requires ffmpeg
+    and typically takes a few seconds for short clips, up to ~30s for long
+    masters.
+    """
+    try:
+        bins = int(request.args.get('bins', '200'))
+    except (TypeError, ValueError):
+        bins = 200
+    bins = max(20, min(2000, bins))
+
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+    if not entry:
+        return jsonify({'error': '文件不存在'}), 404
+
+    media_path = UPLOAD_DIR / entry['stored_name']
+    if not media_path.exists():
+        return jsonify({'error': '文件已丟失'}), 404
+
+    # Cache lookup (per-file, keyed by bin count)
+    cache = entry.get('waveform_peaks') or {}
+    cached = cache.get(str(bins))
+    if cached is not None:
+        return jsonify({
+            'peaks': cached['peaks'],
+            'duration': cached.get('duration'),
+            'bins': bins,
+            'cached': True,
+        })
+
+    try:
+        from waveform import compute_waveform_peaks
+        peaks, duration = compute_waveform_peaks(str(media_path), bins=bins)
+    except Exception as e:
+        return jsonify({'error': f'波形計算失敗: {e}'}), 500
+
+    # Persist in registry cache
+    with _registry_lock:
+        registry_entry = _file_registry.get(file_id)
+        if registry_entry is not None:
+            wp = registry_entry.get('waveform_peaks') or {}
+            wp[str(bins)] = {'peaks': peaks, 'duration': duration}
+            registry_entry['waveform_peaks'] = wp
+            _save_registry()
+
+    return jsonify({
+        'peaks': peaks,
+        'duration': duration,
+        'bins': bins,
+        'cached': False,
+    })
+
+
 @app.route('/api/files/<file_id>/subtitle.<fmt>')
 def download_subtitle(file_id, fmt):
     """Download subtitles in SRT, VTT, or TXT format"""
