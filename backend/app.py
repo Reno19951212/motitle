@@ -77,7 +77,7 @@ except ImportError:
 # Initialize Flask app
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'whisper-secret-key'
-app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB max upload
+app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024 * 1024  # 5GB max upload (broadcast MXF masters)
 
 CORS(app, origins="*")
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading',
