@@ -1635,13 +1635,17 @@ def list_files():
     files = []
     with _registry_lock:
         for fid, entry in _file_registry.items():
+            translations = entry.get('translations') or []
+            seg_count = len(entry.get('segments', []))
+            approved_count = sum(1 for t in translations if t.get('status') == 'approved')
             files.append({
                 'id': entry['id'],
                 'original_name': entry['original_name'],
                 'size': entry['size'],
                 'status': entry['status'],
                 'uploaded_at': entry['uploaded_at'],
-                'segment_count': len(entry.get('segments', [])),
+                'segment_count': seg_count,
+                'approved_count': approved_count,
                 'error': entry.get('error'),
                 'model': entry.get('model'),
                 'backend': entry.get('backend'),

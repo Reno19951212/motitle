@@ -1,6 +1,7 @@
 """Subtitle renderer — generates ASS subtitles and burns them into video via FFmpeg."""
 
 import os
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -128,38 +129,61 @@ class SubtitleRenderer:
         opts = render_options or {}
         ass_file = None
         try:
-            fd, ass_file = tempfile.mkstemp(suffix=".ass")
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
+            # Write the ASS file into renders_dir with a simple basename.
+            # Running ffmpeg with cwd=renders_dir lets us pass just the
+            # basename to the `ass` filter, avoiding Windows drive-letter
+            # colons and backslashes that break ffmpeg's filter parser.
+            ass_basename = f"_sub_{os.getpid()}_{os.urandom(4).hex()}.ass"
+            ass_file = str(self._renders_dir / ass_basename)
+            with open(ass_file, "w", encoding="utf-8") as f:
                 f.write(ass_content)
 
-            # Resolution scaling appended to ASS filter when requested
             resolution = opts.get("resolution")
-            ass_filter = f"ass={_escape_ass_path(ass_file)}"
+            ass_filter = f"ass={ass_basename}"
             vf = f"{ass_filter},scale={resolution}" if resolution else ass_filter
+
+            video_abs = os.path.abspath(video_path)
+            output_abs = os.path.abspath(output_path)
+            cwd = str(self._renders_dir)
+            # On Windows, CreateProcess with cwd= can miss PATH lookup for bare
+            # "ffmpeg", so resolve to an absolute path up front. Fall back to
+            # common Windows install locations when PATH doesn't include it
+            # (e.g. backend launched from a shell that lacks the winget Links dir).
+            ffmpeg_exe = shutil.which("ffmpeg")
+            if not ffmpeg_exe and os.name == "nt":
+                for candidate in (
+                    os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\WinGet\Links\ffmpeg.exe"),
+                    r"C:\ffmpeg\bin\ffmpeg.exe",
+                    r"C:\Program Files\ffmpeg\bin\ffmpeg.exe",
+                ):
+                    if os.path.isfile(candidate):
+                        ffmpeg_exe = candidate
+                        break
+            ffmpeg_exe = ffmpeg_exe or "ffmpeg"
 
             if output_format == "mxf":
                 prores_profile = int(opts.get("prores_profile", 3))
                 audio_fmt = opts.get("audio_format", "pcm_s16le")
                 cmd = [
-                    "ffmpeg", "-y", "-i", video_path,
+                    ffmpeg_exe, "-y", "-i", video_abs,
                     "-vf", vf,
                     "-c:v", "prores_ks", "-profile:v", str(prores_profile),
                     "-c:a", audio_fmt, "-ar", "48000",
-                    output_path,
+                    output_abs,
                 ]
             else:
                 crf = int(opts.get("crf", 18))
                 preset = opts.get("preset", "medium")
                 audio_bitrate = opts.get("audio_bitrate", "192k")
                 cmd = [
-                    "ffmpeg", "-y", "-i", video_path,
+                    ffmpeg_exe, "-y", "-i", video_abs,
                     "-vf", vf,
                     "-c:v", "libx264", "-preset", preset, "-crf", str(crf),
                     "-c:a", "aac", "-b:a", audio_bitrate,
-                    output_path,
+                    output_abs,
                 ]
 
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+            result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=600)
             if result.returncode == 0:
                 # L12: FFmpeg can exit 0 with fatal-level stderr in rare edge cases.
                 # Use specific terminal phrases only — broad terms like "error" or "invalid"
