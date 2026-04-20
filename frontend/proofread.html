@@ -556,7 +556,6 @@
                 <span>撳條波形跳至該位置</span>
               </div>
               <div class="rv-b-tlh-r">
-                <button class="btn btn-ghost btn-sm" onclick="approveAll()">✓ 批核全部未批</button>
               </div>
             </div>
             <div class="rv-wave" id="waveform" style="height:96px;">
@@ -994,6 +993,7 @@
           下一段 ▶ <span class="kbd">K</span>
         </button>
         <div class="spacer"></div>
+        <button class="btn btn-ghost" onclick="approveAll()">✓ 全批核</button>
         <button class="btn btn-primary" onclick="approveAndAdvance()" ${s.approved ? 'disabled' : ''}>
           ✓ 批核並前進 <span class="kbd">⌘↵</span>
         </button>
