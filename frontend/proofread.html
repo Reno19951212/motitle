@@ -702,6 +702,8 @@
   let waveformPeaks = null;
   let glossaryId = null;          // selected glossary ID
   let glossaryEntries = [];       // current glossary entries
+  let activeProfileId = null;     // for PATCH font settings
+  let ssDebounceTimer = null;     // subtitle settings save debounce
 
   // Font config mirrors active profile's `font` — read-only on this page;
   // user edits live on the Dashboard's 字幕設定 tab + 💾 儲存為預設.
@@ -827,6 +829,62 @@
       }
     } catch (e) { /* keep defaults */ }
     applySubtitleStyle();
+  }
+
+  // ============================================================
+  // Subtitle Settings Panel
+  // ============================================================
+  async function initSubtitleSettings() {
+    try {
+      const r = await fetch(`${API_BASE}/api/profiles/active`);
+      if (!r.ok) return;
+      const data = await r.json();
+      activeProfileId = data.profile?.id || null;
+      const f = data.profile?.font || {};
+      fontConfig = { ...fontConfig, ...f };
+      document.getElementById('ssFamily').value = fontConfig.family;
+      document.getElementById('ssSize').value = fontConfig.size;
+      document.getElementById('ssColor').value = fontConfig.color;
+      document.getElementById('ssColorHex').textContent = fontConfig.color;
+      document.getElementById('ssOutlineColor').value = fontConfig.outline_color;
+      document.getElementById('ssOutlineColorHex').textContent = fontConfig.outline_color;
+      document.getElementById('ssOutlineWidth').value = fontConfig.outline_width;
+      document.getElementById('ssMarginBottom').value = fontConfig.margin_bottom;
+      applySubtitleStyle();
+    } catch (e) { /* keep defaults */ }
+  }
+
+  function onColorInput(inputId, hexId) {
+    document.getElementById(hexId).textContent = document.getElementById(inputId).value;
+  }
+
+  function onSubtitleSettingChange() {
+    clearTimeout(ssDebounceTimer);
+    ssDebounceTimer = setTimeout(saveSubtitleSettings, 500);
+  }
+
+  async function saveSubtitleSettings() {
+    if (!activeProfileId) return;
+    const font = {
+      family: document.getElementById('ssFamily').value.trim(),
+      size: Number(document.getElementById('ssSize').value),
+      color: document.getElementById('ssColor').value,
+      outline_color: document.getElementById('ssOutlineColor').value,
+      outline_width: Number(document.getElementById('ssOutlineWidth').value),
+      margin_bottom: Number(document.getElementById('ssMarginBottom').value),
+    };
+    try {
+      const r = await fetch(`${API_BASE}/api/profiles/${activeProfileId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ font }),
+      });
+      if (!r.ok) throw new Error((await r.json()).error || '儲存失敗');
+      fontConfig = { ...fontConfig, ...font };
+      applySubtitleStyle();
+    } catch (e) {
+      showToast(`字幕設定儲存失敗: ${e.message}`, 'error');
+    }
   }
 
   // ============================================================
@@ -976,8 +1034,9 @@
     }
 
     try {
-      // Kick font config fetch in parallel — doesn't block main load
-      loadFontConfig();
+      // Kick panel inits in parallel — don't block main load
+      initSubtitleSettings();
+      initGlossaryPanel();
 
       // File metadata via /api/files (then filter)
       const fl = await fetch(`${API_BASE}/api/files`).then(r => r.json());
