@@ -1145,7 +1145,7 @@
     // Show progress
     const body = document.getElementById('gaBody');
     const footer = document.getElementById('gaFooter');
-    body.innerHTML = `<div class="ga-progress">正在套用 0/${selected.length}…</div>`;
+    body.innerHTML = `<div class="ga-progress">正在套用 ${selected.length} 處…</div>`;
     footer.style.display = 'none';
 
     try {
@@ -1166,7 +1166,7 @@
 
       // Refresh segments to reflect changes
       await loadSegments();
-      if (typeof curIdx !== 'undefined' && curIdx >= 0) {
+      if (cursorIdx !== null) {
         renderDetail();
       }
     } catch (e) {
