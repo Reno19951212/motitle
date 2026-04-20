@@ -242,6 +242,8 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | DELETE | `/api/glossaries/<id>/entries/<eid>` | Delete entry |
 | POST | `/api/glossaries/<id>/import` | Import CSV |
 | GET | `/api/glossaries/<id>/export` | Export CSV |
+| POST | `/api/files/<id>/glossary-scan` | Scan translations for glossary violations (string match) |
+| POST | `/api/files/<id>/glossary-apply` | Apply glossary corrections via LLM smart replacement |
 | GET | `/api/languages` | List language configs |
 | GET | `/api/languages/<id>` | Get language config |
 | PATCH | `/api/languages/<id>` | Update language config |
@@ -317,7 +319,9 @@ Whenever a new feature is completed or existing functionality is modified, you *
 - **274 automated tests**（+3 new: profile_updated emit on activate, PATCH-active, PATCH-inactive）
 - **Find & Replace + Apply Glossary**: Find & Replace toolbar in `proofread.html` — search zh/en columns with live highlight, match navigation (▲/▼, Enter/Shift+Enter), Replace One/All (zh_text only), 只搜未批核 checkbox, Apply Glossary (violation detection + preview modal + batch PATCH). Opened via `Cmd+F`. No backend changes.
 - **Processing Time Visibility + Parallel Batch Translation**: `asr_seconds` stored in file registry after transcription; `elapsed_seconds` added to `translation_progress` event; new `pipeline_timing` WebSocket event on translation completion shows ASR/translation/total breakdown; `parallel_batches` parameter (1–8) in Profile translation block enables `ThreadPoolExecutor` parallelism in `OllamaTranslationEngine`; context window disabled in parallel mode; Profile form field with hint text.
-- **303 automated tests**（+29 new: parallel_batches validation, parallel translation, pipeline timing）
+- **Proofread 兩個新 Panel**: 影片預覽下方加入「詞彙表對照」+「字幕設定」兩個 panel。詞彙表 panel 支援從所有 glossary 中選擇、查看/新增/編輯條目（inline）；字幕設定 panel 直接編輯 active profile 嘅 font config（字型、大小、顏色、輪廓、邊距），500ms debounce 後自動 PATCH，透過 Socket.IO 即時更新 overlay
+- **Glossary Apply（LLM 智能替換）**: Proofread page 詞彙表 panel 新增「套用」按鈕。Two-phase 流程：(1) `POST /api/files/<id>/glossary-scan` 用純字串匹配搵出違規（EN 包含 glossary term 但 ZH 唔包含對應翻譯）；(2) 預覽 modal 俾用戶剔選 violations（未批核預設勾選，已批核預設唔勾選）；(3) `POST /api/files/<id>/glossary-apply` 逐條調用 Ollama LLM 做智能替換（保留句子其他部分），多個違規同一 segment 時序列處理。後端會驗證 `(term_en, term_zh)` 確實屬於指定 glossary，錯誤訊息經 `app.logger.exception` 記錄並返回統一 `"LLM request failed"` 俾 client
+- **304 automated tests**（+13 new: glossary-scan/apply 端到端 coverage，包含 sequential chaining、term validation、approval 狀態保留）
 
 ### v2.1 — Language Config, Frontend UI, Bug Fixes
 - **Language config system**: Per-language ASR params (max_words_per_segment, max_segment_duration) and translation params (batch_size, temperature) with validation
