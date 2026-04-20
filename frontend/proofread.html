@@ -527,16 +527,8 @@
     <div class="rv-body">
       <div class="rv-b">
 
-        <!-- Left: video + segment rail -->
+        <!-- Left: segment rail only (full height) -->
         <div class="rv-b-left">
-          <div class="rv-b-video-wrap">
-            <div class="rv-b-video">
-              <div class="rv-b-video-placeholder" id="videoPlaceholder">選擇檔案以預覽視頻</div>
-              <video id="videoPlayer" style="display:none;" controls></video>
-              <div class="rv-b-video-sub" id="videoSub" style="display:none;"></div>
-            </div>
-          </div>
-
           <div class="rv-b-rail">
             <div class="rv-b-rail-head">
               段列表 · <span id="segCount">0</span> 段
@@ -547,8 +539,22 @@
           </div>
         </div>
 
-        <!-- Right: timeline + detail -->
+        <!-- Right: top row (video + detail) + timeline at bottom -->
         <div class="rv-b-right">
+          <div class="rv-b-top-row">
+            <div class="rv-b-video-wrap">
+              <div class="rv-b-video">
+                <div class="rv-b-video-placeholder" id="videoPlaceholder">選擇檔案以預覽視頻</div>
+                <video id="videoPlayer" style="display:none;" controls></video>
+                <div class="rv-b-video-sub" id="videoSub" style="display:none;"></div>
+              </div>
+            </div>
+
+            <div class="rv-b-detail" id="detailPanel">
+              <div class="rv-b-empty" id="detailEmpty">選擇一段開始校對</div>
+            </div>
+          </div>
+
           <div class="rv-b-timeline-panel">
             <div class="rv-b-timeline-head">
               <div class="rv-b-tlh-l">
@@ -582,10 +588,6 @@
                 <button class="btn btn-ghost btn-sm" onclick="nav(1)" title="下一段 (K)">▶</button>
               </div>
             </div>
-          </div>
-
-          <div class="rv-b-detail" id="detailPanel">
-            <div class="rv-b-empty" id="detailEmpty">選擇一段開始校對</div>
           </div>
         </div>
 
