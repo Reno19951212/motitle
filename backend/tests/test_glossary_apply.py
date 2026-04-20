@@ -131,3 +131,129 @@ def test_glossary_scan_missing_body(file_with_translations):
                   data=json.dumps({}),
                   content_type="application/json")
     assert resp.status_code == 400
+
+
+def test_glossary_apply_calls_ollama_and_updates(file_with_translations, glossary_with_entries, monkeypatch):
+    """Apply should call LLM and update zh_text for each selected violation."""
+    file_id, c, app_module = file_with_translations
+    glossary_id, _, _ = glossary_with_entries
+
+    # Mock Ollama HTTP call
+    call_log = []
+    def mock_urlopen(req, timeout=120):
+        body = json.loads(req.data.decode("utf-8"))
+        user_msg = body["messages"][1]["content"]
+        call_log.append(user_msg)
+        # Return a corrected zh_text
+        import io
+        response_body = json.dumps({
+            "message": {"content": "主播現場報導了廣播內容"}
+        }).encode("utf-8")
+        resp = io.BytesIO(response_body)
+        resp.status = 200
+        resp.read = lambda: response_body
+        resp.__enter__ = lambda s: s
+        resp.__exit__ = lambda s, *a: None
+        return resp
+
+    monkeypatch.setattr("urllib.request.urlopen", mock_urlopen)
+
+    resp = c.post(f"/api/files/{file_id}/glossary-apply",
+                  data=json.dumps({
+                      "glossary_id": glossary_id,
+                      "violations": [
+                          {"seg_idx": 0, "term_en": "broadcast", "term_zh": "廣播"},
+                      ]
+                  }),
+                  content_type="application/json")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["applied_count"] == 1
+    assert len(data["results"]) == 1
+    assert data["results"][0]["success"] is True
+    assert data["results"][0]["new_zh"] == "主播現場報導了廣播內容"
+
+    # Verify file registry was updated
+    updated_zh = app_module._file_registry[file_id]["translations"][0]["zh_text"]
+    assert updated_zh == "主播現場報導了廣播內容"
+    assert len(call_log) == 1
+
+
+def test_glossary_apply_missing_file(client, glossary_with_entries):
+    """Should return 404 for nonexistent file."""
+    c, _ = client
+    glossary_id, _, _ = glossary_with_entries
+    resp = c.post("/api/files/nonexistent/glossary-apply",
+                  data=json.dumps({
+                      "glossary_id": glossary_id,
+                      "violations": [{"seg_idx": 0, "term_en": "x", "term_zh": "y"}]
+                  }),
+                  content_type="application/json")
+    assert resp.status_code == 404
+
+
+def test_glossary_apply_empty_violations(file_with_translations, glossary_with_entries):
+    """Should return 400 when violations array is empty."""
+    file_id, c, _ = file_with_translations
+    glossary_id, _, _ = glossary_with_entries
+    resp = c.post(f"/api/files/{file_id}/glossary-apply",
+                  data=json.dumps({
+                      "glossary_id": glossary_id,
+                      "violations": []
+                  }),
+                  content_type="application/json")
+    assert resp.status_code == 400
+
+
+def test_glossary_apply_no_translations(client, glossary_with_entries):
+    """Should return 422 when file has no translations."""
+    c, app_module = client
+    glossary_id, _, _ = glossary_with_entries
+    file_id = f"test-empty-{uuid.uuid4().hex[:8]}"
+    app_module._file_registry[file_id] = {
+        "id": file_id, "original_name": "empty.mp4",
+        "status": "done", "segments": [], "translations": [],
+    }
+    resp = c.post(f"/api/files/{file_id}/glossary-apply",
+                  data=json.dumps({
+                      "glossary_id": glossary_id,
+                      "violations": [{"seg_idx": 0, "term_en": "x", "term_zh": "y"}]
+                  }),
+                  content_type="application/json")
+    assert resp.status_code == 422
+    app_module._file_registry.pop(file_id, None)
+
+
+def test_glossary_apply_preserves_approval_status(file_with_translations, glossary_with_entries, monkeypatch):
+    """Apply should NOT change the segment's approval status."""
+    file_id, c, app_module = file_with_translations
+    glossary_id, _, _ = glossary_with_entries
+
+    # Set segment 0 to approved
+    app_module._file_registry[file_id]["translations"][0]["status"] = "approved"
+
+    def mock_urlopen(req, timeout=120):
+        import io
+        response_body = json.dumps({
+            "message": {"content": "主播現場報導了廣播內容"}
+        }).encode("utf-8")
+        resp = io.BytesIO(response_body)
+        resp.status = 200
+        resp.read = lambda: response_body
+        resp.__enter__ = lambda s: s
+        resp.__exit__ = lambda s, *a: None
+        return resp
+
+    monkeypatch.setattr("urllib.request.urlopen", mock_urlopen)
+
+    resp = c.post(f"/api/files/{file_id}/glossary-apply",
+                  data=json.dumps({
+                      "glossary_id": glossary_id,
+                      "violations": [
+                          {"seg_idx": 0, "term_en": "broadcast", "term_zh": "廣播"},
+                      ]
+                  }),
+                  content_type="application/json")
+    assert resp.status_code == 200
+    # Status should remain "approved" — not changed
+    assert app_module._file_registry[file_id]["translations"][0]["status"] == "approved"

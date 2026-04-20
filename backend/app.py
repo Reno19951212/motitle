@@ -1178,6 +1178,140 @@ def api_glossary_scan(file_id):
     })
 
 
+GLOSSARY_APPLY_SYSTEM_PROMPT = (
+    "You are a Chinese subtitle editor. Your task is to correct a specific term "
+    "in a Chinese subtitle translation.\n"
+    "Replace the Chinese translation of the given English term with the specified "
+    "correct translation.\n"
+    "Keep the rest of the sentence unchanged. Maintain natural Chinese grammar.\n"
+    "Output ONLY the corrected Chinese subtitle — no explanation, no quotes, no numbering."
+)
+
+
+@app.route('/api/files/<file_id>/glossary-apply', methods=['POST'])
+def api_glossary_apply(file_id):
+    """Apply glossary corrections using LLM smart replacement."""
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+    if not entry:
+        return jsonify({"error": "File not found"}), 404
+
+    data = request.get_json(silent=True)
+    if not data or not data.get("glossary_id"):
+        return jsonify({"error": "glossary_id is required"}), 400
+    violations = data.get("violations", [])
+    if not violations:
+        return jsonify({"error": "violations array is required and must not be empty"}), 400
+
+    translations = entry.get("translations", [])
+    segments = entry.get("segments", [])
+    if not translations:
+        return jsonify({"error": "No translations exist for this file"}), 422
+
+    # Determine Ollama config from active profile
+    profile = _profile_manager.get_active()
+    translation_config = profile.get("translation", {}) if profile else {}
+    engine_name = translation_config.get("engine", "qwen2.5-3b")
+
+    from translation.ollama_engine import ENGINE_TO_MODEL
+    model = ENGINE_TO_MODEL.get(engine_name, "qwen2.5:3b")
+    ollama_url = translation_config.get("ollama_url", "http://localhost:11434")
+
+    import urllib.request
+
+    results = []
+    new_translations = list(translations)
+
+    # Group violations by seg_idx so multiple terms in one segment are applied sequentially
+    from collections import defaultdict
+    by_seg = defaultdict(list)
+    for v in violations:
+        by_seg[v["seg_idx"]].append(v)
+
+    for seg_idx, seg_violations in by_seg.items():
+        if seg_idx < 0 or seg_idx >= len(translations):
+            results.append({"seg_idx": seg_idx, "success": False, "error": "Index out of range"})
+            continue
+
+        current_zh = new_translations[seg_idx].get("zh_text", "")
+        en_text = segments[seg_idx]["text"] if seg_idx < len(segments) else ""
+
+        for v in seg_violations:
+            term_en = v["term_en"]
+            term_zh = v["term_zh"]
+            old_zh = current_zh
+
+            user_message = (
+                f"English subtitle: {en_text}\n"
+                f"Current Chinese subtitle: {current_zh}\n"
+                f'Correction: "{term_en}" must be translated as "{term_zh}"\n\n'
+                f"Corrected Chinese subtitle:"
+            )
+
+            try:
+                body = json.dumps({
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": GLOSSARY_APPLY_SYSTEM_PROMPT},
+                        {"role": "user", "content": user_message},
+                    ],
+                    "stream": False,
+                    "options": {"temperature": 0.1},
+                }).encode("utf-8")
+
+                req = urllib.request.Request(
+                    f"{ollama_url}/api/chat",
+                    data=body,
+                    headers={"Content-Type": "application/json"},
+                )
+                with urllib.request.urlopen(req, timeout=120) as resp:
+                    raw = resp.read().decode("utf-8").strip()
+                    resp_data = json.loads(raw)
+                    corrected_zh = resp_data.get("message", {}).get("content", "").strip()
+
+                if corrected_zh:
+                    current_zh = corrected_zh
+                    results.append({
+                        "seg_idx": seg_idx,
+                        "old_zh": old_zh,
+                        "new_zh": corrected_zh,
+                        "term_en": term_en,
+                        "term_zh": term_zh,
+                        "success": True,
+                    })
+                else:
+                    results.append({
+                        "seg_idx": seg_idx,
+                        "old_zh": old_zh,
+                        "success": False,
+                        "error": "LLM returned empty response",
+                    })
+            except Exception as e:
+                results.append({
+                    "seg_idx": seg_idx,
+                    "old_zh": old_zh,
+                    "success": False,
+                    "error": str(e),
+                })
+
+        # Update translation — preserve existing status field
+        new_translations[seg_idx] = {
+            **new_translations[seg_idx],
+            "zh_text": current_zh,
+        }
+
+    _update_file(file_id, translations=new_translations)
+
+    applied_count = sum(1 for r in results if r.get("success"))
+    failed_count = sum(1 for r in results if not r.get("success"))
+
+    return jsonify({
+        "results": results,
+        "applied_count": applied_count,
+        "failed_count": failed_count,
+    })
+
+
 # ============================================================
 # Language Configuration API
 # ============================================================
