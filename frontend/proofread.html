@@ -700,6 +700,8 @@
   let cursorIdx = null;       // index into segs
   let totalMs = 0;            // video duration in ms
   let waveformPeaks = null;
+  let glossaryId = null;          // selected glossary ID
+  let glossaryEntries = [];       // current glossary entries
 
   // Font config mirrors active profile's `font` — read-only on this page;
   // user edits live on the Dashboard's 字幕設定 tab + 💾 儲存為預設.
@@ -825,6 +827,142 @@
       }
     } catch (e) { /* keep defaults */ }
     applySubtitleStyle();
+  }
+
+  // ============================================================
+  // Glossary Panel
+  // ============================================================
+  async function initGlossaryPanel() {
+    try {
+      const r = await fetch(`${API_BASE}/api/glossaries`);
+      if (!r.ok) return;
+      const data = await r.json();
+      const sel = document.getElementById('glossarySelect');
+      (data.glossaries || []).forEach(g => {
+        const opt = document.createElement('option');
+        opt.value = g.id;
+        opt.textContent = g.name;
+        sel.appendChild(opt);
+      });
+    } catch (e) { /* silent — panel stays in placeholder state */ }
+  }
+
+  async function onGlossarySelect() {
+    const sel = document.getElementById('glossarySelect');
+    glossaryId = sel.value || null;
+    if (!glossaryId) {
+      document.getElementById('glossaryBody').innerHTML = '<div class="rv-b-rail-empty">選擇詞彙表以查看條目</div>';
+      glossaryEntries = [];
+      return;
+    }
+    await loadGlossaryEntries(glossaryId);
+  }
+
+  async function loadGlossaryEntries(id) {
+    try {
+      const r = await fetch(`${API_BASE}/api/glossaries/${id}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      glossaryEntries = data.glossary?.entries || [];
+      renderGlossaryTable();
+    } catch (e) {
+      showToast(`詞彙表載入失敗: ${e.message}`, 'error');
+    }
+  }
+
+  function renderGlossaryTable() {
+    const body = document.getElementById('glossaryBody');
+    if (!glossaryEntries.length) {
+      body.innerHTML = '<div class="rv-b-rail-empty">暫無條目</div>';
+      return;
+    }
+    const rows = glossaryEntries.map(e => `
+      <tr id="grow-${e.id}">
+        <td>${escapeHtml(e.en)}</td>
+        <td>${escapeHtml(e.zh)}</td>
+        <td style="text-align:center;"><button class="btn btn-ghost btn-sm" onclick="startEditEntry('${e.id}')">✎</button></td>
+      </tr>`).join('');
+    body.innerHTML = `
+      <table class="rv-b-glossary-table">
+        <thead><tr><th>EN</th><th>ZH</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  function startEditEntry(eid) {
+    const entry = glossaryEntries.find(e => e.id === eid);
+    if (!entry) return;
+    const row = document.getElementById(`grow-${eid}`);
+    if (!row) return;
+    row.innerHTML = `
+      <td><input class="rv-b-glossary-input" id="gedit-en-${eid}" value="${escapeHtml(entry.en)}"></td>
+      <td><input class="rv-b-glossary-input" id="gedit-zh-${eid}" value="${escapeHtml(entry.zh)}"></td>
+      <td style="text-align:center;"><button class="btn btn-ghost btn-sm" onclick="saveEditEntry('${eid}')">✓</button></td>`;
+    document.getElementById(`gedit-en-${eid}`).addEventListener('keydown', e => { if (e.key === 'Enter') saveEditEntry(eid); });
+    document.getElementById(`gedit-zh-${eid}`).addEventListener('keydown', e => { if (e.key === 'Enter') saveEditEntry(eid); });
+  }
+
+  async function saveEditEntry(eid) {
+    const enEl = document.getElementById(`gedit-en-${eid}`);
+    const zhEl = document.getElementById(`gedit-zh-${eid}`);
+    if (!enEl || !zhEl) return;
+    const en = enEl.value.trim();
+    const zh = zhEl.value.trim();
+    if (!en || !zh) { showToast('EN 同 ZH 不能為空', 'error'); return; }
+    try {
+      const r = await fetch(`${API_BASE}/api/glossaries/${glossaryId}/entries/${eid}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ en, zh }),
+      });
+      if (!r.ok) throw new Error((await r.json()).error || '儲存失敗');
+      const idx = glossaryEntries.findIndex(e => e.id === eid);
+      if (idx >= 0) glossaryEntries[idx] = { ...glossaryEntries[idx], en, zh };
+      renderGlossaryTable();
+    } catch (e) {
+      showToast(`儲存失敗: ${e.message}`, 'error');
+      renderGlossaryTable();
+    }
+  }
+
+  function addGlossaryEntry() {
+    if (!glossaryId) { showToast('請先選擇詞彙表', 'error'); return; }
+    const body = document.getElementById('glossaryBody');
+    let tbl = body.querySelector('table tbody');
+    if (!tbl) {
+      body.innerHTML = `<table class="rv-b-glossary-table"><thead><tr><th>EN</th><th>ZH</th><th></th></tr></thead><tbody></tbody></table>`;
+      tbl = body.querySelector('tbody');
+    }
+    const newRow = document.createElement('tr');
+    newRow.id = 'grow-new';
+    newRow.innerHTML = `
+      <td><input class="rv-b-glossary-input" id="gnew-en" placeholder="English"></td>
+      <td><input class="rv-b-glossary-input" id="gnew-zh" placeholder="中文"></td>
+      <td style="text-align:center;"><button class="btn btn-ghost btn-sm" onclick="saveNewEntry()">✓</button></td>`;
+    tbl.appendChild(newRow);
+    document.getElementById('gnew-en').addEventListener('keydown', e => { if (e.key === 'Enter') saveNewEntry(); });
+    document.getElementById('gnew-zh').addEventListener('keydown', e => { if (e.key === 'Enter') saveNewEntry(); });
+    document.getElementById('gnew-en').focus();
+  }
+
+  async function saveNewEntry() {
+    const enEl = document.getElementById('gnew-en');
+    const zhEl = document.getElementById('gnew-zh');
+    if (!enEl || !zhEl) return;
+    const en = enEl.value.trim();
+    const zh = zhEl.value.trim();
+    if (!en || !zh) { showToast('EN 同 ZH 不能為空', 'error'); return; }
+    try {
+      const r = await fetch(`${API_BASE}/api/glossaries/${glossaryId}/entries`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ en, zh }),
+      });
+      if (!r.ok) throw new Error((await r.json()).error || '新增失敗');
+      await loadGlossaryEntries(glossaryId);
+    } catch (e) {
+      showToast(`新增失敗: ${e.message}`, 'error');
+    }
   }
 
   // ============================================================
