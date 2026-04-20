@@ -8,6 +8,16 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 
+@pytest.fixture(autouse=True)
+def reset_managers(tmp_path):
+    """Reinitialize _glossary_manager and _profile_manager with a fresh tmp_path
+    before each test so state left by other test files doesn't cause failures."""
+    from app import _init_profile_manager, _init_glossary_manager
+    _init_profile_manager(tmp_path)
+    _init_glossary_manager(tmp_path)
+    yield
+
+
 @pytest.fixture
 def client():
     """Create a Flask test client with a clean file registry."""
