@@ -301,10 +301,10 @@
     .rv-b-left { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; }
     .rv-b-right { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; }
     .rv-b-top-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex: 1; min-height: 0; }
-    .rv-b-video-col { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+    .rv-b-video-col { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
 
-    .rv-b-video-wrap { flex: 1; min-height: 0; }
-    .rv-b-vid-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; height: 140px; flex-shrink: 0; }
+    .rv-b-video-wrap { flex-shrink: 1; min-height: 0; overflow: hidden; }
+    .rv-b-vid-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex-shrink: 0; }
 
     .rv-b-glossary {
       display: flex; flex-direction: column; min-height: 0; overflow: hidden;
@@ -335,6 +335,50 @@
     .rv-b-ss-color { display: flex; align-items: center; gap: 4px; flex: 1; }
     .rv-b-ss-color input[type=color] { width: 24px; height: 24px; border: 1px solid var(--border); border-radius: 3px; padding: 1px; background: var(--surface-2); cursor: pointer; }
     .rv-b-ss-hex { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); }
+
+    /* Glossary Apply Modal */
+    .ga-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 3000; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .ga-overlay.open { opacity: 1; pointer-events: auto; }
+    .ga-modal {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+      width: 520px; max-height: 70vh; display: flex; flex-direction: column;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+    }
+    .ga-header {
+      padding: 14px 18px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 13px; font-weight: 700; color: var(--text);
+    }
+    .ga-close {
+      background: none; border: none; color: var(--text-dim); font-size: 18px;
+      cursor: pointer; padding: 0 4px; line-height: 1;
+    }
+    .ga-close:hover { color: var(--text); }
+    .ga-body { flex: 1; overflow-y: auto; padding: 12px 18px; }
+    .ga-row {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 10px 0; border-bottom: 1px solid var(--border);
+      font-size: 12px; color: var(--text);
+    }
+    .ga-row:last-child { border-bottom: none; }
+    .ga-row input[type="checkbox"] { margin-top: 3px; flex-shrink: 0; }
+    .ga-row-body { flex: 1; min-width: 0; }
+    .ga-row-term { font-weight: 600; color: var(--accent); margin-bottom: 2px; }
+    .ga-row-zh { color: var(--text-mid); font-size: 11px; word-break: break-all; }
+    .ga-row-badge {
+      font-size: 9px; padding: 1px 5px; border-radius: 3px;
+      background: var(--surface-2); color: var(--text-dim); flex-shrink: 0;
+    }
+    .ga-footer {
+      padding: 12px 18px; border-top: 1px solid var(--border);
+      display: flex; justify-content: flex-end; gap: 8px;
+    }
+    .ga-progress { padding: 24px 18px; text-align: center; color: var(--text-mid); font-size: 13px; }
+
     .rv-b-video {
       position: relative; background: #000;
       border: 1px solid var(--border); border-radius: 8px;
@@ -921,7 +965,7 @@
       const r = await fetch(`${API_BASE}/api/glossaries/${id}`);
       if (!r.ok) return;
       const data = await r.json();
-      glossaryEntries = data.glossary?.entries || [];
+      glossaryEntries = data.entries || [];
       renderGlossaryTable();
     } catch (e) {
       showToast(`詞彙表載入失敗: ${e.message}`, 'error');
