@@ -917,7 +917,7 @@
       });
       if (!r.ok) throw new Error((await r.json()).error || '儲存失敗');
       const idx = glossaryEntries.findIndex(e => e.id === eid);
-      if (idx >= 0) glossaryEntries[idx] = { ...glossaryEntries[idx], en, zh };
+      if (idx >= 0) glossaryEntries = glossaryEntries.map((e, i) => i === idx ? { ...e, en, zh } : e);
       renderGlossaryTable();
     } catch (e) {
       showToast(`儲存失敗: ${e.message}`, 'error');
