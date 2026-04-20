@@ -224,6 +224,91 @@ def test_glossary_apply_no_translations(client, glossary_with_entries):
     app_module._file_registry.pop(file_id, None)
 
 
+def test_glossary_apply_term_not_in_glossary(file_with_translations, glossary_with_entries):
+    """Violations referencing a term not in the glossary should fail with 'Term not in glossary'."""
+    file_id, c, _ = file_with_translations
+    glossary_id, _, _ = glossary_with_entries
+
+    resp = c.post(f"/api/files/{file_id}/glossary-apply",
+                  data=json.dumps({
+                      "glossary_id": glossary_id,
+                      "violations": [
+                          {"seg_idx": 0, "term_en": "nonexistent_term", "term_zh": "不存在"},
+                      ]
+                  }),
+                  content_type="application/json")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["applied_count"] == 0
+    assert data["failed_count"] == 1
+    assert data["results"][0]["success"] is False
+    assert data["results"][0]["error"] == "Term not in glossary"
+
+
+def test_glossary_apply_missing_glossary(file_with_translations):
+    """Should return 404 when glossary_id does not exist."""
+    file_id, c, _ = file_with_translations
+    resp = c.post(f"/api/files/{file_id}/glossary-apply",
+                  data=json.dumps({
+                      "glossary_id": "nonexistent-glossary",
+                      "violations": [{"seg_idx": 0, "term_en": "x", "term_zh": "y"}]
+                  }),
+                  content_type="application/json")
+    assert resp.status_code == 404
+
+
+def test_glossary_apply_sequential_violations_same_segment(file_with_translations, glossary_with_entries, monkeypatch):
+    """Multiple violations for the same segment should be processed sequentially — each LLM call sees the previous correction."""
+    file_id, c, app_module = file_with_translations
+    glossary_id, _, _ = glossary_with_entries
+
+    # Set initial zh_text with both wrong terms
+    app_module._file_registry[file_id]["translations"][0]["zh_text"] = "主持人現場報導了播出內容"
+
+    call_count = [0]
+    call_inputs = []
+
+    def mock_urlopen(req, timeout=120):
+        body = json.loads(req.data.decode("utf-8"))
+        user_msg = body["messages"][1]["content"]
+        call_inputs.append(user_msg)
+        call_count[0] += 1
+        # First call: fix "broadcast" → "廣播"
+        # Second call: fix "anchor" → "主播", receiving the zh from first call
+        if call_count[0] == 1:
+            content = "主持人現場報導了廣播內容"
+        else:
+            content = "主播現場報導了廣播內容"
+        import io
+        response_body = json.dumps({"message": {"content": content}}).encode("utf-8")
+        resp = io.BytesIO(response_body)
+        resp.read = lambda: response_body
+        resp.__enter__ = lambda s: s
+        resp.__exit__ = lambda s, *a: None
+        return resp
+
+    monkeypatch.setattr("urllib.request.urlopen", mock_urlopen)
+
+    resp = c.post(f"/api/files/{file_id}/glossary-apply",
+                  data=json.dumps({
+                      "glossary_id": glossary_id,
+                      "violations": [
+                          {"seg_idx": 0, "term_en": "broadcast", "term_zh": "廣播"},
+                          {"seg_idx": 0, "term_en": "anchor", "term_zh": "主播"},
+                      ]
+                  }),
+                  content_type="application/json")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["applied_count"] == 2
+    assert call_count[0] == 2
+    # Second call's user message must contain the first call's output
+    assert "主持人現場報導了廣播內容" in call_inputs[1]
+    # Final zh_text in registry is the chained result
+    final_zh = app_module._file_registry[file_id]["translations"][0]["zh_text"]
+    assert final_zh == "主播現場報導了廣播內容"
+
+
 def test_glossary_apply_preserves_approval_status(file_with_translations, glossary_with_entries, monkeypatch):
     """Apply should NOT change the segment's approval status."""
     file_id, c, app_module = file_with_translations
