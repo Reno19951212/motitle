@@ -1069,6 +1069,119 @@
     }
   }
 
+  async function scanGlossary() {
+    if (!glossaryId || !fileId) return;
+    const btn = document.getElementById('glossaryApplyBtn');
+    btn.disabled = true;
+    btn.textContent = '掃描中…';
+    try {
+      const r = await fetch(`${API_BASE}/api/files/${fileId}/glossary-scan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ glossary_id: glossaryId }),
+      });
+      if (!r.ok) throw new Error((await r.json()).error || '掃描失敗');
+      const data = await r.json();
+      if (!data.violations || data.violations.length === 0) {
+        showToast('所有段落均符合詞表，無需替換', 'success');
+        return;
+      }
+      showGlossaryApplyModal(data.violations);
+    } catch (e) {
+      showToast(`掃描失敗: ${e.message}`, 'error');
+    } finally {
+      btn.disabled = !glossaryId;
+      btn.textContent = '套用';
+    }
+  }
+
+  function showGlossaryApplyModal(violations) {
+    const body = document.getElementById('gaBody');
+    const title = document.getElementById('gaTitle');
+    const footer = document.getElementById('gaFooter');
+    footer.style.display = '';
+    title.textContent = `詞彙表套用 — 發現 ${violations.length} 處不符`;
+
+    const rows = violations.map((v, i) => {
+      const checked = !v.approved ? 'checked' : '';
+      const badge = v.approved ? '<span class="ga-row-badge">已批核</span>' : '';
+      return `<div class="ga-row">
+        <input type="checkbox" ${checked} data-idx="${i}" onchange="updateApplyCount()">
+        <div class="ga-row-body">
+          <div class="ga-row-term">#${v.seg_idx + 1} &nbsp;"${escapeHtml(v.term_en)}" → ${escapeHtml(v.term_zh)} ${badge}</div>
+          <div class="ga-row-zh">現：${escapeHtml(v.zh_text)}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    body.innerHTML = rows;
+
+    // Store violations for apply
+    window._gaViolations = violations;
+
+    updateApplyCount();
+    document.getElementById('gaOverlay').classList.add('open');
+  }
+
+  function updateApplyCount() {
+    const checks = document.querySelectorAll('#gaBody input[type="checkbox"]');
+    const count = Array.from(checks).filter(c => c.checked).length;
+    const btn = document.getElementById('gaApplyBtn');
+    btn.textContent = `套用選中 (${count})`;
+    btn.disabled = count === 0;
+  }
+
+  async function applySelectedViolations() {
+    const checks = document.querySelectorAll('#gaBody input[type="checkbox"]');
+    const selected = [];
+    checks.forEach(c => {
+      if (c.checked) {
+        const v = window._gaViolations[parseInt(c.dataset.idx)];
+        selected.push({ seg_idx: v.seg_idx, term_en: v.term_en, term_zh: v.term_zh });
+      }
+    });
+    if (!selected.length) return;
+
+    // Show progress
+    const body = document.getElementById('gaBody');
+    const footer = document.getElementById('gaFooter');
+    body.innerHTML = `<div class="ga-progress">正在套用 0/${selected.length}…</div>`;
+    footer.style.display = 'none';
+
+    try {
+      const r = await fetch(`${API_BASE}/api/files/${fileId}/glossary-apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ glossary_id: glossaryId, violations: selected }),
+      });
+      if (!r.ok) throw new Error((await r.json()).error || '套用失敗');
+      const data = await r.json();
+      closeGlossaryApplyModal();
+
+      if (data.failed_count > 0) {
+        showToast(`已套用 ${data.applied_count} 處，${data.failed_count} 處失敗`, 'warning');
+      } else {
+        showToast(`已套用 ${data.applied_count} 處`, 'success');
+      }
+
+      // Refresh segments to reflect changes
+      await loadSegments();
+      if (typeof curIdx !== 'undefined' && curIdx >= 0) {
+        renderDetail();
+      }
+    } catch (e) {
+      showToast(`套用失敗: ${e.message}`, 'error');
+      // Restore modal for retry
+      footer.style.display = '';
+      body.innerHTML = '<div class="ga-progress">套用失敗，請重試</div>';
+    }
+  }
+
+  function closeGlossaryApplyModal() {
+    document.getElementById('gaOverlay').classList.remove('open');
+    window._gaViolations = null;
+  }
+
   // ============================================================
   // Load
   // ============================================================
