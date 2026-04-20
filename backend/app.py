@@ -4,6 +4,7 @@ MoTitle - Backend Server
 Supports video/audio file upload and live transcription to Traditional Chinese subtitles
 """
 
+import logging
 import os
 import sys
 import json
@@ -1199,9 +1200,20 @@ def api_glossary_apply(file_id):
     data = request.get_json(silent=True)
     if not data or not data.get("glossary_id"):
         return jsonify({"error": "glossary_id is required"}), 400
+    glossary_id = data["glossary_id"]
     violations = data.get("violations", [])
     if not violations:
         return jsonify({"error": "violations array is required and must not be empty"}), 400
+
+    glossary = _glossary_manager.get(glossary_id)
+    if not glossary:
+        return jsonify({"error": "Glossary not found"}), 404
+
+    # Build a set of valid (en, zh) pairs for fast lookup
+    valid_terms = {
+        (e["en"], e["zh"])
+        for e in glossary.get("entries", [])
+    }
 
     translations = entry.get("translations", [])
     segments = entry.get("segments", [])
@@ -1240,6 +1252,15 @@ def api_glossary_apply(file_id):
             term_en = v["term_en"]
             term_zh = v["term_zh"]
             old_zh = current_zh
+
+            if (term_en, term_zh) not in valid_terms:
+                results.append({
+                    "seg_idx": seg_idx,
+                    "old_zh": old_zh,
+                    "success": False,
+                    "error": "Term not in glossary",
+                })
+                continue
 
             user_message = (
                 f"English subtitle: {en_text}\n"
@@ -1286,12 +1307,16 @@ def api_glossary_apply(file_id):
                         "success": False,
                         "error": "LLM returned empty response",
                     })
-            except Exception as e:
+            except Exception:
+                app.logger.exception(
+                    "glossary-apply LLM call failed for file=%s seg=%s term_en=%s",
+                    file_id, seg_idx, term_en,
+                )
                 results.append({
                     "seg_idx": seg_idx,
                     "old_zh": old_zh,
                     "success": False,
-                    "error": str(e),
+                    "error": "LLM request failed",
                 })
 
         # Update translation — preserve existing status field
