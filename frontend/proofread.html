@@ -300,8 +300,9 @@
 
     .rv-b-left { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; }
     .rv-b-right { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; }
+    .rv-b-top-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex: 1; min-height: 0; }
 
-    .rv-b-video-wrap { flex-shrink: 0; }
+    .rv-b-video-wrap { flex-shrink: 0; min-height: 0; }
     .rv-b-video {
       position: relative; background: #000;
       border: 1px solid var(--border); border-radius: 8px;
