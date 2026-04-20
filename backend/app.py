@@ -1133,6 +1133,51 @@ def api_export_glossary_csv(glossary_id):
     }
 
 
+@app.route('/api/files/<file_id>/glossary-scan', methods=['POST'])
+def api_glossary_scan(file_id):
+    """Scan translations for glossary violations (string matching, no LLM)."""
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+    if not entry:
+        return jsonify({"error": "File not found"}), 404
+
+    data = request.get_json(silent=True)
+    if not data or not data.get("glossary_id"):
+        return jsonify({"error": "glossary_id is required"}), 400
+
+    glossary = _glossary_manager.get(data["glossary_id"])
+    if glossary is None:
+        return jsonify({"error": "Glossary not found"}), 404
+
+    translations = entry.get("translations", [])
+    segments = entry.get("segments", [])
+    gl_entries = glossary.get("entries", [])
+
+    violations = []
+    for i, t in enumerate(translations):
+        en_text = segments[i]["text"].lower() if i < len(segments) else ""
+        zh_text = t.get("zh_text", "")
+        status = t.get("status", "pending")
+        for ge in gl_entries:
+            if not ge.get("en") or not ge.get("zh"):
+                continue
+            if ge["en"].lower() in en_text and ge["zh"] not in zh_text:
+                violations.append({
+                    "seg_idx": i,
+                    "en_text": segments[i]["text"] if i < len(segments) else "",
+                    "zh_text": zh_text,
+                    "term_en": ge["en"],
+                    "term_zh": ge["zh"],
+                    "approved": status == "approved",
+                })
+
+    return jsonify({
+        "violations": violations,
+        "scanned_count": len(translations),
+        "violation_count": len(violations),
+    })
+
+
 # ============================================================
 # Language Configuration API
 # ============================================================
