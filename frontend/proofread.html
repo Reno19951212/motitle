@@ -574,11 +574,68 @@
         <!-- Right: top row (video + detail) + timeline at bottom -->
         <div class="rv-b-right">
           <div class="rv-b-top-row">
-            <div class="rv-b-video-wrap">
-              <div class="rv-b-video">
-                <div class="rv-b-video-placeholder" id="videoPlaceholder">選擇檔案以預覽視頻</div>
-                <video id="videoPlayer" style="display:none;" controls></video>
-                <div class="rv-b-video-sub" id="videoSub" style="display:none;"></div>
+            <div class="rv-b-video-col">
+              <div class="rv-b-video-wrap">
+                <div class="rv-b-video">
+                  <div class="rv-b-video-placeholder" id="videoPlaceholder">選擇檔案以預覽視頻</div>
+                  <video id="videoPlayer" style="display:none;" controls></video>
+                  <div class="rv-b-video-sub" id="videoSub" style="display:none;"></div>
+                </div>
+              </div>
+
+              <div class="rv-b-vid-panels">
+                <!-- 詞彙表對照 -->
+                <div class="rv-b-glossary" id="glossaryPanel">
+                  <div class="rv-b-glossary-head">
+                    <span class="rv-b-glossary-title">詞彙表</span>
+                    <select class="rv-b-glossary-select" id="glossarySelect" onchange="onGlossarySelect()">
+                      <option value="">選擇詞彙表…</option>
+                    </select>
+                    <button class="btn btn-ghost btn-sm" onclick="addGlossaryEntry()">+ 新增</button>
+                  </div>
+                  <div class="rv-b-glossary-body" id="glossaryBody">
+                    <div class="rv-b-rail-empty">選擇詞彙表以查看條目</div>
+                  </div>
+                </div>
+
+                <!-- 字幕設定 -->
+                <div class="rv-b-subtitle-settings" id="subtitleSettingsPanel">
+                  <div class="rv-b-ss-head">字幕設定</div>
+                  <div class="rv-b-ss-body">
+                    <div class="rv-b-ss-row">
+                      <span class="rv-b-ss-label">字型</span>
+                      <input class="rv-b-ss-input" id="ssFamily" type="text" oninput="onSubtitleSettingChange()">
+                    </div>
+                    <div class="rv-b-ss-row">
+                      <span class="rv-b-ss-label">大小</span>
+                      <input class="rv-b-ss-input" id="ssSize" type="number" min="8" max="120" oninput="onSubtitleSettingChange()" style="width:60px;">
+                      <span style="font-size:11px;color:var(--text-dim);">px</span>
+                    </div>
+                    <div class="rv-b-ss-row">
+                      <span class="rv-b-ss-label">顏色</span>
+                      <div class="rv-b-ss-color">
+                        <input type="color" id="ssColor" oninput="onColorInput('ssColor','ssColorHex');onSubtitleSettingChange()">
+                        <span class="rv-b-ss-hex" id="ssColorHex">#ffffff</span>
+                      </div>
+                    </div>
+                    <div class="rv-b-ss-row">
+                      <span class="rv-b-ss-label">輪廓色</span>
+                      <div class="rv-b-ss-color">
+                        <input type="color" id="ssOutlineColor" oninput="onColorInput('ssOutlineColor','ssOutlineColorHex');onSubtitleSettingChange()">
+                        <span class="rv-b-ss-hex" id="ssOutlineColorHex">#000000</span>
+                      </div>
+                    </div>
+                    <div class="rv-b-ss-row">
+                      <span class="rv-b-ss-label">輪廓寬</span>
+                      <input class="rv-b-ss-input" id="ssOutlineWidth" type="number" min="0" max="10" oninput="onSubtitleSettingChange()" style="width:60px;">
+                    </div>
+                    <div class="rv-b-ss-row">
+                      <span class="rv-b-ss-label">底部邊距</span>
+                      <input class="rv-b-ss-input" id="ssMarginBottom" type="number" min="0" max="200" oninput="onSubtitleSettingChange()" style="width:60px;">
+                      <span style="font-size:11px;color:var(--text-dim);">px</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
