@@ -246,7 +246,7 @@
     }
     .rv-wave-bars {
       position: absolute; inset: 0 0 14px 0;
-      display: flex; align-items: center; padding: 0 6px; gap: 1px;
+      display: flex; align-items: center; padding: 0 6px; gap: 0;
       pointer-events: none;
     }
     .rv-wave-bar {
@@ -837,7 +837,7 @@
 
   async function loadWaveformPeaks() {
     try {
-      const r = await fetch(`${API_BASE}/api/files/${fileId}/waveform?bins=240`);
+      const r = await fetch(`${API_BASE}/api/files/${fileId}/waveform?bins=480`);
       if (!r.ok) return;
       const data = await r.json();
       waveformPeaks = data.peaks;
@@ -1003,7 +1003,7 @@
   // ============================================================
   // Waveform rendering
   // ============================================================
-  const WF_BINS = 240;
+  const WF_BINS = 480;
   function renderWaveformBars() {
     const el = document.getElementById('waveformBars');
     if (!waveformPeaks) {
