@@ -635,6 +635,7 @@
                     <select class="rv-b-glossary-select" id="glossarySelect" onchange="onGlossarySelect()">
                       <option value="">選擇詞彙表…</option>
                     </select>
+                    <button class="btn btn-ghost btn-sm" id="glossaryApplyBtn" onclick="scanGlossary()" disabled>套用</button>
                     <button class="btn btn-ghost btn-sm" onclick="addGlossaryEntry()">+ 新增</button>
                   </div>
                   <div class="rv-b-glossary-body" id="glossaryBody">
@@ -952,6 +953,7 @@
   async function onGlossarySelect() {
     const sel = document.getElementById('glossarySelect');
     glossaryId = sel.value || null;
+    document.getElementById('glossaryApplyBtn').disabled = !glossaryId;
     if (!glossaryId) {
       document.getElementById('glossaryBody').innerHTML = '<div class="rv-b-rail-empty">選擇詞彙表以查看條目</div>';
       glossaryEntries = [];
@@ -1607,5 +1609,21 @@
   // ============================================================
   init();
 </script>
+
+<!-- Glossary Apply Modal -->
+<div class="ga-overlay" id="gaOverlay">
+  <div class="ga-modal">
+    <div class="ga-header">
+      <span id="gaTitle">詞彙表套用</span>
+      <button class="ga-close" onclick="closeGlossaryApplyModal()">&times;</button>
+    </div>
+    <div class="ga-body" id="gaBody"></div>
+    <div class="ga-footer" id="gaFooter">
+      <button class="btn btn-ghost" onclick="closeGlossaryApplyModal()">取消</button>
+      <button class="btn btn-primary" id="gaApplyBtn" onclick="applySelectedViolations()">套用選中 (0)</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
