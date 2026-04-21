@@ -1407,6 +1407,7 @@
       const segCount = f.segment_count || 0;
       const lang = f.language ? f.language : (activeProfile?.asr?.language === 'zh' ? '中文 → 中文' : 'English → 繁體中文');
       const hasTrans = f.translation_status === 'done';
+      const isTranslating = f.translation_status === 'translating';
       const disabled = f._local || f.status !== 'done';
       // Render requires ALL segments approved (backend rejects with 400 otherwise)
       const fullyApproved = segCount > 0 && approved >= segCount;
@@ -1416,6 +1417,19 @@
         : !fullyApproved
           ? `仲有 ${segCount - approved} / ${segCount} 段未批核 — 撳「校對 →」完成`
           : '下載燒入字幕後嘅影片';
+      // Translate button state: hidden if ASR not done; translating → disabled spinner;
+      // never translated → "▶ 翻譯"; already done → "🔄 重新翻譯"
+      const translateBtnDisabled = disabled || isTranslating;
+      const translateBtnLabel = isTranslating
+        ? '⏳ 翻譯中…'
+        : hasTrans
+          ? '🔄 重新翻譯'
+          : '▶ 翻譯';
+      const translateBtnTooltip = isTranslating
+        ? '翻譯進行中，請等待完成'
+        : hasTrans
+          ? '用當前 Profile 重新翻譯（會覆蓋現有譯文同批核狀態）'
+          : '用當前 Profile 開始翻譯';
 
       const subtitleMenu = `
         <div class="split-menu" role="menu">
@@ -1465,6 +1479,9 @@
             <button class="btn btn-secondary split-caret" title="更多影片格式" ${renderDisabled ? 'disabled' : ''}><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></button>
             ${videoMenu}
           </div>
+          <button class="btn btn-secondary" onclick="reTranslateFile('${f.id}')" ${translateBtnDisabled ? 'disabled' : ''} title="${escapeHtml(translateBtnTooltip)}">
+            ${translateBtnLabel}
+          </button>
           <a class="btn btn-primary" href="proofread.html?file_id=${f.id}" ${disabled ? 'style="opacity:0.5;pointer-events:none;"' : ''}>
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-8 8H3v-3z"/></svg>
             校對 →
