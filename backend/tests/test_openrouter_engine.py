@@ -105,6 +105,47 @@ def test_call_openrouter_sends_bearer_auth_and_openai_body():
     assert captured["body"]["messages"][0]["role"] == "system"
     assert captured["body"]["messages"][1]["content"] == "user"
     assert captured["body"]["stream"] is False
+    # Reasoning defaults to OFF → body must include reasoning.enabled=false
+    assert captured["body"].get("reasoning") == {"enabled": False}
+
+
+def test_call_openrouter_reasoning_enabled_omits_flag():
+    """When openrouter_reasoning=true, we don't override the model's default
+    reasoning behavior — omit the reasoning key entirely so Anthropic /
+    OpenAI / Qwen reasoning models think as designed."""
+    from translation.openrouter_engine import OpenRouterTranslationEngine
+    engine = OpenRouterTranslationEngine({
+        "api_key": "sk-or-test",
+        "openrouter_model": "qwen/qwen3.5-35b-a3b",
+        "openrouter_reasoning": True,
+    })
+
+    captured = {}
+
+    def fake_urlopen(req, timeout=None):
+        captured["body"] = json.loads(req.data.decode("utf-8"))
+        return _make_fake_response("思考後嘅答案")
+
+    with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+        engine._call_ollama("sys", "user", 0.1)
+
+    assert "reasoning" not in captured["body"]
+
+
+def test_engine_reasoning_defaults_to_false():
+    from translation.openrouter_engine import OpenRouterTranslationEngine
+    engine = OpenRouterTranslationEngine({"api_key": "x"})
+    assert engine._reasoning_enabled is False
+
+
+def test_schema_includes_reasoning_toggle():
+    from translation.openrouter_engine import OpenRouterTranslationEngine
+    engine = OpenRouterTranslationEngine({"api_key": "x"})
+    schema = engine.get_params_schema()
+    assert "openrouter_reasoning" in schema["params"]
+    field = schema["params"]["openrouter_reasoning"]
+    assert field["type"] == "boolean"
+    assert field["default"] is False
 
 
 def test_call_openrouter_missing_api_key_raises():
