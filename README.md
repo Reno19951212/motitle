@@ -336,7 +336,11 @@ ollama signin
 5. 儲存後會即時套用到 active Profile。
 
 **注意**
-- API key 儲存喺 Profile JSON（`backend/config/profiles/*.json`），**唔會** push 上 git（在 `.gitignore` 內）
+- API key 儲存喺 active profile 嘅 JSON（例如 `backend/config/profiles/dev-default.json`）。`dev-default.json` 同 `*.local.json` 已加入 `.gitignore`，**唔會**推上 git。模板範本喺 `backend/config/profiles.example/dev-default.json`（唔含 key）。新 clone 嘅工作流程：
+  ```bash
+  cp backend/config/profiles.example/dev-default.json backend/config/profiles/dev-default.json
+  # 然後喺前端 MT step 彈出嘅 OpenRouter modal 填入你自己嘅 api_key
+  ```
 - 避開 reasoning models（如 `qwen/qwen3.5-122b-a10b`）除非你要深度推理 — 呢啲 model 每 call 有長長嘅 `reasoning` field，延遲可達 30–60 秒
 
 #### 語言參數
