@@ -983,13 +983,24 @@ def api_translate_file():
             })
 
         parallel_batches = int(translation_config.get("parallel_batches") or 1)
-        translated = engine.translate(
-            asr_segments, glossary=glossary_entries, style=style,
-            batch_size=trans_params["batch_size"],
-            temperature=trans_params["temperature"],
-            progress_callback=_emit_progress,
-            parallel_batches=parallel_batches,
-        )
+        use_sentence_pipeline = bool(translation_config.get("use_sentence_pipeline", False))
+        if use_sentence_pipeline:
+            from translation.sentence_pipeline import translate_with_sentences
+            translated = translate_with_sentences(
+                engine, asr_segments, glossary=glossary_entries, style=style,
+                batch_size=trans_params["batch_size"],
+                temperature=trans_params["temperature"],
+                progress_callback=_emit_progress,
+                parallel_batches=parallel_batches,
+            )
+        else:
+            translated = engine.translate(
+                asr_segments, glossary=glossary_entries, style=style,
+                batch_size=trans_params["batch_size"],
+                temperature=trans_params["temperature"],
+                progress_callback=_emit_progress,
+                parallel_batches=parallel_batches,
+            )
 
         for t in translated:
             t["status"] = "pending"
@@ -1678,13 +1689,24 @@ def _auto_translate(fid: str, segments: list, session_id) -> None:
             })
 
         parallel_batches = int(translation_config.get("parallel_batches") or 1)
-        translated = engine.translate(
-            asr_segments, glossary=glossary_entries, style=style,
-            batch_size=trans_params["batch_size"],
-            temperature=trans_params["temperature"],
-            progress_callback=_emit_auto_progress,
-            parallel_batches=parallel_batches,
-        )
+        use_sentence_pipeline = bool(translation_config.get("use_sentence_pipeline", False))
+        if use_sentence_pipeline:
+            from translation.sentence_pipeline import translate_with_sentences
+            translated = translate_with_sentences(
+                engine, asr_segments, glossary=glossary_entries, style=style,
+                batch_size=trans_params["batch_size"],
+                temperature=trans_params["temperature"],
+                progress_callback=_emit_auto_progress,
+                parallel_batches=parallel_batches,
+            )
+        else:
+            translated = engine.translate(
+                asr_segments, glossary=glossary_entries, style=style,
+                batch_size=trans_params["batch_size"],
+                temperature=trans_params["temperature"],
+                progress_callback=_emit_auto_progress,
+                parallel_batches=parallel_batches,
+            )
         for t in translated:
             t["status"] = "pending"
         _update_file(fid, translations=translated, translation_status='done',

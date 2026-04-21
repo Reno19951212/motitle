@@ -190,3 +190,80 @@ def test_translate_with_sentences_empty():
     assert result == []
 
 
+def test_merge_respects_time_gap_guard():
+    """A gap larger than max_gap_sec forces a sentence boundary even if
+    pySBD would otherwise merge the text."""
+    from translation.sentence_pipeline import merge_to_sentences
+    # Two fragments that would normally merge into one sentence, but the
+    # 2.5-second gap between them exceeds the 1.5-second default threshold.
+    segments = [
+        {"start": 0.0, "end": 2.0, "text": "The cat sat on"},
+        {"start": 4.5, "end": 7.0, "text": "the mat yesterday."},
+    ]
+    result = merge_to_sentences(segments)
+    # Gap (4.5 - 2.0 = 2.5s) > 1.5s → must produce two separate units
+    assert len(result) == 2
+    assert result[0]["seg_indices"] == [0]
+    assert result[1]["seg_indices"] == [1]
+
+
+def test_merge_allows_small_gap():
+    """A gap smaller than max_gap_sec allows pySBD to merge across segments."""
+    from translation.sentence_pipeline import merge_to_sentences
+    segments = [
+        {"start": 0.0, "end": 2.0, "text": "The cat sat on"},
+        {"start": 2.3, "end": 4.0, "text": "the mat yesterday."},
+    ]
+    result = merge_to_sentences(segments)
+    # Gap 0.3s < 1.5s → merged into one sentence
+    assert len(result) == 1
+    assert result[0]["seg_indices"] == [0, 1]
+
+
+def test_merge_custom_max_gap():
+    """max_gap_sec parameter controls the split threshold."""
+    from translation.sentence_pipeline import merge_to_sentences
+    segments = [
+        {"start": 0.0, "end": 2.0, "text": "The cat sat on"},
+        {"start": 3.0, "end": 5.0, "text": "the mat yesterday."},
+    ]
+    # Default 1.5s would NOT split (gap is 1.0s)
+    assert len(merge_to_sentences(segments)) == 1
+    # Strict 0.5s SHOULD split
+    assert len(merge_to_sentences(segments, max_gap_sec=0.5)) == 2
+
+
+def test_merge_preserves_timestamps_after_split():
+    """After gap-split, each merged sentence gets correct start/end from its segments."""
+    from translation.sentence_pipeline import merge_to_sentences
+    segments = [
+        {"start": 0.0, "end": 2.0, "text": "Hello world."},
+        {"start": 5.0, "end": 7.0, "text": "Goodbye."},  # gap=3s
+    ]
+    result = merge_to_sentences(segments)
+    assert len(result) == 2
+    assert result[0]["start"] == 0.0 and result[0]["end"] == 2.0
+    assert result[1]["start"] == 5.0 and result[1]["end"] == 7.0
+
+
+def test_translate_with_sentences_progress_callback():
+    """Progress callback is invoked with segment-scale counts, not sentence counts."""
+    from translation.sentence_pipeline import translate_with_sentences
+    from translation.mock_engine import MockTranslationEngine
+    engine = MockTranslationEngine({})
+    # 3 segments that merge into 1 sentence
+    segments = [
+        {"start": 0.0, "end": 1.0, "text": "The cat"},
+        {"start": 1.0, "end": 2.0, "text": "sat on"},
+        {"start": 2.0, "end": 3.0, "text": "the mat."},
+    ]
+    calls = []
+    def cb(done, total):
+        calls.append((done, total))
+    translate_with_sentences(engine, segments, progress_callback=cb)
+    # Callback should report totals in units of original segments (3), not sentences (1)
+    assert calls, "callback must be invoked at least once"
+    for done, total in calls:
+        assert total == 3, f"expected total=3 segments, got {total}"
+
+
