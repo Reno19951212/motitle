@@ -7,7 +7,8 @@
     "language_config_id": "en",
     "condition_on_previous_text": true,
     "language": "en",
-    "model_size": "medium"
+    "model_size": "medium",
+    "word_timestamps": true
   },
   "translation": {
     "engine": "gpt-oss-120b-cloud",
@@ -17,7 +18,8 @@
     "style": "formal",
     "temperature": 0.1,
     "use_sentence_pipeline": false,
-    "translation_passes": 1
+    "translation_passes": 1,
+    "alignment_mode": "llm-markers"
   },
   "font": {
     "family": "Noto Sans TC",
