@@ -9,9 +9,10 @@
 | 功能 | 說明 |
 |------|------|
 | 📁 **文件上傳與管理** | 拖放或選擇影片/音頻，支援 MP4、MOV、AVI、MKV、WebM、MXF 等格式 |
-| 🤖 **英文語音轉錄** | Whisper ASR 自動將英文語音轉為英文文字（支援 faster-whisper 加速） |
-| 🌐 **中文翻譯** | 本地 Ollama + Qwen2.5 模型，將英文字幕翻譯為繁體中文（粵語或書面語） |
-| 📖 **術語表管理** | 自訂英中術語對照表，確保專業名詞翻譯一致（支援 CSV 匯入/匯出） |
+| 🤖 **英文語音轉錄** | Whisper ASR 自動將英文語音轉為英文文字（支援 faster-whisper 加速，以及 Apple Silicon 嘅 MLX-Whisper） |
+| 🌐 **中文翻譯** | 三種選擇：本地 Ollama + Qwen2.5/3.5、Ollama Cloud、或 **OpenRouter**（Claude / GPT-4o / Gemini / DeepSeek 等 9 款 frontier models，用戶可自訂任何 OpenRouter model id） |
+| 🎯 **翻譯質素調校** | 四種模式：傳統 batch → sentence pipeline → LLM-anchored alignment → 兩次 pass enrichment。詳見「翻譯質素調校」章節 |
+| 📖 **術語表管理** | 自訂英中術語對照表，確保專業名詞翻譯一致（支援 CSV 匯入/匯出、一鍵 LLM 智能替換） |
 | ⚙️ **Profile 配置** | 可切換不同 ASR + 翻譯引擎組合，適應開發/生產環境 |
 | 🌐 **語言參數配置** | 每種語言獨立設定 ASR 分段參數（每句最大字數/時長）及翻譯參數（batch size/temperature） |
 | ✏️ **字幕校對編輯器** | 獨立校對頁面，左右並排影片與字幕表格，逐句審核、編輯、批核 |
@@ -283,6 +284,8 @@ ollama pull qwen2.5:3b
 | 引擎 | 狀態 | 模型 | 說明 |
 |------|------|------|------|
 | **Ollama** | ✅ 完整實現 | qwen2.5:3b / 7b / 72b | 本地 LLM，支援書面語及粵語風格 |
+| **Ollama Cloud** | ✅ 完整實現 | glm-4.6 / qwen3.5-397b / gpt-oss-120b | 雲端 MoE，需 `ollama signin` |
+| **OpenRouter** | ✅ 完整實現 | Claude / GPT-4o / Gemini / DeepSeek 等 | OpenAI-compatible proxy，自備 API key |
 | **Mock** | ✅ 測試用 | — | 返回 `[EN→ZH]` 格式，用於開發測試 |
 
 ### Ollama Cloud 模型（選用）
@@ -302,6 +305,39 @@ ollama signin
 ```
 
 登入之後，雲端模型會自動出現喺 Profile 翻譯引擎選單嘅「雲端模型」組別，唔需要 `ollama pull`。如果未 signin，選項會顯示 `⚠` 加 tooltip 提示。
+
+### OpenRouter 模型（選用）
+
+如果想用 Claude / GPT / Gemini 等 frontier models 做翻譯，可以用 OpenRouter — 一個統一 API gateway，唔使分別註冊每間 provider。
+
+**第一步：攞 API key**
+1. 去 [openrouter.ai](https://openrouter.ai) 註冊帳號
+2. 入 [Keys](https://openrouter.ai/keys) 頁建立新 key（格式 `sk-or-v1-...`）
+3. 充值（OpenRouter 按 token 計錢，各 model 價錢唔同，可以喺 [Models](https://openrouter.ai/models) 查）
+
+**第二步：喺 MoTitle 填入**
+1. 喺 dashboard 頭頂 pipeline 條嘅 **MT** step 揀 **OpenRouter**
+2. 彈出 settings modal：貼 API key + 揀 model
+3. Curated models（按英中翻譯質素排列）：
+
+| Model ID | 說明 |
+|---|---|
+| `anthropic/claude-opus-4.5` | Claude Opus 4.5（最高質素，最貴） |
+| `anthropic/claude-sonnet-4.5` | **推薦** — 質素接近 Opus，成本 1/5 |
+| `anthropic/claude-haiku-4.5` | 快速、低延遲，批次便宜 |
+| `openai/gpt-4o` | OpenAI 旗艦，中文流暢 |
+| `openai/gpt-4o-mini` | 成本低，準度中上 |
+| `google/gemini-2.5-pro` | Google 旗艦，長 context |
+| `deepseek/deepseek-chat` | **極便宜**，中文理解佳 |
+| `qwen/qwen-2.5-72b-instruct` | 阿里巴巴，中文強項 |
+| `meta-llama/llama-3.3-70b-instruct` | Meta 開源旗艦 |
+
+4. 亦可自行輸入任何 OpenRouter 支援嘅 model id（唔限 curated list）。輸過嘅 model 會記入 localStorage 做 suggestion。
+5. 儲存後會即時套用到 active Profile。
+
+**注意**
+- API key 儲存喺 Profile JSON（`backend/config/profiles/*.json`），**唔會** push 上 git（在 `.gitignore` 內）
+- 避開 reasoning models（如 `qwen/qwen3.5-122b-a10b`）除非你要深度推理 — 呢啲 model 每 call 有長長嘅 `reasoning` field，延遲可達 30–60 秒
 
 #### 語言參數
 
@@ -470,6 +506,61 @@ ASR: 8s ｜ 翻譯: 34s ｜ 總計: 42s
 
 ---
 
+## 翻譯質素調校
+
+MoTitle 提供四種翻譯模式，由簡單到進階可按需要逐級切換。全部喺 Profile 嘅 `translation` block 配置。
+
+### 模式 1 — 傳統 batch translate（預設）
+最快，模型逐批譯獨立 ASR segments。適合短片、日常字幕。
+```json
+"translation": {
+  "alignment_mode": "",
+  "translation_passes": 1
+}
+```
+
+### 模式 2 — Sentence pipeline
+用 pySBD 先合併連續 ASR segments 做完整句子翻譯，再按時間比例切返去原本 segments。適合 ASR 切得太散嘅情況（每段 1-2 個字）。
+```json
+"translation": {
+  "alignment_mode": "sentence",
+  "use_sentence_pipeline": true
+}
+```
+加入 `MAX_MERGE_GAP_SEC = 1.5` 時間閘門，相隔超過 1.5 秒嘅 segments 唔會強行合併。
+
+### 模式 3 — LLM-anchored alignment（`llm-markers`）
+Sentence pipeline 嘅進階版：合併成句後，prompt LLM 喺中文輸出中 **注入 `[N]` 位置 marker**，然後按 marker 位置切返去原本 segments — 比純時間比例準確。Marker 解析失敗時 fallback 去 word-level timestamps + 中文標點對齊。
+```json
+"asr": {
+  "word_timestamps": true          // 需要 DTW word-level 對齊
+},
+"translation": {
+  "alignment_mode": "llm-markers"
+}
+```
+**適用**：長句被 ASR 切成 3+ segments、需要精確時間邊界嘅廣播字幕。
+
+### 模式 4 — Two-pass enrichment（最慢，最貼 reference 人譯）
+基於以上任一模式，再跑第二 pass 加描述性修飾詞（形容詞/副詞），令輸出接近 Netflix TC 人譯風格。
+```json
+"translation": {
+  "alignment_mode": "llm-markers",  // 或其他
+  "translation_passes": 2
+}
+```
+時間成本：約 ×2（因為每 batch 要多一次 LLM call）。建議配合強 model（Claude Sonnet、Qwen3.5-397b）。
+
+### 其他相關參數
+
+| Profile 欄位 | 說明 |
+|---|---|
+| `asr.word_timestamps` | 啟用 DTW word-level timestamp（`alignment_mode: "llm-markers"` 嘅 fallback 會用到） |
+| `translation.parallel_batches` | 並發 batch 數（見上面效能調校） |
+| `translation.context_window` | 傳給 LLM 嘅前後 segment context（parallel 模式下自動 disable） |
+
+---
+
 ## API 參考
 
 後端提供以下 REST 端點（基礎 URL：`http://localhost:5001`）：
@@ -525,6 +616,19 @@ ASR: 8s ｜ 翻譯: 34s ｜ 總計: 42s
 ---
 
 ## 更新記錄
+
+### v3.1 — 翻譯質素提升 + OpenRouter 引擎
+
+- **OpenRouter 翻譯引擎**：新增對 Claude / GPT-4o / Gemini / DeepSeek 等 frontier models 嘅支援，透過 OpenRouter 統一 API。9 款 curated models + 可自訂任何 model id，localStorage 記錄歷史。
+- **OpenRouter settings modal**：專用 modal 輸入 API key（password-masked，可切顯示）、揀 model（suggestions + 歷史），儲存後即時套用到 active Profile。
+- **Phase 1 — 字幕字數上限放寬**：`MAX_SUBTITLE_CHARS` 16 → 28（貼近 Netflix TC 規範），減少 `[LONG]` false positive；`_filter_glossary_for_batch()` 按 batch 內容過濾 glossary，避免 prompt bloat。
+- **Phase 2 — Sentence pipeline 時間閘門**：`MAX_MERGE_GAP_SEC = 1.5`，避免相隔太遠嘅 segments 合併造成時間錯亂。
+- **Phase 3 — Sentence scope context**：prompt 向 LLM 標示邊幾個 segments 屬同一句，改善跨 segment 翻譯連貫性。
+- **Phase 4+5 — 廣播 few-shot + Pass 2 enrichment**：繁中 system prompt + 4 個廣播新聞例子；opt-in `translation_passes: 2` 加描述性修飾詞。
+- **Phase 6 Step 1 — ASR word-level timestamps**：`word_timestamps: true` 啟用 DTW 對齊，每個字嘅時間、字符機率都會儲起。
+- **Phase 6 Step 2 — LLM-anchored alignment**：`alignment_mode: "llm-markers"` 用 `[N]` 位置 marker 將長句翻譯精準切返去原本 ASR segments；marker 解析失敗時 fallback word-level timestamps + 中文標點對齊。
+- **翻譯按鈕 UI 修正**：dashboard file header 加返 `▶ 翻譯` / `⏳ 翻譯中…` / `🔄 重新翻譯` 三態按鈕（原本函數存在但冇 UI 入口）。
+- **375 個自動化測試**（+71 new：alignment pipeline 15、OpenRouter engine 16、sentence time-gap 5、ASR word timestamps 5、segment utils word partitioning 4，其他）
 
 ### v3.0 — 模組化引擎選擇 + 渲染匯出參數
 

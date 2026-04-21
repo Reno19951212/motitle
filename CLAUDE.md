@@ -89,8 +89,8 @@ A browser-based broadcast subtitle production pipeline that converts English vid
 **Tech stack:**
 - Backend: Python 3.8+, Flask, Flask-SocketIO, faster-whisper/openai-whisper, Ollama (local LLM)
 - Frontend: Vanilla HTML/CSS/JS (no build step), Socket.IO client
-- ASR: Whisper (via faster-whisper or openai-whisper), Qwen3-ASR and FLG-ASR stubs for production
-- Translation: Ollama + Qwen2.5 (local), Mock engine for dev/testing
+- ASR: Whisper (via faster-whisper, openai-whisper, or mlx-whisper on Apple Silicon), Qwen3-ASR and FLG-ASR stubs for production
+- Translation: Ollama + Qwen2.5/3.5 (local or cloud), OpenRouter (Claude/GPT/Gemini/…), Mock engine for dev/testing
 - Rendering: FFmpeg (ASS subtitle burn-in)
 - Audio extraction: FFmpeg (system dependency)
 
@@ -106,22 +106,27 @@ motitle/
 │   ├── glossary.py             # Glossary management (EN→ZH term mappings)
 │   ├── renderer.py             # Subtitle renderer (ASS generation + FFmpeg burn-in)
 │   ├── asr/                    # ASR engine abstraction
-│   │   ├── __init__.py         # ASREngine ABC + factory
-│   │   ├── whisper_engine.py   # Whisper implementation
+│   │   ├── __init__.py         # ASREngine ABC + factory + Word TypedDict
+│   │   ├── whisper_engine.py   # faster-whisper / openai-whisper (incl. word_timestamps)
+│   │   ├── mlx_whisper_engine.py # MLX-Whisper for Apple Silicon (word_timestamps supported)
+│   │   ├── segment_utils.py    # split_segments() post-processor (sentence-boundary split, word partitioning)
 │   │   ├── qwen3_engine.py     # Qwen3-ASR stub
 │   │   └── flg_engine.py       # FLG-ASR stub
 │   ├── translation/            # Translation engine abstraction
 │   │   ├── __init__.py         # TranslationEngine ABC + factory
-│   │   ├── ollama_engine.py    # Ollama/Qwen implementation
+│   │   ├── ollama_engine.py    # Ollama/Qwen + few-shot prompts + optional Pass 2 enrichment
+│   │   ├── openrouter_engine.py # OpenRouter (OpenAI-compatible): Claude / GPT / Gemini / etc.
 │   │   ├── mock_engine.py      # Mock engine for dev/testing
-│   │   └── sentence_pipeline.py # Sentence-aware merge/redistribute (experimental, not active)
+│   │   ├── sentence_pipeline.py # Sentence-aware merge/redistribute + time-gap guard
+│   │   ├── alignment_pipeline.py # Phase 6: LLM-anchored alignment (marker injection + fallback)
+│   │   └── post_processor.py   # Subtitle length / hallucination post-checks
 │   ├── language_config.py      # Per-language ASR/translation parameters
 │   ├── config/                 # Configuration files
 │   │   ├── settings.json       # Active profile pointer
 │   │   ├── profiles/           # Profile JSON files
 │   │   ├── glossaries/         # Glossary JSON files
 │   │   └── languages/          # Per-language config (en.json, zh.json)
-│   ├── tests/                  # Test suite (157 tests)
+│   ├── tests/                  # Test suite (375 tests)
 │   ├── data/                   # Runtime: uploads, registry, renders (gitignored)
 │   └── requirements.txt        # Python dependencies
 ├── frontend/
@@ -171,9 +176,15 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 
 **`renderer.py`** — Generates ASS subtitle files from approved translations + font config, then invokes FFmpeg to burn subtitles into video. Supports MP4 (H.264) and MXF (ProRes 422 HQ) output.
 
-**`asr/`** — Unified ASR interface. `ASREngine` ABC with `transcribe(audio_path, language)` method. Factory function creates the correct engine from profile config. WhisperEngine is fully implemented; Qwen3 and FLG are stubs.
+**`asr/`** — Unified ASR interface. `ASREngine` ABC with `transcribe(audio_path, language)` method returning `[{start, end, text, words: [Word]}]`. Factory function creates the correct engine from profile config. WhisperEngine (faster-whisper / openai-whisper) and MLXWhisperEngine are fully implemented; Qwen3 and FLG are stubs. Optional `word_timestamps` flag in Profile ASR config enables DTW word-level alignment used by the LLM-anchored alignment pipeline.
 
-**`translation/`** — Unified translation interface. `TranslationEngine` ABC with `translate(segments, glossary, style, batch_size, temperature)` method. OllamaTranslationEngine calls local Ollama API with batch prompts. MockTranslationEngine for dev/testing. `sentence_pipeline.py` contains experimental merge→translate→redistribute logic (not active — kept for future iteration).
+**`translation/`** — Unified translation interface. `TranslationEngine` ABC with `translate(segments, glossary, style, batch_size, temperature, progress_callback, parallel_batches)` method. Implementations:
+- **`OllamaTranslationEngine`** — Local Ollama + Qwen2.5/3.5 (incl. cloud variants via `ollama signin`). Uses few-shot prompts with sentence scope context and optional Pass 2 enrichment (`translation_passes: 2`).
+- **`OpenRouterTranslationEngine`** — Subclasses Ollama engine, overrides only the HTTP call to hit OpenRouter's OpenAI-compatible `/chat/completions`. Inherits all batching/retry/glossary/prompt logic. Bearer-auth, 9 curated models (Claude Opus/Sonnet/Haiku, GPT-4o/mini, Gemini 2.5, DeepSeek, Qwen, Llama) plus user-supplied free-form model ids.
+- **`MockTranslationEngine`** — dev/testing.
+- **`sentence_pipeline.py`** — `merge_to_sentences` (pySBD + time-gap guard, `MAX_MERGE_GAP_SEC=1.5`) → translate → `redistribute_to_segments`. Opt-in via `use_sentence_pipeline: true` or `alignment_mode: "sentence"`.
+- **`alignment_pipeline.py`** — `translate_with_alignment`: sentence merge + LLM marker injection (`[N]` anchors), LLM places markers in Chinese output, then splits back to original ASR segments. Chinese-punctuation-snap fallback if marker parsing fails. Opt-in via `alignment_mode: "llm-markers"`.
+- **`post_processor.py`** — `[LONG]` detection (>28 chars/line) + hallucination heuristic (>40 chars likely drift).
 
 **`language_config.py`** — Per-language ASR segmentation params (max_words_per_segment, max_segment_duration) and translation params (batch_size, temperature). JSON file storage in `config/languages/`. Validated ranges enforced.
 
@@ -322,6 +333,26 @@ Whenever a new feature is completed or existing functionality is modified, you *
 - **Proofread 兩個新 Panel**: 影片預覽下方加入「詞彙表對照」+「字幕設定」兩個 panel。詞彙表 panel 支援從所有 glossary 中選擇、查看/新增/編輯條目（inline）；字幕設定 panel 直接編輯 active profile 嘅 font config（字型、大小、顏色、輪廓、邊距），500ms debounce 後自動 PATCH，透過 Socket.IO 即時更新 overlay
 - **Glossary Apply（LLM 智能替換）**: Proofread page 詞彙表 panel 新增「套用」按鈕。Two-phase 流程：(1) `POST /api/files/<id>/glossary-scan` 用純字串匹配搵出違規（EN 包含 glossary term 但 ZH 唔包含對應翻譯）；(2) 預覽 modal 俾用戶剔選 violations（未批核預設勾選，已批核預設唔勾選）；(3) `POST /api/files/<id>/glossary-apply` 逐條調用 Ollama LLM 做智能替換（保留句子其他部分），多個違規同一 segment 時序列處理。後端會驗證 `(term_en, term_zh)` 確實屬於指定 glossary，錯誤訊息經 `app.logger.exception` 記錄並返回統一 `"LLM request failed"` 俾 client
 - **304 automated tests**（+13 new: glossary-scan/apply 端到端 coverage，包含 sequential chaining、term validation、approval 狀態保留）
+
+### v3.1 — Translation Quality + OpenRouter Engine
+- **OpenRouter 翻譯引擎**: 新增 `OpenRouterTranslationEngine` ([backend/translation/openrouter_engine.py](backend/translation/openrouter_engine.py))，繼承 `OllamaTranslationEngine`，只 override HTTP call 打去 OpenRouter 嘅 OpenAI-compatible `/chat/completions`。Bearer auth，自動重試 429/502/503/504，支援 attribution headers (`HTTP-Referer`、`X-Title`)。Profile config 新欄位：`openrouter_model`（free-form，唔係 enum）、`api_key`、可選 `openrouter_url`。Factory `create_translation_engine({"engine": "openrouter", ...})` 自動路由。
+- **9 個 curated OpenRouter models + 自訂模型**: Claude Opus 4.5 / Sonnet 4.5 / Haiku 4.5、GPT-4o / 4o-mini、Gemini 2.5 Pro、DeepSeek V3、Qwen 2.5 72B、Llama 3.3 70B。Schema 用 `suggestions` 而非 `enum`，用戶可自行輸入任何 OpenRouter 支援嘅 model id。
+- **OpenRouter settings modal UI**: 前端點擊 MT step gear icon（⚙）或揀 openrouter 引擎時彈 modal。包含：password-masked API key 輸入（show/hide 切換）、model id free-form 輸入、curated suggestions clickable list、localStorage history（`motitle.openrouter.models`，3 個/域，可個別刪除）、取消/儲存按鈕。PATCH profile 後即時 Socket.IO 通知 active profile 更新。
+- **Phase 1 — 放寬字幕字數上限 + per-batch glossary filter**: `MAX_SUBTITLE_CHARS` 由 16 → 28 字（貼近 Netflix TC 單行規範），`[LONG]` 警告閾值 16→28、hallucination 閾值 32→40。新增 `_filter_glossary_for_batch()`：只將當前 batch EN 文本出現過嘅 glossary term 注入 prompt，避免每 batch 塞完整 glossary 造成 prompt bloat。
+- **Phase 2 — Sentence pipeline 時間閘門**: 新增 `MAX_MERGE_GAP_SEC = 1.5`，`_split_by_time_gaps()` 避免將相隔太遠嘅 ASR segment 合併（原本冇呢個 guard 會令 merge 出現時間錯亂）。`translate_with_sentences` 新增 `progress_callback` + `parallel_batches` 參數。
+- **Phase 3 — In-prompt sentence scope**: `_detect_sentence_scopes()` 喺 prompt 入面向 LLM 交代邊幾個 segment 屬於同一句（e.g. `[S1: 1-3]`），鼓勵 LLM 翻譯時保持句意連貫但各 segment 仍輸出獨立中文句，唔再 redistribute。
+- **Phase 4+5 — 廣播風格 few-shot prompt + opt-in Pass 2 enrichment**: System prompt 全部改寫成繁體中文，加入 4 個 EN→TC 廣播新聞例子（體育、政治、科技、娛樂）。新增 `ENRICH_SYSTEM_PROMPT` + `_enrich_pass` / `_enrich_batch` / `_parse_enriched_response`，用 `translation_passes: 2` 開啟：第一 pass 輸出字面翻譯、第二 pass 加描述性修飾詞（Reference Netflix TC 字幕風格）。
+- **Phase 6 Step 1 — ASR word-level timestamps**: 新增 `Word` TypedDict (`{word, start, end, probability}`)；`whisper_engine.py` / `mlx_whisper_engine.py` 加入 `word_timestamps: bool`（default `false`），true 時 DTW align 每個字；`segment_utils.split_segments()` 正確 partition words to split segments（字數唔 match 時安全 fallback）；`app.py` segment dict 傳 `words` 陣列去前端（原本硬編碼 `[]`）。
+- **Phase 6 Step 2 — LLM-anchored alignment**: 新增 `backend/translation/alignment_pipeline.py`。`translate_with_alignment()`：將連續 ASR segments 合併做句、向 LLM 發 prompt 要求喺翻譯中注入 `[N]` 位置 marker，然後用 `parse_markers()` 切返個 output 去原本嘅 segment 數量。Fallback：`time_proportion_fallback()` 用 word-level timestamps 按時間比例切 + `_snap_to_punctuation()` 就近中文標點對齊。Profile 透過 `alignment_mode: "llm-markers"` 開啟。
+- **翻譯按鈕 UI 修正**: 前端 file header actions 原本漏咗手動觸發翻譯嘅 button（`reTranslateFile()` 函數已存在但冇 UI 入口）。加入三態按鈕：`▶ 翻譯`（未翻譯 + ASR done）/ `⏳ 翻譯中…`（disabled）/ `🔄 重新翻譯`（已完成，覆蓋舊 output）。
+- **Profile translation block 新欄位匯總**:
+  - `alignment_mode`: `"llm-markers" | "sentence" | ""`（預設空 = 傳統 batch translate）
+  - `translation_passes`: `1 | 2`（2 = 開啟 Pass 2 enrichment）
+  - `use_sentence_pipeline`: bool
+  - `openrouter_model`, `openrouter_url`, `api_key`（OpenRouter 專用）
+- **Profile ASR block 新欄位**: `word_timestamps: bool`（配合 alignment pipeline 用）
+- **`VALID_TRANSLATION_ENGINES`**: 新增 `"openrouter"`
+- **375 automated tests**（+71 new since v3.0 baseline 304：15 alignment_pipeline、16 openrouter_engine、5 sentence_pipeline time-gap、5 ASR word_timestamps、4 segment_utils word partitioning、其他）
 
 ### v2.1 — Language Config, Frontend UI, Bug Fixes
 - **Language config system**: Per-language ASR params (max_words_per_segment, max_segment_duration) and translation params (batch_size, temperature) with validation
