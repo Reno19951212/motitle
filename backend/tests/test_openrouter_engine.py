@@ -180,6 +180,28 @@ def test_schema_includes_openrouter_specific_fields():
     assert schema["params"]["api_key"].get("secret") is True
 
 
+def test_openrouter_model_is_free_form_not_enum():
+    """Users can supply any model id — schema must not enforce an enum."""
+    from translation.openrouter_engine import OpenRouterTranslationEngine
+    engine = OpenRouterTranslationEngine({"api_key": "sk-x"})
+    schema = engine.get_params_schema()
+    field = schema["params"]["openrouter_model"]
+    assert "enum" not in field, "openrouter_model must be free-form, not enum-restricted"
+    # Curated list stays available as suggestions
+    assert "suggestions" in field
+    assert len(field["suggestions"]) >= 3
+
+
+def test_engine_accepts_arbitrary_model_id():
+    """Passing a model not in CURATED_MODELS must still be accepted."""
+    from translation.openrouter_engine import OpenRouterTranslationEngine
+    engine = OpenRouterTranslationEngine({
+        "api_key": "sk-x",
+        "openrouter_model": "some-lab/experimental-model-v2",
+    })
+    assert engine._model == "some-lab/experimental-model-v2"
+
+
 def test_is_thinking_model_always_false():
     """OpenRouter doesn't use Ollama's `think` flag."""
     from translation.openrouter_engine import OpenRouterTranslationEngine

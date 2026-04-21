@@ -216,13 +216,17 @@ class OpenRouterTranslationEngine(OllamaTranslationEngine):
         schema = super().get_params_schema()
         schema["engine"] = "openrouter"
         schema["params"] = dict(schema["params"])  # shallow copy before mutating
+        # No enum constraint — users can enter ANY valid OpenRouter model id.
+        # The curated list below is served separately via
+        # /api/translation/engines/openrouter/models as "suggestions" only.
         schema["params"]["openrouter_model"] = {
             "type": "string",
             "label": "OpenRouter 模型",
-            "description": "Model identifier on OpenRouter",
-            "hint": "揀 Claude / GPT / Gemini 等雲端模型；需要 OpenRouter API key。",
-            "enum": [m["id"] for m in CURATED_MODELS],
-            "enum_labels": {m["id"]: m["label"] for m in CURATED_MODELS},
+            "description": "Model identifier on OpenRouter (free-form text)",
+            "hint": "任何 OpenRouter 支援嘅 model id，如 anthropic/claude-sonnet-4.5, "
+                    "openai/gpt-4o, deepseek/deepseek-chat 等。",
+            "suggestions": [m["id"] for m in CURATED_MODELS],
+            "suggestion_labels": {m["id"]: m["label"] for m in CURATED_MODELS},
             "default": DEFAULT_OPENROUTER_MODEL,
         }
         schema["params"]["api_key"] = {

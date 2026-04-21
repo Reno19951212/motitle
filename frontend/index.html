@@ -1457,6 +1457,11 @@
       { name: 'glm-4.6-cloud',    badge: '雲',   desc: 'Ollama Cloud · 198K ctx' },
       { name: 'qwen3.5-397b-cloud', badge: '雲', desc: 'Ollama Cloud · 粵語最佳' },
       { name: 'gpt-oss-120b-cloud', badge: '雲', desc: 'Ollama Cloud · 128K ctx' },
+      // OpenRouter: one entry, opens a dialog where the user enters any OR
+      // model id (Claude / GPT / Gemini / Llama / etc.) and optional API key.
+      // User's chosen models are remembered in localStorage so they appear
+      // as quick suggestions next time.
+      { name: 'openrouter',       badge: 'OR',   desc: 'OpenRouter · 自選任何模型（Claude / GPT / Gemini…）' },
       { name: 'mock',             badge: '測試', desc: '開發用' },
     ];
     const OUTPUT_OPTIONS = [
@@ -1611,15 +1616,97 @@
       } catch (e) { showToast('套用失敗', 'error'); }
     }
 
+    // localStorage key for user's OpenRouter model history
+    const OR_MODELS_KEY = 'motitle.openrouter.models';
+
+    function getOrUserModels() {
+      try {
+        const raw = localStorage.getItem(OR_MODELS_KEY);
+        if (!raw) return [];
+        const arr = JSON.parse(raw);
+        return Array.isArray(arr) ? arr.filter(s => typeof s === 'string') : [];
+      } catch (e) { return []; }
+    }
+
+    function rememberOrModel(modelId) {
+      if (!modelId) return;
+      const current = getOrUserModels();
+      const next = [modelId, ...current.filter(m => m !== modelId)].slice(0, 20);
+      try { localStorage.setItem(OR_MODELS_KEY, JSON.stringify(next)); }
+      catch (e) { /* storage unavailable */ }
+    }
+
+    function forgetOrModel(modelId) {
+      const next = getOrUserModels().filter(m => m !== modelId);
+      try { localStorage.setItem(OR_MODELS_KEY, JSON.stringify(next)); }
+      catch (e) { /* ignore */ }
+    }
+
+    // Prompt the user for an OpenRouter model id + optional API key.
+    // Returns {modelId, apiKey} or null if cancelled.
+    async function promptOpenRouterConfig() {
+      const history = getOrUserModels();
+      const currentModel = activeProfile?.translation?.openrouter_model || '';
+      const currentKey = activeProfile?.translation?.api_key || '';
+
+      // Build a suggestion line showing history (if any)
+      const suggestionLines = history.length
+        ? `\n\n已用過：\n${history.slice(0, 8).map((m, i) => `  ${i + 1}. ${m}`).join('\n')}\n\n(直接輸入編號快速選擇，或輸入完整 model id)`
+        : '\n\n例如：anthropic/claude-sonnet-4.5, openai/gpt-4o, google/gemini-2.5-pro, deepseek/deepseek-chat';
+
+      const input = window.prompt(
+        `OpenRouter model id:${suggestionLines}`,
+        currentModel
+      );
+      if (input === null || !input.trim()) return null;
+
+      // Allow "1", "2", etc. to pick from history
+      let modelId = input.trim();
+      const asNum = parseInt(modelId, 10);
+      if (!isNaN(asNum) && asNum >= 1 && asNum <= history.length && String(asNum) === modelId) {
+        modelId = history[asNum - 1];
+      }
+
+      let apiKey = currentKey;
+      if (!apiKey) {
+        apiKey = window.prompt(
+          `OpenRouter API key for "${modelId}"（留空 = 使用環境變量 OPENROUTER_API_KEY）:`,
+          ''
+        );
+        if (apiKey === null) return null;  // user cancelled
+      }
+
+      rememberOrModel(modelId);
+      return { modelId, apiKey };
+    }
+
     async function applyMtEngine(name) {
       if (!activeProfile) return;
+
+      let patchTranslation;
+      if (name === 'openrouter') {
+        const cfg = await promptOpenRouterConfig();
+        if (!cfg) return;  // cancelled
+        patchTranslation = {
+          ...activeProfile.translation,
+          engine: 'openrouter',
+          openrouter_model: cfg.modelId,
+        };
+        if (cfg.apiKey) patchTranslation.api_key = cfg.apiKey;
+      } else {
+        patchTranslation = { ...activeProfile.translation, engine: name };
+      }
+
       try {
         await fetch(`${API_BASE}/api/profiles/${activeProfile.id}`, {
           method: 'PATCH',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ translation: { ...activeProfile.translation, engine: name } }),
+          body: JSON.stringify({ translation: patchTranslation }),
         });
-        showToast(`MT 引擎已改為 ${name}`, 'success');
+        const display = name === 'openrouter'
+          ? `OpenRouter · ${patchTranslation.openrouter_model}`
+          : name;
+        showToast(`MT 引擎已改為 ${display}`, 'success');
         await fetchActiveProfile();
       } catch (e) { showToast('套用失敗', 'error'); }
     }
