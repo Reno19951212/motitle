@@ -16,11 +16,12 @@
     "context_window": 5,
     "style": "formal",
     "temperature": 0.1,
-    "use_sentence_pipeline": false
+    "use_sentence_pipeline": false,
+    "translation_passes": 1
   },
   "font": {
     "family": "Noto Sans TC",
-    "size": 52,
+    "size": 38,
     "color": "#ffffff",
     "outline_color": "#000000",
     "outline_width": 2,
@@ -28,5 +29,5 @@
     "margin_bottom": 40
   },
   "created_at": 1712534400,
-  "updated_at": 1776746546.63539
+  "updated_at": 1776751118.50965
 }

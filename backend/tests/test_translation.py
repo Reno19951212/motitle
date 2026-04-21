@@ -160,6 +160,83 @@ def test_detect_sentence_scopes_single_or_empty_input():
     ) == []
 
 
+def test_parse_enriched_response_basic():
+    """Parse numbered output from Pass 2 LLM."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    text = "1. 在後防方面，大衛·阿拉巴與盧迪加傷病纏身。\n2. 他們表示，球隊真正需要徹底改革。"
+    parsed = OllamaTranslationEngine._parse_enriched_response(text, expected_count=2)
+    assert parsed[1].startswith("在後防方面")
+    assert parsed[2].startswith("他們表示")
+
+
+def test_parse_enriched_response_ignores_out_of_range():
+    """Out-of-range numbers are ignored (model hallucinated extra lines)."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    text = "1. 好\n2. 佳\n3. 妙\n4. 絕"
+    parsed = OllamaTranslationEngine._parse_enriched_response(text, expected_count=2)
+    assert set(parsed.keys()) == {1, 2}
+
+
+def test_translation_passes_defaults_to_1():
+    """Default config returns 1 pass (no enrichment)."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+    assert engine._get_translation_passes() == 1
+
+
+def test_translation_passes_honours_config():
+    """translation_passes=2 is returned when explicitly set."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b", "translation_passes": 2})
+    assert engine._get_translation_passes() == 2
+
+
+def test_translation_passes_clamps_invalid_values():
+    """Values outside [1, 2] are clamped; non-numeric returns 1."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    assert OllamaTranslationEngine({"engine": "qwen2.5-3b",
+                                     "translation_passes": 0})._get_translation_passes() == 1
+    assert OllamaTranslationEngine({"engine": "qwen2.5-3b",
+                                     "translation_passes": 5})._get_translation_passes() == 2
+    assert OllamaTranslationEngine({"engine": "qwen2.5-3b",
+                                     "translation_passes": "xx"})._get_translation_passes() == 1
+
+
+def test_enrich_batch_falls_back_on_empty_output(monkeypatch):
+    """When LLM returns empty/missing enrichment, Pass 1 is kept."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+    # Monkeypatch _call_ollama to return empty response
+    monkeypatch.setattr(engine, "_call_ollama", lambda s, u, t: "")
+    batch_segs = [{"text": "Hello"}, {"text": "World"}]
+    batch_p1 = [
+        {"start": 0.0, "end": 1.0, "en_text": "Hello", "zh_text": "你好"},
+        {"start": 1.0, "end": 2.0, "en_text": "World", "zh_text": "世界"},
+    ]
+    result = engine._enrich_batch(batch_segs, batch_p1, [], 0.1)
+    assert result[0]["zh_text"] == "你好"
+    assert result[1]["zh_text"] == "世界"
+
+
+def test_enrich_batch_preserves_other_fields(monkeypatch):
+    """Enrichment should only change zh_text; start/end/en_text are preserved."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+    monkeypatch.setattr(
+        engine, "_call_ollama",
+        lambda s, u, t: "1. 你好嘛，今天天氣很好\n2. 歡迎來到這個世界"
+    )
+    batch_segs = [{"text": "Hello"}, {"text": "World"}]
+    batch_p1 = [
+        {"start": 0.0, "end": 1.0, "en_text": "Hello", "zh_text": "你好"},
+        {"start": 1.0, "end": 2.0, "en_text": "World", "zh_text": "世界"},
+    ]
+    result = engine._enrich_batch(batch_segs, batch_p1, [], 0.1)
+    assert result[0]["start"] == 0.0 and result[0]["end"] == 1.0
+    assert result[0]["en_text"] == "Hello"
+    assert result[0]["zh_text"] == "你好嘛，今天天氣很好"
+
+
 def test_user_message_includes_sentence_scope_block():
     """When scopes exist, user_message must include the context block and preserve per-segment output format."""
     from translation.ollama_engine import OllamaTranslationEngine
@@ -577,37 +654,38 @@ def test_system_prompt_formal_forbids_simplified():
     from translation.ollama_engine import OllamaTranslationEngine
     engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
     prompt = engine._build_system_prompt(style="formal", glossary=[])
-    assert "NEVER use Simplified Chinese" in prompt or "Traditional Chinese ONLY" in prompt
+    # Phase 4 prompt is written in Traditional Chinese; checks the 繁體 directive
+    assert "繁體中文" in prompt and "絕不使用簡體字" in prompt
 
 
 def test_system_prompt_formal_has_char_limit():
     from translation.ollama_engine import OllamaTranslationEngine
     engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
     prompt = engine._build_system_prompt(style="formal", glossary=[])
-    # Phase 1: 2-line broadcast layout (14 chars/line, 28 total)
-    assert "14" in prompt and "28" in prompt
+    # Phase 4 prompt expresses target as "約 20–28 字"
+    assert "20" in prompt and "28" in prompt
 
 
 def test_system_prompt_formal_has_rthk_context():
     from translation.ollama_engine import OllamaTranslationEngine
     engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
     prompt = engine._build_system_prompt(style="formal", glossary=[])
-    assert "RTHK" in prompt
+    # Phase 4 uses 香港電視廣播 instead of explicit "RTHK" branding
+    assert "香港" in prompt
 
 
 def test_system_prompt_cantonese_forbids_simplified():
     from translation.ollama_engine import OllamaTranslationEngine
     engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
     prompt = engine._build_system_prompt(style="cantonese", glossary=[])
-    assert "NEVER use Simplified Chinese" in prompt or "Traditional Chinese ONLY" in prompt
+    assert "繁體中文" in prompt and "絕不使用簡體字" in prompt
 
 
 def test_system_prompt_cantonese_has_char_limit():
     from translation.ollama_engine import OllamaTranslationEngine
     engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
     prompt = engine._build_system_prompt(style="cantonese", glossary=[])
-    # Phase 1: 2-line broadcast layout (14 chars/line, 28 total)
-    assert "14" in prompt and "28" in prompt
+    assert "20" in prompt and "28" in prompt
 
 
 # ── Task 7: Sliding Window Context ───────────────────────────────────────────
