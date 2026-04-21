@@ -288,6 +288,7 @@ def test_whisper_faster_passes_layer1_params():
         max_new_tokens=30,
         condition_on_previous_text=False,
         vad_filter=True,
+        word_timestamps=False,
     )
 
 
@@ -355,3 +356,104 @@ def test_whisper_openai_passes_condition_on_previous_text():
     assert call_kwargs["condition_on_previous_text"] is False
     assert "max_new_tokens" not in call_kwargs
     assert "vad_filter" not in call_kwargs
+
+
+# ── Phase 6 Step 1: word_timestamps support ──────────────────────────────────
+
+
+def test_whisper_faster_word_timestamps_off_by_default():
+    """When word_timestamps not set, faster-whisper receives False and no words in output."""
+    from asr.whisper_engine import WhisperEngine
+    engine = WhisperEngine({"engine": "whisper", "model_size": "tiny"})
+
+    MockSeg = namedtuple("MockSeg", ["start", "end", "text", "words"])
+    mock_segs = [MockSeg(start=0.0, end=1.0, text=" Hi", words=None)]
+    mock_model = MagicMock()
+    mock_model.transcribe.return_value = (iter(mock_segs), MagicMock())
+
+    with patch.object(engine, '_get_model', return_value=(mock_model, 'faster')):
+        result = engine.transcribe("/tmp/t.wav")
+
+    assert mock_model.transcribe.call_args.kwargs["word_timestamps"] is False
+    assert "words" not in result[0]
+
+
+def test_whisper_faster_word_timestamps_populates_words():
+    """When word_timestamps=True and engine returns words, they appear in segment dict."""
+    from asr.whisper_engine import WhisperEngine
+    engine = WhisperEngine({
+        "engine": "whisper", "model_size": "tiny", "word_timestamps": True,
+    })
+
+    MockWord = namedtuple("MockWord", ["word", "start", "end", "probability"])
+    MockSeg = namedtuple("MockSeg", ["start", "end", "text", "words"])
+    words = [
+        MockWord(word=" Hello", start=0.0, end=0.4, probability=0.95),
+        MockWord(word=" world", start=0.4, end=0.9, probability=0.88),
+    ]
+    mock_segs = [MockSeg(start=0.0, end=1.0, text=" Hello world", words=words)]
+    mock_model = MagicMock()
+    mock_model.transcribe.return_value = (iter(mock_segs), MagicMock())
+
+    with patch.object(engine, '_get_model', return_value=(mock_model, 'faster')):
+        result = engine.transcribe("/tmp/t.wav")
+
+    assert mock_model.transcribe.call_args.kwargs["word_timestamps"] is True
+    assert "words" in result[0]
+    assert len(result[0]["words"]) == 2
+    assert result[0]["words"][0]["word"] == " Hello"
+    assert result[0]["words"][0]["start"] == 0.0
+    assert result[0]["words"][0]["end"] == 0.4
+    assert result[0]["words"][0]["probability"] == 0.95
+
+
+def test_whisper_openai_word_timestamps_populates_words():
+    """openai-whisper path: dict-based words get lifted into the segment."""
+    from asr.whisper_engine import WhisperEngine
+    engine = WhisperEngine({
+        "engine": "whisper", "model_size": "tiny", "word_timestamps": True,
+    })
+
+    mock_model = MagicMock()
+    mock_model.transcribe.return_value = {
+        "segments": [{
+            "start": 0.0, "end": 1.0, "text": " Hi there",
+            "words": [
+                {"word": " Hi", "start": 0.0, "end": 0.2, "probability": 0.9},
+                {"word": " there", "start": 0.2, "end": 1.0, "probability": 0.8},
+            ],
+        }]
+    }
+
+    with patch.object(engine, '_get_model', return_value=(mock_model, 'openai')):
+        result = engine.transcribe("/tmp/t.wav")
+
+    assert mock_model.transcribe.call_args.kwargs["word_timestamps"] is True
+    assert len(result[0]["words"]) == 2
+    assert result[0]["words"][1]["end"] == 1.0
+
+
+def test_whisper_faster_no_words_when_engine_returns_none():
+    """If word_timestamps=True but engine returns no words (e.g., empty segment), skip gracefully."""
+    from asr.whisper_engine import WhisperEngine
+    engine = WhisperEngine({
+        "engine": "whisper", "model_size": "tiny", "word_timestamps": True,
+    })
+    MockSeg = namedtuple("MockSeg", ["start", "end", "text", "words"])
+    mock_segs = [MockSeg(start=0.0, end=1.0, text=" Hi", words=None)]
+    mock_model = MagicMock()
+    mock_model.transcribe.return_value = (iter(mock_segs), MagicMock())
+
+    with patch.object(engine, '_get_model', return_value=(mock_model, 'faster')):
+        result = engine.transcribe("/tmp/t.wav")
+
+    assert "words" not in result[0]  # Graceful absence
+
+
+def test_whisper_schema_advertises_word_timestamps():
+    """Schema includes the new word_timestamps param so frontend can surface it."""
+    from asr.whisper_engine import WhisperEngine
+    engine = WhisperEngine({"engine": "whisper", "model_size": "tiny"})
+    schema = engine.get_params_schema()
+    assert "word_timestamps" in schema["params"]
+    assert schema["params"]["word_timestamps"]["default"] is False
