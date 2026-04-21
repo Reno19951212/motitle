@@ -55,6 +55,9 @@ def create_translation_engine(translation_config: dict) -> TranslationEngine:
     if engine_name == "mock":
         from .mock_engine import MockTranslationEngine
         return MockTranslationEngine(translation_config)
+    if engine_name == "openrouter":
+        from .openrouter_engine import OpenRouterTranslationEngine
+        return OpenRouterTranslationEngine(translation_config)
     from .ollama_engine import ENGINE_TO_MODEL, OllamaTranslationEngine
     if engine_name in ENGINE_TO_MODEL:
         return OllamaTranslationEngine(translation_config)

@@ -965,10 +965,12 @@ def test_api_list_translation_engines_includes_cloud():
 
         cloud_engines = [e for e in engines if e["is_cloud"]]
         cloud_keys = {e["engine"] for e in cloud_engines}
+        # OpenRouter also flagged as cloud (added in Phase 7)
         assert cloud_keys == {
             "glm-4.6-cloud",
             "qwen3.5-397b-cloud",
             "gpt-oss-120b-cloud",
+            "openrouter",
         }
 
         # Mock and non-cloud Ollama engines must have is_cloud=False
