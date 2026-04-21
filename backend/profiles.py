@@ -22,6 +22,7 @@ VALID_TRANSLATION_ENGINES = {
     "qwen2.5-3b", "qwen2.5-7b", "qwen2.5-72b",
     "qwen3-235b", "qwen3.5-9b",
     "glm-4.6-cloud", "qwen3.5-397b-cloud", "gpt-oss-120b-cloud",
+    "openrouter",
 }
 VALID_DEVICES = {"cpu", "cuda", "mps", "auto"}
 
