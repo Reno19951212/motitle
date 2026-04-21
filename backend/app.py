@@ -466,7 +466,10 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
                     'start': seg['start'],
                     'end': seg['end'],
                     'text': seg['text'],
-                    'words': [],
+                    # Forward word-level timestamps when the engine produced them
+                    # (opt-in via profile asr.word_timestamps=true). Empty list
+                    # preserves existing frontend contract when disabled.
+                    'words': seg.get('words', []) or [],
                 }
                 segments.append(segment)
                 emit_segment_with_progress(segment, sid)

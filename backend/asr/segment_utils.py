@@ -50,8 +50,16 @@ def _split_single_segment(
     needs_word_split = word_count > max_words
     needs_duration_split = duration > max_duration
 
+    # Word-level timestamps from ASR (optional). When present and the
+    # segment is NOT split, forward them verbatim; when the segment IS
+    # split, _assign_timings partitions them by word index.
+    engine_words = segment.get("words") or []
+
     if not needs_word_split and not needs_duration_split:
-        return [{"start": start, "end": end, "text": text}]
+        out: dict = {"start": start, "end": end, "text": text}
+        if engine_words:
+            out["words"] = engine_words
+        return [out]
 
     # Calculate number of chunks needed by each constraint
     chunks_by_words = math.ceil(word_count / max_words) if needs_word_split else 1
@@ -59,12 +67,15 @@ def _split_single_segment(
     num_chunks = max(chunks_by_words, chunks_by_duration)
 
     if num_chunks <= 1:
-        return [{"start": start, "end": end, "text": text}]
+        out = {"start": start, "end": end, "text": text}
+        if engine_words:
+            out["words"] = engine_words
+        return [out]
 
     target_chunk_size = math.ceil(word_count / num_chunks)
     word_groups = _partition_words(words, target_chunk_size)
 
-    return _assign_timings(word_groups, start, end, words)
+    return _assign_timings(word_groups, start, end, words, engine_words)
 
 
 def _partition_words(words: List[str], target_chunk_size: int) -> List[List[str]]:
@@ -122,10 +133,20 @@ def _assign_timings(
     seg_start: float,
     seg_end: float,
     all_words: List[str],
+    engine_words: List[dict] = None,
 ) -> List[dict]:
-    """Assign start/end timestamps to each word group proportionally by word index."""
+    """Assign start/end timestamps to each word group proportionally by word index.
+
+    If engine_words is provided (word-level ASR timestamps), partition it by
+    word-index alongside the text split so each sub-segment carries only the
+    word timestamps corresponding to its text.
+    """
     total_words = len(all_words)
     duration = seg_end - seg_start
+    # Partition engine_words proportionally only when counts align; if they
+    # disagree (e.g. ASR split punctuation differently than .split()),
+    # forward empty words rather than corrupt timing.
+    use_engine_words = bool(engine_words) and len(engine_words) == total_words
     segments = []
     word_offset = 0
 
@@ -151,14 +172,14 @@ def _assign_timings(
         if segments:
             chunk_start = segments[-1]["end"]
 
-        segments = [
-            *segments,
-            {
-                "start": chunk_start,
-                "end": chunk_end,
-                "text": " ".join(group),
-            },
-        ]
+        chunk: dict = {
+            "start": chunk_start,
+            "end": chunk_end,
+            "text": " ".join(group),
+        }
+        if use_engine_words:
+            chunk["words"] = engine_words[word_offset : word_offset + group_size]
+        segments = [*segments, chunk]
 
         word_offset += group_size
 

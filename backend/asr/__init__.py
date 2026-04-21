@@ -1,9 +1,25 @@
 """ASR Pipeline — unified interface for speech recognition engines."""
 
 from abc import ABC, abstractmethod
-from typing import TypedDict
+from typing import List, TypedDict
 
 
+class Word(TypedDict):
+    """Word-level timestamp emitted by ASR engines that support it.
+
+    start/end are audio seconds. probability is the model's confidence
+    (0.0-1.0) — not all engines populate it; treat as best-effort.
+    """
+    word: str
+    start: float
+    end: float
+    probability: float
+
+
+# Segments are dicts with always-present start/end/text. Engines that run
+# with word_timestamps=True ALSO include a `words: List[Word]` key. We keep
+# the base TypedDict required-only (Python 3.9 lacks NotRequired) and treat
+# `words` as a conventionally-present optional key that consumers probe for.
 class Segment(TypedDict):
     start: float
     end: float

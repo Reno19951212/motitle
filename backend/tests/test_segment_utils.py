@@ -68,3 +68,61 @@ def test_sentence_boundary_splitting():
     assert len(result) >= 2
     for seg in result:
         assert len(seg["text"].split()) <= 5
+
+
+# ── Phase 6 Step 1: word timestamps preservation through split_segments ──────
+
+
+def test_split_preserves_words_when_no_split_needed():
+    """A short segment with words should pass them through unchanged."""
+    from asr.segment_utils import split_segments
+    words = [
+        {"word": "Hello", "start": 0.0, "end": 0.5, "probability": 0.9},
+        {"word": "world", "start": 0.5, "end": 1.0, "probability": 0.8},
+    ]
+    segments = [{"start": 0.0, "end": 1.0, "text": "Hello world", "words": words}]
+    result = split_segments(segments, max_words=25, max_duration=40.0)
+    assert len(result) == 1
+    assert result[0]["words"] == words
+
+
+def test_split_omits_words_when_not_provided():
+    """Segments without words should produce results without words field."""
+    from asr.segment_utils import split_segments
+    segments = [{"start": 0.0, "end": 1.0, "text": "Hello world"}]
+    result = split_segments(segments, max_words=25, max_duration=40.0)
+    assert "words" not in result[0]
+
+
+def test_split_partitions_words_across_sub_segments():
+    """When splitting, each sub-segment gets its slice of word timestamps."""
+    from asr.segment_utils import split_segments
+    words = [
+        {"word": w, "start": float(i), "end": float(i) + 0.5, "probability": 0.9}
+        for i, w in enumerate(["one", "two", "three", "four", "five", "six."])
+    ]
+    segments = [{"start": 0.0, "end": 6.0,
+                 "text": "one two three four five six.",
+                 "words": words}]
+    result = split_segments(segments, max_words=3, max_duration=60.0)
+    assert len(result) == 2
+    # First 3 words → first sub-segment, last 3 → second
+    assert len(result[0]["words"]) == 3
+    assert len(result[1]["words"]) == 3
+    assert result[0]["words"][0]["word"] == "one"
+    assert result[1]["words"][0]["word"] == "four"
+
+
+def test_split_skips_words_on_count_mismatch():
+    """If engine words count doesn't match text.split() count, skip rather than corrupt."""
+    from asr.segment_utils import split_segments
+    # 2 words in engine list but 3 words in text (punctuation quirk)
+    words = [
+        {"word": "Hello", "start": 0.0, "end": 0.4, "probability": 0.9},
+        {"word": "world.", "start": 0.4, "end": 1.0, "probability": 0.9},
+    ]
+    segments = [{"start": 0.0, "end": 2.0, "text": "Hello beautiful world.", "words": words}]
+    result = split_segments(segments, max_words=1, max_duration=60.0)
+    # Split happens, but words not partitioned (count mismatch safe-fallback)
+    for seg in result:
+        assert "words" not in seg
