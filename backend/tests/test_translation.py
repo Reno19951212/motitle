@@ -125,6 +125,60 @@ def test_filter_glossary_empty_inputs():
     assert OllamaTranslationEngine._filter_glossary_for_batch(glossary, []) == glossary
 
 
+def test_detect_sentence_scopes_finds_multi_segment_sentences():
+    """When a batch has segments that combine into a single sentence, scope is reported."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    segments = [
+        {"text": "The cat sat on"},
+        {"text": "the mat yesterday."},
+        {"text": "It was happy."},
+    ]
+    scopes = OllamaTranslationEngine._detect_sentence_scopes(segments)
+    # Sentence 1 spans segments 0+1 → included
+    # Sentence 2 is single-segment (2) → omitted
+    assert len(scopes) == 1
+    assert "cat sat on the mat yesterday" in scopes[0]
+
+
+def test_detect_sentence_scopes_no_scope_when_all_single_segment():
+    """If every sentence is contained in one segment, return empty list."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    segments = [
+        {"text": "Hello world."},
+        {"text": "Goodbye everyone."},
+    ]
+    scopes = OllamaTranslationEngine._detect_sentence_scopes(segments)
+    assert scopes == []
+
+
+def test_detect_sentence_scopes_single_or_empty_input():
+    """Handle edge cases: empty batch or single segment."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    assert OllamaTranslationEngine._detect_sentence_scopes([]) == []
+    assert OllamaTranslationEngine._detect_sentence_scopes(
+        [{"text": "One segment only."}]
+    ) == []
+
+
+def test_user_message_includes_sentence_scope_block():
+    """When scopes exist, user_message must include the context block and preserve per-segment output format."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+    segments = [
+        {"text": "The cat sat on"},
+        {"text": "the mat yesterday."},
+    ]
+    msg = engine._build_user_message(segments)
+    # Scope block present
+    assert "•" in msg
+    assert "cat sat on the mat yesterday" in msg
+    # Per-line format preserved — numbered lines are still there
+    assert "1. The cat sat on" in msg
+    assert "2. the mat yesterday." in msg
+    # Instruction clearly tells LLM not to merge
+    assert "do not merge" in msg.lower() or "MUST produce" in msg.lower() or "translate each numbered line" in msg.lower()
+
+
 def test_ollama_build_user_message():
     from translation.ollama_engine import OllamaTranslationEngine
     engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
@@ -571,7 +625,8 @@ def test_sliding_window_context_in_user_message():
 
     assert "[Context" in msg
     assert "Hello." in msg
-    assert "[Translate the following:" in msg
+    # Phase 3: message now uses per-line translate instruction
+    assert "[Translate each numbered line" in msg
     assert "How are you?" in msg
 
 

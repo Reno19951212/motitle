@@ -107,7 +107,10 @@ SYSTEM_PROMPT_FORMAL = (
     "4. When a line break is needed, split at natural syntactic boundaries (after clauses, "
     "conjunctions, topic-comment breaks). Never split a four-character idiom (成語) or a name.\n"
     "5. Use neutral journalistic tone consistent with Hong Kong broadcast news.\n"
-    "6. Output ONLY numbered translations. No explanations, no brackets, no notes.\n\n"
+    "6. When the user provides full-sentence context bullets (•), use them to understand "
+    "the meaning of each numbered line, but NEVER merge numbered lines — each numbered line "
+    "MUST produce exactly one numbered Chinese output preserving that line's own content.\n"
+    "7. Output ONLY numbered translations. No explanations, no brackets, no notes.\n\n"
     "Examples:\n"
     "1. The typhoon is approaching Hong Kong.\n"
     "→ 1. 颱風正逼近香港。\n"
@@ -125,7 +128,10 @@ SYSTEM_PROMPT_CANTONESE = (
     "4. When a line break is needed, split at natural syntactic boundaries. Never split a "
     "four-character idiom (成語) or a name.\n"
     "5. Use natural spoken Cantonese expressions common in Hong Kong broadcast news.\n"
-    "6. Output ONLY numbered translations. No explanations, no brackets, no notes.\n\n"
+    "6. When the user provides full-sentence context bullets (•), use them to understand "
+    "the meaning of each numbered line, but NEVER merge numbered lines — each numbered line "
+    "MUST produce exactly one numbered Chinese output preserving that line's own content.\n"
+    "7. Output ONLY numbered translations. No explanations, no brackets, no notes.\n\n"
     "Examples:\n"
     "1. Good evening everyone.\n"
     "→ 1. 大家晚上好。\n"
@@ -314,10 +320,71 @@ class OllamaTranslationEngine(TranslationEngine):
             for idx, (en, zh) in enumerate(context_pairs, 1):
                 context_lines.append(f"{idx}. {en} → {zh}")
             parts.append("\n".join(context_lines))
-            parts.append("[Translate the following:]")
+
+        # Phase 3: Sentence-scope context — detect which batch segments form
+        # complete sentences and show the LLM the full sentence for semantic
+        # awareness, WITHOUT asking it to merge output (output stays 1-to-1).
+        # Research (WMT 2024) shows document-level context improves translation
+        # quality; by keeping output per-segment we preserve time alignment.
+        sentence_scopes = self._detect_sentence_scopes(segments)
+        if sentence_scopes:
+            parts.append(
+                "[Full sentences spanning multiple lines below — for your "
+                "context only. Translate each numbered line independently, "
+                "preserving meaning within that line; do not merge or "
+                "rearrange content across lines:]"
+            )
+            for scope_text in sentence_scopes:
+                parts.append(f"• {scope_text}")
+
+        parts.append("[Translate each numbered line to its own line:]")
         numbered_lines = [f"{i}. {seg['text']}" for i, seg in enumerate(segments, 1)]
         parts.append("\n".join(numbered_lines))
         return "\n".join(parts)
+
+    @staticmethod
+    def _detect_sentence_scopes(segments: List[dict]) -> List[str]:
+        """Return full sentences that span multiple batch segments.
+
+        Uses pySBD to find sentence boundaries in the joined batch text;
+        returns sentences that were built from more than one segment
+        (single-segment sentences are omitted — no context gain to expose).
+        """
+        if not segments or len(segments) < 2:
+            return []
+        try:
+            import pysbd
+        except ImportError:
+            return []
+        segmenter = pysbd.Segmenter(language="en", clean=False)
+
+        # Map each word back to its originating batch segment index.
+        word_to_seg: List[int] = []
+        for i, seg in enumerate(segments):
+            for _ in seg.get("text", "").split():
+                word_to_seg.append(i)
+
+        full_text = " ".join(seg.get("text", "") for seg in segments)
+        sentences = segmenter.segment(full_text)
+
+        scopes: List[str] = []
+        word_offset = 0
+        for sent in sentences:
+            sent_text = sent.strip()
+            if not sent_text:
+                continue
+            sent_word_count = len(sent_text.split())
+            spanned = set(
+                word_to_seg[j]
+                for j in range(
+                    word_offset,
+                    min(word_offset + sent_word_count, len(word_to_seg)),
+                )
+            )
+            if len(spanned) >= 2:
+                scopes.append(sent_text)
+            word_offset += sent_word_count
+        return scopes
 
     def _is_thinking_model(self) -> bool:
         """Return True for qwen3/qwen3.5 models that default to thinking mode."""

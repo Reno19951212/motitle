@@ -11,15 +11,16 @@
   },
   "translation": {
     "engine": "gpt-oss-120b-cloud",
-    "glossary_id": null,
+    "glossary_id": "broadcast-news",
     "batch_size": 5,
     "context_window": 5,
     "style": "formal",
-    "temperature": 0.1
+    "temperature": 0.1,
+    "use_sentence_pipeline": false
   },
   "font": {
     "family": "Noto Sans TC",
-    "size": 48,
+    "size": 52,
     "color": "#ffffff",
     "outline_color": "#000000",
     "outline_width": 2,
@@ -27,5 +28,5 @@
     "margin_bottom": 40
   },
   "created_at": 1712534400,
-  "updated_at": 1712534400
+  "updated_at": 1776746546.63539
 }
