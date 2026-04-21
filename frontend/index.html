@@ -913,6 +913,68 @@
       padding: 6px 8px 4px;
     }
 
+    /* OpenRouter settings modal */
+    .or-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 3000; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .or-overlay.open { opacity: 1; pointer-events: auto; }
+    .or-modal {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      width: 560px; max-width: 90vw; max-height: 85vh;
+      display: flex; flex-direction: column;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+    }
+    .or-head {
+      padding: 16px 20px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 15px; font-weight: 700;
+    }
+    .or-close {
+      background: none; border: none; color: var(--text-dim); font-size: 20px;
+      cursor: pointer; padding: 0 4px; line-height: 1;
+    }
+    .or-close:hover { color: var(--text); }
+    .or-body { flex: 1; overflow-y: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px; }
+    .or-field { display: flex; flex-direction: column; gap: 6px; }
+    .or-label { font-size: 12px; font-weight: 600; color: var(--text); }
+    .or-hint { font-size: 11px; color: var(--text-dim); }
+    .or-input {
+      background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); font-size: 13px; padding: 8px 10px; width: 100%; box-sizing: border-box;
+      font-family: inherit;
+    }
+    .or-input:focus { border-color: var(--accent); outline: none; }
+    .or-input-row { display: flex; gap: 6px; align-items: stretch; }
+    .or-input-row .or-input { flex: 1; }
+    .or-btn {
+      background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); font-size: 12px; padding: 0 10px; cursor: pointer; font-family: inherit;
+    }
+    .or-btn:hover { background: var(--border); }
+    .or-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .or-btn.primary:hover { filter: brightness(1.1); }
+    .or-btn.danger { color: var(--danger); }
+    .or-history { display: flex; flex-direction: column; gap: 4px; }
+    .or-history-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 8px; border: 1px solid var(--border); border-radius: 5px;
+      font-size: 12px; cursor: pointer;
+    }
+    .or-history-row:hover { background: var(--surface-2); }
+    .or-history-row.active { border-color: var(--accent); background: rgba(108,99,255,0.08); }
+    .or-history-row .or-model-id { flex: 1; font-family: var(--font-mono); font-size: 11px; }
+    .or-history-row button { background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 2px 6px; }
+    .or-history-row button:hover { color: var(--danger); }
+    .or-section-head { font-size: 11px; font-weight: 600; color: var(--text-mid); text-transform: uppercase; letter-spacing: 0.06em; }
+    .or-foot {
+      padding: 12px 20px; border-top: 1px solid var(--border);
+      display: flex; justify-content: flex-end; gap: 8px;
+    }
+    .or-key-status { font-size: 11px; color: var(--text-dim); }
+    .or-key-status.ok { color: var(--success); }
+
     /* Toast */
     .toast-stack {
       position: fixed; bottom: 18px; right: 18px;
@@ -1104,6 +1166,52 @@
   </div>
 
   <div class="toast-stack" id="toastStack"></div>
+
+  <!-- OpenRouter settings modal -->
+  <div class="or-overlay" id="orOverlay">
+    <div class="or-modal">
+      <div class="or-head">
+        <span>OpenRouter 設定</span>
+        <button class="or-close" onclick="closeOpenRouterModal()" aria-label="關閉">&times;</button>
+      </div>
+      <div class="or-body">
+        <div class="or-field">
+          <label class="or-label" for="orApiKey">API Key</label>
+          <div class="or-input-row">
+            <input type="password" class="or-input" id="orApiKey" placeholder="sk-or-v1-..." autocomplete="off">
+            <button class="or-btn" type="button" id="orToggleKeyBtn" onclick="toggleOrApiKeyVisibility()">顯示</button>
+          </div>
+          <div class="or-hint">
+            去 <span style="color:var(--accent);">openrouter.ai</span> 嘅 Keys 頁攞。留空 = 使用環境變量 <code>OPENROUTER_API_KEY</code>。
+          </div>
+          <div class="or-key-status" id="orKeyStatus">未設定</div>
+        </div>
+
+        <div class="or-field">
+          <label class="or-label" for="orModelId">模型 Model ID</label>
+          <input type="text" class="or-input" id="orModelId" placeholder="anthropic/claude-sonnet-4.5" autocomplete="off" list="orModelSuggestList">
+          <datalist id="orModelSuggestList"></datalist>
+          <div class="or-hint">
+            任何 OpenRouter 支援嘅 model id。例：<code>anthropic/claude-opus-4.5</code>、<code>openai/gpt-4o</code>、<code>google/gemini-2.5-pro</code>。
+          </div>
+        </div>
+
+        <div class="or-field" id="orHistoryField" style="display:none;">
+          <div class="or-section-head">已用過嘅模型</div>
+          <div class="or-history" id="orHistoryList"></div>
+        </div>
+
+        <div class="or-field" id="orSuggestionsField" style="display:none;">
+          <div class="or-section-head">推薦模型</div>
+          <div class="or-history" id="orSuggestionsList"></div>
+        </div>
+      </div>
+      <div class="or-foot">
+        <button class="or-btn" type="button" onclick="closeOpenRouterModal()">取消</button>
+        <button class="or-btn primary" type="button" onclick="saveOpenRouterConfig()">儲存並啟用</button>
+      </div>
+    </div>
+  </div>
 
   <script>
     // ============================================================
@@ -1561,7 +1669,18 @@
         <span class="arrow">→</span>
         <div class="step" data-step="mt" tabindex="0">
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="var(--accent-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2l6 3-6 3-6-3zM2 8l6 3 6-3M2 11l6 3 6-3"/></svg>
-          <div><div class="k">MT</div><div class="v">${escapeHtml(mtEngineShort)}</div></div>
+          <div>
+            <div class="k">MT</div>
+            <div class="v">${escapeHtml(mtEngine === 'openrouter'
+              ? `OR · ${(p.translation?.openrouter_model || '未設定').split('/').pop()}`
+              : mtEngineShort)}</div>
+          </div>
+          ${mtEngine === 'openrouter' ? `
+            <button type="button" title="編輯 OpenRouter 設定 (API key / 模型)"
+              onclick="event.stopPropagation(); openOpenRouterModal();"
+              style="background:none;border:none;padding:2px 4px;margin:0 2px;cursor:pointer;color:var(--text-mid);"
+              aria-label="設定">⚙</button>
+          ` : ''}
           <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
           ${mtMenuHtml}
         </div>
@@ -1642,73 +1761,178 @@
       catch (e) { /* ignore */ }
     }
 
-    // Prompt the user for an OpenRouter model id + optional API key.
-    // Returns {modelId, apiKey} or null if cancelled.
-    async function promptOpenRouterConfig() {
+    // Modal-based OpenRouter configuration UI. Replaces the old prompt()
+    // flow so users can see/edit the API key and model id in a proper form,
+    // and manage their history of previously-used model ids.
+
+    // Default suggestions shown when the user hasn't used OpenRouter before.
+    // Kept in sync with openrouter_engine.py CURATED_MODELS (not enforced).
+    const OR_SUGGESTIONS = [
+      { id: 'anthropic/claude-opus-4.5',     label: 'Claude Opus 4.5 · 最高質素' },
+      { id: 'anthropic/claude-sonnet-4.5',   label: 'Claude Sonnet 4.5 · 平衡推薦' },
+      { id: 'anthropic/claude-haiku-4.5',    label: 'Claude Haiku 4.5 · 低延遲' },
+      { id: 'openai/gpt-4o',                 label: 'GPT-4o · OpenAI 旗艦' },
+      { id: 'openai/gpt-4o-mini',            label: 'GPT-4o mini · 便宜' },
+      { id: 'google/gemini-2.5-pro',         label: 'Gemini 2.5 Pro · 長上下文' },
+      { id: 'deepseek/deepseek-chat',        label: 'DeepSeek V3 · 極便宜' },
+      { id: 'qwen/qwen-2.5-72b-instruct',    label: 'Qwen 2.5 72B · 中文強' },
+      { id: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B · 開源旗艦' },
+    ];
+
+    function openOpenRouterModal() {
+      const existingKey = activeProfile?.translation?.api_key || '';
+      const existingModel = activeProfile?.translation?.openrouter_model || '';
+
+      document.getElementById('orApiKey').value = existingKey;
+      document.getElementById('orApiKey').type = 'password';
+      document.getElementById('orToggleKeyBtn').textContent = '顯示';
+      document.getElementById('orModelId').value = existingModel;
+
+      const keyStatus = document.getElementById('orKeyStatus');
+      if (existingKey) {
+        keyStatus.textContent = `已儲存（${existingKey.length} 字元）`;
+        keyStatus.className = 'or-key-status ok';
+      } else {
+        keyStatus.textContent = '未設定';
+        keyStatus.className = 'or-key-status';
+      }
+
+      // Build datalist for native autocomplete
+      const datalist = document.getElementById('orModelSuggestList');
+      datalist.innerHTML = OR_SUGGESTIONS.map(s =>
+        `<option value="${escapeHtml(s.id)}">${escapeHtml(s.label)}</option>`
+      ).join('');
+
+      renderOrHistory();
+      renderOrSuggestions();
+      document.getElementById('orOverlay').classList.add('open');
+      document.getElementById('orModelId').focus();
+    }
+
+    function closeOpenRouterModal() {
+      document.getElementById('orOverlay').classList.remove('open');
+    }
+
+    function toggleOrApiKeyVisibility() {
+      const input = document.getElementById('orApiKey');
+      const btn = document.getElementById('orToggleKeyBtn');
+      if (input.type === 'password') {
+        input.type = 'text'; btn.textContent = '隱藏';
+      } else {
+        input.type = 'password'; btn.textContent = '顯示';
+      }
+    }
+
+    function renderOrHistory() {
       const history = getOrUserModels();
-      const currentModel = activeProfile?.translation?.openrouter_model || '';
-      const currentKey = activeProfile?.translation?.api_key || '';
+      const field = document.getElementById('orHistoryField');
+      const list = document.getElementById('orHistoryList');
+      if (!history.length) {
+        field.style.display = 'none';
+        return;
+      }
+      field.style.display = '';
+      const currentModel = document.getElementById('orModelId').value;
+      list.innerHTML = history.map(m => `
+        <div class="or-history-row ${m === currentModel ? 'active' : ''}" onclick="pickOrModel('${m.replace(/'/g, "\\'")}')">
+          <span class="or-model-id">${escapeHtml(m)}</span>
+          <button type="button" title="從清單移除" onclick="event.stopPropagation(); forgetOrModelAndRerender('${m.replace(/'/g, "\\'")}')">&times;</button>
+        </div>
+      `).join('');
+    }
 
-      // Build a suggestion line showing history (if any)
-      const suggestionLines = history.length
-        ? `\n\n已用過：\n${history.slice(0, 8).map((m, i) => `  ${i + 1}. ${m}`).join('\n')}\n\n(直接輸入編號快速選擇，或輸入完整 model id)`
-        : '\n\n例如：anthropic/claude-sonnet-4.5, openai/gpt-4o, google/gemini-2.5-pro, deepseek/deepseek-chat';
+    function renderOrSuggestions() {
+      const history = getOrUserModels();
+      const list = document.getElementById('orSuggestionsList');
+      const field = document.getElementById('orSuggestionsField');
+      // Hide suggestions that are already in history
+      const remaining = OR_SUGGESTIONS.filter(s => !history.includes(s.id));
+      if (!remaining.length) {
+        field.style.display = 'none';
+        return;
+      }
+      field.style.display = '';
+      list.innerHTML = remaining.slice(0, 6).map(s => `
+        <div class="or-history-row" onclick="pickOrModel('${s.id.replace(/'/g, "\\'")}')">
+          <span class="or-model-id">${escapeHtml(s.id)}</span>
+          <span class="or-hint" style="font-size:10px;">${escapeHtml(s.label.split(' · ')[1] || '')}</span>
+        </div>
+      `).join('');
+    }
 
-      const input = window.prompt(
-        `OpenRouter model id:${suggestionLines}`,
-        currentModel
-      );
-      if (input === null || !input.trim()) return null;
+    function pickOrModel(modelId) {
+      document.getElementById('orModelId').value = modelId;
+      renderOrHistory();
+    }
 
-      // Allow "1", "2", etc. to pick from history
-      let modelId = input.trim();
-      const asNum = parseInt(modelId, 10);
-      if (!isNaN(asNum) && asNum >= 1 && asNum <= history.length && String(asNum) === modelId) {
-        modelId = history[asNum - 1];
+    function forgetOrModelAndRerender(modelId) {
+      forgetOrModel(modelId);
+      renderOrHistory();
+      renderOrSuggestions();
+    }
+
+    async function saveOpenRouterConfig() {
+      if (!activeProfile) { showToast('未有 active profile', 'error'); return; }
+      const modelId = document.getElementById('orModelId').value.trim();
+      const apiKey = document.getElementById('orApiKey').value.trim();
+
+      if (!modelId) {
+        showToast('請輸入 model id', 'error');
+        document.getElementById('orModelId').focus();
+        return;
       }
 
-      let apiKey = currentKey;
-      if (!apiKey) {
-        apiKey = window.prompt(
-          `OpenRouter API key for "${modelId}"（留空 = 使用環境變量 OPENROUTER_API_KEY）:`,
-          ''
-        );
-        if (apiKey === null) return null;  // user cancelled
-      }
+      const patchTranslation = {
+        ...activeProfile.translation,
+        engine: 'openrouter',
+        openrouter_model: modelId,
+      };
+      // Only send api_key when the user provided one; empty string wipes
+      // the saved key so backend falls back to OPENROUTER_API_KEY env var.
+      patchTranslation.api_key = apiKey;
 
-      rememberOrModel(modelId);
-      return { modelId, apiKey };
+      try {
+        const r = await fetch(`${API_BASE}/api/profiles/${activeProfile.id}`, {
+          method: 'PATCH',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ translation: patchTranslation }),
+        });
+        if (!r.ok) throw new Error((await r.json()).errors?.join(', ') || '套用失敗');
+        rememberOrModel(modelId);
+        closeOpenRouterModal();
+        showToast(`MT 引擎已改為 OpenRouter · ${modelId}`, 'success');
+        await fetchActiveProfile();
+      } catch (e) {
+        showToast(`套用失敗: ${e.message}`, 'error');
+      }
     }
 
     async function applyMtEngine(name) {
       if (!activeProfile) return;
 
-      let patchTranslation;
       if (name === 'openrouter') {
-        const cfg = await promptOpenRouterConfig();
-        if (!cfg) return;  // cancelled
-        patchTranslation = {
-          ...activeProfile.translation,
-          engine: 'openrouter',
-          openrouter_model: cfg.modelId,
-        };
-        if (cfg.apiKey) patchTranslation.api_key = cfg.apiKey;
-      } else {
-        patchTranslation = { ...activeProfile.translation, engine: name };
+        openOpenRouterModal();
+        return;
       }
 
+      const patchTranslation = { ...activeProfile.translation, engine: name };
       try {
         await fetch(`${API_BASE}/api/profiles/${activeProfile.id}`, {
           method: 'PATCH',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({ translation: patchTranslation }),
         });
-        const display = name === 'openrouter'
-          ? `OpenRouter · ${patchTranslation.openrouter_model}`
-          : name;
-        showToast(`MT 引擎已改為 ${display}`, 'success');
+        showToast(`MT 引擎已改為 ${name}`, 'success');
         await fetchActiveProfile();
       } catch (e) { showToast('套用失敗', 'error'); }
+    }
+
+    // Allow user to re-open the OpenRouter modal after it's been set,
+    // for editing the key or switching models without re-picking engine.
+    function openOpenRouterModalIfActive() {
+      if (activeProfile?.translation?.engine === 'openrouter') {
+        openOpenRouterModal();
+      }
     }
 
     function applyOutputFormat(name) {
