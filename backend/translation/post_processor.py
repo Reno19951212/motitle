@@ -9,7 +9,8 @@ def validate_batch(results: List[dict]) -> List[int]:
 
     Returns sorted list of problematic segment indices (empty = all valid).
     Checks: repetition (>=3 consecutive identical), missing translations,
-    too long (>32 Chinese chars), hallucination (zh > en*3 length).
+    too long (>40 Chinese chars — well beyond 2-line broadcast max of 32),
+    hallucination (zh > en*3 length).
     """
     bad_indices: List[int] = []
 
@@ -36,7 +37,7 @@ def validate_batch(results: List[dict]) -> List[int]:
         # Strip [LONG] prefix before length/hallucination checks so that
         # _flag_long_segments output does not inflate the measured length.
         zh_raw = zh.removeprefix("[LONG] ")
-        if len(zh_raw) > 32:
+        if len(zh_raw) > 40:
             if i not in bad_indices:
                 bad_indices.append(i)
         if len(en) > 0 and len(zh_raw) > len(en) * 3:
@@ -49,7 +50,7 @@ def validate_batch(results: List[dict]) -> List[int]:
 class TranslationPostProcessor:
     """Apply post-processing steps to translated segments."""
 
-    def __init__(self, max_chars: int = 16):
+    def __init__(self, max_chars: int = 28):
         self._converter = opencc.OpenCC('s2twp')
         self._max_chars = max_chars
 

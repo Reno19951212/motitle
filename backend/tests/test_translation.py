@@ -90,6 +90,41 @@ def test_ollama_build_system_prompt_with_glossary():
     assert "Chief Executive" in prompt
 
 
+def test_filter_glossary_keeps_only_matching_terms():
+    """Glossary filter should return only entries whose EN term appears in the batch."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    glossary = [
+        {"en": "broadcast", "zh": "廣播"},
+        {"en": "anchor", "zh": "主播"},
+        {"en": "Legislative Council", "zh": "立法會"},
+    ]
+    segments = [
+        {"text": "The anchor reported the broadcast live."},
+        {"text": "Hot weather was tough."},
+    ]
+    filtered = OllamaTranslationEngine._filter_glossary_for_batch(glossary, segments)
+    assert len(filtered) == 2
+    terms = {e["en"] for e in filtered}
+    assert terms == {"broadcast", "anchor"}
+
+
+def test_filter_glossary_is_case_insensitive():
+    """Matching should be case-insensitive on the EN side."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    glossary = [{"en": "Real Madrid", "zh": "皇家馬德里"}]
+    segments = [{"text": "real madrid lost last night"}]
+    filtered = OllamaTranslationEngine._filter_glossary_for_batch(glossary, segments)
+    assert len(filtered) == 1
+
+
+def test_filter_glossary_empty_inputs():
+    """Empty glossary or segments should return the original glossary unchanged."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    assert OllamaTranslationEngine._filter_glossary_for_batch([], [{"text": "x"}]) == []
+    glossary = [{"en": "x", "zh": "y"}]
+    assert OllamaTranslationEngine._filter_glossary_for_batch(glossary, []) == glossary
+
+
 def test_ollama_build_user_message():
     from translation.ollama_engine import OllamaTranslationEngine
     engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
@@ -495,7 +530,8 @@ def test_system_prompt_formal_has_char_limit():
     from translation.ollama_engine import OllamaTranslationEngine
     engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
     prompt = engine._build_system_prompt(style="formal", glossary=[])
-    assert "16" in prompt
+    # Phase 1: 2-line broadcast layout (14 chars/line, 28 total)
+    assert "14" in prompt and "28" in prompt
 
 
 def test_system_prompt_formal_has_rthk_context():
@@ -516,7 +552,8 @@ def test_system_prompt_cantonese_has_char_limit():
     from translation.ollama_engine import OllamaTranslationEngine
     engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
     prompt = engine._build_system_prompt(style="cantonese", glossary=[])
-    assert "16" in prompt
+    # Phase 1: 2-line broadcast layout (14 chars/line, 28 total)
+    assert "14" in prompt and "28" in prompt
 
 
 # ── Task 7: Sliding Window Context ───────────────────────────────────────────
