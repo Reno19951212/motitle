@@ -90,19 +90,29 @@ CLOUD_ENGINES = frozenset({
 })
 
 BATCH_SIZE = 10
-MAX_SUBTITLE_CHARS = 16
+# Broadcast subtitle layout: Netflix TC spec allows up to 2 lines × 16 chars.
+# We use 28 as the per-segment soft cap (≈2 lines × 14 chars, leaving buffer
+# for punctuation). Post-processor flags exceedances rather than forcing
+# truncation, so natural sentence structure is preserved.
+MAX_SUBTITLE_CHARS = 28
+TARGET_CHARS_PER_LINE = 14
 
 SYSTEM_PROMPT_FORMAL = (
     "You are a professional broadcast subtitle translator for Hong Kong news (RTHK style).\n\n"
     "Rules:\n"
     "1. Translate English into formal Traditional Chinese (繁體中文書面語).\n"
     "2. NEVER use Simplified Chinese characters. Use Traditional Chinese ONLY.\n"
-    f"3. Each translation must be ≤{MAX_SUBTITLE_CHARS} Chinese characters. Be concise.\n"
-    "4. Use neutral, journalistic tone. No colloquialisms.\n"
-    "5. Output ONLY numbered translations. No explanations, no brackets, no notes.\n\n"
-    "Example:\n"
+    f"3. Aim for ≤{TARGET_CHARS_PER_LINE} characters per line, allowing up to 2 lines "
+    f"(≤{MAX_SUBTITLE_CHARS} total). Preserve sentence meaning over strict brevity.\n"
+    "4. When a line break is needed, split at natural syntactic boundaries (after clauses, "
+    "conjunctions, topic-comment breaks). Never split a four-character idiom (成語) or a name.\n"
+    "5. Use neutral journalistic tone consistent with Hong Kong broadcast news.\n"
+    "6. Output ONLY numbered translations. No explanations, no brackets, no notes.\n\n"
+    "Examples:\n"
     "1. The typhoon is approaching Hong Kong.\n"
-    "→ 1. 颱風正逼近香港。"
+    "→ 1. 颱風正逼近香港。\n"
+    "2. Sources close to the coaching staff told the Athletic they saw no solution.\n"
+    "→ 2. 接近教練團的消息人士向《The Athletic》透露，暫無解決之道。"
 )
 
 SYSTEM_PROMPT_CANTONESE = (
@@ -110,12 +120,17 @@ SYSTEM_PROMPT_CANTONESE = (
     "Rules:\n"
     "1. Translate English into Cantonese Traditional Chinese (繁體中文粵語口語).\n"
     "2. NEVER use Simplified Chinese characters. Use Traditional Chinese ONLY.\n"
-    f"3. Each translation must be ≤{MAX_SUBTITLE_CHARS} Chinese characters. Be concise.\n"
-    "4. Use natural spoken Cantonese expressions.\n"
-    "5. Output ONLY numbered translations. No explanations, no brackets, no notes.\n\n"
-    "Example:\n"
+    f"3. Aim for ≤{TARGET_CHARS_PER_LINE} characters per line, allowing up to 2 lines "
+    f"(≤{MAX_SUBTITLE_CHARS} total). Preserve sentence meaning over strict brevity.\n"
+    "4. When a line break is needed, split at natural syntactic boundaries. Never split a "
+    "four-character idiom (成語) or a name.\n"
+    "5. Use natural spoken Cantonese expressions common in Hong Kong broadcast news.\n"
+    "6. Output ONLY numbered translations. No explanations, no brackets, no notes.\n\n"
+    "Examples:\n"
     "1. Good evening everyone.\n"
-    "→ 1. 大家晚上好。"
+    "→ 1. 大家晚上好。\n"
+    "2. The team really needs a radical overhaul in the summer.\n"
+    "→ 2. 球隊喺夏窗真係需要大刀闊斧改革。"
 )
 
 
@@ -240,10 +255,29 @@ class OllamaTranslationEngine(TranslationEngine):
         temperature: float,
         context_pairs: Optional[list] = None,
     ) -> List[TranslatedSegment]:
-        system_prompt = self._build_system_prompt(style, glossary)
+        # Filter glossary to only entries whose EN term appears in this batch's
+        # source texts. Research (WMT 2024) shows injecting the full glossary as
+        # noise degrades adherence; relevant-only filtering improves term-level
+        # accuracy without expanding prompt size.
+        relevant_glossary = self._filter_glossary_for_batch(glossary, segments)
+        system_prompt = self._build_system_prompt(style, relevant_glossary)
         user_message = self._build_user_message(segments, context_pairs=context_pairs)
         response_text = self._call_ollama(system_prompt, user_message, temperature)
         return self._parse_response(response_text, segments)
+
+    @staticmethod
+    def _filter_glossary_for_batch(
+        glossary: List[dict], segments: List[dict]
+    ) -> List[dict]:
+        """Return only glossary entries whose EN term is case-insensitively
+        present in at least one segment's source text."""
+        if not glossary or not segments:
+            return glossary
+        batch_text = " ".join(seg.get("text", "") for seg in segments).lower()
+        return [
+            entry for entry in glossary
+            if entry.get("en") and entry["en"].lower() in batch_text
+        ]
 
     def _retry_missing(
         self,
