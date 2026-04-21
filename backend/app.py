@@ -784,6 +784,7 @@ def api_list_translation_engines():
         ("glm-4.6-cloud", "GLM-4.6 (Ollama Cloud)"),
         ("qwen3.5-397b-cloud", "Qwen 3.5 397B MoE (Ollama Cloud)"),
         ("gpt-oss-120b-cloud", "GPT-OSS 120B (Ollama Cloud)"),
+        ("openrouter", "OpenRouter (Claude / GPT / Gemini / etc.)"),
     ]:
         try:
             engine = create_translation_engine({"engine": engine_name})
@@ -792,14 +793,16 @@ def api_list_translation_engines():
                 "engine": engine_name,
                 "available": info.get("available", False),
                 "description": desc,
-                "is_cloud": engine_name in CLOUD_ENGINES,
+                "is_cloud": engine_name in CLOUD_ENGINES or engine_name == "openrouter",
+                "requires_api_key": info.get("requires_api_key", False),
             })
         except Exception:
             engines_info.append({
                 "engine": engine_name,
                 "available": False,
                 "description": desc,
-                "is_cloud": engine_name in CLOUD_ENGINES,
+                "is_cloud": engine_name in CLOUD_ENGINES or engine_name == "openrouter",
+                "requires_api_key": engine_name == "openrouter",
             })
     return jsonify({"engines": engines_info})
 
