@@ -101,6 +101,11 @@ class OpenRouterTranslationEngine(OllamaTranslationEngine):
         # Optional attribution headers OpenRouter surfaces on leaderboards.
         self._referer = config.get("openrouter_referer", "https://github.com/Reno19951212/motitle")
         self._app_title = config.get("openrouter_title", "MoTitle Subtitle Pipeline")
+        # Reasoning toggle: when False (default), sends reasoning.enabled=false so
+        # reasoning-capable models (Qwen3.5-a3b, GPT-oss, Claude-thinking, etc.)
+        # skip the chain-of-thought step — much faster + cheaper for subtitle
+        # translation which rarely benefits from deep reasoning.
+        self._reasoning_enabled = bool(config.get("openrouter_reasoning", False))
 
     def _is_thinking_model(self) -> bool:
         """OpenRouter models don't use Ollama's `think` flag."""
@@ -119,7 +124,7 @@ class OpenRouterTranslationEngine(OllamaTranslationEngine):
                 "translation config or export OPENROUTER_API_KEY."
             )
 
-        body = json.dumps({
+        payload = {
             "model": self._model,
             "messages": [
                 {"role": "system", "content": system_prompt},
@@ -127,7 +132,13 @@ class OpenRouterTranslationEngine(OllamaTranslationEngine):
             ],
             "temperature": temperature,
             "stream": False,
-        }).encode("utf-8")
+        }
+        # Disable reasoning unless user opted in — cuts latency 3-5× on
+        # reasoning models (Qwen3.5-a3b, gpt-oss, Claude-thinking, etc.)
+        # See https://openrouter.ai/docs/use-cases/reasoning-tokens
+        if not self._reasoning_enabled:
+            payload["reasoning"] = {"enabled": False}
+        body = json.dumps(payload).encode("utf-8")
 
         headers = {
             "Content-Type": "application/json",
@@ -237,6 +248,14 @@ class OpenRouterTranslationEngine(OllamaTranslationEngine):
             "hint": "去 openrouter.ai 嘅 Keys 頁攞；一般 sk-or-v1-... 開頭。",
             "default": "",
             "secret": True,
+        }
+        schema["params"]["openrouter_reasoning"] = {
+            "type": "boolean",
+            "label": "啟用 Reasoning（深度推理）",
+            "description": "Whether to let reasoning-capable models think before answering.",
+            "hint": "開啟：模型會做 chain-of-thought，質素略高但慢 3–5 倍、耗更多 token。"
+                    "關閉（預設）：跳過推理，適合字幕翻譯呢類一擊即中任務。",
+            "default": False,
         }
         # Remove the Ollama-specific `model` enum (was tied to ENGINE_TO_MODEL)
         schema["params"].pop("model", None)

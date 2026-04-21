@@ -1196,6 +1196,17 @@
           </div>
         </div>
 
+        <div class="or-field">
+          <label class="or-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="orReasoningToggle" style="width:16px;height:16px;cursor:pointer;">
+            <span>啟用 Reasoning（深度推理）</span>
+          </label>
+          <div class="or-hint">
+            <strong>關閉（預設）</strong>：字幕翻譯唔需要推理，跳過 chain-of-thought — 快 3–5 倍、更便宜。<br>
+            <strong>開啟</strong>：reasoning model（Qwen3.5-a3b、gpt-oss、Claude-thinking 等）會思考後先答 — 質素略高但每 call 30–60 秒。
+          </div>
+        </div>
+
         <div class="or-field" id="orHistoryField" style="display:none;">
           <div class="or-section-head">已用過嘅模型</div>
           <div class="or-history" id="orHistoryList"></div>
@@ -1799,11 +1810,13 @@
     function openOpenRouterModal() {
       const existingKey = activeProfile?.translation?.api_key || '';
       const existingModel = activeProfile?.translation?.openrouter_model || '';
+      const existingReasoning = !!activeProfile?.translation?.openrouter_reasoning;
 
       document.getElementById('orApiKey').value = existingKey;
       document.getElementById('orApiKey').type = 'password';
       document.getElementById('orToggleKeyBtn').textContent = '顯示';
       document.getElementById('orModelId').value = existingModel;
+      document.getElementById('orReasoningToggle').checked = existingReasoning;
 
       const keyStatus = document.getElementById('orKeyStatus');
       if (existingKey) {
@@ -1899,10 +1912,12 @@
         return;
       }
 
+      const reasoning = document.getElementById('orReasoningToggle').checked;
       const patchTranslation = {
         ...activeProfile.translation,
         engine: 'openrouter',
         openrouter_model: modelId,
+        openrouter_reasoning: reasoning,
       };
       // Only send api_key when the user provided one; empty string wipes
       // the saved key so backend falls back to OPENROUTER_API_KEY env var.
