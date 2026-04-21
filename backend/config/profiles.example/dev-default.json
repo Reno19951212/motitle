@@ -1,7 +1,7 @@
 {
   "id": "dev-default",
   "name": "English to Cantonese 書面語",
-  "description": "for local Macbook M1 Pro",
+  "description": "for local Macbook M1 Pro — COPY this file to dev-default.json (which is gitignored) and fill in api_key before using OpenRouter",
   "asr": {
     "engine": "mlx-whisper",
     "language_config_id": "en",
@@ -11,7 +11,7 @@
     "word_timestamps": true
   },
   "translation": {
-    "engine": "gpt-oss-120b-cloud",
+    "engine": "openrouter",
     "glossary_id": "broadcast-news",
     "batch_size": 5,
     "context_window": 5,
@@ -19,7 +19,11 @@
     "temperature": 0.1,
     "use_sentence_pipeline": false,
     "translation_passes": 1,
-    "alignment_mode": "llm-markers"
+    "alignment_mode": "",
+    "parallel_batches": 4,
+    "openrouter_model": "anthropic/claude-sonnet-4.5",
+    "api_key": "",
+    "openrouter_reasoning": false
   },
   "font": {
     "family": "Noto Sans TC",
@@ -31,5 +35,5 @@
     "margin_bottom": 40
   },
   "created_at": 1712534400,
-  "updated_at": 1776751118.50965
+  "updated_at": 1712534400
 }
