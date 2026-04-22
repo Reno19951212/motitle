@@ -203,23 +203,39 @@ class SubtitleRenderer:
                     output_abs,
                 ]
             else:
-                # MP4 / H.264 (libx264). Supports CRF (default), CBR, 2-pass
-                # rate-control modes plus pixel_format / profile / level controls.
-                crf = int(opts.get("crf", 18))
+                # MP4 / H.264 (libx264). Three rate-control modes:
+                #   crf    — quality target (default)
+                #   cbr    — fixed bitrate, single pass
+                #   2pass  — fixed bitrate, two-pass encode (higher quality
+                #            at target size; handled by branching into a
+                #            separate dual-invocation path in Task 3)
+                bitrate_mode = opts.get("bitrate_mode", "crf")
                 preset = opts.get("preset", "medium")
                 audio_bitrate = opts.get("audio_bitrate", "192k")
                 pix_fmt = opts.get("pixel_format", "yuv420p")
                 profile = opts.get("profile", "high")
                 level = opts.get("level", "auto")
+
                 cmd = [
                     ffmpeg_exe, "-y", "-i", video_abs,
                     "-vf", vf,
-                    "-c:v", "libx264", "-preset", preset, "-crf", str(crf),
-                    "-pix_fmt", pix_fmt,
-                    "-profile:v", profile,
+                    "-c:v", "libx264", "-preset", preset,
                 ]
-                # Only emit -level:v when caller chose a specific value. libx264
-                # auto-selects when the flag is absent.
+                if bitrate_mode == "cbr":
+                    mbps = int(opts.get("video_bitrate_mbps", 20))
+                    buf = mbps * 2
+                    cmd += [
+                        "-b:v", f"{mbps}M",
+                        "-minrate", f"{mbps}M",
+                        "-maxrate", f"{mbps}M",
+                        "-bufsize", f"{buf}M",
+                    ]
+                else:
+                    # crf mode (default)
+                    crf = int(opts.get("crf", 18))
+                    cmd += ["-crf", str(crf)]
+
+                cmd += ["-pix_fmt", pix_fmt, "-profile:v", profile]
                 if level and level != "auto":
                     cmd += ["-level:v", str(level)]
                 cmd += [
