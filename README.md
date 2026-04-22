@@ -16,7 +16,7 @@
 | ⚙️ **Profile 配置** | 可切換不同 ASR + 翻譯引擎組合，適應開發/生產環境 |
 | 🌐 **語言參數配置** | 每種語言獨立設定 ASR 分段參數（每句最大字數/時長）及翻譯參數（batch size/temperature） |
 | ✏️ **字幕校對編輯器** | 獨立校對頁面，左右並排影片與字幕表格，逐句審核、編輯、批核 |
-| 🎬 **燒入字幕輸出** | 將已批核字幕燒入影片，可調整編碼參數後輸出：MP4 (H.264)、MXF (ProRes)、或 MXF · **XDCAM HD 422**（MPEG-2 4:2:2，碼率 10–100 Mbps 自由調校）。渲染完成後可經系統級「另存為」對話框揀下載位置。 |
+| 🎬 **燒入字幕輸出** | 將已批核字幕燒入影片，可調整編碼參數後輸出：**MP4** (H.264，支援 CRF / CBR / 2-pass 三種 bitrate mode、yuv420p/422p/444p、H.264 Profile & Level)、MXF (ProRes)、或 MXF · **XDCAM HD 422**（MPEG-2 4:2:2，碼率 10–100 Mbps 自由調校）。渲染完成後可經系統級「另存為」對話框揀下載位置。 |
 | 📊 **轉錄進度條** | 轉錄時顯示進度百分比、已處理/總時長、預計剩餘時間 |
 | ⚡ **雙引擎支援** | 自動選用 faster-whisper（快 4–8 倍）或 openai-whisper |
 | 💾 **字幕導出** | 每個文件獨立提供 SRT、VTT、TXT 下載 |
@@ -620,6 +620,18 @@ Sentence pipeline 嘅進階版：合併成句後，prompt LLM 喺中文輸出中
 ---
 
 ## 更新記錄
+
+### v3.3 — MP4 進階輸出參數（Bitrate Mode + Pixel Format + H.264 Profile / Level）
+
+- **Bitrate 控制模式**：MP4 卡片加入 3 個 tab 切換 — CRF（質素目標，default）/ CBR（固定碼率）/ 2-pass（兩次編碼達至更佳 bitrate 利用，慢 ~2×）。
+- **CBR 與 2-pass 模式** 有 slider 2–100 Mbps（step 1，default 20 Mbps）+ 三個 preset 按鈕：**串流 15M** / **廣播 master 40M** / **近無損 80M**。
+- **Pixel format**：新增 `yuv420p`（預設，兼容最廣）/ `yuv422p`（廣播 master）/ `yuv444p`（色彩精準）。
+- **H.264 Profile**：`baseline` / `main` / `high`（預設）/ `high422` / `high444`。
+- **H.264 Level**：`3.1` / `4.0` / `4.1` / `4.2` / `5.0` / `5.1` / `5.2` / `auto`（預設，由 libx264 自動揀）。
+- **嚴格配對（雙向驗證）**：`yuv422p` 必須配 `high422` profile；`yuv444p` 必須配 `high444`。後端 submit 時驗證；錯配會返 400 + 明確 fix 提示。
+- **2-pass 並發安全**：每次 render 用獨一 passlogfile prefix，兩個並發 2-pass render 唔會撞 stats file。
+- **向下相容**：舊 client 冇傳 render_options 或只傳部分欄位，輸出同之前完全一樣（CRF 18 / medium preset / yuv420p / high profile / level auto / AAC 192k）。
+- **Tests**：21 new；總共 410 個自動化測試（+21 since v3.2）。
 
 ### v3.2 — MXF XDCAM HD 422 輸出 + 統一渲染 Modal + Save As 選擇位置
 
