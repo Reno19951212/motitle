@@ -1489,6 +1489,15 @@ _XDCAM_MIN_BITRATE_MBPS = 10
 _XDCAM_MAX_BITRATE_MBPS = 100
 _XDCAM_DEFAULT_BITRATE_MBPS = 50
 
+# MP4 advanced options
+_VALID_BITRATE_MODES   = {"crf", "cbr", "2pass"}
+_VALID_PIXEL_FORMATS   = {"yuv420p", "yuv422p", "yuv444p"}
+_VALID_H264_PROFILES   = {"baseline", "main", "high", "high422", "high444"}
+_VALID_H264_LEVELS     = {"3.1", "4.0", "4.1", "4.2", "5.0", "5.1", "5.2", "auto"}
+_MP4_MIN_BITRATE_MBPS  = 2
+_MP4_MAX_BITRATE_MBPS  = 100
+_MP4_DEFAULT_BITRATE_MBPS = 20
+
 # MXF-family formats all use the .mxf file extension. When a new MXF variant
 # is added (xdcam, imx, etc.), add it here so outputs don't get literal
 # filenames like "foo.mxf_xdcam_hd422".
@@ -1511,15 +1520,38 @@ def _validate_render_options(output_format: str, opts: dict):
     """Return (clean_opts, error_str).  error_str is None when valid."""
     clean = {}
     if output_format == "mp4":
-        crf = opts.get("crf", 18)
-        try:
-            crf = int(crf)
-        except (TypeError, ValueError):
-            return None, f"render_options.crf must be an integer, got {crf!r}"
-        if not (0 <= crf <= 51):
-            return None, f"render_options.crf must be 0–51, got {crf}"
-        clean["crf"] = crf
+        # --- bitrate mode ---
+        bitrate_mode = opts.get("bitrate_mode", "crf")
+        if bitrate_mode not in _VALID_BITRATE_MODES:
+            return None, f"render_options.bitrate_mode must be one of {sorted(_VALID_BITRATE_MODES)}, got {bitrate_mode!r}"
+        clean["bitrate_mode"] = bitrate_mode
 
+        if bitrate_mode == "crf":
+            crf = opts.get("crf", 18)
+            try:
+                crf = int(crf)
+            except (TypeError, ValueError):
+                return None, f"render_options.crf must be an integer, got {crf!r}"
+            if not (0 <= crf <= 51):
+                return None, f"render_options.crf must be 0–51, got {crf}"
+            clean["crf"] = crf
+        else:
+            mbps = opts.get("video_bitrate_mbps", _MP4_DEFAULT_BITRATE_MBPS)
+            # bool is a subclass of int — reject explicitly.
+            if isinstance(mbps, bool):
+                return None, f"render_options.video_bitrate_mbps must be an integer, got {mbps!r}"
+            try:
+                mbps = int(mbps)
+            except (TypeError, ValueError):
+                return None, f"render_options.video_bitrate_mbps must be an integer, got {mbps!r}"
+            if not (_MP4_MIN_BITRATE_MBPS <= mbps <= _MP4_MAX_BITRATE_MBPS):
+                return None, (
+                    f"render_options.video_bitrate_mbps must be "
+                    f"{_MP4_MIN_BITRATE_MBPS}–{_MP4_MAX_BITRATE_MBPS} Mbps, got {mbps}"
+                )
+            clean["video_bitrate_mbps"] = mbps
+
+        # --- preset + audio_bitrate (existing) ---
         preset = opts.get("preset", "medium")
         if preset not in _VALID_MP4_PRESETS:
             return None, f"render_options.preset must be one of {sorted(_VALID_MP4_PRESETS)}, got {preset!r}"
@@ -1529,6 +1561,22 @@ def _validate_render_options(output_format: str, opts: dict):
         if audio_bitrate not in _VALID_AUDIO_BITRATES:
             return None, f"render_options.audio_bitrate must be one of {sorted(_VALID_AUDIO_BITRATES)}, got {audio_bitrate!r}"
         clean["audio_bitrate"] = audio_bitrate
+
+        # --- new: pixel_format, profile, level ---
+        pixel_format = opts.get("pixel_format", "yuv420p")
+        if pixel_format not in _VALID_PIXEL_FORMATS:
+            return None, f"render_options.pixel_format must be one of {sorted(_VALID_PIXEL_FORMATS)}, got {pixel_format!r}"
+        clean["pixel_format"] = pixel_format
+
+        profile = opts.get("profile", "high")
+        if profile not in _VALID_H264_PROFILES:
+            return None, f"render_options.profile must be one of {sorted(_VALID_H264_PROFILES)}, got {profile!r}"
+        clean["profile"] = profile
+
+        level = opts.get("level", "auto")
+        if level not in _VALID_H264_LEVELS:
+            return None, f"render_options.level must be one of {sorted(_VALID_H264_LEVELS)}, got {level!r}"
+        clean["level"] = level
 
     elif output_format == "mxf":
         prores_profile = opts.get("prores_profile", 3)
