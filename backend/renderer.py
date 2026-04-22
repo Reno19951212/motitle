@@ -107,6 +107,11 @@ class SubtitleRenderer:
     VALID_AUDIO_FORMATS  = {"pcm_s16le", "pcm_s24le", "pcm_s32le"}
     VALID_RESOLUTIONS    = {"1280x720", "1920x1080", "2560x1440", "3840x2160"}
     VALID_PRORES_PROFILES = {0, 1, 2, 3, 4, 5}
+    # XDCAM HD 422: MPEG-2 422 long-GOP in MXF. Bitrate user-adjustable
+    # 10-100 Mbps; 50 Mbps is the broadcast-standard default.
+    XDCAM_MIN_BITRATE_MBPS = 10
+    XDCAM_MAX_BITRATE_MBPS = 100
+    XDCAM_DEFAULT_BITRATE_MBPS = 50
 
     def render(
         self,
@@ -169,6 +174,32 @@ class SubtitleRenderer:
                     "-vf", vf,
                     "-c:v", "prores_ks", "-profile:v", str(prores_profile),
                     "-c:a", audio_fmt, "-ar", "48000",
+                    output_abs,
+                ]
+            elif output_format == "mxf_xdcam_hd422":
+                # XDCAM HD 422: MPEG-2 4:2:2 long-GOP in MXF container.
+                # CBR encoding — b:v = minrate = maxrate to avoid ABR drift.
+                # bufsize ≈ 72% of bitrate gives balanced rate-control headroom.
+                bitrate_mbps = int(opts.get("video_bitrate_mbps", self.XDCAM_DEFAULT_BITRATE_MBPS))
+                audio_fmt = opts.get("audio_format", "pcm_s16le")
+                bufsize_m = max(1, int(round(bitrate_mbps * 0.72)))
+                bitrate_flag = f"{bitrate_mbps}M"
+                # ass filter alone cannot force pixel format; prepend format=yuv422p
+                # so the filter graph hands yuv422p frames to the encoder. The
+                # existing `vf` already contains ass + optional scale; append
+                # format= at the end so resolution scaling runs first.
+                vf_xdcam = f"{vf},format=yuv422p"
+                cmd = [
+                    ffmpeg_exe, "-y", "-i", video_abs,
+                    "-vf", vf_xdcam,
+                    "-c:v", "mpeg2video", "-pix_fmt", "yuv422p",
+                    "-b:v", bitrate_flag,
+                    "-minrate", bitrate_flag,
+                    "-maxrate", bitrate_flag,
+                    "-bufsize", f"{bufsize_m}M",
+                    "-g", "15", "-bf", "2",
+                    "-c:a", audio_fmt, "-ar", "48000",
+                    "-f", "mxf",
                     output_abs,
                 ]
             else:
