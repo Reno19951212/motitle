@@ -1482,7 +1482,21 @@ def api_approve_translation(file_id, idx):
 # Render Endpoints
 # ============================================================
 
-VALID_RENDER_FORMATS = {"mp4", "mxf"}
+VALID_RENDER_FORMATS = {"mp4", "mxf", "mxf_xdcam_hd422"}
+
+# XDCAM HD 422 CBR bitrate range (Mbps). Default 50 is broadcast standard.
+_XDCAM_MIN_BITRATE_MBPS = 10
+_XDCAM_MAX_BITRATE_MBPS = 100
+_XDCAM_DEFAULT_BITRATE_MBPS = 50
+
+# MXF-family formats all use the .mxf file extension. When a new MXF variant
+# is added (xdcam, imx, etc.), add it here so outputs don't get literal
+# filenames like "foo.mxf_xdcam_hd422".
+_FORMAT_TO_EXTENSION = {
+    "mp4": "mp4",
+    "mxf": "mxf",
+    "mxf_xdcam_hd422": "mxf",
+}
 
 # Allowed values for render_options fields
 _VALID_MP4_PRESETS     = {"ultrafast", "superfast", "veryfast", "faster", "fast",
@@ -1531,6 +1545,28 @@ def _validate_render_options(output_format: str, opts: dict):
             return None, f"render_options.audio_format must be one of {sorted(_VALID_AUDIO_FORMATS)}, got {audio_fmt!r}"
         clean["audio_format"] = audio_fmt
 
+    elif output_format == "mxf_xdcam_hd422":
+        bitrate_mbps = opts.get("video_bitrate_mbps", _XDCAM_DEFAULT_BITRATE_MBPS)
+        # bool is a subclass of int — reject it explicitly so True/False don't
+        # sneak through as 1/0.
+        if isinstance(bitrate_mbps, bool):
+            return None, f"render_options.video_bitrate_mbps must be an integer, got {bitrate_mbps!r}"
+        try:
+            bitrate_mbps = int(bitrate_mbps)
+        except (TypeError, ValueError):
+            return None, f"render_options.video_bitrate_mbps must be an integer, got {bitrate_mbps!r}"
+        if not (_XDCAM_MIN_BITRATE_MBPS <= bitrate_mbps <= _XDCAM_MAX_BITRATE_MBPS):
+            return None, (
+                f"render_options.video_bitrate_mbps must be "
+                f"{_XDCAM_MIN_BITRATE_MBPS}–{_XDCAM_MAX_BITRATE_MBPS} Mbps, got {bitrate_mbps}"
+            )
+        clean["video_bitrate_mbps"] = bitrate_mbps
+
+        audio_fmt = opts.get("audio_format", "pcm_s16le")
+        if audio_fmt not in _VALID_AUDIO_FORMATS:
+            return None, f"render_options.audio_format must be one of {sorted(_VALID_AUDIO_FORMATS)}, got {audio_fmt!r}"
+        clean["audio_format"] = audio_fmt
+
     resolution = opts.get("resolution", None)
     if resolution not in _VALID_RESOLUTIONS:
         return None, f"render_options.resolution must be one of {sorted(r for r in _VALID_RESOLUTIONS if r)}, got {resolution!r}"
@@ -1573,12 +1609,16 @@ def api_start_render():
 
     render_id = uuid.uuid4().hex[:12]
     video_path = str(UPLOAD_DIR / entry["stored_name"])
-    internal_filename = f"{render_id}.{output_format}"
+    # Map each logical render format to its container file extension so
+    # MXF variants (xdcam_hd422, future imx, etc.) all produce plain .mxf
+    # filenames instead of awkward '.mxf_xdcam_hd422' endings.
+    file_ext = _FORMAT_TO_EXTENSION.get(output_format, output_format)
+    internal_filename = f"{render_id}.{file_ext}"
     output_path = str(RENDERS_DIR / internal_filename)
 
     # Build a user-friendly download filename from the original upload name
     original_stem = Path(entry["original_name"]).stem
-    download_filename = f"{original_stem}_subtitled.{output_format}"
+    download_filename = f"{original_stem}_subtitled.{file_ext}"
 
     _render_jobs[render_id] = {
         "render_id": render_id,
