@@ -410,3 +410,77 @@ def test_render_xdcam_output_filename_uses_mxf_extension(client_with_approved_fi
     assert job["output_filename"].endswith(".mxf"), \
         f"Expected .mxf extension, got {job['output_filename']!r}"
     assert "xdcam" not in job["output_filename"]
+
+
+# ---------------------------------------------------------------------------
+# MP4 advanced options — bitrate_mode, pixel_format, profile, level
+# ---------------------------------------------------------------------------
+
+def test_render_mp4_bitrate_mode_defaults_to_crf(client_with_approved_file):
+    """When bitrate_mode is omitted, validation fills it in as 'crf'."""
+    client, file_id = client_with_approved_file
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mp4", "render_options": {},
+    })
+    assert resp.status_code == 202
+    job = client.get(f"/api/renders/{resp.get_json()['render_id']}").get_json()
+    assert job["render_options"]["bitrate_mode"] == "crf"
+
+
+def test_render_mp4_cbr_default_bitrate_is_20(client_with_approved_file):
+    """CBR mode without video_bitrate_mbps should default to 20."""
+    client, file_id = client_with_approved_file
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mp4",
+        "render_options": {"bitrate_mode": "cbr"},
+    })
+    assert resp.status_code == 202
+    job = client.get(f"/api/renders/{resp.get_json()['render_id']}").get_json()
+    assert job["render_options"]["video_bitrate_mbps"] == 20
+
+
+def test_render_mp4_cbr_bitrate_boundary(client_with_approved_file):
+    """CBR bitrate must be an int 2–100 Mbps; outside bounds must 400."""
+    client, file_id = client_with_approved_file
+    # Accepted boundary values
+    for mbps in (2, 50, 100):
+        resp = client.post("/api/render", json={
+            "file_id": file_id, "format": "mp4",
+            "render_options": {"bitrate_mode": "cbr", "video_bitrate_mbps": mbps},
+        })
+        assert resp.status_code == 202, f"mbps={mbps} rejected"
+    # Rejected values
+    for bad in (1, 101, "abc", True):
+        resp = client.post("/api/render", json={
+            "file_id": file_id, "format": "mp4",
+            "render_options": {"bitrate_mode": "cbr", "video_bitrate_mbps": bad},
+        })
+        assert resp.status_code == 400, f"mbps={bad!r} was accepted"
+
+
+def test_render_mp4_level_enum(client_with_approved_file):
+    """level 'auto' / '4.0' pass; '99' rejected."""
+    client, file_id = client_with_approved_file
+    for lv in ("auto", "3.1", "4.0", "5.2"):
+        resp = client.post("/api/render", json={
+            "file_id": file_id, "format": "mp4",
+            "render_options": {"level": lv},
+        })
+        assert resp.status_code == 202, f"level={lv!r} rejected"
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mp4",
+        "render_options": {"level": "99"},
+    })
+    assert resp.status_code == 400
+    assert "level" in resp.get_json()["error"]
+
+
+def test_render_mp4_bitrate_mode_invalid(client_with_approved_file):
+    """Unknown bitrate_mode must 400."""
+    client, file_id = client_with_approved_file
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mp4",
+        "render_options": {"bitrate_mode": "vbr"},
+    })
+    assert resp.status_code == 400
+    assert "bitrate_mode" in resp.get_json()["error"]
