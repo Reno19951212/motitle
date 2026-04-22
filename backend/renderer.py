@@ -203,13 +203,26 @@ class SubtitleRenderer:
                     output_abs,
                 ]
             else:
+                # MP4 / H.264 (libx264). Supports CRF (default), CBR, 2-pass
+                # rate-control modes plus pixel_format / profile / level controls.
                 crf = int(opts.get("crf", 18))
                 preset = opts.get("preset", "medium")
                 audio_bitrate = opts.get("audio_bitrate", "192k")
+                pix_fmt = opts.get("pixel_format", "yuv420p")
+                profile = opts.get("profile", "high")
+                level = opts.get("level", "auto")
                 cmd = [
                     ffmpeg_exe, "-y", "-i", video_abs,
                     "-vf", vf,
                     "-c:v", "libx264", "-preset", preset, "-crf", str(crf),
+                    "-pix_fmt", pix_fmt,
+                    "-profile:v", profile,
+                ]
+                # Only emit -level:v when caller chose a specific value. libx264
+                # auto-selects when the flag is absent.
+                if level and level != "auto":
+                    cmd += ["-level:v", str(level)]
+                cmd += [
                     "-c:a", "aac", "-b:a", audio_bitrate,
                     output_abs,
                 ]

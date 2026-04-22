@@ -493,3 +493,53 @@ def test_xdcam_hd422_bufsize_scaled_from_bitrate(tmp_path, monkeypatch):
     # Accept anything between 70M and 75M (leaves room for future tuning)
     assert bufsize.endswith("M")
     assert 70 <= int(bufsize[:-1]) <= 75, f"bufsize {bufsize} not in reasonable range for 100Mbps"
+
+
+def test_mp4_crf_includes_pixel_format_and_profile(tmp_path, monkeypatch):
+    """CRF mode must include -pix_fmt and -profile:v flags when specified."""
+    from renderer import SubtitleRenderer
+    captured = _capture_cmd(monkeypatch)
+
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT)
+    renderer.render(
+        "/fake/video.mp4", ass, str(tmp_path / "out.mp4"), "mp4",
+        render_options={"crf": 18, "pixel_format": "yuv422p", "profile": "high422"},
+    )
+
+    cmd = captured["cmd"]
+    assert cmd[cmd.index("-pix_fmt") + 1] == "yuv422p"
+    assert cmd[cmd.index("-profile:v") + 1] == "high422"
+
+
+def test_mp4_level_auto_omits_flag(tmp_path, monkeypatch):
+    """When level is 'auto' or unset, -level:v must NOT appear in cmd."""
+    from renderer import SubtitleRenderer
+    captured = _capture_cmd(monkeypatch)
+
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT)
+    renderer.render(
+        "/fake/video.mp4", ass, str(tmp_path / "out.mp4"), "mp4",
+        render_options={"level": "auto"},
+    )
+
+    cmd = captured["cmd"]
+    assert "-level:v" not in cmd
+    assert "-level" not in cmd
+
+
+def test_mp4_level_explicit_included(tmp_path, monkeypatch):
+    """Explicit level value (e.g. '4.0') adds -level:v flag."""
+    from renderer import SubtitleRenderer
+    captured = _capture_cmd(monkeypatch)
+
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT)
+    renderer.render(
+        "/fake/video.mp4", ass, str(tmp_path / "out.mp4"), "mp4",
+        render_options={"level": "4.0"},
+    )
+
+    cmd = captured["cmd"]
+    assert cmd[cmd.index("-level:v") + 1] == "4.0"
