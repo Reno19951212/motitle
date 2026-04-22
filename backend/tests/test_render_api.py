@@ -484,3 +484,54 @@ def test_render_mp4_bitrate_mode_invalid(client_with_approved_file):
     })
     assert resp.status_code == 400
     assert "bitrate_mode" in resp.get_json()["error"]
+
+
+def test_render_mp4_yuv422_requires_high422_profile(client_with_approved_file):
+    """pixel_format 'yuv422p' must pair with profile 'high422'."""
+    client, file_id = client_with_approved_file
+
+    # yuv422p + high422 → accepted
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mp4",
+        "render_options": {"pixel_format": "yuv422p", "profile": "high422"},
+    })
+    assert resp.status_code == 202
+
+    # yuv422p + high (default) → rejected
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mp4",
+        "render_options": {"pixel_format": "yuv422p", "profile": "high"},
+    })
+    assert resp.status_code == 400
+    err = resp.get_json()["error"]
+    assert "yuv422p" in err and "high422" in err
+
+
+def test_render_mp4_yuv444_requires_high444_profile(client_with_approved_file):
+    """pixel_format 'yuv444p' must pair with profile 'high444'."""
+    client, file_id = client_with_approved_file
+
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mp4",
+        "render_options": {"pixel_format": "yuv444p", "profile": "high444"},
+    })
+    assert resp.status_code == 202
+
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mp4",
+        "render_options": {"pixel_format": "yuv444p", "profile": "main"},
+    })
+    assert resp.status_code == 400
+    err = resp.get_json()["error"]
+    assert "yuv444p" in err and "high444" in err
+
+
+def test_render_mp4_yuv420_allows_common_profiles(client_with_approved_file):
+    """pixel_format 'yuv420p' works with baseline, main, high (the default set)."""
+    client, file_id = client_with_approved_file
+    for p in ("baseline", "main", "high"):
+        resp = client.post("/api/render", json={
+            "file_id": file_id, "format": "mp4",
+            "render_options": {"pixel_format": "yuv420p", "profile": p},
+        })
+        assert resp.status_code == 202, f"yuv420p + {p} rejected"
