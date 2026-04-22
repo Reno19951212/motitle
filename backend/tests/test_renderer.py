@@ -543,3 +543,40 @@ def test_mp4_level_explicit_included(tmp_path, monkeypatch):
 
     cmd = captured["cmd"]
     assert cmd[cmd.index("-level:v") + 1] == "4.0"
+
+
+def test_mp4_cbr_mode_emits_three_rate_flags(tmp_path, monkeypatch):
+    """CBR mode: -b:v = -minrate = -maxrate; -bufsize = 2× bitrate; no -crf."""
+    from renderer import SubtitleRenderer
+    captured = _capture_cmd(monkeypatch)
+
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT)
+    renderer.render(
+        "/fake/video.mp4", ass, str(tmp_path / "out.mp4"), "mp4",
+        render_options={"bitrate_mode": "cbr", "video_bitrate_mbps": 20},
+    )
+
+    cmd = captured["cmd"]
+    assert "-crf" not in cmd
+    assert cmd[cmd.index("-b:v") + 1] == "20M"
+    assert cmd[cmd.index("-minrate") + 1] == "20M"
+    assert cmd[cmd.index("-maxrate") + 1] == "20M"
+    assert cmd[cmd.index("-bufsize") + 1] == "40M"
+
+
+def test_mp4_cbr_mode_custom_bitrate_applied(tmp_path, monkeypatch):
+    """CBR target bitrate flows through all four flags."""
+    from renderer import SubtitleRenderer
+    captured = _capture_cmd(monkeypatch)
+
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT)
+    renderer.render(
+        "/fake/video.mp4", ass, str(tmp_path / "out.mp4"), "mp4",
+        render_options={"bitrate_mode": "cbr", "video_bitrate_mbps": 40},
+    )
+
+    cmd = captured["cmd"]
+    assert cmd[cmd.index("-b:v") + 1] == "40M"
+    assert cmd[cmd.index("-bufsize") + 1] == "80M"
