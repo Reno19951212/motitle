@@ -318,3 +318,95 @@ def test_render_options_passed_to_renderer(client_with_approved_file, monkeypatc
     assert captured["render_options"]["crf"] == 16
     assert captured["render_options"]["preset"] == "fast"
     assert captured["render_options"]["audio_bitrate"] == "256k"
+
+
+# ---------------------------------------------------------------------------
+# XDCAM HD 422 render options
+# ---------------------------------------------------------------------------
+
+def test_render_xdcam_format_accepted(client_with_approved_file):
+    """'mxf_xdcam_hd422' must be accepted as a valid format."""
+    client, file_id = client_with_approved_file
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mxf_xdcam_hd422",
+    })
+    assert resp.status_code == 202
+
+
+def test_render_xdcam_default_bitrate_is_50(client_with_approved_file):
+    """When video_bitrate_mbps is omitted, validation fills in 50."""
+    client, file_id = client_with_approved_file
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mxf_xdcam_hd422", "render_options": {},
+    })
+    assert resp.status_code == 202
+    job = client.get(f"/api/renders/{resp.get_json()['render_id']}").get_json()
+    assert job["render_options"]["video_bitrate_mbps"] == 50
+
+
+def test_render_xdcam_custom_bitrate_valid(client_with_approved_file):
+    """Bitrate 10-100 Mbps inclusive is accepted and echoed in job status."""
+    client, file_id = client_with_approved_file
+    for mbps in (10, 50, 75, 100):
+        resp = client.post("/api/render", json={
+            "file_id": file_id, "format": "mxf_xdcam_hd422",
+            "render_options": {"video_bitrate_mbps": mbps},
+        })
+        assert resp.status_code == 202, f"mbps={mbps} rejected"
+        job = client.get(f"/api/renders/{resp.get_json()['render_id']}").get_json()
+        assert job["render_options"]["video_bitrate_mbps"] == mbps
+
+
+def test_render_xdcam_bitrate_below_10_rejected(client_with_approved_file):
+    client, file_id = client_with_approved_file
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mxf_xdcam_hd422",
+        "render_options": {"video_bitrate_mbps": 5},
+    })
+    assert resp.status_code == 400
+    assert "video_bitrate_mbps" in resp.get_json()["error"]
+
+
+def test_render_xdcam_bitrate_above_100_rejected(client_with_approved_file):
+    client, file_id = client_with_approved_file
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mxf_xdcam_hd422",
+        "render_options": {"video_bitrate_mbps": 150},
+    })
+    assert resp.status_code == 400
+    assert "video_bitrate_mbps" in resp.get_json()["error"]
+
+
+def test_render_xdcam_bitrate_non_int_rejected(client_with_approved_file):
+    client, file_id = client_with_approved_file
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mxf_xdcam_hd422",
+        "render_options": {"video_bitrate_mbps": "fast"},
+    })
+    assert resp.status_code == 400
+    assert "video_bitrate_mbps" in resp.get_json()["error"]
+
+
+def test_render_xdcam_audio_format_shared_with_mxf(client_with_approved_file):
+    """XDCAM accepts same audio_format options as ProRes MXF (16/24/32-bit PCM)."""
+    client, file_id = client_with_approved_file
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mxf_xdcam_hd422",
+        "render_options": {"audio_format": "pcm_s24le", "video_bitrate_mbps": 50},
+    })
+    assert resp.status_code == 202
+    job = client.get(f"/api/renders/{resp.get_json()['render_id']}").get_json()
+    assert job["render_options"]["audio_format"] == "pcm_s24le"
+
+
+def test_render_xdcam_output_filename_uses_mxf_extension(client_with_approved_file):
+    """XDCAM output file should have .mxf extension (not .mxf_xdcam_hd422)."""
+    client, file_id = client_with_approved_file
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mxf_xdcam_hd422",
+    })
+    assert resp.status_code == 202
+    job = client.get(f"/api/renders/{resp.get_json()['render_id']}").get_json()
+    assert job["output_filename"].endswith(".mxf"), \
+        f"Expected .mxf extension, got {job['output_filename']!r}"
+    assert "xdcam" not in job["output_filename"]
