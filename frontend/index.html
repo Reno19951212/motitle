@@ -3095,9 +3095,19 @@
       const resolution = document.getElementById('rmResolution').value || null;
       const opts = { resolution };
       if (format === 'mp4') {
-        opts.crf = parseInt(document.getElementById('rmCrf').value, 10);
-        opts.preset = document.getElementById('rmPreset').value;
+        opts.bitrate_mode = currentMp4BitrateMode;
+        if (currentMp4BitrateMode === 'crf') {
+          opts.crf = parseInt(document.getElementById('rmCrf').value, 10);
+        } else if (currentMp4BitrateMode === 'cbr') {
+          opts.video_bitrate_mbps = parseInt(document.getElementById('rmMp4Bitrate').value, 10);
+        } else {
+          opts.video_bitrate_mbps = parseInt(document.getElementById('rmMp4Bitrate2p').value, 10);
+        }
+        opts.preset        = document.getElementById('rmPreset').value;
         opts.audio_bitrate = document.getElementById('rmAudioBitrate').value;
+        opts.pixel_format  = document.getElementById('rmMp4PixelFormat').value;
+        opts.profile       = document.getElementById('rmMp4Profile').value;
+        opts.level         = document.getElementById('rmMp4Level').value;
       } else if (format === 'mxf') {
         opts.prores_profile = parseInt(document.getElementById('rmProresProfile').value, 10);
         opts.audio_format = document.getElementById('rmMxfAudio').value;
