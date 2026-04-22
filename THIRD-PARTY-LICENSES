@@ -1,0 +1,341 @@
+THIRD-PARTY-LICENSES
+====================
+
+This file lists the third-party software components used by MoTitle,
+along with their respective licenses and copyright notices.
+
+
+================================================================================
+OpenAI Whisper
+================================================================================
+
+Copyright (c) 2022 OpenAI
+
+Code License: MIT License
+Model Weights License: Apache License 2.0
+
+https://github.com/openai/whisper
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+================================================================================
+faster-whisper
+================================================================================
+
+Copyright (c) 2023 SYSTRAN
+
+License: MIT License
+
+https://github.com/SYSTRAN/faster-whisper
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+================================================================================
+CTranslate2
+================================================================================
+
+Copyright (c) 2019 SYSTRAN
+
+License: MIT License
+
+https://github.com/OpenNMT/CTranslate2
+
+(Same MIT terms as faster-whisper above)
+
+
+================================================================================
+Flask
+================================================================================
+
+Copyright (c) 2010 Pallets
+
+License: BSD-3-Clause License
+
+https://github.com/pallets/flask
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+   may be used to endorse or promote products derived from this software
+   without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+================================================================================
+Werkzeug
+================================================================================
+
+Copyright (c) 2007 Pallets
+
+License: BSD-3-Clause License
+
+https://github.com/pallets/werkzeug
+
+(Same BSD-3-Clause terms as Flask above)
+
+
+================================================================================
+Flask-CORS
+================================================================================
+
+Copyright (c) 2016 Cory Dolphin
+
+License: MIT License
+
+https://github.com/corydolphin/flask-cors
+
+
+================================================================================
+Flask-SocketIO
+================================================================================
+
+Copyright (c) 2014 Miguel Grinberg
+
+License: MIT License
+
+https://github.com/miguelgrinberg/Flask-SocketIO
+
+
+================================================================================
+python-socketio
+================================================================================
+
+Copyright (c) 2015 Miguel Grinberg
+
+License: MIT License
+
+https://github.com/miguelgrinberg/python-socketio
+
+
+================================================================================
+eventlet
+================================================================================
+
+Copyright (c) 2005-2006 Bob Ippolito
+Copyright (c) 2007-2010 Linden Research, Inc.
+
+License: MIT License
+
+https://github.com/eventlet/eventlet
+
+
+================================================================================
+NumPy
+================================================================================
+
+Copyright (c) 2005-2024 NumPy Developers
+
+License: BSD License
+
+https://github.com/numpy/numpy
+
+
+================================================================================
+PyTorch
+================================================================================
+
+Copyright (c) 2016 Facebook, Inc. and its affiliates
+
+License: BSD-3-Clause License
+
+https://github.com/pytorch/pytorch
+
+
+================================================================================
+torchaudio
+================================================================================
+
+Copyright (c) 2017 Facebook, Inc. and its affiliates
+
+License: BSD-2-Clause License
+
+https://github.com/pytorch/audio
+
+
+================================================================================
+ffmpeg-python
+================================================================================
+
+Copyright (c) 2017 Karl Kroening
+
+License: Apache License 2.0
+
+https://github.com/kkroening/ffmpeg-python
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+
+================================================================================
+gevent
+================================================================================
+
+Copyright (c) Denis Bilenko and contributors
+
+License: MIT License
+
+https://github.com/gevent/gevent
+
+
+================================================================================
+gevent-websocket
+================================================================================
+
+Copyright (c) 2011-2017 Jeffrey Gelens
+
+License: BSD License
+
+https://gitlab.com/noppo/gevent-websocket
+
+
+================================================================================
+pySBD (Python Sentence Boundary Disambiguation)
+================================================================================
+
+Copyright (c) 2020 Nipun Sadvilkar
+
+License: MIT License
+
+https://github.com/nipunsadvilkar/pySBD
+
+
+================================================================================
+OpenCC (opencc-python-reimplemented)
+================================================================================
+
+Copyright (c) Yichen Huang
+
+License: Apache License 2.0
+
+https://github.com/yichen0831/opencc-python-reimplemented
+
+
+================================================================================
+librosa
+================================================================================
+
+Copyright (c) 2013-2024 Brian McFee and librosa contributors
+
+License: ISC License
+
+https://github.com/librosa/librosa
+
+
+================================================================================
+SoundFile
+================================================================================
+
+Copyright (c) 2013 Bastian Bechtold
+
+License: BSD-3-Clause License
+
+https://github.com/bastibe/python-soundfile
+
+
+================================================================================
+FFmpeg (system dependency)
+================================================================================
+
+Copyright (c) 2000-2024 FFmpeg contributors
+
+License: LGPL 2.1+ (default build) or GPL 2+ (if built with --enable-gpl)
+
+https://ffmpeg.org
+
+NOTE: MoTitle invokes FFmpeg as an external process via subprocess and does
+not link against FFmpeg libraries. Users are responsible for installing
+FFmpeg on their own systems. If redistributing FFmpeg binaries, ensure
+an LGPL-licensed build is used (built without --enable-gpl).
+
+
+================================================================================
+Ollama (LLM runtime)
+================================================================================
+
+Copyright (c) Ollama
+
+License: MIT License
+
+https://github.com/ollama/ollama
+
+
+================================================================================
+Qwen2.5 Models (via Ollama)
+================================================================================
+
+Copyright (c) Alibaba Cloud
+
+Qwen2.5-7B and smaller: Apache License 2.0
+Qwen2.5-72B and larger: Tongyi Qianwen License Agreement
+
+https://github.com/QwenLM/Qwen2.5
+
+The Qwen2.5 models are served via Ollama at runtime and are not bundled
+with this software. Users download model weights separately.
+
+Built with Qwen. Powered by Qwen.
+
+For Qwen2.5-72B+: commercial use with fewer than 100 million monthly
+active users is permitted without additional authorization. Above this
+threshold, explicit authorization from Alibaba Cloud is required.
