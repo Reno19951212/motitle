@@ -203,12 +203,7 @@ class SubtitleRenderer:
                     output_abs,
                 ]
             else:
-                # MP4 / H.264 (libx264). Three rate-control modes:
-                #   crf    — quality target (default)
-                #   cbr    — fixed bitrate, single pass
-                #   2pass  — fixed bitrate, two-pass encode (higher quality
-                #            at target size; handled by branching into a
-                #            separate dual-invocation path in Task 3)
+                # MP4 / H.264 (libx264). Three rate-control modes.
                 bitrate_mode = opts.get("bitrate_mode", "crf")
                 preset = opts.get("preset", "medium")
                 audio_bitrate = opts.get("audio_bitrate", "192k")
@@ -216,32 +211,60 @@ class SubtitleRenderer:
                 profile = opts.get("profile", "high")
                 level = opts.get("level", "auto")
 
-                cmd = [
-                    ffmpeg_exe, "-y", "-i", video_abs,
-                    "-vf", vf,
-                    "-c:v", "libx264", "-preset", preset,
-                ]
-                if bitrate_mode == "cbr":
+                def _common_video_flags():
+                    flags = [
+                        "-c:v", "libx264", "-preset", preset,
+                        "-pix_fmt", pix_fmt, "-profile:v", profile,
+                    ]
+                    if level and level != "auto":
+                        flags += ["-level:v", str(level)]
+                    return flags
+
+                if bitrate_mode == "2pass":
+                    mbps = int(opts.get("video_bitrate_mbps", 20))
+                    bitrate_flag = f"{mbps}M"
+                    null_sink = "NUL" if os.name == "nt" else "/dev/null"
+
+                    pass1 = (
+                        [ffmpeg_exe, "-y", "-i", video_abs, "-vf", vf]
+                        + _common_video_flags()
+                        + ["-b:v", bitrate_flag, "-pass", "1", "-an", "-f", "null", null_sink]
+                    )
+                    pass2 = (
+                        [ffmpeg_exe, "-y", "-i", video_abs, "-vf", vf]
+                        + _common_video_flags()
+                        + ["-b:v", bitrate_flag, "-pass", "2",
+                           "-c:a", "aac", "-b:a", audio_bitrate,
+                           output_abs]
+                    )
+                    # Run pass 1
+                    r1 = subprocess.run(pass1, cwd=cwd, capture_output=True, text=True, timeout=600)
+                    if r1.returncode != 0:
+                        return False, r1.stderr or "FFmpeg pass 1 failed"
+                    # Run pass 2 — result handling reuses the single-cmd path
+                    # below by assigning cmd = pass2 and falling through.
+                    cmd = pass2
+                elif bitrate_mode == "cbr":
                     mbps = int(opts.get("video_bitrate_mbps", 20))
                     buf = mbps * 2
-                    cmd += [
-                        "-b:v", f"{mbps}M",
-                        "-minrate", f"{mbps}M",
-                        "-maxrate", f"{mbps}M",
-                        "-bufsize", f"{buf}M",
-                    ]
+                    cmd = (
+                        [ffmpeg_exe, "-y", "-i", video_abs, "-vf", vf]
+                        + _common_video_flags()
+                        + ["-b:v", f"{mbps}M", "-minrate", f"{mbps}M",
+                           "-maxrate", f"{mbps}M", "-bufsize", f"{buf}M",
+                           "-c:a", "aac", "-b:a", audio_bitrate,
+                           output_abs]
+                    )
                 else:
                     # crf mode (default)
                     crf = int(opts.get("crf", 18))
-                    cmd += ["-crf", str(crf)]
-
-                cmd += ["-pix_fmt", pix_fmt, "-profile:v", profile]
-                if level and level != "auto":
-                    cmd += ["-level:v", str(level)]
-                cmd += [
-                    "-c:a", "aac", "-b:a", audio_bitrate,
-                    output_abs,
-                ]
+                    cmd = (
+                        [ffmpeg_exe, "-y", "-i", video_abs, "-vf", vf]
+                        + _common_video_flags()
+                        + ["-crf", str(crf),
+                           "-c:a", "aac", "-b:a", audio_bitrate,
+                           output_abs]
+                    )
 
             result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=600)
             if result.returncode == 0:
@@ -260,3 +283,13 @@ class SubtitleRenderer:
         finally:
             if ass_file and os.path.exists(ass_file):
                 os.remove(ass_file)
+            # libx264 2-pass leaves x264_2pass.log[.mbtree] in cwd.
+            # Clean them up regardless of success/failure so the renders_dir
+            # stays tidy and so a later 2-pass render starts fresh.
+            for log_name in ("x264_2pass.log", "x264_2pass.log.mbtree"):
+                log_path = self._renders_dir / log_name
+                if log_path.exists():
+                    try:
+                        log_path.unlink()
+                    except OSError:
+                        pass  # best-effort; a later run will still overwrite
