@@ -535,3 +535,44 @@ def test_render_mp4_yuv420_allows_common_profiles(client_with_approved_file):
             "render_options": {"pixel_format": "yuv420p", "profile": p},
         })
         assert resp.status_code == 202, f"yuv420p + {p} rejected"
+
+
+def test_render_mp4_high422_profile_requires_yuv422(client_with_approved_file):
+    """Reverse guard: profile 'high422' requires pixel_format 'yuv422p'
+    (rejects 'high422' with 'yuv420p' to keep semantics consistent)."""
+    client, file_id = client_with_approved_file
+
+    # Matching pair → accepted
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mp4",
+        "render_options": {"pixel_format": "yuv422p", "profile": "high422"},
+    })
+    assert resp.status_code == 202
+
+    # Mismatched: high422 profile but default yuv420p pixel_format → rejected
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mp4",
+        "render_options": {"profile": "high422"},  # pixel_format defaults to yuv420p
+    })
+    assert resp.status_code == 400
+    err = resp.get_json()["error"]
+    assert "high422" in err and "yuv422p" in err
+
+
+def test_render_mp4_high444_profile_requires_yuv444(client_with_approved_file):
+    """Reverse guard for 4:4:4."""
+    client, file_id = client_with_approved_file
+
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mp4",
+        "render_options": {"pixel_format": "yuv444p", "profile": "high444"},
+    })
+    assert resp.status_code == 202
+
+    resp = client.post("/api/render", json={
+        "file_id": file_id, "format": "mp4",
+        "render_options": {"profile": "high444"},  # default yuv420p
+    })
+    assert resp.status_code == 400
+    err = resp.get_json()["error"]
+    assert "high444" in err and "yuv444p" in err

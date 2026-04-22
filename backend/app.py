@@ -1578,16 +1578,26 @@ def _validate_render_options(output_format: str, opts: dict):
             return None, f"render_options.level must be one of {sorted(_VALID_H264_LEVELS)}, got {level!r}"
         clean["level"] = level
 
-        # --- cross-field: pixel_format ↔ profile must match for 4:2:2 and 4:4:4 ---
-        if pixel_format == "yuv422p" and profile != "high422":
+        # --- cross-field: pixel_format ↔ profile strict bidirectional pairing ---
+        # High 4:2:2 and High 4:4:4 profiles describe the chroma subsampling the
+        # encoder will write into the bitstream — they MUST match the actual
+        # pixel format. Bidirectional checks reject both:
+        #   pix=yuv422p + profile=high  (pix is richer than profile declares)
+        #   profile=high422 + pix=yuv420p  (profile is richer than pix supplies)
+        _PIXFMT_PROFILE_PAIRS = {"yuv422p": "high422", "yuv444p": "high444"}
+
+        required_profile_for_pix = _PIXFMT_PROFILE_PAIRS.get(pixel_format)
+        if required_profile_for_pix is not None and profile != required_profile_for_pix:
             return None, (
-                f"render_options: pixel_format 'yuv422p' requires "
-                f"profile 'high422', got {profile!r}"
+                f"render_options: pixel_format {pixel_format!r} requires "
+                f"profile {required_profile_for_pix!r}, got {profile!r}"
             )
-        if pixel_format == "yuv444p" and profile != "high444":
+
+        required_pix_for_profile = {v: k for k, v in _PIXFMT_PROFILE_PAIRS.items()}.get(profile)
+        if required_pix_for_profile is not None and pixel_format != required_pix_for_profile:
             return None, (
-                f"render_options: pixel_format 'yuv444p' requires "
-                f"profile 'high444', got {profile!r}"
+                f"render_options: profile {profile!r} requires "
+                f"pixel_format {required_pix_for_profile!r}, got {pixel_format!r}"
             )
 
     elif output_format == "mxf":
