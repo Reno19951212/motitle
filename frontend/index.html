@@ -975,6 +975,47 @@
     .or-key-status { font-size: 11px; color: var(--text-dim); }
     .or-key-status.ok { color: var(--success); }
 
+    /* Render options modal — reuses .or-overlay pattern for consistency */
+    .rm-fmt-row {
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
+    }
+    .rm-fmt-card {
+      border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+      cursor: pointer; background: var(--surface-2);
+      display: flex; flex-direction: column; gap: 4px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .rm-fmt-card:hover { border-color: var(--accent); }
+    .rm-fmt-card.active {
+      border-color: var(--accent); background: rgba(108,99,255,0.08);
+      box-shadow: inset 0 0 0 1px var(--accent);
+    }
+    .rm-fmt-card .rm-fmt-name { font-size: 13px; font-weight: 600; color: var(--text); }
+    .rm-fmt-card .rm-fmt-desc { font-size: 11px; color: var(--text-dim); line-height: 1.35; }
+    .rm-section { display: none; flex-direction: column; gap: 12px; }
+    .rm-section.active { display: flex; }
+    .rm-slider-row {
+      display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center;
+    }
+    .rm-slider-row input[type=range] { width: 100%; accent-color: var(--accent); }
+    .rm-slider-val {
+      font-family: var(--font-mono); font-size: 12px; color: var(--accent);
+      min-width: 62px; text-align: right;
+    }
+    .rm-select {
+      background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); font-size: 13px; padding: 8px 10px; font-family: inherit;
+      width: 100%; box-sizing: border-box;
+    }
+    .rm-status {
+      font-size: 12px; color: var(--text-dim);
+      padding: 6px 8px; border-radius: 4px; background: var(--surface-2);
+      display: none;
+    }
+    .rm-status.visible { display: block; }
+    .rm-status.error { color: var(--danger); background: rgba(220,70,80,0.12); }
+    .rm-status.success { color: var(--success); }
+
     /* Toast */
     .toast-stack {
       position: fixed; bottom: 18px; right: 18px;
@@ -1224,6 +1265,136 @@
     </div>
   </div>
 
+  <!-- Render / export options modal -->
+  <div class="or-overlay" id="renderOverlay">
+    <div class="or-modal">
+      <div class="or-head">
+        <span>匯出字幕燒入影片</span>
+        <button class="or-close" onclick="closeRenderModal()" aria-label="關閉">&times;</button>
+      </div>
+      <div class="or-body">
+        <div class="or-field">
+          <label class="or-label">輸出格式</label>
+          <div class="rm-fmt-row">
+            <div class="rm-fmt-card active" data-format="mp4" onclick="selectRenderFormat('mp4')">
+              <span class="rm-fmt-name">MP4</span>
+              <span class="rm-fmt-desc">H.264 · 通用播放、YouTube</span>
+            </div>
+            <div class="rm-fmt-card" data-format="mxf" onclick="selectRenderFormat('mxf')">
+              <span class="rm-fmt-name">MXF · ProRes</span>
+              <span class="rm-fmt-desc">Apple ProRes · 廣播/後期</span>
+            </div>
+            <div class="rm-fmt-card" data-format="mxf_xdcam_hd422" onclick="selectRenderFormat('mxf_xdcam_hd422')">
+              <span class="rm-fmt-name">MXF · XDCAM HD 422</span>
+              <span class="rm-fmt-desc">MPEG-2 4:2:2 · 電視台標準</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- MP4 params -->
+        <div class="rm-section active" id="rmSectionMp4">
+          <div class="or-field">
+            <label class="or-label" for="rmCrf">CRF（畫質，越細越靚）</label>
+            <div class="rm-slider-row">
+              <input type="range" id="rmCrf" min="0" max="51" step="1" value="18">
+              <span class="rm-slider-val" id="rmCrfVal">18</span>
+            </div>
+            <div class="or-hint">推薦 17–23。18 ≈ 視覺無損；28 = YouTube 建議；CRF 越高檔案越細。</div>
+          </div>
+          <div class="or-field">
+            <label class="or-label" for="rmPreset">編碼速度</label>
+            <select class="rm-select" id="rmPreset">
+              <option value="ultrafast">ultrafast（最快，壓縮差）</option>
+              <option value="superfast">superfast</option>
+              <option value="veryfast">veryfast</option>
+              <option value="faster">faster</option>
+              <option value="fast">fast</option>
+              <option value="medium" selected>medium（推薦）</option>
+              <option value="slow">slow</option>
+              <option value="slower">slower</option>
+              <option value="veryslow">veryslow（最慢，壓縮最佳）</option>
+            </select>
+          </div>
+          <div class="or-field">
+            <label class="or-label" for="rmAudioBitrate">音頻碼率</label>
+            <select class="rm-select" id="rmAudioBitrate">
+              <option value="64k">64 kbps</option>
+              <option value="96k">96 kbps</option>
+              <option value="128k">128 kbps</option>
+              <option value="192k" selected>192 kbps（推薦）</option>
+              <option value="256k">256 kbps</option>
+              <option value="320k">320 kbps</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- MXF ProRes params -->
+        <div class="rm-section" id="rmSectionMxf">
+          <div class="or-field">
+            <label class="or-label" for="rmProresProfile">ProRes 規格</label>
+            <select class="rm-select" id="rmProresProfile">
+              <option value="0">Proxy（~45 Mbps）</option>
+              <option value="1">LT（~102 Mbps）</option>
+              <option value="2">Standard（~147 Mbps）</option>
+              <option value="3" selected>HQ（~220 Mbps，推薦）</option>
+              <option value="4">4444（~330 Mbps，含 alpha）</option>
+              <option value="5">4444 XQ（~500 Mbps）</option>
+            </select>
+          </div>
+          <div class="or-field">
+            <label class="or-label" for="rmMxfAudio">音頻位深</label>
+            <select class="rm-select" id="rmMxfAudio">
+              <option value="pcm_s16le" selected>16-bit PCM</option>
+              <option value="pcm_s24le">24-bit PCM（廣播推薦）</option>
+              <option value="pcm_s32le">32-bit PCM</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- MXF XDCAM HD 422 params -->
+        <div class="rm-section" id="rmSectionXdcam">
+          <div class="or-field">
+            <label class="or-label" for="rmXdcamBitrate">視頻碼率（Mbps）</label>
+            <div class="rm-slider-row">
+              <input type="range" id="rmXdcamBitrate" min="10" max="100" step="5" value="50">
+              <span class="rm-slider-val" id="rmXdcamBitrateVal">50 Mbps</span>
+            </div>
+            <div class="or-hint">
+              廣播標準：<b>50 Mbps</b>（Sony XDCAM HD 422）。提高至 100 Mbps 可獲更佳畫質，<br>
+              檔案線性增大。MPEG-2 4:2:2 long-GOP，48kHz PCM 音軌。
+            </div>
+          </div>
+          <div class="or-field">
+            <label class="or-label" for="rmXdcamAudio">音頻位深</label>
+            <select class="rm-select" id="rmXdcamAudio">
+              <option value="pcm_s16le" selected>16-bit PCM</option>
+              <option value="pcm_s24le">24-bit PCM（廣播推薦）</option>
+              <option value="pcm_s32le">32-bit PCM</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Shared: resolution -->
+        <div class="or-field">
+          <label class="or-label" for="rmResolution">輸出解像度</label>
+          <select class="rm-select" id="rmResolution">
+            <option value="" selected>保持原始</option>
+            <option value="1280x720">1280×720 (720p)</option>
+            <option value="1920x1080">1920×1080 (1080p)</option>
+            <option value="2560x1440">2560×1440 (1440p)</option>
+            <option value="3840x2160">3840×2160 (4K)</option>
+          </select>
+        </div>
+
+        <div class="rm-status" id="rmStatus"></div>
+      </div>
+      <div class="or-foot">
+        <button class="or-btn" type="button" onclick="closeRenderModal()">取消</button>
+        <button class="or-btn primary" type="button" id="rmConfirmBtn" onclick="confirmRender()">開始渲染</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // ============================================================
     // State
@@ -1454,6 +1625,7 @@
           <div class="split-head">燒入字幕後影片</div>
           <button onclick="requestRender('${f.id}', 'mp4')"><span class="fmt-badge solid">MP4</span><span class="fmt-desc">H.264 · 通用播放</span></button>
           <button onclick="requestRender('${f.id}', 'mxf')"><span class="fmt-badge solid">MXF</span><span class="fmt-desc">ProRes · 廣播級</span></button>
+          <button onclick="requestRender('${f.id}', 'mxf_xdcam_hd422')"><span class="fmt-badge solid">XDCAM</span><span class="fmt-desc">MPEG-2 422 · 電視台標準</span></button>
           <div class="split-divider"></div>
           <button onclick="requestRender('${f.id}', 'custom')"><span class="fmt-badge outline">⚙</span><span class="fmt-desc">自訂匯出設定…</span></button>
         </div>`;
@@ -2711,17 +2883,19 @@
       }
     }
 
-    async function requestRender(id, format) {
-      if (format === 'custom') { showToast('自訂匯出設定暫未實作', 'warning'); return; }
+    // Render modal state
+    const renderModalState = { fileId: null, format: 'mp4', currentRenderId: null };
 
-      // Pre-flight: check approval progress so we can warn before hitting backend 400
+    async function requestRender(id, format) {
+      if (format === 'custom') format = 'mp4';  // default when user clicks ⚙
+
+      // Pre-flight: check approval progress so we can warn before opening modal
       const f = uploadedFiles[id];
       if (f && f.segment_count > 0) {
         const approved = f.approved_count != null ? f.approved_count : 0;
         if (approved < f.segment_count) {
           const pending = f.segment_count - approved;
           showToast(`仲有 ${pending} 段未批核，需要全部批核先可以渲染`, 'warning');
-          // Auto-jump to proofread so user can finish
           if (confirm(`仲有 ${pending} 段未批核。要去校對頁完成嗎？`)) {
             window.location.href = `proofread.html?file_id=${id}`;
           }
@@ -2729,11 +2903,85 @@
         }
       }
 
-      showToast(`開始渲染 ${format.toUpperCase()}…`, 'info');
+      openRenderModal(id, format);
+    }
+
+    function openRenderModal(fileId, initialFormat) {
+      renderModalState.fileId = fileId;
+      renderModalState.currentRenderId = null;
+      selectRenderFormat(initialFormat || 'mp4');
+      document.getElementById('rmStatus').classList.remove('visible', 'error', 'success');
+      document.getElementById('rmConfirmBtn').disabled = false;
+      document.getElementById('rmConfirmBtn').textContent = '開始渲染';
+      document.getElementById('renderOverlay').classList.add('open');
+
+      // Wire up slider live labels (idempotent — addEventListener dedup via dataset flag)
+      const crf = document.getElementById('rmCrf');
+      if (!crf.dataset.bound) {
+        crf.addEventListener('input', () => { document.getElementById('rmCrfVal').textContent = crf.value; });
+        crf.dataset.bound = '1';
+      }
+      const xd = document.getElementById('rmXdcamBitrate');
+      if (!xd.dataset.bound) {
+        xd.addEventListener('input', () => { document.getElementById('rmXdcamBitrateVal').textContent = `${xd.value} Mbps`; });
+        xd.dataset.bound = '1';
+      }
+    }
+
+    function closeRenderModal() {
+      document.getElementById('renderOverlay').classList.remove('open');
+    }
+
+    function selectRenderFormat(format) {
+      renderModalState.format = format;
+      document.querySelectorAll('.rm-fmt-card').forEach(el => {
+        el.classList.toggle('active', el.dataset.format === format);
+      });
+      document.getElementById('rmSectionMp4').classList.toggle('active', format === 'mp4');
+      document.getElementById('rmSectionMxf').classList.toggle('active', format === 'mxf');
+      document.getElementById('rmSectionXdcam').classList.toggle('active', format === 'mxf_xdcam_hd422');
+    }
+
+    function buildRenderOptions(format) {
+      const resolution = document.getElementById('rmResolution').value || null;
+      const opts = { resolution };
+      if (format === 'mp4') {
+        opts.crf = parseInt(document.getElementById('rmCrf').value, 10);
+        opts.preset = document.getElementById('rmPreset').value;
+        opts.audio_bitrate = document.getElementById('rmAudioBitrate').value;
+      } else if (format === 'mxf') {
+        opts.prores_profile = parseInt(document.getElementById('rmProresProfile').value, 10);
+        opts.audio_format = document.getElementById('rmMxfAudio').value;
+      } else if (format === 'mxf_xdcam_hd422') {
+        opts.video_bitrate_mbps = parseInt(document.getElementById('rmXdcamBitrate').value, 10);
+        opts.audio_format = document.getElementById('rmXdcamAudio').value;
+      }
+      return opts;
+    }
+
+    function setRmStatus(msg, tone /* 'info' | 'error' | 'success' */) {
+      const el = document.getElementById('rmStatus');
+      el.textContent = msg;
+      el.classList.remove('error', 'success');
+      if (tone === 'error') el.classList.add('error');
+      else if (tone === 'success') el.classList.add('success');
+      el.classList.toggle('visible', !!msg);
+    }
+
+    async function confirmRender() {
+      const { fileId, format } = renderModalState;
+      if (!fileId) { showToast('未選擇檔案', 'error'); return; }
+
+      const btn = document.getElementById('rmConfirmBtn');
+      btn.disabled = true;
+      btn.textContent = '渲染中…';
+      setRmStatus('開始渲染，請稍候…', 'info');
+
+      const render_options = buildRenderOptions(format);
       try {
         const r = await fetch(`${API_BASE}/api/render`, {
           method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ file_id: id, format }),
+          body: JSON.stringify({ file_id: fileId, format, render_options }),
         });
         if (!r.ok) {
           let msg = `HTTP ${r.status}`;
@@ -2741,9 +2989,11 @@
           throw new Error(msg);
         }
         const data = await r.json();
+        renderModalState.currentRenderId = data.render_id;
         pollRender(data.render_id);
       } catch (e) {
-        showToast(`渲染失敗: ${e.message}`, 'error');
+        setRmStatus(`渲染失敗：${e.message}`, 'error');
+        btn.disabled = false; btn.textContent = '重試';
       }
     }
 
@@ -2754,14 +3004,81 @@
           const d = await r.json();
           if (d.status === 'done') {
             clearInterval(poll);
-            showToast('渲染完成，開始下載', 'success');
-            window.location.href = `${API_BASE}/api/renders/${renderId}/download`;
+            setRmStatus('渲染完成！正在準備下載…', 'success');
+            const suggestedName = d.output_filename || `subtitled.${(d.format || 'mp4').replace('mxf_xdcam_hd422', 'mxf')}`;
+            try {
+              await downloadWithPicker(renderId, suggestedName);
+              setRmStatus('下載完成', 'success');
+              // Reset confirm button so user can render again with different settings
+              document.getElementById('rmConfirmBtn').disabled = false;
+              document.getElementById('rmConfirmBtn').textContent = '開始渲染';
+            } catch (e) {
+              // User cancelled save dialog — re-enable confirm button so they can retry
+              setRmStatus(`下載取消或失敗：${e.message || e}`, 'error');
+              document.getElementById('rmConfirmBtn').disabled = false;
+              document.getElementById('rmConfirmBtn').textContent = '重試下載';
+            }
           } else if (d.status === 'error') {
             clearInterval(poll);
-            showToast('渲染失敗: ' + (d.error || '未知錯誤'), 'error');
+            setRmStatus(`渲染失敗：${d.error || '未知錯誤'}`, 'error');
+            document.getElementById('rmConfirmBtn').disabled = false;
+            document.getElementById('rmConfirmBtn').textContent = '重試';
           }
         } catch (e) { clearInterval(poll); }
       }, 1500);
+    }
+
+    /**
+     * Download the rendered file. When File System Access API is available
+     * (Chrome / Edge desktop), show a native Save As dialog so user can pick
+     * folder + filename. Otherwise fall back to an anonymous <a download> which
+     * writes to the browser's default download directory.
+     *
+     * Throws on cancellation so caller can re-enable the retry button.
+     */
+    async function downloadWithPicker(renderId, suggestedName) {
+      const url = `${API_BASE}/api/renders/${renderId}/download`;
+      const ext = (suggestedName.split('.').pop() || 'bin').toLowerCase();
+      const mime = ext === 'mxf' ? 'application/mxf' : ext === 'mp4' ? 'video/mp4' : 'application/octet-stream';
+
+      if ('showSaveFilePicker' in window) {
+        // Modern path: stream response → user-chosen file handle without
+        // buffering the whole blob in memory.  MXF files can easily exceed
+        // browser-tab memory limits (50 Mbps × 10 min ≈ 3.75 GB).
+        let handle;
+        try {
+          handle = await window.showSaveFilePicker({
+            suggestedName,
+            types: [{ description: ext.toUpperCase(), accept: { [mime]: [`.${ext}`] } }],
+          });
+        } catch (e) {
+          // User pressed Cancel — treat as non-error quiet abort
+          if (e && e.name === 'AbortError') throw new Error('用戶取消');
+          throw e;
+        }
+
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+        const writable = await handle.createWritable();
+        if (resp.body && resp.body.pipeTo) {
+          await resp.body.pipeTo(writable);
+        } else {
+          const blob = await resp.blob();
+          await writable.write(blob);
+          await writable.close();
+        }
+        return;
+      }
+
+      // Fallback: browser default download folder
+      showToast('Safari / Firefox 不支援自訂儲存位置，將下載到瀏覽器預設資料夾', 'info');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = suggestedName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     }
 
     async function restartService() {
