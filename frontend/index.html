@@ -1330,7 +1330,7 @@
         <div class="rm-section active" id="rmSectionMp4">
           <div class="or-field">
             <label class="or-label">Bitrate 控制模式</label>
-            <div class="rm-tab-row" role="tablist">
+            <div class="rm-tab-row">
               <button class="rm-tab active" data-mp4-mode="crf"
                       type="button" onclick="selectMp4BitrateMode('crf')">CRF（質素）</button>
               <button class="rm-tab" data-mp4-mode="cbr"
@@ -1359,9 +1359,9 @@
                 <span class="rm-slider-val" id="rmMp4BitrateVal">20 Mbps</span>
               </div>
               <div class="rm-pill-row">
-                <button type="button" class="rm-pill" onclick="setMp4Bitrate(15)">串流 15</button>
-                <button type="button" class="rm-pill" onclick="setMp4Bitrate(40)">廣播 master 40</button>
-                <button type="button" class="rm-pill" onclick="setMp4Bitrate(80)">近無損 80</button>
+                <button type="button" class="rm-pill" onclick="setMp4Bitrate(15)">串流 15M</button>
+                <button type="button" class="rm-pill" onclick="setMp4Bitrate(40)">廣播 master 40M</button>
+                <button type="button" class="rm-pill" onclick="setMp4Bitrate(80)">近無損 80M</button>
               </div>
               <div class="or-hint">
                 CBR = 固定碼率，檔案大小可預估。單一 pass，encode 時間正常。
@@ -1377,9 +1377,9 @@
                 <span class="rm-slider-val" id="rmMp4Bitrate2pVal">20 Mbps</span>
               </div>
               <div class="rm-pill-row">
-                <button type="button" class="rm-pill" onclick="setMp4Bitrate2p(15)">串流 15</button>
-                <button type="button" class="rm-pill" onclick="setMp4Bitrate2p(40)">廣播 master 40</button>
-                <button type="button" class="rm-pill" onclick="setMp4Bitrate2p(80)">近無損 80</button>
+                <button type="button" class="rm-pill" onclick="setMp4Bitrate2p(15)">串流 15M</button>
+                <button type="button" class="rm-pill" onclick="setMp4Bitrate2p(40)">廣播 master 40M</button>
+                <button type="button" class="rm-pill" onclick="setMp4Bitrate2p(80)">近無損 80M</button>
               </div>
               <div class="rm-tab-warning">⏱ 2-pass 需要約 2× encode 時間，但於相同 target bitrate 下畫質比 CBR 更佳。</div>
             </div>
@@ -3032,16 +3032,21 @@
       document.getElementById('renderOverlay').classList.add('open');
 
       // Wire up slider live labels (idempotent — addEventListener dedup via dataset flag)
-      const crf = document.getElementById('rmCrf');
-      if (!crf.dataset.bound) {
-        crf.addEventListener('input', () => { document.getElementById('rmCrfVal').textContent = crf.value; });
-        crf.dataset.bound = '1';
-      }
-      const xd = document.getElementById('rmXdcamBitrate');
-      if (!xd.dataset.bound) {
-        xd.addEventListener('input', () => { document.getElementById('rmXdcamBitrateVal').textContent = `${xd.value} Mbps`; });
-        xd.dataset.bound = '1';
-      }
+      const bindSliderLabel = (sliderId, labelId, formatFn) => {
+        const el = document.getElementById(sliderId);
+        if (!el || el.dataset.bound) return;
+        el.addEventListener('input', () => {
+          document.getElementById(labelId).textContent = formatFn(el.value);
+        });
+        el.dataset.bound = '1';
+      };
+      bindSliderLabel('rmCrf',            'rmCrfVal',            v => v);
+      bindSliderLabel('rmXdcamBitrate',   'rmXdcamBitrateVal',   v => `${v} Mbps`);
+      bindSliderLabel('rmMp4Bitrate',     'rmMp4BitrateVal',     v => `${v} Mbps`);
+      bindSliderLabel('rmMp4Bitrate2p',   'rmMp4Bitrate2pVal',   v => `${v} Mbps`);
+
+      // Reset MP4 mode to CRF every time the modal opens
+      selectMp4BitrateMode('crf');
     }
 
     function closeRenderModal() {
@@ -3056,6 +3061,34 @@
       document.getElementById('rmSectionMp4').classList.toggle('active', format === 'mp4');
       document.getElementById('rmSectionMxf').classList.toggle('active', format === 'mxf');
       document.getElementById('rmSectionXdcam').classList.toggle('active', format === 'mxf_xdcam_hd422');
+    }
+
+    const MP4_MODE_PANES = { crf: 'rmMp4PaneCrf', cbr: 'rmMp4PaneCbr', '2pass': 'rmMp4Pane2pass' };
+    let currentMp4BitrateMode = 'crf';
+
+    function selectMp4BitrateMode(mode) {
+      if (!(mode in MP4_MODE_PANES)) return;
+      currentMp4BitrateMode = mode;
+      document.querySelectorAll('.rm-tab[data-mp4-mode]').forEach(el => {
+        el.classList.toggle('active', el.dataset.mp4Mode === mode);
+      });
+      Object.entries(MP4_MODE_PANES).forEach(([key, paneId]) => {
+        document.getElementById(paneId).classList.toggle('active', key === mode);
+      });
+    }
+
+    // Preset pill setters — update slider value AND fire 'input' event so
+    // the bound label updates. Don't set the value without dispatching —
+    // the label would stay stale.
+    function setMp4Bitrate(mbps) {
+      const el = document.getElementById('rmMp4Bitrate');
+      el.value = mbps;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    function setMp4Bitrate2p(mbps) {
+      const el = document.getElementById('rmMp4Bitrate2p');
+      el.value = mbps;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
     function buildRenderOptions(format) {
