@@ -1578,6 +1578,18 @@ def _validate_render_options(output_format: str, opts: dict):
             return None, f"render_options.level must be one of {sorted(_VALID_H264_LEVELS)}, got {level!r}"
         clean["level"] = level
 
+        # --- cross-field: pixel_format ↔ profile must match for 4:2:2 and 4:4:4 ---
+        if pixel_format == "yuv422p" and profile != "high422":
+            return None, (
+                f"render_options: pixel_format 'yuv422p' requires "
+                f"profile 'high422', got {profile!r}"
+            )
+        if pixel_format == "yuv444p" and profile != "high444":
+            return None, (
+                f"render_options: pixel_format 'yuv444p' requires "
+                f"profile 'high444', got {profile!r}"
+            )
+
     elif output_format == "mxf":
         prores_profile = opts.get("prores_profile", 3)
         try:
