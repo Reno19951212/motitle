@@ -618,16 +618,20 @@ def test_mp4_2pass_runs_ffmpeg_twice(tmp_path, monkeypatch):
 
 
 def test_mp4_2pass_cleans_up_log_files(tmp_path, monkeypatch):
-    """After 2-pass render, x264_2pass.log and x264_2pass.log.mbtree must
-    be removed from renders_dir, mirroring .ass temp-file cleanup."""
+    """After 2-pass render, the per-render x264_2pass*.log* files must be
+    removed from renders_dir."""
     import subprocess as sp
     from renderer import SubtitleRenderer
 
-    # Seed the cwd with fake log files so the cleanup has something to remove
-    (tmp_path / "x264_2pass.log").write_text("fake pass1 log")
-    (tmp_path / "x264_2pass.log.mbtree").write_text("fake mbtree")
+    captured_prefix = {}
 
     def fake_run(cmd, **kwargs):
+        if "-passlogfile" in cmd:
+            prefix = cmd[cmd.index("-passlogfile") + 1]
+            captured_prefix["prefix"] = prefix
+            # Simulate libx264 writing its stats files during pass 1
+            (tmp_path / f"{prefix}.log").write_text("fake pass1 log")
+            (tmp_path / f"{prefix}.log.mbtree").write_text("fake mbtree")
         class R:
             returncode = 0
             stderr = ""
@@ -642,5 +646,44 @@ def test_mp4_2pass_cleans_up_log_files(tmp_path, monkeypatch):
         render_options={"bitrate_mode": "2pass", "video_bitrate_mbps": 30},
     )
 
-    assert not (tmp_path / "x264_2pass.log").exists()
-    assert not (tmp_path / "x264_2pass.log.mbtree").exists()
+    prefix = captured_prefix["prefix"]
+    assert not (tmp_path / f"{prefix}.log").exists(), "pass log not cleaned up"
+    assert not (tmp_path / f"{prefix}.log.mbtree").exists(), "mbtree not cleaned up"
+
+
+def test_mp4_2pass_uses_unique_passlogfile_prefix(tmp_path, monkeypatch):
+    """Pass 1 and pass 2 must share a -passlogfile flag whose value is unique
+    per render (not the bare 'x264_2pass'), so concurrent 2-pass renders
+    don't clobber each other's stats file."""
+    import subprocess as sp
+    from renderer import SubtitleRenderer
+
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(list(cmd))
+        class R:
+            returncode = 0
+            stderr = ""
+        return R()
+
+    monkeypatch.setattr(sp, "run", fake_run)
+
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT)
+    renderer.render(
+        "/fake/video.mp4", ass, str(tmp_path / "out.mp4"), "mp4",
+        render_options={"bitrate_mode": "2pass", "video_bitrate_mbps": 25},
+    )
+
+    pass1, pass2 = calls
+    # Both passes must include -passlogfile with the SAME per-render prefix
+    assert "-passlogfile" in pass1
+    assert "-passlogfile" in pass2
+    prefix1 = pass1[pass1.index("-passlogfile") + 1]
+    prefix2 = pass2[pass2.index("-passlogfile") + 1]
+    assert prefix1 == prefix2, f"pass1 and pass2 prefix mismatch: {prefix1!r} vs {prefix2!r}"
+    # Prefix must NOT be the bare default "x264_2pass" — it must contain a
+    # per-render unique component so concurrent jobs don't collide.
+    assert prefix1 != "x264_2pass"
+    assert "x264_2pass" in prefix1  # still starts with the canonical stem for discoverability
