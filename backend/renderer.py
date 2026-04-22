@@ -133,6 +133,7 @@ class SubtitleRenderer:
         """
         opts = render_options or {}
         ass_file = None
+        pass_prefix = None
         try:
             # Write the ASS file into renders_dir with a simple basename.
             # Running ffmpeg with cwd=renders_dir lets us pass just the
@@ -224,16 +225,25 @@ class SubtitleRenderer:
                     mbps = int(opts.get("video_bitrate_mbps", 20))
                     bitrate_flag = f"{mbps}M"
                     null_sink = "NUL" if os.name == "nt" else "/dev/null"
+                    # Per-render passlogfile prefix prevents concurrent 2-pass
+                    # renders from clobbering each other's x264_2pass.log in
+                    # renders_dir. Keep the canonical 'x264_2pass' stem for
+                    # grep-ability, append a unique suffix.
+                    pass_prefix = f"x264_2pass_{os.getpid()}_{os.urandom(4).hex()}"
 
                     pass1 = (
                         [ffmpeg_exe, "-y", "-i", video_abs, "-vf", vf]
                         + _common_video_flags()
-                        + ["-b:v", bitrate_flag, "-pass", "1", "-an", "-f", "null", null_sink]
+                        + ["-b:v", bitrate_flag,
+                           "-passlogfile", pass_prefix,
+                           "-pass", "1", "-an", "-f", "null", null_sink]
                     )
                     pass2 = (
                         [ffmpeg_exe, "-y", "-i", video_abs, "-vf", vf]
                         + _common_video_flags()
-                        + ["-b:v", bitrate_flag, "-pass", "2",
+                        + ["-b:v", bitrate_flag,
+                           "-passlogfile", pass_prefix,
+                           "-pass", "2",
                            "-c:a", "aac", "-b:a", audio_bitrate,
                            output_abs]
                     )
@@ -283,13 +293,14 @@ class SubtitleRenderer:
         finally:
             if ass_file and os.path.exists(ass_file):
                 os.remove(ass_file)
-            # libx264 2-pass leaves x264_2pass.log[.mbtree] in cwd.
-            # Clean them up regardless of success/failure so the renders_dir
-            # stays tidy and so a later 2-pass render starts fresh.
-            for log_name in ("x264_2pass.log", "x264_2pass.log.mbtree"):
-                log_path = self._renders_dir / log_name
-                if log_path.exists():
-                    try:
-                        log_path.unlink()
-                    except OSError:
-                        pass  # best-effort; a later run will still overwrite
+            # libx264 2-pass leaves <pass_prefix>.log[.mbtree] in cwd when
+            # -passlogfile was specified. Clean up only OUR render's logs so
+            # concurrent 2-pass renders don't step on each other.
+            if pass_prefix:
+                for suffix in (".log", ".log.mbtree"):
+                    log_path = self._renders_dir / f"{pass_prefix}{suffix}"
+                    if log_path.exists():
+                        try:
+                            log_path.unlink()
+                        except OSError:
+                            pass
