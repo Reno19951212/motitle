@@ -334,6 +334,16 @@ Whenever a new feature is completed or existing functionality is modified, you *
 - **Glossary Apply（LLM 智能替換）**: Proofread page 詞彙表 panel 新增「套用」按鈕。Two-phase 流程：(1) `POST /api/files/<id>/glossary-scan` 用純字串匹配搵出違規（EN 包含 glossary term 但 ZH 唔包含對應翻譯）；(2) 預覽 modal 俾用戶剔選 violations（未批核預設勾選，已批核預設唔勾選）；(3) `POST /api/files/<id>/glossary-apply` 逐條調用 Ollama LLM 做智能替換（保留句子其他部分），多個違規同一 segment 時序列處理。後端會驗證 `(term_en, term_zh)` 確實屬於指定 glossary，錯誤訊息經 `app.logger.exception` 記錄並返回統一 `"LLM request failed"` 俾 client
 - **304 automated tests**（+13 new: glossary-scan/apply 端到端 coverage，包含 sequential chaining、term validation、approval 狀態保留）
 
+### v3.3 — MP4 Advanced Render Options (Bitrate Mode + Pixel Format + H.264 Profile/Level)
+- **MP4 card** 內加深 controls，同 MXF 卡嘅 depth-of-control 對齊。新增 5 個 `render_options` 欄位：`bitrate_mode` (crf/cbr/2pass)、`video_bitrate_mbps`、`pixel_format` (yuv420p/422p/444p)、`profile` (baseline/main/high/high422/high444)、`level` (3.1…5.2/auto)。
+- **CRF mode** — 維持現有 behaviour，加入 `-pix_fmt`、`-profile:v`、`-level:v` flags（`level="auto"` 時不 emit flag，由 libx264 自動揀）。
+- **CBR mode** — `-b:v = -minrate = -maxrate = <Mbps>M`、`-bufsize = 2× bitrate`（libx264 嚴 CBR 標準 headroom）。
+- **2-pass mode** — renderer 內部 split 做兩次 `subprocess.run`：pass 1 `-pass 1 -an -f null <NUL|/dev/null>`、pass 2 `-pass 2 ... <real output>`。**每次 render 用 unique `-passlogfile` prefix**（format `x264_2pass_{pid}_{urandom(4).hex()}`）避免 concurrent 2-pass 渲染撞 stats file。`<prefix>.log` + `.log.mbtree` 喺 finally block 清理，同 `.ass` temp-file cleanup 對稱。
+- **Cross-field validation（bidirectional）**：`yuv422p` 必須 pair `high422`、`yuv444p` 必須 pair `high444`（forward direction），同時 `high422` 必須 pair `yuv422p`、`high444` 必須 pair `yuv444p`（reverse direction，避免 `yuv420p + high422` 等語義矛盾組合）。Error message 同時列出 pixel format + profile + 要求值，用戶睇 toast 即知點 fix。
+- **Frontend render modal**：`#rmSectionMp4` 加 3-tab bitrate mode row + 獨立 pane × 3；CBR / 2-pass pane 有 preset pills（串流 15M / 廣播 master 40M / 近無損 80M）+ slider 2–100 Mbps step 1；section 尾加 pixel_format / profile / level 三個 dropdown。`currentMp4BitrateMode` state + `selectMp4BitrateMode()` + `bindSliderLabel()` + `setMp4Bitrate*()` helper 全新。
+- **Defaults 保持 backward-compatible**：`bitrate_mode="crf"`, `crf=18`, `preset="medium"`, `pixel_format="yuv420p"`, `profile="high"`, `level="auto"`, `audio_bitrate="192k"` — 唔傳 `render_options` 或只傳部分欄位嘅舊 client 行為完全不變。
+- **Tests**：21 new（8 renderer cmd-shape + 2pass passlogfile collision guard；10 API validation 包括 cross-field bidirectional；Playwright smoke 涵蓋 CRF/CBR/2pass 三 mode + default modal-open payload + 2pass 冇 leak CBR slider value）— 410 automated tests（+21 since v3.2 baseline 389）
+
 ### v3.2 — MXF XDCAM HD 422 Output + Unified Render Modal + Save As Picker
 - **新 output format `mxf_xdcam_hd422`**: MPEG-2 4:2:2 long-GOP 喺 MXF 容器，用戶可調 CBR bitrate 10–100 Mbps（預設 50 Mbps，Sony XDCAM HD 422 廣播標準）。FFmpeg 命令：`-c:v mpeg2video -pix_fmt yuv422p -b:v/minrate/maxrate/bufsize -g 15 -bf 2 -f mxf`，`bufsize` 自動 = 72% bitrate。Note：FFmpeg 8.0.1 嘅 `-intra_vlc 1` / `-non_linear_quant 1` 會觸發 encoder-open failure (`Not yet implemented in FFmpeg, patches welcome`)，所以 intentionally 冇加 — 輸出仍屬標準合規 MPEG-2 422 long-GOP MXF，廣播互通可用。
 - **`_FORMAT_TO_EXTENSION` map**: MXF variants (xdcam 等) 全部輸出 `.mxf` 檔名而唔係 `foo.mxf_xdcam_hd422`
