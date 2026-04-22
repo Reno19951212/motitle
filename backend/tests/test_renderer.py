@@ -366,3 +366,130 @@ def test_ass_filter_escapes_colon_in_path(tmp_path, monkeypatch):
     # The colon in the path must be escaped; a bare ':' in the ass= value would corrupt the filter
     assert "\\:" in vf_value, f"Expected escaped colon in -vf value, got: {vf_value}"
     assert "fake:path" not in vf_value, f"Unescaped colon found in -vf value: {vf_value}"
+
+
+# ---------------------------------------------------------------------------
+# MXF XDCAM HD 422 (MPEG-2 4:2:2 long-GOP) format tests
+# ---------------------------------------------------------------------------
+
+def _capture_cmd(monkeypatch):
+    """Helper: patch subprocess.run and return a dict that will hold the cmd."""
+    import subprocess as sp
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        class R:
+            returncode = 0
+            stderr = ""
+        return R()
+
+    monkeypatch.setattr(sp, "run", fake_run)
+    return captured
+
+
+def test_xdcam_hd422_render_uses_mpeg2video_yuv422(tmp_path, monkeypatch):
+    """XDCAM HD 422 must encode with mpeg2video + yuv422p pixel format."""
+    from renderer import SubtitleRenderer
+    captured = _capture_cmd(monkeypatch)
+
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT)
+    renderer.render(
+        "/fake/video.mp4", ass, str(tmp_path / "out.mxf"), "mxf_xdcam_hd422"
+    )
+
+    cmd = captured["cmd"]
+    assert "-c:v" in cmd
+    assert cmd[cmd.index("-c:v") + 1] == "mpeg2video"
+    assert "-pix_fmt" in cmd
+    assert cmd[cmd.index("-pix_fmt") + 1] == "yuv422p"
+
+
+def test_xdcam_hd422_default_bitrate_50mbps_cbr(tmp_path, monkeypatch):
+    """Default XDCAM bitrate is 50 Mbps CBR (b:v = minrate = maxrate = 50M)."""
+    from renderer import SubtitleRenderer
+    captured = _capture_cmd(monkeypatch)
+
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT)
+    renderer.render(
+        "/fake/video.mp4", ass, str(tmp_path / "out.mxf"), "mxf_xdcam_hd422"
+    )
+
+    cmd = captured["cmd"]
+    assert cmd[cmd.index("-b:v") + 1] == "50M"
+    assert cmd[cmd.index("-minrate") + 1] == "50M"
+    assert cmd[cmd.index("-maxrate") + 1] == "50M"
+
+
+def test_xdcam_hd422_custom_bitrate_applied(tmp_path, monkeypatch):
+    """video_bitrate_mbps option propagates to all three b:v/minrate/maxrate flags."""
+    from renderer import SubtitleRenderer
+    captured = _capture_cmd(monkeypatch)
+
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT)
+    renderer.render(
+        "/fake/video.mp4", ass, str(tmp_path / "out.mxf"), "mxf_xdcam_hd422",
+        render_options={"video_bitrate_mbps": 75},
+    )
+
+    cmd = captured["cmd"]
+    assert cmd[cmd.index("-b:v") + 1] == "75M"
+    assert cmd[cmd.index("-minrate") + 1] == "75M"
+    assert cmd[cmd.index("-maxrate") + 1] == "75M"
+
+
+def test_xdcam_hd422_uses_long_gop_structure(tmp_path, monkeypatch):
+    """XDCAM HD 422 is long-GOP: -g 15 and -bf 2 expected."""
+    from renderer import SubtitleRenderer
+    captured = _capture_cmd(monkeypatch)
+
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT)
+    renderer.render(
+        "/fake/video.mp4", ass, str(tmp_path / "out.mxf"), "mxf_xdcam_hd422"
+    )
+
+    cmd = captured["cmd"]
+    assert cmd[cmd.index("-g") + 1] == "15"
+    assert cmd[cmd.index("-bf") + 1] == "2"
+
+
+def test_xdcam_hd422_uses_mxf_container_pcm_audio(tmp_path, monkeypatch):
+    """Container is MXF with PCM audio at 48kHz (same as ProRes MXF path)."""
+    from renderer import SubtitleRenderer
+    captured = _capture_cmd(monkeypatch)
+
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT)
+    renderer.render(
+        "/fake/video.mp4", ass, str(tmp_path / "out.mxf"), "mxf_xdcam_hd422",
+        render_options={"audio_format": "pcm_s24le"},
+    )
+
+    cmd = captured["cmd"]
+    assert cmd[cmd.index("-c:a") + 1] == "pcm_s24le"
+    assert cmd[cmd.index("-ar") + 1] == "48000"
+
+
+def test_xdcam_hd422_bufsize_scaled_from_bitrate(tmp_path, monkeypatch):
+    """bufsize should scale with bitrate (approx 72% of bitrate × 1 second).
+    At 50 Mbps → 36M; at 100 Mbps → 72M. Using 72% of bitrate keeps rate-control
+    buffer proportional to CBR target."""
+    from renderer import SubtitleRenderer
+    captured = _capture_cmd(monkeypatch)
+
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT)
+    renderer.render(
+        "/fake/video.mp4", ass, str(tmp_path / "out.mxf"), "mxf_xdcam_hd422",
+        render_options={"video_bitrate_mbps": 100},
+    )
+
+    cmd = captured["cmd"]
+    bufsize = cmd[cmd.index("-bufsize") + 1]
+    # Accept anything between 70M and 75M (leaves room for future tuning)
+    assert bufsize.endswith("M")
+    assert 70 <= int(bufsize[:-1]) <= 75, f"bufsize {bufsize} not in reasonable range for 100Mbps"
