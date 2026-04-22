@@ -580,3 +580,67 @@ def test_mp4_cbr_mode_custom_bitrate_applied(tmp_path, monkeypatch):
     cmd = captured["cmd"]
     assert cmd[cmd.index("-b:v") + 1] == "40M"
     assert cmd[cmd.index("-bufsize") + 1] == "80M"
+
+
+def test_mp4_2pass_runs_ffmpeg_twice(tmp_path, monkeypatch):
+    """2-pass mode invokes subprocess.run exactly twice: pass 1 then pass 2."""
+    import subprocess as sp
+    from renderer import SubtitleRenderer
+
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(list(cmd))
+        class R:
+            returncode = 0
+            stderr = ""
+        return R()
+
+    monkeypatch.setattr(sp, "run", fake_run)
+
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT)
+    renderer.render(
+        "/fake/video.mp4", ass, str(tmp_path / "out.mp4"), "mp4",
+        render_options={"bitrate_mode": "2pass", "video_bitrate_mbps": 30},
+    )
+
+    assert len(calls) == 2
+    pass1, pass2 = calls
+    # Pass 1: no audio encoder, writes to null muxer
+    assert "-pass" in pass1 and pass1[pass1.index("-pass") + 1] == "1"
+    assert "-an" in pass1
+    # Pass 1 must NOT run the audio bitrate flag; must use 'null' format
+    assert pass1[-1] in ("NUL", "/dev/null", "nul")
+    # Pass 2: writes to real output with audio
+    assert pass2[pass2.index("-pass") + 1] == "2"
+    assert "aac" in pass2
+
+
+def test_mp4_2pass_cleans_up_log_files(tmp_path, monkeypatch):
+    """After 2-pass render, x264_2pass.log and x264_2pass.log.mbtree must
+    be removed from renders_dir, mirroring .ass temp-file cleanup."""
+    import subprocess as sp
+    from renderer import SubtitleRenderer
+
+    # Seed the cwd with fake log files so the cleanup has something to remove
+    (tmp_path / "x264_2pass.log").write_text("fake pass1 log")
+    (tmp_path / "x264_2pass.log.mbtree").write_text("fake mbtree")
+
+    def fake_run(cmd, **kwargs):
+        class R:
+            returncode = 0
+            stderr = ""
+        return R()
+
+    monkeypatch.setattr(sp, "run", fake_run)
+
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT)
+    renderer.render(
+        "/fake/video.mp4", ass, str(tmp_path / "out.mp4"), "mp4",
+        render_options={"bitrate_mode": "2pass", "video_bitrate_mbps": 30},
+    )
+
+    assert not (tmp_path / "x264_2pass.log").exists()
+    assert not (tmp_path / "x264_2pass.log.mbtree").exists()
