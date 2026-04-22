@@ -263,7 +263,7 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | POST | `/api/files/<id>/translations/<idx>/approve` | Approve single translation |
 | POST | `/api/files/<id>/translations/approve-all` | Approve all pending |
 | GET | `/api/files/<id>/translations/status` | Get approval progress |
-| POST | `/api/render` | Start subtitle burn-in render job |
+| POST | `/api/render` | Start subtitle burn-in render job (format: `mp4` / `mxf` / `mxf_xdcam_hd422`) |
 | GET | `/api/renders/<id>` | Check render job status |
 | GET | `/api/renders/<id>/download` | Download rendered file |
 
@@ -333,6 +333,15 @@ Whenever a new feature is completed or existing functionality is modified, you *
 - **Proofread 兩個新 Panel**: 影片預覽下方加入「詞彙表對照」+「字幕設定」兩個 panel。詞彙表 panel 支援從所有 glossary 中選擇、查看/新增/編輯條目（inline）；字幕設定 panel 直接編輯 active profile 嘅 font config（字型、大小、顏色、輪廓、邊距），500ms debounce 後自動 PATCH，透過 Socket.IO 即時更新 overlay
 - **Glossary Apply（LLM 智能替換）**: Proofread page 詞彙表 panel 新增「套用」按鈕。Two-phase 流程：(1) `POST /api/files/<id>/glossary-scan` 用純字串匹配搵出違規（EN 包含 glossary term 但 ZH 唔包含對應翻譯）；(2) 預覽 modal 俾用戶剔選 violations（未批核預設勾選，已批核預設唔勾選）；(3) `POST /api/files/<id>/glossary-apply` 逐條調用 Ollama LLM 做智能替換（保留句子其他部分），多個違規同一 segment 時序列處理。後端會驗證 `(term_en, term_zh)` 確實屬於指定 glossary，錯誤訊息經 `app.logger.exception` 記錄並返回統一 `"LLM request failed"` 俾 client
 - **304 automated tests**（+13 new: glossary-scan/apply 端到端 coverage，包含 sequential chaining、term validation、approval 狀態保留）
+
+### v3.2 — MXF XDCAM HD 422 Output + Unified Render Modal + Save As Picker
+- **新 output format `mxf_xdcam_hd422`**: MPEG-2 4:2:2 long-GOP 喺 MXF 容器，用戶可調 CBR bitrate 10–100 Mbps（預設 50 Mbps，Sony XDCAM HD 422 廣播標準）。FFmpeg 命令：`-c:v mpeg2video -pix_fmt yuv422p -b:v/minrate/maxrate/bufsize -g 15 -bf 2 -f mxf`，`bufsize` 自動 = 72% bitrate。Note：FFmpeg 8.0.1 嘅 `-intra_vlc 1` / `-non_linear_quant 1` 會觸發 encoder-open failure (`Not yet implemented in FFmpeg, patches welcome`)，所以 intentionally 冇加 — 輸出仍屬標準合規 MPEG-2 422 long-GOP MXF，廣播互通可用。
+- **`_FORMAT_TO_EXTENSION` map**: MXF variants (xdcam 等) 全部輸出 `.mxf` 檔名而唔係 `foo.mxf_xdcam_hd422`
+- **統一 render options modal（[index.html](frontend/index.html)）**: Dashboard 嘅 MP4 / MXF ProRes / XDCAM / ⚙ 按鈕全部打開同一個 modal。3 個 format cards 可切換；MP4 有 CRF slider + preset + audio bitrate；MXF ProRes 有 profile 0–5 + PCM bit depth；**XDCAM 有 bitrate slider 10–100 Mbps step 5**；共用 resolution dropdown（keep original / 720p–4K）。原本舊 proofread.old.html 嘅 render modal 無喺新 UI 出現，依家 dashboard 直接補返。
+- **File System Access API 下載**: 新 `downloadWithPicker(renderId, suggestedName)` helper — Chrome/Edge desktop 會彈 native Save As dialog 畀用戶揀 folder + filename，用 `pipeTo(writable)` 直接 stream response body 去 file handle，避免 multi-GB MXF 全部 load 入 memory。Safari / Firefox 自動 fallback 去 `<a download>` + 預設 downloads folder + informational toast 提示。
+- **Backend validation**: `_validate_render_options` 新 branch — `video_bitrate_mbps` 驗證 int 10–100 Mbps（拒絕 bool 避免 True/False 當 1/0），`audio_format` 跟 ProRes 共享 16/24/32-bit PCM 選項。
+- **Tests**: 14 new — 6 renderer command shape (`mpeg2video` + yuv422p、CBR bitrate flags、long-GOP、audio/resolution plumbing、bufsize scaling)、8 API validation (format acceptance、default bitrate、10/75/100 pass、5/150/non-int reject、audio format、output filename `.mxf`)。Playwright smoke test 驗證 modal 開關 / format 切換 / slider live label / confirmRender 嘅 POST payload shape / showSaveFilePicker availability。
+- **389 automated tests**（+14 new since v3.1 baseline 375）
 
 ### v3.1 — Translation Quality + OpenRouter Engine
 - **OpenRouter 翻譯引擎**: 新增 `OpenRouterTranslationEngine` ([backend/translation/openrouter_engine.py](backend/translation/openrouter_engine.py))，繼承 `OllamaTranslationEngine`，只 override HTTP call 打去 OpenRouter 嘅 OpenAI-compatible `/chat/completions`。Bearer auth，自動重試 429/502/503/504，支援 attribution headers (`HTTP-Referer`、`X-Title`)。Profile config 新欄位：`openrouter_model`（free-form，唔係 enum）、`api_key`、可選 `openrouter_url`。Factory `create_translation_engine({"engine": "openrouter", ...})` 自動路由。

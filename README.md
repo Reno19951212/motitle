@@ -16,7 +16,7 @@
 | ⚙️ **Profile 配置** | 可切換不同 ASR + 翻譯引擎組合，適應開發/生產環境 |
 | 🌐 **語言參數配置** | 每種語言獨立設定 ASR 分段參數（每句最大字數/時長）及翻譯參數（batch size/temperature） |
 | ✏️ **字幕校對編輯器** | 獨立校對頁面，左右並排影片與字幕表格，逐句審核、編輯、批核 |
-| 🎬 **燒入字幕輸出** | 將已批核字幕燒入影片，可調整編碼參數後輸出 MP4 (H.264) 或 MXF (ProRes 422 HQ) |
+| 🎬 **燒入字幕輸出** | 將已批核字幕燒入影片，可調整編碼參數後輸出：MP4 (H.264)、MXF (ProRes)、或 MXF · **XDCAM HD 422**（MPEG-2 4:2:2，碼率 10–100 Mbps 自由調校）。渲染完成後可經系統級「另存為」對話框揀下載位置。 |
 | 📊 **轉錄進度條** | 轉錄時顯示進度百分比、已處理/總時長、預計剩餘時間 |
 | ⚡ **雙引擎支援** | 自動選用 faster-whisper（快 4–8 倍）或 openai-whisper |
 | 💾 **字幕導出** | 每個文件獨立提供 SRT、VTT、TXT 下載 |
@@ -620,6 +620,18 @@ Sentence pipeline 嘅進階版：合併成句後，prompt LLM 喺中文輸出中
 ---
 
 ## 更新記錄
+
+### v3.2 — MXF XDCAM HD 422 輸出 + 統一渲染 Modal + Save As 選擇位置
+
+- **新輸出格式 MXF · XDCAM HD 422**：Sony 廣播標準，MPEG-2 4:2:2 long-GOP，CBR bitrate 可自由調校 **10–100 Mbps**（預設 50 Mbps，業界標準）。48kHz PCM 音軌，output `.mxf` 檔。
+- **統一渲染 Modal**：Dashboard 撳任何輸出格式（MP4 / MXF ProRes / XDCAM / ⚙）都會彈同一個設定視窗；原本嘅直接下載改為先揀參數先渲染。3 張格式卡片可切換：
+  - **MP4**：CRF slider（0–51）、9 級編碼速度、音頻碼率 64k–320k
+  - **MXF ProRes**：6 種規格卡（Proxy/LT/Standard/HQ/4444/4444XQ）、PCM 16/24/32-bit
+  - **MXF · XDCAM HD 422**：視頻碼率 slider（10–100 Mbps 步進 5）、PCM 16/24/32-bit
+  - 共用：輸出解像度（保持原始 / 720p / 1080p / 1440p / 4K）
+- **Save As 下載**：渲染完成後彈 **系統級「另存為」對話框**（Chrome / Edge desktop 原生支援，經 File System Access API），可自訂下載 folder + 檔名，並以 `pipeTo(writable)` 直接串流大 MXF 檔，唔會佔 browser memory。Safari / Firefox 自動回退去瀏覽器預設下載資料夾 + 提示 toast。
+- **Tests**：14 個新測試，涵蓋 XDCAM encoder 參數、bitrate 驗證邊界（10/75/100 pass、5/150/non-int reject）、檔名 `.mxf` 正確、modal 三態切換 + slider live label + POST payload shape。
+- **389 個自動化測試**（+14 new since v3.1）
 
 ### v3.1 — 翻譯質素提升 + OpenRouter 引擎
 
