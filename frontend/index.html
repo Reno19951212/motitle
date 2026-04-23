@@ -1506,7 +1506,7 @@
       </div>
       <div class="or-foot">
         <button class="or-btn" type="button" onclick="closeRenderModal()">取消</button>
-        <button class="or-btn primary" type="button" id="rmConfirmBtn" onclick="confirmRender()">開始渲染</button>
+        <button class="or-btn primary" type="button" id="rmConfirmBtn" onclick="onRenderPrimaryClick()">開始渲染</button>
       </div>
     </div>
   </div>
@@ -2999,8 +2999,12 @@
       }
     }
 
-    // Render modal state
-    const renderModalState = { fileId: null, format: 'mp4', currentRenderId: null };
+    // Render modal state. `pendingDownload` holds {renderId, suggestedName} once a
+    // render completes — at that point we replace the primary button's handler so
+    // the user's click on 儲存檔案 carries the user gesture that showSaveFilePicker()
+    // requires. Calling the picker from inside the poll callback (no gesture in
+    // scope) throws "Must be handling a user gesture to show a file picker".
+    const renderModalState = { fileId: null, format: 'mp4', currentRenderId: null, pendingDownload: null };
 
     async function requestRender(id, format) {
       if (format === 'custom') format = 'mp4';  // default when user clicks ⚙
@@ -3025,6 +3029,7 @@
     function openRenderModal(fileId, initialFormat) {
       renderModalState.fileId = fileId;
       renderModalState.currentRenderId = null;
+      renderModalState.pendingDownload = null;
       selectRenderFormat(initialFormat || 'mp4');
       document.getElementById('rmStatus').classList.remove('visible', 'error', 'success');
       document.getElementById('rmConfirmBtn').disabled = false;
@@ -3163,20 +3168,15 @@
           const d = await r.json();
           if (d.status === 'done') {
             clearInterval(poll);
-            setRmStatus('渲染完成！正在準備下載…', 'success');
             const suggestedName = d.output_filename || `subtitled.${(d.format || 'mp4').replace('mxf_xdcam_hd422', 'mxf')}`;
-            try {
-              await downloadWithPicker(renderId, suggestedName);
-              setRmStatus('下載完成', 'success');
-              // Reset confirm button so user can render again with different settings
-              document.getElementById('rmConfirmBtn').disabled = false;
-              document.getElementById('rmConfirmBtn').textContent = '開始渲染';
-            } catch (e) {
-              // User cancelled save dialog — re-enable confirm button so they can retry
-              setRmStatus(`下載取消或失敗：${e.message || e}`, 'error');
-              document.getElementById('rmConfirmBtn').disabled = false;
-              document.getElementById('rmConfirmBtn').textContent = '重試下載';
-            }
+            // Stash the completed render and repurpose the primary button to
+            // trigger the download on click — only then can showSaveFilePicker
+            // see an active user gesture.
+            renderModalState.pendingDownload = { renderId, suggestedName };
+            setRmStatus('渲染完成 — 撳「儲存檔案」揀位置下載', 'success');
+            const btn = document.getElementById('rmConfirmBtn');
+            btn.disabled = false;
+            btn.textContent = '💾 儲存檔案';
           } else if (d.status === 'error') {
             clearInterval(poll);
             setRmStatus(`渲染失敗：${d.error || '未知錯誤'}`, 'error');
@@ -3185,6 +3185,35 @@
           }
         } catch (e) { clearInterval(poll); }
       }, 1500);
+    }
+
+    /**
+     * Invoked by the primary button's onclick. Routes to (a) the save-file flow
+     * when a completed render is pending — keeping showSaveFilePicker inside the
+     * user-gesture window — or (b) the normal render-start path otherwise.
+     */
+    async function onRenderPrimaryClick() {
+      if (renderModalState.pendingDownload) {
+        const { renderId, suggestedName } = renderModalState.pendingDownload;
+        const btn = document.getElementById('rmConfirmBtn');
+        btn.disabled = true;
+        btn.textContent = '下載中…';
+        try {
+          await downloadWithPicker(renderId, suggestedName);
+          setRmStatus('下載完成', 'success');
+          // Clear pending state; restore the button so another render can run
+          renderModalState.pendingDownload = null;
+          btn.disabled = false;
+          btn.textContent = '開始渲染';
+        } catch (e) {
+          // User cancelled or picker failed — keep the pending state so they can retry
+          setRmStatus(`下載取消或失敗：${e.message || e}`, 'error');
+          btn.disabled = false;
+          btn.textContent = '💾 再試儲存';
+        }
+        return;
+      }
+      await confirmRender();
     }
 
     /**
