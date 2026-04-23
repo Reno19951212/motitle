@@ -3248,13 +3248,25 @@
         const resp = await fetch(url);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
+        // FileSystemWritableFileStream buffers writes in memory; bytes are
+        // flushed to disk only when close() resolves. pipeTo()'s default
+        // preventClose=false claims to auto-close, but in practice
+        // Chromium's FSA writer does not reliably commit via that path for
+        // large (1GB+) streams — status reads "下載完成" yet the file never
+        // appears on disk. Use preventClose: true + explicit close() so the
+        // commit is deterministic, and abort() on error to drop the temp.
         const writable = await handle.createWritable();
-        if (resp.body && resp.body.pipeTo) {
-          await resp.body.pipeTo(writable);
-        } else {
-          const blob = await resp.blob();
-          await writable.write(blob);
+        try {
+          if (resp.body && resp.body.pipeTo) {
+            await resp.body.pipeTo(writable, { preventClose: true });
+          } else {
+            const blob = await resp.blob();
+            await writable.write(blob);
+          }
           await writable.close();
+        } catch (e) {
+          try { await writable.abort?.(e); } catch {}
+          throw e;
         }
         return;
       }
