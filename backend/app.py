@@ -14,6 +14,7 @@ import threading
 import tempfile
 import subprocess
 from pathlib import Path
+from typing import List
 
 # --- Windows GPU: register bundled CUDA DLLs (cublas / cudnn) before any CUDA-using import ---
 # Install with: pip install nvidia-cublas-cu12 nvidia-cudnn-cu12
@@ -42,7 +43,7 @@ if sys.platform == "win32":
 
 import whisper
 import numpy as np
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 from profiles import ProfileManager
@@ -594,6 +595,84 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
     finally:
         if temp_audio and os.path.exists(temp_audio):
             os.remove(temp_audio)
+
+
+# ============================================================
+# Subtitle font assets — shared between renderer (FFmpeg ass filter
+# `:fontsdir=` arg) and the browser preview (@font-face injected by
+# frontend/js/font-preview.js after fetching /api/fonts). Bundling the
+# same TTF/OTF for both sides eliminates glyph drift between live preview
+# and burnt-in output.
+# ============================================================
+FONTS_DIR = (Path(__file__).parent / "assets" / "fonts").resolve()
+ALLOWED_FONT_EXTS = {".ttf", ".otf"}
+
+
+def _list_font_files() -> list:
+    """Return sorted list of Path objects for *.ttf/*.otf in FONTS_DIR."""
+    if not FONTS_DIR.exists():
+        return []
+    return sorted(
+        p for p in FONTS_DIR.iterdir()
+        if p.is_file() and p.suffix.lower() in ALLOWED_FONT_EXTS
+    )
+
+
+def _font_family_name(font_path: Path) -> str:
+    """Extract canonical family name from a font's `name` table.
+
+    Falls back to the file stem when fontTools is not installed (it is an
+    optional dependency — the renderer never needs the family name, only
+    the preview does, and even there the stem is a workable fallback).
+    """
+    try:
+        from fontTools.ttLib import TTFont
+        tt = TTFont(str(font_path), lazy=True)
+        names = tt["name"]
+        # Name ID 1 = Family. Prefer Windows Unicode + English (US) entry,
+        # then any English, then any entry at all.
+        candidates = [r for r in names.names if r.nameID == 1]
+        for r in candidates:
+            if r.platformID == 3 and r.platEncID == 1 and r.langID == 0x409:
+                return r.toUnicode()
+        for r in candidates:
+            try:
+                return r.toUnicode()
+            except (UnicodeDecodeError, ValueError):
+                continue
+    except (ImportError, Exception):
+        pass
+    return font_path.stem
+
+
+@app.route('/api/fonts', methods=['GET'])
+def api_list_fonts():
+    """List subtitle font files available in backend/assets/fonts/.
+
+    Each entry is `{file: <basename>, family: <font family name>}`.
+    The frontend uses this to inject @font-face rules so the live preview
+    uses the exact same font that FFmpeg/libass will burn into the video.
+    """
+    items = [
+        {"file": p.name, "family": _font_family_name(p)}
+        for p in _list_font_files()
+    ]
+    return jsonify({"fonts": items, "fonts_dir": str(FONTS_DIR)})
+
+
+@app.route('/fonts/<path:filename>', methods=['GET'])
+def serve_font(filename):
+    """Serve a font file from the assets dir.
+
+    Path is sanitized via send_from_directory (which rejects traversal),
+    and we additionally enforce the file extension against ALLOWED_FONT_EXTS
+    so this endpoint cannot be used to exfiltrate arbitrary assets.
+    """
+    if Path(filename).suffix.lower() not in ALLOWED_FONT_EXTS:
+        return jsonify({"error": "Unsupported font type"}), 404
+    if not (FONTS_DIR / filename).is_file():
+        return jsonify({"error": "Font not found"}), 404
+    return send_from_directory(str(FONTS_DIR), filename)
 
 
 # ============================================================
@@ -1404,13 +1483,43 @@ def api_update_language(lang_id):
 # Translation Approval API (Proof-reading)
 # ============================================================
 
+# Legacy QA prefix migration: registry entries written before flags were
+# structured may still carry "[LONG] " / "[NEEDS REVIEW] " in zh_text.
+# Normalize on read so the API always exposes a clean zh_text + flags pair.
+import re as _re_qa
+_LEGACY_QA_PREFIX_RE = _re_qa.compile(r"^\s*(?:\[(LONG|NEEDS REVIEW)\])\s*")
+
+
+def _normalize_translation_for_api(t: dict) -> dict:
+    """Return a copy of ``t`` with structured ``flags`` and clean ``zh_text``.
+
+    If ``t`` already has a ``flags`` field, it is returned unchanged. Otherwise
+    legacy [LONG] / [NEEDS REVIEW] prefixes (possibly stacked) are parsed out
+    of zh_text and converted into a flags list.
+    """
+    if "flags" in t:
+        return t
+    zh = t.get("zh_text", "") or ""
+    flags: List[str] = []
+    while True:
+        m = _LEGACY_QA_PREFIX_RE.match(zh)
+        if not m:
+            break
+        tag = m.group(1)
+        flag = "long" if tag == "LONG" else "review"
+        if flag not in flags:
+            flags.append(flag)
+        zh = zh[m.end():]
+    return {**t, "zh_text": zh, "flags": flags}
+
+
 @app.route('/api/files/<file_id>/translations', methods=['GET'])
 def api_get_translations(file_id):
     with _registry_lock:
         entry = _file_registry.get(file_id)
     if not entry:
         return jsonify({"error": "File not found"}), 404
-    translations = entry.get("translations", [])
+    translations = [_normalize_translation_for_api(t) for t in entry.get("translations", [])]
     return jsonify({"translations": translations, "file_id": file_id})
 
 
@@ -1458,9 +1567,16 @@ def api_update_translation(file_id, idx):
     if not data or "zh_text" not in data:
         return jsonify({"error": "zh_text is required"}), 400
     new_translations = list(translations)
-    new_translations[idx] = {**translations[idx], "zh_text": data["zh_text"], "status": "approved"}
+    # Editing implies the user has reviewed the segment, so clear QA flags.
+    # Length warnings will reappear on the next translation pass if still applicable.
+    new_translations[idx] = {
+        **translations[idx],
+        "zh_text": data["zh_text"],
+        "status": "approved",
+        "flags": [],
+    }
     _update_file(file_id, translations=new_translations)
-    return jsonify({"translation": new_translations[idx]})
+    return jsonify({"translation": _normalize_translation_for_api(new_translations[idx])})
 
 
 @app.route('/api/files/<file_id>/translations/<int:idx>/approve', methods=['POST'])
@@ -1473,9 +1589,10 @@ def api_approve_translation(file_id, idx):
     if idx < 0 or idx >= len(translations):
         return jsonify({"error": "Translation index out of range"}), 404
     new_translations = list(translations)
+    # Approving without editing keeps flags so they remain visible until corrected.
     new_translations[idx] = {**translations[idx], "status": "approved"}
     _update_file(file_id, translations=new_translations)
-    return jsonify({"translation": new_translations[idx]})
+    return jsonify({"translation": _normalize_translation_for_api(new_translations[idx])})
 
 
 # ============================================================

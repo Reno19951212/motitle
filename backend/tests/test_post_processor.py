@@ -94,8 +94,9 @@ def test_length_flag_applied_when_over_limit():
     long_text = "政府宣布將於下月推出一系列新的經濟振興措施"  # 21 chars
     results = [{"start": 0.0, "end": 1.0, "en_text": "test", "zh_text": long_text}]
     processed = processor._flag_long_segments(results)
-    assert processed[0]["zh_text"].startswith("[LONG] ")
-    assert long_text in processed[0]["zh_text"]
+    # Phase B: zh_text stays clean, "long" appears in flags list
+    assert processed[0]["zh_text"] == long_text
+    assert "long" in processed[0].get("flags", [])
 
 
 def test_length_flag_not_applied_when_within_limit():
@@ -105,6 +106,7 @@ def test_length_flag_not_applied_when_within_limit():
     results = [{"start": 0.0, "end": 1.0, "en_text": "test", "zh_text": short_text}]
     processed = processor._flag_long_segments(results)
     assert processed[0]["zh_text"] == short_text
+    assert "long" not in processed[0].get("flags", [])
 
 
 def test_length_flag_at_exact_limit_not_flagged():
@@ -114,6 +116,7 @@ def test_length_flag_at_exact_limit_not_flagged():
     results = [{"start": 0.0, "end": 1.0, "en_text": "test", "zh_text": exact_text}]
     processed = processor._flag_long_segments(results)
     assert processed[0]["zh_text"] == exact_text
+    assert "long" not in processed[0].get("flags", [])
 
 
 def test_length_flag_preserves_original_text():
@@ -122,8 +125,18 @@ def test_length_flag_preserves_original_text():
     original = "超過字數限制的句子"
     results = [{"start": 0.0, "end": 1.0, "en_text": "test", "zh_text": original}]
     processed = processor._flag_long_segments(results)
-    # Original text is preserved, not truncated
-    assert original in processed[0]["zh_text"]
+    # zh_text untouched, flag added separately
+    assert processed[0]["zh_text"] == original
+    assert "long" in processed[0]["flags"]
+
+
+def test_length_flag_idempotent():
+    """Re-flagging an already-flagged segment must not duplicate the flag."""
+    from translation.post_processor import TranslationPostProcessor
+    processor = TranslationPostProcessor(max_chars=5)
+    results = [{"start": 0.0, "end": 1.0, "en_text": "test", "zh_text": "超過字數限制的句子", "flags": ["long"]}]
+    processed = processor._flag_long_segments(results)
+    assert processed[0]["flags"] == ["long"]
 
 
 def test_process_converts_simplified_and_flags_long():
@@ -134,19 +147,23 @@ def test_process_converts_simplified_and_flags_long():
         {"start": 1.0, "end": 2.0, "en_text": "x", "zh_text": "政府宣布將於下月推出一系列新的經濟振興措施"},
     ]
     processed = processor.process(results)
-    assert processed[0]["zh_text"] == "軟體"          # simplified converted
-    assert "[LONG]" in processed[1]["zh_text"]  # long flagged
+    assert processed[0]["zh_text"] == "軟體"
+    assert "long" not in processed[0].get("flags", [])
+    # Long segment: zh_text remains clean, "long" appears in flags
+    assert "[LONG]" not in processed[1]["zh_text"]
+    assert "long" in processed[1].get("flags", [])
 
 
 def test_process_opencc_runs_before_length_check():
     """opencc conversion happens before length check so length is measured on traditional text."""
     from translation.post_processor import TranslationPostProcessor
     processor = TranslationPostProcessor(max_chars=3)
-    # "软件测试" = 4 simplified chars → "軟體測試" = 4 traditional chars → flagged as LONG
+    # "软件测试" = 4 simplified chars → "軟體測試" = 4 traditional chars → flagged as long
     results = [{"start": 0.0, "end": 1.0, "en_text": "test", "zh_text": "软件测试"}]
     processed = processor.process(results)
-    assert "軟體測試" in processed[0]["zh_text"]
-    assert "[LONG]" in processed[0]["zh_text"]
+    assert processed[0]["zh_text"] == "軟體測試"
+    assert "long" in processed[0].get("flags", [])
+    assert "[LONG]" not in processed[0]["zh_text"]
 
 
 def test_process_marks_bad_segments_needs_review():
@@ -159,7 +176,10 @@ def test_process_marks_bad_segments_needs_review():
     ]
     processed = processor.process(results)
     for r in processed:
-        assert r["zh_text"].startswith("[NEEDS REVIEW]")
+        # zh_text untouched; "review" flag carries the warning instead
+        assert r["zh_text"] == "重複"
+        assert "review" in r.get("flags", [])
+        assert "[NEEDS REVIEW]" not in r["zh_text"]
 
 
 def test_process_clean_input_unchanged():
@@ -174,23 +194,40 @@ def test_process_clean_input_unchanged():
     assert processed[1]["zh_text"] == "歡迎收看。"
 
 
-def test_validate_batch_not_double_flagged_after_long_prefix():
-    """validate_batch should not flag a segment solely because [LONG] prefix inflates its length."""
+def test_validate_batch_clean_zh_not_double_flagged():
+    """Phase B: zh_text never carries prefixes, so validate_batch operates on raw length directly."""
     from translation.post_processor import validate_batch
-    # zh_text has [LONG] prefix already applied (26-char original → 33 chars with prefix)
-    # Should NOT trigger the too-long check — the original text is only moderately over limit
-    zh_26_chars = "一二三四五六七八九十一二三四五六七八九十一二三四五六"  # 26 chars
-    results = [{"en_text": "x" * 20, "zh_text": f"[LONG] {zh_26_chars}"}]
-    bad = validate_batch(results)
-    assert bad == [], f"Expected no bad indices, got {bad} (double-flagging bug)"
+    # 26 chars > 40-char hallucination cutoff is OK (only flags >40)
+    zh_26_chars = "一二三四五六七八九十一二三四五六七八九十一二三四五六"
+    results = [{"en_text": "x" * 20, "zh_text": zh_26_chars}]
+    assert validate_batch(results) == []
 
 
-def test_validate_batch_prefix_stripped_for_hallucination_check():
-    """Hallucination check should not count [LONG] prefix chars against zh length."""
+def test_validate_batch_hallucination_counts_only_zh_text():
+    """Hallucination check measures actual zh_text length, no prefix involved post-Phase-B."""
     from translation.post_processor import validate_batch
-    # Short en_text (2 chars), zh is 6 chars after stripping [LONG] prefix (8 chars)
-    # Without stripping: 15 chars "[LONG] 六個字。" > 2*3=6 → flagged as hallucination
-    # With stripping: 6 chars "六個字。" is not > 2*3=6 → not flagged
-    results = [{"en_text": "Hi", "zh_text": "[LONG] 六個字。"}]
-    bad = validate_batch(results)
-    assert bad == [], f"Expected no bad indices, got {bad} ([LONG] prefix inflated hallucination check)"
+    # 6-char zh vs 2-char en → 6 not > 2*3=6 → not flagged
+    results = [{"en_text": "Hi", "zh_text": "六個字。"}]
+    assert validate_batch(results) == []
+
+
+def test_process_emits_clean_zh_text_for_renderer():
+    """Renderer relies on zh_text being free of QA tags after process()."""
+    from translation.post_processor import TranslationPostProcessor
+    processor = TranslationPostProcessor(max_chars=5)
+    results = [
+        {"start": 0.0, "end": 1.0, "en_text": "Hi", "zh_text": "你好"},  # clean, short
+        {"start": 1.0, "end": 2.0, "en_text": "Hello world", "zh_text": "超過字數限制的長句子"},  # >5 → long
+        {"start": 2.0, "end": 3.0, "en_text": "A", "zh_text": "重複"},
+        {"start": 3.0, "end": 4.0, "en_text": "B", "zh_text": "重複"},
+        {"start": 4.0, "end": 5.0, "en_text": "C", "zh_text": "重複"},  # 3 reps → review
+    ]
+    processed = processor.process(results)
+    for r in processed:
+        # zh_text MUST never contain QA tag prefixes (renderer guarantee)
+        assert "[LONG]" not in r["zh_text"]
+        assert "[NEEDS REVIEW]" not in r["zh_text"]
+    # And the structured flags carry the same information
+    assert "long" in processed[1]["flags"]
+    for i in (2, 3, 4):
+        assert "review" in processed[i]["flags"]
