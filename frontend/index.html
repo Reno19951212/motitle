@@ -1016,6 +1016,27 @@
     .rm-status.error { color: var(--danger); background: rgba(220,70,80,0.12); }
     .rm-status.success { color: var(--success); }
 
+    /* Inline approval confirm box — shown inside .rm-status when unapproved segments exist */
+    .rm-approval-confirm {
+      display: flex; flex-direction: column; gap: 8px;
+      background: rgba(249,226,175,0.08);
+      border: 1px solid rgba(249,226,175,0.3);
+      border-radius: 6px; padding: 10px 12px;
+    }
+    .rm-ac-msg { color: #f9e2af; font-size: 13px; line-height: 1.5; }
+    .rm-ac-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .rm-ac-ok {
+      padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer;
+      background: #f38ba8; color: #1e1e2e; font-size: 13px; font-weight: 600;
+    }
+    .rm-ac-ok:hover { background: #eb6b8a; }
+    .rm-ac-go {
+      padding: 5px 12px; border-radius: 6px; cursor: pointer;
+      background: transparent; border: 1px solid #89b4fa;
+      color: #89b4fa; font-size: 13px;
+    }
+    .rm-ac-go:hover { background: rgba(137,180,250,0.1); }
+
     /* MP4 bitrate mode tabs */
     .rm-tab-row {
       display: flex; gap: 4px; padding: 3px;
@@ -1707,13 +1728,12 @@
       const hasTrans = f.translation_status === 'done';
       const isTranslating = f.translation_status === 'translating';
       const disabled = f._local || f.status !== 'done';
-      // Render requires ALL segments approved (backend rejects with 400 otherwise)
       const fullyApproved = segCount > 0 && approved >= segCount;
-      const renderDisabled = !hasTrans || !fullyApproved;
+      const renderDisabled = !hasTrans;
       const renderTooltip = !hasTrans
         ? '需要先翻譯'
         : !fullyApproved
-          ? `仲有 ${segCount - approved} / ${segCount} 段未批核 — 撳「校對 →」完成`
+          ? `${segCount - approved} 段未批核 — 可直接渲染（會自動批核）`
           : '下載燒入字幕後嘅影片';
       // Translate button state: hidden if ASR not done; translating → disabled spinner;
       // never translated → "▶ 翻譯"; already done → "🔄 重新翻譯"
@@ -3004,24 +3024,10 @@
     // the user's click on 儲存檔案 carries the user gesture that showSaveFilePicker()
     // requires. Calling the picker from inside the poll callback (no gesture in
     // scope) throws "Must be handling a user gesture to show a file picker".
-    const renderModalState = { fileId: null, format: 'mp4', currentRenderId: null, pendingDownload: null };
+    const renderModalState = { fileId: null, format: 'mp4', currentRenderId: null, pendingDownload: null, awaitingApprovalConfirm: false };
 
     async function requestRender(id, format) {
       if (format === 'custom') format = 'mp4';  // default when user clicks ⚙
-
-      // Pre-flight: check approval progress so we can warn before opening modal
-      const f = uploadedFiles[id];
-      if (f && f.segment_count > 0) {
-        const approved = f.approved_count != null ? f.approved_count : 0;
-        if (approved < f.segment_count) {
-          const pending = f.segment_count - approved;
-          showToast(`仲有 ${pending} 段未批核，需要全部批核先可以渲染`, 'warning');
-          if (confirm(`仲有 ${pending} 段未批核。要去校對頁完成嗎？`)) {
-            window.location.href = `proofread.html?file_id=${id}`;
-          }
-          return;
-        }
-      }
 
       openRenderModal(id, format);
     }
@@ -3030,6 +3036,7 @@
       renderModalState.fileId = fileId;
       renderModalState.currentRenderId = null;
       renderModalState.pendingDownload = null;
+      renderModalState.awaitingApprovalConfirm = false;
       selectRenderFormat(initialFormat || 'mp4');
       document.getElementById('rmStatus').classList.remove('visible', 'error', 'success');
       document.getElementById('rmConfirmBtn').disabled = false;
@@ -3055,6 +3062,7 @@
     }
 
     function closeRenderModal() {
+      renderModalState.awaitingApprovalConfirm = false;
       document.getElementById('renderOverlay').classList.remove('open');
     }
 
@@ -3132,9 +3140,36 @@
       el.classList.toggle('visible', !!msg);
     }
 
+    function showInlineApprovalConfirm(pendingCount) {
+      const el = document.getElementById('rmStatus');
+      el.innerHTML = `
+        <div class="rm-approval-confirm">
+          <div class="rm-ac-msg">⚠ 仲有 <b>${pendingCount}</b> 段未批核，係咪繼續渲染？<br>未批核段落將自動批核。</div>
+          <div class="rm-ac-actions">
+            <button class="rm-ac-ok" onclick="approveAllThenRender()">確認，繼續渲染</button>
+            <button class="rm-ac-go" onclick="navigateToProofreadFromModal()">去校對頁</button>
+          </div>
+        </div>`;
+      el.classList.add('visible');
+      document.getElementById('rmConfirmBtn').disabled = true;
+    }
+
     async function confirmRender() {
       const { fileId, format } = renderModalState;
       if (!fileId) { showToast('未選擇檔案', 'error'); return; }
+
+      // If unapproved segments exist, show inline confirm box instead of rendering.
+      // awaitingApprovalConfirm guards against re-triggering after approve-all updates local state.
+      if (!renderModalState.awaitingApprovalConfirm) {
+        const f = uploadedFiles[fileId];
+        const approved = f?.approved_count ?? 0;
+        const total = f?.segment_count ?? 0;
+        if (total > 0 && approved < total) {
+          renderModalState.awaitingApprovalConfirm = true;
+          showInlineApprovalConfirm(total - approved);
+          return;
+        }
+      }
 
       const btn = document.getElementById('rmConfirmBtn');
       btn.disabled = true;
@@ -3214,6 +3249,35 @@
         return;
       }
       await confirmRender();
+    }
+
+    async function approveAllThenRender() {
+      const { fileId } = renderModalState;
+      renderModalState.awaitingApprovalConfirm = false;
+      setRmStatus('自動批核中…', 'info');
+      document.getElementById('rmConfirmBtn').textContent = '批核中…';
+      try {
+        const r = await fetch(`${API_BASE}/api/files/${fileId}/translations/approve-all`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        // Update local state so confirmRender()'s unapproved check passes on re-entry.
+        // Without this, confirmRender() would see stale approved_count and loop.
+        if (uploadedFiles[fileId]) {
+          uploadedFiles[fileId].approved_count = uploadedFiles[fileId].segment_count || 0;
+        }
+        await confirmRender();
+      } catch (e) {
+        setRmStatus(`批核失敗：${e.message}`, 'error');
+        document.getElementById('rmConfirmBtn').disabled = false;
+        document.getElementById('rmConfirmBtn').textContent = '重試';
+      }
+    }
+
+    function navigateToProofreadFromModal() {
+      const { fileId } = renderModalState;
+      closeRenderModal();
+      window.location.href = `proofread.html?file_id=${fileId}`;
     }
 
     /**
@@ -3380,8 +3444,13 @@
       try {
         const r = await fetch(`${API_BASE}/api/files`);
         const data = await r.json();
-        uploadedFiles = {};
-        for (const f of data.files) uploadedFiles[f.id] = f;
+        const prevActive = activeFileId ? uploadedFiles[activeFileId] : null;
+        const newFiles = {};
+        for (const f of data.files) newFiles[f.id] = f;
+        // Preserve the currently-active file if the server response doesn't include it
+        // (e.g. it was injected locally or not yet committed to the server registry).
+        if (prevActive && !newFiles[prevActive.id]) newFiles[prevActive.id] = prevActive;
+        uploadedFiles = newFiles;
         renderAll();
       } catch (e) {}
     }
