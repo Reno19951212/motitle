@@ -428,6 +428,10 @@
       .b-body { grid-template-columns: 260px minmax(0, 1fr) 280px; gap: 10px; padding: 12px 14px 14px; }
       .b-topbar { grid-template-columns: 260px 1fr auto; }
     }
+    @media (max-width: 1100px) {
+      .b-body { grid-template-columns: 1fr; gap: 10px; overflow-y: auto; }
+      .b-col { min-height: auto; }
+    }
     .b-col { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
 
     /* Drop hero */
