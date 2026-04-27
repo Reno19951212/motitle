@@ -3141,10 +3141,11 @@
     }
 
     function showInlineApprovalConfirm(pendingCount) {
+      const safeCount = parseInt(pendingCount, 10) || 0;
       const el = document.getElementById('rmStatus');
       el.innerHTML = `
         <div class="rm-approval-confirm">
-          <div class="rm-ac-msg">⚠ 仲有 <b>${pendingCount}</b> 段未批核，係咪繼續渲染？<br>未批核段落將自動批核。</div>
+          <div class="rm-ac-msg">⚠ 仲有 <b>${safeCount}</b> 段未批核，係咪繼續渲染？<br>未批核段落將自動批核。</div>
           <div class="rm-ac-actions">
             <button class="rm-ac-ok" onclick="approveAllThenRender()">確認，繼續渲染</button>
             <button class="rm-ac-go" onclick="navigateToProofreadFromModal()">去校對頁</button>
@@ -3254,6 +3255,7 @@
     async function approveAllThenRender() {
       const { fileId } = renderModalState;
       renderModalState.awaitingApprovalConfirm = false;
+      document.getElementById('rmConfirmBtn').disabled = true;
       setRmStatus('自動批核中…', 'info');
       document.getElementById('rmConfirmBtn').textContent = '批核中…';
       try {
@@ -3264,7 +3266,10 @@
         // Update local state so confirmRender()'s unapproved check passes on re-entry.
         // Without this, confirmRender() would see stale approved_count and loop.
         if (uploadedFiles[fileId]) {
-          uploadedFiles[fileId].approved_count = uploadedFiles[fileId].segment_count || 0;
+          uploadedFiles[fileId] = {
+            ...uploadedFiles[fileId],
+            approved_count: uploadedFiles[fileId].segment_count || 0,
+          };
         }
         await confirmRender();
       } catch (e) {
