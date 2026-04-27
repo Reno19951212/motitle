@@ -687,3 +687,158 @@ def test_mp4_2pass_uses_unique_passlogfile_prefix(tmp_path, monkeypatch):
     # per-render unique component so concurrent jobs don't collide.
     assert prefix1 != "x264_2pass"
     assert "x264_2pass" in prefix1  # still starts with the canonical stem for discoverability
+
+
+# ============================================================
+# QA prefix stripping — [LONG] / [NEEDS REVIEW] must never burn into video
+# ============================================================
+def test_strip_qa_prefixes_no_tag():
+    from renderer import strip_qa_prefixes
+    assert strip_qa_prefixes("各位晚上好。") == "各位晚上好。"
+
+
+def test_strip_qa_prefixes_long():
+    from renderer import strip_qa_prefixes
+    assert strip_qa_prefixes("[LONG] 各位晚上好。") == "各位晚上好。"
+
+
+def test_strip_qa_prefixes_needs_review():
+    from renderer import strip_qa_prefixes
+    assert strip_qa_prefixes("[NEEDS REVIEW] 各位晚上好。") == "各位晚上好。"
+
+
+def test_strip_qa_prefixes_stacked():
+    from renderer import strip_qa_prefixes
+    # sentence_pipeline can prepend [NEEDS REVIEW] on top of an existing [LONG]
+    assert strip_qa_prefixes("[NEEDS REVIEW] [LONG] 各位晚上好。") == "各位晚上好。"
+    assert strip_qa_prefixes("[LONG] [NEEDS REVIEW] 各位晚上好。") == "各位晚上好。"
+
+
+def test_strip_qa_prefixes_empty():
+    from renderer import strip_qa_prefixes
+    assert strip_qa_prefixes("") == ""
+
+
+def test_generate_ass_strips_qa_prefixes(tmp_path):
+    from renderer import SubtitleRenderer
+    flagged = [
+        {"start": 0.0, "end": 2.0, "zh_text": "[LONG] 各位晚上好。"},
+        {"start": 2.0, "end": 4.0, "zh_text": "[NEEDS REVIEW] 歡迎收看新聞。"},
+        {"start": 4.0, "end": 6.0, "zh_text": "[LONG] [NEEDS REVIEW] 颱風正在逼近。"},
+    ]
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(flagged, DEFAULT_FONT)
+    # Tags must NOT appear anywhere in the rendered ASS dialogue
+    assert "[LONG]" not in ass
+    assert "[NEEDS REVIEW]" not in ass
+    # But the actual translation text must be preserved
+    assert "各位晚上好。" in ass
+    assert "歡迎收看新聞。" in ass
+    assert "颱風正在逼近。" in ass
+
+
+# ============================================================
+# fontsdir wiring — bundle backend/assets/fonts/ into FFmpeg ass filter
+# so libass uses the same font file the browser preview loaded via
+# @font-face, eliminating glyph drift between preview and burn-in.
+# ============================================================
+def test_escape_for_ffmpeg_filter_arg_basic():
+    from renderer import _escape_for_ffmpeg_filter_arg
+    # Plain path (macOS / Linux) — no special chars
+    assert _escape_for_ffmpeg_filter_arg("/Users/x/fonts") == "/Users/x/fonts"
+
+
+def test_escape_for_ffmpeg_filter_arg_windows_drive():
+    from renderer import _escape_for_ffmpeg_filter_arg
+    # Windows path: drive colon and backslashes both need escaping; backslash
+    # MUST be escaped first so subsequent escapes' backslashes survive.
+    assert _escape_for_ffmpeg_filter_arg("C:\\fonts") == "C\\:\\\\fonts"
+
+
+def test_escape_for_ffmpeg_filter_arg_quotes_and_commas():
+    from renderer import _escape_for_ffmpeg_filter_arg
+    assert _escape_for_ffmpeg_filter_arg("a'b,c") == "a\\'b\\,c"
+
+
+def test_render_omits_fontsdir_when_no_bundled_fonts(tmp_path, monkeypatch):
+    """Fresh repo / empty assets/fonts/ → ass filter must NOT include fontsdir."""
+    import subprocess as sp
+    from renderer import SubtitleRenderer
+    # Force the helper to report no bundled fonts regardless of repo state
+    monkeypatch.setattr("renderer._has_bundled_fonts", lambda: False)
+    captured = {}
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        class R:
+            returncode = 0
+            stderr = ""
+        return R()
+    monkeypatch.setattr(sp, "run", fake_run)
+
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT)
+    renderer.render("/fake/video.mp4", ass, str(tmp_path / "out.mp4"), "mp4")
+
+    vf_idx = captured["cmd"].index("-vf")
+    vf_value = captured["cmd"][vf_idx + 1]
+    assert "fontsdir" not in vf_value, f"Expected no fontsdir, got: {vf_value}"
+
+
+def test_render_includes_fontsdir_when_bundled_fonts_present(tmp_path, monkeypatch):
+    """When backend/assets/fonts/ has TTF/OTF, ass filter must include
+    fontsdir=<escaped absolute path> so libass picks up bundled fonts."""
+    import subprocess as sp
+    from renderer import SubtitleRenderer
+    monkeypatch.setattr("renderer._has_bundled_fonts", lambda: True)
+    monkeypatch.setattr("renderer.FONTS_DIR", tmp_path / "assets" / "fonts")
+    captured = {}
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        class R:
+            returncode = 0
+            stderr = ""
+        return R()
+    monkeypatch.setattr(sp, "run", fake_run)
+
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT)
+    renderer.render("/fake/video.mp4", ass, str(tmp_path / "out.mp4"), "mp4")
+
+    vf_idx = captured["cmd"].index("-vf")
+    vf_value = captured["cmd"][vf_idx + 1]
+    assert "fontsdir=" in vf_value, f"Expected fontsdir in -vf, got: {vf_value}"
+    # Path must be present (in escaped form) so libass can find it
+    assert "assets" in vf_value and "fonts" in vf_value
+
+
+def test_render_fontsdir_coexists_with_resolution_scale(tmp_path, monkeypatch):
+    """When both fontsdir AND scale=resolution are needed, the filter chain
+    must be `ass=...:fontsdir=...,scale=WIDTHxHEIGHT` — the fontsdir option
+    belongs to the ass filter (colon-separated), scale is a separate filter
+    (comma-separated)."""
+    import subprocess as sp
+    from renderer import SubtitleRenderer
+    monkeypatch.setattr("renderer._has_bundled_fonts", lambda: True)
+    captured = {}
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        class R:
+            returncode = 0
+            stderr = ""
+        return R()
+    monkeypatch.setattr(sp, "run", fake_run)
+
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT)
+    renderer.render(
+        "/fake/video.mp4", ass, str(tmp_path / "out.mp4"), "mp4",
+        render_options={"resolution": "1280x720"},
+    )
+
+    vf_idx = captured["cmd"].index("-vf")
+    vf_value = captured["cmd"][vf_idx + 1]
+    # fontsdir must appear BEFORE the comma (so it's an ass option, not a
+    # filter argument that ffmpeg parses as a separate filter)
+    ass_segment, _, scale_segment = vf_value.partition(",scale=")
+    assert "fontsdir=" in ass_segment, f"fontsdir should be in ass segment: {ass_segment}"
+    assert scale_segment.startswith("1280x720"), f"scale segment wrong: {scale_segment}"
