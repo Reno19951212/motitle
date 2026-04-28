@@ -1,25 +1,20 @@
 """Subtitle renderer — generates ASS subtitles and burns them into video via FFmpeg."""
 
 import os
-import re
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 from typing import List
 
-# QA prefixes injected by translation/post_processor.py — must be stripped
-# before burn-in so they never appear in the final video.
-_QA_PREFIX_RE = re.compile(r"^\s*(?:\[LONG\]|\[NEEDS REVIEW\])\s*")
-
-
-def strip_qa_prefixes(text: str) -> str:
-    """Remove any [LONG] / [NEEDS REVIEW] prefixes (possibly stacked)."""
-    prev = None
-    while text != prev:
-        prev = text
-        text = _QA_PREFIX_RE.sub("", text, count=1)
-    return text
+# Re-export from the new shared resolver so existing callers keep working
+# without importing from the new module directly.
+from subtitle_text import (
+    resolve_segment_text,
+    strip_qa_prefixes,
+    VALID_SUBTITLE_SOURCES,
+    VALID_BILINGUAL_ORDERS,
+)
 
 DEFAULT_FONT_CONFIG = {
     "family": "Noto Sans TC",
@@ -101,8 +96,19 @@ class SubtitleRenderer:
         self._renders_dir = Path(renders_dir)
         self._renders_dir.mkdir(parents=True, exist_ok=True)
 
-    def generate_ass(self, segments: List[dict], font_config: dict) -> str:
-        """Generate an ASS subtitle file string from segments and font config."""
+    def generate_ass(
+        self,
+        segments: List[dict],
+        font_config: dict,
+        *,
+        subtitle_source: str = "auto",
+        bilingual_order: str = "en_top",
+    ) -> str:
+        """Generate an ASS subtitle file string from segments and font config.
+
+        subtitle_source: which language to emit per segment.
+        bilingual_order: only used when subtitle_source == "bilingual".
+        """
         family = font_config.get("family", DEFAULT_FONT_CONFIG["family"])
         size = font_config.get("size", DEFAULT_FONT_CONFIG["size"])
         primary = hex_to_ass_color(font_config.get("color", DEFAULT_FONT_CONFIG["color"]))
@@ -135,14 +141,19 @@ class SubtitleRenderer:
         )
 
         for seg in segments:
-            # L10: skip zero/reversed-duration segments — ASS renderers mishandle them
+            # skip zero/reversed-duration segments — ASS renderers mishandle them
             if seg["start"] >= seg["end"]:
                 continue
             start = seconds_to_ass_time(seg["start"])
             end = seconds_to_ass_time(seg["end"])
-            # L11: strip QA prefixes (so they never burn into video) and
-            # replace raw newlines with ASS line-break escape sequence.
-            text = strip_qa_prefixes(seg.get("zh_text", "")).replace("\r", "").replace("\n", "\\N")
+            text = resolve_segment_text(
+                seg,
+                mode=subtitle_source,
+                order=bilingual_order,
+                line_break="\\N",
+            ).replace("\r", "").replace("\n", "\\N")
+            if not text:
+                continue  # skip empty (e.g. bilingual with both sides blank)
             lines.append(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{text}")
 
         return "\n".join(lines) + "\n"
