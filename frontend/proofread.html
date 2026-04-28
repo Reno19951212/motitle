@@ -1081,9 +1081,19 @@
     row.innerHTML = `
       <td><input class="rv-b-glossary-input" id="gedit-en-${eid}" value="${escapeHtml(entry.en)}"></td>
       <td><input class="rv-b-glossary-input" id="gedit-zh-${eid}" value="${escapeHtml(entry.zh)}"></td>
-      <td style="text-align:center;"><button class="btn btn-ghost btn-sm" onclick="saveEditEntry('${eid}')">✓</button></td>`;
-    document.getElementById(`gedit-en-${eid}`).addEventListener('keydown', e => { if (e.key === 'Enter') saveEditEntry(eid); });
-    document.getElementById(`gedit-zh-${eid}`).addEventListener('keydown', e => { if (e.key === 'Enter') saveEditEntry(eid); });
+      <td style="text-align:center;white-space:nowrap;">
+        <button class="btn btn-primary btn-sm" onclick="saveEditEntry('${eid}')" title="儲存到詞彙表 (Enter)">儲存</button>
+        <button class="btn btn-ghost btn-sm" onclick="renderGlossaryTable()" title="取消 (Esc)">取消</button>
+      </td>`;
+    const enInput = document.getElementById(`gedit-en-${eid}`);
+    const zhInput = document.getElementById(`gedit-zh-${eid}`);
+    [enInput, zhInput].forEach(el => {
+      el.addEventListener('keydown', e => {
+        if (e.key === 'Enter') saveEditEntry(eid);
+        else if (e.key === 'Escape') renderGlossaryTable();
+      });
+    });
+    enInput.focus();
   }
 
   async function saveEditEntry(eid) {
@@ -1103,6 +1113,7 @@
       const idx = glossaryEntries.findIndex(e => e.id === eid);
       if (idx >= 0) glossaryEntries = glossaryEntries.map((e, i) => i === idx ? { ...e, en, zh } : e);
       renderGlossaryTable();
+      showToast('已儲存到詞彙表', 'success');
     } catch (e) {
       showToast(`儲存失敗: ${e.message}`, 'error');
       renderGlossaryTable();
@@ -1132,16 +1143,34 @@
       body.innerHTML = `<table class="rv-b-glossary-table"><thead><tr><th>EN</th><th>ZH</th><th></th></tr></thead><tbody></tbody></table>`;
       tbl = body.querySelector('tbody');
     }
+    if (document.getElementById('grow-new')) {
+      document.getElementById('gnew-en').focus();
+      return;
+    }
     const newRow = document.createElement('tr');
     newRow.id = 'grow-new';
     newRow.innerHTML = `
       <td><input class="rv-b-glossary-input" id="gnew-en" placeholder="English"></td>
       <td><input class="rv-b-glossary-input" id="gnew-zh" placeholder="中文"></td>
-      <td style="text-align:center;"><button class="btn btn-ghost btn-sm" onclick="saveNewEntry()">✓</button></td>`;
+      <td style="text-align:center;white-space:nowrap;">
+        <button class="btn btn-primary btn-sm" onclick="saveNewEntry()" title="儲存到詞彙表 (Enter)">儲存</button>
+        <button class="btn btn-ghost btn-sm" onclick="cancelNewEntry()" title="取消 (Esc)">取消</button>
+      </td>`;
     tbl.appendChild(newRow);
-    document.getElementById('gnew-en').addEventListener('keydown', e => { if (e.key === 'Enter') saveNewEntry(); });
-    document.getElementById('gnew-zh').addEventListener('keydown', e => { if (e.key === 'Enter') saveNewEntry(); });
-    document.getElementById('gnew-en').focus();
+    const enInput = document.getElementById('gnew-en');
+    const zhInput = document.getElementById('gnew-zh');
+    [enInput, zhInput].forEach(el => {
+      el.addEventListener('keydown', e => {
+        if (e.key === 'Enter') saveNewEntry();
+        else if (e.key === 'Escape') cancelNewEntry();
+      });
+    });
+    enInput.focus();
+  }
+
+  function cancelNewEntry() {
+    const row = document.getElementById('grow-new');
+    if (row) row.remove();
   }
 
   async function saveNewEntry() {
@@ -1159,6 +1188,7 @@
       });
       if (!r.ok) throw new Error((await r.json()).error || '新增失敗');
       await loadGlossaryEntries(glossaryId);
+      showToast(`已加入詞彙表：${en} → ${zh}`, 'success');
     } catch (e) {
       showToast(`新增失敗: ${e.message}`, 'error');
     }
