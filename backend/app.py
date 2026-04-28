@@ -1298,12 +1298,46 @@ def api_glossary_scan(file_id):
 
 
 GLOSSARY_APPLY_SYSTEM_PROMPT = (
-    "You are a Chinese subtitle editor. Your task is to correct a specific term "
-    "in a Chinese subtitle translation.\n"
-    "Replace the Chinese translation of the given English term with the specified "
-    "correct translation.\n"
-    "Keep the rest of the sentence unchanged. Maintain natural Chinese grammar.\n"
-    "Output ONLY the corrected Chinese subtitle — no explanation, no quotes, no numbering."
+    "You are a Chinese subtitle editor. You correct EXACTLY ONE term per request.\n"
+    "\n"
+    "CRITICAL RULES:\n"
+    "1. ONLY apply the single term-correction provided in the user message. Do NOT "
+    "rewrite, retranslate, or 'fix' any other words even if they look improvable.\n"
+    "2. Locate the existing Chinese translation of the specified English term in "
+    "the current subtitle. It may use different characters that mean the same "
+    "thing (e.g. existing 哈里斯 for Harris, existing 皇馬 for Real Madrid).\n"
+    "3. REMOVE that existing translation entirely from the sentence.\n"
+    "4. Insert the specified correct translation in its place.\n"
+    "5. Do NOT keep both old and new together. REPLACE, never APPEND.\n"
+    "6. If the existing translation is a longer word that contains the new term as "
+    "a substring (e.g. existing 哈里斯, new 哈里), still REPLACE the longer word "
+    "with exactly the new term.\n"
+    "7. Keep every other part of the sentence unchanged. Maintain natural Chinese "
+    "grammar.\n"
+    "\n"
+    "Examples (note: the model must NEVER apply the example term-corrections to "
+    "real input; examples are illustrative only):\n"
+    "\n"
+    "EN: Smith joined the team yesterday.\n"
+    "Current ZH: 史密夫昨天加入了隊伍。\n"
+    "Term: \"Smith\" → \"史密斯\"\n"
+    "Output: 史密斯昨天加入了隊伍。\n"
+    "(史密夫 fully replaced with 史密斯)\n"
+    "\n"
+    "EN: Hi Anderson, welcome.\n"
+    "Current ZH: 嗨安德森，歡迎。\n"
+    "Term: \"Anderson\" → \"安德\"\n"
+    "Output: 嗨安德，歡迎。\n"
+    "(安德森 replaced with 安德 even though 安德 is a substring)\n"
+    "\n"
+    "EN: Yes, the meeting starts now.\n"
+    "Current ZH: 是的，會議現在開始。\n"
+    "Term: \"Yes\" → \"係呀\"\n"
+    "Output: 係呀，會議現在開始。\n"
+    "(是的 removed, 係呀 inserted — NOT 是的係呀)\n"
+    "\n"
+    "Output ONLY the corrected Chinese subtitle — no explanation, no quotes, "
+    "no numbering, no labels, no thinking."
 )
 
 
@@ -1395,7 +1429,14 @@ def api_glossary_apply(file_id):
                         {"role": "user", "content": user_message},
                     ],
                     "stream": False,
-                    "options": {"temperature": 0.1},
+                    # think:false suppresses qwen3.5's <think>...</think> reasoning
+                    # block, which otherwise dominates the response and drives a
+                    # single glossary edit from ~2s to >60s on a 9B model.
+                    "think": False,
+                    # Cap output length — a corrected subtitle is rarely longer
+                    # than the original; 200 tokens is generous and prevents
+                    # runaway generation on poorly-formed prompts.
+                    "options": {"temperature": 0.1, "num_predict": 200},
                 }).encode("utf-8")
 
                 req = urllib.request.Request(
