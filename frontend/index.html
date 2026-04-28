@@ -510,6 +510,17 @@
     }
     .queue-item:hover .qi-del { opacity: 1; }
     .queue-item .qi-del:hover { background: rgba(239,68,68,0.22); color: var(--danger); }
+    /* Subtitle source mini-dropdowns inside file cards + file-header actions row */
+    .fc-source-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+    .fc-source-mode, .fc-bilingual-order {
+      padding: 4px 8px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      font-size: 12px;
+    }
+    .fc-source-mode:focus, .fc-bilingual-order:focus { outline: 1px solid var(--accent); }
     .queue-item .qi-del.armed {
       opacity: 1;
       background: var(--danger);
