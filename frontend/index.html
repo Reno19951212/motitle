@@ -1988,9 +1988,23 @@
             </div>
           </button>`).join(''));
 
-      const asrMenuHtml = renderStepMenu('ASR · 選擇', ASR_OPTIONS, asrModel, 'applyAsrModel')
-        .replace('<div class="step-menu">', '<div class="step-menu" data-kind="asr">')
-        .replace('</div>', `
+      // Build the ASR menu inline (NOT via renderStepMenu) because it has a
+      // 2-section layout (model + language config) that doesn't fit the
+      // single-section template. Mirrors renderStepMenu's option-button
+      // structure for the model picker so styling stays consistent.
+      const asrModelButtonsHtml = ASR_OPTIONS.map(o => `
+        <button ${o.name === asrModel ? 'class="on"' : ''} onclick="applyAsrModel('${o.name.replace(/'/g, "\\'")}')">
+          <div class="smn-main">
+            <span class="smn-name">${escapeHtml(o.name)}</span>
+            ${o.badge ? `<span class="smn-badge">${escapeHtml(o.badge)}</span>` : ''}
+          </div>
+          ${o.desc ? `<div class="smn-desc">${escapeHtml(o.desc)}</div>` : ''}
+        </button>`).join('');
+
+      const asrMenuHtml = `
+        <div class="step-menu" data-kind="asr">
+          <div class="step-menu-head">ASR · 模型</div>
+          ${asrModelButtonsHtml}
           <div class="split-divider"></div>
           <div class="step-menu-head">語言配置</div>
           ${lcDropdownHtml}
@@ -2001,7 +2015,7 @@
           <button class="smn-manage" onclick="openLangConfigManageModal()">
             <span class="fmt-badge outline">⚙</span><span class="fmt-desc">管理語言配置…</span>
           </button>
-        </div>`);
+        </div>`;
       const mtMenuHtml  = renderStepMenu('MT · 選擇', MT_OPTIONS, mtEngine, 'applyMtEngine').replace('<div class="step-menu">', '<div class="step-menu" data-kind="mt" style="min-width:220px;">');
       const outMenuHtml = renderStepMenu('輸出 · 選擇', OUTPUT_OPTIONS, outputFmt, 'applyOutputFormat').replace('<div class="step-menu">', '<div class="step-menu" data-kind="output">');
 
