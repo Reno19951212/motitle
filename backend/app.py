@@ -1621,6 +1621,44 @@ def api_update_language(lang_id):
         return jsonify({"errors": e.args[0]}), 400
 
 
+@app.route('/api/languages', methods=['POST'])
+def api_create_language():
+    """Create a new language config."""
+    data = request.get_json(silent=True) or {}
+    try:
+        config = _language_config_manager.create(data)
+    except ValueError as e:
+        msg = str(e)
+        # Distinguish "already exists" (409) from validation errors (400)
+        if 'already exists' in msg.lower():
+            return jsonify({'error': msg}), 409
+        return jsonify({'error': msg}), 400
+    return jsonify({'config': config}), 200
+
+
+@app.route('/api/languages/<lang_id>', methods=['DELETE'])
+def api_delete_language(lang_id):
+    """Delete a language config. Built-ins (en/zh) and in-use configs are blocked."""
+    if lang_id in ('en', 'zh'):
+        return jsonify({'error': 'Cannot delete built-in language config'}), 400
+
+    if _language_config_manager.get(lang_id) is None:
+        return jsonify({'error': 'Not found'}), 404
+
+    used_by = []
+    for p in _profile_manager.list_all():
+        if p.get('asr', {}).get('language_config_id') == lang_id:
+            used_by.append(p.get('name') or p.get('id') or '<unnamed>')
+
+    if used_by:
+        return jsonify({
+            'error': f'Language config "{lang_id}" used by {len(used_by)} profile(s): {", ".join(used_by)}'
+        }), 400
+
+    _language_config_manager.delete(lang_id)
+    return jsonify({'ok': True}), 200
+
+
 # ============================================================
 # Translation Approval API (Proof-reading)
 # ============================================================
