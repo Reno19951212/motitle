@@ -1266,6 +1266,7 @@ def api_glossary_scan(file_id):
     gl_entries = glossary.get("entries", [])
 
     violations = []
+    matches = []
     for i, t in enumerate(translations):
         en_text = segments[i]["text"].lower() if i < len(segments) else ""
         zh_text = t.get("zh_text", "")
@@ -1273,20 +1274,26 @@ def api_glossary_scan(file_id):
         for ge in gl_entries:
             if not ge.get("en") or not ge.get("zh"):
                 continue
-            if ge["en"].lower() in en_text and ge["zh"] not in zh_text:
-                violations.append({
+            if ge["en"].lower() in en_text:
+                row = {
                     "seg_idx": i,
                     "en_text": segments[i]["text"] if i < len(segments) else "",
                     "zh_text": zh_text,
                     "term_en": ge["en"],
                     "term_zh": ge["zh"],
                     "approved": status == "approved",
-                })
+                }
+                if ge["zh"] not in zh_text:
+                    violations.append(row)
+                else:
+                    matches.append(row)
 
     return jsonify({
         "violations": violations,
+        "matches": matches,
         "scanned_count": len(translations),
         "violation_count": len(violations),
+        "match_count": len(matches),
     })
 
 

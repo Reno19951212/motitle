@@ -375,6 +375,16 @@
     }
     .ga-close:hover { color: var(--text); }
     .ga-body { flex: 1; overflow-y: auto; padding: 12px 18px; }
+    .ga-section-head {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--text-mid);
+      padding: 8px 12px 4px;
+    }
+    .ga-section-head:not(:first-child) { margin-top: 6px; border-top: 1px solid var(--border); }
+    .ga-row.matched { opacity: 0.55; }
+    .ga-row.matched .ga-row-zh::after {
+      content: "  ✓ 已符合"; color: var(--success, #4ade80); font-weight: 600;
+    }
     .ga-row {
       display: flex; align-items: flex-start; gap: 8px;
       padding: 10px 0; border-bottom: 1px solid var(--border);
@@ -1112,11 +1122,13 @@
       });
       if (!r.ok) throw new Error((await r.json()).error || '掃描失敗');
       const data = await r.json();
-      if (!data.violations || data.violations.length === 0) {
-        showToast('所有段落均符合詞表，無需替換', 'success');
+      const violations = data.violations || [];
+      const matches = data.matches || [];
+      if (violations.length === 0 && matches.length === 0) {
+        showToast('字幕中無詞彙表覆蓋嘅詞，請檢查 EN 文本或新增條目', 'info');
         return;
       }
-      showGlossaryApplyModal(data.violations);
+      showGlossaryApplyModal(violations, matches);
     } catch (e) {
       showToast(`掃描失敗: ${e.message}`, 'error');
     } finally {
@@ -1125,28 +1137,48 @@
     }
   }
 
-  function showGlossaryApplyModal(violations) {
+  function showGlossaryApplyModal(violations, matches) {
+    matches = matches || [];
     const body = document.getElementById('gaBody');
     const title = document.getElementById('gaTitle');
     const footer = document.getElementById('gaFooter');
     footer.style.display = '';
-    title.textContent = `詞彙表套用 — 發現 ${violations.length} 處不符`;
+    title.textContent =
+      `詞彙表套用 — ${violations.length} 處不符 · ${matches.length} 處已符合`;
 
-    const rows = violations.map((v, i) => {
+    const violationRows = violations.map((v, i) => {
       const checked = !v.approved ? 'checked' : '';
       const badge = v.approved ? '<span class="ga-row-badge">已批核</span>' : '';
       return `<div class="ga-row">
         <input type="checkbox" ${checked} data-idx="${i}" onchange="updateApplyCount()">
         <div class="ga-row-body">
           <div class="ga-row-term">#${v.seg_idx + 1} &nbsp;"${escapeHtml(v.term_en)}" → ${escapeHtml(v.term_zh)} ${badge}</div>
-          <div class="ga-row-zh">現：${escapeHtml(v.zh_text)}</div>
+          <div class="ga-row-zh">現:${escapeHtml(v.zh_text)}</div>
         </div>
       </div>`;
     }).join('');
 
-    body.innerHTML = rows;
+    const matchRows = matches.map(m => {
+      const badge = m.approved ? '<span class="ga-row-badge">已批核</span>' : '';
+      return `<div class="ga-row matched">
+        <input type="checkbox" disabled>
+        <div class="ga-row-body">
+          <div class="ga-row-term">#${m.seg_idx + 1} &nbsp;"${escapeHtml(m.term_en)}" → ${escapeHtml(m.term_zh)} ${badge}</div>
+          <div class="ga-row-zh">${escapeHtml(m.zh_text)}</div>
+        </div>
+      </div>`;
+    }).join('');
 
-    // Store violations for apply
+    let html = '';
+    if (violations.length > 0) {
+      html += `<div class="ga-section-head">需要修正 (${violations.length})</div>${violationRows}`;
+    }
+    if (matches.length > 0) {
+      html += `<div class="ga-section-head">已符合 (${matches.length})</div>${matchRows}`;
+    }
+    body.innerHTML = html;
+
+    // Only violations are submittable; matches are display-only
     window._gaViolations = violations;
 
     updateApplyCount();
