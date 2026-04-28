@@ -6,6 +6,7 @@ Supports video/audio file upload and live transcription to Traditional Chinese s
 
 import logging
 import os
+import re
 import sys
 import json
 import time
@@ -1295,19 +1296,39 @@ def api_glossary_scan(file_id):
         _update_file(file_id, translations=new_translations)
         translations = new_translations  # use post-revert state for the scan
 
+    # Compile word-boundary patterns once per scan. Using alphanumeric-only
+    # lookarounds (rather than \b) keeps multi-word terms ("Real Madrid") and
+    # terms with punctuation working correctly. Prevents "US" from matching
+    # inside "must" / "trust" / "discuss".
+    #
+    # Smart case-sensitivity: if the term contains any uppercase letter, treat
+    # it as case-significant (acronym/proper noun). Acronyms like "US" should
+    # NOT match the pronoun "us"; proper nouns like "Harris" should match
+    # "Harris" but not the english word "harris" if it ever appeared lowercase.
+    # Lowercase-only terms like "broadcast" stay case-insensitive.
+    def _make_term_pattern(term: str) -> "re.Pattern":
+        flags = 0 if any(c.isupper() for c in term) else re.IGNORECASE
+        return re.compile(
+            r"(?<![a-zA-Z0-9])" + re.escape(term) + r"(?![a-zA-Z0-9])",
+            flags,
+        )
+    gl_term_patterns = [
+        (ge, _make_term_pattern(ge["en"]))
+        for ge in gl_entries
+        if ge.get("en") and ge.get("zh")
+    ]
+
     violations = []
     matches = []
     for i, t in enumerate(translations):
-        en_text = segments[i]["text"].lower() if i < len(segments) else ""
+        en_text = segments[i]["text"] if i < len(segments) else ""
         zh_text = t.get("zh_text", "")
         status = t.get("status", "pending")
-        for ge in gl_entries:
-            if not ge.get("en") or not ge.get("zh"):
-                continue
-            if ge["en"].lower() in en_text:
+        for ge, term_pattern in gl_term_patterns:
+            if term_pattern.search(en_text):
                 row = {
                     "seg_idx": i,
-                    "en_text": segments[i]["text"] if i < len(segments) else "",
+                    "en_text": en_text,
                     "zh_text": zh_text,
                     "term_en": ge["en"],
                     "term_zh": ge["zh"],

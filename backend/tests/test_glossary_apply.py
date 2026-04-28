@@ -539,3 +539,179 @@ def test_scan_legacy_segment_without_applied_terms_field_is_safe(file_with_trans
     data = resp.get_json()
     assert data["reverted_count"] == 0
     assert app_module._file_registry[file_id]["translations"][0]["zh_text"] == original_zh
+
+
+# ============================================================
+# Word-boundary matching (prevents "US" matching "must" etc.)
+# ============================================================
+
+@pytest.fixture
+def file_with_us_segments(client):
+    """File whose EN texts contain 'must' / 'trust' / 'the US' to test boundaries."""
+    c, app_module = client
+    file_id = f"test-{uuid.uuid4().hex[:8]}"
+    app_module._file_registry[file_id] = {
+        "id": file_id,
+        "original_name": "us.mp4",
+        "status": "done",
+        "translation_status": "done",
+        "segments": [
+            {"start": 0.0, "end": 2.0, "text": "We must trust the process"},   # 0: NO match (must, trust contain "us")
+            {"start": 2.0, "end": 4.0, "text": "He has been in the US for days"},  # 1: match
+            {"start": 4.0, "end": 6.0, "text": "USA is a country"},             # 2: NO match (USA contains "US")
+            {"start": 6.0, "end": 8.0, "text": "Visit US."},                    # 3: match (period after)
+        ],
+        "translations": [
+            {"zh_text": "我們必須相信這個過程", "status": "pending"},
+            {"zh_text": "他已經在那裡好多日", "status": "pending"},
+            {"zh_text": "美利堅合眾國係一個國家", "status": "pending"},
+            {"zh_text": "去訪問。", "status": "pending"},
+        ],
+    }
+    yield file_id, c, app_module
+    app_module._file_registry.pop(file_id, None)
+
+
+@pytest.fixture
+def glossary_with_us(client):
+    """Glossary with single 'US' entry."""
+    c, app_module = client
+    glossary_id = f"us-glossary-{uuid.uuid4().hex[:8]}"
+    app_module._glossary_manager._write_glossary(glossary_id, {
+        "id": glossary_id,
+        "name": "US Glossary",
+        "description": "Boundary test",
+        "entries": [{"id": "e1", "en": "US", "zh": "美國"}],
+        "created_at": 0,
+        "updated_at": 0,
+    })
+    yield glossary_id, c, app_module
+    try:
+        app_module._glossary_manager.delete(glossary_id)
+    except Exception:
+        pass
+
+
+def test_scan_us_does_not_match_inside_must_or_trust(file_with_us_segments, glossary_with_us):
+    """'US' in glossary must NOT match the 'us' substring in 'must', 'trust', 'USA'."""
+    file_id, c, _ = file_with_us_segments
+    glossary_id, _, _ = glossary_with_us
+
+    resp = c.post(f"/api/files/{file_id}/glossary-scan",
+                  data=json.dumps({"glossary_id": glossary_id}),
+                  content_type="application/json")
+    assert resp.status_code == 200
+    data = resp.get_json()
+
+    # seg 0 ("We must trust the process") must NOT have any violation/match
+    seg0_hits = [v for v in (data["violations"] + data["matches"]) if v["seg_idx"] == 0]
+    assert seg0_hits == [], f"'US' should not match 'must'/'trust', got: {seg0_hits}"
+
+    # seg 2 ("USA is a country") must NOT match (USA contains US)
+    seg2_hits = [v for v in (data["violations"] + data["matches"]) if v["seg_idx"] == 2]
+    assert seg2_hits == [], f"'US' should not match 'USA', got: {seg2_hits}"
+
+
+def test_scan_us_matches_at_word_boundary(file_with_us_segments, glossary_with_us):
+    """'US' must match 'the US for days' (surrounded by spaces) and 'Visit US.' (period after)."""
+    file_id, c, _ = file_with_us_segments
+    glossary_id, _, _ = glossary_with_us
+
+    resp = c.post(f"/api/files/{file_id}/glossary-scan",
+                  data=json.dumps({"glossary_id": glossary_id}),
+                  content_type="application/json")
+    data = resp.get_json()
+
+    all_hits = data["violations"] + data["matches"]
+    seg_idxs_hit = sorted({h["seg_idx"] for h in all_hits})
+    assert seg_idxs_hit == [1, 3], (
+        f"expected matches on seg 1 (the US) and seg 3 (Visit US.), got: {seg_idxs_hit}"
+    )
+
+
+def test_scan_term_with_space_still_matches(file_with_translations, client):
+    """Multi-word terms ('Real Madrid') must still work after the boundary fix."""
+    file_id, c, app_module = file_with_translations
+    glossary_id = f"rm-glossary-{uuid.uuid4().hex[:8]}"
+    app_module._glossary_manager._write_glossary(glossary_id, {
+        "id": glossary_id,
+        "name": "RM Glossary",
+        "description": "Multi-word test",
+        "entries": [{"id": "e1", "en": "Real Madrid", "zh": "皇家馬德里"}],
+        "created_at": 0,
+        "updated_at": 0,
+    })
+    # Patch a segment to contain "Real Madrid"
+    app_module._file_registry[file_id]["segments"][0]["text"] = "Real Madrid won the cup"
+    app_module._file_registry[file_id]["translations"][0]["zh_text"] = "皇馬贏得了獎盃"
+
+    try:
+        resp = c.post(f"/api/files/{file_id}/glossary-scan",
+                      data=json.dumps({"glossary_id": glossary_id}),
+                      content_type="application/json")
+        data = resp.get_json()
+        seg0_violations = [v for v in data["violations"] if v["seg_idx"] == 0]
+        assert len(seg0_violations) == 1
+        assert seg0_violations[0]["term_en"] == "Real Madrid"
+    finally:
+        try:
+            app_module._glossary_manager.delete(glossary_id)
+        except Exception:
+            pass
+
+
+def test_scan_uppercase_term_does_not_match_lowercase_pronoun(file_with_us_segments, glossary_with_us):
+    """'US' (acronym) must NOT match the pronoun 'us' (lowercase) — case-sensitive."""
+    file_id, c, app_module = file_with_us_segments
+    glossary_id, _, _ = glossary_with_us
+
+    # Add a segment with the pronoun 'us'
+    app_module._file_registry[file_id]["segments"].append(
+        {"start": 8.0, "end": 10.0, "text": "give it to us"}
+    )
+    app_module._file_registry[file_id]["translations"].append(
+        {"zh_text": "畀我哋", "status": "pending"}
+    )
+
+    resp = c.post(f"/api/files/{file_id}/glossary-scan",
+                  data=json.dumps({"glossary_id": glossary_id}),
+                  content_type="application/json")
+    data = resp.get_json()
+
+    pronoun_seg_idx = 4
+    pronoun_hits = [v for v in (data["violations"] + data["matches"]) if v["seg_idx"] == pronoun_seg_idx]
+    assert pronoun_hits == [], (
+        f"'US' (uppercase) should NOT match 'us' (pronoun, lowercase), got: {pronoun_hits}"
+    )
+
+
+def test_scan_lowercase_term_is_case_insensitive(file_with_translations, client):
+    """Lowercase terms ('broadcast') stay case-insensitive — 'Broadcast' must still match."""
+    file_id, c, app_module = file_with_translations
+    glossary_id = f"bc-glossary-{uuid.uuid4().hex[:8]}"
+    app_module._glossary_manager._write_glossary(glossary_id, {
+        "id": glossary_id,
+        "name": "BC Glossary",
+        "description": "Lowercase term test",
+        "entries": [{"id": "e1", "en": "broadcast", "zh": "廣播"}],
+        "created_at": 0,
+        "updated_at": 0,
+    })
+    # Patch a segment to contain capitalised 'Broadcast'
+    app_module._file_registry[file_id]["segments"][0]["text"] = "Broadcast continues live"
+    app_module._file_registry[file_id]["translations"][0]["zh_text"] = "繼續直播"
+
+    try:
+        resp = c.post(f"/api/files/{file_id}/glossary-scan",
+                      data=json.dumps({"glossary_id": glossary_id}),
+                      content_type="application/json")
+        data = resp.get_json()
+        seg0_hits = [v for v in (data["violations"] + data["matches"]) if v["seg_idx"] == 0]
+        assert len(seg0_hits) == 1, (
+            f"lowercase term 'broadcast' should match 'Broadcast' case-insensitively, got: {seg0_hits}"
+        )
+    finally:
+        try:
+            app_module._glossary_manager.delete(glossary_id)
+        except Exception:
+            pass
