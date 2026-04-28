@@ -654,6 +654,22 @@
         <span class="kbd">J</span><span class="kbd">K</span><span>導航</span>
         <span class="kbd">⌘↵</span><span>批核</span>
       </div>
+      <div class="rv-header-source" style="display:inline-flex;gap:6px;align-items:center;margin-left:12px;font-size:11px;">
+        <span style="color:var(--text-dim);">字幕來源</span>
+        <select id="proofreadSourceMode" onchange="updateProofreadSubtitleSource(this)"
+                style="padding:2px 6px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text);">
+          <option value="">— 跟 Profile —</option>
+          <option value="auto">Auto</option>
+          <option value="en">EN 原文</option>
+          <option value="zh">ZH 譯文</option>
+          <option value="bilingual">雙語</option>
+        </select>
+        <select id="proofreadBilingualOrder" onchange="updateProofreadBilingualOrder(this)" style="display:none;
+                padding:2px 6px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text);">
+          <option value="en_top">EN 上</option>
+          <option value="zh_top">ZH 上</option>
+        </select>
+      </div>
     </div>
 
     <div class="rv-body">
@@ -832,6 +848,101 @@
     if (s == null) return '';
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
+
+  // Resolve segment text per subtitle source mode.
+  // Mirrors backend backend/subtitle_text.py resolve_segment_text exactly.
+  function pickSubtitleText(seg, mode = 'auto', order = 'en_top') {
+    const en = (seg.en || seg._en_text || seg.text || '').trim();
+    let zh = (seg.zh || seg.zh_text || '').trim();
+    // Strip leading [long]/[review] QA markers (legacy registry data).
+    zh = zh.replace(/^\s*(?:\[(?:long|review|LONG|REVIEW)\]\s*)+/, '').trim();
+    if (mode === 'en') return en;
+    if (mode === 'zh') return zh || en;
+    if (mode === 'bilingual') {
+      if (!en) return zh;
+      if (!zh) return en;
+      return order === 'en_top' ? `${en}\n${zh}` : `${zh}\n${en}`;
+    }
+    return zh || en;
+  }
+
+  // Resolve subtitle source from a file entry, falling back to the active profile.
+  function resolveSubtitleSource(fileEntry, profile) {
+    const v = (fileEntry || {}).subtitle_source;
+    if (v === 'auto' || v === 'en' || v === 'zh' || v === 'bilingual') return v;
+    const p = ((profile || {}).font || {}).subtitle_source;
+    if (p === 'auto' || p === 'en' || p === 'zh' || p === 'bilingual') return p;
+    return 'auto';
+  }
+  function resolveBilingualOrder(fileEntry, profile) {
+    const v = (fileEntry || {}).bilingual_order;
+    if (v === 'en_top' || v === 'zh_top') return v;
+    const p = ((profile || {}).font || {}).bilingual_order;
+    if (p === 'en_top' || p === 'zh_top') return p;
+    return 'en_top';
+  }
+
+  // ============================================================
+  // Subtitle source dropdown handlers
+  // ============================================================
+  function syncSourceDropdowns() {
+    const srcSel = document.getElementById('proofreadSourceMode');
+    const ordSel = document.getElementById('proofreadBilingualOrder');
+    if (!srcSel) return;
+    srcSel.value = (fileInfo && fileInfo.subtitle_source) ? fileInfo.subtitle_source : '';
+    if (ordSel) {
+      ordSel.value = (fileInfo && fileInfo.bilingual_order) ? fileInfo.bilingual_order : 'en_top';
+      ordSel.style.display = ((fileInfo && fileInfo.subtitle_source) === 'bilingual') ? '' : 'none';
+    }
+  }
+
+  async function updateProofreadSubtitleSource(selectEl) {
+    const value = selectEl.value || null;
+    try {
+      const r = await fetch(`${API_BASE}/api/files/${fileId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subtitle_source: value }),
+      });
+      if (!r.ok) throw new Error(((await r.json()).error) || '更新失敗');
+      fileInfo = await r.json();
+      const ordSel = document.getElementById('proofreadBilingualOrder');
+      if (ordSel) ordSel.style.display = (value === 'bilingual') ? '' : 'none';
+      refreshOverlay();
+      showToast('已更新字幕來源', 'success');
+    } catch (e) {
+      showToast(`更新失敗: ${e.message}`, 'error');
+    }
+  }
+
+  async function updateProofreadBilingualOrder(selectEl) {
+    const value = selectEl.value;
+    try {
+      const r = await fetch(`${API_BASE}/api/files/${fileId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bilingual_order: value }),
+      });
+      if (!r.ok) throw new Error(((await r.json()).error) || '更新失敗');
+      fileInfo = await r.json();
+      refreshOverlay();
+    } catch (e) {
+      showToast(`更新失敗: ${e.message}`, 'error');
+    }
+  }
+
+  function refreshOverlay() {
+    if (typeof FontPreview === 'undefined') return;
+    if (cursorIdx == null || !segs[cursorIdx]) {
+      FontPreview.updateText('');
+      return;
+    }
+    const s = segs[cursorIdx];
+    const mode = resolveSubtitleSource(fileInfo, null);
+    const order = resolveBilingualOrder(fileInfo, null);
+    FontPreview.updateText(pickSubtitleText({ en: s.en, zh: s.zh }, mode, order));
+  }
+
   function escapeRegex(s) {
     return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
@@ -1398,6 +1509,7 @@
       if (!fileInfo) throw new Error('檔案不存在');
       document.getElementById('rvFname').textContent = fileInfo.original_name;
       document.getElementById('rvFname').title = fileInfo.original_name;
+      syncSourceDropdowns();
 
       // Load segments + translations
       await loadSegments();

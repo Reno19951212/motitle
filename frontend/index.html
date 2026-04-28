@@ -1345,6 +1345,25 @@
         <button class="or-close" onclick="closeRenderModal()" aria-label="關閉">&times;</button>
       </div>
       <div class="or-body">
+        <div class="rm-row" style="margin-bottom:14px;">
+          <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">字幕來源</label>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <select id="rmSubtitleSource" onchange="rmOnSourceChange()"
+                    style="padding:6px 10px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text);min-width:160px;">
+              <option value="">— 跟 file 設定 —</option>
+              <option value="auto">Auto</option>
+              <option value="en">EN 原文</option>
+              <option value="zh">ZH 譯文</option>
+              <option value="bilingual">雙語</option>
+            </select>
+            <select id="rmBilingualOrder" style="display:none;
+                      padding:6px 10px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text);">
+              <option value="en_top">EN 上 / ZH 下</option>
+              <option value="zh_top">ZH 上 / EN 下</option>
+            </select>
+          </div>
+        </div>
+
         <div class="or-field">
           <label class="or-label">輸出格式</label>
           <div class="rm-fmt-row">
@@ -1580,6 +1599,40 @@
       if (s == null) return '';
       return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
+
+    // Resolve segment text per subtitle source mode.
+    // Mirrors backend backend/subtitle_text.py resolve_segment_text exactly.
+    function pickSubtitleText(seg, mode = 'auto', order = 'en_top') {
+      const en = (seg.en || seg._en_text || seg.text || '').trim();
+      let zh = (seg.zh || seg.zh_text || '').trim();
+      // Strip leading [long]/[review] QA markers (legacy registry data).
+      zh = zh.replace(/^\s*(?:\[(?:long|review|LONG|REVIEW)\]\s*)+/, '').trim();
+      if (mode === 'en') return en;
+      if (mode === 'zh') return zh || en;
+      if (mode === 'bilingual') {
+        if (!en) return zh;
+        if (!zh) return en;
+        return order === 'en_top' ? `${en}\n${zh}` : `${zh}\n${en}`;
+      }
+      return zh || en;
+    }
+
+    // Resolve subtitle source from a file entry, falling back to the active profile.
+    function resolveSubtitleSource(fileEntry, profile) {
+      const v = (fileEntry || {}).subtitle_source;
+      if (v === 'auto' || v === 'en' || v === 'zh' || v === 'bilingual') return v;
+      const p = ((profile || {}).font || {}).subtitle_source;
+      if (p === 'auto' || p === 'en' || p === 'zh' || p === 'bilingual') return p;
+      return 'auto';
+    }
+    function resolveBilingualOrder(fileEntry, profile) {
+      const v = (fileEntry || {}).bilingual_order;
+      if (v === 'en_top' || v === 'zh_top') return v;
+      const p = ((profile || {}).font || {}).bilingual_order;
+      if (p === 'en_top' || p === 'zh_top') return p;
+      return 'en_top';
+    }
+
     function formatDuration(seconds) {
       if (!seconds || seconds < 0) return '—:—';
       const m = Math.floor(seconds / 60);
@@ -1719,6 +1772,28 @@
               <div class="stage-pill ${stages.asr}"><span class="lb">ASR</span><span>${asrText}</span></div>
               <div class="stage-pill ${stages.mt}"><span class="lb">MT</span><span>${mtText}</span></div>
             </div>
+            ${(() => {
+              const profileSrcLabel = (() => {
+                const p = (activeProfile?.font?.subtitle_source) || 'auto';
+                return ({auto:'Auto', en:'EN', zh:'ZH', bilingual:'雙語'})[p] || 'Auto';
+              })();
+              const fileSrc = f.subtitle_source || '';
+              const fileOrder = f.bilingual_order || 'en_top';
+              return `<div class="fc-source-row" onclick="event.stopPropagation()">
+                <select class="fc-source-mode" data-file-id="${id}" onchange="updateFileSubtitleSource(this)" title="字幕來源">
+                  <option value="">— 跟 Profile（${profileSrcLabel}）—</option>
+                  <option value="auto"      ${fileSrc==='auto'?'selected':''}>Auto</option>
+                  <option value="en"        ${fileSrc==='en'?'selected':''}>EN 原文</option>
+                  <option value="zh"        ${fileSrc==='zh'?'selected':''}>ZH 譯文</option>
+                  <option value="bilingual" ${fileSrc==='bilingual'?'selected':''}>雙語</option>
+                </select>
+                <select class="fc-bilingual-order" data-file-id="${id}" onchange="updateFileBilingualOrder(this)"
+                        style="${fileSrc==='bilingual'?'':'display:none;'}" title="雙語上下次序">
+                  <option value="en_top" ${fileOrder==='en_top'?'selected':''}>EN 上 / ZH 下</option>
+                  <option value="zh_top" ${fileOrder==='zh_top'?'selected':''}>ZH 上 / EN 下</option>
+                </select>
+              </div>`;
+            })()}
           </div>`;
       }).join('');
     }
@@ -1799,6 +1874,27 @@
           <div><span class="k">語言</span>${escapeHtml(lang)}</div>
         </div>
         <div class="fh-actions">
+          ${(() => {
+            const profileSrcLabel = (() => {
+              const p = (activeProfile?.font?.subtitle_source) || 'auto';
+              return ({auto:'Auto', en:'EN', zh:'ZH', bilingual:'雙語'})[p] || 'Auto';
+            })();
+            const fileSrc = f.subtitle_source || '';
+            const fileOrder = f.bilingual_order || 'en_top';
+            return `
+              <select class="fc-source-mode" data-file-id="${f.id}" onchange="updateFileSubtitleSource(this)" title="字幕來源">
+                <option value="">— 跟 Profile（${profileSrcLabel}）—</option>
+                <option value="auto"      ${fileSrc==='auto'?'selected':''}>Auto</option>
+                <option value="en"        ${fileSrc==='en'?'selected':''}>EN 原文</option>
+                <option value="zh"        ${fileSrc==='zh'?'selected':''}>ZH 譯文</option>
+                <option value="bilingual" ${fileSrc==='bilingual'?'selected':''}>雙語</option>
+              </select>
+              <select class="fc-bilingual-order" data-file-id="${f.id}" onchange="updateFileBilingualOrder(this)"
+                      style="${fileSrc==='bilingual'?'':'display:none;'}" title="雙語上下次序">
+                <option value="en_top" ${fileOrder==='en_top'?'selected':''}>EN 上 / ZH 下</option>
+                <option value="zh_top" ${fileOrder==='zh_top'?'selected':''}>ZH 上 / EN 下</option>
+              </select>`;
+          })()}
           <div class="split-btn">
             <a class="btn btn-secondary split-main" ${disabled ? '' : `href="${API_BASE}/api/files/${f.id}/subtitle.srt" download`} title="下載字幕檔" style="${disabled ? 'opacity:0.5;pointer-events:none;' : ''}">
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M4 7l4 4 4-4M2 13h12"/></svg>
@@ -2120,6 +2216,16 @@
         術語表     ${escapeHtml(gloss?.name || '無')}${gloss ? ' (' + (gloss.entry_count || gloss.entries?.length || 0) + ' 條)' : ''}<br>
         字型       ${escapeHtml(font.family || '—')}, ${font.size || '—'}pt`;
       document.getElementById('ppsSaveBtn').textContent = editing ? '儲存' : '儲存並啟用';
+      // Subtitle source preset values
+      const sub = src.font?.subtitle_source || 'auto';
+      document.getElementById('ppsSubtitleSource').value = sub;
+      document.getElementById('ppsBilingualOrder').value = src.font?.bilingual_order || 'en_top';
+      document.getElementById('ppsBilingualOrderRow').style.display =
+        (sub === 'bilingual') ? 'flex' : 'none';
+      document.getElementById('ppsSubtitleSource').onchange = function() {
+        document.getElementById('ppsBilingualOrderRow').style.display =
+          (this.value === 'bilingual') ? 'flex' : 'none';
+      };
       document.getElementById('ppsOverlay').classList.add('open');
       setTimeout(() => document.getElementById('ppsName').focus(), 50);
     }
@@ -2133,13 +2239,21 @@
       const name = document.getElementById('ppsName').value.trim();
       const description = document.getElementById('ppsDesc').value.trim();
       if (!name) { showToast('預設名稱必填', 'error'); return; }
+      const subSrc = document.getElementById('ppsSubtitleSource').value;
+      const subOrder = document.getElementById('ppsBilingualOrder').value;
       try {
         if (_ppsEditingId) {
-          // Edit mode: PATCH only name + description
+          // Edit mode: PATCH name, description, and subtitle source fields
+          const editingProf = availableProfiles.find(p => p.id === _ppsEditingId);
+          const existingFont = editingProf?.font || activeProfile?.font || {};
           const r = await fetch(`${API_BASE}/api/profiles/${_ppsEditingId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, description }),
+            body: JSON.stringify({
+              name,
+              description,
+              font: { ...existingFont, subtitle_source: subSrc, bilingual_order: subOrder },
+            }),
           });
           if (!r.ok) throw new Error((await r.json()).error || '儲存失敗');
           await fetchProfiles();
@@ -2154,7 +2268,8 @@
           // Create mode: POST cloned activeProfile, then activate
           if (!activeProfile) { showToast('請先啟用一個 Profile', 'error'); return; }
           const { id: _id, created_at: _ca, updated_at: _ua, ...rest } = activeProfile;
-          const body = { ...rest, name, description };
+          const clonedFont = { ...(rest.font || {}), subtitle_source: subSrc, bilingual_order: subOrder };
+          const body = { ...rest, name, description, font: clonedFont };
           const r = await fetch(`${API_BASE}/api/profiles`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3088,7 +3203,13 @@
       }
       if (activeIdx >= 0) {
         const s = segments[activeIdx];
-        FontPreview.updateText(s.text || s._en_text || '');
+        const file = uploadedFiles[activeFileId] || null;
+        const mode = resolveSubtitleSource(file, activeProfile);
+        const order = resolveBilingualOrder(file, activeProfile);
+        FontPreview.updateText(pickSubtitleText({
+          en: s._en_text || s.text,
+          zh: s.zh_text || (s._en_text ? s.text : ''),
+        }, mode, order));
       } else {
         FontPreview.updateText('');
       }
@@ -3168,7 +3289,8 @@
               const trans = tData.translations || [];
               const stripQaPrefix = (s) => (s || '').replace(/^\s*(\[LONG\]|\[NEEDS REVIEW\])\s*/g, '').replace(/^\s*(\[LONG\]|\[NEEDS REVIEW\])\s*/g, '');
               for (let i = 0; i < segments.length && i < trans.length; i++) {
-                segments[i].text = stripQaPrefix(trans[i].zh_text) || segments[i]._en_text;
+                segments[i].zh_text = trans[i].zh_text || '';
+                segments[i].text = stripQaPrefix(trans[i].zh_text) || segments[i]._en_text;  // legacy: keep for backward-compat readers
                 segments[i]._approved = trans[i].status === 'approved' || trans[i].approved;
                 segments[i]._edited = trans[i].edited === true;
               }
@@ -3309,6 +3431,51 @@
       } catch (e) { showToast('翻譯失敗', 'error'); }
     }
 
+    async function updateFileSubtitleSource(selectEl) {
+      const fileId = selectEl.dataset.fileId;
+      const value = selectEl.value || null; // empty → null (clear override)
+      try {
+        const r = await fetch(`${API_BASE}/api/files/${encodeURIComponent(fileId)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subtitle_source: value }),
+        });
+        if (!r.ok) throw new Error((await r.json()).error || '更新失敗');
+        const updated = await r.json();
+        if (uploadedFiles[fileId]) {
+          uploadedFiles[fileId].subtitle_source = updated.subtitle_source;
+        }
+        // Show/hide the bilingual order dropdown for this row
+        const orderSel = document.querySelector(
+          `select.fc-bilingual-order[data-file-id="${fileId}"]`);
+        if (orderSel) {
+          orderSel.style.display = (value === 'bilingual') ? '' : 'none';
+        }
+        showToast(`已更新字幕來源：${selectEl.options[selectEl.selectedIndex].textContent}`, 'success');
+      } catch (e) {
+        showToast(`更新失敗: ${e.message}`, 'error');
+      }
+    }
+
+    async function updateFileBilingualOrder(selectEl) {
+      const fileId = selectEl.dataset.fileId;
+      const value = selectEl.value;
+      try {
+        const r = await fetch(`${API_BASE}/api/files/${encodeURIComponent(fileId)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bilingual_order: value }),
+        });
+        if (!r.ok) throw new Error((await r.json()).error || '更新失敗');
+        if (uploadedFiles[fileId]) {
+          uploadedFiles[fileId].bilingual_order = value;
+        }
+        showToast(`已更新雙語次序：${value === 'en_top' ? 'EN 上' : 'ZH 上'}`, 'success');
+      } catch (e) {
+        showToast(`更新失敗: ${e.message}`, 'error');
+      }
+    }
+
     function jumpToProofread() {
       if (activeFileId && !uploadedFiles[activeFileId]?._local) {
         window.location.href = `proofread.html?file_id=${activeFileId}`;
@@ -3357,11 +3524,22 @@
 
       // Reset MP4 mode to CRF every time the modal opens
       selectMp4BitrateMode('crf');
+
+      // Reset subtitle source dropdowns
+      document.getElementById('rmSubtitleSource').value = '';
+      document.getElementById('rmBilingualOrder').value = 'en_top';
+      document.getElementById('rmBilingualOrder').style.display = 'none';
     }
 
     function closeRenderModal() {
       renderModalState.awaitingApprovalConfirm = false;
       document.getElementById('renderOverlay').classList.remove('open');
+    }
+
+    function rmOnSourceChange() {
+      const src = document.getElementById('rmSubtitleSource').value;
+      document.getElementById('rmBilingualOrder').style.display =
+        (src === 'bilingual') ? '' : 'none';
     }
 
     function selectRenderFormat(format) {
@@ -3476,10 +3654,15 @@
       setRmStatus('開始渲染，請稍候…', 'info');
 
       const render_options = buildRenderOptions(format);
+      const src = document.getElementById('rmSubtitleSource').value;
+      const order = document.getElementById('rmBilingualOrder').value;
+      const reqBody = { file_id: fileId, format, render_options };
+      if (src) reqBody.subtitle_source = src;
+      if (src === 'bilingual' && order) reqBody.bilingual_order = order;
       try {
         const r = await fetch(`${API_BASE}/api/render`, {
           method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ file_id: fileId, format, render_options }),
+          body: JSON.stringify(reqBody),
         });
         if (!r.ok) {
           let msg = `HTTP ${r.status}`;
@@ -3487,6 +3670,9 @@
           throw new Error(msg);
         }
         const data = await r.json();
+        if (data.warning_missing_zh && data.warning_missing_zh > 0) {
+          showToast(`⚠ ${data.warning_missing_zh} 段未翻譯，會用英文原文替代渲染`, 'warning');
+        }
         renderModalState.currentRenderId = data.render_id;
         pollRender(data.render_id);
       } catch (e) {
@@ -3948,6 +4134,25 @@
                    style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--surface-2);color:var(--text);">
           </label>
           <div id="ppsSummary" style="font-size:11px;color:var(--text-dim);background:var(--surface-2);padding:10px 12px;border-radius:4px;line-height:1.6;font-family:var(--font-mono);"></div>
+          <fieldset style="border:1px solid var(--border);border-radius:6px;padding:10px 14px;">
+            <legend style="font-size:11px;color:var(--text-dim);padding:0 6px;">字幕來源預設</legend>
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;margin:6px 0;">
+              預設模式
+              <select id="ppsSubtitleSource" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface-2);color:var(--text);">
+                <option value="auto">Auto（智能切換）</option>
+                <option value="en">EN 原文</option>
+                <option value="zh">ZH 譯文</option>
+                <option value="bilingual">雙語</option>
+              </select>
+            </label>
+            <label id="ppsBilingualOrderRow" style="display:none;flex-direction:column;gap:4px;font-size:12px;margin:6px 0;">
+              雙語次序
+              <select id="ppsBilingualOrder" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface-2);color:var(--text);">
+                <option value="en_top">EN 上 / ZH 下</option>
+                <option value="zh_top">ZH 上 / EN 下</option>
+              </select>
+            </label>
+          </fieldset>
         </div>
       </div>
       <div class="or-foot" style="display:flex;justify-content:flex-end;gap:8px;padding:12px 20px;">
