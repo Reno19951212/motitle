@@ -297,25 +297,38 @@
        ============================================================ */
     .rv-b { display: grid; grid-template-columns: 340px 1fr; gap: 12px; padding: 12px 14px; width: 100%; min-height: 0; flex: 1; }
     @media (max-width: 1280px) { .rv-b { grid-template-columns: 280px 1fr; } .rv-fname { max-width: 220px; } .rv-kbd-hint { display: none; } }
+    @media (max-width: 768px) {
+      .rv-b { grid-template-columns: 1fr; padding: 8px; gap: 8px; overflow-y: auto; }
+      .rv-body { overflow-y: auto; }
+    }
 
     .rv-b-left { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; }
     .rv-b-right { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; }
     .rv-b-top-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex: 1; min-height: 0; }
+    @media (max-width: 768px) { .rv-b-top-row { grid-template-columns: 1fr; } }
     .rv-b-video-col { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
 
     .rv-b-video-wrap { flex-shrink: 1; min-height: 0; overflow: hidden; }
-    .rv-b-vid-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex-shrink: 0; }
+    /* Cap panels height so a large glossary scrolls inside instead of expanding
+       the row and covering the video preview above. */
+    .rv-b-vid-panels {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+      flex-shrink: 0; min-height: 0;
+      height: 220px; max-height: 40vh;
+    }
+    .rv-b-vid-panels > * { min-height: 0; }
+    @media (max-width: 1024px) { .rv-b-vid-panels { grid-template-columns: 1fr; height: auto; max-height: 50vh; } }
 
     .rv-b-glossary {
-      display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+      display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden;
       background: var(--surface); border: 1px solid var(--border); border-radius: 9px;
     }
     .rv-b-glossary-head {
-      display: flex; align-items: center; gap: 6px;
+      display: flex; align-items: center; gap: 6px; min-width: 0;
       padding: 7px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0;
     }
-    .rv-b-glossary-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text); }
-    .rv-b-glossary-select { flex: 1; background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 11px; padding: 2px 4px; }
+    .rv-b-glossary-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text); flex-shrink: 0; white-space: nowrap; }
+    .rv-b-glossary-select { flex: 1; min-width: 0; background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 11px; padding: 2px 4px; }
     .rv-b-glossary-body { flex: 1; min-height: 0; overflow-y: auto; }
     .rv-b-glossary-table { width: 100%; border-collapse: collapse; font-size: 11px; }
     .rv-b-glossary-table th { padding: 3px 6px; text-align: left; color: var(--text-dim); font-size: 10px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); }
@@ -324,15 +337,15 @@
     .rv-b-glossary-input { width: 100%; background: var(--surface-2); border: 1px solid var(--accent); border-radius: 3px; color: var(--text); font-size: 11px; padding: 1px 4px; box-sizing: border-box; }
 
     .rv-b-subtitle-settings {
-      display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+      display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden;
       background: var(--surface); border: 1px solid var(--border); border-radius: 9px;
     }
-    .rv-b-ss-head { padding: 7px 10px; border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text); flex-shrink: 0; }
+    .rv-b-ss-head { padding: 7px 10px; border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text); flex-shrink: 0; white-space: nowrap; }
     .rv-b-ss-body { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
-    .rv-b-ss-row { display: flex; align-items: center; gap: 6px; }
-    .rv-b-ss-label { font-size: 11px; color: var(--text-mid); width: 52px; flex-shrink: 0; }
-    .rv-b-ss-input { background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 11px; padding: 2px 6px; }
-    .rv-b-ss-color { display: flex; align-items: center; gap: 4px; flex: 1; }
+    .rv-b-ss-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .rv-b-ss-label { font-size: 11px; color: var(--text-mid); width: 52px; flex-shrink: 0; white-space: nowrap; }
+    .rv-b-ss-input { background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 11px; padding: 2px 6px; min-width: 0; flex: 1; }
+    .rv-b-ss-color { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
     .rv-b-ss-color input[type=color] { width: 24px; height: 24px; border: 1px solid var(--border); border-radius: 3px; padding: 1px; background: var(--surface-2); cursor: pointer; }
     .rv-b-ss-hex { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); }
 
@@ -391,11 +404,18 @@
       display: flex; align-items: center; justify-content: center;
       color: var(--text-dim); font-size: 13px;
     }
+    /* SVG subtitle overlay — viewBox=PlayResX×PlayResY (1920×1080) so that
+       every coordinate inside is one ASS pixel. paint-order:stroke fill +
+       round joins reproduce libass FT_Stroker outline geometry, so the
+       preview matches the burnt-in output as closely as possible. */
     .rv-b-video-sub {
-      position: absolute; left: 14px; right: 14px; bottom: 54px;
-      padding: 5px 12px; background: rgba(0,0,0,0.8); color: #fff;
-      font-size: 14px; font-weight: 500; border-radius: 2px; text-align: center;
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
       pointer-events: none;
+      overflow: visible;
+    }
+    .rv-b-video-sub text {
+      transition: opacity 0.15s ease;
     }
     .rv-b-video-controls {
       position: absolute; left: 0; right: 0; bottom: 0;
@@ -623,7 +643,10 @@
                 <div class="rv-b-video">
                   <div class="rv-b-video-placeholder" id="videoPlaceholder">選擇檔案以預覽視頻</div>
                   <video id="videoPlayer" style="display:none;" controls></video>
-                  <div class="rv-b-video-sub" id="videoSub" style="display:none;"></div>
+                  <svg class="rv-b-video-sub" id="subtitleSvg" viewBox="0 0 1920 1080"
+                       preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                    <text id="subtitleSvgText" text-anchor="middle"></text>
+                  </svg>
                 </div>
               </div>
 
@@ -732,6 +755,8 @@
 
 <div class="toast-stack" id="toastStack"></div>
 
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="js/font-preview.js"></script>
 <script>
   // ============================================================
   // Config + state
@@ -797,72 +822,16 @@
   }
 
   // ============================================================
-  // Subtitle style — mirrors Dashboard's applySubtitleStyle() so
-  // the proofread overlay matches whatever the user tuned in the
-  // 字幕設定 tab.
-  //
-  // IMPORTANT: fontConfig.size/outline_width/margin_bottom are stored
-  // at the ASS renderer's reference resolution (PlayResX=1920, PlayResY=1080).
-  // The HTML <video> + overlay <div> in preview is rendered at an
-  // arbitrary smaller container size, so we must scale the overlay
-  // by (containerWidth / 1920) for the preview to look proportionally
-  // correct vs. the final burnt-in output. This ensures:
-  //   Dashboard preview ≈ Proofread preview ≈ Playout 1080p output.
-  // ============================================================
-  const REFERENCE_WIDTH = 1920;
-
+  // Subtitle styling is fully delegated to FontPreview (frontend/js/font-preview.js).
+  // FontPreview draws into <svg id="subtitleSvg"> using viewBox=1920×1080 so every
+  // coordinate is one ASS pixel — fontConfig.size / outline_width / margin_bottom
+  // pass through unchanged and the rendered overlay matches the burnt-in libass
+  // output. No JS scaling math, no ResizeObserver needed (SVG viewBox handles it).
   function applySubtitleStyle() {
-    const el = document.getElementById('videoSub');
-    if (!el) return;
-    const container = el.parentElement;  // .rv-b-video
-    const cw = (container && container.clientWidth) || REFERENCE_WIDTH;
-    const scale = cw / REFERENCE_WIDTH;
-
-    // Scale size + outline + margin; keep a minimum of 8px font so the
-    // preview stays visible even on very narrow containers
-    const size = Math.max(8, (Number(fontConfig.size) || 32) * scale);
-    const ow   = Math.max(0, (Number(fontConfig.outline_width) || 0) * scale);
-    const mb   = Math.max(8, (Number(fontConfig.margin_bottom) || 0) * scale);
-
-    el.style.fontSize = size.toFixed(2) + 'px';
-    el.style.color = fontConfig.color;
-    el.style.fontFamily = `'${fontConfig.family}', 'Microsoft JhengHei', 'PingFang TC', system-ui, sans-serif`;
-    el.style.fontWeight = fontConfig.weight || 500;
-
-    // Stroke/outline via layered text-shadow (emulates SVG paint-order: stroke fill
-    // so it matches the ASS renderer output after burn-in).
-    const oc = fontConfig.outline_color || '#000';
-    if (ow > 0) {
-      const r = ow;
-      const shadows = [
-        `-${r}px -${r}px 0 ${oc}`, `${r}px -${r}px 0 ${oc}`,
-        `-${r}px ${r}px 0 ${oc}`,  `${r}px ${r}px 0 ${oc}`,
-        `-${r}px 0 0 ${oc}`, `${r}px 0 0 ${oc}`,
-        `0 -${r}px 0 ${oc}`, `0 ${r}px 0 ${oc}`,
-        `0 1px 2px rgba(0,0,0,0.75)`,
-      ];
-      el.style.textShadow = shadows.join(', ');
-      el.style.background = 'transparent';
-      el.style.padding = (2 * scale).toFixed(1) + 'px ' + (12 * scale).toFixed(1) + 'px';
-    } else {
-      el.style.textShadow = '0 1px 2px rgba(0,0,0,0.8)';
-      el.style.background = 'rgba(0,0,0,0.72)';
-      el.style.padding = (5 * scale).toFixed(1) + 'px ' + (12 * scale).toFixed(1) + 'px';
-      el.style.borderRadius = '3px';
+    if (typeof FontPreview !== 'undefined') {
+      FontPreview.applyFontConfig(fontConfig);
     }
-    el.style.bottom = mb.toFixed(2) + 'px';
   }
-
-  // ResizeObserver on the video container so the scale stays correct
-  // when the layout reflows (e.g. window resize, panel collapse).
-  (function observeVideoResize() {
-    if (typeof ResizeObserver === 'undefined') return;
-    document.addEventListener('DOMContentLoaded', () => {
-      const container = document.querySelector('.rv-b-video');
-      if (!container) return;
-      new ResizeObserver(() => applySubtitleStyle()).observe(container);
-    });
-  })();
 
   async function loadFontConfig() {
     try {
@@ -1186,6 +1155,12 @@
   // Load
   // ============================================================
   async function init() {
+    // Wire the SVG subtitle overlay to active profile + Socket.IO updates so
+    // changes from any tab propagate live and the preview matches burnt-in output.
+    if (typeof FontPreview !== 'undefined') {
+      FontPreview.init(null);
+    }
+
     if (!fileId) {
       showToast('缺少 file_id 參數', 'error');
       document.getElementById('detailEmpty').textContent = '需要 file_id 參數 — 從 Dashboard 點「校對 →」';
@@ -1242,12 +1217,18 @@
 
     segs = rawSegs.map((s, i) => {
       const t = translations[i] || {};
-      const zh = t.zh_text || '';
+      // Backend now returns structured { zh_text (clean), flags: [...] }.
+      // parseTranslationFlags() is kept as a safety net for any legacy
+      // payload still carrying [LONG] / [NEEDS REVIEW] prefixes inline.
+      const rawZh = t.zh_text || '';
+      const { clean, flags: prefixFlags } = parseTranslationFlags(rawZh);
+      const zh = clean;
+      const apiFlags = Array.isArray(t.flags) ? t.flags : [];
       const inMs = Math.round(s.start * 1000);
       const outMs = Math.round(s.end * 1000);
       const durSec = (outMs - inMs) / 1000;
       const cps = durSec > 0 ? Math.round((zh.length / durSec) * 10) / 10 : 0;
-      const flags = [];
+      const flags = qaFlagsFromBackend(apiFlags, prefixFlags);
       if (cps > 12) flags.push({ type: 'cps', msg: `CPS ${cps}（上限 12）` });
       return {
         idx: i,
@@ -1307,8 +1288,8 @@
       const cur = i === cursorIdx ? 'cur' : '';
       const ap = s.approved ? 'ap' : '';
       const flagsHtml = s.flags.slice(0, 2).map(f => {
-        const color = f.type === 'cps' ? 'amber' : f.type.startsWith('low-') || f.type === 'untranslated' ? 'rose' : 'amber';
-        return `<span class="qa-flag qa-flag-${color}">${flagLabel(f.type)}</span>`;
+        const color = f.type === 'review' || f.type.startsWith('low-') || f.type === 'untranslated' ? 'rose' : 'amber';
+        return `<span class="qa-flag qa-flag-${color}" title="${escapeHtml(f.msg || '')}">${flagLabel(f.type)}</span>`;
       }).join('');
       return `
         <div class="rv-b-rail-item ${cur} ${ap}" data-idx="${i}" onclick="setCursor(${i})">
@@ -1332,7 +1313,47 @@
       'low-confidence-mt': 'MT低',
       'low-confidence-asr': 'ASR低',
       'untranslated': '未譯',
+      'long': '過長',
+      'review': '需覆檢',
     })[type] || type;
+  }
+
+  // Backend post-processor (backend/translation/post_processor.py) sets a
+  // structured `flags` field on each translation. This helper parses any
+  // legacy [LONG] / [NEEDS REVIEW] prefix that may still be inline in
+  // zh_text from registry data written before the migration.
+  const TRANSLATION_PREFIX_RE = /^\s*(\[LONG\]|\[NEEDS REVIEW\])\s*/;
+  function parseTranslationFlags(zh) {
+    const flags = [];
+    const seen = new Set();
+    let clean = zh || '';
+    let m;
+    while ((m = clean.match(TRANSLATION_PREFIX_RE))) {
+      const tag = m[1];
+      if (tag === '[LONG]' && !seen.has('long')) {
+        flags.push({ type: 'long', msg: '中文長度超過 28 字（廣播單行上限）' });
+        seen.add('long');
+      } else if (tag === '[NEEDS REVIEW]' && !seen.has('review')) {
+        flags.push({ type: 'review', msg: '翻譯品質有疑問，請覆檢' });
+        seen.add('review');
+      }
+      clean = clean.slice(m[0].length);
+    }
+    return { clean, flags };
+  }
+
+  // Convert backend `flags` (array of strings like "long" / "review") into
+  // the {type, msg} shape used by the renderer. Falls back to legacy prefix
+  // parsing if the backend payload omits the field.
+  const QA_FLAG_MESSAGES = {
+    long: '中文長度超過 28 字（廣播單行上限）',
+    review: '翻譯品質有疑問，請覆檢',
+  };
+  function qaFlagsFromBackend(apiFlags, prefixFlags) {
+    if (apiFlags && apiFlags.length) {
+      return apiFlags.map(type => ({ type, msg: QA_FLAG_MESSAGES[type] || '' }));
+    }
+    return [...prefixFlags];
   }
 
   function scrollSegIntoView(i) {
@@ -1386,7 +1407,7 @@
         ${s.speaker ? `<div class="rv-b-detail-speaker"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="var(--text-dim)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="5" r="2.5"/><path d="M3 14c0-3 2.5-5 5-5s5 2 5 5"/></svg><span>${escapeHtml(s.speaker)}</span></div>` : ''}
         <div class="spacer"></div>
         ${s.flags.map(f => {
-          const c = f.type === 'cps' ? 'amber' : 'rose';
+          const c = f.type === 'review' || f.type.startsWith('low-') || f.type === 'untranslated' ? 'rose' : 'amber';
           return `<div class="qa-flag qa-flag-${c}" title="${escapeHtml(f.msg || '')}">${flagLabel(f.type)}</div>`;
         }).join('')}
         ${s.approved ? '<span class="qa-flag" style="background:rgba(34,197,94,0.14);color:#4ade80;">✓ 已批核</span>' : ''}
@@ -1674,14 +1695,14 @@
     // Which segment covers the current time?
     const active = segs.findIndex(s => tMs >= s.in && tMs < s.out);
 
-    // Video subtitle overlay
-    const sub = document.getElementById('videoSub');
-    if (active >= 0) {
-      const s = segs[active];
-      sub.textContent = s.zh || s.en || '';
-      sub.style.display = s.zh || s.en ? 'block' : 'none';
-    } else {
-      sub.style.display = 'none';
+    // Video subtitle overlay — text rendered into FontPreview's SVG.
+    if (typeof FontPreview !== 'undefined') {
+      if (active >= 0) {
+        const s = segs[active];
+        FontPreview.updateText(s.zh || s.en || '');
+      } else {
+        FontPreview.updateText('');
+      }
     }
 
     // Auto-follow cursor while playing: advance segment rail + timeline region +

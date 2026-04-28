@@ -263,13 +263,9 @@ def translate_with_sentences(
 
     still_bad = validate_batch(results)
     for idx in still_bad:
-        zh = results[idx]["zh_text"]
-        if not zh.startswith("[NEEDS REVIEW]"):
-            results[idx] = TranslatedSegment(
-                start=results[idx]["start"],
-                end=results[idx]["end"],
-                en_text=results[idx]["en_text"],
-                zh_text=f"[NEEDS REVIEW] {zh}",
-            )
+        existing_flags = list(results[idx].get("flags", []))
+        if "review" not in existing_flags:
+            existing_flags.append("review")
+        results[idx] = {**results[idx], "flags": existing_flags}
 
     return results

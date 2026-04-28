@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MoTitle — 廣播字幕製作系統</title>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="js/font-preview.js"></script>
   <style>
     /* ============================================================
        MoTitle Dashboard (Bold redesign)
@@ -204,7 +205,7 @@
     .b-rail .flex1 { flex: 1; }
 
     /* Main */
-    .b-main { display: grid; grid-template-rows: auto 1fr; min-height: 0; }
+    .b-main { display: grid; grid-template-rows: auto 1fr; min-height: 0; min-width: 0; }
 
     .b-topbar {
       display: grid;
@@ -428,7 +429,12 @@
       .b-body { grid-template-columns: 260px minmax(0, 1fr) 280px; gap: 10px; padding: 12px 14px 14px; }
       .b-topbar { grid-template-columns: 260px 1fr auto; }
     }
-    .b-col { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+    @media (max-width: 1100px) {
+      .b-body { grid-template-columns: 1fr; gap: 10px; overflow-y: auto; }
+      .b-col { min-height: auto; }
+      .b-topbar { grid-template-columns: 1fr auto; gap: 8px; padding: 8px 12px; }
+    }
+    .b-col { display: flex; flex-direction: column; gap: 14px; min-height: 0; min-width: 0; }
 
     /* Drop hero */
     .drop-hero {
@@ -581,14 +587,23 @@
       min-width: 0;
     }
     .fh-meta .k { color: var(--text-dim); text-transform: uppercase; font-size: 10px; letter-spacing: 0.06em; font-family: var(--font-ui); font-weight: 700; margin-right: 4px; }
-    .file-header .fh-actions { margin-left: auto; display: flex; gap: 8px; }
+    .file-header .fh-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; min-width: 0; }
+    @media (max-width: 768px) {
+      .file-header { flex-wrap: wrap; }
+      .file-header .fh-actions { width: 100%; margin-left: 0; }
+    }
 
-    .video-panel { min-height: 0; display: grid; grid-template-rows: 1fr auto; }
+    .video-panel { min-height: 0; min-width: 0; display: grid; grid-template-rows: 1fr auto; grid-template-columns: minmax(0, 1fr); }
     .video-area {
       position: relative;
       background: #000;
       overflow: hidden;
       aspect-ratio: 16/9;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      max-height: 100%;
+      justify-self: stretch;
     }
     .video-area video {
       width: 100%; height: 100%;
@@ -601,19 +616,18 @@
       background: linear-gradient(135deg, #1a1a2a, #0a0a14);
       font-size: 13px;
     }
+    /* SVG subtitle overlay — viewBox=PlayResX×PlayResY (1920×1080) so every
+       coordinate maps 1:1 to ASS pixels. paint-order:stroke fill + round joins
+       reproduce libass FT_Stroker outline geometry, so the live preview
+       matches the burnt-in output as closely as possible. */
     .subtitle-overlay {
-      position: absolute; left: 0; right: 0;
-      display: flex; justify-content: center; pointer-events: none;
-      transition: bottom 0.2s;
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      overflow: visible;
     }
-    .subtitle-overlay-text {
-      padding: 4px 14px;
-      font-weight: 500;
-      text-align: center;
-      max-width: 86%;
-      line-height: 1.3;
-      /* paint-order + stroke-like effect via layered text-shadows */
-      transition: opacity 0.25s ease, font-size 0.15s ease, color 0.15s ease;
+    .subtitle-overlay text {
+      transition: opacity 0.15s ease;
     }
     .waveform-strip {
       /* Bolts directly to the bottom of the video area — no border/gap so it reads
@@ -868,6 +882,7 @@
     .split-btn .split-menu {
       position: absolute; top: calc(100% + 4px); right: 0;
       min-width: 220px;
+      max-width: min(320px, calc(100vw - 24px));
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 10px;
@@ -1191,9 +1206,10 @@
                   <div>選擇檔案以預覽視頻</div>
                 </div>
                 <video id="videoPlayer" style="display:none;" controls></video>
-                <div class="subtitle-overlay">
-                  <div class="subtitle-overlay-text" id="subtitleOverlay" style="display:none;"></div>
-                </div>
+                <svg class="subtitle-overlay" id="subtitleSvg" viewBox="0 0 1920 1080"
+                     preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                  <text id="subtitleSvgText" text-anchor="middle"></text>
+                </svg>
               </div>
               <div class="waveform-strip">
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="var(--text-mid)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8h1M4 5v6M6 3v10M8 6v4M10 4v8M12 7v2M14 8h0"/></svg>
@@ -2725,62 +2741,21 @@
     // ============================================================
     // Subtitle overlay — sync with video time + apply font config
     // ============================================================
-    // fontConfig values are stored at ASS reference resolution (PlayResX=1920,
-    // PlayResY=1080). The HTML <video> + overlay <div> in preview is rendered
-    // at an arbitrary smaller container width, so scale by (containerWidth / 1920)
-    // so the preview appearance matches the final burnt-in 1080p output and is
-    // consistent across Dashboard preview / Proofread preview / Playout.
-    const REFERENCE_WIDTH = 1920;
-
+    // Styling is fully delegated to FontPreview (frontend/js/font-preview.js).
+    // FontPreview draws into <svg id="subtitleSvg"> with viewBox=1920×1080 so
+    // every coordinate is one ASS pixel — fontConfig.size / outline_width /
+    // margin_bottom pass through unchanged. SVG viewBox handles container
+    // resize automatically, no JS scaling math or ResizeObserver needed.
     function applySubtitleStyle() {
-      const el = document.getElementById('subtitleOverlay');
-      const overlay = el && el.parentElement;
-      if (!el || !overlay) return;
-      const videoArea = document.getElementById('videoArea');
-      const cw = (videoArea && videoArea.clientWidth) || REFERENCE_WIDTH;
-      const scale = cw / REFERENCE_WIDTH;
-
-      const size = Math.max(8, (Number(fontConfig.size) || 32) * scale);
-      const ow   = Math.max(0, (Number(fontConfig.outline_width) || 0) * scale);
-      const mb   = Math.max(8, (Number(fontConfig.margin_bottom) || 0) * scale);
-
-      el.style.fontSize = size.toFixed(2) + 'px';
-      el.style.color = fontConfig.color;
-      el.style.fontFamily = `'${fontConfig.family}', 'Microsoft JhengHei', 'PingFang TC', system-ui, sans-serif`;
-
-      const oc = fontConfig.outline_color || '#000';
-      if (ow > 0) {
-        const r = ow;
-        const shadows = [
-          `-${r}px -${r}px 0 ${oc}`, `${r}px -${r}px 0 ${oc}`,
-          `-${r}px ${r}px 0 ${oc}`,  `${r}px ${r}px 0 ${oc}`,
-          `-${r}px 0 0 ${oc}`, `${r}px 0 0 ${oc}`,
-          `0 -${r}px 0 ${oc}`, `0 ${r}px 0 ${oc}`,
-          `0 1px 2px rgba(0,0,0,0.75)`,
-        ];
-        el.style.textShadow = shadows.join(', ');
-        el.style.background = 'transparent';
-      } else {
-        el.style.textShadow = '0 1px 2px rgba(0,0,0,0.8)';
-        el.style.background = 'rgba(0,0,0,0.72)';
-        el.style.borderRadius = '3px';
+      if (typeof FontPreview !== 'undefined') {
+        FontPreview.applyFontConfig(fontConfig);
       }
-      overlay.style.bottom = mb.toFixed(2) + 'px';
     }
 
-    // Re-apply on video-area resize so the scale stays true during layout reflows
-    (function observeVideoAreaResize() {
-      if (typeof ResizeObserver === 'undefined') return;
-      const videoArea = document.getElementById('videoArea');
-      if (!videoArea) return;
-      new ResizeObserver(() => applySubtitleStyle()).observe(videoArea);
-    })();
-
     function updateSubtitleOverlay(currentTime) {
-      const el = document.getElementById('subtitleOverlay');
-      if (!el) return;
+      if (typeof FontPreview === 'undefined') return;
       if (!segments || segments.length === 0) {
-        el.style.display = 'none';
+        FontPreview.updateText('');
         return;
       }
       const t = currentTime + subtitleDelay;
@@ -2790,10 +2765,9 @@
       }
       if (activeIdx >= 0) {
         const s = segments[activeIdx];
-        el.textContent = s.text || s._en_text || '';
-        el.style.display = 'inline-block';
+        FontPreview.updateText(s.text || s._en_text || '');
       } else {
-        el.style.display = 'none';
+        FontPreview.updateText('');
       }
       syncActiveTranscriptRow(activeIdx);
     }
@@ -2869,8 +2843,9 @@
             if (tResp.ok) {
               const tData = await tResp.json();
               const trans = tData.translations || [];
+              const stripQaPrefix = (s) => (s || '').replace(/^\s*(\[LONG\]|\[NEEDS REVIEW\])\s*/g, '').replace(/^\s*(\[LONG\]|\[NEEDS REVIEW\])\s*/g, '');
               for (let i = 0; i < segments.length && i < trans.length; i++) {
-                segments[i].text = trans[i].zh_text || segments[i]._en_text;
+                segments[i].text = stripQaPrefix(trans[i].zh_text) || segments[i]._en_text;
                 segments[i]._approved = trans[i].status === 'approved' || trans[i].approved;
                 segments[i]._edited = trans[i].edited === true;
               }
@@ -3543,6 +3518,9 @@
     // Init
     // ============================================================
     connectSocket();
+    // Wire SVG subtitle overlay to active profile + Socket.IO updates so the
+    // preview matches burnt-in libass output (font-preview.js handles styling).
+    if (typeof FontPreview !== 'undefined') FontPreview.init(socket);
     fetchActiveProfile().then(fetchProfiles).then(fetchGlossaries).then(fetchFileList);
     renderAll();
   </script>

@@ -1,4 +1,14 @@
-"""Translation post-processor: opencc conversion, length flagging, quality validation."""
+"""Translation post-processor: opencc conversion, length flagging, quality validation.
+
+QA tags are exposed as a structured ``flags: List[str]`` field on each segment
+rather than being prepended to ``zh_text``. This keeps the rendered subtitle
+text clean (no `[LONG]` / `[NEEDS REVIEW]` ever burnt into video) while still
+letting the UI surface the warnings as badges.
+
+Known flag values:
+- ``"long"``   — zh_text exceeds ``max_chars`` (broadcast single-line limit)
+- ``"review"`` — validate_batch detected repetition / hallucination / missing translation
+"""
 
 import opencc
 from typing import List
@@ -34,17 +44,22 @@ def validate_batch(results: List[dict]) -> List[int]:
             if i not in bad_indices:
                 bad_indices.append(i)
             continue
-        # Strip [LONG] prefix before length/hallucination checks so that
-        # _flag_long_segments output does not inflate the measured length.
-        zh_raw = zh.removeprefix("[LONG] ")
-        if len(zh_raw) > 40:
+        if len(zh) > 40:
             if i not in bad_indices:
                 bad_indices.append(i)
-        if len(en) > 0 and len(zh_raw) > len(en) * 3:
+        if len(en) > 0 and len(zh) > len(en) * 3:
             if i not in bad_indices:
                 bad_indices.append(i)
 
     return sorted(bad_indices)
+
+
+def _add_flag(segment: dict, flag: str) -> dict:
+    """Return a new segment dict with ``flag`` appended to its flags list (deduped)."""
+    existing = list(segment.get("flags", []))
+    if flag not in existing:
+        existing.append(flag)
+    return {**segment, "flags": existing}
 
 
 class TranslationPostProcessor:
@@ -62,11 +77,13 @@ class TranslationPostProcessor:
         ]
 
     def _flag_long_segments(self, results: List[dict]) -> List[dict]:
-        """Prepend [LONG] to segments exceeding max_chars. Preserves original text."""
+        """Tag segments exceeding ``max_chars`` with the ``"long"`` flag.
+
+        Does NOT modify ``zh_text`` — flag is attached to a structured
+        ``flags`` field so the renderer/UI can decide how to surface it.
+        """
         return [
-            {**r, 'zh_text': f"[LONG] {r['zh_text']}"}
-            if len(r.get('zh_text', '')) > self._max_chars
-            else r
+            _add_flag(r, "long") if len(r.get('zh_text', '')) > self._max_chars else r
             for r in results
         ]
 
@@ -78,11 +95,9 @@ class TranslationPostProcessor:
         return self._mark_bad_segments(results, bad_indices)
 
     def _mark_bad_segments(self, results: List[dict], bad_indices: List[int]) -> List[dict]:
-        """Prepend [NEEDS REVIEW] to segments flagged by validate_batch."""
+        """Tag segments flagged by ``validate_batch`` with the ``"review"`` flag."""
         bad_set = set(bad_indices)
         return [
-            {**r, 'zh_text': f'[NEEDS REVIEW] {r.get("zh_text", "")}'}
-            if i in bad_set and not r.get('zh_text', '').startswith('[NEEDS REVIEW]')
-            else r
+            _add_flag(r, "review") if i in bad_set else r
             for i, r in enumerate(results)
         ]
