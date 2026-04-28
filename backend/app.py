@@ -1447,6 +1447,21 @@ def api_glossary_apply(file_id):
 
     import urllib.request
 
+    # OpenCC s2twp converts simplified Chinese (and idioms) to Traditional
+    # Taiwan. The initial translation pipeline runs this post-processor;
+    # glossary-apply must run it too or the LLM's simplified-leaning output
+    # produces mixed-script segments (e.g. "美国" sneaking in beside
+    # surrounding "美國" / "幾天" already-converted text).
+    try:
+        import opencc
+        _s2t = opencc.OpenCC("s2twp")
+        def _to_traditional(zh: str) -> str:
+            return _s2t.convert(zh) if zh else zh
+    except ImportError:
+        # opencc unavailable in this environment — skip conversion gracefully
+        def _to_traditional(zh: str) -> str:
+            return zh
+
     results = []
     new_translations = list(translations)
 
@@ -1512,6 +1527,11 @@ def api_glossary_apply(file_id):
                     raw = resp.read().decode("utf-8").strip()
                     resp_data = json.loads(raw)
                     corrected_zh = resp_data.get("message", {}).get("content", "").strip()
+                    # Normalise to Traditional Chinese to match the rest of the
+                    # subtitle, which has already been opencc-converted at
+                    # initial-translation time. Without this, qwen3.5's default
+                    # simplified output leaks through (e.g. 美国 instead of 美國).
+                    corrected_zh = _to_traditional(corrected_zh)
 
                 if corrected_zh:
                     current_zh = corrected_zh
