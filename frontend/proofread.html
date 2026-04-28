@@ -381,6 +381,8 @@
       padding: 8px 12px 4px;
     }
     .ga-section-head:not(:first-child) { margin-top: 6px; border-top: 1px solid var(--border); }
+    .ga-select-all { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+    .ga-select-all input[type="checkbox"] { margin: 0; }
     .ga-row.matched { opacity: 0.55; transition: opacity 0.15s ease; }
     .ga-row.matched:has(input:checked) { opacity: 1; }
     .ga-row.matched .ga-row-zh::after {
@@ -1175,7 +1177,12 @@
 
     let html = '';
     if (violations.length > 0) {
-      html += `<div class="ga-section-head">需要修正 (${violations.length})</div>${violationRows}`;
+      html += `<div class="ga-section-head ga-section-head-row">
+        <label class="ga-select-all">
+          <input type="checkbox" id="gaSelectAllViolations" onchange="toggleSelectAllViolations(this.checked)">
+          <span>需要修正 (${violations.length}) — 全部選中</span>
+        </label>
+      </div>${violationRows}`;
     }
     if (matches.length > 0) {
       html += `<div class="ga-section-head">已符合 (${matches.length}) — 可剔選強制重新套用</div>${matchRows}`;
@@ -1191,11 +1198,33 @@
   }
 
   function updateApplyCount() {
-    const checks = document.querySelectorAll('#gaBody input[type="checkbox"]');
-    const count = Array.from(checks).filter(c => c.checked).length;
+    // Master "select all" excluded from row count
+    const rowChecks = document.querySelectorAll(
+      '#gaBody .ga-row input[type="checkbox"]'
+    );
+    const count = Array.from(rowChecks).filter(c => c.checked).length;
     const btn = document.getElementById('gaApplyBtn');
     btn.textContent = `套用選中 (${count})`;
     btn.disabled = count === 0;
+
+    // Sync the master checkbox indeterminate / checked state for violations
+    const master = document.getElementById('gaSelectAllViolations');
+    if (master) {
+      const violationChecks = document.querySelectorAll(
+        '#gaBody .ga-row:not(.matched) input[type="checkbox"]'
+      );
+      const total = violationChecks.length;
+      const checked = Array.from(violationChecks).filter(c => c.checked).length;
+      master.checked = total > 0 && checked === total;
+      master.indeterminate = checked > 0 && checked < total;
+    }
+  }
+
+  function toggleSelectAllViolations(checked) {
+    document.querySelectorAll('#gaBody .ga-row:not(.matched) input[type="checkbox"]').forEach(c => {
+      c.checked = checked;
+    });
+    updateApplyCount();
   }
 
   async function applySelectedViolations() {
