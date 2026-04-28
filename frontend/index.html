@@ -348,6 +348,8 @@
     .pipeline-strip .arrow { color: var(--text-dim); padding: 0 2px; }
     .pipeline-strip .sep { width: 1px; align-self: stretch; background: var(--border); margin: 4px 0; }
 
+    [data-loading="1"]::after { content: ' (載入中…)'; color: var(--text-dim); font-size: 11px; }
+
     .pipeline-preset {
       display: flex; align-items: center; gap: 8px;
       padding: 6px 10px;
@@ -1562,6 +1564,7 @@
       </div>
       <div class="or-foot">
         <button class="or-btn" type="button" onclick="closeRenderModal()">取消</button>
+        <button class="or-btn" type="button" id="rmCancelBtn" style="display:none;" onclick="cancelCurrentRender()">取消渲染</button>
         <button class="or-btn primary" type="button" id="rmConfirmBtn" onclick="onRenderPrimaryClick()">開始渲染</button>
       </div>
     </div>
@@ -1591,6 +1594,24 @@
     let currentTab = 'transcript';
     let transcriptFilter = 'all';
     let fontConfig = { family: 'Noto Sans TC', size: 32, color: '#ffffff', outline_color: '#000000', outline_width: 2, margin_bottom: 40 };
+
+    // ============================================================
+    // Modal focus helpers
+    // ============================================================
+    const _modalTriggers = new WeakMap();
+    function _openModalWithFocus(overlayId, triggerEl) {
+      const overlay = document.getElementById(overlayId);
+      if (!overlay) return;
+      if (triggerEl instanceof Element) _modalTriggers.set(overlay, triggerEl);
+      overlay.classList.add('open');
+    }
+    function _closeModalRestoreFocus(overlayId) {
+      const overlay = document.getElementById(overlayId);
+      if (!overlay) return;
+      overlay.classList.remove('open');
+      const trigger = _modalTriggers.get(overlay);
+      if (trigger && document.contains(trigger)) trigger.focus();
+    }
 
     // ============================================================
     // Helpers
@@ -2060,14 +2081,16 @@
       const presetMenuHtml = `
         <div class="step-menu preset-menu" style="min-width: 260px;">
           <div class="step-menu-head">Pipeline 預設</div>
-          ${availableProfiles.map(pr => `
+          ${availableProfiles.length
+            ? availableProfiles.map(pr => `
             <button ${pr.id === p.id ? 'class="on"' : ''} onclick="activateProfile('${pr.id}')">
               <div class="smn-main">
                 <span class="smn-name">${escapeHtml(pr.name || pr.id)}</span>
                 ${pr.id === p.id ? '<span class="smn-badge">當前</span>' : ''}
               </div>
               <div class="smn-desc">${escapeHtml(pr.asr?.model_size || '—')} · ${escapeHtml((pr.translation?.engine || '—').replace(/-cloud$/,''))}</div>
-            </button>`).join('')}
+            </button>`).join('')
+            : '<div style="padding:8px 12px;color:var(--text-dim);font-size:12px;">未有 Profile，撳「+ 新增」建立第一個</div>'}
           <div class="split-divider"></div>
           <button class="smn-manage" onclick="openProfileSaveModal()"><span class="fmt-badge outline">💾</span><span class="fmt-desc">將當前設定儲存為新預設…</span></button>
           <button class="smn-manage" onclick="openProfileManageModal()"><span class="fmt-badge outline">⚙</span><span class="fmt-desc">管理預設…</span></button>
@@ -2191,6 +2214,7 @@
     let _ppsEditingId = null;
 
     function openProfileSaveModal(editingId = null) {
+      const trigger = document.activeElement;
       _ppsEditingId = editingId;
       const editing = editingId ? availableProfiles.find(p => p.id === editingId) : null;
       const src = editing || activeProfile;
@@ -2226,12 +2250,12 @@
         document.getElementById('ppsBilingualOrderRow').style.display =
           (this.value === 'bilingual') ? 'flex' : 'none';
       };
-      document.getElementById('ppsOverlay').classList.add('open');
+      _openModalWithFocus('ppsOverlay', trigger);
       setTimeout(() => document.getElementById('ppsName').focus(), 50);
     }
 
     function closeProfileSaveModal() {
-      document.getElementById('ppsOverlay').classList.remove('open');
+      _closeModalRestoreFocus('ppsOverlay');
       _ppsEditingId = null;
     }
 
@@ -2290,16 +2314,21 @@
     }
 
     function openProfileManageModal() {
+      const trigger = document.activeElement;
       _renderProfileManageList();
-      document.getElementById('ppmOverlay').classList.add('open');
+      _openModalWithFocus('ppmOverlay', trigger);
     }
 
     function closeProfileManageModal() {
-      document.getElementById('ppmOverlay').classList.remove('open');
+      _closeModalRestoreFocus('ppmOverlay');
     }
 
     function _renderProfileManageList() {
       const body = document.getElementById('ppmBody');
+      if (!availableProfiles.length) {
+        body.innerHTML = '<div style="padding:12px;color:var(--text-dim);font-size:12px;">未有 Profile，撳「+ 新增」建立第一個</div>';
+        return;
+      }
       const activeId = activeProfile?.id;
       body.innerHTML = availableProfiles.map(p => {
         const isActive = p.id === activeId;
@@ -2338,6 +2367,7 @@
     let _lcEditingId = null;  // null = create mode; id string = edit mode
 
     function openLangConfigCreateModal(prefillId = null) {
+      const trigger = document.activeElement;
       _lcEditingId = prefillId;
       const isEdit = prefillId !== null;
       const existing = isEdit ? availableLanguageConfigs.find(lc => lc.id === prefillId) : null;
@@ -2351,7 +2381,7 @@
       document.getElementById('lcTemp').value = existing?.translation?.temperature ?? 0.1;
       _lcSyncSliderLabels();
       document.getElementById('lcIdError').style.display = 'none';
-      document.getElementById('lcOverlay').classList.add('open');
+      _openModalWithFocus('lcOverlay', trigger);
       // Wire slider labels
       ['lcMaxWords','lcMaxDur','lcBatch','lcTemp'].forEach(id => {
         document.getElementById(id).oninput = _lcSyncSliderLabels;
@@ -2367,7 +2397,7 @@
     }
 
     function closeLangConfigModal() {
-      document.getElementById('lcOverlay').classList.remove('open');
+      _closeModalRestoreFocus('lcOverlay');
       _lcEditingId = null;
     }
 
@@ -2422,12 +2452,13 @@
     }
 
     function openLangConfigManageModal() {
+      const trigger = document.activeElement;
       _renderLangConfigManageList();
-      document.getElementById('lcmOverlay').classList.add('open');
+      _openModalWithFocus('lcmOverlay', trigger);
     }
 
     function closeLangConfigManageModal() {
-      document.getElementById('lcmOverlay').classList.remove('open');
+      _closeModalRestoreFocus('lcmOverlay');
     }
 
     function _renderLangConfigManageList() {
@@ -2507,6 +2538,14 @@
     let _activatingProfile = false;
     async function activateProfile(id) {
       if (_activatingProfile) return;  // debounce: ignore overlapping clicks
+      // Block if any file is currently being transcribed or translated
+      const busy = Object.values(uploadedFiles).some(f =>
+        f.status === 'transcribing' || f.translation_status === 'translating'
+      );
+      if (busy) {
+        showToast('有檔案正在處理中，請完成後再切換 Pipeline', 'warning');
+        return;
+      }
       _activatingProfile = true;
       try {
         await fetch(`${API_BASE}/api/profiles/${id}/activate`, { method: 'POST' });
@@ -2574,6 +2613,7 @@
     ];
 
     function openOpenRouterModal() {
+      const trigger = document.activeElement;
       const existingKey = activeProfile?.translation?.api_key || '';
       const existingModel = activeProfile?.translation?.openrouter_model || '';
       const existingReasoning = !!activeProfile?.translation?.openrouter_reasoning;
@@ -2601,12 +2641,12 @@
 
       renderOrHistory();
       renderOrSuggestions();
-      document.getElementById('orOverlay').classList.add('open');
+      _openModalWithFocus('orOverlay', trigger);
       document.getElementById('orModelId').focus();
     }
 
     function closeOpenRouterModal() {
-      document.getElementById('orOverlay').classList.remove('open');
+      _closeModalRestoreFocus('orOverlay');
     }
 
     function toggleOrApiKeyVisibility() {
@@ -3525,6 +3565,7 @@
     }
 
     function openRenderModal(fileId, initialFormat) {
+      const trigger = document.activeElement;
       renderModalState.fileId = fileId;
       renderModalState.currentRenderId = null;
       renderModalState.pendingDownload = null;
@@ -3533,7 +3574,9 @@
       document.getElementById('rmStatus').classList.remove('visible', 'error', 'success');
       document.getElementById('rmConfirmBtn').disabled = false;
       document.getElementById('rmConfirmBtn').textContent = '開始渲染';
-      document.getElementById('renderOverlay').classList.add('open');
+      const cancelBtn = document.getElementById('rmCancelBtn');
+      if (cancelBtn) cancelBtn.style.display = 'none';
+      _openModalWithFocus('renderOverlay', trigger);
 
       // Wire up slider live labels (idempotent — addEventListener dedup via dataset flag)
       const bindSliderLabel = (sliderId, labelId, formatFn) => {
@@ -3562,7 +3605,7 @@
 
     function closeRenderModal() {
       renderModalState.awaitingApprovalConfirm = false;
-      document.getElementById('renderOverlay').classList.remove('open');
+      _closeModalRestoreFocus('renderOverlay');
     }
 
     function rmOnSourceChange() {
@@ -3713,6 +3756,8 @@
           setRmStatus(_warnMsg, 'info');
         }
         renderModalState.currentRenderId = data.render_id;
+        const cancelBtn = document.getElementById('rmCancelBtn');
+        if (cancelBtn) cancelBtn.style.display = '';
         pollRender(data.render_id);
       } catch (e) {
         setRmStatus(`渲染失敗：${e.message}`, 'error');
@@ -3746,19 +3791,54 @@
             const btn = document.getElementById('rmConfirmBtn');
             btn.disabled = false;
             btn.textContent = '💾 儲存檔案';
+            const cb = document.getElementById('rmCancelBtn');
+            if (cb) cb.style.display = 'none';
+          } else if (d.status === 'cancelled') {
+            clearInterval(poll);
+            setRmStatus('已取消', 'info');
+            document.getElementById('rmConfirmBtn').disabled = false;
+            document.getElementById('rmConfirmBtn').textContent = '重試';
+            const cb = document.getElementById('rmCancelBtn');
+            if (cb) cb.style.display = 'none';
           } else if (d.status === 'error') {
             clearInterval(poll);
             setRmStatus(`渲染失敗：${d.error || '未知錯誤'}`, 'error');
             document.getElementById('rmConfirmBtn').disabled = false;
             document.getElementById('rmConfirmBtn').textContent = '重試';
+            const cb = document.getElementById('rmCancelBtn');
+            if (cb) cb.style.display = 'none';
           }
         } catch (e) {
           clearInterval(poll);
           setRmStatus(`渲染狀態查詢失敗：${e.message || '網絡錯誤'}`, 'error');
           document.getElementById('rmConfirmBtn').disabled = false;
           document.getElementById('rmConfirmBtn').textContent = '重試';
+          const cb = document.getElementById('rmCancelBtn');
+          if (cb) cb.style.display = 'none';
         }
       }, 1500);
+    }
+
+    async function cancelCurrentRender() {
+      const id = renderModalState.currentRenderId;
+      if (!id) return;
+      try {
+        const r = await fetch(`${API_BASE}/api/renders/${id}`, { method: 'DELETE' });
+        if (r.ok) {
+          showToast('已取消渲染', 'success');
+          setRmStatus('已取消', 'info');
+          const cb = document.getElementById('rmCancelBtn');
+          if (cb) cb.style.display = 'none';
+          const btn = document.getElementById('rmConfirmBtn');
+          btn.disabled = false;
+          btn.textContent = '重試';
+        } else {
+          const err = await r.json().catch(() => ({}));
+          showToast(`取消失敗：${err.error || '未知錯誤'}`, 'error');
+        }
+      } catch (e) {
+        showToast(`取消失敗：${e.message || '網絡錯誤'}`, 'error');
+      }
     }
 
     /**
@@ -4008,14 +4088,20 @@
     }
 
     async function fetchActiveProfile() {
+      const stripEl = document.getElementById('pipelineStrip');
+      if (stripEl) stripEl.dataset.loading = '1';
       try {
         const r = await fetch(`${API_BASE}/api/profiles/active`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
         activeProfile = data.profile;
         if (activeProfile?.font) fontConfig = { ...fontConfig, ...activeProfile.font };
         renderAll();
         applySubtitleStyle();
       } catch (e) {}
+      finally {
+        if (stripEl) delete stripEl.dataset.loading;
+      }
     }
 
     async function fetchProfiles() {
@@ -4116,11 +4202,11 @@
       if (e.target && e.target.tagName === 'TEXTAREA') return;
       const closers = [
         ['renderOverlay', closeRenderModal],
-        ['orOverlay', () => document.getElementById('orOverlay')?.classList.remove('open')],
-        ['ppsOverlay', () => document.getElementById('ppsOverlay')?.classList.remove('open')],
-        ['ppmOverlay', () => document.getElementById('ppmOverlay')?.classList.remove('open')],
-        ['lcmOverlay', () => document.getElementById('lcmOverlay')?.classList.remove('open')],
-        ['lcOverlay', () => document.getElementById('lcOverlay')?.classList.remove('open')],
+        ['orOverlay', () => _closeModalRestoreFocus('orOverlay')],
+        ['ppsOverlay', () => closeProfileSaveModal()],
+        ['ppmOverlay', () => closeProfileManageModal()],
+        ['lcmOverlay', () => closeLangConfigManageModal()],
+        ['lcOverlay', () => closeLangConfigModal()],
       ];
       for (const [id, close] of closers) {
         if (document.getElementById(id)?.classList.contains('open')) { close(); e.preventDefault(); return; }
