@@ -3431,6 +3431,21 @@
       } catch (e) { showToast('翻譯失敗', 'error'); }
     }
 
+    // Parse JSON safely; if backend returned HTML (e.g. 405 from an outdated
+    // server), fall back to a meaningful error rather than choking on `<!doctype`.
+    async function _parseJsonOrThrow(r, fallbackMsg) {
+      const text = await r.text();
+      let data = null;
+      try { data = text ? JSON.parse(text) : null; } catch (_) { /* not JSON */ }
+      if (!r.ok) {
+        const apiErr = data && data.error;
+        if (apiErr) throw new Error(apiErr);
+        if (r.status === 405) throw new Error('伺服器未支援呢個操作（請重啟後端 server）');
+        throw new Error(`${fallbackMsg}（HTTP ${r.status}）`);
+      }
+      return data;
+    }
+
     async function updateFileSubtitleSource(selectEl) {
       const fileId = selectEl.dataset.fileId;
       const value = selectEl.value || null; // empty → null (clear override)
@@ -3440,8 +3455,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ subtitle_source: value }),
         });
-        if (!r.ok) throw new Error((await r.json()).error || '更新失敗');
-        const updated = await r.json();
+        const updated = await _parseJsonOrThrow(r, '更新失敗');
         if (uploadedFiles[fileId]) {
           uploadedFiles[fileId].subtitle_source = updated.subtitle_source;
         }
@@ -3450,6 +3464,11 @@
           `select.fc-bilingual-order[data-file-id="${fileId}"]`);
         if (orderSel) {
           orderSel.style.display = (value === 'bilingual') ? '' : 'none';
+        }
+        // Repaint live overlay so paused video reflects the new mode immediately.
+        const _v = document.getElementById('videoPlayer');
+        if (_v && typeof updateSubtitleOverlay === 'function') {
+          updateSubtitleOverlay(_v.currentTime || 0);
         }
         showToast(`已更新字幕來源：${selectEl.options[selectEl.selectedIndex].textContent}`, 'success');
       } catch (e) {
@@ -3466,9 +3485,13 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ bilingual_order: value }),
         });
-        if (!r.ok) throw new Error((await r.json()).error || '更新失敗');
+        await _parseJsonOrThrow(r, '更新失敗');
         if (uploadedFiles[fileId]) {
           uploadedFiles[fileId].bilingual_order = value;
+        }
+        const _v = document.getElementById('videoPlayer');
+        if (_v && typeof updateSubtitleOverlay === 'function') {
+          updateSubtitleOverlay(_v.currentTime || 0);
         }
         showToast(`已更新雙語次序：${value === 'en_top' ? 'EN 上' : 'ZH 上'}`, 'success');
       } catch (e) {
@@ -3525,9 +3548,11 @@
       // Reset MP4 mode to CRF every time the modal opens
       selectMp4BitrateMode('crf');
 
-      // Reset subtitle source dropdowns
+      // Pre-fill subtitle source from file preference (fall back to '' = "follow file/profile")
+      const f = uploadedFiles[fileId];
+      const fileOrder = f?.bilingual_order || activeProfile?.font?.bilingual_order || 'en_top';
       document.getElementById('rmSubtitleSource').value = '';
-      document.getElementById('rmBilingualOrder').value = 'en_top';
+      document.getElementById('rmBilingualOrder').value = fileOrder;
       document.getElementById('rmBilingualOrder').style.display = 'none';
     }
 
@@ -3635,9 +3660,17 @@
       const { fileId, format } = renderModalState;
       if (!fileId) { showToast('未選擇檔案', 'error'); return; }
 
+      // Resolve effective subtitle_source ahead of the approval gate so EN-only
+      // renders skip it (matches backend gate at app.py:2009 — approval is a ZH concept).
+      const _rmSrc = document.getElementById('rmSubtitleSource')?.value || '';
+      const _resolvedSrc = resolveSubtitleSource(
+        { subtitle_source: _rmSrc || uploadedFiles[fileId]?.subtitle_source || null },
+        activeProfile,
+      );
+
       // If unapproved segments exist, show inline confirm box instead of rendering.
       // awaitingApprovalConfirm guards against re-triggering after approve-all updates local state.
-      if (!renderModalState.awaitingApprovalConfirm) {
+      if (!renderModalState.awaitingApprovalConfirm && _resolvedSrc !== 'en') {
         const f = uploadedFiles[fileId];
         const approved = f?.approved_count ?? 0;
         const total = f?.segment_count ?? 0;
@@ -3654,8 +3687,8 @@
       setRmStatus('開始渲染，請稍候…', 'info');
 
       const render_options = buildRenderOptions(format);
-      const src = document.getElementById('rmSubtitleSource').value;
-      const order = document.getElementById('rmBilingualOrder').value;
+      const src = document.getElementById('rmSubtitleSource')?.value || '';
+      const order = document.getElementById('rmBilingualOrder')?.value || '';
       const reqBody = { file_id: fileId, format, render_options };
       if (src) reqBody.subtitle_source = src;
       if (src === 'bilingual' && order) reqBody.bilingual_order = order;
@@ -3671,7 +3704,9 @@
         }
         const data = await r.json();
         if (data.warning_missing_zh && data.warning_missing_zh > 0) {
-          showToast(`⚠ ${data.warning_missing_zh} 段未翻譯，會用英文原文替代渲染`, 'warning');
+          const _warnMsg = `⚠ ${data.warning_missing_zh} 段未翻譯，會用英文原文替代渲染`;
+          showToast(_warnMsg, 'warning');
+          setRmStatus(_warnMsg, 'info');
         }
         renderModalState.currentRenderId = data.render_id;
         pollRender(data.render_id);

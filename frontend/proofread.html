@@ -826,6 +826,7 @@
   let glossaryId = null;          // selected glossary ID
   let glossaryEntries = [];       // current glossary entries
   let activeProfileId = null;     // for PATCH font settings
+  let activeProfile = null;       // full profile so resolvers see font.subtitle_source / bilingual_order
   let ssDebounceTimer = null;     // subtitle settings save debounce
 
   // Font config mirrors active profile's `font` — read-only on this page;
@@ -896,6 +897,21 @@
     }
   }
 
+  // Parse JSON safely; if backend returned HTML (e.g. 405 from an outdated
+  // server), fall back to a meaningful error rather than choking on `<!doctype`.
+  async function _parseJsonOrThrow(r, fallbackMsg) {
+    const text = await r.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch (_) { /* not JSON */ }
+    if (!r.ok) {
+      const apiErr = data && data.error;
+      if (apiErr) throw new Error(apiErr);
+      if (r.status === 405) throw new Error('伺服器未支援呢個操作（請重啟後端 server）');
+      throw new Error(`${fallbackMsg}（HTTP ${r.status}）`);
+    }
+    return data;
+  }
+
   async function updateProofreadSubtitleSource(selectEl) {
     const value = selectEl.value || null;
     try {
@@ -904,8 +920,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subtitle_source: value }),
       });
-      if (!r.ok) throw new Error(((await r.json()).error) || '更新失敗');
-      fileInfo = await r.json();
+      fileInfo = await _parseJsonOrThrow(r, '更新失敗');
       const ordSel = document.getElementById('proofreadBilingualOrder');
       if (ordSel) ordSel.style.display = (value === 'bilingual') ? '' : 'none';
       refreshOverlay();
@@ -923,8 +938,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bilingual_order: value }),
       });
-      if (!r.ok) throw new Error(((await r.json()).error) || '更新失敗');
-      fileInfo = await r.json();
+      fileInfo = await _parseJsonOrThrow(r, '更新失敗');
       refreshOverlay();
     } catch (e) {
       showToast(`更新失敗: ${e.message}`, 'error');
@@ -938,8 +952,8 @@
       return;
     }
     const s = segs[cursorIdx];
-    const mode = resolveSubtitleSource(fileInfo, null);
-    const order = resolveBilingualOrder(fileInfo, null);
+    const mode = resolveSubtitleSource(fileInfo, activeProfile);
+    const order = resolveBilingualOrder(fileInfo, activeProfile);
     FontPreview.updateText(pickSubtitleText({ en: s.en, zh: s.zh }, mode, order));
   }
 
@@ -1034,6 +1048,7 @@
       if (!r.ok) return;
       const data = await r.json();
       activeProfileId = data.profile?.id || null;
+      activeProfile = data.profile || null;
       const f = data.profile?.font || {};
       fontConfig = { ...fontConfig, ...f };
       document.getElementById('ssFamily').value = fontConfig.family;

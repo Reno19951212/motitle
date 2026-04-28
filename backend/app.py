@@ -1997,16 +1997,22 @@ def api_start_render():
     if not entry:
         return jsonify({"error": "File not found"}), 404
 
-    translations = entry.get("translations")
-    if not translations:
-        return jsonify({"error": "File has no translations to render"}), 400
-
     active_profile = _profile_manager.get_active()
     subtitle_source = _resolve_subtitle_source(entry, active_profile, src_override)
     bilingual_order = _resolve_bilingual_order(entry, active_profile, ord_override)
 
-    # Approval applies to ZH; skip gate when resolved mode is EN-only.
-    if subtitle_source != "en":
+    translations = entry.get("translations") or []
+    # EN-only renders can run from segments alone (no translation required).
+    # All other modes still need translations.
+    if subtitle_source == "en":
+        if not translations:
+            translations = list(entry.get("segments") or [])
+        if not translations:
+            return jsonify({"error": "File has no transcription segments to render"}), 400
+    else:
+        if not translations:
+            return jsonify({"error": "File has no translations to render"}), 400
+        # Approval applies to ZH only.
         unapproved = [t for t in translations if t.get("status") != "approved"]
         if unapproved:
             return jsonify({"error": f"{len(unapproved)} segment(s) not yet approved. All translations must be approved before rendering."}), 400
