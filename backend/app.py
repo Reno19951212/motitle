@@ -1104,6 +1104,8 @@ def api_translate_file():
 
         for t in translated:
             t["status"] = "pending"
+            t["baseline_zh"] = t.get("zh_text", "")
+            t["applied_terms"] = []
         _update_file(file_id, translations=translated, translation_status='done')
 
         return jsonify({
@@ -1265,6 +1267,34 @@ def api_glossary_scan(file_id):
     segments = entry.get("segments", [])
     gl_entries = glossary.get("entries", [])
 
+    # ── Lazy revert: any segment whose applied_terms contains a (term_en, term_zh)
+    # pair that is no longer in the current glossary is reverted to baseline_zh.
+    # This handles "user deleted entry" and "user changed entry's zh".
+    current_pairs = {
+        (e.get("en"), e.get("zh")) for e in gl_entries
+        if e.get("en") and e.get("zh")
+    }
+    reverted_count = 0
+    new_translations = list(translations)
+    for i, t in enumerate(new_translations):
+        applied = t.get("applied_terms") or []
+        if not applied:
+            continue
+        stale = any(
+            (term.get("term_en"), term.get("term_zh")) not in current_pairs
+            for term in applied
+        )
+        if stale:
+            new_translations[i] = {
+                **t,
+                "zh_text": t.get("baseline_zh", t.get("zh_text", "")),
+                "applied_terms": [],
+            }
+            reverted_count += 1
+    if reverted_count > 0:
+        _update_file(file_id, translations=new_translations)
+        translations = new_translations  # use post-revert state for the scan
+
     violations = []
     matches = []
     for i, t in enumerate(translations):
@@ -1294,6 +1324,7 @@ def api_glossary_scan(file_id):
         "scanned_count": len(translations),
         "violation_count": len(violations),
         "match_count": len(matches),
+        "reverted_count": reverted_count,
     })
 
 
@@ -1451,6 +1482,16 @@ def api_glossary_apply(file_id):
 
                 if corrected_zh:
                     current_zh = corrected_zh
+                    # Track this term as actively applied so a future glossary
+                    # deletion can be detected by scan and revert the segment.
+                    existing_applied = list(new_translations[seg_idx].get("applied_terms") or [])
+                    new_term = {"term_en": term_en, "term_zh": term_zh}
+                    if new_term not in existing_applied:
+                        existing_applied.append(new_term)
+                    new_translations[seg_idx] = {
+                        **new_translations[seg_idx],
+                        "applied_terms": existing_applied,
+                    }
                     results.append({
                         "seg_idx": seg_idx,
                         "old_zh": old_zh,
@@ -1622,6 +1663,11 @@ def api_update_translation(file_id, idx):
         "zh_text": data["zh_text"],
         "status": "approved",
         "flags": [],
+        # Manual edit becomes the new baseline; any prior glossary-apply
+        # history is wiped so future glossary deletions don't revert past
+        # the user's explicit edit.
+        "baseline_zh": data["zh_text"],
+        "applied_terms": [],
     }
     _update_file(file_id, translations=new_translations)
     return jsonify({"translation": _normalize_translation_for_api(new_translations[idx])})
@@ -2015,6 +2061,8 @@ def _auto_translate(fid: str, segments: list, session_id) -> None:
             )
         for t in translated:
             t["status"] = "pending"
+            t["baseline_zh"] = t.get("zh_text", "")
+            t["applied_terms"] = []
         _update_file(fid, translations=translated, translation_status='done',
                      translation_engine=translation_config.get('engine', ''))
 
