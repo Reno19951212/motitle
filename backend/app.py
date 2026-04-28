@@ -51,6 +51,13 @@ from profiles import ProfileManager
 from glossary import GlossaryManager
 from language_config import LanguageConfigManager, DEFAULT_ASR_CONFIG, DEFAULT_TRANSLATION_CONFIG
 from renderer import SubtitleRenderer, DEFAULT_FONT_CONFIG
+from subtitle_text import (
+    resolve_segment_text,
+    resolve_subtitle_source as _resolve_subtitle_source_helper,
+    resolve_bilingual_order as _resolve_bilingual_order_helper,
+    VALID_SUBTITLE_SOURCES,
+    VALID_BILINGUAL_ORDERS,
+)
 
 # Try to import faster-whisper for better performance
 try:
@@ -164,6 +171,8 @@ def _register_file(file_id, original_name, stored_name, size_bytes):
             'error': None,
             'model': None,       # whisper model used (e.g. 'small', 'tiny')
             'backend': None,     # 'openai-whisper' or 'faster-whisper'
+            'subtitle_source': None,
+            'bilingual_order': None,
         }
         _save_registry()
     return _file_registry[file_id]
@@ -1947,6 +1956,15 @@ def _validate_render_options(output_format: str, opts: dict):
     return clean, None
 
 
+def _resolve_subtitle_source(file_entry, profile, override=None):
+    """Public-named wrapper so tests can import from app."""
+    return _resolve_subtitle_source_helper(file_entry, profile, override)
+
+
+def _resolve_bilingual_order(file_entry, profile, override=None):
+    return _resolve_bilingual_order_helper(file_entry, profile, override)
+
+
 @app.route('/api/render', methods=['POST'])
 def api_start_render():
     """Start a render job: burn approved translations into video as ASS subtitles."""
@@ -1965,6 +1983,14 @@ def api_start_render():
     if opt_error:
         return jsonify({"error": opt_error}), 400
 
+    # Subtitle source resolution: render-body override > file > profile > auto
+    src_override = data.get("subtitle_source")
+    ord_override = data.get("bilingual_order")
+    if src_override is not None and src_override not in VALID_SUBTITLE_SOURCES:
+        return jsonify({"error": f"Invalid subtitle_source '{src_override}'"}), 400
+    if ord_override is not None and ord_override not in VALID_BILINGUAL_ORDERS:
+        return jsonify({"error": f"Invalid bilingual_order '{ord_override}'"}), 400
+
     with _registry_lock:
         entry = _file_registry.get(file_id)
 
@@ -1975,9 +2001,22 @@ def api_start_render():
     if not translations:
         return jsonify({"error": "File has no translations to render"}), 400
 
-    unapproved = [t for t in translations if t.get("status") != "approved"]
-    if unapproved:
-        return jsonify({"error": f"{len(unapproved)} segment(s) not yet approved. All translations must be approved before rendering."}), 400
+    # Approval applies to ZH; skip approval gate for EN-only renders.
+    if src_override != "en" and entry.get("subtitle_source") != "en":
+        unapproved = [t for t in translations if t.get("status") != "approved"]
+        if unapproved:
+            return jsonify({"error": f"{len(unapproved)} segment(s) not yet approved. All translations must be approved before rendering."}), 400
+
+    active_profile = _profile_manager.get_active()
+    subtitle_source = _resolve_subtitle_source(entry, active_profile, src_override)
+    bilingual_order = _resolve_bilingual_order(entry, active_profile, ord_override)
+
+    # Count segments where ZH would be required but is empty (warn user).
+    warning_missing_zh = 0
+    if subtitle_source == "zh":
+        for t in translations:
+            if not (t.get("zh_text") or "").strip():
+                warning_missing_zh += 1
 
     render_id = uuid.uuid4().hex[:12]
     video_path = str(UPLOAD_DIR / entry["stored_name"])
@@ -1997,6 +2036,8 @@ def api_start_render():
         "file_id": file_id,
         "format": output_format,
         "render_options": render_options,
+        "subtitle_source": subtitle_source,
+        "bilingual_order": bilingual_order,
         "status": "processing",
         "output_path": output_path,
         "output_filename": download_filename,
@@ -2005,7 +2046,6 @@ def api_start_render():
     }
 
     # Load font config from active profile (fallback to DEFAULT_FONT_CONFIG)
-    active_profile = _profile_manager.get_active()
     font_config = active_profile.get("font", DEFAULT_FONT_CONFIG) if active_profile else DEFAULT_FONT_CONFIG
 
     # Snapshot translations to pass into thread (immutable)
@@ -2014,7 +2054,12 @@ def api_start_render():
 
     def do_render():
         try:
-            ass_content = _subtitle_renderer.generate_ass(translations_snapshot, font_config)
+            ass_content = _subtitle_renderer.generate_ass(
+                translations_snapshot,
+                font_config,
+                subtitle_source=subtitle_source,
+                bilingual_order=bilingual_order,
+            )
             success, ffmpeg_error = _subtitle_renderer.render(
                 video_path, ass_content, output_path, output_format, render_options_snapshot
             )
@@ -2035,6 +2080,9 @@ def api_start_render():
         "render_id": render_id,
         "file_id": file_id,
         "format": output_format,
+        "subtitle_source": subtitle_source,
+        "bilingual_order": bilingual_order,
+        "warning_missing_zh": warning_missing_zh,
         "status": "processing",
     }), 202
 
@@ -2409,9 +2457,16 @@ def get_waveform(file_id):
 
 @app.route('/api/files/<file_id>/subtitle.<fmt>')
 def download_subtitle(file_id, fmt):
-    """Download subtitles in SRT, VTT, or TXT format"""
+    """Download subtitles in SRT, VTT, or TXT format with subtitle_source resolution."""
     if fmt not in ('srt', 'vtt', 'txt'):
         return jsonify({'error': '不支持的格式'}), 400
+
+    src_q = request.args.get("source")
+    ord_q = request.args.get("order")
+    if src_q is not None and src_q not in VALID_SUBTITLE_SOURCES:
+        return jsonify({'error': f"Invalid source '{src_q}'"}), 400
+    if ord_q is not None and ord_q not in VALID_BILINGUAL_ORDERS:
+        return jsonify({'error': f"Invalid order '{ord_q}'"}), 400
 
     with _registry_lock:
         entry = _file_registry.get(file_id)
@@ -2420,27 +2475,58 @@ def download_subtitle(file_id, fmt):
     if entry['status'] != 'done':
         return jsonify({'error': '轉錄尚未完成'}), 400
 
+    active_profile = _profile_manager.get_active()
+    mode = _resolve_subtitle_source(entry, active_profile, src_q)
+    order = _resolve_bilingual_order(entry, active_profile, ord_q)
+
+    # Build a list of unified per-segment dicts with both text + zh_text.
     segs = entry.get('segments', [])
+    translations = entry.get('translations') or []
+    tr_by_idx = {t.get('seg_idx', i): t for i, t in enumerate(translations)}
+    unified = []
+    for i, s in enumerate(segs):
+        t = tr_by_idx.get(i, {})
+        unified.append({
+            'start': s.get('start', t.get('start', 0)),
+            'end':   s.get('end',   t.get('end',   0)),
+            'text':     s.get('text', '') or t.get('en_text', ''),
+            'en_text':  s.get('text', '') or t.get('en_text', ''),
+            'zh_text':  t.get('zh_text', ''),
+        })
+
     base_name = Path(entry['original_name']).stem
 
+    def _seg_text(s):
+        return resolve_segment_text(s, mode=mode, order=order, line_break='\n')
+
     if fmt == 'txt':
-        content = '\n'.join(s['text'] for s in segs)
+        content = '\n'.join(_seg_text(s) for s in unified if _seg_text(s))
         mime = 'text/plain'
     elif fmt == 'srt':
         lines = []
-        for i, s in enumerate(segs):
-            lines.append(str(i + 1))
+        cue_index = 0
+        for s in unified:
+            txt = _seg_text(s)
+            if not txt:
+                continue
+            cue_index += 1
+            lines.append(str(cue_index))
             lines.append(f"{_fmt_srt(s['start'])} --> {_fmt_srt(s['end'])}")
-            lines.append(s['text'])
+            lines.append(txt)
             lines.append('')
         content = '\n'.join(lines)
         mime = 'text/plain'
     else:  # vtt
         lines = ['WEBVTT', '']
-        for i, s in enumerate(segs):
-            lines.append(str(i + 1))
+        cue_index = 0
+        for s in unified:
+            txt = _seg_text(s)
+            if not txt:
+                continue
+            cue_index += 1
+            lines.append(str(cue_index))
             lines.append(f"{_fmt_vtt(s['start'])} --> {_fmt_vtt(s['end'])}")
-            lines.append(s['text'])
+            lines.append(txt)
             lines.append('')
         content = '\n'.join(lines)
         mime = 'text/vtt'
@@ -2504,6 +2590,34 @@ def update_segment_text(file_id, seg_id):
         _save_registry()
 
     return jsonify({'status': 'ok', 'id': seg_id, 'text': new_text})
+
+
+@app.route('/api/files/<file_id>', methods=['PATCH'])
+def patch_file(file_id):
+    """Patch file-level settings — currently subtitle_source / bilingual_order."""
+    data = request.get_json() or {}
+
+    if "subtitle_source" in data:
+        v = data["subtitle_source"]
+        if v is not None and v not in VALID_SUBTITLE_SOURCES:
+            return jsonify({"error": f"Invalid subtitle_source '{v}'"}), 400
+    if "bilingual_order" in data:
+        v = data["bilingual_order"]
+        if v is not None and v not in VALID_BILINGUAL_ORDERS:
+            return jsonify({"error": f"Invalid bilingual_order '{v}'"}), 400
+
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+        if not entry:
+            return jsonify({"error": "File not found"}), 404
+        if "subtitle_source" in data:
+            entry["subtitle_source"] = data["subtitle_source"]
+        if "bilingual_order" in data:
+            entry["bilingual_order"] = data["bilingual_order"]
+        _save_registry()
+        result = dict(entry)
+
+    return jsonify(result), 200
 
 
 @app.route('/api/files/<file_id>', methods=['DELETE'])

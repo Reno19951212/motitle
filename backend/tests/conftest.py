@@ -20,8 +20,9 @@ def _sync_imported_manager_refs(request, monkeypatch):
     that the test-local patch is applied first, then re-binds the stale names
     in the test module to match the now-current ``app._profile_manager``.
     """
-    # Only act for tests in test_languages_crud.py
-    if 'test_languages_crud' not in str(request.fspath):
+    # Only act for tests in modules that import _profile_manager from app
+    _MODULES_NEEDING_SYNC = ('test_languages_crud', 'test_subtitle_source_mode')
+    if not any(m in str(request.fspath) for m in _MODULES_NEEDING_SYNC):
         yield
         return
 
@@ -36,8 +37,14 @@ def _sync_imported_manager_refs(request, monkeypatch):
 
     try:
         import app as _app
-        import tests.test_languages_crud as _tlc
-        monkeypatch.setattr(_tlc, '_profile_manager', _app._profile_manager)
+        import importlib
+        test_mod_name = Path(request.fspath).stem
+        try:
+            test_mod = importlib.import_module(f'tests.{test_mod_name}')
+        except ModuleNotFoundError:
+            test_mod = importlib.import_module(test_mod_name)
+        if hasattr(test_mod, '_profile_manager'):
+            monkeypatch.setattr(test_mod, '_profile_manager', _app._profile_manager)
     except (ImportError, AttributeError):
         pass
 
