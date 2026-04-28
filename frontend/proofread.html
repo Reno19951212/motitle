@@ -920,6 +920,21 @@
         opt.textContent = g.name;
         sel.appendChild(opt);
       });
+
+      // Auto-select the glossary configured in the active Profile (sync mode A:
+      // load-time only — no listener for later profile_updated events).
+      // Sequenced after options-populate so setting .value matches an existing option.
+      try {
+        const pr = await fetch(`${API_BASE}/api/profiles/active`);
+        if (!pr.ok) return;
+        const pd = await pr.json();
+        const pipelineGlossaryId = pd.profile?.translation?.glossary_id;
+        if (pipelineGlossaryId &&
+            Array.from(sel.options).some(o => o.value === pipelineGlossaryId)) {
+          sel.value = pipelineGlossaryId;
+          await onGlossarySelect();
+        }
+      } catch (e) { /* keep dropdown at default */ }
     } catch (e) { /* silent — panel stays in placeholder state */ }
   }
 
