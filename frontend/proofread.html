@@ -385,12 +385,6 @@
     .ga-select-all input[type="checkbox"] { margin: 0; }
     .ga-row.matched { opacity: 0.55; transition: opacity 0.15s ease; }
     .ga-row.matched:has(input:checked) { opacity: 1; }
-    .ga-row.matched .ga-row-zh::after {
-      content: "  ✓ 已符合"; color: var(--success, #4ade80); font-weight: 600;
-    }
-    .ga-row.matched:has(input:checked) .ga-row-zh::after {
-      content: "  ⚠ 強制重新套用"; color: var(--accent, #f9e2af);
-    }
     .ga-row {
       display: flex; align-items: flex-start; gap: 8px;
       padding: 10px 0; border-bottom: 1px solid var(--border);
@@ -400,7 +394,30 @@
     .ga-row input[type="checkbox"] { margin-top: 3px; flex-shrink: 0; }
     .ga-row-body { flex: 1; min-width: 0; }
     .ga-row-term { font-weight: 600; color: var(--accent); margin-bottom: 2px; }
-    .ga-row-zh { color: var(--text-mid); font-size: 11px; word-break: break-all; }
+    .ga-row-en {
+      font-size: 11px; color: var(--text-mid);
+      word-break: break-word; margin-bottom: 2px;
+    }
+    .ga-row-zh { color: var(--text-mid); font-size: 11px; word-break: break-word; }
+    .hl-en {
+      background: rgba(249, 226, 175, 0.35);
+      color: #f9e2af;
+      padding: 0 2px; border-radius: 2px; font-weight: 600;
+    }
+    .hl-zh {
+      background: rgba(74, 222, 128, 0.20);
+      color: #4ade80;
+      padding: 0 2px; border-radius: 2px; font-weight: 600;
+    }
+    .ga-hint { font-size: 10px; margin-left: 8px; font-weight: normal; }
+    .ga-hint.warn  { color: var(--text-mid); }
+    .ga-hint.match { color: var(--success, #4ade80); }
+    /* Match-row force-reapply: swap hint text via paired child spans */
+    .ga-hint .ga-hint-override { display: none; }
+    .ga-row.matched:has(input:checked) .ga-hint .ga-hint-default { display: none; }
+    .ga-row.matched:has(input:checked) .ga-hint .ga-hint-override {
+      display: inline; color: var(--accent, #f9e2af);
+    }
     .ga-row-badge {
       font-size: 9px; padding: 1px 5px; border-radius: 3px;
       background: var(--surface-2); color: var(--text-dim); flex-shrink: 0;
@@ -815,6 +832,38 @@
     if (s == null) return '';
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
+  function escapeRegex(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+  function hasUppercase(s) { return /[A-Z]/.test(s || ''); }
+
+  // XSS-safe term highlight. Returns an HTML string with every match of `term`
+  // wrapped in <mark class="cssClass">. Surrounding text is HTML-escaped slice
+  // by slice; the wrapped term is also escaped before insertion. Never escapes
+  // a string that already contains <mark>.
+  // - ASCII-only term  → alphanumeric-bounded match (mirrors backend)
+  // - Non-ASCII term   → plain substring match
+  // - opts.caseSensitive: false → 'gi'; true → 'g'
+  function highlightTerm(text, term, cssClass, opts) {
+    opts = opts || {};
+    if (!term || text == null) return escapeHtml(text == null ? '' : text);
+    const flags = opts.caseSensitive ? 'g' : 'gi';
+    const isAscii = /^[\x00-\x7f]+$/.test(term);
+    const pattern = isAscii
+      ? new RegExp('(?<![A-Za-z0-9])' + escapeRegex(term) + '(?![A-Za-z0-9])', flags)
+      : new RegExp(escapeRegex(term), flags);
+    let out = '';
+    let last = 0;
+    let m;
+    while ((m = pattern.exec(text)) !== null) {
+      out += escapeHtml(text.slice(last, m.index));
+      out += `<mark class="${cssClass}">${escapeHtml(m[0])}</mark>`;
+      last = m.index + m[0].length;
+      if (m.index === pattern.lastIndex) pattern.lastIndex++;  // zero-width guard
+    }
+    out += escapeHtml(text.slice(last));
+    return out;
+  }
   function fmtMs(ms) {
     if (!ms && ms !== 0) return '—:—';
     const s = ms / 1000;
@@ -1156,28 +1205,34 @@
     title.textContent =
       `詞彙表套用 — ${violations.length} 處不符 · ${matches.length} 處已符合`;
 
-    const violationRows = violations.map((v, i) => {
-      const checked = !v.approved ? 'checked' : '';
-      const badge = v.approved ? '<span class="ga-row-badge">已批核</span>' : '';
-      return `<div class="ga-row">
-        <input type="checkbox" ${checked} data-idx="${i}" onchange="updateApplyCount()">
+    const renderRow = (row, i, isMatch) => {
+      const checked = !isMatch && !row.approved ? 'checked' : '';
+      const badge = row.approved ? '<span class="ga-row-badge">已批核</span>' : '';
+      const enText = row.en_text || '';
+      const zhText = row.zh_text || '';
+      const enHtml = highlightTerm(enText, row.term_en, 'hl-en',
+                                   { caseSensitive: hasUppercase(row.term_en) });
+      const zhHasTarget = !!(row.term_zh && zhText.indexOf(row.term_zh) !== -1);
+      const zhHtml = zhHasTarget
+        ? highlightTerm(zhText, row.term_zh, 'hl-zh', { caseSensitive: true })
+        : escapeHtml(zhText);
+      const hint = zhHasTarget
+        ? `<span class="ga-hint match"><span class="ga-hint-default">✓ 已含目標詞</span><span class="ga-hint-override">⚠ 強制重新套用</span></span>`
+        : `<span class="ga-hint warn">⚠ LLM 將判斷修改位置</span>`;
+      const rowClass = isMatch ? 'ga-row matched' : 'ga-row';
+      const dataAttrs = isMatch ? `data-type="match" data-idx="${i}"` : `data-idx="${i}"`;
+      return `<div class="${rowClass}">
+        <input type="checkbox" ${checked} ${dataAttrs} onchange="updateApplyCount()">
         <div class="ga-row-body">
-          <div class="ga-row-term">#${v.seg_idx + 1} &nbsp;"${escapeHtml(v.term_en)}" → ${escapeHtml(v.term_zh)} ${badge}</div>
-          <div class="ga-row-zh">現:${escapeHtml(v.zh_text)}</div>
+          <div class="ga-row-term">#${row.seg_idx + 1} &nbsp;"${escapeHtml(row.term_en)}" → ${escapeHtml(row.term_zh)} ${badge}</div>
+          <div class="ga-row-en">EN: ${enHtml}</div>
+          <div class="ga-row-zh">ZH: ${zhHtml}${hint}</div>
         </div>
       </div>`;
-    }).join('');
+    };
 
-    const matchRows = matches.map((m, i) => {
-      const badge = m.approved ? '<span class="ga-row-badge">已批核</span>' : '';
-      return `<div class="ga-row matched">
-        <input type="checkbox" data-type="match" data-idx="${i}" onchange="updateApplyCount()">
-        <div class="ga-row-body">
-          <div class="ga-row-term">#${m.seg_idx + 1} &nbsp;"${escapeHtml(m.term_en)}" → ${escapeHtml(m.term_zh)} ${badge}</div>
-          <div class="ga-row-zh">${escapeHtml(m.zh_text)}</div>
-        </div>
-      </div>`;
-    }).join('');
+    const violationRows = violations.map((v, i) => renderRow(v, i, false)).join('');
+    const matchRows = matches.map((m, i) => renderRow(m, i, true)).join('');
 
     let html = '';
     if (violations.length > 0) {
