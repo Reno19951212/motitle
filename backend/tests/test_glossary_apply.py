@@ -414,3 +414,128 @@ def test_glossary_scan_violations_unchanged_when_zh_incorrect(file_with_translat
     seg0_violations = [v for v in data["violations"] if v["seg_idx"] == 0]
     seg0_terms = sorted(v["term_en"] for v in seg0_violations)
     assert seg0_terms == ["anchor", "broadcast"]
+
+
+def test_glossary_scan_returns_reverted_count_field(file_with_translations, glossary_with_entries):
+    """Response must include reverted_count field, default 0 when no stale applied_terms."""
+    file_id, c, _ = file_with_translations
+    glossary_id, _, _ = glossary_with_entries
+
+    resp = c.post(f"/api/files/{file_id}/glossary-scan",
+                  data=json.dumps({"glossary_id": glossary_id}),
+                  content_type="application/json")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert "reverted_count" in data
+    assert data["reverted_count"] == 0
+
+
+def test_glossary_apply_appends_to_applied_terms(file_with_translations, glossary_with_entries, monkeypatch):
+    """After a successful LLM apply, the (term_en, term_zh) tuple appears in applied_terms."""
+    file_id, c, app_module = file_with_translations
+    glossary_id, _, _ = glossary_with_entries
+
+    # Stub the LLM call so the test runs without ollama
+    import urllib.request
+    class _StubResp:
+        def __init__(self, body): self._body = body
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def read(self): return self._body
+    def _fake_urlopen(req, timeout=None):
+        return _StubResp(json.dumps({"message": {"content": "主播現場報導了廣播內容"}}).encode("utf-8"))
+    monkeypatch.setattr(urllib.request, "urlopen", _fake_urlopen)
+
+    resp = c.post(f"/api/files/{file_id}/glossary-apply",
+                  data=json.dumps({
+                      "glossary_id": glossary_id,
+                      "violations": [{"seg_idx": 0, "term_en": "broadcast", "term_zh": "廣播"}],
+                  }),
+                  content_type="application/json")
+    assert resp.status_code == 200
+    seg0 = app_module._file_registry[file_id]["translations"][0]
+    assert seg0.get("applied_terms"), f"applied_terms missing or empty: {seg0}"
+    assert {"term_en": "broadcast", "term_zh": "廣播"} in seg0["applied_terms"]
+
+
+def test_manual_edit_resets_baseline_and_clears_applied_terms(file_with_translations):
+    """PATCH translations/<idx> must set baseline_zh = new zh_text and clear applied_terms."""
+    file_id, c, app_module = file_with_translations
+
+    # Pre-state: segment has prior applied terms (simulating earlier glossary apply)
+    app_module._file_registry[file_id]["translations"][0]["applied_terms"] = [
+        {"term_en": "broadcast", "term_zh": "廣播"}
+    ]
+    app_module._file_registry[file_id]["translations"][0]["baseline_zh"] = "原來嘅譯文"
+
+    resp = c.patch(f"/api/files/{file_id}/translations/0",
+                   data=json.dumps({"zh_text": "用戶手動改嘅譯文"}),
+                   content_type="application/json")
+    assert resp.status_code == 200
+    seg0 = app_module._file_registry[file_id]["translations"][0]
+    assert seg0["zh_text"] == "用戶手動改嘅譯文"
+    assert seg0["baseline_zh"] == "用戶手動改嘅譯文", "manual edit must become new baseline"
+    assert seg0["applied_terms"] == [], "applied_terms must reset on manual edit"
+
+
+def test_scan_reverts_segments_with_stale_applied_terms(file_with_translations, glossary_with_entries):
+    """Segment whose applied_terms contains an entry not in current glossary reverts to baseline_zh."""
+    file_id, c, app_module = file_with_translations
+    glossary_id, _, _ = glossary_with_entries
+
+    # Pre-state: segment 0 was previously modified by a glossary entry that has since been deleted
+    app_module._file_registry[file_id]["translations"][0]["zh_text"] = "已被詞彙修改過嘅譯文"
+    app_module._file_registry[file_id]["translations"][0]["baseline_zh"] = "原始譯文"
+    app_module._file_registry[file_id]["translations"][0]["applied_terms"] = [
+        {"term_en": "DeletedTerm", "term_zh": "刪除咗嘅"}  # not in glossary_with_entries
+    ]
+
+    resp = c.post(f"/api/files/{file_id}/glossary-scan",
+                  data=json.dumps({"glossary_id": glossary_id}),
+                  content_type="application/json")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["reverted_count"] == 1
+
+    seg0 = app_module._file_registry[file_id]["translations"][0]
+    assert seg0["zh_text"] == "原始譯文"
+    assert seg0["applied_terms"] == []
+
+
+def test_scan_does_not_revert_when_all_applied_still_present(file_with_translations, glossary_with_entries):
+    """Segment whose applied_terms all exist in current glossary stays untouched."""
+    file_id, c, app_module = file_with_translations
+    glossary_id, _, _ = glossary_with_entries
+
+    app_module._file_registry[file_id]["translations"][0]["zh_text"] = "現有譯文"
+    app_module._file_registry[file_id]["translations"][0]["baseline_zh"] = "原始譯文"
+    app_module._file_registry[file_id]["translations"][0]["applied_terms"] = [
+        {"term_en": "broadcast", "term_zh": "廣播"}  # exists in glossary_with_entries
+    ]
+
+    resp = c.post(f"/api/files/{file_id}/glossary-scan",
+                  data=json.dumps({"glossary_id": glossary_id}),
+                  content_type="application/json")
+    data = resp.get_json()
+    assert data["reverted_count"] == 0
+    seg0 = app_module._file_registry[file_id]["translations"][0]
+    assert seg0["zh_text"] == "現有譯文", "untouched when applied_terms still valid"
+
+
+def test_scan_legacy_segment_without_applied_terms_field_is_safe(file_with_translations, glossary_with_entries):
+    """Segment that pre-dates the feature (no applied_terms field) must not error or revert."""
+    file_id, c, app_module = file_with_translations
+    glossary_id, _, _ = glossary_with_entries
+
+    # Confirm the field genuinely is missing on a fresh fixture segment
+    seg0 = app_module._file_registry[file_id]["translations"][0]
+    assert "applied_terms" not in seg0
+    original_zh = seg0["zh_text"]
+
+    resp = c.post(f"/api/files/{file_id}/glossary-scan",
+                  data=json.dumps({"glossary_id": glossary_id}),
+                  content_type="application/json")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["reverted_count"] == 0
+    assert app_module._file_registry[file_id]["translations"][0]["zh_text"] == original_zh
