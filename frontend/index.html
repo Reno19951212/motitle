@@ -1563,6 +1563,7 @@
     let isProcessing = false;
     let activeProfile = null;
     let availableProfiles = [];
+    let availableLanguageConfigs = [];
     let glossaries = [];
     let deleteArmedId = null;
     let deleteArmedTimer = null;
@@ -1972,11 +1973,35 @@
               <div class="smn-desc">${escapeHtml(pr.asr?.model_size || '—')} · ${escapeHtml((pr.translation?.engine || '—').replace(/-cloud$/,''))}</div>
             </button>`).join('')}
           <div class="split-divider"></div>
-          <button class="smn-manage"><span class="fmt-badge outline">💾</span><span class="fmt-desc">將當前設定儲存為新預設…</span></button>
-          <button class="smn-manage"><span class="fmt-badge outline">⚙</span><span class="fmt-desc">管理預設…</span></button>
+          <button class="smn-manage" onclick="openProfileSaveModal()"><span class="fmt-badge outline">💾</span><span class="fmt-desc">將當前設定儲存為新預設…</span></button>
+          <button class="smn-manage" onclick="openProfileManageModal()"><span class="fmt-badge outline">⚙</span><span class="fmt-desc">管理預設…</span></button>
         </div>`;
 
-      const asrMenuHtml = renderStepMenu('ASR · 選擇', ASR_OPTIONS, asrModel, 'applyAsrModel').replace('<div class="step-menu">', '<div class="step-menu" data-kind="asr">');
+      const currentLcId = p.asr?.language_config_id || p.asr?.language || 'en';
+      const lcDropdownHtml = (availableLanguageConfigs.length === 0
+        ? '<div style="padding:8px 12px; color:var(--text-dim); font-size:11px;">（無語言配置）</div>'
+        : availableLanguageConfigs.map(lc => `
+          <button ${lc.id === currentLcId ? 'class="on"' : ''} onclick="applyLanguageConfig('${lc.id}')">
+            <div class="smn-main">
+              <span class="smn-name">${escapeHtml(lc.id)} — ${escapeHtml(lc.name)}</span>
+              ${lc.id === currentLcId ? '<span class="smn-badge">當前</span>' : ''}
+            </div>
+          </button>`).join(''));
+
+      const asrMenuHtml = renderStepMenu('ASR · 選擇', ASR_OPTIONS, asrModel, 'applyAsrModel')
+        .replace('<div class="step-menu">', '<div class="step-menu" data-kind="asr">')
+        .replace('</div>', `
+          <div class="split-divider"></div>
+          <div class="step-menu-head">語言配置</div>
+          ${lcDropdownHtml}
+          <div class="split-divider"></div>
+          <button class="smn-manage" onclick="openLangConfigCreateModal()">
+            <span class="fmt-badge outline">➕</span><span class="fmt-desc">新增語言配置…</span>
+          </button>
+          <button class="smn-manage" onclick="openLangConfigManageModal()">
+            <span class="fmt-badge outline">⚙</span><span class="fmt-desc">管理語言配置…</span>
+          </button>
+        </div>`);
       const mtMenuHtml  = renderStepMenu('MT · 選擇', MT_OPTIONS, mtEngine, 'applyMtEngine').replace('<div class="step-menu">', '<div class="step-menu" data-kind="mt" style="min-width:220px;">');
       const outMenuHtml = renderStepMenu('輸出 · 選擇', OUTPUT_OPTIONS, outputFmt, 'applyOutputFormat').replace('<div class="step-menu">', '<div class="step-menu" data-kind="output">');
 
@@ -2053,6 +2078,290 @@
     }
 
     // Pipeline step handlers — wire each step's menu items to PATCH the active profile
+    let _ppsEditingId = null;
+
+    function openProfileSaveModal(editingId = null) {
+      _ppsEditingId = editingId;
+      const editing = editingId ? availableProfiles.find(p => p.id === editingId) : null;
+      const src = editing || activeProfile;
+      if (!src) {
+        showToast('請先啟用一個 Profile', 'error');
+        return;
+      }
+      const headSpan = document.querySelector('#ppsOverlay .or-head span, #ppsOverlay .overlay-head span');
+      if (headSpan) {
+        headSpan.textContent = editing ? '編輯 Pipeline 預設' : '儲存為新 Pipeline 預設';
+      }
+      document.getElementById('ppsName').value = editing
+        ? src.name
+        : (src.name || '') + ' (副本)';
+      document.getElementById('ppsDesc').value = src.description || '';
+      const asr = src.asr || {};
+      const tr = src.translation || {};
+      const gloss = glossaries.find(g => g.id === tr.glossary_id);
+      const font = src.font || {};
+      document.getElementById('ppsSummary').innerHTML = `
+        ASR        ${escapeHtml(asr.model_size || '—')} (${escapeHtml(asr.engine || '—')})<br>
+        MT         ${escapeHtml(tr.engine || '—')}${tr.openrouter_model ? ' / ' + escapeHtml(tr.openrouter_model) : ''}<br>
+        術語表     ${escapeHtml(gloss?.name || '無')}${gloss ? ' (' + (gloss.entry_count || gloss.entries?.length || 0) + ' 條)' : ''}<br>
+        字型       ${escapeHtml(font.family || '—')}, ${font.size || '—'}pt`;
+      document.getElementById('ppsSaveBtn').textContent = editing ? '儲存' : '儲存並啟用';
+      document.getElementById('ppsOverlay').classList.add('open');
+      setTimeout(() => document.getElementById('ppsName').focus(), 50);
+    }
+
+    function closeProfileSaveModal() {
+      document.getElementById('ppsOverlay').classList.remove('open');
+      _ppsEditingId = null;
+    }
+
+    async function saveProfileAsPreset() {
+      const name = document.getElementById('ppsName').value.trim();
+      const description = document.getElementById('ppsDesc').value.trim();
+      if (!name) { showToast('預設名稱必填', 'error'); return; }
+      try {
+        if (_ppsEditingId) {
+          // Edit mode: PATCH only name + description
+          const r = await fetch(`${API_BASE}/api/profiles/${_ppsEditingId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, description }),
+          });
+          if (!r.ok) throw new Error((await r.json()).error || '儲存失敗');
+          await fetchProfiles();
+          await fetchActiveProfile();
+          renderPipelineStrip();
+          closeProfileSaveModal();
+          showToast(`已更新預設：${name}`, 'success');
+          if (document.getElementById('ppmOverlay').classList.contains('open')) {
+            _renderProfileManageList();
+          }
+        } else {
+          // Create mode: POST cloned activeProfile, then activate
+          if (!activeProfile) { showToast('請先啟用一個 Profile', 'error'); return; }
+          const { id: _id, created_at: _ca, updated_at: _ua, ...rest } = activeProfile;
+          const body = { ...rest, name, description };
+          const r = await fetch(`${API_BASE}/api/profiles`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          if (!r.ok) throw new Error((await r.json()).error || '建立失敗');
+          const created = (await r.json()).profile;
+          await fetch(`${API_BASE}/api/profiles/${created.id}/activate`, { method: 'POST' });
+          await fetchProfiles();
+          await fetchActiveProfile();
+          renderPipelineStrip();
+          closeProfileSaveModal();
+          showToast(`已儲存並啟用:${name}`, 'success');
+        }
+      } catch (e) {
+        showToast(`儲存失敗: ${e.message}`, 'error');
+      }
+    }
+
+    function openProfileManageModal() {
+      _renderProfileManageList();
+      document.getElementById('ppmOverlay').classList.add('open');
+    }
+
+    function closeProfileManageModal() {
+      document.getElementById('ppmOverlay').classList.remove('open');
+    }
+
+    function _renderProfileManageList() {
+      const body = document.getElementById('ppmBody');
+      const activeId = activeProfile?.id;
+      body.innerHTML = availableProfiles.map(p => {
+        const isActive = p.id === activeId;
+        const summary = `ASR ${p.asr?.model_size || '—'} · MT ${(p.translation?.engine || '—').replace(/-cloud$/,'')}`;
+        return `
+          <div data-prof-id="${escapeHtml(p.id)}" style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+            <div style="flex:1;min-width:0;cursor:pointer;" onclick="activateProfile('${p.id}'); _renderProfileManageList();">
+              <div style="font-weight:600;font-size:13px;">
+                ${isActive ? '<span style="color:var(--accent-2);">✓ </span>' : ''}${escapeHtml(p.name || p.id)}
+                ${isActive ? '<span class="smn-badge" style="margin-left:6px;">當前</span>' : ''}
+              </div>
+              ${p.description ? `<div style="font-size:11px;color:var(--text-dim);margin-top:2px;">${escapeHtml(p.description)}</div>` : ''}
+              <div style="font-size:11px;color:var(--text-dim);font-family:var(--font-mono);">${escapeHtml(summary)}</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" data-action="edit" onclick="openProfileSaveModal('${p.id}')" title="編輯">✎</button>
+            ${isActive ? '' : `<button class="btn btn-ghost btn-sm" data-action="delete" onclick="deleteProfilePreset('${p.id}')" title="刪除">🗑</button>`}
+          </div>`;
+      }).join('') || '<div style="color:var(--text-dim);padding:12px 0;">暫無預設</div>';
+    }
+
+    async function deleteProfilePreset(profId) {
+      const prof = availableProfiles.find(p => p.id === profId);
+      if (!prof) return;
+      if (!confirm(`確定刪除預設「${prof.name || profId}」？`)) return;
+      try {
+        const r = await fetch(`${API_BASE}/api/profiles/${encodeURIComponent(profId)}`, { method: 'DELETE' });
+        if (!r.ok) throw new Error((await r.json()).error || '刪除失敗');
+        await fetchProfiles();
+        renderPipelineStrip();
+        _renderProfileManageList();
+        showToast(`已刪除預設：${prof.name || profId}`, 'success');
+      } catch (e) {
+        showToast(`刪除失敗: ${e.message}`, 'error');
+      }
+    }
+    let _lcEditingId = null;  // null = create mode; id string = edit mode
+
+    function openLangConfigCreateModal(prefillId = null) {
+      _lcEditingId = prefillId;
+      const isEdit = prefillId !== null;
+      const existing = isEdit ? availableLanguageConfigs.find(lc => lc.id === prefillId) : null;
+      document.getElementById('lcTitle').textContent = isEdit ? '編輯語言配置' : '新增語言配置';
+      document.getElementById('lcId').value = existing?.id || '';
+      document.getElementById('lcId').disabled = isEdit;  // ID immutable on edit
+      document.getElementById('lcName').value = existing?.name || '';
+      document.getElementById('lcMaxWords').value = existing?.asr?.max_words_per_segment ?? 25;
+      document.getElementById('lcMaxDur').value = existing?.asr?.max_segment_duration ?? 8;
+      document.getElementById('lcBatch').value = existing?.translation?.batch_size ?? 8;
+      document.getElementById('lcTemp').value = existing?.translation?.temperature ?? 0.1;
+      _lcSyncSliderLabels();
+      document.getElementById('lcIdError').style.display = 'none';
+      document.getElementById('lcOverlay').classList.add('open');
+      // Wire slider labels
+      ['lcMaxWords','lcMaxDur','lcBatch','lcTemp'].forEach(id => {
+        document.getElementById(id).oninput = _lcSyncSliderLabels;
+      });
+      setTimeout(() => document.getElementById(isEdit ? 'lcName' : 'lcId').focus(), 50);
+    }
+
+    function _lcSyncSliderLabels() {
+      document.getElementById('lcMaxWordsVal').textContent = document.getElementById('lcMaxWords').value;
+      document.getElementById('lcMaxDurVal').textContent = document.getElementById('lcMaxDur').value;
+      document.getElementById('lcBatchVal').textContent = document.getElementById('lcBatch').value;
+      document.getElementById('lcTempVal').textContent = parseFloat(document.getElementById('lcTemp').value).toFixed(2);
+    }
+
+    function closeLangConfigModal() {
+      document.getElementById('lcOverlay').classList.remove('open');
+      _lcEditingId = null;
+    }
+
+    async function saveLanguageConfig() {
+      const id = document.getElementById('lcId').value.trim();
+      const name = document.getElementById('lcName').value.trim();
+      if (!name) { showToast('顯示名稱必填', 'error'); return; }
+      if (!_lcEditingId && !/^[a-z0-9-]{1,32}$/.test(id)) {
+        document.getElementById('lcIdError').textContent = 'ID 必須係 1–32 個英數字 / 連字號';
+        document.getElementById('lcIdError').style.display = 'block';
+        return;
+      }
+      const body = {
+        id: _lcEditingId || id,
+        name,
+        asr: {
+          max_words_per_segment: parseInt(document.getElementById('lcMaxWords').value, 10),
+          max_segment_duration: parseFloat(document.getElementById('lcMaxDur').value),
+        },
+        translation: {
+          batch_size: parseInt(document.getElementById('lcBatch').value, 10),
+          temperature: parseFloat(document.getElementById('lcTemp').value),
+        },
+      };
+      const isEdit = _lcEditingId !== null;
+      const url = isEdit
+        ? `${API_BASE}/api/languages/${encodeURIComponent(_lcEditingId)}`
+        : `${API_BASE}/api/languages`;
+      const method = isEdit ? 'PATCH' : 'POST';
+      try {
+        const r = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (r.status === 409) {
+          document.getElementById('lcIdError').textContent = '呢個 ID 已存在';
+          document.getElementById('lcIdError').style.display = 'block';
+          return;
+        }
+        if (!r.ok) throw new Error((await r.json()).error || '儲存失敗');
+        await fetchLanguageConfigs();
+        renderPipelineStrip();
+        closeLangConfigModal();
+        showToast(isEdit ? `已更新語言配置：${body.id}` : `已建立語言配置：${body.id}`, 'success');
+        if (document.getElementById('lcmOverlay').classList.contains('open')) {
+          _renderLangConfigManageList();
+        }
+      } catch (e) {
+        showToast(`儲存失敗: ${e.message}`, 'error');
+      }
+    }
+
+    function openLangConfigManageModal() {
+      _renderLangConfigManageList();
+      document.getElementById('lcmOverlay').classList.add('open');
+    }
+
+    function closeLangConfigManageModal() {
+      document.getElementById('lcmOverlay').classList.remove('open');
+    }
+
+    function _renderLangConfigManageList() {
+      const body = document.getElementById('lcmBody');
+      const builtIn = new Set(['en', 'zh']);
+      body.innerHTML = availableLanguageConfigs.map(lc => {
+        const isBuiltIn = builtIn.has(lc.id);
+        const params = `${lc.asr?.max_words_per_segment || '?'} 字 / ${lc.asr?.max_segment_duration || '?'}s · batch ${lc.translation?.batch_size || '?'} · temp ${(lc.translation?.temperature ?? 0).toFixed(2)}`;
+        return `
+          <div data-lc-id="${escapeHtml(lc.id)}" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:600;font-size:13px;">
+                ${escapeHtml(lc.id)} — ${escapeHtml(lc.name)}
+                ${isBuiltIn ? '<span class="smn-badge" style="margin-left:6px;">內置</span>' : ''}
+              </div>
+              <div style="font-size:11px;color:var(--text-dim);">${escapeHtml(params)}</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" data-action="edit" onclick="openLangConfigCreateModal('${lc.id}')">✎</button>
+            ${isBuiltIn ? '' : `<button class="btn btn-ghost btn-sm" data-action="delete" onclick="deleteLanguageConfig('${lc.id}')">🗑</button>`}
+          </div>`;
+      }).join('') || '<div style="color:var(--text-dim);padding:12px 0;">暫無語言配置</div>';
+    }
+
+    async function deleteLanguageConfig(lcId) {
+      if (!confirm(`確定刪除語言配置「${lcId}」？`)) return;
+      try {
+        const r = await fetch(`${API_BASE}/api/languages/${encodeURIComponent(lcId)}`, { method: 'DELETE' });
+        if (!r.ok) {
+          const err = (await r.json()).error || '刪除失敗';
+          showToast(err, 'error');
+          return;
+        }
+        await fetchLanguageConfigs();
+        renderPipelineStrip();
+        _renderLangConfigManageList();
+        showToast(`已刪除語言配置：${lcId}`, 'success');
+      } catch (e) {
+        showToast(`刪除失敗: ${e.message}`, 'error');
+      }
+    }
+
+    async function applyLanguageConfig(lcId) {
+      if (!activeProfile) {
+        showToast('請先啟用一個 Profile', 'error');
+        return;
+      }
+      const newAsr = { ...activeProfile.asr, language_config_id: lcId };
+      try {
+        const r = await fetch(`${API_BASE}/api/profiles/${activeProfile.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ asr: newAsr }),
+        });
+        if (!r.ok) throw new Error((await r.json()).error || '切換失敗');
+        const d = await r.json();
+        activeProfile = d.profile;
+        renderPipelineStrip();
+        showToast(`已切換語言配置：${lcId}`, 'success');
+      } catch (e) {
+        showToast(`切換語言配置失敗: ${e.message}`, 'error');
+      }
+    }
+
     async function applyGlossary(glossId) {
       if (!activeProfile) return;
       try {
@@ -3455,6 +3764,15 @@
       } catch (e) {}
     }
 
+    async function fetchLanguageConfigs() {
+      try {
+        const r = await fetch(`${API_BASE}/api/languages`);
+        if (!r.ok) return;
+        const d = await r.json();
+        availableLanguageConfigs = d.languages || [];
+      } catch (e) { /* keep cache empty on error */ }
+    }
+
     async function fetchGlossaries() {
       try {
         const r = await fetch(`${API_BASE}/api/glossaries`);
@@ -3521,8 +3839,124 @@
     // Wire SVG subtitle overlay to active profile + Socket.IO updates so the
     // preview matches burnt-in libass output (font-preview.js handles styling).
     if (typeof FontPreview !== 'undefined') FontPreview.init(socket);
-    fetchActiveProfile().then(fetchProfiles).then(fetchGlossaries).then(fetchFileList);
+    fetchActiveProfile().then(fetchProfiles).then(fetchLanguageConfigs).then(fetchGlossaries).then(fetchFileList);
     renderAll();
   </script>
+
+  <!-- Language Config Create / Edit Modal -->
+  <div class="or-overlay" id="lcOverlay">
+    <div class="or-modal" style="width: 540px; max-width: 90vw;">
+      <div class="or-head">
+        <span id="lcTitle">新增語言配置</span>
+        <button class="or-close" onclick="closeLangConfigModal()" aria-label="關閉">&times;</button>
+      </div>
+      <div class="or-body" style="padding: 16px 20px;">
+        <div style="display:grid;gap:14px;">
+          <label style="display:flex;flex-direction:column;gap:4px;">
+            <span style="font-size:12px;font-weight:600;">ID *</span>
+            <input id="lcId" pattern="[a-z0-9-]+" maxlength="32" placeholder="zh-news"
+                   style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--surface-2);color:var(--text);">
+            <span style="font-size:11px;color:var(--text-dim);">唯一識別碼，只可英數字 + 連字號</span>
+            <span id="lcIdError" style="font-size:11px;color:var(--danger,#ef4444);display:none;"></span>
+          </label>
+          <label style="display:flex;flex-direction:column;gap:4px;">
+            <span style="font-size:12px;font-weight:600;">顯示名稱 *</span>
+            <input id="lcName" maxlength="50" placeholder="中文 · 新聞"
+                   style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--surface-2);color:var(--text);">
+          </label>
+          <fieldset style="border:1px solid var(--border);border-radius:6px;padding:10px 14px;">
+            <legend style="font-size:11px;color:var(--text-dim);padding:0 6px;">ASR 分段參數</legend>
+            <label style="display:flex;align-items:center;gap:10px;margin:6px 0;font-size:12px;">
+              每段最多字數
+              <input id="lcMaxWords" type="range" min="5" max="200" value="25" style="flex:1;">
+              <span id="lcMaxWordsVal" style="min-width:30px;text-align:right;font-family:var(--font-mono);">25</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:10px;margin:6px 0;font-size:12px;">
+              每段最長秒數
+              <input id="lcMaxDur" type="range" min="1" max="60" value="8" style="flex:1;">
+              <span id="lcMaxDurVal" style="min-width:30px;text-align:right;font-family:var(--font-mono);">8</span>
+            </label>
+          </fieldset>
+          <fieldset style="border:1px solid var(--border);border-radius:6px;padding:10px 14px;">
+            <legend style="font-size:11px;color:var(--text-dim);padding:0 6px;">翻譯參數</legend>
+            <label style="display:flex;align-items:center;gap:10px;margin:6px 0;font-size:12px;">
+              每批 batch 大小
+              <input id="lcBatch" type="range" min="1" max="50" value="8" style="flex:1;">
+              <span id="lcBatchVal" style="min-width:30px;text-align:right;font-family:var(--font-mono);">8</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:10px;margin:6px 0;font-size:12px;">
+              Temperature
+              <input id="lcTemp" type="range" min="0" max="2" step="0.05" value="0.1" style="flex:1;">
+              <span id="lcTempVal" style="min-width:36px;text-align:right;font-family:var(--font-mono);">0.10</span>
+            </label>
+          </fieldset>
+        </div>
+      </div>
+      <div class="or-foot" style="display:flex;justify-content:flex-end;gap:8px;">
+        <button class="or-btn" onclick="closeLangConfigModal()">取消</button>
+        <button class="or-btn primary" id="lcSaveBtn" onclick="saveLanguageConfig()">儲存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Language Config Manage Modal -->
+  <div class="or-overlay" id="lcmOverlay">
+    <div class="or-modal" style="width: 600px; max-width: 90vw;">
+      <div class="or-head">
+        <span>語言配置管理</span>
+        <button class="or-close" onclick="closeLangConfigManageModal()" aria-label="關閉">&times;</button>
+      </div>
+      <div class="or-body" id="lcmBody" style="padding: 12px 20px;"></div>
+      <div class="or-foot" style="display:flex;justify-content:space-between;gap:8px;">
+        <button class="or-btn" onclick="openLangConfigCreateModal()">+ 新增配置</button>
+        <button class="or-btn" onclick="closeLangConfigManageModal()">關閉</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile Preset Save Modal -->
+  <div class="or-overlay" id="ppsOverlay">
+    <div class="or-modal" style="width: 540px; max-width: 90vw;">
+      <div class="or-head">
+        <span>儲存為新 Pipeline 預設</span>
+        <button class="or-close" onclick="closeProfileSaveModal()" aria-label="關閉">&times;</button>
+      </div>
+      <div class="or-body" style="padding: 16px 20px;">
+        <div style="display:grid;gap:14px;">
+          <label style="display:flex;flex-direction:column;gap:4px;">
+            <span style="font-size:12px;font-weight:600;">預設名稱 *</span>
+            <input id="ppsName" maxlength="80"
+                   style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--surface-2);color:var(--text);">
+          </label>
+          <label style="display:flex;flex-direction:column;gap:4px;">
+            <span style="font-size:12px;font-weight:600;">描述（可選）</span>
+            <input id="ppsDesc" maxlength="160"
+                   style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--surface-2);color:var(--text);">
+          </label>
+          <div id="ppsSummary" style="font-size:11px;color:var(--text-dim);background:var(--surface-2);padding:10px 12px;border-radius:4px;line-height:1.6;font-family:var(--font-mono);"></div>
+        </div>
+      </div>
+      <div class="or-foot" style="display:flex;justify-content:flex-end;gap:8px;padding:12px 20px;">
+        <button class="or-btn" onclick="closeProfileSaveModal()">取消</button>
+        <button class="or-btn primary" id="ppsSaveBtn" onclick="saveProfileAsPreset()">儲存並啟用</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile Preset Manage Modal -->
+  <div class="or-overlay" id="ppmOverlay">
+    <div class="or-modal" style="width: 600px; max-width: 90vw;">
+      <div class="or-head">
+        <span>Pipeline 預設管理</span>
+        <button class="or-close" onclick="closeProfileManageModal()" aria-label="關閉">&times;</button>
+      </div>
+      <div class="or-body" id="ppmBody" style="padding: 12px 20px;"></div>
+      <div class="or-foot" style="display:flex;justify-content:space-between;gap:8px;padding:12px 20px;">
+        <button class="or-btn" onclick="openProfileSaveModal()">+ 新增預設</button>
+        <button class="or-btn" onclick="closeProfileManageModal()">關閉</button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>
