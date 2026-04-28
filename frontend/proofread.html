@@ -381,9 +381,13 @@
       padding: 8px 12px 4px;
     }
     .ga-section-head:not(:first-child) { margin-top: 6px; border-top: 1px solid var(--border); }
-    .ga-row.matched { opacity: 0.55; }
+    .ga-row.matched { opacity: 0.55; transition: opacity 0.15s ease; }
+    .ga-row.matched:has(input:checked) { opacity: 1; }
     .ga-row.matched .ga-row-zh::after {
       content: "  ✓ 已符合"; color: var(--success, #4ade80); font-weight: 600;
+    }
+    .ga-row.matched:has(input:checked) .ga-row-zh::after {
+      content: "  ⚠ 強制重新套用"; color: var(--accent, #f9e2af);
     }
     .ga-row {
       display: flex; align-items: flex-start; gap: 8px;
@@ -1158,10 +1162,10 @@
       </div>`;
     }).join('');
 
-    const matchRows = matches.map(m => {
+    const matchRows = matches.map((m, i) => {
       const badge = m.approved ? '<span class="ga-row-badge">已批核</span>' : '';
       return `<div class="ga-row matched">
-        <input type="checkbox" disabled>
+        <input type="checkbox" data-type="match" data-idx="${i}" onchange="updateApplyCount()">
         <div class="ga-row-body">
           <div class="ga-row-term">#${m.seg_idx + 1} &nbsp;"${escapeHtml(m.term_en)}" → ${escapeHtml(m.term_zh)} ${badge}</div>
           <div class="ga-row-zh">${escapeHtml(m.zh_text)}</div>
@@ -1174,12 +1178,13 @@
       html += `<div class="ga-section-head">需要修正 (${violations.length})</div>${violationRows}`;
     }
     if (matches.length > 0) {
-      html += `<div class="ga-section-head">已符合 (${matches.length})</div>${matchRows}`;
+      html += `<div class="ga-section-head">已符合 (${matches.length}) — 可剔選強制重新套用</div>${matchRows}`;
     }
     body.innerHTML = html;
 
-    // Only violations are submittable; matches are display-only
+    // Both violations and matches are submittable; matches are opt-in
     window._gaViolations = violations;
+    window._gaMatches = matches;
 
     updateApplyCount();
     document.getElementById('gaOverlay').classList.add('open');
@@ -1197,9 +1202,13 @@
     const checks = document.querySelectorAll('#gaBody input[type="checkbox"]');
     const selected = [];
     checks.forEach(c => {
-      if (c.checked) {
-        const v = window._gaViolations[parseInt(c.dataset.idx)];
-        selected.push({ seg_idx: v.seg_idx, term_en: v.term_en, term_zh: v.term_zh });
+      if (!c.checked) return;
+      const idx = parseInt(c.dataset.idx);
+      const item = c.dataset.type === 'match'
+        ? (window._gaMatches || [])[idx]
+        : (window._gaViolations || [])[idx];
+      if (item) {
+        selected.push({ seg_idx: item.seg_idx, term_en: item.term_en, term_zh: item.term_zh });
       }
     });
     if (!selected.length) return;
