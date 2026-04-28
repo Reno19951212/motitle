@@ -1606,7 +1606,7 @@
       const en = (seg.en || seg._en_text || seg.text || '').trim();
       let zh = (seg.zh || seg.zh_text || '').trim();
       // Strip leading [long]/[review] QA markers (legacy registry data).
-      zh = zh.replace(/^\s*(?:\[(?:long|review|LONG|REVIEW)\]\s*)+/, '').trim();
+      zh = zh.replace(/^\s*(?:\[(?:NEEDS\s+REVIEW|long|review|LONG|REVIEW)\]\s*)+/, '').trim();
       if (mode === 'en') return en;
       if (mode === 'zh') return zh || en;
       if (mode === 'bilingual') {

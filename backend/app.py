@@ -2001,15 +2001,15 @@ def api_start_render():
     if not translations:
         return jsonify({"error": "File has no translations to render"}), 400
 
-    # Approval applies to ZH; skip approval gate for EN-only renders.
-    if src_override != "en" and entry.get("subtitle_source") != "en":
-        unapproved = [t for t in translations if t.get("status") != "approved"]
-        if unapproved:
-            return jsonify({"error": f"{len(unapproved)} segment(s) not yet approved. All translations must be approved before rendering."}), 400
-
     active_profile = _profile_manager.get_active()
     subtitle_source = _resolve_subtitle_source(entry, active_profile, src_override)
     bilingual_order = _resolve_bilingual_order(entry, active_profile, ord_override)
+
+    # Approval applies to ZH; skip gate when resolved mode is EN-only.
+    if subtitle_source != "en":
+        unapproved = [t for t in translations if t.get("status") != "approved"]
+        if unapproved:
+            return jsonify({"error": f"{len(unapproved)} segment(s) not yet approved. All translations must be approved before rendering."}), 400
 
     # Count segments where ZH would be required but is empty (warn user).
     warning_missing_zh = 0

@@ -855,7 +855,7 @@
     const en = (seg.en || seg._en_text || seg.text || '').trim();
     let zh = (seg.zh || seg.zh_text || '').trim();
     // Strip leading [long]/[review] QA markers (legacy registry data).
-    zh = zh.replace(/^\s*(?:\[(?:long|review|LONG|REVIEW)\]\s*)+/, '').trim();
+    zh = zh.replace(/^\s*(?:\[(?:NEEDS\s+REVIEW|long|review|LONG|REVIEW)\]\s*)+/, '').trim();
     if (mode === 'en') return en;
     if (mode === 'zh') return zh || en;
     if (mode === 'bilingual') {
@@ -2031,7 +2031,9 @@
     if (typeof FontPreview !== 'undefined') {
       if (active >= 0) {
         const s = segs[active];
-        FontPreview.updateText(s.zh || s.en || '');
+        const mode = resolveSubtitleSource(fileInfo, null);
+        const order = resolveBilingualOrder(fileInfo, null);
+        FontPreview.updateText(pickSubtitleText({ en: s.en, zh: s.zh }, mode, order));
       } else {
         FontPreview.updateText('');
       }
