@@ -1091,7 +1091,7 @@
     .toast-stack {
       position: fixed; bottom: 18px; right: 18px;
       display: flex; flex-direction: column; gap: 8px;
-      z-index: 2000;
+      z-index: 4000; /* above .or-overlay (3000) so toasts stay visible while modal is open */
     }
     .toast {
       padding: 10px 14px;
@@ -2504,12 +2504,16 @@
       } catch (e) { showToast('套用失敗', 'error'); }
     }
 
+    let _activatingProfile = false;
     async function activateProfile(id) {
+      if (_activatingProfile) return;  // debounce: ignore overlapping clicks
+      _activatingProfile = true;
       try {
         await fetch(`${API_BASE}/api/profiles/${id}/activate`, { method: 'POST' });
         await fetchActiveProfile();
         showToast('已切換 Pipeline', 'success');
       } catch (e) { showToast('切換失敗', 'error'); }
+      finally { _activatingProfile = false; }
     }
 
     async function applyAsrModel(name) {
@@ -3720,6 +3724,16 @@
       const poll = setInterval(async () => {
         try {
           const r = await fetch(`${API_BASE}/api/renders/${renderId}`);
+          if (!r.ok) {
+            // Backend returned non-2xx (e.g. 500) — stop polling and surface error.
+            clearInterval(poll);
+            let errMsg = `HTTP ${r.status}`;
+            try { const d = await r.json(); if (d.error) errMsg = d.error; } catch (_) {}
+            setRmStatus(`渲染狀態查詢失敗：${errMsg}`, 'error');
+            document.getElementById('rmConfirmBtn').disabled = false;
+            document.getElementById('rmConfirmBtn').textContent = '重試';
+            return;
+          }
           const d = await r.json();
           if (d.status === 'done') {
             clearInterval(poll);
@@ -3738,7 +3752,12 @@
             document.getElementById('rmConfirmBtn').disabled = false;
             document.getElementById('rmConfirmBtn').textContent = '重試';
           }
-        } catch (e) { clearInterval(poll); }
+        } catch (e) {
+          clearInterval(poll);
+          setRmStatus(`渲染狀態查詢失敗：${e.message || '網絡錯誤'}`, 'error');
+          document.getElementById('rmConfirmBtn').disabled = false;
+          document.getElementById('rmConfirmBtn').textContent = '重試';
+        }
       }, 1500);
     }
 
@@ -3964,10 +3983,13 @@
     // ============================================================
     // API fetches
     // ============================================================
+    let _fileListErrorShown = false;
     async function fetchFileList() {
       try {
         const r = await fetch(`${API_BASE}/api/files`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
+        _fileListErrorShown = false;
         const prevActive = activeFileId ? uploadedFiles[activeFileId] : null;
         const newFiles = {};
         for (const f of data.files) newFiles[f.id] = f;
@@ -3976,7 +3998,13 @@
         if (prevActive && !newFiles[prevActive.id]) newFiles[prevActive.id] = prevActive;
         uploadedFiles = newFiles;
         renderAll();
-      } catch (e) {}
+      } catch (e) {
+        // Show toast once per outage (suppress spam from polling loops).
+        if (!_fileListErrorShown) {
+          _fileListErrorShown = true;
+          showToast(`無法連接後端伺服器：${e.message || '網絡錯誤'}`, 'error');
+        }
+      }
     }
 
     async function fetchActiveProfile() {
@@ -4028,8 +4056,12 @@
       zone.addEventListener('drop', e => {
         e.preventDefault();
         zone.classList.remove('drag');
-        const file = e.dataTransfer.files[0];
-        if (file) setPendingFile(file);
+        const dropped = Array.from(e.dataTransfer.files || []);
+        if (!dropped.length) return;
+        if (dropped.length > 1) {
+          showToast(`目前只支援一次處理一個檔案，已揀第一個（${dropped.length - 1} 個被略過）`, 'warning');
+        }
+        setPendingFile(dropped[0]);
       });
     })();
 
@@ -4076,6 +4108,24 @@
     if (typeof FontPreview !== 'undefined') FontPreview.init(socket);
     fetchActiveProfile().then(fetchProfiles).then(fetchLanguageConfigs).then(fetchGlossaries).then(fetchFileList);
     renderAll();
+
+    // Esc closes the topmost open modal — keyboard accessibility.
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      // Don't intercept when user is typing in a textarea (multi-line edit).
+      if (e.target && e.target.tagName === 'TEXTAREA') return;
+      const closers = [
+        ['renderOverlay', closeRenderModal],
+        ['orOverlay', () => document.getElementById('orOverlay')?.classList.remove('open')],
+        ['ppsOverlay', () => document.getElementById('ppsOverlay')?.classList.remove('open')],
+        ['ppmOverlay', () => document.getElementById('ppmOverlay')?.classList.remove('open')],
+        ['lcmOverlay', () => document.getElementById('lcmOverlay')?.classList.remove('open')],
+        ['lcOverlay', () => document.getElementById('lcOverlay')?.classList.remove('open')],
+      ];
+      for (const [id, close] of closers) {
+        if (document.getElementById(id)?.classList.contains('open')) { close(); e.preventDefault(); return; }
+      }
+    });
   </script>
 
   <!-- Language Config Create / Edit Modal -->
