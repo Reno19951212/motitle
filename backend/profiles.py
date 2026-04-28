@@ -105,6 +105,19 @@ class ProfileManager:
                     if not isinstance(font["margin_bottom"], int) or font["margin_bottom"] < 0 or font["margin_bottom"] > 200:
                         errors.append("font.margin_bottom must be an integer between 0 and 200")
 
+                # Optional subtitle source mode (added 2026-04-28)
+                src = font.get("subtitle_source")
+                if src is not None and src not in {"auto", "en", "zh", "bilingual"}:
+                    errors.append(
+                        f"font.subtitle_source must be one of auto/en/zh/bilingual; got {src!r}"
+                    )
+
+                order = font.get("bilingual_order")
+                if order is not None and order not in {"en_top", "zh_top"}:
+                    errors.append(
+                        f"font.bilingual_order must be 'en_top' or 'zh_top'; got {order!r}"
+                    )
+
         return errors
 
     # ------------------------------------------------------------------
