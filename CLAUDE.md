@@ -262,10 +262,13 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | GET | `/api/files/<id>/translations` | Get translations with approval status |
 | PATCH | `/api/files/<id>/translations/<idx>` | Update translation text (auto-approve) |
 | POST | `/api/files/<id>/translations/<idx>/approve` | Approve single translation |
+| POST | `/api/files/<id>/translations/<idx>/unapprove` | Flip a single translation back to `pending` |
 | POST | `/api/files/<id>/translations/approve-all` | Approve all pending |
 | GET | `/api/files/<id>/translations/status` | Get approval progress |
 | POST | `/api/render` | Start subtitle burn-in render job (format: `mp4` / `mxf` / `mxf_xdcam_hd422`)；接 `subtitle_source` + `bilingual_order`；response 含 `warning_missing_zh` |
 | GET | `/api/renders/<id>` | Check render job status |
+| DELETE | `/api/renders/<id>` | Cancel an in-flight render job (sets `cancelled` flag, status flips to `'cancelled'` on completion) |
+| GET | `/api/renders/in-progress` | List active render jobs (optional `?file_id=` filter) — used by Proofread page to re-attach after reload |
 | GET | `/api/renders/<id>/download` | Download rendered file |
 
 ### Frontend

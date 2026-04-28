@@ -3,7 +3,7 @@ import json
 import pytest
 from pathlib import Path
 
-from app import app, _file_registry, _registry_lock, _profile_manager
+from app import app, _file_registry, _registry_lock, _profile_manager, _render_jobs
 from subtitle_text import resolve_segment_text, VALID_SUBTITLE_SOURCES, VALID_BILINGUAL_ORDERS
 from renderer import SubtitleRenderer
 
@@ -296,3 +296,130 @@ def test_patch_profile_font_subtitle_source(client):
     refreshed = _profile_manager.get(profile["id"])
     assert refreshed["font"]["subtitle_source"] == "bilingual"
     assert refreshed["font"]["bilingual_order"] == "zh_top"
+
+
+# ---- cancel render ----
+
+def test_cancel_render_in_progress(client, tmp_path, monkeypatch):
+    monkeypatch.setattr("app.UPLOAD_DIR", tmp_path)
+    fake = tmp_path / "fake.mp4"
+    fake.write_bytes(b"\x00")
+    file_id = "file-cancel-1"
+    with _registry_lock:
+        _file_registry[file_id] = {
+            "id": file_id, "stored_name": "fake.mp4",
+            "original_name": "fake.mp4", "status": "done",
+            "segments": [{"id": 0, "start": 0, "end": 1, "text": "a"}],
+            "translations": [{"seg_idx": 0, "start": 0, "end": 1,
+                              "en_text": "a", "zh_text": "啊", "status": "approved"}],
+        }
+    try:
+        resp = client.post("/api/render", json={"file_id": file_id, "format": "mp4"})
+        render_id = resp.get_json()["render_id"]
+        cancel = client.delete(f"/api/renders/{render_id}")
+        assert cancel.status_code == 202
+        assert cancel.get_json()["status"] == "cancelling"
+    finally:
+        with _registry_lock:
+            _file_registry.pop(file_id, None)
+
+
+def test_cancel_render_not_found(client):
+    resp = client.delete("/api/renders/does-not-exist")
+    assert resp.status_code == 404
+
+
+def test_cancel_render_already_done(client, tmp_path, monkeypatch):
+    monkeypatch.setattr("app.UPLOAD_DIR", tmp_path)
+    fake = tmp_path / "fake.mp4"
+    fake.write_bytes(b"\x00")
+    file_id = "file-cancel-done-1"
+    with _registry_lock:
+        _file_registry[file_id] = {
+            "id": file_id, "stored_name": "fake.mp4",
+            "original_name": "fake.mp4", "status": "done",
+            "segments": [{"id": 0, "start": 0, "end": 1, "text": "a"}],
+            "translations": [{"seg_idx": 0, "start": 0, "end": 1,
+                              "en_text": "a", "zh_text": "啊", "status": "approved"}],
+        }
+    try:
+        resp = client.post("/api/render", json={"file_id": file_id, "format": "mp4"})
+        render_id = resp.get_json()["render_id"]
+        # Force-set status to done
+        _render_jobs[render_id] = {**_render_jobs[render_id], "status": "done"}
+        cancel = client.delete(f"/api/renders/{render_id}")
+        assert cancel.status_code == 400
+        assert "already" in cancel.get_json()["error"]
+    finally:
+        with _registry_lock:
+            _file_registry.pop(file_id, None)
+        _render_jobs.pop(render_id, None)
+
+
+# ---- unapprove translation ----
+
+def test_unapprove_translation(client):
+    file_id = "file-unapprove-1"
+    with _registry_lock:
+        _file_registry[file_id] = {
+            "id": file_id, "original_name": "v.mp4", "status": "done",
+            "translations": [
+                {"seg_idx": 0, "start": 0, "end": 1, "en_text": "a", "zh_text": "啊", "status": "approved"},
+            ],
+        }
+    try:
+        r = client.post(f"/api/files/{file_id}/translations/0/unapprove")
+        assert r.status_code == 200
+        with _registry_lock:
+            assert _file_registry[file_id]["translations"][0]["status"] == "pending"
+    finally:
+        with _registry_lock:
+            _file_registry.pop(file_id, None)
+
+
+def test_unapprove_out_of_range(client):
+    file_id = "file-unapprove-2"
+    with _registry_lock:
+        _file_registry[file_id] = {
+            "id": file_id, "original_name": "v.mp4", "status": "done",
+            "translations": [{"seg_idx": 0, "status": "approved"}],
+        }
+    try:
+        r = client.post(f"/api/files/{file_id}/translations/5/unapprove")
+        assert r.status_code == 400
+    finally:
+        with _registry_lock:
+            _file_registry.pop(file_id, None)
+
+
+def test_unapprove_file_not_found(client):
+    r = client.post("/api/files/no-such-file/translations/0/unapprove")
+    assert r.status_code == 404
+
+
+# ---- in-progress renders ----
+
+def test_renders_in_progress(client, tmp_path, monkeypatch):
+    """In-progress endpoint returns active jobs, filters by file_id."""
+    _render_jobs["job-test-aaa"] = {
+        "render_id": "job-test-aaa", "file_id": "f1", "format": "mp4",
+        "status": "processing", "subtitle_source": "auto", "created_at": 0,
+    }
+    _render_jobs["job-test-bbb"] = {
+        "render_id": "job-test-bbb", "file_id": "f2", "format": "mp4",
+        "status": "done", "subtitle_source": "auto", "created_at": 0,
+    }
+    try:
+        r = client.get("/api/renders/in-progress")
+        assert r.status_code == 200
+        ids = [j["render_id"] for j in r.get_json()["jobs"]]
+        assert "job-test-aaa" in ids
+        assert "job-test-bbb" not in ids  # filtered out (terminal status)
+
+        r2 = client.get("/api/renders/in-progress?file_id=f1")
+        assert r2.status_code == 200
+        ids2 = [j["render_id"] for j in r2.get_json()["jobs"]]
+        assert ids2 == ["job-test-aaa"]
+    finally:
+        _render_jobs.pop("job-test-aaa", None)
+        _render_jobs.pop("job-test-bbb", None)

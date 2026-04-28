@@ -1789,6 +1789,23 @@ def api_approve_translation(file_id, idx):
     return jsonify({"translation": _normalize_translation_for_api(new_translations[idx])})
 
 
+@app.route('/api/files/<file_id>/translations/<int:idx>/unapprove', methods=['POST'])
+def api_unapprove_translation(file_id, idx):
+    """Flip a translation back to 'pending' so the user can re-edit /
+    re-approve. Mirrors POST /approve."""
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+    if not entry:
+        return jsonify({"error": "File not found"}), 404
+    translations = entry.get("translations", [])
+    if idx < 0 or idx >= len(translations):
+        return jsonify({"error": "Translation index out of range"}), 400
+    new_translations = list(translations)
+    new_translations[idx] = {**translations[idx], "status": "pending"}
+    _update_file(file_id, translations=new_translations)
+    return jsonify({"translation": _normalize_translation_for_api(new_translations[idx])})
+
+
 # ============================================================
 # Render Endpoints
 # ============================================================
@@ -2049,6 +2066,7 @@ def api_start_render():
         "output_filename": download_filename,
         "error": None,
         "created_at": time.time(),
+        "cancelled": False,
     }
 
     # Load font config from active profile (fallback to DEFAULT_FONT_CONFIG)
@@ -2069,14 +2087,31 @@ def api_start_render():
             success, ffmpeg_error = _subtitle_renderer.render(
                 video_path, ass_content, output_path, output_format, render_options_snapshot
             )
-            if success:
-                _render_jobs[render_id] = {**_render_jobs[render_id], "status": "done"}
+            job_state = _render_jobs.get(render_id) or {}
+            if job_state.get('cancelled'):
+                _render_jobs[render_id] = {**job_state, 'status': 'cancelled'}
+                try:
+                    if os.path.exists(output_path):
+                        os.remove(output_path)
+                except Exception:
+                    pass
+            elif success:
+                _render_jobs[render_id] = {**job_state, "status": "done"}
             else:
                 error_msg = f"FFmpeg render failed: {ffmpeg_error}" if ffmpeg_error else "FFmpeg render failed"
-                _render_jobs[render_id] = {**_render_jobs[render_id], "status": "error", "error": error_msg}
+                _render_jobs[render_id] = {**job_state, "status": "error", "error": error_msg}
         except Exception as exc:
             print(f"Render job {render_id} error: {exc}")
-            _render_jobs[render_id] = {**_render_jobs[render_id], "status": "error", "error": str(exc)}
+            job_state = _render_jobs.get(render_id) or {}
+            if job_state.get('cancelled'):
+                _render_jobs[render_id] = {**job_state, 'status': 'cancelled'}
+                try:
+                    if os.path.exists(output_path):
+                        os.remove(output_path)
+                except Exception:
+                    pass
+            else:
+                _render_jobs[render_id] = {**_render_jobs[render_id], "status": "error", "error": str(exc)}
 
     thread = threading.Thread(target=do_render)
     thread.daemon = True
@@ -2118,6 +2153,41 @@ def api_download_render(render_id):
 
     download_name = job.get("output_filename") or Path(output_path).name
     return send_file(output_path, as_attachment=True, download_name=download_name)
+
+
+@app.route('/api/renders/<render_id>', methods=['DELETE'])
+def api_cancel_render(render_id):
+    """Mark an in-flight render job as cancelled. Best-effort — FFmpeg
+    sub-process is not killed mid-encode (no Popen handle stored), but the
+    output file is discarded and status flips to 'cancelled' on completion."""
+    job = _render_jobs.get(render_id)
+    if not job:
+        return jsonify({"error": "Render job not found"}), 404
+    if job.get('status') in ('done', 'error', 'cancelled'):
+        return jsonify({"error": f"Cannot cancel — job already {job.get('status')}"}), 400
+    _render_jobs[render_id] = {**job, 'cancelled': True}
+    return jsonify({"render_id": render_id, "status": "cancelling"}), 202
+
+
+@app.route('/api/renders/in-progress')
+def api_renders_in_progress():
+    """Return all render jobs not in a terminal state, optionally filtered by file_id."""
+    file_id = request.args.get('file_id')
+    out = []
+    for rid, job in _render_jobs.items():
+        if job.get('status') in ('done', 'error', 'cancelled'):
+            continue
+        if file_id and job.get('file_id') != file_id:
+            continue
+        out.append({
+            'render_id': rid,
+            'file_id': job.get('file_id'),
+            'format': job.get('format'),
+            'status': job.get('status'),
+            'subtitle_source': job.get('subtitle_source'),
+            'created_at': job.get('created_at'),
+        })
+    return jsonify({'jobs': out}), 200
 
 
 def _auto_translate(fid: str, segments: list, session_id) -> None:
