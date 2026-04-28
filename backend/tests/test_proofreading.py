@@ -131,3 +131,96 @@ def test_get_translations_no_translations(client_with_file):
     assert resp.get_json()["translations"] == []
     with _registry_lock:
         _file_registry.pop("no-trans", None)
+
+
+# ============================================================
+# Phase B: structured QA flags + legacy prefix migration on read
+# ============================================================
+def test_normalize_translation_helper_passes_through_new_format():
+    """When backend already populated `flags`, helper returns input unchanged."""
+    from app import _normalize_translation_for_api
+    t = {"start": 0.0, "end": 1.0, "en_text": "Hi", "zh_text": "你好", "flags": ["long"]}
+    assert _normalize_translation_for_api(t) is t
+
+
+def test_normalize_translation_helper_parses_legacy_long_prefix():
+    """Old registry data with `[LONG] xxx` is split into clean zh + flags."""
+    from app import _normalize_translation_for_api
+    t = {"start": 0.0, "end": 1.0, "en_text": "Hi", "zh_text": "[LONG] 太長啦"}
+    out = _normalize_translation_for_api(t)
+    assert out["zh_text"] == "太長啦"
+    assert out["flags"] == ["long"]
+
+
+def test_normalize_translation_helper_parses_stacked_prefixes():
+    """Multiple stacked prefixes are all extracted, in any order, deduped."""
+    from app import _normalize_translation_for_api
+    t = {"start": 0.0, "end": 1.0, "en_text": "Hi", "zh_text": "[NEEDS REVIEW] [LONG] 句子"}
+    out = _normalize_translation_for_api(t)
+    assert out["zh_text"] == "句子"
+    assert set(out["flags"]) == {"long", "review"}
+
+
+def test_get_translations_normalizes_legacy_prefix_on_read(tmp_path):
+    """API returns clean zh_text + structured flags even when registry stores legacy format."""
+    from app import app, _init_profile_manager, _init_glossary_manager, _file_registry, _registry_lock
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+    (tmp_path / "settings.json").write_text(json.dumps({"active_profile": None}))
+    _init_profile_manager(tmp_path)
+    glossaries_dir = tmp_path / "glossaries"
+    glossaries_dir.mkdir()
+    _init_glossary_manager(tmp_path)
+
+    fid = "legacy-001"
+    with _registry_lock:
+        _file_registry[fid] = {
+            "id": fid, "original_name": "x.mp4", "stored_name": "x.mp4",
+            "size": 1, "status": "done", "uploaded_at": 1,
+            "segments": [{"id": 0, "start": 0.0, "end": 2.0, "text": "Hello."}],
+            "text": "Hello.", "error": None, "model": None, "backend": None,
+            "translations": [
+                {"start": 0.0, "end": 2.0, "en_text": "Hello.",
+                 "zh_text": "[LONG] 句子過長因此被標記。", "status": "pending"},
+            ],
+        }
+    app.config["TESTING"] = True
+    try:
+        with app.test_client() as c:
+            resp = c.get(f"/api/files/{fid}/translations")
+            data = resp.get_json()
+            t = data["translations"][0]
+            assert t["zh_text"] == "句子過長因此被標記。"
+            assert t["flags"] == ["long"]
+    finally:
+        with _registry_lock:
+            _file_registry.pop(fid, None)
+
+
+def test_patch_clears_qa_flags(client_with_file):
+    """Editing a flagged translation implies user has reviewed it; flags should clear."""
+    client, file_id = client_with_file
+    from app import _file_registry, _registry_lock
+    with _registry_lock:
+        _file_registry[file_id]["translations"][0]["flags"] = ["long", "review"]
+
+    resp = client.patch(f"/api/files/{file_id}/translations/0", json={"zh_text": "大家好。"})
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["translation"]["zh_text"] == "大家好。"
+    assert data["translation"]["flags"] == []
+    assert data["translation"]["status"] == "approved"
+
+
+def test_approve_preserves_qa_flags(client_with_file):
+    """Approving without editing keeps flags so warnings stay visible."""
+    client, file_id = client_with_file
+    from app import _file_registry, _registry_lock
+    with _registry_lock:
+        _file_registry[file_id]["translations"][1]["flags"] = ["review"]
+
+    resp = client.post(f"/api/files/{file_id}/translations/1/approve")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["translation"]["status"] == "approved"
+    assert data["translation"]["flags"] == ["review"]

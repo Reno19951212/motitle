@@ -3,11 +3,17 @@ from abc import ABC, abstractmethod
 from typing import TypedDict, List, Dict, Optional, Callable
 
 
-class TranslatedSegment(TypedDict):
+class TranslatedSegment(TypedDict, total=False):
     start: float
     end: float
     en_text: str
     zh_text: str
+    # QA flags raised by post_processor / sentence_pipeline.
+    # Known values: "long" (zh_text length exceeds broadcast single-line max)
+    #               "review" (validate_batch flagged repetition / hallucination / missing)
+    # Stored as a structured field so UI can render badges and renderer
+    # never has to strip text prefixes. Empty list / missing field == clean.
+    flags: List[str]
 
 
 # Progress callback shape: called after each batch with (completed_count, total_count)

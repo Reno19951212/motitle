@@ -1,11 +1,25 @@
 """Subtitle renderer — generates ASS subtitles and burns them into video via FFmpeg."""
 
 import os
+import re
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 from typing import List
+
+# QA prefixes injected by translation/post_processor.py — must be stripped
+# before burn-in so they never appear in the final video.
+_QA_PREFIX_RE = re.compile(r"^\s*(?:\[LONG\]|\[NEEDS REVIEW\])\s*")
+
+
+def strip_qa_prefixes(text: str) -> str:
+    """Remove any [LONG] / [NEEDS REVIEW] prefixes (possibly stacked)."""
+    prev = None
+    while text != prev:
+        prev = text
+        text = _QA_PREFIX_RE.sub("", text, count=1)
+    return text
 
 DEFAULT_FONT_CONFIG = {
     "family": "Noto Sans TC",
@@ -16,6 +30,38 @@ DEFAULT_FONT_CONFIG = {
     "position": "bottom",
     "margin_bottom": 40,
 }
+
+# Subtitle font assets — same dir served to the frontend by app.py's
+# /fonts/<file> endpoint. Bundling the same TTF/OTF on both sides keeps
+# the live preview and the FFmpeg burn-in glyph-identical.
+FONTS_DIR = (Path(__file__).parent / "assets" / "fonts").resolve()
+ALLOWED_FONT_EXTS = {".ttf", ".otf"}
+
+
+def _has_bundled_fonts() -> bool:
+    """True iff backend/assets/fonts/ contains at least one *.ttf/*.otf."""
+    if not FONTS_DIR.exists():
+        return False
+    return any(
+        p.is_file() and p.suffix.lower() in ALLOWED_FONT_EXTS
+        for p in FONTS_DIR.iterdir()
+    )
+
+
+def _escape_for_ffmpeg_filter_arg(s: str) -> str:
+    """Escape a string for use as a value inside one FFmpeg filter argument.
+
+    Reference: https://ffmpeg.org/ffmpeg-filters.html#Notes-on-filtergraph-escaping
+    Backslash → \\\\, colon → \\:, single-quote → \\', comma → \\,.
+    Backslash MUST be escaped first so subsequent escapes' backslashes
+    survive the round-trip.
+    """
+    return (
+        s.replace("\\", "\\\\")
+         .replace(":", "\\:")
+         .replace("'", "\\'")
+         .replace(",", "\\,")
+    )
 
 
 def hex_to_ass_color(hex_color: str) -> str:
@@ -94,8 +140,9 @@ class SubtitleRenderer:
                 continue
             start = seconds_to_ass_time(seg["start"])
             end = seconds_to_ass_time(seg["end"])
-            # L11: replace raw newlines with ASS line-break escape sequence
-            text = seg.get("zh_text", "").replace("\r", "").replace("\n", "\\N")
+            # L11: strip QA prefixes (so they never burn into video) and
+            # replace raw newlines with ASS line-break escape sequence.
+            text = strip_qa_prefixes(seg.get("zh_text", "")).replace("\r", "").replace("\n", "\\N")
             lines.append(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{text}")
 
         return "\n".join(lines) + "\n"
@@ -145,7 +192,15 @@ class SubtitleRenderer:
                 f.write(ass_content)
 
             resolution = opts.get("resolution")
-            ass_filter = f"ass={ass_basename}"
+            # When the user has dropped TTF/OTF files into backend/assets/fonts/,
+            # tell libass to resolve fonts from there. This makes the burnt-in
+            # output use the exact same font file the browser preview loads via
+            # @font-face, eliminating glyph drift between preview and output.
+            if _has_bundled_fonts():
+                fontsdir_arg = _escape_for_ffmpeg_filter_arg(str(FONTS_DIR))
+                ass_filter = f"ass={ass_basename}:fontsdir={fontsdir_arg}"
+            else:
+                ass_filter = f"ass={ass_basename}"
             vf = f"{ass_filter},scale={resolution}" if resolution else ass_filter
 
             video_abs = os.path.abspath(video_path)

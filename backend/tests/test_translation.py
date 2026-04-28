@@ -889,8 +889,8 @@ def test_retry_success_replaces_missing():
 
 
 def test_retry_failure_keeps_missing_flagged():
-    """When retry also fails (placeholder survives), PostProcessor marks it
-    [NEEDS REVIEW] so the human reviewer sees it."""
+    """When retry also fails (placeholder survives), PostProcessor surfaces it
+    via the structured `flags` field (Phase B) so the human reviewer sees it."""
     from translation.ollama_engine import OllamaTranslationEngine
     engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
     batch_with_missing = [
@@ -903,8 +903,10 @@ def test_retry_failure_keeps_missing_flagged():
     with _patch.object(engine, "_translate_batch", return_value=batch_with_missing), \
          _patch.object(engine, "_retry_missing", return_value=retry_still_missing):
         result = engine.translate(SAMPLE_SEGMENTS)
-    # PostProcessor's validate_batch turns [TRANSLATION MISSING] → [NEEDS REVIEW]
-    assert "[NEEDS REVIEW]" in result[1]["zh_text"]
+    # zh_text stays as-is so the reviewer sees what the LLM actually returned;
+    # the warning lives in the structured flags list, not as a string prefix.
+    assert "review" in result[1].get("flags", [])
+    assert "[NEEDS REVIEW]" not in result[1]["zh_text"]
 
 
 def test_retry_splice_multiple_missing():

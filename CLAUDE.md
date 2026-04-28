@@ -334,6 +334,60 @@ Whenever a new feature is completed or existing functionality is modified, you *
 - **Glossary Apply（LLM 智能替換）**: Proofread page 詞彙表 panel 新增「套用」按鈕。Two-phase 流程：(1) `POST /api/files/<id>/glossary-scan` 用純字串匹配搵出違規（EN 包含 glossary term 但 ZH 唔包含對應翻譯）；(2) 預覽 modal 俾用戶剔選 violations（未批核預設勾選，已批核預設唔勾選）；(3) `POST /api/files/<id>/glossary-apply` 逐條調用 Ollama LLM 做智能替換（保留句子其他部分），多個違規同一 segment 時序列處理。後端會驗證 `(term_en, term_zh)` 確實屬於指定 glossary，錯誤訊息經 `app.logger.exception` 記錄並返回統一 `"LLM request failed"` 俾 client
 - **304 automated tests**（+13 new: glossary-scan/apply 端到端 coverage，包含 sequential chaining、term validation、approval 狀態保留）
 
+### v3.6 — Live Preview / Burnt-in Output Fidelity (Phase 2 — font asset parity)
+- **Background**：v3.5 將 overlay 換成 SVG `paint-order` 解決咗描邊幾何同 scaling math 兩個 fidelity gap，但 v3.5 結尾留低嘅最大缺口係 **glyph 本身**：browser 揀字行 OS font fallback chain，libass 行 fontconfig，兩邊揀到嘅可能根本唔係同一個 cut（甚至唔同 family）。Phase 2 將同一份 TTF/OTF 同時餵畀兩邊。
+- **新 asset 目錄**（[backend/assets/fonts/](backend/assets/fonts/)）：用戶將 `.ttf` / `.otf` 掉入呢個目錄即生效，renderer 同 preview 即時拎到。詳細 README 喺 [backend/assets/fonts/README.md](backend/assets/fonts/README.md)：推介 Noto Sans TC / Source Han Sans TC / Noto Sans HK，全部 SIL OFL 可商用 + 重發。Repo 唔 bundle 任何字體 binary。
+- **新 backend route**（[backend/app.py](backend/app.py)）：
+  - `GET /api/fonts` — 列出 `assets/fonts/` 下所有 TTF/OTF，每項 `{file, family}`；family name 用 fontTools 由 font 嘅 `name` table（platform 3 / encoding 1 / langID 0x409 = Win Unicode English US 優先）抽取，fontTools 唔安裝就 fallback 去 file stem。
+  - `GET /fonts/<filename>` — 透過 `send_from_directory` serve font binary；雙重防 traversal（Flask normalize + 我哋 enforce extension allowlist `{.ttf, .otf}`），唔可以攞嚟 exfiltrate 任何其他文件。
+- **Renderer 加 fontsdir**（[backend/renderer.py](backend/renderer.py)）：
+  - 新 `_has_bundled_fonts()` helper — boot 時掃 `assets/fonts/`。
+  - 新 `_escape_for_ffmpeg_filter_arg()` helper — proper FFmpeg filter escaping（`\` → `\\`、`:` → `\:`、`'` → `\'`、`,` → `\,`）支援 Windows drive colon path。
+  - `render()` 入面：有 bundled font 就 `ass={basename}:fontsdir={escaped_abs_path}`，冇就 fallback 去原本 `ass={basename}`。同 `:scale=` resolution 過濾器並存兼容（fontsdir 屬於 ass option，scale 係另一個 filter）。
+- **Frontend `@font-face` injection**（[frontend/js/font-preview.js](frontend/js/font-preview.js)）：
+  - `_injectBundledFonts()` 喺 `init()` 時自動 fetch `/api/fonts`，將每個 font 注入做 `@font-face` rule（`font-display: block` 防 fallback flash）。
+  - `document.fonts.load()` eagerly preload 每個 face，等 first paint 已有 glyph cached，唔會 first segment 用 fallback metric 閃一格。
+  - Preload 完之後 re-call `applyFontConfig()` 重 paint，確保 metric 100% 對。
+- **行為總結**：
+  - 用戶 drop `NotoSansTC-Regular.ttf` 入 `backend/assets/fonts/`；
+  - 開 dashboard 或 proofread page → `/api/fonts` 列出 → frontend 注入 `@font-face` 用呢個文件；
+  - 燒入時 → renderer 加 `fontsdir=` → libass 用同一個文件；
+  - 結果：browser preview 同最後燒入嘅 video 用一模一樣嘅 glyph、metrics、kerning。
+- **Optional dep**：`fontTools` — 安裝先有真 family name (`Noto Sans TC`)，唔安裝就用 file stem (`NotoSansTC-Regular`)。renderer 完全唔需要 fontTools，純 preview 體驗加分。
+- **Tests**：8 個 fonts API tests（[tests/test_fonts_api.py](backend/tests/test_fonts_api.py)）— empty dir、列出 TTF + OTF + 過濾非字體、missing dir 唔 crash、serve OK / 404、extension allowlist、path traversal 防護。10 個 renderer fontsdir tests — escape helper（plain / Windows drive / quote / comma）、無 bundle font 唔加 fontsdir、有 bundle 加 fontsdir、fontsdir 同 scale resolution 並存兼容。**425 backend tests pass**（除咗 v3.3 已存在嘅 ass-colon-escape macOS tmpdir test）。
+
+### v3.5 — Live Preview / Burnt-in Output Fidelity (Phase 1 — visual)
+- **Background**：v3.4 之前 dashboard 同 proofread 兩個 page 嘅 subtitle overlay 各自用 `<div>` + 8-direction `text-shadow` 嚟模擬描邊，同 libass 真正用 FreeType `FT_Stroker` 燒入嘅輪廓有明顯落差（diagonal 唔均勻、邊緣較糊、色塊隨字大細浮動）。另外 [frontend/js/font-preview.js](frontend/js/font-preview.js) 雖然已寫成 SVG `paint-order` 方法但兩個 page 都冇 import 佢，等於 dead code。Agent teams 跑完 audit 確認三大 fidelity gap：(1) outline 幾何唔一致；(2) 兩個 page 各自做 `containerWidth/1920` scaling math，同 libass 內部按 `frame_height/PlayResY` scale 嘅口徑唔同；(3) 單獨 page 重複實作，settings panel 做 PATCH 之後要靠 Socket.IO 嚟 cross-tab 同步。
+- **Phase 1 範圍**：純前端視覺改動，唔涉及 font asset bundling 或 backend renderer 變更。Phase 2（serve same TTF via `@font-face` + FFmpeg `fontsdir=` 對齊）留待之後做。
+- **`font-preview.js` 完整重寫**（[frontend/js/font-preview.js](frontend/js/font-preview.js)）：
+  - SVG `viewBox="0 0 1920 1080"`（hardcoded match `backend/renderer.py` 嘅 PlayResX/Y）→ overlay 入面每個座標單位 = 1 ASS pixel，`fontConfig.size` / `outline_width` / `margin_bottom` 直接 pass-through 唔需要 JS scaling。
+  - `paint-order="stroke fill"` + `stroke-linejoin="round"` + `stroke-linecap="round"` — 重現 libass `FT_Stroker` 嘅 outside-glyph 輪廓幾何。
+  - SVG stroke 係 path-centered，所以 `stroke-width = outline_width * 2`（fill 後畫蓋住 inner half，剩 outline_width pixel 喺外面）。
+  - `text-rendering: geometricPrecision` + `-webkit-font-smoothing: antialiased` + `-moz-osx-font-smoothing: grayscale` — 將 browser LCD subpixel AA 攤平做 grayscale，更貼近 libass FreeType grayscale bitmap output。
+  - Multi-line：split on `\n` 同 literal `\N`（renderer 寫入 ASS 時將 `\n` → `\\N`，preview 兩種都認），用 `<tspan x= y=>` 將底線 anchor 喺 `PlayResY - margin_bottom`、上面 stack 行高 `size * 1.2`。
+  - 單一 fetch + Socket.IO `profile_updated` listener — 任何 page 嘅 settings PATCH 即時 broadcast 到所有開緊嘅 tab。
+- **Dashboard overlay 重寫**（[frontend/index.html](frontend/index.html)）：
+  - HTML `<div class="subtitle-overlay-text">` → `<svg id="subtitleSvg"><text id="subtitleSvgText"></text></svg>`，置於 `.video-area` 內，CSS `position: absolute; inset: 0; pointer-events: none`。
+  - 刪走 `applySubtitleStyle()` 入面所有 text-shadow 8-direction 邏輯 + scaling math + ResizeObserver，改為 thin wrapper `FontPreview.applyFontConfig(fontConfig)`。`updateSubtitleOverlay()` 改用 `FontPreview.updateText(text)`。
+  - 加入 `<script src="js/font-preview.js"></script>` + `FontPreview.init(socket)`（重用已有 socket 實例）。
+- **Proofread overlay 重寫**（[frontend/proofread.html](frontend/proofread.html)）：
+  - 同 dashboard 對等改動：HTML SVG element、CSS reset、`applySubtitleStyle()` 變 thin wrapper、segment-switch text 寫入由 `sub.textContent = ...` 改成 `FontPreview.updateText(...)`。
+  - 加入 socket.io CDN script（proofread page 之前無 socket 連線）+ `font-preview.js` import + `FontPreview.init(null)`（FontPreview 內部會自己起 socket 接 `profile_updated`）。
+  - 詞彙表面板 / 字幕設定 panel 嘅 PATCH 流程不變，PATCH 完照舊 call `applySubtitleStyle()` → 經 FontPreview 立即更新 SVG。
+- **Backend 不變**：renderer.py / app.py / 任何 API 完全冇動。412 backend tests 全部維持通過（除 v3.3 已存在嘅 macOS tmpdir colon-escape test）。
+- **點解仲未完美**：Phase 1 仍然有兩個已知差異 — (a) 字體本身：browser font fallback chain（系統字）vs libass fontconfig 揀字，可能解到唔同 glyph 出嚟；(b) compression artifact：libass output 經 H.264/MPEG-2 4:2:0 chroma subsampling 之後 colored outline 略微變糊，preview 唔會。兩個 issue 都需要 Phase 2（bundle Noto Sans TC TTF + FFmpeg `fontsdir=`）先 close 到。
+
+### v3.4 — Structured QA Flags (Phase B — schema migration)
+- **Background**：v3.3 之前 `[LONG]` / `[NEEDS REVIEW]` 兩個 QA tag 直接 prepend 入 `zh_text` 字串，會導致：(1) 字幕燒入時 tag 寫入最終視頻；(2) 前端要 regex parse 譯文先可以判斷狀態；(3) 翻譯 retry 時要 strip-then-feed-back 避免 LLM 抄返。Phase A（v3.3 中段）只係前端視覺修補 + renderer 加 strip 防護網。Phase B 將 tag 由 string prefix 改做 schema-level structured field。
+- **Backend schema 變更**：`TranslatedSegment` TypedDict 加入 `flags: List[str]` 欄位（已知值：`"long"` / `"review"`）。`zh_text` 永遠 clean — 唔會再有任何 QA prefix。
+- **Post-processor 重寫**（[backend/translation/post_processor.py](backend/translation/post_processor.py)）：`_flag_long_segments` 同 `_mark_bad_segments` 唔再 prepend 字串，改為 append 到 `flags` list（dedup via `_add_flag` helper）。`validate_batch` 簡化 — 唔需要 strip prefix 先計長度。
+- **Sentence pipeline 重寫**（[backend/translation/sentence_pipeline.py:264-269](backend/translation/sentence_pipeline.py#L264-L269)）：retry 後仍然 bad 嘅 segment 直接 append `"review"` flag，唔再構造新 `TranslatedSegment` 加 prefix。
+- **API normalization**（[backend/app.py](backend/app.py) 新 `_normalize_translation_for_api()` helper）：legacy registry 數據（v3.3 之前寫入嘅 `[LONG] xxx` 字串）會喺 API GET / PATCH / approve 響應時自動 parse 出 `flags` 同 clean `zh_text`，向前兼容唔需要 migration script。新數據已經有 `flags` 直接 pass-through。
+- **PATCH 行為**：用戶手動編輯一段譯文等於覆檢過，`flags` 自動 reset 為 `[]`（避免覆檢過嘅 segment 仍然 show 警告）。`approve` 唔改譯文 → flags 保留（警告繼續顯示）。
+- **Frontend 簡化**（[frontend/proofread.html](frontend/proofread.html)）：直接讀 backend 提供嘅 `flags` array，透過 `qaFlagsFromBackend()` 轉為 `{type, msg}` UI shape。Legacy `parseTranslationFlags()` 保留為 fallback path，covering 仍未經 normalize 嘅舊 cache 數據。
+- **Renderer 防護網**（[backend/renderer.py](backend/renderer.py)）：`strip_qa_prefixes()` helper 保留，新 schema 下變成 no-op，但仍然防止任何 legacy 路徑或 manual data import 漏咗 prefix 燒入視頻。
+- **Tests**：post_processor 12 個 tests assertions 由 string-prefix 改檢查 `flags` array；新增 6 個 proofreading API tests（normalize helper、stacked prefix parse、PATCH-clears-flags、approve-preserves-flags、legacy registry pass-through）。test_translation.py `test_retry_failure_keeps_missing_flagged` 改為 assert `"review" in flags`。**412 backend tests pass**（除咗 1 個 v3.3 已存在嘅 ass-colon-escape macOS tmpdir test）。
+
 ### v3.3 — MP4 Advanced Render Options (Bitrate Mode + Pixel Format + H.264 Profile/Level)
 - **MP4 card** 內加深 controls，同 MXF 卡嘅 depth-of-control 對齊。新增 5 個 `render_options` 欄位：`bitrate_mode` (crf/cbr/2pass)、`video_bitrate_mbps`、`pixel_format` (yuv420p/422p/444p)、`profile` (baseline/main/high/high422/high444)、`level` (3.1…5.2/auto)。
 - **CRF mode** — 維持現有 behaviour，加入 `-pix_fmt`、`-profile:v`、`-level:v` flags（`level="auto"` 時不 emit flag，由 libx264 自動揀）。
