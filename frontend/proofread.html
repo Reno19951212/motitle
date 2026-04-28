@@ -1130,6 +1130,10 @@
       const data = await r.json();
       const violations = data.violations || [];
       const matches = data.matches || [];
+      const revertedCount = data.reverted_count || 0;
+      if (revertedCount > 0) {
+        showToast(`已自動回復 ${revertedCount} 段（詞彙表改動）`, 'info');
+      }
       if (violations.length === 0 && matches.length === 0) {
         showToast('字幕中無詞彙表覆蓋嘅詞，請檢查 EN 文本或新增條目', 'info');
         return;
@@ -1167,7 +1171,7 @@
     const matchRows = matches.map((m, i) => {
       const badge = m.approved ? '<span class="ga-row-badge">已批核</span>' : '';
       return `<div class="ga-row matched">
-        <input type="checkbox" data-type="match" data-idx="${i}" onchange="updateApplyCount()">
+        <input type="checkbox" data-type="match" data-idx="${i}" disabled onchange="updateApplyCount()">
         <div class="ga-row-body">
           <div class="ga-row-term">#${m.seg_idx + 1} &nbsp;"${escapeHtml(m.term_en)}" → ${escapeHtml(m.term_zh)} ${badge}</div>
           <div class="ga-row-zh">${escapeHtml(m.zh_text)}</div>
