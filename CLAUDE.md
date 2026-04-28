@@ -226,7 +226,8 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | POST | `/api/transcribe` | Upload + async transcription → auto-translate |
 | GET | `/api/files` | List all uploaded files with status |
 | GET | `/api/files/<id>/media` | Serve original media file |
-| GET | `/api/files/<id>/subtitle.<fmt>` | Download subtitle (srt/vtt/txt) |
+| GET | `/api/files/<id>/subtitle.<fmt>` | Download subtitle (srt/vtt/txt)；接 `?source=` + `?order=` query params |
+| PATCH | `/api/files/<id>` | Update file-level settings (subtitle_source / bilingual_order) |
 | GET | `/api/files/<id>/segments` | Get transcription segments |
 | PATCH | `/api/files/<id>/segments/<seg_id>` | Update segment text |
 | DELETE | `/api/files/<id>` | Delete file |
@@ -263,7 +264,7 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | POST | `/api/files/<id>/translations/<idx>/approve` | Approve single translation |
 | POST | `/api/files/<id>/translations/approve-all` | Approve all pending |
 | GET | `/api/files/<id>/translations/status` | Get approval progress |
-| POST | `/api/render` | Start subtitle burn-in render job (format: `mp4` / `mxf` / `mxf_xdcam_hd422`) |
+| POST | `/api/render` | Start subtitle burn-in render job (format: `mp4` / `mxf` / `mxf_xdcam_hd422`)；接 `subtitle_source` + `bilingual_order`；response 含 `warning_missing_zh` |
 | GET | `/api/renders/<id>` | Check render job status |
 | GET | `/api/renders/<id>/download` | Download rendered file |
 
@@ -333,6 +334,17 @@ Whenever a new feature is completed or existing functionality is modified, you *
 - **Proofread 兩個新 Panel**: 影片預覽下方加入「詞彙表對照」+「字幕設定」兩個 panel。詞彙表 panel 支援從所有 glossary 中選擇、查看/新增/編輯條目（inline）；字幕設定 panel 直接編輯 active profile 嘅 font config（字型、大小、顏色、輪廓、邊距），500ms debounce 後自動 PATCH，透過 Socket.IO 即時更新 overlay
 - **Glossary Apply（LLM 智能替換）**: Proofread page 詞彙表 panel 新增「套用」按鈕。Two-phase 流程：(1) `POST /api/files/<id>/glossary-scan` 用純字串匹配搵出違規（EN 包含 glossary term 但 ZH 唔包含對應翻譯）；(2) 預覽 modal 俾用戶剔選 violations（未批核預設勾選，已批核預設唔勾選）；(3) `POST /api/files/<id>/glossary-apply` 逐條調用 Ollama LLM 做智能替換（保留句子其他部分），多個違規同一 segment 時序列處理。後端會驗證 `(term_en, term_zh)` 確實屬於指定 glossary，錯誤訊息經 `app.logger.exception` 記錄並返回統一 `"LLM request failed"` 俾 client
 - **304 automated tests**（+13 new: glossary-scan/apply 端到端 coverage，包含 sequential chaining、term validation、approval 狀態保留）
+
+### v3.7 — Subtitle Source Mode (per-file EN / ZH / Bilingual)
+- **`backend/subtitle_text.py`**: 新 module，shared resolver `resolve_segment_text(seg, mode, order, line_break)` + `strip_qa_prefixes` + `resolve_subtitle_source` / `resolve_bilingual_order` 三層 fallback helper（render-modal override > file > profile > `auto`）
+- **`renderer.generate_ass()`**: 加 `subtitle_source` + `bilingual_order` keyword-only kwargs，default `auto`/`en_top`，預設行為同 v3.6 一樣
+- **`POST /api/render`**: body 接 `subtitle_source` + `bilingual_order`；response 加 `warning_missing_zh`（zh-mode 缺 ZH 嘅段數，>0 時前端彈 amber toast）；`subtitle_source: "en"` 時跳過 approval gate（approval 係 ZH 概念）
+- **`GET /api/files/<id>/subtitle.{srt,vtt,txt}`**: 加 `?source=` + `?order=` query param；冇就 fall back file → profile → auto；merge segments+translations 後過 resolver；line break 用 raw `\n`（ASS 用 `\\N`）
+- **`PATCH /api/files/<id>`**: 接 `subtitle_source` + `bilingual_order`，`null` 清 override；validate enum
+- **`PATCH /api/profiles/<id>`**: `font.subtitle_source` + `font.bilingual_order` 通過 `_validate_font` 驗證；新增可選 profile font 欄位：`font.subtitle_source`（`auto`/`en`/`zh`/`bilingual`）+ `font.bilingual_order`（`en_top`/`zh_top`）
+- **Frontend**: file card mini dropdown（每個檔案獨立 override）、proofread header dropdown、render modal source override row、Profile save modal 新 fieldset（preset 字幕來源）；`pickSubtitleText` JS helper mirror backend resolver；dashboard overlay 同 proofread overlay 共用同一 resolver path
+- **22 個 backend pytest**（helper / renderer / route / export / patch）+ **6 個 Playwright scenario** 全綠
+- **469/481 backend tests pass**（12 pre-existing unrelated failures：11 Playwright E2E 需 browser、1 v3.3 macOS tmpdir colon-escape test）
 
 ### v3.6 — Live Preview / Burnt-in Output Fidelity (Phase 2 — font asset parity)
 - **Background**：v3.5 將 overlay 換成 SVG `paint-order` 解決咗描邊幾何同 scaling math 兩個 fidelity gap，但 v3.5 結尾留低嘅最大缺口係 **glyph 本身**：browser 揀字行 OS font fallback chain，libass 行 fontconfig，兩邊揀到嘅可能根本唔係同一個 cut（甚至唔同 family）。Phase 2 將同一份 TTF/OTF 同時餵畀兩邊。
