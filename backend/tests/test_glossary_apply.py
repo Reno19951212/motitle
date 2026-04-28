@@ -352,3 +352,65 @@ def test_glossary_apply_preserves_approval_status(file_with_translations, glossa
     assert resp.status_code == 200
     # Status should remain "approved" — not changed
     assert app_module._file_registry[file_id]["translations"][0]["status"] == "approved"
+
+
+def test_glossary_scan_returns_matches_array(file_with_translations, glossary_with_entries):
+    """Response must include `matches` array and `match_count` field."""
+    file_id, c, app_module = file_with_translations
+    glossary_id, _, _ = glossary_with_entries
+
+    # Patch segment 2 ZH so "broadcast" is correctly translated as "廣播" → 1 match.
+    app_module._file_registry[file_id]["translations"][2]["zh_text"] = "廣播繼續進行"
+
+    resp = c.post(f"/api/files/{file_id}/glossary-scan",
+                  data=json.dumps({"glossary_id": glossary_id}),
+                  content_type="application/json")
+    assert resp.status_code == 200
+    data = resp.get_json()
+
+    assert "matches" in data, "response missing 'matches' array"
+    assert "match_count" in data, "response missing 'match_count'"
+    assert isinstance(data["matches"], list)
+    assert data["match_count"] == len(data["matches"])
+
+    for m in data["matches"]:
+        assert set(m.keys()) >= {"seg_idx", "en_text", "zh_text", "term_en", "term_zh", "approved"}
+
+
+def test_glossary_scan_segment_with_correct_zh_goes_to_matches(file_with_translations, glossary_with_entries):
+    """When EN contains term and ZH already contains correct term, row goes to matches not violations."""
+    file_id, c, app_module = file_with_translations
+    glossary_id, _, _ = glossary_with_entries
+
+    app_module._file_registry[file_id]["translations"][2]["zh_text"] = "廣播繼續進行"
+
+    resp = c.post(f"/api/files/{file_id}/glossary-scan",
+                  data=json.dumps({"glossary_id": glossary_id}),
+                  content_type="application/json")
+    data = resp.get_json()
+
+    seg2_violations_for_broadcast = [
+        v for v in data["violations"] if v["seg_idx"] == 2 and v["term_en"] == "broadcast"
+    ]
+    assert seg2_violations_for_broadcast == [], "broadcast on seg 2 should not be a violation when ZH has 廣播"
+
+    seg2_matches_for_broadcast = [
+        m for m in data["matches"] if m["seg_idx"] == 2 and m["term_en"] == "broadcast"
+    ]
+    assert len(seg2_matches_for_broadcast) == 1, "expected 1 match for broadcast on seg 2"
+    assert seg2_matches_for_broadcast[0]["term_zh"] == "廣播"
+
+
+def test_glossary_scan_violations_unchanged_when_zh_incorrect(file_with_translations, glossary_with_entries):
+    """Existing violation behaviour preserved — when ZH lacks term, row goes to violations."""
+    file_id, c, _ = file_with_translations
+    glossary_id, _, _ = glossary_with_entries
+
+    resp = c.post(f"/api/files/{file_id}/glossary-scan",
+                  data=json.dumps({"glossary_id": glossary_id}),
+                  content_type="application/json")
+    data = resp.get_json()
+
+    seg0_violations = [v for v in data["violations"] if v["seg_idx"] == 0]
+    seg0_terms = sorted(v["term_en"] for v in seg0_violations)
+    assert seg0_terms == ["anchor", "broadcast"]
