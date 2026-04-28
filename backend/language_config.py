@@ -76,6 +76,49 @@ class LanguageConfigManager:
         os.replace(tmp_path, path)
         return updated
 
+    def create(self, data: dict) -> dict:
+        """Create a new language config. Raises ValueError on validation error.
+
+        Required keys: id, name, asr.max_words_per_segment, asr.max_segment_duration,
+        translation.batch_size, translation.temperature.
+        """
+        import re
+        lang_id = (data.get("id") or "").strip()
+        if not re.match(r"^[a-z0-9-]{1,32}$", lang_id):
+            raise ValueError("id must match [a-z0-9-]{1,32}")
+
+        if self.get(lang_id) is not None:
+            raise ValueError(f"Language config '{lang_id}' already exists")
+
+        name = (data.get("name") or "").strip()
+        if not name or len(name) > 50:
+            raise ValueError("name is required and must be 1–50 chars")
+
+        errors = self._validate(data)
+        if errors:
+            raise ValueError("; ".join(errors))
+
+        config = {
+            "id": lang_id,
+            "name": name,
+            "asr": data.get("asr", DEFAULT_ASR_CONFIG),
+            "translation": data.get("translation", DEFAULT_TRANSLATION_CONFIG),
+        }
+
+        path = self._lang_path(lang_id)
+        path.write_text(
+            json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        return config
+
+    def delete(self, lang_id: str) -> bool:
+        """Delete a language config file. Returns True if deleted, False if not found."""
+        path = self._lang_path(lang_id)
+        if not path.exists():
+            return False
+        path.unlink()
+        return True
+
     def _validate(self, data: dict) -> List[str]:
         """Validate ASR and translation fields. Returns a list of error strings."""
         errors = []

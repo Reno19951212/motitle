@@ -7,6 +7,44 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 @pytest.fixture(autouse=True)
+def _sync_imported_manager_refs(request, monkeypatch):
+    """Ensure module-level manager references imported by test modules stay in
+    sync with any monkeypatches applied by test-local fixtures.
+
+    Some test modules do ``from app import _profile_manager`` at module load
+    time.  When a test-local fixture later replaces ``app._profile_manager``
+    via ``monkeypatch.setattr``, the test module's cached reference is stale
+    and won't see profiles created via the patched manager.
+
+    This fixture requests the ``client`` fixture (if present for the test) so
+    that the test-local patch is applied first, then re-binds the stale names
+    in the test module to match the now-current ``app._profile_manager``.
+    """
+    # Only act for tests in test_languages_crud.py
+    if 'test_languages_crud' not in str(request.fspath):
+        yield
+        return
+
+    # Trigger the 'client' fixture (idempotent — pytest caches it) so that
+    # the test-local monkeypatch for app._profile_manager is in place before
+    # we forward the reference.
+    try:
+        request.getfixturevalue('client')
+    except pytest.FixtureLookupError:
+        yield
+        return
+
+    try:
+        import app as _app
+        import tests.test_languages_crud as _tlc
+        monkeypatch.setattr(_tlc, '_profile_manager', _app._profile_manager)
+    except (ImportError, AttributeError):
+        pass
+
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _isolate_app_data(tmp_path, monkeypatch):
     """Auto-isolate every test from the real DATA_DIR.
 

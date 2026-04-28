@@ -288,9 +288,6 @@ def _validate_asr(asr: dict) -> list:
             f"asr.engine '{engine}' is not valid; must be one of {sorted(VALID_ASR_ENGINES)}"
         )
 
-    if not asr.get("language"):
-        errors.append("asr.language is required")
-
     device = asr.get("device")
     if device is not None and device not in VALID_DEVICES:
         errors.append(
