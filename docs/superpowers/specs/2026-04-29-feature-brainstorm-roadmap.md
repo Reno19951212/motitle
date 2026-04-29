@@ -526,3 +526,188 @@ R1+R2 已覆蓋 20 角度。R3 再撈 10 個未撞落嘅切入點，主要圍繞
 | **(Future)** | Education Mode / Versioning UI / WORM Archive / Music handling |
 
 每 release 1-2 週 ship。整個 backlog 跑完約 6-9 個月。
+
+---
+---
+
+# Round 4 — 又 10 個全新角度 (2026-04-29)
+
+R1+R2+R3 已掂 30 個切入點。R4 鎖定產品成熟階段先會出現嘅關注點：科學評估、SaaS 化、發行工程、深層 ASR 訓練、可持續性、企業部署。
+
+## R4 角度分布
+
+| Loop | 角度 | 重點 focus |
+|---|---|---|
+| R4-1 | Translation Quality Benchmarking | BLEU/chrF/COMET / LLM-as-judge / 反饋 corpus / cost-per-quality / domain recommendation |
+| R4-2 | Multi-Tenant SaaS | Workspace 隔離 / RBAC / approval workflow / share link / quota / API token / white-label / activity feed |
+| R4-3 | Product Analytics | PostHog opt-in / funnel / time-to-render P50/P90 / heatmap / format popularity / abandonment / setting churn |
+| R4-4 | Schema Migration | _sv version field / boot-time backfill / atomic .bak / dry-run / jsonschema / lazy migration / migration test fixtures |
+| R4-5 | CI/CD + DevEx | GitHub Actions / pre-commit / pip-compile lockfile / Conventional Commits / git-cliff / pip-audit / cz bump / Dependabot |
+| R4-6 | Translation Memory / CAT | Auto-TM / fuzzy match pre-fill / TMX import-export / concordance search / partition / glossary auto-extract / contradiction warning |
+| R4-7 | ASR Fine-Tune | Whisper LoRA / 主動學習 (proofread → train) / per-show adapter / Distil-Whisper / Claude knowledge distill / code-switch model / audio aug |
+| R4-8 | Sustainability / Green | Smaller-model escalation / CPU-only short clip / job batch / idle GPU sleep / Wh estimate badge / eco preset / carbon-aware scheduling |
+| R4-9 | Cross-Platform Native | PyInstaller + Nuitka / file-association / system tray daemon / first-run model download / Sentry crash / hardware auto-detect / signed .dmg.msi / portable USB |
+| R4-10 | Edge / On-Prem | Air-gapped install / LAN multi-op / mDNS discovery / nginx template / hardware sizing / NAS output / outbound leak guard / USB update bundle |
+
+---
+
+## R4 全部 idea (按 Effort)
+
+### 🥇 R4 Tier 1 — Quick Wins (S)
+
+| # | Title | 角度 |
+|---|---|---|
+| R4-1 | **Adversarial Test Set** — 30 hard EN/TC 對 + per-domain BLEU 監控 | Quality Eval |
+| R4-2 | **Proofreader Correction Log → Eval Corpus** — 每個 PATCH 都係 ground truth | Quality Eval |
+| R4-3 | **Daily Regression Alert via Cron** — BLEU 跌 -2 → webhook 警告 | Quality Eval |
+| R4-4 | **Public Share Link (Read-Only)** — signed UUID + expiry，外人 preview | SaaS |
+| R4-5 | **API Tokens (Bearer Auth)** — 程式化接入，per-workspace scoped | SaaS |
+| R4-6 | **Org-Wide Activity Feed** — append-only event stream + sidebar | SaaS |
+| R4-7 | **PostHog Opt-In Telemetry** — funnel + heatmap + abandonment 一個 SDK 全部 cover | Analytics |
+| R4-8 | **Pipeline Funnel Drop-off Tracking** — 5 checkpoints 自動量轉化率 | Analytics |
+| R4-9 | **Time-to-First-Render Histogram** — P50/P90 wall-clock | Analytics |
+| R4-10 | **Render Format Popularity** — MP4 vs MXF vs XDCAM 真實使用比例 | Analytics |
+| R4-11 | **Profile Setting Churn Tracker** — 邊個 field 用戶最多改 → 揀 default | Analytics |
+| R4-12 | **Per-document `_sv` Schema Version Field** — 為將來 migration 做準備 | Migration |
+| R4-13 | **Atomic .bak Snapshot Before Write** — registry crash safe + 一秒 rollback | Migration |
+| R4-14 | **Lazy Per-Entry Migration on First Read** — 唔阻塞 boot | Migration |
+| R4-15 | **Migration Test Fixtures (registry_sv0/1.json)** — regression 防護 | Migration |
+| R4-16 | **GitHub Actions pytest CI** — PR 必跑全測試套 | DevEx |
+| R4-17 | **Pre-commit Hook (ruff + smoke)** — 唔好 push 醜 code | DevEx |
+| R4-18 | **pip-compile Lockfile** — 鎖死 transitive dep，避免 surprise 更新 | DevEx |
+| R4-19 | **Conventional Commits + Commitizen** — 鋪 semver + auto-changelog 路 | DevEx |
+| R4-20 | **Auto CHANGELOG via git-cliff** — 唔再手寫 v3.x 版本記錄 | DevEx |
+| R4-21 | **pip-audit Vulnerability Scan in CI** — CVE 即時阻 merge | DevEx |
+| R4-22 | **Dependabot Weekly Updates** — 自動開 PR 升 dep | DevEx |
+| R4-23 | **Cross-File Concordance Search** — 過去點翻過呢句 EN？ | TM/CAT |
+| R4-24 | **TM Partition by Show** — `tm_partition: hk_news_2026` 隔開 namespace | TM/CAT |
+| R4-25 | **Contradiction Warnings** — 同一 EN 譯做唔同 ZH，render 前彈 yellow | TM/CAT |
+| R4-26 | **Distil-Whisper Drop-In Base** — 6× 快、49% 細，一行 checkpoint swap | ASR |
+| R4-27 | **Audio Augmentation in Training** — audiomentations noise/RIR/codec 模擬 | ASR |
+| R4-28 | **CPU-Only Mode for Short Clips** — `<90s` 唔開 GPU，慳 10-20Wh spin-up | Green |
+| R4-29 | **Idle GPU Sleep After 5min** — 15-30W idle draw 即時零 | Green |
+| R4-30 | **Energy / CO₂ Estimate Per File** — 已記錄 wall-clock × TDP × HK grid 0.7kg/kWh | Green |
+| R4-31 | **Eco Profile Preset** — 一鍵 small + vad + qwen 7b + parallel=1 | Green |
+| R4-32 | **PyInstaller `--onedir` Bundle** — 單一 directory，無需 setup.sh | Native |
+| R4-33 | **First-Run Whisper Model Download Wizard** — splash + tqdm 進度 | Native |
+| R4-34 | **Sentry Desktop Crash Reporter** — opt-in，PII scrub | Native |
+| R4-35 | **Hardware Auto-Detection at Launch** — CUDA / MLX / ROCm 自動選 | Native |
+| R4-36 | **mDNS / Zeroconf LAN Discovery** — `_motitle._tcp.local.`，唔需 IP | Edge |
+| R4-37 | **Nginx Reverse Proxy Template** — TLS + `client_max_body_size 4G` + WebSocket header | Edge |
+| R4-38 | **Hardware Sizing Reference Card** — CPU/MLX/CUDA 對應表 + RAM/NVMe 建議 | Edge |
+| R4-39 | **Studio NAS Output Mount** — `OUTPUT_DIR` env 直接寫去 NFS/SMB | Edge |
+| R4-40 | **Outbound Network Leak Guard** — `MOTITLE_AIRGAP=1` disable OpenRouter | Edge |
+
+**R4 S-tier 合共 40 個**。
+
+### 🥈 R4 Tier 2 (M)
+
+| # | Title |
+|---|---|
+| R4-M1 | **BLEU/chrF on Reference Fixture (sacrebleu)** — pytest -m eval target |
+| R4-M2 | **LLM-as-Judge — Claude 評分 anonymized engines** — fluency/accuracy/register 0-5 rubric |
+| R4-M3 | **Cost-Per-BLEU Metric** — 計 OpenRouter 用量 / 質量單位 |
+| R4-M4 | **Per-Engine Win-Rate Dashboard `/eval/summary`** — head-to-head leaderboard |
+| R4-M5 | **Workspace / Org Isolation (Slug Routes)** — `/ws/{slug}/proofread` |
+| R4-M6 | **Role-Based Access (Admin/Editor/Viewer/QC)** — `@require_role` decorator |
+| R4-M7 | **Approval Workflow (junior→senior→publish)** — `review_stage` enum |
+| R4-M8 | **Per-Workspace Compute Quota with Hard Stops** — 402 + 80% warning |
+| R4-M9 | **Tenant White-Label Branding** — host header → workspace brand_config |
+| R4-M10 | **Startup Backfill Migration Pass** — `_migrate_sv0_to_sv1` 鏈式 |
+| R4-M11 | **Dry-Run Migration Mode** — `--migrate-dry-run` 出 diff 唔寫 |
+| R4-M12 | **jsonschema Validation at Boundaries** — Profile + RegistryEntry schema |
+| R4-M13 | **Semantic Version Tagging (cz bump)** — auto-detect feat/fix/break |
+| R4-M14 | **Auto-TM Build from Approved Segments** — 100% match 直接 skip LLM |
+| R4-M15 | **TMX Import / Export** — SDL Trados / memoQ 互通 |
+| R4-M16 | **Glossary Auto-Extract from TM** — 重複 ≥3次 + ≥80% 一致 → 提示加入 |
+| R4-M17 | **Confidence-Weighted TM Aging** — `base_sim × recency × approval_weight` |
+| R4-M18 | **Whisper LoRA Fine-Tune (HK Broadcast)** — 10-50hr corpus + peft |
+| R4-M19 | **Active Learning Loop (proofread → retrain)** — 校對差異即訓練樣本 |
+| R4-M20 | **Per-Show LoRA Adapter Switching** — 50MB swap base model unchanged |
+| R4-M21 | **Smaller-Model Whisper Escalation** — tiny → large fallback by `avg_logprob` |
+| R4-M22 | **Job Batching with Keep-Alive Window** — 30s drain，model 唔重複 load |
+| R4-M23 | **Shorter Default Retention + Lossy Cold Archive** — `retention_days` + proxy re-encode |
+| R4-M24 | **PyInstaller File-Association Registration** — Open With MoTitle |
+| R4-M25 | **System Tray Daemon (pystray + auto-launch)** — Backend 持續活，唔需 cmd |
+| R4-M26 | **Portable USB Stick Build** — relative path，零 registry 寫入 |
+| R4-M27 | **Air-Gapped Install Bundle** — wheel cache + Ollama blob + offline setup script |
+| R4-M28 | **LAN Multi-Operator Mode** — `X-Operator-Id` header + Socket.IO room |
+| R4-M29 | **USB / Internal CDN Update Bundle** — diff since tag + manifest + apply script |
+
+**R4 M-tier 合共 29 個**。
+
+### 🥉 R4 Tier 3 (L)
+
+| # | Title |
+|---|---|
+| R4-L1 | **Engine Recommendation Per Domain** — 收夠 sample 至有信心 |
+| R4-L2 | **Auto-Generated Schema Changelog** — decorator registry + introspection |
+| R4-L3 | **Signed macOS .dmg + Windows .msi (CI)** — Apple Developer ID + DigiCert EV cert |
+| R4-L4 | **Knowledge Distillation from Claude Transcripts** — teacher/student loss |
+| R4-L5 | **Code-Switch ASR Model (EN+ZH mixed)** — SEAME + 廣東話 broadcast clip |
+| R4-L6 | **Carbon-Aware Job Scheduling (electricityMaps)** — defer to clean grid window |
+| R4-L7 | **Fuzzy Match TM Pre-fill (sentence-transformer)** — 95%+ 直接填 |
+
+---
+
+## 四輪 GRAND TOTAL
+
+| Round | 角度 | Ideas | S | M | L |
+|---|---|---|---|---|---|
+| R1 | 10 | 58 | 31 | 22 | 5 |
+| R2 | 10 | 76 | 37 | 33 | 6 |
+| R3 | 10 | 76 | 38 | 30 | 8 |
+| R4 | 10 | 76 | 40 | 29 | 7 |
+| **TOTAL** | **40** | **~286** | **146** | **114** | **26** |
+
+**40 位專家 / 40 個角度 / ~286 個 actionable idea / 146 個 quick win**
+
+每日 ship 一個 S idea = ~5 個月做完晒 quick win。
+
+---
+
+## 跨四輪終極 P0/P1 backbone
+
+仍然係最高 confidence 嗰幾個 (跨 ≥2 round)：
+
+**P0 (v3.8 必做核心):**
+1. CPS reading-rate guard
+2. Frame-accurate timestamp snap
+3. Number/date/quote invariance check
+4. NER cross-check
+5. Webhook event chain
+6. Per-language line-length config
+7. Profile/Glossary bundle export-import (v3.8 / v4.7)
+
+**P1 (v3.9-v4.0):**
+8. Crash recovery for stuck render jobs
+9. Demucs voice isolation pre-ASR (R1+R3+R3 三度提到)
+10. Speaker diarization (R1+R2+R3 三度提到)
+11. Workflow / Recipe preset bundle
+12. CLI tool for batch ops
+13. **Auto-TM build (R4 新增)** — 每次 approve 都係 free quality data
+14. **PostHog telemetry (R4 新增)** — 量度先可以改進
+15. **GitHub Actions CI (R4 新增)** — 425 個 test 應該自動跑
+
+呢 15 個係未來 6 個月嘅 critical path。
+
+---
+
+## 一個 sprint 嘅樣 (v3.8 build-out)
+
+如果聽日就開 v3.8 sprint，呢 10 個 S-effort idea (~10 日工作量) 直接做：
+
+```
+1. CPS reading-rate guard (R1)
+2. Frame-accurate snap (R1)
+3. Number/date invariance regex (R2)
+4. NER diff cross-check (R2)
+5. Per-language line-length config (R1+R2)
+6. Per-doc _sv schema field (R4)
+7. Atomic .bak snapshot before write (R4)
+8. GitHub Actions pytest CI (R4)
+9. Profile bundle .tar.gz export (R1+R2+R3)
+10. Webhook event chain (R1+R2)
+```
+
+呢 10 個 ship 完，產品就有：質量 QC 強化 + 資料安全強化 + CI 防護 + 自動化整合 = 全部 broadcast 必需 baseline。
