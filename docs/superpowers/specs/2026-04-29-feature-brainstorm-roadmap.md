@@ -342,3 +342,187 @@ v3.8 — Broadcast QC Hardening
 8. **Crash recovery for jobs** (R1 性能 + R2 觀測)
 
 呢 8 個應該係 v3.8 嘅核心。
+
+---
+---
+
+# Round 3 — 再 10 個全新角度 (2026-04-29)
+
+R1+R2 已覆蓋 20 角度。R3 再撈 10 個未撞落嘅切入點，主要圍繞：產品延伸方向 (dubbing / podcast / 教育)、深層 infra (versioning / archive)、新型客戶端 (mobile / agent API)、垂直工作流 (music / sound mix / scripting)。
+
+## R3 角度分布
+
+| Loop | 角度 | 重點 focus |
+|---|---|---|
+| R3-1 | Mobile / Tablet UX | PWA / swipe-to-approve / iPad split / PiP / Pencil / push notif / share sheet / dark mode |
+| R3-2 | Voice Cloning + Dubbing | TTS engine ABC / XTTS-v2 voice clone / lip-sync 持續時間 / prosody envelope / duck-and-replace / karaoke preview / phonetic glossary / per-show TTS preset |
+| R3-3 | Audio-Only Podcast | mp3/wav/m4a 直入 / speaker diarization / chapter markers / show notes 自動產生 / waveform UI / bilingual SRT / podcast profile recipe |
+| R3-4 | Versioning (Git for Subtitles) | Merkle snapshot / time-travel scrubber / tag milestones / segment-level revert / branches / unified diff / bundle export / blame view |
+| R3-5 | Power-User Scripting | CLI tool / workflow presets / bulk action / conditional auto-rules / filename templates / re-run pipeline button / recipe export-import / macOS Shortcuts |
+| R3-6 | AI Agent API | MCP server / OpenAI tools schema / NL-CLI / autonomous QC agent / self-improving glossary / structured 422 / agent-bundle / explain pipeline |
+| R3-7 | Music + Lyrics | music region detector / lyrics-mode whisper / hallucination guard / instrumental ♪ skip / Demucs voice isolation / rhyme-aware translation / theme song fingerprint skip / LRCLIB lyrics fetch |
+| R3-8 | Sound Design | EBU R128 loudnorm / RNNoise / per-segment LUFS dashboard / auto-fade / Demucs stem / click-hum removal / phase-cancel mono fold / transient preserve markers |
+| R3-9 | Education / Learning | word-click dictionary / pinyin/jyutping ruby / HSK difficulty heatmap / practice mode / cloze / Anki .apkg / per-segment speed / Aha-word tracker |
+| R3-10 | DR / Archive | hot/warm/cold tier / 7-year retention lock / restic + B2 dedup / project bundle .tar.gz / WORM immutable / Meilisearch metadata / monthly restore-test drill |
+
+---
+
+## R3 全部 idea (按 Effort)
+
+### 🥇 R3 Tier 1 — Quick Wins (S)
+
+| # | Title | 角度 |
+|---|---|---|
+| R3-1 | **Swipe-to-Approve Gesture** — touch right-swipe → approve, mirrors iOS Mail | Mobile |
+| R3-2 | **iPad Split-Screen Layout** — `@media landscape min-width:768px` grid 1fr 1fr | Mobile |
+| R3-3 | **Picture-in-Picture Auto on Scroll** — `requestPictureInPicture()` + IntersectionObserver | Mobile |
+| R3-4 | **Apple Pencil Double-Tap Toggle Review** — `pointerType==='pen'` 偵測 | Mobile |
+| R3-5 | **Push Notification on Render Complete** — `Notification.requestPermission` | Mobile |
+| R3-6 | **System Dark Mode Respect** — `@media (prefers-color-scheme: dark)` | Mobile |
+| R3-7 | **Lyrics-Mode Whisper Run** — sung region 用 `initial_prompt: "Song lyrics follow:"` + drop conditioning | 音樂 |
+| R3-8 | **Hallucination Guard on Music Silence** — denylist 加 `no_speech_prob > 0.6` | 音樂 |
+| R3-9 | **Instrumental Skip + ♪ Auto-Placeholder** — translate 唔 call LLM | 音樂 |
+| R3-10 | **Lyrics Translation Special Prompt** — `translation_style: "lyrics"` | 音樂 |
+| R3-11 | **EBU R128 Loudness Norm** — FFmpeg `-af loudnorm=I=-23:TP=-1:LRA=11` | 音頻 |
+| R3-12 | **Speech-Triggered Auto-Fade** — word_timestamps 找 first/last → afade | 音頻 |
+| R3-13 | **Stereo→Mono Phase-Aware Fold** — aphasemeter 偵測 < 0.3 → 取 L only | 音頻 |
+| R3-14 | **Workflow Preset Bundle** — `{profile_id, glossary_id, render_options}` | Scripting |
+| R3-15 | **Output Filename Template** — `{show}_{episode}_subtitled.mp4` | Scripting |
+| R3-16 | **Re-render Button** — 唔需要 re-transcribe 即重整輸出 | Scripting |
+| R3-17 | **macOS Shortcuts.app Recipe** — Finder 右掣 batch render | Scripting |
+| R3-18 | **OpenAI Function-Calling Schema Export** — `GET /api/openai-tools` | Agent |
+| R3-19 | **Structured 422 Errors** — `{error: {field, value, constraint, suggestion}}` | Agent |
+| R3-20 | **Agent-Bundle Single Endpoint** — `GET /api/files/<id>/agent-bundle` 一啖 long-context 餵 LLM | Agent |
+| R3-21 | **Explain Pipeline Endpoint** — plain-language state summary | Agent |
+| R3-22 | **Native Audio File Ingest** — mp3/m4a/flac/opus 直接 upload | Podcast |
+| R3-23 | **Plain Transcript / Bilingual SRT Export** — audio-only deliverable | Podcast |
+| R3-24 | **Show-Notes Auto Generator** — POST 攞 summary + key quotes + 名 | Podcast |
+| R3-25 | **Podcast-Specific Profile Recipe** — VAD on + condition_on_previous + glossary | Podcast |
+| R3-26 | **Tag Milestones (approved-for-air)** — 命名 snapshot 嘅 hash | Versioning |
+| R3-27 | **Segment-Level Revert** — 個別 segment 還原唔影響其他 | Versioning |
+| R3-28 | **Unified Diff Between Snapshots** — `GET /api/files/<id>/diff?from=&to=` | Versioning |
+| R3-29 | **Blame View (Last Touch Provenance)** — author + ts + action per segment | Versioning |
+| R3-30 | **Pronunciation Override via Glossary `tts_phonetic`** — Jyutping/IPA SSML | Dubbing |
+| R3-31 | **Karaoke Preview Per Segment** — TTS short clip play overlay | Dubbing |
+| R3-32 | **Per-Show TTS Profile Preset** — voice_id + speaker_voice_map | Dubbing |
+| R3-33 | **Word-Click Dictionary Popup** — CC-CEDICT / WordNet | 教育 |
+| R3-34 | **Pinyin / Jyutping `<ruby>` Annotation** — pycantonese / pypinyin | 教育 |
+| R3-35 | **Per-Segment Playback Speed Button** — videoElement.playbackRate | 教育 |
+| R3-36 | **Aha-Word Tracker (localStorage)** — 學生 lookup 歷史 → 個人 vocab dashboard | 教育 |
+| R3-37 | **7-Year Retention Lock** — HK Broadcasting Ordinance Cap. 562，DELETE 返 423 | DR |
+| R3-38 | **Project Bundle Tarball per Job** — media + SRT + JSON + glossary snapshot HMAC sign | DR |
+
+**R3 S-tier 合共 38 個**。
+
+### 🥈 R3 Tier 2 (M)
+
+| # | Title |
+|---|---|
+| R3-M1 | **PWA + Service Worker Offline Cache** — manifest + SW |
+| R3-M2 | **Mobile Share-Sheet Upload Target** — `share_target` in manifest，AirDrop pipe in |
+| R3-M3 | **Music Region Detector** — librosa energy + spectral flatness → speech/sung/instrumental |
+| R3-M4 | **Demucs Voice Isolation Pre-ASR** — vocals stem 餵 whisper 提升 WER |
+| R3-M5 | **Cantonese TTS Engine ABC + 3 Backends** — Azure / Google / Coqui XTTS |
+| R3-M6 | **Duration-Aware Translation** — target_syllable_count 注入 prompt |
+| R3-M7 | **Prosody / Emotion Transfer** — librosa 抽 pitch+energy → SSML prosody |
+| R3-M8 | **Speaker Diarization for Podcasts** — pyannote + speaker label |
+| R3-M9 | **Chapter Marker Generator** — LLM 60s window topic detect → ID3 CHAP |
+| R3-M10 | **Audio-Only Proofread UI (WaveSurfer)** — replace video player |
+| R3-M11 | **Merkle Snapshot Chain** — content-addressed dedup history |
+| R3-M12 | **Time-Travel Scrubber UI** — timeline notch per snapshot |
+| R3-M13 | **CLI Tool `motitle`** — click-based wrapper + entry_point |
+| R3-M14 | **Bulk Action Toolbar (multi-select)** — checkbox + sticky bottom bar |
+| R3-M15 | **Conditional Auto-Profile Rules** — `if filename matches /STUDIO_*/ → profile X` |
+| R3-M16 | **MCP Server for Claude Desktop** — pipeline tools 經 MCP 直接 expose |
+| R3-M17 | **Natural-Language CLI** — `motitle "subtitle keynote.mp4 to TC"` |
+| R3-M18 | **Autonomous QC Agent** — poll → fix → re-render，長期 cron |
+| R3-M19 | **Self-Improving Glossary Agent** — diff approved vs original → propose entries |
+| R3-M20 | **RNNoise Pre-ASR Background Removal** — `noisereduce` Python |
+| R3-M21 | **Per-Segment LUFS History Dashboard** — sparkline + ebur128 measure |
+| R3-M22 | **Click-Hum Removal** — sox noisered + librosa spectral gate |
+| R3-M23 | **Transient Preserve Markers** — silencedetect inverted → applause/laughter window |
+| R3-M24 | **HSK Difficulty Heatmap Highlight** — HSK 1-6 lookup + jieba tokenize |
+| R3-M25 | **Practice Mode Hide ZH + Type-and-Score** — sentence-transformer cosine grade |
+| R3-M26 | **Cloze-Deletion Generator** — endpoint 接 HSK level 即出 fill-in |
+| R3-M27 | **Tiered Hot/Warm/Cold Storage** — 30/90 day cron promote |
+| R3-M28 | **Restic + Backblaze B2 Dedup Backup** — encrypted + content-addressed |
+| R3-M29 | **WORM Immutable Archive (S3 Object Lock)** — Approved + Aired → permanent |
+| R3-M30 | **Monthly Restore-Test Drill** — APScheduler 自動 restore + ffprobe verify + webhook 報失敗 |
+
+**R3 M-tier 合共 30 個**。
+
+### 🥉 R3 Tier 3 (L)
+
+| # | Title |
+|---|---|
+| R3-L1 | **XTTS-v2 Per-Speaker Voice Cloning** — 6s reference + diarization → pyl voice clone |
+| R3-L2 | **Demucs Voice + Background Stem Mix-down (dubbed render mode)** |
+| R3-L3 | **Theme Song Fingerprint Skip** — chromaprint per-show signature → cache subtitle |
+| R3-L4 | **LRCLIB Official Lyrics Fetch** — ISRC/title 撈現成 LRC |
+| R3-L5 | **Parallel Translation Branches (Branch A vs B)** — split-pane compare + per-row merge |
+| R3-L6 | **Recipe Export/Import .json with cross-ref remap** |
+| R3-L7 | **Anki .apkg Auto-Flashcard Export** — genanki + per-segment audio clip via FFmpeg seek |
+| R3-L8 | **Meilisearch Metadata Index for Archive Search** — 跨年搜舊 segments |
+
+---
+
+## 三輪 Grand Total
+
+| Round | Ideas Total | S-effort | M-effort | L-effort |
+|---|---|---|---|---|
+| R1 (10 角度) | 58 | 31 | 22 | 5 |
+| R2 (10 角度) | 76 | 37 | 33 | 6 |
+| R3 (10 角度) | 76 | 38 | 30 | 8 |
+| **Grand Total** | **~210** | **106** | **85** | **19** |
+
+**30 位專家 / 30 個獨立切入點 / ~210 個 deduped actionable idea / ~106 個 quick win (S effort)。**
+
+每日 ship 一個 S，4 個月可全部交付。
+
+---
+
+## 跨三輪重疊 — 終極高 confidence list
+
+呢啲 idea 三輪都自發 surface (兩位以上獨立提到)，極度應該優先做：
+
+| Idea | 出現於 | 優先級 |
+|---|---|---|
+| **CPS reading-rate guard** | R1×3 + R2 多語言 | P0 |
+| **Frame-accurate timestamp snap** | R1 ASR + R1 廣播 | P0 |
+| **Number/date/quote invariance check** | R1 QA + R2 AI 安全 | P0 |
+| **NER cross-check (proper noun consistency)** | R1 QA + R2 AI 安全 | P0 |
+| **Webhook event chain** | R1 自動化 + R2 plugin | P0 |
+| **Per-language line-length config** | R1 中文 display width + R2 multi-lang | P0 |
+| **Profile/Glossary bundle .tar.gz export** | R1 show grouping + R2 .tar.gz + R3 project bundle | P0 |
+| **Crash recovery for stuck render jobs** | R1 性能 + R2 觀測 | P1 |
+| **Demucs voice isolation pre-ASR** | R1 ASR + R3 音樂 + R3 音頻 | P1 |
+| **Speaker diarization (pyannote)** | R1 ASR + R2 dubbing + R3 podcast | P1 |
+| **Workflow / Recipe preset bundle** | R2 onboarding + R3 scripting | P1 |
+| **Profile bundle export / import** | R2 plugin + R3 versioning | P1 |
+| **TTS / dubbing track output** | R3 dubbing + R3 a11y | P2 |
+| **CLI tool for batch ops** | R2 plugin + R3 scripting | P2 |
+
+呢 14 個 cross-round 高 confidence idea = 必做核心 backbone。
+
+---
+
+## 最終建議路線圖 — v3.8 → v5.0
+
+| Release | 主題 |
+|---|---|
+| **v3.8** | Broadcast QC Hardening (P0 大集合) |
+| **v3.9** | Translation Quality + Editor UX |
+| **v4.0** | Cost Control + Telemetry |
+| **v4.1** | Onboarding (Tour / Recipe / Demo) |
+| **v4.2** | Output Format Expansion (TTML / IMSC / SCC) |
+| **v4.3** | Compliance + Safety |
+| **v4.4** | Live Streaming Return |
+| **v4.5** | Multi-modal (frames + OCR + face) |
+| **v4.6** | Multi-Language + UI i18n |
+| **v4.7** | Plugin Ecosystem |
+| **v4.8** | Mobile / PWA |
+| **v4.9** | Audio-Only / Podcast |
+| **v5.0** | TTS Dubbing + Voice Cloning |
+| **(Future)** | Education Mode / Versioning UI / WORM Archive / Music handling |
+
+每 release 1-2 週 ship。整個 backlog 跑完約 6-9 個月。
