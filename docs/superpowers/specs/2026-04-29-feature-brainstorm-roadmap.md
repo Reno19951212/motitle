@@ -1267,3 +1267,215 @@ R7 後 diminishing returns 進入 sharply 嘅階段：
 3. **可選:** R8 或 R9 emerging tech 但每輪只會新增 ~40 真正新 idea，邊際效益顯著遞減
 
 7 輪 brainstorm 結束 — 喺 ~518 個 actionable idea 中揀 17 個 backbone，一個月內可以 ship 第一個 release v3.8。
+
+---
+---
+
+# Round 8 — 80 個角度終止 (2026-04-29)
+
+R7 結尾再次建議停。R8 鎖定 final-frontier：氣候會計、聲紋認證、非 audio 輸入、IP 策略、監管參與、數據商品化、危機公關、硬件 appliance、行業競賽、未來科技。
+
+## R8 角度分布
+
+| Loop | 角度 | 重點 |
+|---|---|---|
+| R8-1 | Climate / Carbon Offsetting | Scope 2 per-job / Stripe Climate / Toucan blockchain offset / 氣候 PDF / 綠色 hosting badge |
+| R8-2 | Voice Biometric Authentication | enrollment login / continuous re-auth / anchor verify / 防 deepfake / liveness challenge / steganographic watermark |
+| R8-3 | Alternate Input Streams | sidecar SRT translate / PDF script align / WeChat voice / 8kHz phone / 唇讀 / steno / PPTX speaker notes |
+| R8-4 | Patent / IP Strategy | defensive publish marker alignment / patent novelty search / TM 商標 / OIN 防 troll / FTO / AGPL license |
+| R8-5 | Regulatory / Standards Engagement | OFCA accessibility / W3C TTML WG / EBU R 37 / SMPTE ST 2052 / 白皮書 / IBC paper / open benchmark contribution |
+| R8-6 | Data Marketplace / Corpus Monetization | HuggingFace 匿名 corpus / per-domain pack / 貢獻者 royalty / HK MT benchmark dataset / glossary product / AWS Data Exchange |
+| R8-7 | Incident Response / Crisis PR | SEV1-5 ladder / war-room dashboard / forensic timeline / auto post-mortem / 5-whys / customer notify / blameless publishing |
+| R8-8 | Hardware Appliance | Mac Mini studio / 1U rack / Jetson Orin Nano / 觸屏 status / USB-C 一綫部署 / battery UPS / NVENC encoder / hot-swap bay |
+| R8-9 | Inter-Station Competition | 公開 CER 排名 / monthly award / 共用 benchmark / certification badge / live monitor / 公眾 error report / hall of fame / 字幕 Olympics |
+| R8-10 | Speculative Emerging Tech 2030s | neural codec ASR / diffusion ASR / photonic chip / smart contact lens caption / AGI co-editor / 6G sub-1ms / brain-to-text / C2PA AI provenance |
+
+---
+
+## R8 全部 idea (按 Effort)
+
+### 🥇 R8 Tier 1 (S)
+
+| # | Title | 角度 |
+|---|---|---|
+| R8-1 | **Sustainable Model Selection Bias** — get_params_schema 加 `co2_relative` 提示 leaf icon | Climate |
+| R8-2 | **Green Hosting Renewable Badge** — Green Web Foundation API check + footer | Climate |
+| R8-3 | **Per-Project Carbon Budget Sparkline** — 累計 co2_grams + dashboard widget | Climate |
+| R8-4 | **Voice Consent Recording Per Render** — 固定 phrase + embed match + render metadata | Voice Auth |
+| R8-5 | **Closed-Caption Sidecar Translate** — `.srt`/`.vtt` 直接接入 translate，唔走 ASR | Alt Input |
+| R8-6 | **Phone Audio (G.711) Auto-Resample** — `ffmpeg -ar 16000 -ac 1` + warn user | Alt Input |
+| R8-7 | **WeChat / Telegram Voice Format Ingest** — `.silk`/`.ogg`/`.m4a` 加 decode 步驟 | Alt Input |
+| R8-8 | **Defensive Publishing — LLM Marker Alignment** — IP.com 公開技術披露 | IP |
+| R8-9 | **Trademark Filing — MoTitle name + mark** — HK + US + TW Class 38/42 | IP |
+| R8-10 | **Trade Secret — Prompt Templates Lock-Down** — 唔 open-source few-shot prompts | IP |
+| R8-11 | **IP Audit — pip-licenses Dependency Check** — flag GPL/LGPL | IP |
+| R8-12 | **OIN Membership Patent Troll Defense** — 免費註冊 | IP |
+| R8-13 | **Open-Source AGPL-3.0 + CLA** — moat for hosted competitor | IP |
+| R8-14 | **Submit to OFCA Accessibility Consultation** — written response 投標準制定 | Regulatory |
+| R8-15 | **DPP Compliance Self-Declaration** — DP-x validator + publish | Regulatory |
+| R8-16 | **Tiered Free Sample / Paid Full Corpus** — Gumroad $299 researcher / $1,499 commercial | Data Market |
+| R8-17 | **Bilingual Lexicon as Standalone Product** — Gumroad $49 one-time | Data Market |
+| R8-18 | **SEV1-5 Incident Severity Ladder** — pre-defined SLA + escalation path | Incident |
+| R8-19 | **5-Whys CLI Wizard** — root cause structured JSON artefact | Incident |
+| R8-20 | **Public Correction Template Library** — 預備 retraction wording | Incident |
+| R8-21 | **Mac Mini Studio Appliance** — pre-configured + Login Items + QR code | Hardware |
+| R8-22 | **Battery UPS Bundle (APC)** — `apcupsd` graceful shutdown handler | Hardware |
+| R8-23 | **Crowdsourced Citizen Error Reporting** — 簡單 web form + monthly digest | League |
+| R8-24 | **Hall of Fame for Top Translators** — 個人 recognition cheap incentive | League |
+| R8-25 | **Monthly Subtitle Quality Awards** — 行業 association 評審 | League |
+
+**R8 S-tier 合共 25 個**。
+
+### 🥈 R8 Tier 2 (M)
+
+R8-M1 ～ R8-M30 共 30 個：
+
+- Scope 2 emissions per render job
+- Carbon-aware job scheduling (Electricity Maps API)
+- Stripe Climate per-render micro-offset
+- Climate impact PDF per production
+- Voice-print proofreader login (ECAPA-TDNN)
+- Continuous re-authentication during session
+- Anchor identity verification pre-broadcast
+- Replay attack liveness detection (challenge phrase)
+- PDF/Word script pre-align (WhisperX forced-alignment)
+- Stenotype / steno serial input (Plover)
+- Slides / PPTX speaker-notes ingest
+- Print broadcast script OCR (pytesseract)
+- Patent novelty search professional opinion (~$1,500-3k)
+- W3C TTML/IMSC Working Group participation
+- SMPTE ST 2052 working group
+- IBC / NAB conference talk submission
+- HuggingFace anonymized parallel corpus dataset
+- Per-domain vertical datasets (sports/news/finance)
+- HK Broadcast MT Benchmark Dataset (10k segments)
+- AI Training Data Annotation Service
+- War-room dashboard (Socket.IO)
+- Forensic timeline reconstruction (registry walk)
+- Auto post-incident report generator
+- Customer notification automation (file registry query)
+- 1U rack server (Dell PowerEdge ghost image)
+- Front panel touchscreen (RPi5 + 7" DSI)
+- USB-C single-cable Thunderbolt deploy
+- Hardware H.264/HEVC encoder offload (NVENC/QSV)
+- Shared open benchmark suite (1k EN→TC corpus)
+- Annual "Subtitle Olympics" event
+
+### 🥉 R8 Tier 3 (L)
+
+- Toucan Protocol on-chain offset record (Polygon retire tx)
+- Deepfake / voice-clone detection (RawNet2/AASIST)
+- Mid-broadcast unauthorized speaker alarm (sliding window)
+- Speaker watermark steganographic ID (psychoacoustic LSB)
+- Lip-reading from silent video (auto-avsr)
+- FTO targeted search before commercial launch (~$3-5k)
+- Publish subtitle-quality whitepaper (arXiv + IBC + EBU)
+- Open benchmark CC-BY corpus contribution to W3C
+- Data contributor royalty program (Stripe quarterly payout)
+- AWS Data Exchange / Snowflake Marketplace listing
+- Blameless postmortem publishing workflow
+- Hot-swap storage bay + job archive
+- Live broadcast public quality monitor (sampling agent)
+- Compliance certification badge program (third-party audit)
+
+---
+
+## R8 Speculative 2030s (Time Horizons, not effort)
+
+| # | Title | Horizon |
+|---|---|---|
+| 1 | **Neural Codec Audio as ASR Pre-processor** — Encodec/Lyra → token-trained ASR | 3yr |
+| 2 | **C2PA AI Provenance Manifest** — EU AI Act / UK Online Safety compliance | 3yr |
+| 3 | **Diffusion-Based ASR for Noisy Broadcast** — better calibration vs autoregressive | 5yr |
+| 4 | **Photonic Chip ASR (Lightmatter / Luminous)** — milliwatt always-on | 5yr |
+| 5 | **Smart Contact Lens Caption Stream** — burn-in dies, viewer-side render | 5yr |
+| 6 | **AGI Co-Editor (full autonomous proofread)** — segment-level → document-level human approval | 5yr |
+| 7 | **6G Sub-Millisecond Live Subtitle** — edge compute co-located with broadcast tower | 7yr |
+| 8 | **Brain-to-Text Decoder Talent Pre-Scripting** — UCSF Chang research → glossary context | 10yr |
+
+呢 8 個未來 tech 唔係今日做嘅，但寫低做 strategic plan。
+
+---
+
+## 🌠 EIGHT-ROUND ABSOLUTE FINAL TOTAL
+
+| Round | 角度 | Ideas | S | M | L |
+|---|---|---|---|---|---|
+| R1 | 10 | 58 | 31 | 22 | 5 |
+| R2 | 10 | 76 | 37 | 33 | 6 |
+| R3 | 10 | 76 | 38 | 30 | 8 |
+| R4 | 10 | 76 | 40 | 29 | 7 |
+| R5 | 10 | 77 | 44 | 28 | 5 |
+| R6 | 10 | 79 | 32 | 35 | 12 |
+| R7 | 10 | 76 | 28 | 36 | 12 |
+| R8 | 10 | 73 | 25 | 30 | 14 + 8 speculative |
+| **GRAND TOTAL** | **80** | **~591** | **275** | **243** | **73** |
+
+**80 位獨立專家 / 80 個獨立切入點 / ~591 個 actionable idea / 275 個 quick win**
+
+---
+
+## 📉 Diminishing Returns 已嚴重
+
+| Round | 跨輪重疊% | New unique ideas |
+|---|---|---|
+| R1 | baseline | 58 |
+| R4 | 16% | 64 |
+| R5 | 25% | 58 |
+| R6 | 30% | 55 |
+| R7 | 37% | 48 |
+| R8 | 42% | ~42 真正新 (剩好多 vertical/speculative) |
+
+R8 後幾乎 4 成內容係 R1-R7 衍生 / 邊緣案例。再 brainstorm 邊際效益接近 0。
+
+---
+
+## ⭐ 17-項 backbone — 5 輪 stable，永唔變
+
+呢 17 個 idea 由 R3 開始 stable，到 R8 都仍然係 top consensus：
+
+**P0 v3.8 必做 (9):**
+1. CPS reading-rate guard
+2. Frame-accurate timestamp snap
+3. Number/date/quote invariance check
+4. NER cross-check consistency
+5. Webhook event chain
+6. Per-language line-length config
+7. Profile/Glossary bundle .tar.gz
+8. Hash-chained audit log
+9. Per-doc `_sv` schema field
+
+**P1 v3.9-v4.0 (8):**
+10. Crash recovery for stuck render jobs
+11. Demucs voice isolation pre-ASR
+12. Speaker diarization (pyannote)
+13. Workflow / Recipe preset bundle
+14. CLI tool (`motitle` batch)
+15. Auto-TM build from approved
+16. PostHog opt-in telemetry
+17. GitHub Actions pytest CI
+
+**到此為止 — brainstorm 完全結束**
+
+---
+
+## 🛑 一致建議：8 輪後絕對應該停
+
+| 證據 | 意義 |
+|---|---|
+| 跨輪重疊到 42% | 已搵盡 design space |
+| 17 backbone 跨 5 輪不變 | 共識成熟，再 brainstorm 唔會改變 |
+| ~275 個 quick win | 9 個月每日 ship 一個都消化唔晒 |
+| 80 角度 / 591 ideas | 唔可能 6-9 個月內全部 ship |
+
+**唯一真正應該做嘅下一步：**
+
+```
+1. 用 brainstorm + writing-plans skill 將 17 backbone 做 v3.8 sprint plan
+2. Merge feat/subtitle-source-mode 入 dev (21+ commits)
+3. 開工 ship — 第一個 v3.8 release 一個月內可以出
+```
+
+R9 / R10 等等都唔會搵到比呢 17 backbone 更高 confidence 嘅 idea。
+
+**Brainstorm phase 結束。Ship time.**
