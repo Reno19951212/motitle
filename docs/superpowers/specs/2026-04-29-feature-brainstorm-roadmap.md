@@ -175,3 +175,170 @@ v3.8 — Broadcast QC Hardening
 ---
 
 **結論:** 系統有 30+ 個易實現 (S effort) 強化點，建議由 broadcast QC 強化呢條主線開始 (v3.8)，再向翻譯品質 / UX (v3.9) 同自動化 (v4.0) 推進。
+
+---
+---
+
+# Round 2 — 10 個全新角度 (2026-04-29)
+
+第一輪已覆蓋語言/翻譯/廣播/ASR/UX/性能/格式/QA/自動化/a11y。第二輪轉換角度，發掘前一輪冇撞落嘅深層機會。
+
+## R2 角度分布
+
+| Loop | 角度 | 主要 focus |
+|---|---|---|
+| R2-1 | 成本 / 效率 | Tier routing / Pass2 confidence gate / segment hash cache / prompt caching / dry-run / cost dashboard |
+| R2-2 | 多語言擴展 | EN→JA/KO/VI/AR multi-target / per-language CPS + 字長 + glossary / RTL / reverse direction (ZH→EN) |
+| R2-3 | AI 安全 / 防 hallucination | back-translation 驗證 / NER cross-check / number invariance regex / prompt injection 過濾 / critic LLM / consistency vote |
+| R2-4 | Live / Streaming | 5-sec lookahead / batched streaming whisper / auto-glossary from RSS / press-conf template / anti-flicker / HLS WebVTT 注入 / replay-and-upgrade / latency dashboard |
+| R2-5 | Docs / Onboarding | Shepherd.js tour / demo mode / inline ? tooltip / recipe profiles / wizard / Cmd+/ cheat sheet / glossary CSV templates |
+| R2-6 | Observability / Reliability | structured JSON log / deep readiness / Prometheus / per-job audit trail / golden snapshot / crash recovery / perf regression CI |
+| R2-7 | Compliance / Moderation | profanity bleep / 自殺報導 WHO 標準 / factual claim flag / brand blocklist / age rating / embargo timestamp / 政治敏感 dictionary |
+| R2-8 | Plugin / Extension | setuptools entry point / Jinja2 prompt 模板 / drop-in QC validator / output serializer ABC / webhook chain / Sheets/Notion glossary loader / .tar.gz 設定包 |
+| R2-9 | Multi-modal (video frames) | OCR 解析 chyron / lower-third 偵測閃位 / face location 字幕避面 / scene cut 分句提示 / logo verbatim 保留 / sentiment register / shot-scale 動態字號 / sensitive blur |
+| R2-10 | UI i18n | i18next.js 抽 string / 自動 detect locale / TC+SC+EN seed / 時區 / Intl 數字 / IME-safe shortcut / Weblate TMS |
+
+---
+
+## R2 全部 idea 列表 (按 Effort + Tier)
+
+### 🥇 R2 Tier 1 — Quick Wins (S effort)
+
+| # | Title | 角度 |
+|---|---|---|
+| R2-1 | **Confidence-Gated Pass 2 Enrichment** — only enrich flagged segments，慳 30-70% bill | 成本 |
+| R2-2 | **Pre-Translate Token + Cost Estimator** — tiktoken 計 + 模型價，POST 前彈 toast | 成本 |
+| R2-3 | **Glossary Apply String-Substitute-First** — 安全 substitution 直接做，避咗一堆 LLM call | 成本 |
+| R2-4 | **OpenRouter Prompt Prefix Caching** — `cache_control: ephemeral` header 注入，輸入 token 慳 ~90% on Claude | 成本 |
+| R2-5 | **Dry-Run / Preview Mode** — 唔出 API call 但見到 prompt | 成本 |
+| R2-6 | **Per-Language Sidecar SRT Bundle** — 一鍵出 zh + ja + ko + vi 嘅 zip | 多語言 |
+| R2-7 | **Per-Language Reading-Speed Guard** — JA 4cps / ZH 7cps / EN 17wps, language_config 加 max_cps | 多語言 |
+| R2-8 | **Per-Language Line-Length per Profile** — 唔再 hardcode 28，move into language_config | 多語言 |
+| R2-9 | **Number/Date/Quote Invariance Regex** — 純 regex，零 LLM 成本，catch 23%↔32%, 2024↔2025 | AI 安全 |
+| R2-10 | **Prompt Injection Sanitization** — strip "ignore previous"、`<\|im_start\|>` 等 pattern | AI 安全 |
+| R2-11 | **Hallucination Pattern Library** — JSON-driven blacklist，"感謝大家收看" 等 broadcast filler | AI 安全 |
+| R2-12 | **NER Diff Cross-Check** — spaCy `en_core_web_sm` 確保 PERSON/ORG/GPE 喺 ZH 有對應 | AI 安全 |
+| R2-13 | **Anti-Flicker Hold Buffer** — 8 frame pending → confirmed state，廣播 QA 必需 | Live |
+| R2-14 | **HLS WebVTT Sidecar 注入** — rolling .vtt + manifest，OTT 直播即 work | Live |
+| R2-15 | **Latency Budget Dashboard** — P50/P95 per stage，OFCA 3s 目標 | Live |
+| R2-16 | **Replay-and-Upgrade Mode** — live 完用 large-v3 重新整一次 | Live |
+| R2-17 | **Inline `?` Contextual Help Tooltips** — `data-help=""`，所有 setting 點解 | Onboarding |
+| R2-18 | **Recipe Profile Library** — `recipes/tvb-news.json` 等，clone 即用 | Onboarding |
+| R2-19 | **Empty-State Coaching** — 0 file 時顯示 3-card "How it works" | Onboarding |
+| R2-20 | **Cmd+/ Keyboard Shortcut Cheat Sheet** | Onboarding |
+| R2-21 | **Glossary CSV Starter Templates** — sports/politics/tech 已 seed | Onboarding |
+| R2-22 | **Structured JSON Logging** — replace print，每行帶 file_id + event + duration | 觀測 |
+| R2-23 | **Deep Readiness Endpoint** — ffmpeg/Ollama/data-write 3 件事都 OK 先 ready | 觀測 |
+| R2-24 | **Per-Job Audit Trail** — registry 加 history[] | 觀測 |
+| R2-25 | **Crash Recovery for Stuck Render Jobs** — 5-min 以上 processing 自動 → failed | 觀測 |
+| R2-26 | **Profanity Bleep Marker** — `[***]` + FFmpeg `volume=enable=between(t,T1,T2):volume=0` | 合規 |
+| R2-27 | **Sensitive-Event Helpline Auto-Append** — WHO 自殺報導標準，render 尾自動加熱線 | 合規 |
+| R2-28 | **Brand Mention Guardrail** — JSON blocklist + override-with-reason | 合規 |
+| R2-29 | **Source Attribution Completeness Check** — 引號 → 必有 PERSON/ORG entity | 合規 |
+| R2-30 | **Webhook Chain (config/webhooks.json)** — event → URL array + HMAC sign | Plugin |
+| R2-31 | **User-Supplied Jinja2 Prompt Templates** — `config/prompts/*.j2` 覆蓋 default | Plugin |
+| R2-32 | **Profile + Glossary Bundle .tar.gz Export/Import** — share / community | Plugin |
+| R2-33 | **Scene Cut Detection → Segmentation Hint** — OpenCV histogram diff，純 NumPy | Multi-modal |
+| R2-34 | **Browser Auto-Detect Locale + Picker** — `navigator.language`，header 揀 locale | i18n |
+| R2-35 | **Locale-Aware Timestamp + Number Formatting** — `Intl.NumberFormat`/`Intl.DateTimeFormat` | i18n |
+| R2-36 | **Server TZ → User TZ Display** — backend 出 epoch，frontend formatter | i18n |
+| R2-37 | **IME-Safe Shortcut Registry** — `event.isComposing` 檢查，避免 IME composition 觸發 | i18n |
+
+**R2 S-tier 合共 37 個**，加上 R1 31 個 = **68 個 S effort idea**。
+
+### 🥈 R2 Tier 2 (M effort)
+
+| # | Title |
+|---|---|
+| R2-M1 | **Tier Routing — Cheap → Expensive on Review** (cost ~50-80% reduction) |
+| R2-M2 | **Segment-Level Translation Cache (Hash Dedup)** — re-translate 唔重複 |
+| R2-M3 | **Token Usage Dashboard** — JSONL ledger + monthly per-profile breakdown |
+| R2-M4 | **Multi-Target Batch Render** — 1 source → N langs in 1 click |
+| R2-M5 | **Per-Language Font Asset Routing** — Noto JP/KR/Thai 自動選 |
+| R2-M6 | **Reverse Direction ZH→EN** — HK content → 國際版 |
+| R2-M7 | **Per-Language Glossary 對應** — schema add target_language field |
+| R2-M8 | **Back-Translation Round-Trip Verification** — embedding similarity，hallucination 偵測 |
+| R2-M9 | **Critic LLM Spot-Check** — 不同 model rates 已 flag 段 |
+| R2-M10 | **Auto-Glossary Build from RSS Headlines** — 每週 cron + NER 採集 |
+| R2-M11 | **Press-Conference Template** — 預設 speakers + topic + glossary |
+| R2-M12 | **Streaming Whisper (faster-whisper batched mode)** — 重新引入 live |
+| R2-M13 | **5-second Lookahead Buffer** — broadcast safety delay 用做 LLM context |
+| R2-M14 | **Shepherd.js Guided Tour** — 第一次入嚟一步步教 |
+| R2-M15 | **Pre-Loaded Demo Mode** — 30s 樣本 file，唔需要 upload 都見到 pipeline |
+| R2-M16 | **Profile Builder Wizard** — 4-step instead of 15-field form |
+| R2-M17 | **Prometheus Metrics Endpoint** — queue depth / latency histogram |
+| R2-M18 | **Snapshot Translation Tests** — 防 prompt 改動引致 regression |
+| R2-M19 | **ASR/Translation Latency Regression Gate** — `@pytest.mark.perf` |
+| R2-M20 | **Sensitive-Event WHO Filter (Suicide/Self-harm)** — 報導標準 + 自動加熱線 |
+| R2-M21 | **Factual Claim / Named-Accusation Flag** — spaCy NER + accusatory verb |
+| R2-M22 | **Age-Rating Estimator (G/PG/M/I)** — lexicon 計分 → CA symbol overlay |
+| R2-M23 | **Embargo Timestamp Tag** — `embargo_until` 屬於 segment + render gate |
+| R2-M24 | **Setuptools Entry Points for Engines** — 第三方 pip install 即 register |
+| R2-M25 | **Drop-in QC Validator Hook** — `config/validators/*.py` auto-load |
+| R2-M26 | **Output Serializer ABC + Plugin Format** — IMF / TTML / 自定義 |
+| R2-M27 | **Google Sheets / Notion Glossary Loader** — 唔再 maintain JSON |
+| R2-M28 | **Onscreen OCR → Forced Glossary Override** — chyron 認到名 → translate 唔 mistranslate |
+| R2-M29 | **Lower-Third Detector → Subtitle Repositioning** — bottom 20% YOLO，避免擋 graphic |
+| R2-M30 | **Face Location → Subtitle Push-Up** — MediaPipe face detect，唔擋 close-up 嘴 |
+| R2-M31 | **Visual Sentiment → Register Hint** — emotion classifier → 形 prompt 書面語 vs 口語 |
+| R2-M32 | **i18next.js String Extraction** — 抽走所有硬編碼字 → JSON |
+| R2-M33 | **TC+SC+EN UI Translations Day 1** — `opencc` 自動 TC→SC，EN 手譯 |
+
+**R2 M-tier 合共 33 個**。
+
+### 🥉 R2 Tier 3 (L effort) — 戰略級
+
+| # | Title |
+|---|---|
+| R2-L1 | **Local Model Distillation from Claude outputs** — fine-tune Qwen-7B 脫離 OpenRouter |
+| R2-L2 | **Bidi RTL Support (Arabic/Hebrew)** — MENA 市場 |
+| R2-L3 | **Self-Consistency Voting (N=3)** — high-stakes 段 majority vote |
+| R2-L4 | **Logo / Brand Detection (CLIP zero-shot)** — verbatim 保留 |
+| R2-L5 | **Sensitive Region Auto-Blur** — 車牌 / 護照 / 醫療熒幕 detect + 第二 FFmpeg pass |
+| R2-L6 | **Weblate Self-Hosted TMS** — community 翻譯 UI 嘅 workflow |
+
+---
+
+## R1 + R2 終極合併 — 推薦執行路線圖
+
+10 個 release，每個 1-2 週，所有 broad area 都會掂到。
+
+| Release | 主題 | 重點 idea (Tier 1 主導) |
+|---|---|---|
+| **v3.8** | Broadcast QC Hardening | R1: CPS / frame snap / Cantonese leak / HK-TW vocab / display width / min-cue / pre-render gate / glossary-seeded ASR + R2: NER diff / number invariance / hallucination pattern lib |
+| **v3.9** | Translation Quality + UX | R1: register prompt / idiom flag / undo-redo / waveform sync / auto-save + R2: prefix caching / Pass2 confidence gate / NER cross-check |
+| **v4.0** | Cost & Telemetry | R2: tier routing / cost estimator / token dashboard / segment hash cache + R2: structured logging / Prometheus / readiness |
+| **v4.1** | Onboarding & Recipes | R2: Shepherd tour / demo mode / inline `?` tooltip / recipe profiles / wizard / Cmd+/ |
+| **v4.2** | Output Format Expansion | R1: EBU-TT-D / IMSC / SCC / TVB speaker color + R2: per-lang sidecar bundle |
+| **v4.3** | Compliance & Safety | R2: profanity bleep / WHO suicide standard / brand guard / attribution check / age rating / embargo |
+| **v4.4** | Live Streaming Return | R2: streaming whisper / 5-sec lookahead / anti-flicker / HLS WebVTT / latency dashboard / replay-upgrade |
+| **v4.5** | Multi-modal Visual | R2: scene cut / face location / lower-third / OCR chyron / sentiment register |
+| **v4.6** | Multi-Language + i18n | R2: per-lang config / multi-target render / reverse ZH→EN + R2: i18next.js / locale picker / TC+SC+EN UI |
+| **v4.7** | Plugin Ecosystem | R2: entry points / Jinja2 prompts / QC validator hook / output serializer / Sheets glossary / .tar.gz bundles |
+
+---
+
+## 兩輪總計
+
+- **2 輪 × 10 角度 = 20 位專家**
+- **Round 1: ~58 個 deduped ideas** (S 31 / M 22 / L 5)
+- **Round 2: ~76 個 deduped ideas** (S 37 / M 33 / L 6)
+- **總共 ~134 個 actionable ideas**
+- **如果只做 S-tier**：68 個 quick win，平均 1 日一個 = ~3 個月可全部 ship 完
+
+---
+
+## 跨輪重疊嘅高優先級 (兩輪獨立提到)
+
+呢啲 idea 兩輪都有專家自發提到，極高 confidence：
+
+1. **CPS reading-rate guard** (R1×3 + R2 multi-language reinforces)
+2. **Frame-accurate snap** (R1 ASR + R1 broadcast)
+3. **Number / date invariance check** (R1 QA + R2 AI safety)
+4. **NER consistency check** (R1 QA + R2 AI safety)
+5. **Webhook for events** (R1 自動化 + R2 plugin)
+6. **Per-language line length** (R1 中文 display width + R2 multi-language)
+7. **Profile bundle / sharing** (R1 自動化 show grouping + R2 .tar.gz)
+8. **Crash recovery for jobs** (R1 性能 + R2 觀測)
+
+呢 8 個應該係 v3.8 嘅核心。
