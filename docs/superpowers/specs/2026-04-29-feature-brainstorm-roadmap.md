@@ -1081,3 +1081,189 @@ R5 完已經 50 個角度。R6 鎖定 emerging / specialized domain：XR、feder
 2. **持續 review roadmap** 而非繼續加 idea
 3. **Merge to dev** 收 17+ commits 入主線
 4. (option) R7 emerging-tech 角度 — 但每加一輪都會 dilute focus
+
+---
+---
+
+# Round 7 — 70 個角度 (2026-04-29)
+
+R6 結尾已經建議停 brainstorm。R7 鎖定垂直應用 + 平台整合 + 硬件 + 學術出版方向，全部係非廣播 vertical 嘅機會。
+
+## R7 角度分布
+
+| Loop | 角度 | 重點 |
+|---|---|---|
+| R7-1 | NLE Plugin (Premiere/FCP/Resolve) | hot-swap subtitle / EDL batch / native caption track / round-trip metadata / waveform-anchored snap / proxy-aware transcode / approved=lock / multi-track output |
+| R7-2 | DAW Plugin (Pro Tools/Logic/Reaper) | OSC stem coordinator / gap-fill ambience scheduler / EBU R128 speech-only gating / dialogue density 自動 ducking / punch-in list / AAF clip naming / SFX pre-roll trigger |
+| R7-3 | Gaming / Esports / Twitch | patch notes auto-glossary / dual-caster diarisation / VOD chapter / Shorts 9:16 mode / tilt detector / sponsor read suppression / multi-resolution preview |
+| R7-4 | Medical Transcription Vertical | HIPAA/PDPO PII redaction / specialty glossary / RxNorm drug normalisation / speaker role diarisation / SOAP note export / lab value extraction / research anonymisation / Zoom/Teams ingest |
+| R7-5 | Legal / Court Reporting | verbatim mode / speaker labelled turn / HK Judiciary template / legal jargon glossary / HKLII citation linking / objection markers / sealed redaction / Q&A pair detection |
+| R7-6 | Religious / Liturgical | Buddhist sutra glossary / scripture reference auto-format / sermon mode (preacher + congregation) / chant detection / bilingual congregation layout / calendar boost / hymn lyric lock / privacy guard for confession |
+| R7-7 | Children's Programming | vocab simplifier / strict profanity filter / 粵拼/注音 ruby / 大字高對比預設 / new-word frequency / karaoke sing-along / kid-safe glossary / parent review gate |
+| R7-8 | Niche-Script Languages | Mongolian Bichig vertical / Cherokee sidecar / Yiddish RTL+niqqud / Hawaiian ʻokina+macron / Inuktitut UCAS / Devanagari/Burmese numerals / ELAN .eaf importer / IPA fallback (epitran) |
+| R7-9 | NPU / Hardware Acceleration | Apple Neural Engine via CoreML / ONNX runtime + provider routing / Intel NPU OpenVINO / Coral USB Edge TPU / 異構 NPU+GPU pipeline / energy-per-token metric / INT4 GGUF whisper.cpp |
+| R7-10 | Linguistic Research / Academic | Praat TextGrid / ELAN .eaf / TEI P5 XML / POS tagging (jieba+spaCy) / IPA phonetic per word / Zenodo DOI publishing / IAA agreement report / BNC genre/register metadata |
+
+---
+
+## R7 全部 idea (按 Effort)
+
+### 🥇 R7 Tier 1 (S)
+
+| # | Title | 角度 |
+|---|---|---|
+| R7-1 | **EDL clip names from approved subtitles** — AAF dialogue clip 自動命名 | DAW |
+| R7-2 | **SFX Pre-Roll Trigger List** — segment start - 12 frames offset | DAW |
+| R7-3 | **Gap-Fill Ambience Scheduler** — silent gap → room tone auto-place | DAW |
+| R7-4 | **Glossary Round-Trip via Project Metadata** — XMP custom field sync | NLE |
+| R7-5 | **Waveform-Anchored Segment Snapping** — playhead at cut point → PATCH end | NLE |
+| R7-6 | **Clip-Safe Caption Export (9:16 Shorts/Reels)** — PlayResX/Y flip + 1.4× scale | Gaming |
+| R7-7 | **Sponsor Read Auto-Suppression** — glossary `suppress_in_output` flag | Gaming |
+| R7-8 | **HIPAA/PDPO Specialty Glossary Pack** — cardiology / neuro / oncology | Medical |
+| R7-9 | **Lab Value Extraction Inline (BP, HR, HbA1c)** — regex + unit normalize | Medical |
+| R7-10 | **Verbatim Mode (preserve all fillers)** — disable VAD cleanup + hesitation | Legal |
+| R7-11 | **Legal Jargon Glossary Pack (HK)** — ~200 EN↔TC term JSON | Legal |
+| R7-12 | **HKLII Citation Auto-Detection** — regex `s.\d+ Cap.\d+` + deep link | Legal |
+| R7-13 | **Objection / Ruling Event Markers** — keyword + structured flags | Legal |
+| R7-14 | **Buddhist Sutra Glossary Pack** — 200 高頻梵文音譯 | Religious |
+| R7-15 | **Scripture Reference Auto-Format** — 《馬太福音》5:3 規範化 | Religious |
+| R7-16 | **Calendar Vocab Boost (initial_prompt)** — 浴佛/觀音誕/復活節 預載 | Religious |
+| R7-17 | **Privacy Guard for Confession** — `requires_network: false` enforce | Religious |
+| R7-18 | **Strict Profanity + Euphemism Filter (kids)** — blocklist + flag | Children |
+| R7-19 | **Kids Font Preset (大字 + 高對比)** — `kids-default.json` profile ship | Children |
+| R7-20 | **Kid-Safe Glossary Auto-Load** — `target_audience: "kids"` tag | Children |
+| R7-21 | **Cherokee Syllabary Sidecar Import** — `.chr` text + timestamps | Niche Script |
+| R7-22 | **Hawaiian ʻokina + macron Normalisation** — 2k word lexicon + post-processor | Niche Script |
+| R7-23 | **Devanagari/Burmese Numeral Substitution** — `numeral_script` profile | Niche Script |
+| R7-24 | **whisper.cpp INT4 GGUF Engine** — cross-platform binary subprocess | Hardware |
+| R7-25 | **Praat TextGrid Export** — word-tier + segment-tier 2-tier | Research |
+| R7-26 | **ELAN .eaf Annotated Export** — XML schema for fieldwork linguists | Research |
+| R7-27 | **BNC-Style Genre/Register Metadata Tags** — upload 加 dropdown | Research |
+| R7-28 | **IAA Agreement Report (κ)** — diff approved vs original，character-level | Research |
+
+**R7 S-tier 合共 28 個**。
+
+### 🥈 R7 Tier 2 (M)
+
+| # | Title |
+|---|---|
+| R7-M1 | **Subtitle XML Hot-Swap (Non-Destructive Re-Translate)** — sidecar 即更新 NLE |
+| R7-M2 | **EDL-Driven Batch Submission** — sequence → batch transcribe |
+| R7-M3 | **Proxy-Aware Transcode Before Submit** — audio-only first，再 link 高清 |
+| R7-M4 | **Timeline Segment Lock (Approved = Locked)** — NLE marker 防止亂剪 |
+| R7-M5 | **OSC Stem Render Coordinator** — Reaper 自動 arm dialogue stem record |
+| R7-M6 | **EBU R128 Speech-Window Loudness Gating** — Pro Tools VisLM 規範 |
+| R7-M7 | **Dialogue Density → Music Ducking Automation** — MIDI CC curve export |
+| R7-M8 | **Game Patch Notes Auto-Glossary Sync** — Riot/Blizzard scrape + diff |
+| R7-M9 | **Co-Stream Dual-Caster Diarisation** — 雙 lane 不同 ASS 位置 |
+| R7-M10 | **VOD Chapter Markers from Caption Density** — peaks → YouTube chapters |
+| R7-M11 | **Tilt / Rage-Quit Detector Style** — volume + WPM + profanity → orange ASS |
+| R7-M12 | **Multi-Resolution Twitch / Broadcast Preset** — 兩個 font config block |
+| R7-M13 | **HIPAA/PDPO PII Redaction (scispaCy NER)** — `[PT-001]` `[DOB-1985]` token |
+| R7-M14 | **SOAP Note Auto-Generator** — LLM extract subjective/objective/assessment/plan |
+| R7-M15 | **Speaker Role Diarisation (Dr/Patient/Nurse)** — pyannote + role mapping |
+| R7-M16 | **HK Judiciary Transcript Format Export** — `.docx` + Jinja2 template |
+| R7-M17 | **Speaker-Labelled Turn Segmentation (court)** — pyannote → JUDGE/COUNSEL |
+| R7-M18 | **Q&A Pair Detection Cross-Examination** — `?` + 粵語語氣詞 → turn_type |
+| R7-M19 | **Sermon Mode Speaker-Aware Segmentation** — Amen/Hallelujah → congregation style |
+| R7-M20 | **Chant / Mantra Detection Mode** — repetition ratio → canonical lookup |
+| R7-M21 | **Hymn / Worship Lyric Lock (fuzzy match)** — canonical replace skip LLM |
+| R7-M22 | **Kid Vocabulary Simplifier (grade 1-3 lookup)** — adult 詞彙 替換 簡單字 |
+| R7-M23 | **Karaoke Sing-Along Mode** — `\\k` ASS tag + word_timestamps |
+| R7-M24 | **New-Word Frequency Tracker** — HSK lookup + per-file vocab report |
+| R7-M25 | **Parent Review Gate Before Playback** — `audience_lock` + read-only review link |
+| R7-M26 | **Yiddish RTL + Niqqud Hebrew Script** — ICU BiDi + `‫` markers |
+| R7-M27 | **Inuktitut UCAS Font Bundle (Pigiarniq)** — drop into assets/fonts/ |
+| R7-M28 | **ELAN `.eaf` Importer (linguist-supplied)** — XML 解析 → segment list |
+| R7-M29 | **IPA Fallback Track (epitran G2P)** — 80+ language phonetic |
+| R7-M30 | **Apple Neural Engine via CoreML** — `coremltools` + whisper-to-coreml |
+| R7-M31 | **ONNX Runtime + Execution Provider Routing** — provider list 自動選 |
+| R7-M32 | **Intel NPU OpenVINO Engine** — Meteor Lake + Lunar Lake 兼容 |
+| R7-M33 | **Heterogeneous NPU+GPU Pipeline** — ASR on NPU, FFmpeg on GPU |
+| R7-M34 | **TEI P5 XML Corpus Export** — `<u>` + `<w>` + `<teiHeader>` 學術可引用 |
+| R7-M35 | **POS Tagging (jieba ZH + spaCy EN)** — corpus query 兼容 |
+| R7-M36 | **IPA Phonetic Transcription per Word** — dragonmapper / pycantonese |
+
+**R7 M-tier 合共 36 個**。
+
+### 🥉 R7 Tier 3 (L)
+
+| # | Title |
+|---|---|
+| R7-L1 | **Native Caption Track Write-Back (CEA-608/708)** — NLE caption API per platform |
+| R7-L2 | **Multi-Language Parallel Caption Tracks (NLE)** — 一鍵 N lang 寫返 timeline |
+| R7-L3 | **Speaker Diarisation for Broadcast Co-Stream** — pyannote.audio integration |
+| R7-L4 | **RxNorm Drug Name Normalisation** — UMLS RXNCONSO + fuzzy match |
+| R7-L5 | **Telemedicine Recording Ingest (Zoom/Teams API)** — dual-channel audio split |
+| R7-L6 | **Privileged / Sealed Segment Redaction (court)** — role-based + audit log |
+| R7-L7 | **Bilingual Congregation Layout (top + bottom)** — 兩個 ASS Style |
+| R7-L8 | **Phonetic Ruby (粵拼/注音 above chars)** — ASS `\\ruby` + CC-Canto lookup |
+| R7-L9 | **Mongolian Bichig Vertical Rendering** — HarfBuzz + cairo PNG sprite + overlay |
+| R7-L10 | **Coral USB Edge TPU Engine** — TFLite quantize encoder + CPU decoder |
+| R7-L11 | **Energy-per-Token Metric + Power Budget Cap** — powermetrics + nvidia-smi |
+| R7-L12 | **Zenodo DOI Dataset Publishing Assistant** — datacite.json + REST API upload |
+
+**R7 L-tier 合共 12 個**。
+
+---
+
+## 🌌 SEVEN-ROUND ABSOLUTE GRAND TOTAL
+
+| Round | 角度 | Ideas | S | M | L |
+|---|---|---|---|---|---|
+| R1 | 10 | 58 | 31 | 22 | 5 |
+| R2 | 10 | 76 | 37 | 33 | 6 |
+| R3 | 10 | 76 | 38 | 30 | 8 |
+| R4 | 10 | 76 | 40 | 29 | 7 |
+| R5 | 10 | 77 | 44 | 28 | 5 |
+| R6 | 10 | 79 | 32 | 35 | 12 |
+| R7 | 10 | 76 | 28 | 36 | 12 |
+| **GRAND TOTAL** | **70** | **~518** | **250** | **213** | **55** |
+
+**70 位獨立專家 / 70 個獨立切入點 / ~518 個 actionable idea / 250 個 quick win**
+
+每日 ship 一個 S → 8.3 個月做完晒 quick win。整個 backlog 完整跑完需要約 3-4 年單人開發。
+
+---
+
+## 📊 Diminishing Returns 觀察
+
+| Round | New unique ideas | 重疊度 (跨輪) |
+|---|---|---|
+| R1 | 58 baseline | - |
+| R2 | 76 (≈70 fresh) | 8% |
+| R3 | 76 (≈68 fresh) | 11% |
+| R4 | 76 (≈64 fresh) | 16% |
+| R5 | 77 (≈58 fresh) | 25% |
+| R6 | 79 (≈55 fresh) | 30% |
+| R7 | 76 (≈48 fresh) | 37% |
+
+到 R7，已經有近 4 成 idea 同前輪重疊 / 邊緣 derivatives。
+
+---
+
+## 🎯 7 輪終極 17-項 backbone (跨 3+ rounds)
+
+仍然係嗰 17-18 個 idea。跨更多輪嘅同樣 surface，但 ranking 不變：
+
+**P0 v3.8 必做:** CPS guard / Frame snap / Number invariance / NER cross-check / Webhook chain / Per-lang line length / Profile bundle / Hash-chain log / `_sv` schema field
+
+**P1 v3.9-v4.0:** Crash recovery / Demucs / Diarization / Recipe preset / CLI tool / Auto-TM / PostHog / GitHub Actions / Real-time fact check
+
+呢 17-18 個係未來 9 個月 critical path，**唔會因為 R8/R9 而改變**。
+
+---
+
+## 📌 真誠建議：停 brainstorm，立即 ship
+
+R7 後 diminishing returns 進入 sharply 嘅階段：
+- 新角度愈嚟愈窄 (vertical / niche / 硬件)
+- 跨輪重疊已超過 35%
+- backbone 17 項已經 stable 4 輪未變
+
+**Best ROI 行動方案:**
+1. **Brainstorm + writing-plans** 將 17 backbone 變 v3.8 sprint
+2. **Merge to `dev`** 收 18+ commits 入主線
+3. **可選:** R8 或 R9 emerging tech 但每輪只會新增 ~40 真正新 idea，邊際效益顯著遞減
+
+7 輪 brainstorm 結束 — 喺 ~518 個 actionable idea 中揀 17 個 backbone，一個月內可以 ship 第一個 release v3.8。
