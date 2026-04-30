@@ -88,3 +88,24 @@ def test_max_lines_overflow_appended_to_last_line():
     assert len(result.lines) == 2
     # All content present (last line absorbs leftover)
     assert "".join(result.lines).replace(" ", "") == text.replace(" ", "")
+
+
+def test_look_ahead_extends_to_punctuation_just_past_cap():
+    # Punctuation at position 24 (cap+1), text length 33
+    text = "theathletic.com 將讓您身臨其境，直擊足球世界核心。"
+    assert len(text) == 33
+    result = wrap_zh(text, cap=23, max_lines=3, tail_tolerance=3)
+    # Look-ahead picks position 24 「，」, line 1 = 24 char ending in 「，」
+    assert result.lines[0].endswith("，")
+    assert len(result.lines[0]) == 24
+    assert result.hard_cut is False
+
+
+def test_look_ahead_does_not_extend_beyond_cap_plus_tolerance():
+    # Punctuation only at position 30 (cap+7), should hard-cut at 23
+    text = "abcdefghijklmnopqrstuvwxyzABCD,efghi"  # 36 char, comma at 30
+    assert len(text) == 36
+    result = wrap_zh(text, cap=23, max_lines=3, tail_tolerance=3)
+    # Look-ahead range is [cap+1, cap+tol] = [24, 26]; comma at 30 is out of range
+    assert len(result.lines[0]) == 23
+    assert result.hard_cut is True
