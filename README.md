@@ -19,7 +19,8 @@
 | 🎬 **燒入字幕輸出** | 將已批核字幕燒入影片，可調整編碼參數後輸出：**MP4** (H.264，支援 CRF / CBR / 2-pass 三種 bitrate mode、yuv420p/422p/444p、H.264 Profile & Level)、MXF (ProRes)、或 MXF · **XDCAM HD 422**（MPEG-2 4:2:2，碼率 10–100 Mbps 自由調校）。渲染完成後可經系統級「另存為」對話框揀下載位置。 |
 | 📊 **轉錄進度條** | 轉錄時顯示進度百分比、已處理/總時長、預計剩餘時間 |
 | ⚡ **雙引擎支援** | 自動選用 faster-whisper（快 4–8 倍）或 openai-whisper |
-| 💾 **字幕導出** | 每個文件獨立提供 SRT、VTT、TXT 下載 |
+| 💾 **字幕導出** | 每個文件獨立提供 SRT、VTT、TXT 下載（可選 `?wrap=1` 自動分行） |
+| 🪧 **字幕自動分行（v3.8）** | 中文字幕過長時自動按廣播標準切到多行（每行 ≤23 字、最多 3 行）；保留完整翻譯內容、唔縮短意思；支援 Netflix Originals / Netflix general / Broadcast 三個預設 |
 
 ---
 
