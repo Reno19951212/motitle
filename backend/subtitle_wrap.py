@@ -95,3 +95,44 @@ def wrap_zh(text: str, cap: int = 23, max_lines: int = 3, tail_tolerance: int = 
         lines[-1] = lines[-1] + remaining
 
     return WrapResult(lines=lines, hard_cut=hard_cut)
+
+
+PRESETS = {
+    "netflix_originals": {"line_cap": 16, "max_lines": 2, "tail_tolerance": 2},
+    "netflix_general":   {"line_cap": 23, "max_lines": 2, "tail_tolerance": 3},
+    "broadcast":         {"line_cap": 28, "max_lines": 3, "tail_tolerance": 3},
+}
+DEFAULT_PRESET = "broadcast"
+
+
+def resolve_wrap_config(font_config: dict) -> dict:
+    """Resolve final wrap config from font_config.
+
+    Resolution order:
+      1. font_config["line_wrap"] explicit fields override
+      2. font_config["subtitle_standard"] preset
+      3. DEFAULT_PRESET (broadcast)
+    Always returns dict with: enabled, line_cap, max_lines, tail_tolerance.
+    """
+    standard = font_config.get("subtitle_standard")
+    base = PRESETS.get(standard, PRESETS[DEFAULT_PRESET]).copy()
+
+    explicit = font_config.get("line_wrap") or {}
+    enabled = explicit.get("enabled", True)
+    base["enabled"] = enabled
+    if "line_cap" in explicit:
+        base["line_cap"] = explicit["line_cap"]
+    if "max_lines" in explicit:
+        base["max_lines"] = explicit["max_lines"]
+    if "tail_tolerance" in explicit:
+        base["tail_tolerance"] = explicit["tail_tolerance"]
+    return base
+
+
+def wrap_with_config(text: str, font_config: dict) -> WrapResult:
+    """Apply wrap_zh using resolved config from font_config. Returns single-line if disabled."""
+    cfg = resolve_wrap_config(font_config)
+    if not cfg["enabled"]:
+        text = (text or "").strip()
+        return WrapResult(lines=[text] if text else [], hard_cut=False)
+    return wrap_zh(text, cap=cfg["line_cap"], max_lines=cfg["max_lines"], tail_tolerance=cfg["tail_tolerance"])
