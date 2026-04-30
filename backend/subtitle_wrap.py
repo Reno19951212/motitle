@@ -27,12 +27,18 @@ class WrapResult:
     hard_cut: bool = False
 
 
-def _find_break(remaining: str, cap: int) -> int:
-    """Return the best break index in [1, cap], or -1 if none."""
+def _find_break(remaining: str, cap: int, tail_tolerance: int = 0) -> int:
+    """Return the best break index. Searches [1, cap], then [cap+1, cap+tail_tolerance].
+
+    Returns -1 if no break point found in either range.
+    """
     best = -1
     best_score = -1
-    limit = min(cap, len(remaining))
-    for i in range(1, limit + 1):
+    primary_limit = min(cap, len(remaining))
+    extended_limit = min(cap + tail_tolerance, len(remaining))
+
+    # Pass 1: primary range [1, cap]
+    for i in range(1, primary_limit + 1):
         ch = remaining[i - 1]
         score = 0
         if ch in HARD_BREAKS:
@@ -48,7 +54,17 @@ def _find_break(remaining: str, cap: int) -> int:
             if score > best_score:
                 best_score = score
                 best = i
-    return best
+
+    if best != -1:
+        return best
+
+    # Pass 2: extended range [cap+1, cap+tail_tolerance], only HARD/SOFT (no paren tiebreaks)
+    for i in range(primary_limit + 1, extended_limit + 1):
+        ch = remaining[i - 1]
+        if ch in HARD_BREAKS or ch in SOFT_BREAKS:
+            return i  # first match in extended range -- short-circuit
+
+    return -1
 
 
 def wrap_zh(text: str, cap: int = 23, max_lines: int = 3, tail_tolerance: int = 3) -> WrapResult:
@@ -67,7 +83,7 @@ def wrap_zh(text: str, cap: int = 23, max_lines: int = 3, tail_tolerance: int = 
             lines.append(remaining)
             remaining = ""
             break
-        best = _find_break(remaining, cap)
+        best = _find_break(remaining, cap, tail_tolerance)
         if best == -1:
             best = cap
             hard_cut = True
