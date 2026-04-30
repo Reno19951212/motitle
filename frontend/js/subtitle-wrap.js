@@ -1,6 +1,6 @@
 // frontend/js/subtitle-wrap.js
-// Pure ZH subtitle line-wrap algorithm. Mirror of backend/subtitle_wrap.py.
-// Exposes window.SubtitleWrap.wrapZh + window.SubtitleWrap.wrapWithConfig
+// Subtitle line-wrap algorithm. Mirror of backend/subtitle_wrap.py (Option D).
+// Exposes window.SubtitleWrap.wrapZh + wrapEn + wrapWithConfig + resolveWrapConfig + isZhText + PRESETS
 
 (function () {
   "use strict";
@@ -10,10 +10,25 @@
   const PAREN_CLOSE = "）」』)]";
   const PAREN_OPEN = "（「『([";
 
+  const HAS_ZH = /[一-鿿　-〿＀-￯]/;
+
+  function isZhText(text) {
+    return HAS_ZH.test(text || "");
+  }
+
   const PRESETS = {
-    netflix_originals: { line_cap: 16, max_lines: 2, tail_tolerance: 2 },
-    netflix_general:   { line_cap: 23, max_lines: 2, tail_tolerance: 3 },
-    broadcast:         { line_cap: 28, max_lines: 3, tail_tolerance: 3 },
+    netflix_originals: {
+      zh: { line_cap: 16, max_lines: 2, tail_tolerance: 2 },
+      en: { line_cap: 42, max_lines: 2, tail_tolerance: 4 },
+    },
+    netflix_general: {
+      zh: { line_cap: 23, max_lines: 2, tail_tolerance: 3 },
+      en: { line_cap: 42, max_lines: 2, tail_tolerance: 4 },
+    },
+    broadcast: {
+      zh: { line_cap: 28, max_lines: 3, tail_tolerance: 3 },
+      en: { line_cap: 50, max_lines: 3, tail_tolerance: 5 },
+    },
   };
   const DEFAULT_PRESET = "broadcast";
 
@@ -82,17 +97,53 @@
     return { lines, hardCut };
   }
 
+  function wrapEn(text, options) {
+    const cap = (options && options.cap) || 42;
+    const maxLines = (options && options.maxLines) || 2;
+    const tailTolerance = (options && options.tailTolerance != null) ? options.tailTolerance : 4;
+
+    const trimmed = (text || "").trim();
+    if (!trimmed) return { lines: [], hardCut: false };
+    if (trimmed.length <= cap + tailTolerance) return { lines: [trimmed], hardCut: false };
+
+    const words = trimmed.split(/\s+/);
+    const lines = [];
+    let i = 0;
+    while (i < words.length && lines.length < maxLines) {
+      if (lines.length === maxLines - 1) {
+        // Last allowed line: gobble all remaining words
+        lines.push(words.slice(i).join(" "));
+        i = words.length;
+        break;
+      }
+      let current = words[i];
+      i++;
+      while (i < words.length && current.length + 1 + words[i].length <= cap + tailTolerance) {
+        current += " " + words[i];
+        i++;
+      }
+      lines.push(current);
+    }
+    const hardCut = lines.some(l => l.length > cap + tailTolerance);
+    return { lines, hardCut };
+  }
+
   function resolveWrapConfig(fontConfig) {
     fontConfig = fontConfig || {};
     const standard = fontConfig.subtitle_standard;
-    const base = Object.assign({}, PRESETS[standard] || PRESETS[DEFAULT_PRESET]);
+    const basePreset = PRESETS[standard] || PRESETS[DEFAULT_PRESET];
+    const zhCfg = Object.assign({}, basePreset.zh);
+    const enCfg = Object.assign({}, basePreset.en);
     const explicit = fontConfig.line_wrap || {};
     const enabled = explicit.enabled != null ? explicit.enabled : true;
-    base.enabled = enabled;
-    if (explicit.line_cap != null) base.line_cap = explicit.line_cap;
-    if (explicit.max_lines != null) base.max_lines = explicit.max_lines;
-    if (explicit.tail_tolerance != null) base.tail_tolerance = explicit.tail_tolerance;
-    return base;
+    // Explicit overrides apply to BOTH sub-configs (legacy single-cap compat)
+    ["line_cap", "max_lines", "tail_tolerance"].forEach(key => {
+      if (explicit[key] != null) {
+        zhCfg[key] = explicit[key];
+        enCfg[key] = explicit[key];
+      }
+    });
+    return { enabled, zh: zhCfg, en: enCfg };
   }
 
   function wrapWithConfig(text, fontConfig) {
@@ -101,12 +152,20 @@
       const trimmed = (text || "").trim();
       return { lines: trimmed ? [trimmed] : [], hardCut: false };
     }
-    return wrapZh(text, {
-      cap: cfg.line_cap,
-      maxLines: cfg.max_lines,
-      tailTolerance: cfg.tail_tolerance,
+    const sub = isZhText(text) ? cfg.zh : cfg.en;
+    if (isZhText(text)) {
+      return wrapZh(text, {
+        cap: sub.line_cap,
+        maxLines: sub.max_lines,
+        tailTolerance: sub.tail_tolerance,
+      });
+    }
+    return wrapEn(text, {
+      cap: sub.line_cap,
+      maxLines: sub.max_lines,
+      tailTolerance: sub.tail_tolerance,
     });
   }
 
-  window.SubtitleWrap = { wrapZh, wrapWithConfig, resolveWrapConfig, PRESETS };
+  window.SubtitleWrap = { wrapZh, wrapEn, wrapWithConfig, resolveWrapConfig, isZhText, PRESETS };
 })();
