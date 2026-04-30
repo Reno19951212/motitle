@@ -842,3 +842,77 @@ def test_render_fontsdir_coexists_with_resolution_scale(tmp_path, monkeypatch):
     ass_segment, _, scale_segment = vf_value.partition(",scale=")
     assert "fontsdir=" in ass_segment, f"fontsdir should be in ass segment: {ass_segment}"
     assert scale_segment.startswith("1280x720"), f"scale segment wrong: {scale_segment}"
+
+
+def test_generate_ass_wraps_long_zh_text():
+    from renderer import SubtitleRenderer
+    from pathlib import Path
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        r = SubtitleRenderer(Path(td))
+        segments = [
+            {
+                "start": 1.0,
+                "end": 5.0,
+                "en_text": "Long sentence",
+                "zh_text": "據接近球會的消息，球隊士氣跌至歷史新低，球員表現失準令教練震怒",  # 30 char
+            }
+        ]
+        font_config = {
+            "family": "Noto Sans TC", "size": 35,
+            "color": "#ffffff", "outline_color": "#000000",
+            "outline_width": 2, "margin_bottom": 40,
+            "subtitle_standard": "netflix_general",  # cap=23
+        }
+        ass = r.generate_ass(segments, font_config)
+        # Wrapped text should contain \\N
+        dialogue_lines = [l for l in ass.split("\n") if l.startswith("Dialogue:")]
+        assert len(dialogue_lines) == 1
+        text_in_dialogue = dialogue_lines[0].split(",,0,0,0,,", 1)[1]
+        assert "\\N" in text_in_dialogue, f"Expected \\\\N in wrapped dialogue, got: {text_in_dialogue!r}"
+
+
+def test_generate_ass_no_wrap_when_line_wrap_disabled():
+    from renderer import SubtitleRenderer
+    from pathlib import Path
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        r = SubtitleRenderer(Path(td))
+        segments = [{"start": 1.0, "end": 5.0, "zh_text": "據接近球會的消息，球隊士氣跌至歷史新低，球員表現失準令教練震怒"}]
+        font_config = {
+            "family": "Noto Sans TC", "size": 35,
+            "color": "#ffffff", "outline_color": "#000000",
+            "outline_width": 2, "margin_bottom": 40,
+            "line_wrap": {"enabled": False},
+        }
+        ass = r.generate_ass(segments, font_config)
+        dialogue_lines = [l for l in ass.split("\n") if l.startswith("Dialogue:")]
+        assert len(dialogue_lines) == 1
+        text_in_dialogue = dialogue_lines[0].split(",,0,0,0,,", 1)[1]
+        # No wrap performed → no \\N from wrapping
+        assert text_in_dialogue.count("\\N") == 0
+
+
+def test_generate_ass_legacy_profile_no_line_wrap_field_still_wraps_with_default():
+    from renderer import SubtitleRenderer
+    from pathlib import Path
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        r = SubtitleRenderer(Path(td))
+        # 41 chars — exceeds broadcast cap(28)+tail_tolerance(3)=31, guaranteed to wrap
+        segments = [{"start": 1.0, "end": 5.0, "zh_text": "據接近球會的消息，球隊士氣跌至歷史新低，球員表現失準令教練震怒，全隊已處於崩潰邊緣"}]
+        # Legacy profile: no subtitle_standard, no line_wrap → defaults to broadcast preset (cap=28)
+        font_config = {
+            "family": "Noto Sans TC", "size": 35,
+            "color": "#ffffff", "outline_color": "#000000",
+            "outline_width": 2, "margin_bottom": 40,
+        }
+        ass = r.generate_ass(segments, font_config)
+        dialogue_lines = [l for l in ass.split("\n") if l.startswith("Dialogue:")]
+        assert len(dialogue_lines) == 1
+        text_in_dialogue = dialogue_lines[0].split(",,0,0,0,,", 1)[1]
+        # Default broadcast preset: cap=28+tail_tolerance=3; 41-char text wraps to 2 lines
+        assert "\\N" in text_in_dialogue

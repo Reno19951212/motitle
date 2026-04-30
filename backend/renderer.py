@@ -15,6 +15,7 @@ from subtitle_text import (
     VALID_SUBTITLE_SOURCES,
     VALID_BILINGUAL_ORDERS,
 )
+from subtitle_wrap import wrap_with_config
 
 DEFAULT_FONT_CONFIG = {
     "family": "Noto Sans TC",
@@ -150,11 +151,21 @@ class SubtitleRenderer:
                 seg,
                 mode=subtitle_source,
                 order=bilingual_order,
-                line_break="\\N",
-            ).replace("\r", "").replace("\n", "\\N")
+                line_break="\n",
+            ).replace("\r", "")
             if not text:
                 continue  # skip empty (e.g. bilingual with both sides blank)
-            lines.append(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{text}")
+
+            # Apply line-wrap. Each pre-existing line (e.g. bilingual EN/ZH split)
+            # wraps independently; results join with ASS line-break \N.
+            wrapped_lines: List[str] = []
+            for raw_line in text.split("\n"):
+                wrap_result = wrap_with_config(raw_line, font_config)
+                wrapped_lines.extend(wrap_result.lines)
+            joined = "\\N".join(wrapped_lines)
+            if not joined:
+                continue
+            lines.append(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{joined}")
 
         return "\n".join(lines) + "\n"
 
