@@ -17,8 +17,8 @@ from typing import List
 
 HARD_BREAKS = "。！？!?"
 SOFT_BREAKS = "，、；：,;:"
-PAREN_CLOSE = "）」』）]"
-PAREN_OPEN = "（「『（["
+PAREN_CLOSE = "）」』)]"
+PAREN_OPEN = "（「『(["
 
 
 @dataclass

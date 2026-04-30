@@ -30,14 +30,12 @@ def test_text_within_cap_plus_tolerance_returns_one_line():
 
 
 def test_break_at_hard_punctuation():
-    # Two sentences: "好嘢！入波啦！全場歡呼！紅魔取勝！" — 12 char, < cap+tol
-    # Use longer to force wrap
-    text = "歡迎收聽體育新聞！政府宣布新措施。今晚紅魔曼聯主場迎戰兵工廠！"  # 31 char
+    # 31 char text. ！ at index 9, 。 at index 17.
+    # Tiebreaker (score += i) → 。at 17 wins (117 > 109).
+    text = "歡迎收聽體育新聞！政府宣布新措施。今晚紅魔曼聯主場迎戰兵工廠！"
+    assert len(text) == 31
     result = wrap_zh(text, cap=23, max_lines=3, tail_tolerance=3)
-    # Within cap=23, hard punctuation appears at:
-    #   position 9 (！, score=100+9=109) and position 17 (。, score=100+17=117)
-    # Tiebreaker prefers higher index → break after 。 at position 17
-    assert result.lines[0].endswith("。")
+    assert result.lines[0] == "歡迎收聽體育新聞！政府宣布新措施。"  # locks tiebreaker behavior
     assert result.hard_cut is False
 
 
@@ -89,4 +87,4 @@ def test_max_lines_overflow_appended_to_last_line():
     result = wrap_zh(text, cap=10, max_lines=2, tail_tolerance=0)
     assert len(result.lines) == 2
     # All content present (last line absorbs leftover)
-    assert "".join(result.lines).replace(" ", "") in text.replace(" ", "")
+    assert "".join(result.lines).replace(" ", "") == text.replace(" ", "")
