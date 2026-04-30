@@ -369,9 +369,14 @@ Whenever a new feature is completed or existing functionality is modified, you *
   - Max-lines overflow: 剩低嘅 leftover append 到 last line（防 data loss）
   - 18 個 pytest 覆蓋 short-circuit / break search / look-ahead / presets / resolver
 - **Profile font block 新欄位**:
-  - `font.subtitle_standard` enum: `netflix_originals` (16/2/2), `netflix_general` (23/2/3), `broadcast` (28/3/3, default)
-  - `font.line_wrap` explicit override: `{enabled, line_cap (10-50), max_lines (1-4), tail_tolerance (0-10)}`
+  - `font.subtitle_standard` enum，每個 preset 內含 `zh` + `en` 兩組 sub-config（per-language wrap）：
+    - `netflix_originals`: ZH 16/2/2, EN 42/2/4
+    - `netflix_general`: ZH 23/2/3, EN 42/2/4
+    - `broadcast` (default): ZH 28/3/3, EN 50/3/5
+  - `font.line_wrap` explicit override: `{enabled, line_cap (10-50), max_lines (1-4), tail_tolerance (0-10)}`，override 同時應用到 `zh` 同 `en` sub-config（legacy single-cap compat）
   - Backward compat: 舊 profile 無 `line_wrap` block → fallback to broadcast preset (enabled=true)
+- **EN word-fit algorithm（Option D）**: `_wrap_en()` greedy 將字塞入每行（用空格 join），最後一行 absorb 剩餘 words 確保 0 data loss
+- **`_is_zh_text()` dispatcher**: 用 regex `[一-鿿　-〿＀-￯]` detect ZH 字元，自動 route 到 `wrap_zh` 或 `_wrap_en`
 - **`backend/renderer.py` `generate_ass()`**: 在寫入 ASS dialogue 前 apply `wrap_with_config`，每 segment 出多 `\\N` 分行；`resolve_segment_text(line_break="\n")` 然後 split → wrap each → join `\\N`
 - **API `/api/files/<id>/subtitle.{srt,vtt,txt}`**: 接 `?wrap=` query param（`1`/`true`/`yes` 啟用）；no wrap by default for backward compat
 - **Frontend**: 新 `frontend/js/subtitle-wrap.js` (1:1 port of backend algorithm)；`font-preview.js` 改 SVG `<text>` 出 multi-`<tspan>` stacked bottom-up；wrap 應用於 dashboard overlay + proofread overlay
