@@ -109,3 +109,53 @@ def test_look_ahead_does_not_extend_beyond_cap_plus_tolerance():
     # Look-ahead range is [cap+1, cap+tol] = [24, 26]; comma at 30 is out of range
     assert len(result.lines[0]) == 23
     assert result.hard_cut is True
+
+
+def test_preset_netflix_originals():
+    from subtitle_wrap import resolve_wrap_config, PRESETS
+    cfg = resolve_wrap_config({"subtitle_standard": "netflix_originals"})
+    assert cfg["line_cap"] == 16
+    assert cfg["max_lines"] == 2
+    assert cfg["tail_tolerance"] == 2
+
+
+def test_preset_netflix_general():
+    from subtitle_wrap import resolve_wrap_config
+    cfg = resolve_wrap_config({"subtitle_standard": "netflix_general"})
+    assert cfg["line_cap"] == 23
+    assert cfg["max_lines"] == 2
+    assert cfg["tail_tolerance"] == 3
+
+
+def test_preset_broadcast():
+    from subtitle_wrap import resolve_wrap_config
+    cfg = resolve_wrap_config({"subtitle_standard": "broadcast"})
+    assert cfg["line_cap"] == 28
+    assert cfg["max_lines"] == 3
+    assert cfg["tail_tolerance"] == 3
+
+
+def test_explicit_line_wrap_overrides_preset():
+    from subtitle_wrap import resolve_wrap_config
+    cfg = resolve_wrap_config({
+        "subtitle_standard": "netflix_originals",
+        "line_wrap": {"line_cap": 30, "max_lines": 1, "tail_tolerance": 0}
+    })
+    # Explicit overrides preset
+    assert cfg["line_cap"] == 30
+    assert cfg["max_lines"] == 1
+    assert cfg["tail_tolerance"] == 0
+
+
+def test_no_config_returns_broadcast_default():
+    from subtitle_wrap import resolve_wrap_config
+    cfg = resolve_wrap_config({})
+    assert cfg["line_cap"] == 28
+    assert cfg["max_lines"] == 3
+    assert cfg["tail_tolerance"] == 3
+
+
+def test_disabled_returns_passthrough_config():
+    from subtitle_wrap import resolve_wrap_config
+    cfg = resolve_wrap_config({"line_wrap": {"enabled": False}})
+    assert cfg["enabled"] is False
