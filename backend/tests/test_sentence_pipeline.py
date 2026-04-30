@@ -267,3 +267,69 @@ def test_translate_with_sentences_progress_callback():
         assert total == 3, f"expected total=3 segments, got {total}"
 
 
+def test_find_break_point_prefers_soft_over_hard():
+    """SOFT 「，」at distance 5 should beat HARD 「。」at distance 11."""
+    from translation.sentence_pipeline import _find_break_point
+    text = "本賽季唯一上陣時間超過百分之七十五的皇馬後防四人組成員，僅有左閘阿爾瓦羅·卡雷拉斯一人。"
+    # target = 33 (mid-name), 「，」at 28, 「。」at 44
+    assert len(text) == 44
+    assert text[27] == "，"
+    assert text[43] == "。"
+    pos = _find_break_point(text, target=33)
+    assert pos == 28, f"Expected break at 「，」 (pos 28), got {pos}"
+
+
+def test_find_break_point_max_pos_constraint():
+    """max_pos limits search to prevent picking sentence-final 。 that empties next seg."""
+    from translation.sentence_pipeline import _find_break_point
+    text = "本賽季唯一上陣時間超過百分之七十五的皇馬後防四人組成員，僅有左閘阿爾瓦羅·卡雷拉斯一人。"
+    # target = 33, max_pos = 35 (force search to skip the 「。」 at pos 44)
+    pos = _find_break_point(text, target=33, max_pos=35)
+    assert pos == 28, f"Expected 「，」 at 28, got {pos}"
+
+
+def test_find_break_point_no_punct_falls_back_to_target():
+    """When no punct in search range, returns target unchanged."""
+    from translation.sentence_pipeline import _find_break_point
+    text = "甲乙丙丁戊己庚辛壬癸子丑寅卯辰"  # no punctuation
+    pos = _find_break_point(text, target=8)
+    assert pos == 8
+
+
+def test_find_break_point_search_range_15():
+    """Default search_range=15 should reach SOFT punct at distance 7 from target=18."""
+    from translation.sentence_pipeline import _find_break_point
+    # 「，」at pos 11 (index 10); text length = 21
+    # target=18 is 7 chars away — within default search_range=15 → should find 「，」
+    text = "甲乙丙丁戊己庚辛壬癸，甲乙丙丁戊己庚辛壬癸"  # 「，」at pos 11
+    assert len(text) == 21
+    assert text[10] == "，"
+    pos = _find_break_point(text, target=18)  # distance 7 from 「，」
+    assert pos == 11, f"Expected 「，」 at 11, got {pos}"
+
+
+def test_redistribute_avoids_mid_name_cut():
+    """Hybrid v2 redistribute should split at 「，」 not mid-name."""
+    from translation.sentence_pipeline import redistribute_to_segments
+    merged_sentences = [{
+        "seg_indices": [0, 1],
+        "seg_word_counts": {0: 18, 1: 6},
+        "merged_text": "ignored",
+    }]
+    zh_sentences = ["本賽季唯一上陣時間超過七成比賽的皇馬後防四人組成員，僅有左閘阿爾瓦羅·卡雷拉斯一人。"]
+    original_segments = [
+        {"start": 0, "end": 5, "text": "The only member..."},
+        {"start": 5, "end": 10, "text": "season is left back..."},
+    ]
+    results = redistribute_to_segments(merged_sentences, zh_sentences, original_segments)
+    assert len(results) == 2
+    seg0_zh = results[0]["zh_text"]
+    seg1_zh = results[1]["zh_text"]
+    # Seg 0 should end with 「，」, seg 1 should be non-empty and contain the name
+    assert seg0_zh.endswith("，"), f"Seg 0 should end with 「，」, got: {seg0_zh!r}"
+    assert seg1_zh.strip(), f"Seg 1 should not be empty, got: {seg1_zh!r}"
+    assert "阿爾瓦羅" in seg1_zh, f"Name 阿爾瓦羅 should be in seg 1, got: {seg1_zh!r}"
+    # Specifically the name should NOT be cut between segments
+    assert not seg0_zh.endswith("阿"), f"Seg 0 should not end mid-name, got: {seg0_zh!r}"
+
+
