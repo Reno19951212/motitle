@@ -2273,6 +2273,20 @@
       else document.getElementById('ppsMaxLines').value = 2;
       if (lw.tail_tolerance != null) document.getElementById('ppsTailTol').value = lw.tail_tolerance;
       else document.getElementById('ppsTailTol').value = 3;
+      // v3.8 — preset onchange auto-populates the 3 numeric inputs (ZH side)
+      document.getElementById('ppsSubtitleStandard').onchange = function() {
+        const presets = {
+          netflix_originals: { line_cap: 16, max_lines: 2, tail_tolerance: 2 },
+          netflix_general:   { line_cap: 23, max_lines: 2, tail_tolerance: 3 },
+          broadcast:         { line_cap: 28, max_lines: 3, tail_tolerance: 3 },
+        };
+        const p = presets[this.value];
+        if (p) {
+          document.getElementById('ppsLineCap').value = p.line_cap;
+          document.getElementById('ppsMaxLines').value = p.max_lines;
+          document.getElementById('ppsTailTol').value = p.tail_tolerance;
+        }
+      };
       _openModalWithFocus('ppsOverlay', trigger);
       setTimeout(() => document.getElementById('ppsName').focus(), 50);
     }
