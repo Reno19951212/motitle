@@ -423,3 +423,69 @@ def test_renders_in_progress(client, tmp_path, monkeypatch):
     finally:
         _render_jobs.pop("job-test-aaa", None)
         _render_jobs.pop("job-test-bbb", None)
+
+
+# ---- ?wrap= query param tests ----
+
+def _seed_file_with_long_zh():
+    """Seed _file_registry with a file that has one long ZH segment (≥30 chars)."""
+    from app import _file_registry, _registry_lock
+    fid = "test-wrap-001"
+    with _registry_lock:
+        _file_registry[fid] = {
+            "id": fid,
+            "original_name": "test.mp4",
+            "status": "done",
+            "translation_status": "done",
+            "segments": [{"start": 1.0, "end": 5.0, "text": "long sentence here"}],
+            "translations": [{
+                "seg_idx": 0,
+                "start": 1.0,
+                "end": 5.0,
+                "en_text": "long sentence here",
+                # 35 chars — exceeds broadcast cap(28)+tail_tolerance(3)=31, triggers wrap
+                "zh_text": "據接近球會的消息，球隊士氣跌至歷史新低，球員表現失準令教練震怒難以置信",
+                "status": "approved",
+            }],
+        }
+    return fid
+
+
+def test_subtitle_srt_download_with_wrap_query_produces_multi_line_cues(client):
+    """When ?wrap=1, long ZH lines are split with newlines inside SRT cue blocks."""
+    fid = _seed_file_with_long_zh()
+    try:
+        resp = client.get(f"/api/files/{fid}/subtitle.srt?wrap=1&source=zh")
+        assert resp.status_code == 200
+        body = resp.get_data(as_text=True)
+
+        # An SRT cue block: "idx\nTIME --> TIME\ntext\n\n"
+        # A wrapped cue has ≥2 text lines → more than 2 total \n in its block
+        cue_blocks = [b for b in body.strip().split("\n\n") if b.strip()]
+        multi_line_cues = [b for b in cue_blocks if b.count("\n") > 2]
+        assert len(multi_line_cues) > 0, (
+            f"Expected ≥1 wrapped cue in SRT, got body:\n{body[:500]}"
+        )
+    finally:
+        from app import _file_registry, _registry_lock
+        with _registry_lock:
+            _file_registry.pop(fid, None)
+
+
+def test_subtitle_srt_download_without_wrap_query_returns_single_line_cues(client):
+    """Without ?wrap, each cue's text is on a single line (backward-compat)."""
+    fid = _seed_file_with_long_zh()
+    try:
+        resp = client.get(f"/api/files/{fid}/subtitle.srt?source=zh")
+        assert resp.status_code == 200
+        body = resp.get_data(as_text=True)
+
+        cue_blocks = [b for b in body.strip().split("\n\n") if b.strip()]
+        multi_line_cues = [b for b in cue_blocks if b.count("\n") > 2]
+        assert len(multi_line_cues) == 0, (
+            f"Without ?wrap, no multi-line cues expected, got body:\n{body[:500]}"
+        )
+    finally:
+        from app import _file_registry, _registry_lock
+        with _registry_lock:
+            _file_registry.pop(fid, None)
