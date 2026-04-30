@@ -226,7 +226,7 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | POST | `/api/transcribe` | Upload + async transcription → auto-translate |
 | GET | `/api/files` | List all uploaded files with status |
 | GET | `/api/files/<id>/media` | Serve original media file |
-| GET | `/api/files/<id>/subtitle.<fmt>` | Download subtitle (srt/vtt/txt)；接 `?source=` + `?order=` query params |
+| GET | `/api/files/<id>/subtitle.<fmt>` | Download subtitle (srt/vtt/txt)；接 `?source=` + `?order=` + `?wrap=` query params |
 | PATCH | `/api/files/<id>` | Update file-level settings (subtitle_source / bilingual_order) |
 | GET | `/api/files/<id>/segments` | Get transcription segments |
 | PATCH | `/api/files/<id>/segments/<seg_id>` | Update segment text |
@@ -359,6 +359,27 @@ Whenever a new feature is completed or existing functionality is modified, you *
 - **Proofread 兩個新 Panel**: 影片預覽下方加入「詞彙表對照」+「字幕設定」兩個 panel。詞彙表 panel 支援從所有 glossary 中選擇、查看/新增/編輯條目（inline）；字幕設定 panel 直接編輯 active profile 嘅 font config（字型、大小、顏色、輪廓、邊距），500ms debounce 後自動 PATCH，透過 Socket.IO 即時更新 overlay
 - **Glossary Apply（LLM 智能替換）**: Proofread page 詞彙表 panel 新增「套用」按鈕。Two-phase 流程：(1) `POST /api/files/<id>/glossary-scan` 用純字串匹配搵出違規（EN 包含 glossary term 但 ZH 唔包含對應翻譯）；(2) 預覽 modal 俾用戶剔選 violations（未批核預設勾選，已批核預設唔勾選）；(3) `POST /api/files/<id>/glossary-apply` 逐條調用 Ollama LLM 做智能替換（保留句子其他部分），多個違規同一 segment 時序列處理。後端會驗證 `(term_en, term_zh)` 確實屬於指定 glossary，錯誤訊息經 `app.logger.exception` 記錄並返回統一 `"LLM request failed"` 俾 client
 - **304 automated tests**（+13 new: glossary-scan/apply 端到端 coverage，包含 sequential chaining、term validation、approval 狀態保留）
+
+### v3.8 — Subtitle Line-Wrap (Render-time multi-line ZH display)
+- **`backend/subtitle_wrap.py`**（新）: pure `wrap_zh(text, cap, max_lines, tail_tolerance) -> WrapResult` algorithm
+  - Break-point priority: `。！？!?`(100) > `，、；：,;:`(50) > `）」』)]`(30) > `（「『([` lookahead (25)，tiebreaker `score += i`（later index wins）
+  - Tail-tolerance (+3 default): last line absorbs trailing punctuation
+  - Look-ahead extension: `_find_break(remaining, cap, tail_tolerance)` 喺 [1, cap] 搵唔到 break 時去 [cap+1, cap+tail_tolerance] 搵 HARD/SOFT
+  - Hard-cut at cap when no break found, flagged via `WrapResult.hard_cut`
+  - Max-lines overflow: 剩低嘅 leftover append 到 last line（防 data loss）
+  - 18 個 pytest 覆蓋 short-circuit / break search / look-ahead / presets / resolver
+- **Profile font block 新欄位**:
+  - `font.subtitle_standard` enum: `netflix_originals` (16/2/2), `netflix_general` (23/2/3), `broadcast` (28/3/3, default)
+  - `font.line_wrap` explicit override: `{enabled, line_cap (10-50), max_lines (1-4), tail_tolerance (0-10)}`
+  - Backward compat: 舊 profile 無 `line_wrap` block → fallback to broadcast preset (enabled=true)
+- **`backend/renderer.py` `generate_ass()`**: 在寫入 ASS dialogue 前 apply `wrap_with_config`，每 segment 出多 `\\N` 分行；`resolve_segment_text(line_break="\n")` 然後 split → wrap each → join `\\N`
+- **API `/api/files/<id>/subtitle.{srt,vtt,txt}`**: 接 `?wrap=` query param（`1`/`true`/`yes` 啟用）；no wrap by default for backward compat
+- **Frontend**: 新 `frontend/js/subtitle-wrap.js` (1:1 port of backend algorithm)；`font-preview.js` 改 SVG `<text>` 出 multi-`<tspan>` stacked bottom-up；wrap 應用於 dashboard overlay + proofread overlay
+- **Profile editor UI**: Profile save modal `#ppsOverlay` 加 fieldset for `subtitle_standard` preset + `line_wrap.{enabled, line_cap, max_lines, tail_tolerance}` 4 fields
+- **Proofread hard-cut warning**: 每 segment 入面如果 `wrap_zh` returns hard_cut=true，flags 加 `wrap-hardcut` (label `⚠斷`)，tooltip 提示用戶手動編輯譯文
+- **Validation**（V0-V3 empirical）：基於 11 項 evidence-based testing（V1.1 char ratio 2.88, V1.2 sentence pipeline undo, V1.3 LLM follow-rate STRONG 83%, V1.5 ZH ASR config broken, V2.1 jieba 對繁體失敗, V_a 全 file 82-segs 跑出 hard-cut 2.4%）。Production stack: mlx-whisper medium + OpenRouter `qwen/Qwen3.5-35B-A3B`. Spec 文件: [docs/superpowers/specs/2026-04-30-line-wrap-design.md](docs/superpowers/specs/2026-04-30-line-wrap-design.md)
+- **Tests**: 18 個 backend pytest（subtitle_wrap algorithm + presets + resolver）+ 4 個 profile validation tests + 3 個 renderer integration tests + 2 個 API ?wrap= tests + 1 language config test + 5 個 Playwright E2E scenarios
+- **Real Madrid 全 82 seg**：56% 1-line / 43% 2-line / 1% 3-line / 0% overflow，hard-cut 2.4%。ZH ASR 警察學院 47 seg：100% 1-line（中文 Whisper raw segment 已夠短）
 
 ### v3.7 — Subtitle Source Mode (per-file EN / ZH / Bilingual)
 - **`backend/subtitle_text.py`**: 新 module，shared resolver `resolve_segment_text(seg, mode, order, line_break)` + `strip_qa_prefixes` + `resolve_subtitle_source` / `resolve_bilingual_order` 三層 fallback helper（render-modal override > file > profile > `auto`）
