@@ -135,3 +135,14 @@ def test_api_update_language():
             resp = client.patch("/api/languages/en", json={"asr": {"max_words_per_segment": 30, "max_segment_duration": 8.0}, "translation": {"batch_size": 5, "temperature": 0.2}})
             assert resp.status_code == 200
             assert resp.get_json()["language"]["asr"]["max_words_per_segment"] == 30
+
+
+def test_language_config_files_have_subtitle_line_cap():
+    """Production en.json and zh.json each declare subtitle.line_cap=23."""
+    import json
+    from pathlib import Path
+    base = Path(__file__).parent.parent / "config" / "languages"
+    for lang in ("en", "zh"):
+        data = json.loads((base / f"{lang}.json").read_text())
+        assert "subtitle" in data, f"{lang}.json missing 'subtitle' block"
+        assert data["subtitle"]["line_cap"] == 23, f"{lang}.json subtitle.line_cap must be 23"
