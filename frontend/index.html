@@ -2262,6 +2262,17 @@
         document.getElementById('ppsBilingualOrderRow').style.display =
           (this.value === 'bilingual') ? 'flex' : 'none';
       };
+      // Load line_wrap fields
+      const fontSrc = src.font || {};
+      document.getElementById('ppsSubtitleStandard').value = fontSrc.subtitle_standard || '';
+      const lw = fontSrc.line_wrap || {};
+      document.getElementById('ppsLineWrapEnabled').checked = lw.enabled !== false;
+      if (lw.line_cap != null) document.getElementById('ppsLineCap').value = lw.line_cap;
+      else document.getElementById('ppsLineCap').value = 23;
+      if (lw.max_lines != null) document.getElementById('ppsMaxLines').value = lw.max_lines;
+      else document.getElementById('ppsMaxLines').value = 2;
+      if (lw.tail_tolerance != null) document.getElementById('ppsTailTol').value = lw.tail_tolerance;
+      else document.getElementById('ppsTailTol').value = 3;
       _openModalWithFocus('ppsOverlay', trigger);
       setTimeout(() => document.getElementById('ppsName').focus(), 50);
     }
@@ -2277,6 +2288,13 @@
       if (!name) { showToast('預設名稱必填', 'error'); return; }
       const subSrc = document.getElementById('ppsSubtitleSource').value;
       const subOrder = document.getElementById('ppsBilingualOrder').value;
+      const subStandardRaw = document.getElementById('ppsSubtitleStandard').value;
+      const lineWrapBlock = {
+        enabled: document.getElementById('ppsLineWrapEnabled').checked,
+        line_cap: parseInt(document.getElementById('ppsLineCap').value, 10),
+        max_lines: parseInt(document.getElementById('ppsMaxLines').value, 10),
+        tail_tolerance: parseInt(document.getElementById('ppsTailTol').value, 10),
+      };
       try {
         if (_ppsEditingId) {
           // Edit mode: PATCH name, description, and subtitle source fields
@@ -2288,7 +2306,13 @@
             body: JSON.stringify({
               name,
               description,
-              font: { ...existingFont, subtitle_source: subSrc, bilingual_order: subOrder },
+              font: {
+                ...existingFont,
+                subtitle_source: subSrc,
+                bilingual_order: subOrder,
+                ...(subStandardRaw ? { subtitle_standard: subStandardRaw } : {}),
+                line_wrap: lineWrapBlock,
+              },
             }),
           });
           if (!r.ok) throw new Error((await r.json()).error || '儲存失敗');
@@ -2304,7 +2328,13 @@
           // Create mode: POST cloned activeProfile, then activate
           if (!activeProfile) { showToast('請先啟用一個 Profile', 'error'); return; }
           const { id: _id, created_at: _ca, updated_at: _ua, ...rest } = activeProfile;
-          const clonedFont = { ...(rest.font || {}), subtitle_source: subSrc, bilingual_order: subOrder };
+          const clonedFont = {
+            ...(rest.font || {}),
+            subtitle_source: subSrc,
+            bilingual_order: subOrder,
+            ...(subStandardRaw ? { subtitle_standard: subStandardRaw } : {}),
+            line_wrap: lineWrapBlock,
+          };
           const body = { ...rest, name, description, font: clonedFont };
           const r = await fetch(`${API_BASE}/api/profiles`, {
             method: 'POST',
@@ -4335,6 +4365,36 @@
                 <option value="zh_top">ZH 上 / EN 下</option>
               </select>
             </label>
+          </fieldset>
+          <fieldset style="border:1px solid var(--border);border-radius:6px;padding:10px 14px;">
+            <legend style="font-size:11px;color:var(--text-dim);padding:0 6px;">字幕分行（v3.8）</legend>
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;margin:6px 0;">
+              標準預設
+              <select id="ppsSubtitleStandard" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface-2);color:var(--text);">
+                <option value="">— 自訂 —</option>
+                <option value="netflix_originals">Netflix Originals (16字 ×2)</option>
+                <option value="netflix_general">Netflix general (23字 ×2)</option>
+                <option value="broadcast">Broadcast (28字 ×3)</option>
+              </select>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;margin:6px 0;">
+              <input type="checkbox" id="ppsLineWrapEnabled" checked>
+              啟用自動分行
+            </label>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+              <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+                每行字數上限
+                <input type="number" id="ppsLineCap" min="10" max="50" value="23" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface-2);color:var(--text);">
+              </label>
+              <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+                最多行數
+                <input type="number" id="ppsMaxLines" min="1" max="4" value="2" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface-2);color:var(--text);">
+              </label>
+              <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+                尾段容許
+                <input type="number" id="ppsTailTol" min="0" max="10" value="3" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface-2);color:var(--text);">
+              </label>
+            </div>
           </fieldset>
         </div>
       </div>
