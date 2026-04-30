@@ -118,6 +118,35 @@ class ProfileManager:
                         f"font.bilingual_order must be 'en_top' or 'zh_top'; got {order!r}"
                     )
 
+                # subtitle_standard preset (optional)
+                if "subtitle_standard" in font:
+                    std = font["subtitle_standard"]
+                    if std not in ("netflix_originals", "netflix_general", "broadcast"):
+                        errors.append(
+                            "font.subtitle_standard must be one of: netflix_originals, netflix_general, broadcast"
+                        )
+
+                # line_wrap explicit overrides (optional)
+                if "line_wrap" in font:
+                    lw = font["line_wrap"]
+                    if not isinstance(lw, dict):
+                        errors.append("font.line_wrap must be an object")
+                    else:
+                        if "enabled" in lw and not isinstance(lw["enabled"], bool):
+                            errors.append("font.line_wrap.enabled must be a boolean")
+                        if "line_cap" in lw:
+                            v = lw["line_cap"]
+                            if not isinstance(v, int) or isinstance(v, bool) or v < 10 or v > 50:
+                                errors.append("font.line_wrap.line_cap must be int 10-50")
+                        if "max_lines" in lw:
+                            v = lw["max_lines"]
+                            if not isinstance(v, int) or isinstance(v, bool) or v < 1 or v > 4:
+                                errors.append("font.line_wrap.max_lines must be int 1-4")
+                        if "tail_tolerance" in lw:
+                            v = lw["tail_tolerance"]
+                            if not isinstance(v, int) or isinstance(v, bool) or v < 0 or v > 10:
+                                errors.append("font.line_wrap.tail_tolerance must be int 0-10")
+
         return errors
 
     # ------------------------------------------------------------------

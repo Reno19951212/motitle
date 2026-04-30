@@ -491,3 +491,72 @@ def test_parallel_batches_non_int_invalid(tmp_path):
     data["translation"]["parallel_batches"] = "2"
     errors = pm.validate(data)
     assert any("parallel_batches" in e for e in errors)
+
+
+def test_profile_accepts_line_wrap_block(config_dir):
+    from profiles import ProfileManager
+    mgr = ProfileManager(config_dir)
+    profile_data = {
+        "name": "LineWrap test",
+        "description": "",
+        "asr": {"engine": "whisper", "model_size": "tiny", "language": "en", "device": "cpu"},
+        "translation": {"engine": "qwen2.5-3b", "quantization": "q4", "temperature": 0.1, "glossary_id": None},
+        "font": {
+            "family": "Noto Sans TC",
+            "size": 35,
+            "line_wrap": {
+                "enabled": True,
+                "line_cap": 23,
+                "max_lines": 3,
+                "tail_tolerance": 3,
+            },
+            "subtitle_standard": "netflix_general",
+        },
+    }
+    errors = mgr.validate(profile_data)
+    assert errors == [], f"unexpected errors: {errors}"
+
+
+def test_profile_rejects_invalid_subtitle_standard(config_dir):
+    from profiles import ProfileManager
+    mgr = ProfileManager(config_dir)
+    profile_data = {
+        "name": "Bad standard",
+        "description": "",
+        "asr": {"engine": "whisper", "model_size": "tiny", "language": "en", "device": "cpu"},
+        "translation": {"engine": "qwen2.5-3b", "quantization": "q4", "temperature": 0.1, "glossary_id": None},
+        "font": {"subtitle_standard": "invalid_preset"},
+    }
+    errors = mgr.validate(profile_data)
+    assert any("subtitle_standard" in e for e in errors)
+
+
+def test_profile_rejects_line_cap_out_of_range(config_dir):
+    from profiles import ProfileManager
+    mgr = ProfileManager(config_dir)
+    base = {
+        "name": "Bad cap",
+        "description": "",
+        "asr": {"engine": "whisper", "model_size": "tiny", "language": "en", "device": "cpu"},
+        "translation": {"engine": "qwen2.5-3b", "quantization": "q4", "temperature": 0.1, "glossary_id": None},
+    }
+    too_small = {**base, "font": {"line_wrap": {"line_cap": 5}}}
+    errors = mgr.validate(too_small)
+    assert any("line_cap" in e for e in errors)
+    too_large = {**base, "font": {"line_wrap": {"line_cap": 100}}}
+    errors = mgr.validate(too_large)
+    assert any("line_cap" in e for e in errors)
+
+
+def test_profile_legacy_font_without_line_wrap_still_valid(config_dir):
+    from profiles import ProfileManager
+    mgr = ProfileManager(config_dir)
+    profile_data = {
+        "name": "Legacy font",
+        "description": "",
+        "asr": {"engine": "whisper", "model_size": "tiny", "language": "en", "device": "cpu"},
+        "translation": {"engine": "qwen2.5-3b", "quantization": "q4", "temperature": 0.1, "glossary_id": None},
+        "font": {"family": "Noto Sans TC", "size": 35},
+    }
+    errors = mgr.validate(profile_data)
+    assert errors == [], f"legacy profile should be valid: {errors}"
