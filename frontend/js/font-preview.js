@@ -43,6 +43,7 @@ const FontPreview = (() => {
   let _svgEl = null;
   let _textEl = null;
   let _font = null;
+  let _rawFontConfig = null;  // raw font config (includes subtitle_standard / line_wrap blocks)
   let _listenerRegistered = false;
 
   function _resolveFont(font) {
@@ -61,6 +62,7 @@ const FontPreview = (() => {
 
   function applyFontConfig(font) {
     if (!font || !_svgEl || !_textEl) return;
+    _rawFontConfig = font;
     _font = _resolveFont(font);
 
     _svgEl.setAttribute('viewBox', `0 0 ${PLAY_RES_X} ${PLAY_RES_Y}`);
@@ -100,10 +102,31 @@ const FontPreview = (() => {
     }
     _textEl.style.opacity = '1';
 
-    // Split on real newlines or the literal ASS escape "\N" so multi-line
-    // segments preview the same way the renderer will burn them in
-    // (renderer.py converts "\n" → "\\N" before writing to ASS Events).
-    const lines = (raw || '').split(/\r?\n|\\N/);
+    // Step 1: split on existing line breaks (renderer-injected \\N or real \n)
+    // because input may already be multi-line (e.g. bilingual EN+ZH stacked).
+    const preLines = (raw || '').split(/\r?\n|\\N/);
+
+    // Step 2: apply SubtitleWrap.wrapWithConfig per pre-line if loaded.
+    // Falls back to no-wrap if SubtitleWrap script wasn't included.
+    let lines = [];
+    if (window.SubtitleWrap && _rawFontConfig) {
+      preLines.forEach(pl => {
+        const wr = window.SubtitleWrap.wrapWithConfig(pl, _rawFontConfig);
+        if (wr.lines.length === 0) {
+          // empty/whitespace pre-line — keep as a placeholder for spacing? Skip.
+        } else {
+          lines = lines.concat(wr.lines);
+        }
+      });
+    } else {
+      lines = preLines;
+    }
+
+    if (lines.length === 0) {
+      _textEl.style.opacity = '0';
+      return;
+    }
+
     const lineH = _font.size * LINE_HEIGHT_FACTOR;
     const baseY = PLAY_RES_Y - _font.margin_bottom;
     const x = PLAY_RES_X / 2;
