@@ -112,50 +112,106 @@ def test_look_ahead_does_not_extend_beyond_cap_plus_tolerance():
 
 
 def test_preset_netflix_originals():
-    from subtitle_wrap import resolve_wrap_config, PRESETS
+    from subtitle_wrap import resolve_wrap_config
     cfg = resolve_wrap_config({"subtitle_standard": "netflix_originals"})
-    assert cfg["line_cap"] == 16
-    assert cfg["max_lines"] == 2
-    assert cfg["tail_tolerance"] == 2
+    assert cfg["zh"]["line_cap"] == 16
+    assert cfg["zh"]["max_lines"] == 2
+    assert cfg["zh"]["tail_tolerance"] == 2
+    assert cfg["en"]["line_cap"] == 42
+    assert cfg["en"]["max_lines"] == 2
+    assert cfg["en"]["tail_tolerance"] == 4
 
 
 def test_preset_netflix_general():
     from subtitle_wrap import resolve_wrap_config
     cfg = resolve_wrap_config({"subtitle_standard": "netflix_general"})
-    assert cfg["line_cap"] == 23
-    assert cfg["max_lines"] == 2
-    assert cfg["tail_tolerance"] == 3
+    assert cfg["zh"]["line_cap"] == 23
+    assert cfg["zh"]["max_lines"] == 2
+    assert cfg["en"]["line_cap"] == 42
 
 
 def test_preset_broadcast():
     from subtitle_wrap import resolve_wrap_config
     cfg = resolve_wrap_config({"subtitle_standard": "broadcast"})
-    assert cfg["line_cap"] == 28
-    assert cfg["max_lines"] == 3
-    assert cfg["tail_tolerance"] == 3
+    assert cfg["zh"]["line_cap"] == 28
+    assert cfg["zh"]["max_lines"] == 3
+    assert cfg["en"]["line_cap"] == 50
+    assert cfg["en"]["max_lines"] == 3
 
 
 def test_explicit_line_wrap_overrides_preset():
     from subtitle_wrap import resolve_wrap_config
     cfg = resolve_wrap_config({
         "subtitle_standard": "netflix_originals",
-        "line_wrap": {"line_cap": 30, "max_lines": 1, "tail_tolerance": 0}
+        "line_wrap": {"line_cap": 30, "max_lines": 1, "tail_tolerance": 0},
     })
-    # Explicit overrides preset
-    assert cfg["line_cap"] == 30
-    assert cfg["max_lines"] == 1
-    assert cfg["tail_tolerance"] == 0
+    # Explicit overrides apply to BOTH sub-presets
+    assert cfg["zh"]["line_cap"] == 30
+    assert cfg["zh"]["max_lines"] == 1
+    assert cfg["en"]["line_cap"] == 30
+    assert cfg["en"]["max_lines"] == 1
 
 
 def test_no_config_returns_broadcast_default():
     from subtitle_wrap import resolve_wrap_config
     cfg = resolve_wrap_config({})
-    assert cfg["line_cap"] == 28
-    assert cfg["max_lines"] == 3
-    assert cfg["tail_tolerance"] == 3
+    assert cfg["zh"]["line_cap"] == 28
+    assert cfg["en"]["line_cap"] == 50
 
 
 def test_disabled_returns_passthrough_config():
     from subtitle_wrap import resolve_wrap_config
     cfg = resolve_wrap_config({"line_wrap": {"enabled": False}})
     assert cfg["enabled"] is False
+
+
+def test_en_wrap_84_char_fits_two_lines():
+    from subtitle_wrap import wrap_with_config
+    text = "When Xabi Alonso was sacked as Real Madrid manager in January 2026, sources close to"
+    cfg = {"subtitle_standard": "netflix_general"}
+    r = wrap_with_config(text, cfg)
+    assert len(r.lines) == 2
+    # Both lines word-aligned (no leading/trailing whitespace on words)
+    for line in r.lines:
+        assert not line.startswith(" ")
+        assert not line.endswith(" ")
+    # All input words preserved
+    in_words = text.split()
+    out_words = " ".join(r.lines).split()
+    assert in_words == out_words
+
+
+def test_en_wrap_short_returns_one_line():
+    from subtitle_wrap import wrap_with_config
+    text = "Hello world."
+    r = wrap_with_config(text, {"subtitle_standard": "netflix_general"})
+    assert r.lines == [text]
+    assert r.hard_cut is False
+
+
+def test_zh_wrap_unchanged_with_netflix_general():
+    from subtitle_wrap import wrap_with_config
+    text = "在後防方面，大衛·阿拉巴與安東尼奧·盧迪加持續受傷，令皇馬兵力嚴重告急。"  # 36 char
+    r = wrap_with_config(text, {"subtitle_standard": "netflix_general"})
+    # ZH cap=23, max_lines=2 -> 2 lines
+    assert len(r.lines) <= 2
+
+
+def test_mixed_text_with_zh_uses_zh_path():
+    from subtitle_wrap import wrap_with_config
+    text = "中文 with English mixed 內容"
+    cfg = {"subtitle_standard": "netflix_general"}
+    r = wrap_with_config(text, cfg)
+    # Has ZH chars -> routed to wrap_zh path (cap=23)
+    # text is 22 char, <= cap+tail=26, single line
+    assert len(r.lines) == 1
+
+
+def test_en_wrap_no_data_loss_on_long_text():
+    from subtitle_wrap import wrap_with_config
+    text = "In the backline, persistent injuries to David Alaba and Antonio Rudiger have left Real light."
+    r = wrap_with_config(text, {"subtitle_standard": "netflix_general"})
+    # Even if overflow, all words must be preserved
+    in_words = text.split()
+    out_words = " ".join(r.lines).split()
+    assert in_words == out_words
