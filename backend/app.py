@@ -2539,6 +2539,8 @@ def download_subtitle(file_id, fmt):
 
     src_q = request.args.get("source")
     ord_q = request.args.get("order")
+    wrap_q = request.args.get("wrap", "").strip().lower()
+    wrap_enabled_request = wrap_q in ("1", "true", "yes")
     if src_q is not None and src_q not in VALID_SUBTITLE_SOURCES:
         return jsonify({'error': f"Invalid source '{src_q}'"}), 400
     if ord_q is not None and ord_q not in VALID_BILINGUAL_ORDERS:
@@ -2572,8 +2574,22 @@ def download_subtitle(file_id, fmt):
 
     base_name = Path(entry['original_name']).stem
 
+    # If wrap requested, import wrap helper and resolve font config from active profile
+    wrap_font_config: dict = {}
+    if wrap_enabled_request:
+        from subtitle_wrap import wrap_with_config as _wrap_with_config
+        wrap_font_config = (active_profile or {}).get("font", {})
+
     def _seg_text(s):
-        return resolve_segment_text(s, mode=mode, order=order, line_break='\n')
+        text = resolve_segment_text(s, mode=mode, order=order, line_break='\n')
+        if not text or not wrap_enabled_request:
+            return text
+        # Apply wrap on each pre-existing line (e.g. bilingual EN\nZH)
+        wrapped: List[str] = []
+        for raw_line in text.split('\n'):
+            wr = _wrap_with_config(raw_line, wrap_font_config)
+            wrapped.extend(wr.lines)
+        return '\n'.join(wrapped)
 
     if fmt == 'txt':
         content = '\n'.join(_seg_text(s) for s in unified if _seg_text(s))
