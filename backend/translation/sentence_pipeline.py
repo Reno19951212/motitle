@@ -118,17 +118,57 @@ def merge_to_sentences(
     return result
 
 
-_ZH_PUNCTUATION = set("。，、！？；：）」』】")
+# Punctuation hierarchy for redistribute break-point selection.
+# SOFT (clause-internal) is preferred for splits since HARD usually appears
+# at sentence end where splitting is useless.
+_ZH_SOFT = set("，、；：")
+_ZH_PAREN_CLOSE = set("）」』】")
+_ZH_HARD = set("。！？")
+# Backward-compat: union of all (kept for any external callers).
+_ZH_PUNCTUATION = _ZH_SOFT | _ZH_PAREN_CLOSE | _ZH_HARD
 
 
-def _find_break_point(text: str, target: int, search_range: int = 3) -> int:
-    """Find a natural break point near the target character index."""
-    best = target
-    for offset in range(search_range + 1):
-        for candidate in [target + offset, target - offset]:
-            if 0 < candidate <= len(text) and text[candidate - 1] in _ZH_PUNCTUATION:
-                return candidate
-    return best
+def _find_break_point(
+    text: str,
+    target: int,
+    search_range: int = 15,
+    max_pos: int = None,
+) -> int:
+    """Find a natural break point near `target`.
+
+    Scoring (validated empirically — Hybrid v2):
+      SOFT (，、；：) = 100   ← preferred (clause-internal break)
+      PAREN_CLOSE   = 70
+      HARD (。！？) = 50    ← sentence end, usually too late to split
+      distance penalty: -3 per char from target
+
+    `max_pos` (optional) limits search ceiling to avoid leaving subsequent
+    segment empty when sentence-final HARD punct sits beyond a min-remaining
+    boundary.
+    """
+    if target <= 0 or target >= len(text):
+        return target
+    best_score = -float("inf")
+    best_pos = target
+    lo = max(1, target - search_range)
+    hi = min(len(text), target + search_range)
+    if max_pos is not None:
+        hi = min(hi, max_pos)
+    for candidate in range(lo, hi + 1):
+        ch = text[candidate - 1]
+        score = 0
+        if ch in _ZH_SOFT:
+            score = 100
+        elif ch in _ZH_PAREN_CLOSE:
+            score = 70
+        elif ch in _ZH_HARD:
+            score = 50
+        if score > 0:
+            score -= abs(candidate - target) * 3
+            if score > best_score:
+                best_score = score
+                best_pos = candidate
+    return best_pos
 
 
 def redistribute_to_segments(
@@ -163,10 +203,20 @@ def redistribute_to_segments(
             if i == len(merged["seg_indices"]) - 1:
                 allocated = zh_text[char_offset:]
             else:
+                # Reserve a minimum slice for remaining segments so a sentence-final
+                # HARD punct doesn't get picked, leaving the tail empty.
+                remaining_en = sum(
+                    merged["seg_word_counts"].get(sj, 0)
+                    for sj in merged["seg_indices"][i + 1:]
+                )
+                expected_remaining = total_zh_chars * (remaining_en / total_en_words)
+                min_remaining = max(3, int(expected_remaining * 0.3))
+                max_break_pos = total_zh_chars - min_remaining
+
                 target_end = char_offset + round(total_zh_chars * proportion)
                 target_end = min(target_end, total_zh_chars)
-                break_at = _find_break_point(zh_text, target_end)
-                break_at = max(char_offset, min(break_at, total_zh_chars))
+                break_at = _find_break_point(zh_text, target_end, max_pos=max_break_pos)
+                break_at = max(char_offset + 1, min(break_at, total_zh_chars))
                 allocated = zh_text[char_offset:break_at]
                 char_offset = break_at
 
