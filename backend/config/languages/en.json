@@ -8,5 +8,8 @@
   "translation": {
     "batch_size": 8,
     "temperature": 0.1
+  },
+  "subtitle": {
+    "line_cap": 23
   }
 }
