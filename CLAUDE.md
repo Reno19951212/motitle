@@ -296,6 +296,28 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 - **ASREngine** 必須實現：`transcribe()`, `get_info()`, `get_params_schema()`
 - **TranslationEngine** 必須實現：`translate()`, `get_info()`, `get_params_schema()`, `get_models()`
 
+### Validation-First Mode（修改 ASR / MT 必須遵守）
+
+**任何涉及後端 ASR 引擎或翻譯引擎（MT, machine translation）嘅改動，必須先做 Validation-First 驗證，confirm empirical evidence 之後先寫 plan + 落代碼。** 唔可以憑感覺直接 ship。
+
+**範圍涵蓋：**
+- `backend/asr/*.py`（ASR engine ABC、Whisper / mlx-whisper / Qwen3-ASR / FLG / segment_utils）
+- `backend/translation/*.py`（TranslationEngine ABC、Ollama / OpenRouter / Mock / sentence_pipeline / alignment_pipeline / post_processor）
+- `backend/language_config.py` 嘅 `asr` / `translation` block
+- Profile JSON 嘅 `asr` / `translation` block schema 變動
+- 翻譯 prompt template 改動
+- Char cap / segmentation algorithm（包括 split_segments、redistribute、line wrap 嘅 cap）
+
+**Workflow（強制）：**
+1. **每個假設逐個驗證** — 寫小型 prototype script 跑出量化結果（量度 char distribution / follow rate / hallucination rate / 等）
+2. **記錄結果** — 結果寫入 `docs/superpowers/specs/YYYY-MM-DD-validation-tracker.md`，標 ✅ Validated / ❌ Rejected / ⚠️ Partial
+3. **Confirm 之後** — 通過 user review 之後先進入 brainstorming → spec → plan
+4. **Production stack 對齊** — 驗證測試使用同 production 一致嘅 model（ASR: mlx-whisper medium；MT: OpenRouter `qwen/Qwen3.5-35B-A3B`），唔可以用更細 model 推斷 production 行為（細 model 結論可作 directional reference 但唔可作為 production 決策依據）
+
+**之前累積嘅 validation evidence：**
+- v3.8 line-wrap 嘅 V0-V3 完整 11 項 empirical validation：[docs/superpowers/specs/2026-04-30-validation-tracker.md](docs/superpowers/specs/2026-04-30-validation-tracker.md)、[2026-04-30-line-wrap-design.md](docs/superpowers/specs/2026-04-30-line-wrap-design.md)
+- 已 reject 嘅方案（max_new_tokens cap、jieba 切繁體、pre-segment + per-cue translate、Direct subtitle JSON）— 任何將來方案如果踩返同樣 trap，要 cite 返已知 evidence 解釋點解仍要 retry，否則直接 reject
+
 ### Verification Gates
 
 每個功能完成後必須通過 4 個 gate（詳見 `docs/PRD.md` 第 6 節）：
