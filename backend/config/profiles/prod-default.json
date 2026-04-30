@@ -7,24 +7,28 @@
     "language_config_id": "en",
     "condition_on_previous_text": true,
     "language": "en",
-    "model_size": "large-v3"
+    "model_size": "medium"
   },
   "translation": {
-    "engine": "qwen2.5-3b",
+    "engine": "openrouter",
     "glossary_id": "broadcast-news",
     "batch_size": 10,
     "style": "formal",
-    "temperature": 0.1
+    "temperature": 0.1,
+    "openrouter_model": "qwen/Qwen3.5-35B-A3B",
+    "openrouter_reasoning": false,
+    "alignment_mode": "sentence",
+    "api_key": "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"
   },
   "font": {
     "family": "Noto Sans TC",
-    "size": 48,
+    "size": 35,
     "color": "#ffffff",
     "outline_color": "#000000",
-    "outline_width": 2,
+    "outline_width": 3,
     "position": "bottom",
     "margin_bottom": 40
   },
   "created_at": 1712534400,
-  "updated_at": 1712534400
+  "updated_at": 1777389555.3260548
 }
