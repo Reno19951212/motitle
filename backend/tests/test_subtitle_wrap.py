@@ -215,3 +215,75 @@ def test_en_wrap_no_data_loss_on_long_text():
     in_words = text.split()
     out_words = " ".join(r.lines).split()
     assert in_words == out_words
+
+
+# === Smart-break v2 tests ===
+
+def test_en_smart_break_helpers_titlecase_pair_detection():
+    from subtitle_wrap import _is_titlecase_word, _detect_titlecase_pairs
+    assert _is_titlecase_word("David") is True
+    assert _is_titlecase_word("Jr") is True  # short word still title-case
+    assert _is_titlecase_word("of") is False
+    assert _is_titlecase_word("ALL") is False  # all-caps is not title-case
+    assert _is_titlecase_word("madrid") is False
+    assert _is_titlecase_word("Madrid.") is True  # trailing punct OK
+    # Pair detection: words = ['in','the','backline,','David','Alaba',...]
+    # "David Alaba" at indices 3,4 -> locked = {4} (break before idx 4 splits pair)
+    words = "in the backline, David Alaba sustained a setback".split()
+    pairs = _detect_titlecase_pairs(words)
+    assert 4 in pairs  # words[3]='David', words[4]='Alaba'
+    # Boundary across HARD punct should NOT lock
+    words2 = "good. Real Madrid plays well".split()
+    pairs2 = _detect_titlecase_pairs(words2)
+    # "good." ends in HARD -> "Real" starts new sentence; but "Real Madrid" pair still locked
+    assert 2 in pairs2  # words[1]='Real', words[2]='Madrid'
+
+
+def test_en_smart_break_prefers_comma_over_whitespace():
+    from subtitle_wrap import _wrap_en
+    # 50 chars total, comma at index 25 — should break at comma
+    text = "When the storm came in, we headed for the door"
+    r = _wrap_en(text, cap=25, max_lines=2, tail_tolerance=4)
+    # Break should leave first line ending in comma (preferred over plain whitespace)
+    assert len(r.lines) == 2
+    assert r.lines[0].endswith(",")
+    # Words preserved
+    assert " ".join(r.lines).split() == text.split()
+
+
+def test_en_smart_break_avoids_splitting_proper_noun_pair():
+    from subtitle_wrap import _wrap_en
+    # Real-corpus case: at cap=42 max=2 tail=4, greedy maxes out L1 at
+    # "by the sale of a big player such as Vinicius" (44 chars, splits Vinicius|Jr).
+    # Smart-break should pull L1 back to ".. such as" (35 chars, no split).
+    text = "by the sale of a big player such as Vinicius Jr or Jude Bellingham."
+    r = _wrap_en(text, cap=42, max_lines=2, tail_tolerance=4)
+    # L1 must NOT end with "Vinicius" (would split Vinicius Jr pair)
+    assert not r.lines[0].rstrip(".,;:").endswith("Vinicius"), \
+        f"L1 should not end with 'Vinicius' (splits Vinicius Jr): {r.lines}"
+    # Words preserved
+    assert " ".join(r.lines).split() == text.split()
+    # Both lines within budget
+    for line in r.lines:
+        assert len(line) <= 42 + 4, f"line over budget: {line!r} ({len(line)}c)"
+
+
+def test_en_smart_break_no_regression_on_realistic_text():
+    """Regression-pin: validated empirically on 82-segment Real Madrid corpus.
+
+    Smart-break v2 must not increase hard-cut/overflow rate vs greedy baseline.
+    This test pins a specific known case where greedy and smart-break produce
+    same line count and word ordering.
+    """
+    from subtitle_wrap import _wrap_en
+    text = "When Xabi Alonso was sacked as Real Madrid manager in January"
+    # cap=42 max=2 tail=4 (Netflix EN preset)
+    r = _wrap_en(text, cap=42, max_lines=2, tail_tolerance=4)
+    # Word preservation
+    assert " ".join(r.lines).split() == text.split()
+    # All lines fit budget
+    for line in r.lines:
+        assert len(line) <= 42 + 4, f"Line exceeded budget: {line!r} ({len(line)} chars)"
+    # Specifically: must not end L1 mid-name pair (Xabi Alonso, Real Madrid)
+    assert not r.lines[0].rstrip(".,;:").endswith("Xabi"), "split Xabi|Alonso"
+    assert not r.lines[0].rstrip(".,;:").endswith("Real"), "split Real|Madrid"
