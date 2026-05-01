@@ -269,3 +269,61 @@ Overall:       ████░░░░ 4/18 (22%)
 
 - 中文輸出 video（中文 ASR + 唔翻譯）：直接用 Netflix Originals preset 已 production-ready
 - 英文輸出 → 中文翻譯 video：仍需 max_words=13 + smart-break v2 + Netflix General（Originals 仍受 translation density 限制）
+
+---
+
+## V_R7 — 2026-05-01 Smart-break v3 + max_chars constraint (closed)
+
+**Hypothesis B：** PREP penalty −40 喺 `_wrap_en` 可消除 R5 audit 顯示嘅 19.1% PREP-front 切位（"at Madrid" / "to be"）。
+
+**Hypothesis D：** 加 `max_chars_per_segment` 喺 `split_segments`，set `en.json: 88`（Netflix EN budget），可消除 Whisper hallucination 出嘅 90+ char 段。ZH 不適用（無空格 → splitting 反而製造冇 punct 嘅 chunk，hard-cut 變多）。
+
+### B Results — smart-break v3 (3-corpus aggregate, 90 multi-line breaks)
+
+| Category | v2 | v3 | Δ |
+|---|---|---|---|
+| HARD | 0 (0%) | 0 (0%) | 0 |
+| SOFT | 23 (25.6%) | 27 (30.0%) | +4 |
+| CONN_FRONT | 11 (12.2%) | 12 (13.3%) | +1 |
+| WS | 32 (35.6%) | 50 (55.6%) | +18 |
+| **PREP_FRONT** | **23 (25.6%)** | **0 (0.0%)** | **−23** ✅ |
+| PROPER_NOUN | 1 (1.1%) | 1 (1.1%) | 0 |
+| Hard-cut | 0/249 | 0/249 | 0 |
+| Title-pair split | 2 | 2 | 0 |
+| **Netflix-compliant** | **37.8%** | **43.3%** | **+5.5%** |
+| **Bad (PREP+PN)** | **26.7%** | **1.1%** | **−96%** ✅ |
+
+✅ Validated — PREP-front 完全消除，無 hard-cut regression。
+
+### D Results — max_chars EN-only
+
+**EN (Real Madrid 122 segs):**
+| max_chars | Segs | Max c | NTF-fit | hc | ts |
+|---|---|---|---|---|---|
+| None | 122 | 90 | 98.3% | 0 | 1 |
+| **88** | **124** | **88** | **100%** | **0** | **1** |
+| 70 | 134 | 68 | 100% | 0 | 0 |
+
+**ZH (audio_28d5...wav 643 segs):** ❌ ZH 加 max_chars 反而**令 hard-cut 變差**（splitting hallucinations creates chunks 冇 internal punct）：
+- max_chars=None: NTF-Originals 2.02% hc
+- max_chars=49: 2.33% (worse)
+- max_chars=32: 2.93% (worse)
+
+**結論：** D 只加 EN，唔加 ZH。`split_segments` 內 `needs_char_split = max_chars > 0 AND text_len > max_chars AND word_count > 1`（最後一個 condition 確保唔對中文觸發）。
+
+### V_R7 Final acceptance — Real ASR with B + D applied
+
+| Corpus | Segs | Max c | NTF-fit | Hard-cut | PREP-front | Title-split |
+|---|---|---|---|---|---|---|
+| Real Madrid | 124 | 88 | **100%** | 0 | 0 | 1 |
+| Harry Kane | 46 | 72 | **100%** | 0 | 0 | 0 |
+| FIFA WC | 81 | 67 | **100%** | 0 | 0 | 1 |
+
+**Aggregate:** 251 segs, 0% hard-cut, 0 PREP-front, 1 PROPER_NOUN-split (Auckland City|New Zealand — geographic compound, acceptable).
+
+### A — UI hint deployed
+
+`frontend/index.html` Profile editor `subtitle_standard` selector 下方加 `#ppsPresetHint` 小貼士：
+- 中文 ASR + 唔翻譯 → Netflix Originals
+- 英文 → 中文翻譯 → Netflix General + max_words=13
+- 廣播電視 → Broadcast 28×3

@@ -232,7 +232,9 @@ def _wrap_en(text: str, cap: int, max_lines: int, tail_tolerance: int) -> WrapRe
             if nxt_clean in _EN_CONNECTORS:
                 score = max(score, 50)
             elif nxt_clean in _EN_PREPOSITIONS:
-                score = max(score, 30)
+                # v3: penalise breaks that strand a preposition at line start
+                # (Netflix style: keep prepositional phrase intact)
+                score -= 40
 
             # Penalise breaks that split a Title-case proper-noun pair
             if (j + 1) in locked_pairs:

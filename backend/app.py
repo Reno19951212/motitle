@@ -469,6 +469,7 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
                 raw_segments,
                 max_words=asr_params["max_words_per_segment"],
                 max_duration=asr_params["max_segment_duration"],
+                max_chars=asr_params.get("max_chars_per_segment"),
             )
 
             for i, seg in enumerate(raw_segments):

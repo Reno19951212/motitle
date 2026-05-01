@@ -126,3 +126,41 @@ def test_split_skips_words_on_count_mismatch():
     # Split happens, but words not partitioned (count mismatch safe-fallback)
     for seg in result:
         assert "words" not in seg
+
+
+def test_split_by_max_chars_en():
+    """max_chars constraint splits long EN text without word-count or duration trigger."""
+    from asr.segment_utils import split_segments
+    text = ("There were three areas in particular that were highlighted as "
+            "needing an overhaul of the squad and coaching philosophy")  # 117 chars, 19 words
+    segments = [{"start": 0.0, "end": 5.0, "text": text}]
+    # max_words=20 (won't trigger), max_duration=60 (won't trigger), max_chars=88 (triggers)
+    result = split_segments(segments, max_words=20, max_duration=60.0, max_chars=88)
+    assert len(result) >= 2
+    # Each chunk fits cap+tail (within Netflix budget)
+    for seg in result:
+        assert len(seg["text"]) <= 88, f"chunk over 88c: {seg['text']!r}"
+    # No data loss
+    assert " ".join(s["text"] for s in result).split() == text.split()
+
+
+def test_max_chars_inert_on_zh_text():
+    """max_chars must NOT split Chinese text (no spaces) — would create chunks
+    without internal punct, making wrap_zh hard-cut worse, not better."""
+    from asr.segment_utils import split_segments
+    text = "在後防方面大衛阿拉巴與安東尼奧呂迪格的傷病纏身令皇馬後防嚴重告急"  # 30 chars, no spaces
+    segments = [{"start": 0.0, "end": 3.0, "text": text}]
+    result = split_segments(segments, max_words=30, max_duration=60.0, max_chars=15)
+    # ZH path: max_chars must NOT trigger (would be destructive)
+    assert len(result) == 1
+    assert result[0]["text"] == text
+
+
+def test_max_chars_default_none_preserves_legacy_behavior():
+    """Without max_chars param, behavior matches v3.8.x — backward compat."""
+    from asr.segment_utils import split_segments
+    text = "a " * 50  # 100 chars, 50 words
+    segments = [{"start": 0.0, "end": 5.0, "text": text.strip()}]
+    legacy = split_segments(segments, max_words=200, max_duration=60.0)
+    new_default = split_segments(segments, max_words=200, max_duration=60.0, max_chars=None)
+    assert legacy == new_default

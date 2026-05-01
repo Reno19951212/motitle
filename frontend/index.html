@@ -4391,6 +4391,14 @@
                 <option value="broadcast">Broadcast (28字 ×3)</option>
               </select>
             </label>
+            <div id="ppsPresetHint" style="font-size:11px;color:var(--text-dim);background:var(--surface-2);border-left:3px solid var(--accent);padding:6px 10px;margin:4px 0 8px;line-height:1.5;border-radius:3px;">
+              💡 <strong>使用建議</strong>（基於驗證 V_R loop）：
+              <ul style="margin:4px 0 0 16px;padding:0;">
+                <li><strong>中文 ASR + 唔翻譯</strong>：Netflix Originals — Whisper 自然 ZH 段已適合 (1.2% hard-cut)</li>
+                <li><strong>英文 → 中文翻譯</strong>：Netflix General — 配合 EN <code>max_words=13</code> 達 broadcast 質素</li>
+                <li><strong>廣播電視</strong>：Broadcast — 28字×3 行最寬鬆，最高兼容性</li>
+              </ul>
+            </div>
             <label style="display:flex;align-items:center;gap:6px;font-size:12px;margin:6px 0;">
               <input type="checkbox" id="ppsLineWrapEnabled" checked>
               啟用自動分行
