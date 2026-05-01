@@ -375,7 +375,12 @@ Whenever a new feature is completed or existing functionality is modified, you *
     - `broadcast` (default): ZH 28/3/3, EN 50/3/5
   - `font.line_wrap` explicit override: `{enabled, line_cap (10-50), max_lines (1-4), tail_tolerance (0-10)}`，override 同時應用到 `zh` 同 `en` sub-config（legacy single-cap compat）
   - Backward compat: 舊 profile 無 `line_wrap` block → fallback to broadcast preset (enabled=true)
-- **EN word-fit algorithm（Option D）**: `_wrap_en()` greedy 將字塞入每行（用空格 join），最後一行 absorb 剩餘 words 確保 0 data loss
+- **EN word-fit algorithm（Option D + smart-break v2）**: `_wrap_en()` 由純 greedy 升級為 score-based smart break：
+  - **Score 優先級**：HARD punct (`. ! ?`) 100 > SOFT punct (`, ; :`) 70 > 連詞 (when/and/but/…) 50 > 介詞 (to/of/in/…) 30 > 純空格 10
+  - **Title-case pair 鎖定**：偵測連續 Title-case 單字（David Alaba、Real Madrid、Vinicius Jr）並重罰 -80 分，避免人名被切開
+  - **Cap-aware lookahead**：每個候選 break 必須令剩餘字句喺剩餘行內 fit 得落，避免過度斷標點導致 L2 overflow
+  - **Greedy fallback**：搵唔到合資格 break 時回 greedy max-fit，最後一行 absorb 任何 leftover（0 data loss）
+  - 實證 V_b 跑 82 段 Real Madrid 文件：hard-cut 11.0%（同 greedy 一樣，無 regression）；title-pair split 6 → 4；punct-end break 比例 4.8% → 9.7%
 - **`_is_zh_text()` dispatcher**: 用 regex `[一-鿿　-〿＀-￯]` detect ZH 字元，自動 route 到 `wrap_zh` 或 `_wrap_en`
 - **`backend/renderer.py` `generate_ass()`**: 在寫入 ASS dialogue 前 apply `wrap_with_config`，每 segment 出多 `\\N` 分行；`resolve_segment_text(line_break="\n")` 然後 split → wrap each → join `\\N`
 - **API `/api/files/<id>/subtitle.{srt,vtt,txt}`**: 接 `?wrap=` query param（`1`/`true`/`yes` 啟用）；no wrap by default for backward compat

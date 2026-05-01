@@ -12,8 +12,12 @@ Algorithm (ZH path):
   4. Last line allows cap + tail_tolerance to absorb trailing punctuation
   5. After max_lines reached, append leftover to last line (avoid data loss)
 
-Algorithm (EN path):
-  Greedy word-fit. All words preserved; last line absorbs any overflow.
+Algorithm (EN path — smart-break v2):
+  Score-based break with cap-aware remaining-content lookahead. Prefers
+  sentence/clause punctuation over connectors over prepositions over plain
+  whitespace. Penalises breaks that split a Title-case word pair (proper
+  nouns like "David Alaba"). Falls back to latest fitting position when no
+  break candidate leaves enough room for remaining content.
 """
 from dataclasses import dataclass, field
 from typing import List
@@ -23,6 +27,18 @@ HARD_BREAKS = "。！？!?"
 SOFT_BREAKS = "，、；：,;:"
 PAREN_CLOSE = "）」』)]"
 PAREN_OPEN = "（「『(["
+
+_EN_HARD = set(".!?")
+_EN_SOFT = set(",;:")
+_EN_CONNECTORS = {
+    "and", "but", "or", "nor", "so", "yet", "when", "after", "before",
+    "while", "because", "although", "since", "though", "if", "unless",
+    "until", "as",
+}
+_EN_PREPOSITIONS = {
+    "to", "of", "in", "on", "at", "with", "for", "from", "by", "into",
+    "onto", "upon", "about", "between", "through", "over", "under", "against",
+}
 
 
 @dataclass
@@ -109,30 +125,147 @@ def _is_zh_text(text: str) -> bool:
     return bool(_HAS_ZH.search(text or ""))
 
 
+def _is_titlecase_word(word: str) -> bool:
+    """Word starts with capital and rest is lowercase (handles trailing punct)."""
+    stripped = re.sub(r"[^\w]", "", word)
+    if not stripped:
+        return False
+    if len(stripped) == 1:
+        return stripped[0].isupper()
+    return stripped[0].isupper() and stripped[1:].islower()
+
+
+def _detect_titlecase_pairs(words: List[str]) -> set:
+    """Indices i where words[i-1] and words[i] form a multi-word proper noun.
+
+    Skip pairs straddling sentence boundaries (prev word ends in HARD punct).
+    Returns the set of "second-word" indices — breaking BEFORE such an index
+    splits the proper-noun pair.
+    """
+    pairs = set()
+    for i in range(1, len(words)):
+        prev = words[i - 1]
+        if prev and prev[-1] in _EN_HARD:
+            continue
+        if _is_titlecase_word(prev) and _is_titlecase_word(words[i]):
+            pairs.add(i)
+    return pairs
+
+
+def _remaining_fits(words: List[str], start: int, lines_left: int,
+                    cap: int, tail_tolerance: int) -> bool:
+    """Greedy-fit check: can words[start:] fit in lines_left lines of budget cap+tail?"""
+    if start >= len(words):
+        return True
+    if lines_left <= 0:
+        return False
+    budget = cap + tail_tolerance
+    used = 0
+    cur = 0
+    for w in words[start:]:
+        wl = len(w)
+        if cur == 0:
+            cur = wl
+        elif cur + 1 + wl <= budget:
+            cur += 1 + wl
+        else:
+            used += 1
+            cur = wl
+            if used >= lines_left:
+                return False
+    return used + (1 if cur > 0 else 0) <= lines_left
+
+
 def _wrap_en(text: str, cap: int, max_lines: int, tail_tolerance: int) -> WrapResult:
-    """Greedy word-fit for EN/Latin script. All words preserved (last line absorbs leftovers)."""
+    """Smart-break EN wrap: punct/conn/prep priority + Title-case-pair avoidance.
+
+    All words preserved (last line absorbs leftovers).
+    """
     text = (text or "").strip()
     if not text:
         return WrapResult(lines=[], hard_cut=False)
     if len(text) <= cap + tail_tolerance:
         return WrapResult(lines=[text], hard_cut=False)
+
     words = text.split()
+    locked_pairs = _detect_titlecase_pairs(words)
     lines: List[str] = []
     i = 0
+    hard_cut = False
+
     while i < len(words) and len(lines) < max_lines:
-        # Last allowed line: gobble all remaining words
+        # Last allowed line: gobble all remaining words (data-loss prevention)
         if len(lines) == max_lines - 1:
             lines.append(" ".join(words[i:]))
             i = len(words)
             break
-        # Greedy fit
-        current = words[i]
-        i += 1
-        while i < len(words) and len(current) + 1 + len(words[i]) <= cap + tail_tolerance:
-            current += " " + words[i]
-            i += 1
-        lines.append(current)
-    hard_cut = any(len(l) > cap + tail_tolerance for l in lines)
+
+        best_j = -1
+        best_score = -float("inf")
+        cur_len = 0
+        latest_fitting_j = i + 1
+
+        for j in range(i, len(words)):
+            wl = len(words[j])
+            new_len = cur_len + (1 if j > i else 0) + wl
+            if new_len > cap + tail_tolerance:
+                # Past hard limit; if even first word exceeds, force one-word line
+                if j == i:
+                    cur_len = wl
+                    latest_fitting_j = i + 1
+                break
+            cur_len = new_len
+            latest_fitting_j = j + 1
+
+            if j + 1 >= len(words):
+                continue  # nothing follows — no break to score
+
+            distance = abs(cur_len - cap)
+            score = 10  # baseline whitespace
+            last_ch = words[j][-1] if words[j] else ""
+            if last_ch in _EN_HARD:
+                score = 100
+            elif last_ch in _EN_SOFT:
+                score = 70
+
+            nxt_clean = re.sub(r"[^\w]", "", words[j + 1]).lower()
+            if nxt_clean in _EN_CONNECTORS:
+                score = max(score, 50)
+            elif nxt_clean in _EN_PREPOSITIONS:
+                score = max(score, 30)
+
+            # Penalise breaks that split a Title-case proper-noun pair
+            if (j + 1) in locked_pairs:
+                score -= 80
+
+            score -= distance * 2
+
+            # Lookahead: only accept break if remainder fits in remaining lines
+            lines_left = max_lines - len(lines) - 1
+            if not _remaining_fits(words, j + 1, lines_left, cap, tail_tolerance):
+                continue
+
+            if score > best_score:
+                best_score = score
+                best_j = j + 1
+
+        if best_j <= i:
+            # No lookahead-safe candidate — fall back to greedy (latest fitting)
+            best_j = latest_fitting_j
+            lines_left = max_lines - len(lines) - 1
+            if not _remaining_fits(words, best_j, lines_left, cap, tail_tolerance):
+                hard_cut = True
+
+        lines.append(" ".join(words[i:best_j]))
+        i = best_j
+
+    if i < len(words) and lines:
+        # Hit max_lines with content remaining — append to last line
+        lines[-1] = lines[-1] + " " + " ".join(words[i:])
+
+    if any(len(l) > cap + tail_tolerance for l in lines):
+        hard_cut = True
+
     return WrapResult(lines=lines, hard_cut=hard_cut)
 
 
