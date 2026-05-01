@@ -139,3 +139,79 @@ Overall:       ████░░░░ 4/18 (22%)
    - 「VAD filter 開定關對 segment 切割嘅影響」
 
 確認方向同範圍之後，我即刻開始 V1.1 (ratio 驗證)。
+
+---
+
+## V_R — 2026-05-01 Netflix Preset Parity Loop (5-round)
+
+**目標：** 將 Netflix preset 做到 Broadcast Hybrid V2 嘅效果，確保 EN / ZH 都符合 Netflix Timed Text Style Guide 斷句策略。
+**Stack：** mlx-whisper medium + OpenRouter Qwen3.5-35B-A3B + Hybrid V2（sentence pipeline + smart redistribute）+ smart-break v2（4e7594f）。
+**Corpus：** Real Madrid 18-min file，82 EN segments, 79 non-empty ZH (avg 20.3c)。
+
+### V_R1 — Granular max_words sweep × Netflix EN preset
+
+| max_words | Segs | Avg c | Max c | Netflix-fit | hard-cut | title-pair split |
+|---|---|---|---|---|---|---|
+| 25 (現用) | 82 | 67.0 | 99 | 76.8% | 11.0% | 4 |
+| 18 | 83 | 66.2 | 99 | 78.3% | 10.8% | 4 |
+| 16 | 92 | 59.6 | 99 | 85.9% | 7 | 3 |
+| 14 | 109 | 50.1 | 96 | 94.5% | 0.9% | 2 |
+| **13** | **122** | **44.7** | **90** | **98.4%** | **0%** | **1** |
+| 12 | 129 | 42.2 | 88 | 100% | 0% | 1 |
+| 10 | 135 | 40.3 | 88 | 100% | 0% | 0 |
+
+**結論：** ✅ Validated — `max_words=13` 係 sweet spot：0% hard-cut + 1 title-split + +49% segs growth。
+
+### V_R2 — Hybrid V2 redistribute scaling
+
+| | Segs | Cross-seg overlap | Empty | ZH avg/max |
+|---|---|---|---|---|
+| Baseline 82-seg | 82 | 0% | 3 | 20.3 / 37 |
+| Resegmented 122-seg (max_words=13) | 122 | **0%** | **0** | **13.1 / 36** |
+
+**結論：** ✅ Validated — Hybrid V2 redistribute 喺 finer EN 段上仍然 0% overlap，empty seg 由 3 → 0（更乾淨）。
+
+### V_R3 + V_R3.5 — Netflix tight-cap ZH wrap
+
+| Preset | Baseline 82-seg hc | Reseg 122-seg hc | Cap-aware redistribute (max_words=8, max_per_seg=24) |
+|---|---|---|---|
+| Broadcast (28/3) | 0% | 0% | 0% |
+| **Netflix General (23/2)** | 3.8% | **1.6%** | 1.3% |
+| Netflix Originals (16/2) | 29.1% | 18.0% | **13.3%** floor |
+
+**結論：** ❌ Rejected for Netflix Originals — 16-char cap 對 natural broadcast ZH 翻譯太窄（中文翻譯 token density 唔夠每 16 字 1 個標點）。✅ Validated for Netflix General。
+
+### V_R4 — Composite full-pipeline parity
+
+| Config | EN hc | EN ts | ZH hc | Cross-seg overlap | Empty |
+|---|---|---|---|---|---|
+| C1 Broadcast 現用 | 0% | 0 | 0% | 0% | 3 |
+| C2 Netflix 現用（無修） | 11.0% | 4 | 3.8% | 0% | 3 |
+| **C3 Proposed (max_words=13 + smart-break v2 + Netflix General)** | **0%** | **1** | **1.6%** | **0%** | **0** |
+| C4 Proposed × Broadcast | 0% | 0 | 0% | 0% | 0 |
+
+**結論：** ✅ Validated — Proposed config 喺 Netflix General preset 上達到 Broadcast Hybrid V2 質素。Trade-off：+49% segments。
+
+### V_R5 — Netflix sentence-break strategy compliance
+
+| Language | Compliant ✅ | Neutral ○ | Bad ⚠ |
+|---|---|---|---|
+| EN multi-line breaks (47 total) | 31.9% (SOFT punct + connector front) | 48.9% (plain whitespace) | 19.1% (PREP front + 1 PROPER_NOUN_SPLIT) |
+| ZH multi-line breaks (9 total) | 77.8% (SOFT punct + paren close) | 22.2% (mid-clause hard-cut) | 0% |
+
+**結論：** ✅ Partial — ZH compliance 77.8% 已經 acceptable（剩低嘅 mid-clause cut 係 cap 限制下不可避免）。EN 19.1% PREP-front split 係下一輪 smart-break v3 改善方向（提升 preposition penalty）。
+
+### 落實決策
+
+- **Ship**: `backend/config/languages/en.json` `max_words_per_segment: 25 → 13`
+- **Already shipped**: smart-break v2 (commit 4e7594f)
+- **Recommend UI**: Netflix General 為標準預設、Netflix Originals 標「實驗性」
+- **下一輪 candidate**: smart-break v3 提升 PREP penalty（解決 17% PREP-front split）
+
+### 仍未驗證嘅 caveat
+
+| 缺口 | 影響 |
+|---|---|
+| 真實 mlx-whisper re-run | 我哋用 split_segments 模擬。但 split_segments 係 production 嘅同一個 post-processing path，所以模擬 = 實際 |
+| Real Madrid 以外 corpus | 結論可能 dataset-specific (sports broadcast)；其他類型 (新聞、訪談) 需個別驗證 |
+| 中文 ASR (zh.json) | 今次只動 EN；中文 ASR config 仍未 validated（V1.5 未做）|

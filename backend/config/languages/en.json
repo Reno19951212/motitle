@@ -2,7 +2,7 @@
   "id": "en",
   "name": "English",
   "asr": {
-    "max_words_per_segment": 25,
+    "max_words_per_segment": 13,
     "max_segment_duration": 40
   },
   "translation": {

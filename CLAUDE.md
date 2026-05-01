@@ -390,6 +390,13 @@ Whenever a new feature is completed or existing functionality is modified, you *
 - **Validation**（V0-V3 empirical）：基於 11 項 evidence-based testing（V1.1 char ratio 2.88, V1.2 sentence pipeline undo, V1.3 LLM follow-rate STRONG 83%, V1.5 ZH ASR config broken, V2.1 jieba 對繁體失敗, V_a 全 file 82-segs 跑出 hard-cut 2.4%）。Production stack: mlx-whisper medium + OpenRouter `qwen/Qwen3.5-35B-A3B`. Spec 文件: [docs/superpowers/specs/2026-04-30-line-wrap-design.md](docs/superpowers/specs/2026-04-30-line-wrap-design.md)
 - **Tests**: 18 個 backend pytest（subtitle_wrap algorithm + presets + resolver）+ 4 個 profile validation tests + 3 個 renderer integration tests + 2 個 API ?wrap= tests + 1 language config test + 5 個 Playwright E2E scenarios
 - **Real Madrid 全 82 seg**：56% 1-line / 43% 2-line / 1% 3-line / 0% overflow，hard-cut 2.4%。ZH ASR 警察學院 47 seg：100% 1-line（中文 Whisper raw segment 已夠短）
+- **Netflix preset parity (2026-05-01 5-round validation loop)**：透過 `backend/config/languages/en.json` `max_words_per_segment: 25 → 13`，配合 smart-break v2，達到 Netflix General preset 上 Broadcast Hybrid V2 質素：
+  - EN hard-cut 11.0% → **0%**；EN proper-noun split 4 → 1
+  - ZH hard-cut 3.8% → **1.6%**；ZH cross-seg overlap 0%（不變）
+  - Empty segments 3 → **0**（更乾淨）
+  - Trade-off：segment 數 82 → 122 (+49%)，每 cue 內容更短，符合 Netflix 9 cps reading rate
+  - Netflix Originals (16-char cap) 仍保持 ~13-18% ZH hard-cut，root cause 為自然 ZH 翻譯 token density 對 16 字 cap 太低；UI 建議標 Originals 為「實驗性」
+  - Validation evidence: [docs/superpowers/specs/2026-04-30-validation-tracker.md](docs/superpowers/specs/2026-04-30-validation-tracker.md) `V_R` section
 
 ### v3.7 — Subtitle Source Mode (per-file EN / ZH / Bilingual)
 - **`backend/subtitle_text.py`**: 新 module，shared resolver `resolve_segment_text(seg, mode, order, line_break)` + `strip_qa_prefixes` + `resolve_subtitle_source` / `resolve_bilingual_order` 三層 fallback helper（render-modal override > file > profile > `auto`）
