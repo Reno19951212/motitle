@@ -268,6 +268,25 @@ def test_en_smart_break_avoids_splitting_proper_noun_pair():
         assert len(line) <= 42 + 4, f"line over budget: {line!r} ({len(line)}c)"
 
 
+def test_en_smart_break_v3_avoids_prep_front_split():
+    """v3 PREP penalty: don't strand a preposition at start of next line."""
+    from subtitle_wrap import _wrap_en
+    # Text where greedy/v2 would break right before "at" (PREP-front).
+    # v3 should pull L1 back to avoid stranding "at Madrid" on its own line.
+    text = "Carlo Ancelotti's former coaching staff at Madrid told the press"
+    r = _wrap_en(text, cap=42, max_lines=2, tail_tolerance=4)
+    # L2 must NOT start with a preposition
+    if len(r.lines) >= 2:
+        first_word_l2 = r.lines[1].split()[0].lower().rstrip(".,;:")
+        assert first_word_l2 not in {"to", "of", "in", "on", "at", "with", "for",
+                                      "from", "by", "into", "onto", "upon",
+                                      "about", "between", "through", "over",
+                                      "under", "against"}, \
+            f"L2 starts with preposition: {r.lines}"
+    # Words preserved
+    assert " ".join(r.lines).split() == text.split()
+
+
 def test_en_smart_break_no_regression_on_realistic_text():
     """Regression-pin: validated empirically on 82-segment Real Madrid corpus.
 

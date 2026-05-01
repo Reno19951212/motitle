@@ -12,6 +12,8 @@ MIN_MAX_WORDS = 5
 MAX_MAX_WORDS = 200
 MIN_MAX_DURATION = 1.0
 MAX_MAX_DURATION = 60.0
+MIN_MAX_CHARS = 20
+MAX_MAX_CHARS = 500
 MIN_BATCH_SIZE = 1
 MAX_BATCH_SIZE = 50
 MIN_TEMPERATURE = 0.0
@@ -143,6 +145,15 @@ class LanguageConfigManager:
             errors.append(
                 f"asr.max_segment_duration must be a number between "
                 f"{MIN_MAX_DURATION} and {MAX_MAX_DURATION}"
+            )
+
+        mc = asr.get("max_chars_per_segment")
+        if mc is not None and (
+            not isinstance(mc, int) or mc < MIN_MAX_CHARS or mc > MAX_MAX_CHARS
+        ):
+            errors.append(
+                f"asr.max_chars_per_segment must be an integer between "
+                f"{MIN_MAX_CHARS} and {MAX_MAX_CHARS}"
             )
 
         bs = trans.get("batch_size")

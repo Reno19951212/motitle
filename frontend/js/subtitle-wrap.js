@@ -197,7 +197,7 @@
 
         const nxtClean = words[j + 1].replace(/[^\w]/g, "").toLowerCase();
         if (EN_CONNECTORS.has(nxtClean)) score = Math.max(score, 50);
-        else if (EN_PREPOSITIONS.has(nxtClean)) score = Math.max(score, 30);
+        else if (EN_PREPOSITIONS.has(nxtClean)) score -= 40;  // v3: penalise prep-front
 
         if (lockedPairs.has(j + 1)) score -= 80;
         score -= distance * 2;

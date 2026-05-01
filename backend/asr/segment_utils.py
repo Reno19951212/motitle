@@ -12,6 +12,7 @@ def split_segments(
     segments: List[dict],
     max_words: int,
     max_duration: float,
+    max_chars: int = None,
 ) -> List[dict]:
     """Post-process ASR output by splitting segments that exceed limits.
 
@@ -19,6 +20,10 @@ def split_segments(
         segments: List of segment dicts with keys: start, end, text.
         max_words: Maximum number of words allowed per segment.
         max_duration: Maximum duration (seconds) allowed per segment.
+        max_chars: Optional max char length per segment (used for whitespace-
+            tokenisable text — EN). For Chinese text (no spaces), this falls
+            back to word-count splitting which is ineffective; ZH callers
+            should leave this as None.
 
     Returns:
         New list of segments, each within the specified limits.
@@ -29,7 +34,7 @@ def split_segments(
 
     result = []
     for segment in segments:
-        result.extend(_split_single_segment(segment, max_words, max_duration))
+        result.extend(_split_single_segment(segment, max_words, max_duration, max_chars))
     return result
 
 
@@ -37,8 +42,9 @@ def _split_single_segment(
     segment: dict,
     max_words: int,
     max_duration: float,
+    max_chars: int = None,
 ) -> List[dict]:
-    """Split a single segment if it exceeds word count or duration limits."""
+    """Split a single segment if it exceeds word count, duration, or char limits."""
     text = segment["text"]
     start = segment["start"]
     end = segment["end"]
@@ -46,16 +52,21 @@ def _split_single_segment(
 
     words = text.split()
     word_count = len(words)
+    text_len = len(text.strip())
 
     needs_word_split = word_count > max_words
     needs_duration_split = duration > max_duration
+    # max_chars only effective when text is whitespace-tokenisable (word_count > 1)
+    needs_char_split = (
+        max_chars is not None and text_len > max_chars and word_count > 1
+    )
 
     # Word-level timestamps from ASR (optional). When present and the
     # segment is NOT split, forward them verbatim; when the segment IS
     # split, _assign_timings partitions them by word index.
     engine_words = segment.get("words") or []
 
-    if not needs_word_split and not needs_duration_split:
+    if not (needs_word_split or needs_duration_split or needs_char_split):
         out: dict = {"start": start, "end": end, "text": text}
         if engine_words:
             out["words"] = engine_words
@@ -64,7 +75,8 @@ def _split_single_segment(
     # Calculate number of chunks needed by each constraint
     chunks_by_words = math.ceil(word_count / max_words) if needs_word_split else 1
     chunks_by_duration = math.ceil(duration / max_duration) if needs_duration_split else 1
-    num_chunks = max(chunks_by_words, chunks_by_duration)
+    chunks_by_chars = math.ceil(text_len / max_chars) if needs_char_split else 1
+    num_chunks = max(chunks_by_words, chunks_by_duration, chunks_by_chars)
 
     if num_chunks <= 1:
         out = {"start": start, "end": end, "text": text}

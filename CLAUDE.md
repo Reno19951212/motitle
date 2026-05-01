@@ -375,12 +375,13 @@ Whenever a new feature is completed or existing functionality is modified, you *
     - `broadcast` (default): ZH 28/3/3, EN 50/3/5
   - `font.line_wrap` explicit override: `{enabled, line_cap (10-50), max_lines (1-4), tail_tolerance (0-10)}`，override 同時應用到 `zh` 同 `en` sub-config（legacy single-cap compat）
   - Backward compat: 舊 profile 無 `line_wrap` block → fallback to broadcast preset (enabled=true)
-- **EN word-fit algorithm（Option D + smart-break v2）**: `_wrap_en()` 由純 greedy 升級為 score-based smart break：
-  - **Score 優先級**：HARD punct (`. ! ?`) 100 > SOFT punct (`, ; :`) 70 > 連詞 (when/and/but/…) 50 > 介詞 (to/of/in/…) 30 > 純空格 10
-  - **Title-case pair 鎖定**：偵測連續 Title-case 單字（David Alaba、Real Madrid、Vinicius Jr）並重罰 -80 分，避免人名被切開
+- **EN word-fit algorithm（Option D + smart-break v3）**: `_wrap_en()` score-based smart break：
+  - **Score 優先級**：HARD punct (`. ! ?`) 100 > SOFT punct (`, ; :`) 70 > 連詞 (when/and/but/…) 50 > 純空格 10
+  - **PREP penalty（v3）**：next word is preposition (to/of/in/…) → score −40，避免 stranding "at Madrid" / "to be" 等介詞短語切開
+  - **Title-case pair 鎖定**：連續 Title-case 單字（David Alaba、Real Madrid、Vinicius Jr）重罰 −80，避免人名被切開
   - **Cap-aware lookahead**：每個候選 break 必須令剩餘字句喺剩餘行內 fit 得落，避免過度斷標點導致 L2 overflow
   - **Greedy fallback**：搵唔到合資格 break 時回 greedy max-fit，最後一行 absorb 任何 leftover（0 data loss）
-  - 實證 V_b 跑 82 段 Real Madrid 文件：hard-cut 11.0%（同 greedy 一樣，無 regression）；title-pair split 6 → 4；punct-end break 比例 4.8% → 9.7%
+  - 實證 V_R7 跑 3 corpus 251 segs：PREP-front split 23 (25.6%) → **0 (0%)**；Bad breaks 24 (26.7%) → **1 (1.1%, −96%)**；Netflix-compliant 37.8% → 43.3%；hard-cut 維持 0%
 - **`_is_zh_text()` dispatcher**: 用 regex `[一-鿿　-〿＀-￯]` detect ZH 字元，自動 route 到 `wrap_zh` 或 `_wrap_en`
 - **`backend/renderer.py` `generate_ass()`**: 在寫入 ASS dialogue 前 apply `wrap_with_config`，每 segment 出多 `\\N` 分行；`resolve_segment_text(line_break="\n")` 然後 split → wrap each → join `\\N`
 - **API `/api/files/<id>/subtitle.{srt,vtt,txt}`**: 接 `?wrap=` query param（`1`/`true`/`yes` 啟用）；no wrap by default for backward compat
@@ -390,6 +391,11 @@ Whenever a new feature is completed or existing functionality is modified, you *
 - **Validation**（V0-V3 empirical）：基於 11 項 evidence-based testing（V1.1 char ratio 2.88, V1.2 sentence pipeline undo, V1.3 LLM follow-rate STRONG 83%, V1.5 ZH ASR config broken, V2.1 jieba 對繁體失敗, V_a 全 file 82-segs 跑出 hard-cut 2.4%）。Production stack: mlx-whisper medium + OpenRouter `qwen/Qwen3.5-35B-A3B`. Spec 文件: [docs/superpowers/specs/2026-04-30-line-wrap-design.md](docs/superpowers/specs/2026-04-30-line-wrap-design.md)
 - **Tests**: 18 個 backend pytest（subtitle_wrap algorithm + presets + resolver）+ 4 個 profile validation tests + 3 個 renderer integration tests + 2 個 API ?wrap= tests + 1 language config test + 5 個 Playwright E2E scenarios
 - **Real Madrid 全 82 seg**：56% 1-line / 43% 2-line / 1% 3-line / 0% overflow，hard-cut 2.4%。ZH ASR 警察學院 47 seg：100% 1-line（中文 Whisper raw segment 已夠短）
+- **Smart-break v3 + max_chars EN-only (V_R7, 2026-05-01)**：
+  - smart-break PREP penalty −40：消除 PREP-front split 23→0（−100%），bad breaks 26.7%→1.1%（−96%）；Netflix-compliant 37.8%→43.3%
+  - `split_segments` 加 optional `max_chars` 參數，`en.json: max_chars_per_segment: 88`（Netflix EN budget）；ZH 不適用（無空格 → 切割反而製造冇 punct 嘅 chunk）
+  - 3-corpus real-ASR：100% Netflix-fit, 0% hard-cut, max char ≤88
+- **UI preset hint (A, 2026-05-01)**：Profile editor `#ppsSubtitleStandard` 下方加 `#ppsPresetHint` 提示，根據 V_R 驗證 evidence 推薦：(1) 中文 ASR 唔翻譯 → Originals (1.2% hc), (2) 英→中翻譯 → General + max_words=13, (3) 廣播電視 → Broadcast
 - **Cross-corpus EN 泛化驗證 (V_R6, 2026-05-01)**：Harry Kane interview (46 segs) / FIFA WC interview (81 segs) / JoqF7P7d23Q (15 segs) 三個新 corpus 跑 max_words=13 + smart-break v2 + Netflix EN preset，全部 100% Netflix-fit、0% hard-cut。Sweet spot 唔係 Real-Madrid-specific
 - **ZH ASR validation (V1.5, 2026-05-01)**：`zh.json` `max_words_per_segment` 對中文 partially effective（10% 段含 code-switch，會生效；90% 段 `text.split()` 返 1）；`max_segment_duration` fully effective。Whisper 對中文嘅自然段切割 avg 6.8c, p95 13c，已直接適合 Netflix Originals (1.2% hc), General (0.4% hc), Broadcast (0.3% hc) — **zh.json (30/8) 無需更改**。中文輸出 video 直接 ASR 路徑遠優於 EN→ZH 翻譯路徑（後者 NTF-Originals 18% hc，前者 1.2%）
 - **Netflix preset parity (2026-05-01 5-round validation loop)**：透過 `backend/config/languages/en.json` `max_words_per_segment: 25 → 13`，配合 smart-break v2，達到 Netflix General preset 上 Broadcast Hybrid V2 質素：
