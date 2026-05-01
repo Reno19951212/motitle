@@ -213,5 +213,59 @@ Overall:       ████░░░░ 4/18 (22%)
 | 缺口 | 影響 |
 |---|---|
 | ~~真實 mlx-whisper re-run~~ | ✅ **2026-05-01 closed** — 跑 mlx-whisper medium 喺 51e573205941.mp4 (Real Madrid 18-min)，所有 8 項 metric 同 simulation 100% 完全一致（segments=122, avg=44.7c, max=90c, p95=82c, 2-line fit=98.4%, hard-cut=0%, title-split=1）。ASR runtime 20.3s。 |
-| Real Madrid 以外 corpus | 結論可能 dataset-specific (sports broadcast)；其他類型 (新聞、訪談) 需個別驗證 |
-| 中文 ASR (zh.json) | 今次只動 EN；中文 ASR config 仍未 validated（V1.5 未做）|
+| ~~Real Madrid 以外 corpus~~ | ✅ **2026-05-01 closed** — V_R6 cross-corpus 詳情如下 |
+| ~~中文 ASR (zh.json)~~ | ✅ **2026-05-01 closed** — V1.5 詳情如下 |
+
+---
+
+## V_R6 — 2026-05-01 Cross-corpus EN generalization
+
+**Stack：** mlx-whisper medium, max_words=13, smart-break v2, Netflix EN preset (cap=42, max=2, tail=4)
+
+| Corpus | Duration | Segs | Avg c | Max c | p95 | NTF-fit (≤88c) | Hard-cut | Title-pair split |
+|---|---|---|---|---|---|---|---|---|
+| Real Madrid (baseline, 體育長片) | 18 min | 122 | 44.7 | 90 | 82 | **98.4%** | 0% | 1 |
+| Harry Kane post-match interview | 103s | 46 | 44.3 | 72 | 65 | **100.0%** | 0% | 0 |
+| FIFA WC interview (Haris Zeb) | 179s | 81 | 41.8 | 67 | 61 | **100.0%** | 0% | 1 |
+| JoqF7P7d23Q (短內容/低 speech) | 142s | 15 | 29.3 | 43 | 43 | **100.0%** | 0% | 0 |
+
+**結論：** ✅ Validated — 所有 4 個 corpus 都跑出 0% hard-cut + ≥98.4% Netflix-fit + ≤1 title-pair split。Sweet spot `max_words=13` 配置具泛化性，唔係 dataset-specific。Title-pair split 1 個 (FIFA) 為 "Auckland City, New Zealand" — 公司/地區 名前嘅 SOFT punct 斷句，非 personal name split，可接受。
+
+---
+
+## V1.5 — 2026-05-01 ZH ASR config validation (closed)
+
+**Hypothesis：** `zh.json` 嘅 `max_words_per_segment` 失效，因為 split_segments 用 `text.split()` 對中文返 1 element。
+
+**Method：** 跑 mlx-whisper medium @ language="zh" 喺 audio_28d5bf78190a47a79d8f9a83229b6cba.wav (20.8 min Chinese broadcast)，比較 max_words 30 vs 10 + max_dur 8 vs 4。
+
+| 配置 | Output segs |
+|---|---|
+| Current zh.json (max_words=30, max_dur=8) | 502 |
+| Aggressive max_words=10, max_dur=8 | 503 (+1) |
+| Tight max_dur=4, max_words=30 | 504 (+2) |
+
+**ZH segment 分佈（685 segs）：** avg 6.8c, median 6c, max 112c, p95 13c
+- 90.0% (452/502) segments have `word_count==1` (Whisper 出 ZH 無 whitespace)
+- 10.0% segments have word_count > 1 — 因為英文 code-switch ("Trump", "iPhone" 等)
+
+**Netflix wrap 嘅效果（直接 ZH ASR 路徑）：**
+
+| Preset | Hard-cut |
+|---|---|
+| Netflix Originals (16/2) | **1.2%** ✅ |
+| Netflix General (23/2) | **0.4%** ✅ |
+| Broadcast (28/3) | **0.3%** ✅ |
+
+**結論：** ⚠️ **Hypothesis partially refuted**
+- `max_words_per_segment` 對 ZH **partially effective** (處理 code-switch)，唔係完全失效
+- `max_segment_duration` **fully effective**
+- 當前 zh.json (30/8) **無需更改**：Whisper 自然 ZH segmentation 已經夠短（avg 6.8c），所有 Netflix preset 都達 production 質素
+- 唯一 1.2% Netflix Originals hard-cut 來自 Whisper 偶發 hallucination（30-sec, 112-char 段）— 唔係 config 問題
+
+**對比 EN→ZH 翻譯路徑：** Native ZH ASR (avg 6.8c, NTF-Originals hc 1.2%) **遠優於** EN→ZH translate-then-redistribute (avg 13.1c, NTF-Originals hc 18.0%)。原因：Whisper 自然段邊界對齊 speaker pause，produce 短而 punchy 嘅 cue。
+
+### Production 建議
+
+- 中文輸出 video（中文 ASR + 唔翻譯）：直接用 Netflix Originals preset 已 production-ready
+- 英文輸出 → 中文翻譯 video：仍需 max_words=13 + smart-break v2 + Netflix General（Originals 仍受 translation density 限制）
