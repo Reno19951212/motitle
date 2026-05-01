@@ -212,6 +212,6 @@ Overall:       ████░░░░ 4/18 (22%)
 
 | 缺口 | 影響 |
 |---|---|
-| 真實 mlx-whisper re-run | 我哋用 split_segments 模擬。但 split_segments 係 production 嘅同一個 post-processing path，所以模擬 = 實際 |
+| ~~真實 mlx-whisper re-run~~ | ✅ **2026-05-01 closed** — 跑 mlx-whisper medium 喺 51e573205941.mp4 (Real Madrid 18-min)，所有 8 項 metric 同 simulation 100% 完全一致（segments=122, avg=44.7c, max=90c, p95=82c, 2-line fit=98.4%, hard-cut=0%, title-split=1）。ASR runtime 20.3s。 |
 | Real Madrid 以外 corpus | 結論可能 dataset-specific (sports broadcast)；其他類型 (新聞、訪談) 需個別驗證 |
 | 中文 ASR (zh.json) | 今次只動 EN；中文 ASR config 仍未 validated（V1.5 未做）|
