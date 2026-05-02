@@ -391,6 +391,20 @@ Whenever a new feature is completed or existing functionality is modified, you *
 - **Validation**（V0-V3 empirical）：基於 11 項 evidence-based testing（V1.1 char ratio 2.88, V1.2 sentence pipeline undo, V1.3 LLM follow-rate STRONG 83%, V1.5 ZH ASR config broken, V2.1 jieba 對繁體失敗, V_a 全 file 82-segs 跑出 hard-cut 2.4%）。Production stack: mlx-whisper medium + OpenRouter `qwen/Qwen3.5-35B-A3B`. Spec 文件: [docs/superpowers/specs/2026-04-30-line-wrap-design.md](docs/superpowers/specs/2026-04-30-line-wrap-design.md)
 - **Tests**: 18 個 backend pytest（subtitle_wrap algorithm + presets + resolver）+ 4 個 profile validation tests + 3 個 renderer integration tests + 2 個 API ?wrap= tests + 1 language config test + 5 個 Playwright E2E scenarios
 - **Real Madrid 全 82 seg**：56% 1-line / 43% 2-line / 1% 3-line / 0% overflow，hard-cut 2.4%。ZH ASR 警察學院 47 seg：100% 1-line（中文 Whisper raw segment 已夠短）
+- **α segmentation algorithm (V_R8, 2026-05-02)**：`split_segments` 加 sentence-first 路徑，由 `min_words_per_segment + sentence_lookahead_factor` opt-in 啟用：
+  - 算法：逐字 walk → 優先 `.!?` 切位（lookahead `1.5×soft_max_words` 字數內）→ fallback `,;:` 子句切位 → 最後 hard char-cap
+  - **`merge_orphans` post-pass**：< min_words 嘅段（除非以 `.!?` 結尾）會 forward-merge 落隔離段
+  - "Thank you." 等真正短句（end-with `.`）保留；"Yeah, ok," 等 stray fragment 會 merge
+  - ZH path（word_count=1）自動 fallback legacy（無 spaces 唔可以 walk）
+  - en.json: `max_words_per_segment: 13 → 15`（soft cap），新增 `min_words_per_segment: 4`, `sentence_lookahead_factor: 1.5`, `merge_orphans: true`
+  - 驗證 (3-corpus, 包括兩個 EN long-form interview)：vs v3.8 baseline
+    - single_word% 13.66% → **0.00%**（−13.66pp）
+    - mid_sentence_cut% 27.22% → **7.21%**（−20.01pp）
+    - sentence_complete% 45.34% → **64.04%**（+18.70pp）
+    - segs −29%（更貼近 Netflix 一個 cue 一個語意單元）
+    - hard-cut 維持 0%, data loss 0
+  - 5-sample side-by-side audit：α 喺 5/5 sample 都冇出過明顯壞例；v3.8 經常切「a/bit」、「the/world」mid-cut；γ 會把 "So congratulations. Well done. Thank you." over-segment 成 3 個 2-word 段
+  - 對比驗證 (V_R8 loop 5 round + 4-way agent comparison): docs/superpowers/specs/2026-04-30-validation-tracker.md
 - **Smart-break v3 + max_chars EN-only (V_R7, 2026-05-01)**：
   - smart-break PREP penalty −40：消除 PREP-front split 23→0（−100%），bad breaks 26.7%→1.1%（−96%）；Netflix-compliant 37.8%→43.3%
   - `split_segments` 加 optional `max_chars` 參數，`en.json: max_chars_per_segment: 88`（Netflix EN budget）；ZH 不適用（無空格 → 切割反而製造冇 punct 嘅 chunk）

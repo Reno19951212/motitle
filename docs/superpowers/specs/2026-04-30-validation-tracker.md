@@ -327,3 +327,70 @@ Overall:       ████░░░░ 4/18 (22%)
 - 中文 ASR + 唔翻譯 → Netflix Originals
 - 英文 → 中文翻譯 → Netflix General + max_words=13
 - 廣播電視 → Broadcast 28×3
+
+---
+
+## V_R8 — 2026-05-02 ASR sentence segmentation 3-direction parallel validation (closed)
+
+**Problem**: 用戶 audit v3.8 字幕分行效果仍然「非常之差」，三個 hard requirement 未達標：
+1. 句子長度貼近 Netflix（可稍長）
+2. 唔好中切句子
+3. 避免 1-字段 (1-EN-word segment)
+
+**Method**: 並行 3 個 agent，每個 5-round 自我迭代驗證一個方向：
+
+### Direction 比對結果
+
+| | v3.8 baseline | **α** Text-punct ✅ | **β** Audio pause ❌ | **γ** Sentence pre-merge ⚠️ |
+|---|---|---|---|---|
+| single_word% | 13.66% | **0.00%** | 0.75% | 0.00% (但有 2-word 段) |
+| mid_sentence_cut% | 27.22% | **7.21%** | 7.61% | 8.4% |
+| wrap_hard_cut% | 0% | 0% | 0% | 0% |
+| sentence_complete% | 45.34% | 64.04% | **67.91%** | 67.9% |
+| segs total | 161 | **114 (−29%)** | 134 (−17%) | 124 (−23%) |
+| Implementation | — | 簡單 (~150 行) | 中（要 word_timestamps）| 複雜（pySBD + recursive）|
+
+### β reject reason
+
+mlx-whisper `word_timestamps=True` 出嘅時間戳係 DTW model 對齊，**唔係 acoustic VAD**：
+- 1,205 個 inter-word boundary 入面 94.4% gap = 0.000s
+- P95 = 0.020s
+- 僅 0.6% gap ≥ 0.4s
+
+要做真 pause clustering 需要 silero/pyannote VAD，mlx-whisper 唔提供。
+
+### γ caveat
+
+- pySBD 會把 "So congratulations. Well done. Thank you." over-segment 成 3 個 2-word 段（視覺上一閃）
+- 切壞 "Auckland City, New Zealand"（地名分隔，conjunction-anchored sub-split 唔識避）
+- chars/sec p95 = 36.4，由講者 rate 決定，唔可 control 到 Netflix 18 cps 標準
+
+### α 落地
+
+`backend/asr/segment_utils.py` 加 sentence-first 路徑：
+- 三 pass: HARD `.!?` (lookahead window) → SOFT `,;:` (within char budget) → hard char-cap
+- `_merge_orphans` post-pass：< min_words 嘅 fragment (例如 stray "Yeah, ok,") merge 落鄰段；"Thank you." (sentence-end) 保留
+- 由 `min_words` + `sentence_lookahead_factor` opt-in；ZH 自動 fallback legacy（word_count=1 唔行新算法）
+
+### α 落地 production 量度（en.json + cached raw ASR）
+
+| Corpus | raw | α 後 | avg c | max c | single% | sent% | data loss |
+|---|---|---|---|---|---|---|---|
+| Harry Kane | 41 | 41 | 49.8 | 83 | **0.0%** | **92.7%** | 0 |
+| FIFA WC | 57 | 62 | 54.9 | 86 | **0.0%** | 56.5% | 0 |
+
+✅ 同 agent prototype R5 best 100% 一致。
+
+### 5-sample 4-way audit (Harry Kane + FIFA WC)
+
+- Sample 1 (clean Q&A): 4 strategies 100% 相同
+- Sample 2 (storytelling): v3.8 中切 "a / bit", α/β/γ 全部修正
+- Sample 3 (long rambling): v3.8 災難（切 "the world"）, α 切位最自然, β 段太長 87c, γ 切壞 "Auckland City, New Zealand"
+- Sample 4 (mid-monologue): v3.8 中切, α/β 修正, γ over-segment 短 fragment
+- Sample 5 (closing remarks): v3.8/α/β 一段, γ 把 "So congratulations. Well done. Thank you." 切成 3 個 2-word 段
+
+α 喺 5/5 sample 冇出過明顯壞例。
+
+### 仍未驗證嘅 caveat
+
+- Real Madrid file `26ce1d4e94fc.mp4` 喺 ASR 出 Cantonese signal（呢個 file mlx-whisper 偵測為粵語），所以三個 agent 嘅 "Real Madrid" 欄位係粵語 fallback 數據；EN signal 主要靠 Harry Kane (103s) + FIFA WC (179s) interview corpus。需要重新獲得真 EN long-form (>15 min) corpus 確認 α 喺長片表現。

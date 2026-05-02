@@ -2,9 +2,12 @@
   "id": "en",
   "name": "English",
   "asr": {
-    "max_words_per_segment": 13,
+    "max_words_per_segment": 15,
     "max_segment_duration": 40,
-    "max_chars_per_segment": 88
+    "max_chars_per_segment": 88,
+    "min_words_per_segment": 4,
+    "sentence_lookahead_factor": 1.5,
+    "merge_orphans": true
   },
   "translation": {
     "batch_size": 8,

@@ -164,3 +164,101 @@ def test_max_chars_default_none_preserves_legacy_behavior():
     legacy = split_segments(segments, max_words=200, max_duration=60.0)
     new_default = split_segments(segments, max_words=200, max_duration=60.0, max_chars=None)
     assert legacy == new_default
+
+
+# === α (sentence-first) tests ===
+
+
+def test_alpha_preserves_sentence_boundary():
+    """α should keep a complete sentence in one segment, not split mid-sentence."""
+    from asr.segment_utils import split_segments
+    # 17 words, fits in 88 chars. Soft cap=15 but sentence-end at word 17 within lookahead.
+    text = "Yeah, it was a bit of a ricochet in the box and then the ball fell to me."
+    segments = [{"start": 0.0, "end": 4.0, "text": text}]
+    result = split_segments(segments, max_words=15, max_duration=40, max_chars=88,
+                            min_words=4, sentence_lookahead_factor=1.5)
+    # Should NOT split mid-sentence — single segment ending at "."
+    assert len(result) == 1, f"expected 1 segment, got {len(result)}: {[s['text'] for s in result]}"
+    assert result[0]["text"].rstrip().endswith("."), f"didn't end at sentence: {result[0]['text']!r}"
+
+
+def test_alpha_clause_fallback_when_too_long():
+    """When sentence won't fit char budget, α should split at clause boundary (,;:)."""
+    from asr.segment_utils import split_segments
+    text = ("But to be honest, when I was a bit young, I never really thought, "
+            "you know, something like this would be achievable.")
+    segments = [{"start": 0.0, "end": 8.0, "text": text}]
+    result = split_segments(segments, max_words=15, max_duration=40, max_chars=88,
+                            min_words=4, sentence_lookahead_factor=1.5)
+    assert len(result) >= 2
+    # At least one mid-cut should land on a comma (clause boundary)
+    non_final_lines = [s["text"].rstrip() for s in result[:-1]]
+    assert any(line.endswith((",", ";", ":")) for line in non_final_lines), \
+        f"no clause-end in: {non_final_lines}"
+
+
+def test_alpha_orphan_merged_into_neighbor():
+    """A 2-word non-sentence-end fragment should merge with neighbor when merge_orphans=True."""
+    from asr.segment_utils import split_segments
+    # Construct a segment that would naturally produce an orphan
+    # "Yeah, ok," (2 words) followed by "let's start the show now please everyone." (8 words)
+    text = "Yeah, ok, let's start the show now please everyone."
+    segments = [{"start": 0.0, "end": 4.0, "text": text}]
+    # With min_words=4, "Yeah, ok," (2 words, ends in ',') should merge forward
+    result = split_segments(segments, max_words=15, max_duration=40, max_chars=88,
+                            min_words=4, sentence_lookahead_factor=1.5, merge_orphans=True)
+    # No segment should have <4 words (unless ends with .!?)
+    for seg in result:
+        wc = len(seg["text"].split())
+        ends = seg["text"].rstrip()
+        assert wc >= 4 or ends[-1] in ".!?", \
+            f"orphan not merged: {seg['text']!r} ({wc} words)"
+
+
+def test_alpha_short_sentence_preserved():
+    """A genuine 2-word sentence ending with `.` should NOT be merged."""
+    from asr.segment_utils import split_segments
+    # "Thank you." is a complete short sentence — should remain on its own
+    text = "I am very grateful for your support today. Thank you."
+    segments = [{"start": 0.0, "end": 5.0, "text": text}]
+    result = split_segments(segments, max_words=15, max_duration=40, max_chars=88,
+                            min_words=4, sentence_lookahead_factor=1.5, merge_orphans=True)
+    # Should have at least 2 segments — "Thank you." kept separate (sentence-end)
+    final_text = " ".join(s["text"] for s in result)
+    assert "Thank you." in final_text
+
+
+def test_alpha_disabled_when_kwargs_missing():
+    """Without α kwargs, behavior must match v3.8.x legacy split."""
+    from asr.segment_utils import split_segments
+    text = "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen"
+    segments = [{"start": 0.0, "end": 5.0, "text": text}]
+    legacy = split_segments(segments, max_words=10, max_duration=60.0)
+    explicit_no_alpha = split_segments(segments, max_words=10, max_duration=60.0, max_chars=None,
+                                        min_words=None, sentence_lookahead_factor=None)
+    assert legacy == explicit_no_alpha
+
+
+def test_alpha_zh_text_falls_back_to_legacy():
+    """ZH text (1 'word' due to no spaces) must NOT be re-routed to α path."""
+    from asr.segment_utils import split_segments
+    text = "你好世界這是一個測試"
+    segments = [{"start": 0.0, "end": 3.0, "text": text}]
+    result = split_segments(segments, max_words=15, max_duration=40, max_chars=88,
+                            min_words=4, sentence_lookahead_factor=1.5)
+    # ZH single-word — should pass through unchanged
+    assert len(result) == 1
+    assert result[0]["text"] == text
+
+
+def test_alpha_no_data_loss():
+    """α must preserve all words across the partition."""
+    from asr.segment_utils import split_segments
+    text = ("This is a test sentence with many words. Another sentence here, "
+            "with a clause that continues for a while; and a final part.")
+    segments = [{"start": 0.0, "end": 10.0, "text": text}]
+    result = split_segments(segments, max_words=10, max_duration=40, max_chars=88,
+                            min_words=4, sentence_lookahead_factor=1.5, merge_orphans=True)
+    in_words = text.split()
+    out_words = " ".join(s["text"] for s in result).split()
+    assert in_words == out_words, f"word mismatch:\n  in:  {in_words}\n  out: {out_words}"
