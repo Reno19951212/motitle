@@ -61,9 +61,18 @@ def split_segments(
     if not segments:
         return []
 
+    # V_R11 M1: defensive input validation — prevent crash on adversarial config
+    max_words = max(1, max_words or 1)
+    max_duration = max(0.001, float(max_duration or 0.001))
+    if max_chars is not None:
+        max_chars = max(1, max_chars)
+
     use_alpha = min_words is not None and sentence_lookahead_factor is not None
     result: List[dict] = []
     for segment in segments:
+        # Normalise None text to empty string (avoid AttributeError downstream)
+        if segment.get("text") is None:
+            segment = {**segment, "text": ""}
         if use_alpha and len((segment.get("text") or "").split()) > 1:
             result.extend(_split_alpha(
                 segment,

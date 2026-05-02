@@ -268,6 +268,32 @@ def test_en_smart_break_avoids_splitting_proper_noun_pair():
         assert len(line) <= 42 + 4, f"line over budget: {line!r} ({len(line)}c)"
 
 
+def test_wrap_zh_clamps_max_lines_zero():
+    """V_R11 Bug #1: max_lines=0 must NOT silently drop all text."""
+    from subtitle_wrap import wrap_zh
+    r = wrap_zh("一二三四五六七八九十", cap=5, max_lines=0, tail_tolerance=0)
+    assert r.lines, f"max_lines=0 dropped text silently: {r.lines}"
+    # Concatenated output preserves all chars
+    assert "".join(r.lines) == "一二三四五六七八九十"
+
+
+def test_wrap_zh_clamps_cap_zero():
+    """V_R11 Bug #1: cap=0 must NOT silently drop all text."""
+    from subtitle_wrap import wrap_zh
+    r = wrap_zh("一二三", cap=0, max_lines=2, tail_tolerance=0)
+    assert r.lines, f"cap=0 dropped text silently: {r.lines}"
+    assert "".join(r.lines) == "一二三"
+
+
+def test_wrap_en_clamps_max_lines_zero():
+    """V_R11 Bug #1: _wrap_en max_lines=0 must NOT drop words."""
+    from subtitle_wrap import _wrap_en
+    text = "Hello world this is a test"
+    r = _wrap_en(text, cap=10, max_lines=0, tail_tolerance=0)
+    assert r.lines, f"max_lines=0 dropped EN text: {r.lines}"
+    assert " ".join(r.lines).split() == text.split()
+
+
 def test_en_smart_break_v3_avoids_prep_front_split():
     """v3 PREP penalty: don't strand a preposition at start of next line."""
     from subtitle_wrap import _wrap_en

@@ -251,6 +251,30 @@ def test_alpha_zh_text_falls_back_to_legacy():
     assert result[0]["text"] == text
 
 
+def test_split_segments_input_validation_text_none():
+    """V_R11 M1: text=None must NOT crash with AttributeError."""
+    from asr.segment_utils import split_segments
+    segs = [{"start": 0.0, "end": 1.0, "text": None}]
+    out = split_segments(segs, max_words=10, max_duration=10.0)
+    assert isinstance(out, list)
+
+
+def test_split_segments_input_validation_zero_max_words():
+    """V_R11 M1: max_words=0 must NOT crash with ZeroDivisionError."""
+    from asr.segment_utils import split_segments
+    segs = [{"start": 0.0, "end": 1.0, "text": "hello world"}]
+    out = split_segments(segs, max_words=0, max_duration=10.0)
+    assert isinstance(out, list)
+
+
+def test_split_segments_input_validation_zero_max_duration():
+    """V_R11 M1: max_duration=0 must NOT crash."""
+    from asr.segment_utils import split_segments
+    segs = [{"start": 0.0, "end": 1.0, "text": "a b c"}]
+    out = split_segments(segs, max_words=10, max_duration=0)
+    assert isinstance(out, list)
+
+
 def test_alpha_no_data_loss():
     """α must preserve all words across the partition."""
     from asr.segment_utils import split_segments
