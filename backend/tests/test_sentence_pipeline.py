@@ -155,6 +155,39 @@ def test_redistribute_orphan_merge_disabled_by_default():
     assert result[1]["start"] == 2.0
 
 
+def test_redistribute_no_single_char_orphan_when_punct_behind_offset():
+    """Regression: user-uploaded video showed 13 single-char ZH segments
+    because _find_break_point returned a position BEHIND char_offset (the
+    same SOFT punct already consumed by previous seg). Clamp then yielded
+    just 1 char.
+
+    Reproduces #18 「肩」 from user file dbf9f8a6bda7 where the 3-segment
+    sentence group's middle seg got 1 char allocation.
+    """
+    from translation.sentence_pipeline import redistribute_to_segments
+    original_segments = [
+        {"start": 0.0, "end": 4.0,
+         "text": "That leaves 20-year-old Dean Hausson, who is himself battling calf issues,"},  # 11 words
+        {"start": 4.0, "end": 6.0,
+         "text": "and 22-year-old academy graduate Raul Asensio,"},  # 6 words
+        {"start": 6.0, "end": 9.0,
+         "text": "bearing most of the responsibility at the heart of defence."},  # 10 words
+    ]
+    merged = [{"seg_indices": [0, 1, 2],
+                "seg_word_counts": {0: 11, 1: 6, 2: 10}}]
+    zh_sentences = [
+        "這令年僅二十歲的迪恩·豪森與二十二歲青訓畢業生勞爾·阿森西奧，肩負起後防中路的沉重責任。"
+    ]
+    result = redistribute_to_segments(merged, zh_sentences, original_segments)
+    assert len(result) == 3
+    # Critical: middle seg must have ≥4 chars (lopsided rebalance min_chars=4 floor)
+    middle_zh = result[1]["zh_text"].strip()
+    assert len(middle_zh) >= 4, \
+        f"middle seg has {len(middle_zh)}-char allocation: {middle_zh!r} — single-char regression"
+    # Word check: 「肩」 should NOT stand alone
+    assert middle_zh != "肩", "middle seg is single-char 「肩」 orphan"
+
+
 def test_redistribute_conjunction_bonus_prefers_clause_break():
     """V_R9 MT-α: conjunction bonus rewards splits that leave next clause
     starting with a coordinating conjunction (但/而/和/所以/...)."""
