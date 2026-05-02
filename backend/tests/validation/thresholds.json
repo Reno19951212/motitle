@@ -1,0 +1,30 @@
+{
+  "dbf9f8a6bda7": {
+    "M1_pct_le14_single_min": 88.0,
+    "M2_pct_le16_le2lines_min": 96.0,
+    "F1_overall_recall_pct_min": 80.0,
+    "L1_name_split_count_max": 0,
+    "M5_hard_cut_pct_max": 5.0
+  },
+  "a70c2d113a3b": {
+    "M1_pct_le14_single_min": 91.0,
+    "M2_pct_le16_le2lines_min": 98.0,
+    "F1_overall_recall_pct_min": 60.0,
+    "L1_name_split_count_max": 0,
+    "M5_hard_cut_pct_max": 3.0
+  },
+  "2e76fd30195a": {
+    "M1_pct_le14_single_min": 97.0,
+    "M2_pct_le16_le2lines_min": 100.0,
+    "F1_overall_recall_pct_min": 60.0,
+    "L1_name_split_count_max": 0,
+    "M5_hard_cut_pct_max": 3.0
+  },
+  "2bce8283e89b": {
+    "M1_pct_le14_single_min": 100.0,
+    "M2_pct_le16_le2lines_min": 100.0,
+    "F1_overall_recall_pct_min": 0.0,
+    "L1_name_split_count_max": 0,
+    "M5_hard_cut_pct_max": 3.0
+  }
+}
