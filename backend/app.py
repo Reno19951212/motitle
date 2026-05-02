@@ -2229,6 +2229,34 @@ def api_renders_in_progress():
     return jsonify({'jobs': out}), 200
 
 
+def _compute_a3_telemetry(translations):
+    """Compute G5 telemetry metrics for a translated file.
+
+    Returns dict with M1/M2/F1/L1 + source_distribution, or empty dict on import error.
+    """
+    try:
+        from tests.validation.metrics import compute_kpis
+        from tests.validation.fidelity import compute_fidelity
+        kpis = compute_kpis(translations, "K4")
+        fid = compute_fidelity(translations)
+        src_dist = {}
+        for t in translations:
+            s = t.get("source", "k0")
+            src_dist[s] = src_dist.get(s, 0) + 1
+        return {
+            "M1": kpis.get("M1_pct_le14_single"),
+            "M2": kpis.get("M2_pct_le16_le2lines"),
+            "F1": fid.get("F1_overall_recall_pct"),
+            "L1": kpis.get("L1_name_split_count"),
+            "source_distribution": src_dist,
+        }
+    except ImportError:
+        return {}
+    except Exception as e:
+        app.logger.exception("a3 telemetry computation failed")
+        return {"error": str(e)}
+
+
 def _auto_translate(fid: str, segments: list, session_id) -> None:
     """Auto-translate segments after transcription using the active profile."""
     try:
@@ -2324,11 +2352,13 @@ def _auto_translate(fid: str, segments: list, session_id) -> None:
         with _registry_lock:
             asr_s = _file_registry.get(fid, {}).get('asr_seconds')
         if session_id:
+            metrics = _compute_a3_telemetry(translated)
             socketio.emit('pipeline_timing', {
                 'file_id': fid,
                 'asr_seconds': asr_s,
                 'translation_seconds': translation_seconds,
                 'total_seconds': round(translation_seconds + (asr_s or 0.0), 1),
+                'metrics': metrics,
             }, room=session_id)
 
         if session_id:
