@@ -1160,6 +1160,11 @@ def api_create_glossary():
         return jsonify({"error": "Request body must be JSON"}), 400
     try:
         glossary = _glossary_manager.create(data)
+        socketio.emit("glossary_updated", {
+            "glossary_id": glossary["id"],
+            "action": "glossary_created",
+            "timestamp": time.time(),
+        })
         return jsonify(glossary), 201
     except ValueError as e:
         return jsonify({"error": str(e)}), 422
@@ -1184,6 +1189,11 @@ def api_update_glossary(glossary_id):
         updated = _glossary_manager.update(glossary_id, data)
         if updated is None:
             return jsonify({"error": "Glossary not found"}), 404
+        socketio.emit("glossary_updated", {
+            "glossary_id": glossary_id,
+            "action": "glossary_updated",
+            "timestamp": time.time(),
+        })
         return jsonify(updated)
     except ValueError as e:
         return jsonify({"error": str(e)}), 422
@@ -1195,6 +1205,11 @@ def api_delete_glossary(glossary_id):
     deleted = _glossary_manager.delete(glossary_id)
     if not deleted:
         return jsonify({"error": "Glossary not found"}), 404
+    socketio.emit("glossary_updated", {
+        "glossary_id": glossary_id,
+        "action": "glossary_deleted",
+        "timestamp": time.time(),
+    })
     return jsonify({"deleted": True})
 
 
@@ -1208,6 +1223,11 @@ def api_add_entry(glossary_id):
         updated = _glossary_manager.add_entry(glossary_id, data)
         if updated is None:
             return jsonify({"error": "Glossary not found"}), 404
+        socketio.emit("glossary_updated", {
+            "glossary_id": glossary_id,
+            "action": "entry_added",
+            "timestamp": time.time(),
+        })
         return jsonify(updated), 201
     except ValueError as e:
         return jsonify({"error": str(e)}), 422
@@ -1223,6 +1243,11 @@ def api_update_entry(glossary_id, entry_id):
         updated = _glossary_manager.update_entry(glossary_id, entry_id, data)
         if updated is None:
             return jsonify({"error": "Glossary or entry not found"}), 404
+        socketio.emit("glossary_updated", {
+            "glossary_id": glossary_id,
+            "action": "entry_updated",
+            "timestamp": time.time(),
+        })
         return jsonify(updated)
     except ValueError as e:
         return jsonify({"error": str(e)}), 422
@@ -1234,6 +1259,11 @@ def api_delete_entry(glossary_id, entry_id):
     updated = _glossary_manager.delete_entry(glossary_id, entry_id)
     if updated is None:
         return jsonify({"error": "Glossary not found"}), 404
+    socketio.emit("glossary_updated", {
+        "glossary_id": glossary_id,
+        "action": "entry_deleted",
+        "timestamp": time.time(),
+    })
     return jsonify(updated)
 
 
@@ -1246,6 +1276,11 @@ def api_import_glossary_csv(glossary_id):
     updated = _glossary_manager.import_csv(glossary_id, data["csv_content"])
     if updated is None:
         return jsonify({"error": "Glossary not found"}), 404
+    socketio.emit("glossary_updated", {
+        "glossary_id": glossary_id,
+        "action": "csv_imported",
+        "timestamp": time.time(),
+    })
     return jsonify(updated)
 
 

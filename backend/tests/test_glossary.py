@@ -292,3 +292,49 @@ def test_validate_entry_rejects_en_without_letters(glossary_dir):
     assert any("en" in e for e in errors), f"Expected en error, got: {errors}"
     errors = mgr.validate_entry({"en": "!!!", "zh": "驚嘆"})
     assert any("en" in e for e in errors), f"Expected en error, got: {errors}"
+
+
+# ============================================================
+# Task 7 (v3.9 Mod 2) — glossary_updated socket event emission
+# ============================================================
+
+def test_add_entry_emits_socket_event():
+    """POST a new entry should emit glossary_updated socket event with action=entry_added."""
+    import sys
+    import tempfile
+    from pathlib import Path
+    from unittest.mock import patch
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+
+    from app import app, _init_glossary_manager
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        glossaries_dir = tmp_path / "glossaries"
+        glossaries_dir.mkdir()
+        _init_glossary_manager(tmp_path)
+        app.config["TESTING"] = True
+
+        with app.test_client() as client:
+            # Step 1: create glossary
+            resp = client.post("/api/glossaries", json={"name": "test-events"})
+            assert resp.status_code == 201
+            gid = resp.get_json()["id"]
+
+            # Step 2: capture socket emits while adding an entry
+            with patch("app.socketio") as mock_sock:
+                resp = client.post(
+                    f"/api/glossaries/{gid}/entries",
+                    json={"en": "Mbappe", "zh": "姆巴比"},
+                )
+                assert resp.status_code in (200, 201)
+
+                emit_calls = [
+                    c for c in mock_sock.emit.call_args_list
+                    if c.args and c.args[0] == "glossary_updated"
+                ]
+                assert len(emit_calls) >= 1, "expected at least one glossary_updated emit"
+                payload = emit_calls[0].args[1]
+                assert payload["glossary_id"] == gid
+                assert payload["action"] == "entry_added"
+                assert "timestamp" in payload
