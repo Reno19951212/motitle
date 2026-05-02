@@ -106,10 +106,31 @@ const FontPreview = (() => {
     // because input may already be multi-line (e.g. bilingual EN+ZH stacked).
     const preLines = (raw || '').split(/\r?\n|\\N/);
 
-    // Step 2: apply SubtitleWrap.wrapWithConfig per pre-line if loaded.
+    // Step 2: apply SubtitleWrap per pre-line if loaded.
+    //   - cityu_hybrid preset (v3.9): use wrapHybrid (soft+hard cap, bottom-heavy)
+    //   - other presets: use legacy wrapWithConfig
     // Falls back to no-wrap if SubtitleWrap script wasn't included.
     let lines = [];
-    if (window.SubtitleWrap && _rawFontConfig) {
+    const standard = _rawFontConfig && _rawFontConfig.subtitle_standard;
+    const useHybrid = standard === 'cityu_hybrid'
+      && window.SubtitleWrap
+      && typeof window.SubtitleWrap.wrapHybrid === 'function';
+
+    if (useHybrid) {
+      const lwCfg = (_rawFontConfig && _rawFontConfig.line_wrap) || {};
+      preLines.forEach(pl => {
+        const trimmed = (pl || '').trim();
+        if (!trimmed) return;
+        const wr = window.SubtitleWrap.wrapHybrid(trimmed, {
+          soft_cap: lwCfg.soft_cap != null ? lwCfg.soft_cap : 14,
+          hard_cap: lwCfg.hard_cap != null ? lwCfg.hard_cap : 16,
+          max_lines: lwCfg.max_lines != null ? lwCfg.max_lines : 2,
+          tail_tolerance: lwCfg.tail_tolerance != null ? lwCfg.tail_tolerance : 2,
+          locked: null,  // Phase 1: preview omits V_R11 lock chain (visual approximation)
+        });
+        if (wr.lines.length > 0) lines = lines.concat(wr.lines);
+      });
+    } else if (window.SubtitleWrap && _rawFontConfig) {
       preLines.forEach(pl => {
         const wr = window.SubtitleWrap.wrapWithConfig(pl, _rawFontConfig);
         if (wr.lines.length === 0) {
