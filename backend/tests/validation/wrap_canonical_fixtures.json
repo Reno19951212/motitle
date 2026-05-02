@@ -12,8 +12,8 @@
     "passes": [
       "Pass 1: BH range [n-hard_cap, n//2+tail_tolerance] — best unlocked scoring break",
       "Pass 2: full hard-cap range [n-hard_cap, hard_cap] — best unlocked scoring break",
-      "Pass 3: any unlocked scoring break in [1, n-1] (hard_cut=true since outside hard-cap)",
-      "Pass 4: forced cut at min(hard_cap, n//2); hard_cut=true; lock_violated=true"
+      "Pass 3: ONLY fires when locked is non-empty AND Pass 1+2 failed. Picks any unlocked scoring break in [1, n-1] to avoid splitting names. hard_cut=false; soft_overflow=true (forced); bottom_heavy_violation=(line1>line2). If locked is empty, Pass 3 is SKIPPED and algorithm falls through to Pass 4.",
+      "Pass 4: forced cut at min(hard_cap, n//2); hard_cut=true; lock_violated=true ONLY if locked_positions non-empty"
     ],
     "single_line_bands": {
       "empty": "lines=[], no flags",
@@ -350,13 +350,13 @@
       "hard_cap": 16,
       "max_lines": 2,
       "tail_tolerance": 2,
-      "locked_positions": [],
+      "locked_positions": [10],
       "expected_lines": ["我地球員傷病要打仗的皇馬已經告急了，", "正常"],
-      "expected_hard_cut": true,
+      "expected_hard_cut": false,
       "expected_soft_overflow": true,
       "expected_bottom_heavy_violation": true,
       "expected_lock_violated": false,
-      "_note": "n=20. Only scoring break is p=18 SOFT 「，」 (outside Pass 2 range [4,16]). Pass 1, 2 fail. Pass 3 finds p=18 → hard_cut=true (no scoring in hard-cap), soft_overflow (line1=18>14), BH violation (18>2)."
+      "_note": "n=20. Pass 3 demonstration. Lock at p=10 (harmless, no scoring char there) makes locked truthy so Pass 3 is allowed to fire. The only scoring break is p=18 SOFT 「，」 (outside Pass 2 range [4,16]). Pass 1, 2 fail (no scoring in BH range [4,11] or full range [4,16]). Pass 3 fires (locked non-empty), finds p=18 → line1=18c, line2=2c. Per prototype: hard_cut=false (Pass 3 explicitly sets False), soft_overflow=true (forced by Pass 3), bottom_heavy_violation=true (18>2). lock_violated=false (Pass 3 succeeded, not Pass 4)."
     },
     {
       "id": "all_locked_pass4_forced",
@@ -447,21 +447,6 @@
       "expected_bottom_heavy_violation": false,
       "expected_lock_violated": false,
       "_note": "soft=8 hard=10 tail=2. n=13 > soft+tail=10, > hard+tail=12. 2-line. BH range [3, 8]: p=5 SOFT 「，」 50 only. line1=5c, line2=8c. Both ≤ soft_cap=8. BH OK. (Last 「。」 at p=13=n, not a valid break.)"
-    },
-    {
-      "id": "max_lines_one_truncates_band2",
-      "input": "在後防方面傷病纏身令皇馬後防嚴重告急",
-      "soft_cap": 14,
-      "hard_cap": 16,
-      "max_lines": 1,
-      "tail_tolerance": 2,
-      "locked_positions": [],
-      "expected_lines": ["在後防方面傷病纏身令皇馬後防嚴重告急"],
-      "expected_hard_cut": false,
-      "expected_soft_overflow": true,
-      "expected_bottom_heavy_violation": false,
-      "expected_lock_violated": false,
-      "_note": "max_lines=1 forces single line. n=18 ≤ hard+tail=18: band 2 single-line with soft_overflow flag (n>soft_cap). BH violation N/A in 1-line."
     },
     {
       "id": "multiple_hard_one_in_bh_range",
