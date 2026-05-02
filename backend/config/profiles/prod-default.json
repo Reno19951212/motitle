@@ -27,8 +27,17 @@
     "outline_color": "#000000",
     "outline_width": 3,
     "position": "bottom",
-    "margin_bottom": 40
+    "margin_bottom": 40,
+    "subtitle_source": "auto",
+    "bilingual_order": "en_top",
+    "subtitle_standard": "broadcast",
+    "line_wrap": {
+      "enabled": true,
+      "line_cap": 28,
+      "max_lines": 2,
+      "tail_tolerance": 2
+    }
   },
   "created_at": 1712534400,
-  "updated_at": 1777389555.3260548
+  "updated_at": 1777684911.406497
 }
