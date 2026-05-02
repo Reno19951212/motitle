@@ -17,12 +17,14 @@
     ],
     "single_line_bands": {
       "empty": "lines=[], no flags",
-      "band1_n_le_soft_plus_tail": "1 line, no flags",
-      "always_truncate_n_gt_2x_hard": "lines=[text[0:hard_cap], text[hard_cap:2*hard_cap]]; hard_cut=true; soft_overflow=true"
+      "band1_n_le_soft_plus_tail": "1 line, no flags (no soft_overflow even though n may equal soft_cap+tail)",
+      "band2_n_le_hard_plus_tail": "1 line with soft_overflow=true (Netflix bottom-heavy: prefer single-line when content fits hard_cap+tail). NO 2-line wrap, NO break search; lock_violated=false; hard_cut=false; bottom_heavy_violation=false (N/A for 1-line)",
+      "above_band2_below_truncate": "n > hard_cap+tail AND n ≤ 2*hard_cap → run 2-line algorithm (Pass 1→2→3→4)",
+      "always_truncate_n_gt_2x_hard": "n > 2*hard_cap → lines=[text[0:hard_cap], text[hard_cap:2*hard_cap]]; hard_cut=true; soft_overflow=true (when hard_cap > soft_cap); lock_violated=false"
     },
-    "above_band1_below_truncate": "always go to 2-line algorithm; band 2 single-line only fires when max_lines=1 or when 2-line cannot produce result",
     "soft_overflow_2line": "any line length > soft_cap",
     "bottom_heavy_violation": "line1_length > line2_length (only meaningful for 2-line)",
+    "lock_violated_semantics": "true ONLY when Pass 4 fired AND locked_positions is non-empty (algorithm was forced through user-marked lock). If locked_positions=[], Pass 4 firing means just regular hard_cut (un-breakable text), lock_violated=false.",
     "locked_semantics": "locked_positions[i] forbidden as break position; break at p splits into text[0:p] | text[p:n]; valid range [1, n-1]"
   },
   "fixtures": [
@@ -139,12 +141,12 @@
       "max_lines": 2,
       "tail_tolerance": 2,
       "locked_positions": [],
-      "expected_lines": ["2026年1月阿朗", "素離任皇馬轉投英超"],
-      "expected_hard_cut": true,
-      "expected_soft_overflow": false,
+      "expected_lines": ["2026年1月阿朗素離任皇馬轉投英超"],
+      "expected_hard_cut": false,
+      "expected_soft_overflow": true,
       "expected_bottom_heavy_violation": false,
-      "expected_lock_violated": true,
-      "_note": "n=18, > soft+tail=16. Goes to 2-line algorithm. No scoring punctuation. Pass 1, 2, 3 all fail. Pass 4 forced cut at min(hard_cap=16, n//2=9)=9. text idx: 2(0) 0(1) 2(2) 6(3) 年(4) 1(5) 月(6) 阿(7) 朗(8) 素(9) 離(10) 任(11) 皇(12) 馬(13) 轉(14) 投(15) 英(16) 超(17). Cut at p=9: line1=「2026年1月阿朗」 (9c), line2=「素離任皇馬轉投英超」 (9c). Both ≤ soft_cap=14. Equal length → no BH violation."
+      "expected_lock_violated": false,
+      "_note": "n=18 (mixed CJK+ASCII, each grapheme = 1 char). soft+tail=16 < n ≤ hard+tail=18 → band-2 short-circuit: single line with soft_overflow=true (n > soft_cap=14). Netflix bottom-heavy preference: 1-line preferred when content fits hard cap. No 2-line wrap, no break needed; lock_violated=false."
     },
     {
       "id": "tail_tolerance_zero_strict",
@@ -177,19 +179,34 @@
       "_note": "tail=4. n=16 ≤ soft+tail=18: band 1, 1 line."
     },
     {
-      "id": "two_line_simple_break",
+      "id": "band2_single_line_with_soft_overflow",
       "input": "球隊真正需要的，是夏窗大刀闊斧的重建",
       "soft_cap": 14,
       "hard_cap": 16,
       "max_lines": 2,
       "tail_tolerance": 2,
       "locked_positions": [],
-      "expected_lines": ["球隊真正需要的，", "是夏窗大刀闊斧的重建"],
+      "expected_lines": ["球隊真正需要的，是夏窗大刀闊斧的重建"],
+      "expected_hard_cut": false,
+      "expected_soft_overflow": true,
+      "expected_bottom_heavy_violation": false,
+      "expected_lock_violated": false,
+      "_note": "n=18, has SOFT 「，」 at p=8. soft+tail=16 < n ≤ hard+tail=18 → band-2 short-circuit: SINGLE LINE with soft_overflow=true (n > soft_cap=14). Algorithm intentionally does NOT 2-line wrap here — Netflix bottom-heavy says 1-line is preferred when content fits hard_cap. Confirmed empirically by /tmp/loop/wrap_v2.py prototype (M2=98.9%)."
+    },
+    {
+      "id": "two_line_simple_break",
+      "input": "球隊真正需要的，是夏窗大刀闊斧式的重建",
+      "soft_cap": 14,
+      "hard_cap": 16,
+      "max_lines": 2,
+      "tail_tolerance": 2,
+      "locked_positions": [],
+      "expected_lines": ["球隊真正需要的，", "是夏窗大刀闊斧式的重建"],
       "expected_hard_cut": false,
       "expected_soft_overflow": false,
       "expected_bottom_heavy_violation": false,
       "expected_lock_violated": false,
-      "_note": "n=18. > soft+tail=16, so 2-line. BH range [2,11]: p=8 SOFT 「，」 score 50. line1=8c, line2=10c. BH OK."
+      "_note": "n=19 > hard+tail=18 → 2-line algorithm. SOFT 「，」 at p=8. BH range [3, n//2+tail=11]: p=8 SOFT score 50 → Pass 1 picks p=8. line1=8c, line2=11c. Both ≤ soft_cap=14. BH OK (8 ≤ 11)."
     },
     {
       "id": "two_line_bottom_heavy_preferred",
@@ -223,18 +240,18 @@
     },
     {
       "id": "paren_close_break_wins_over_paren_open",
-      "input": "球員（西班牙）將會離隊投奔英超球會",
+      "input": "球員（西班牙）將會離隊轉投奔英超新球會",
       "soft_cap": 14,
       "hard_cap": 16,
       "max_lines": 2,
       "tail_tolerance": 2,
       "locked_positions": [],
-      "expected_lines": ["球員（西班牙）", "將會離隊投奔英超球會"],
+      "expected_lines": ["球員（西班牙）", "將會離隊轉投奔英超新球會"],
       "expected_hard_cut": false,
       "expected_soft_overflow": false,
       "expected_bottom_heavy_violation": false,
       "expected_lock_violated": false,
-      "_note": "n=17, > soft+tail=16. BH range [1,10]: p=2 POPEN 「（」 score 25, p=7 PCLOSE 「）」 score 30. Higher score wins → p=7. line1=7c, line2=10c."
+      "_note": "n=19 > hard+tail=18 → 2-line algorithm. BH range [3, n//2+tail=11]: p=3 POPEN 「（」 lookahead score 25, p=7 PCLOSE 「）」 score 30. Higher score wins → p=7. line1=7c, line2=12c. Both ≤ soft_cap=14. BH OK."
     },
     {
       "id": "paren_open_lookahead_only_in_bh_range",
@@ -343,18 +360,18 @@
     },
     {
       "id": "all_locked_pass4_forced",
-      "input": "球隊真正需要的是夏窗大刀闊斧的重建",
+      "input": "球隊真正需要的是夏窗大刀闊斧的全面重建",
       "soft_cap": 14,
       "hard_cap": 16,
       "max_lines": 2,
       "tail_tolerance": 2,
-      "locked_positions": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
-      "expected_lines": ["球隊真正需要的是", "夏窗大刀闊斧的重建"],
+      "locked_positions": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
+      "expected_lines": ["球隊真正需要的是夏", "窗大刀闊斧的全面重建"],
       "expected_hard_cut": true,
       "expected_soft_overflow": false,
       "expected_bottom_heavy_violation": false,
       "expected_lock_violated": true,
-      "_note": "n=17. ALL break positions [1..16] locked. No scoring chars anyway. Pass 1, 2, 3 all fail. Pass 4 forced at min(16, 17//2=8)=8. line1=8c, line2=9c. Both ≤ soft_cap. BH OK. lock_violated=true."
+      "_note": "n=19 > hard+tail=18 → 2-line algorithm. ALL break positions [1..18] locked. No scoring chars anyway. Pass 1, 2, 3 all fail (every candidate is locked). Pass 4 forced at min(hard_cap=16, n//2=9)=9. line1=9c, line2=10c. Both ≤ soft_cap=14. BH OK (9 ≤ 10). lock_violated=true (Pass 4 fired AND locked_positions non-empty)."
     },
     {
       "id": "no_break_anywhere_pass4_forced",
@@ -368,8 +385,8 @@
       "expected_hard_cut": true,
       "expected_soft_overflow": false,
       "expected_bottom_heavy_violation": false,
-      "expected_lock_violated": true,
-      "_note": "n=19. No scoring chars. No locks but no break candidates. Pass 1, 2, 3 fail. Pass 4 cut at min(16, 19//2=9)=9. line1=9c, line2=10c. Both ≤ soft_cap. BH OK. hard_cut+lock_violated."
+      "expected_lock_violated": false,
+      "_note": "n=19. No scoring chars anywhere. No locks. Pass 1, 2 fail (no scoring chars). Pass 3 fails (no scoring break in [1, n-1] either). Pass 4 fires: cut at min(hard_cap=16, n//2=9)=9. line1=9c, line2=10c. Both ≤ soft_cap=14. BH OK. hard_cut=true. lock_violated=FALSE — Pass 4 fired but locked_positions is empty (algorithm wasn't forced through any user-marked lock; this is just a regular hard_cut for un-breakable text)."
     },
     {
       "id": "exceeds_hard_cap_x2_truncate",
@@ -398,8 +415,8 @@
       "expected_hard_cut": true,
       "expected_soft_overflow": true,
       "expected_bottom_heavy_violation": false,
-      "expected_lock_violated": true,
-      "_note": "n=32 = 2*hard_cap (NOT >, so not truncate band). 2-line algo: no scoring chars. Pass 1, 2, 3 fail. Pass 4 cut at min(16, 16)=16. lines=[B*16, B*16]. Both =16 > soft_cap=14 → soft_overflow. Equal lengths → no BH violation. lock_violated=true (Pass 4)."
+      "expected_lock_violated": false,
+      "_note": "n=32 = 2*hard_cap (NOT >, so not truncate band). 2-line algo: no scoring chars. Pass 1, 2, 3 fail. Pass 4 cut at min(hard_cap=16, n//2=16)=16. lines=[B*16, B*16]. Both =16 > soft_cap=14 → soft_overflow. Equal lengths → no BH violation. lock_violated=FALSE — locked_positions is empty (no user lock to violate); this is a regular hard_cut for un-breakable text."
     },
     {
       "id": "n_just_over_2x_hard_truncate",
@@ -448,18 +465,18 @@
     },
     {
       "id": "multiple_hard_one_in_bh_range",
-      "input": "好的。然後球員嚴重傷病了。陣容老化",
+      "input": "好的。然後我地球員嚴重傷病了。陣容老化",
       "soft_cap": 14,
       "hard_cap": 16,
       "max_lines": 2,
       "tail_tolerance": 2,
       "locked_positions": [],
-      "expected_lines": ["好的。", "然後球員嚴重傷病了。陣容老化"],
+      "expected_lines": ["好的。", "然後我地球員嚴重傷病了。陣容老化"],
       "expected_hard_cut": false,
-      "expected_soft_overflow": false,
+      "expected_soft_overflow": true,
       "expected_bottom_heavy_violation": false,
       "expected_lock_violated": false,
-      "_note": "n=17 > soft+tail=16. BH range [1,10]: p=3 HARD 「。」 score 100 (only HARD in BH range; second 「。」 at p=13 is outside BH range [1,10]). Pass 1 picks p=3. line1=3c, line2=14c. line2=14=soft_cap (not >) so no flag."
+      "_note": "n=19 > hard+tail=18 → 2-line algorithm. BH range [3, n//2+tail=11]: p=3 HARD 「。」 score 100 only (second 「。」 at p=15 is outside BH range). Pass 1 picks p=3. line1=3c, line2=16c. line2=16 > soft_cap=14 → soft_overflow. BH OK (3 < 16). hard_cut=false (Pass 1 found break in BH range, well within hard_cap)."
     },
     {
       "id": "bottom_heavy_violation_pass1",
