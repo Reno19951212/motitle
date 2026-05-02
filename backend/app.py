@@ -2054,6 +2054,29 @@ def api_start_render():
         return jsonify({"error": "File not found"}), 404
 
     active_profile = _profile_manager.get_active()
+
+    # Mod 6 (v3.9): lazy A3 migration — when active profile has a3_ensemble enabled
+    # but the cached translations were produced before A3 (no `source` field),
+    # spawn a background re-translation and return 202 so the client can show
+    # progress UI. Existing render is deferred until the user retries after
+    # `a3_migration_complete` arrives. Legacy clients (a3_ensemble disabled) skip
+    # this entirely and proceed with the existing render path unchanged.
+    if active_profile and active_profile.get("translation", {}).get("a3_ensemble"):
+        existing_translations = entry.get("translations") or []
+        if existing_translations and not any("source" in t for t in existing_translations):
+            socketio.emit("a3_migration_started", {"file_id": file_id})
+            t = threading.Thread(
+                target=_run_a3_migrate_async,
+                args=(file_id,),
+                daemon=True,
+            )
+            t.start()
+            return jsonify({
+                "status": "migrating",
+                "message": "正在升級到 A3 ensemble 格式",
+                "file_id": file_id,
+            }), 202
+
     subtitle_source = _resolve_subtitle_source(entry, active_profile, src_override)
     bilingual_order = _resolve_bilingual_order(entry, active_profile, ord_override)
 
@@ -2227,6 +2250,105 @@ def api_renders_in_progress():
             'created_at': job.get('created_at'),
         })
     return jsonify({'jobs': out}), 200
+
+
+def _run_a3_migrate_async(file_id):
+    """Background A3 re-translation for legacy file (Mod 6 lazy migration).
+
+    Re-translates an existing file's segments using translate_with_a3_ensemble
+    so that older translation cache (no `source` field) gets upgraded to the
+    new A3 ensemble format. Updates registry on success and emits socket events
+    throughout for client progress UI:
+
+    - ``a3_migration_progress``: per-batch progress {file_id, completed, total}
+    - ``a3_migration_complete``: success {file_id, count}
+    - ``a3_migration_failed``:   any error {file_id, error}
+    - ``pipeline_timing``:       reuse G5 telemetry payload (source=a3_migration)
+    """
+    try:
+        with _registry_lock:
+            entry = _file_registry.get(file_id)
+            entry_copy = dict(entry) if entry else None
+
+        if not entry_copy:
+            socketio.emit("a3_migration_failed", {"file_id": file_id, "error": "file not found"})
+            return
+
+        segments = entry_copy.get("segments") or []
+        if not segments:
+            socketio.emit("a3_migration_failed", {"file_id": file_id, "error": "no segments"})
+            return
+
+        profile = _profile_manager.get_active()
+        if not profile:
+            socketio.emit("a3_migration_failed", {"file_id": file_id, "error": "no active profile"})
+            return
+
+        translation_config = dict(profile.get("translation", {}) or {})
+
+        glossary_entries = []
+        glossary_id = translation_config.get("glossary_id")
+        if glossary_id:
+            glossary_data = _glossary_manager.get(glossary_id)
+            if glossary_data:
+                glossary_entries = glossary_data.get("entries", [])
+
+        # Build a profile_config dict that translate_with_a3_ensemble understands.
+        # Force a3_ensemble=True (we only get here when the user opted in via profile).
+        profile_config = {**translation_config, "a3_ensemble": True}
+
+        # ASR segments shape expected by the pipeline.
+        asr_segments = [
+            {"start": s.get("start"), "end": s.get("end"), "text": s.get("text", "")}
+            for s in segments
+        ]
+
+        from translation.sentence_pipeline import translate_with_a3_ensemble
+
+        def _emit_progress(completed, total):
+            socketio.emit("a3_migration_progress", {
+                "file_id": file_id,
+                "completed": completed,
+                "total": total,
+            })
+
+        new_translations = translate_with_a3_ensemble(
+            asr_segments,
+            glossary=glossary_entries,
+            profile_config=profile_config,
+            progress_callback=_emit_progress,
+        )
+
+        # Preserve approval shape used by the rest of the app.
+        for t in new_translations:
+            t.setdefault("status", "pending")
+            t.setdefault("baseline_zh", t.get("zh_text", ""))
+            t.setdefault("applied_terms", [])
+
+        _update_file(file_id, translations=new_translations, translation_status="done")
+
+        socketio.emit("a3_migration_complete", {
+            "file_id": file_id,
+            "count": len(new_translations),
+        })
+
+        # G5 telemetry reuse — same shape as auto_translate's pipeline_timing emit.
+        try:
+            metrics = _compute_a3_telemetry(new_translations)
+            socketio.emit("pipeline_timing", {
+                "file_id": file_id,
+                "asr_seconds": None,
+                "translation_seconds": None,
+                "total_seconds": None,
+                "metrics": metrics,
+                "source": "a3_migration",
+            })
+        except Exception:
+            app.logger.exception("a3 migration telemetry emit failed")
+
+    except Exception as exc:
+        app.logger.exception(f"a3 migration failed for {file_id}")
+        socketio.emit("a3_migration_failed", {"file_id": file_id, "error": str(exc)})
 
 
 def _compute_a3_telemetry(translations):
