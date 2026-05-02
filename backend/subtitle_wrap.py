@@ -88,6 +88,10 @@ def _find_break(remaining: str, cap: int, tail_tolerance: int = 0) -> int:
 
 
 def wrap_zh(text: str, cap: int = 23, max_lines: int = 3, tail_tolerance: int = 3) -> WrapResult:
+    # V_R11 Bug #1: defensive clamp — prevent silent text drop on bad config
+    cap = max(1, cap or 1)
+    max_lines = max(1, max_lines or 1)
+    tail_tolerance = max(0, tail_tolerance or 0)
     text = (text or "").strip()
     if not text:
         return WrapResult(lines=[], hard_cut=False)
@@ -181,6 +185,10 @@ def _wrap_en(text: str, cap: int, max_lines: int, tail_tolerance: int) -> WrapRe
 
     All words preserved (last line absorbs leftovers).
     """
+    # V_R11 Bug #1: defensive clamp — prevent silent text drop on bad config
+    cap = max(1, cap or 1)
+    max_lines = max(1, max_lines or 1)
+    tail_tolerance = max(0, tail_tolerance or 0)
     text = (text or "").strip()
     if not text:
         return WrapResult(lines=[], hard_cut=False)

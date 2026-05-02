@@ -155,6 +155,76 @@ def test_redistribute_orphan_merge_disabled_by_default():
     assert result[1]["start"] == 2.0
 
 
+def test_orphan_merge_preserves_timing_in_chained_orphans():
+    """V_R11 Bug #2: chained orphans must NOT corrupt downstream timing.
+
+    Previously donor.start was assigned to recipient.start, causing 3+ orphan
+    chains to produce overlapping cues like (0,1)→(0,2)→(0,3)→(0,5).
+    """
+    from translation.sentence_pipeline import _orphan_merge
+    segs = [
+        {"start": 0.0, "end": 1.0, "en_text": "a", "zh_text": "甲"},
+        {"start": 1.0, "end": 2.0, "en_text": "b", "zh_text": "乙"},
+        {"start": 2.0, "end": 3.0, "en_text": "c", "zh_text": "丙"},
+        {"start": 3.0, "end": 5.0, "en_text": "tail", "zh_text": "丁戊己庚。"},
+    ]
+    out = _orphan_merge([dict(s) for s in segs], min_chars=4)
+    # Timing must be preserved exactly
+    assert [(s["start"], s["end"]) for s in out] == [(0.0, 1.0), (1.0, 2.0), (2.0, 3.0), (3.0, 5.0)]
+    # No overlap
+    for i in range(len(out) - 1):
+        assert out[i]["end"] <= out[i + 1]["start"] + 0.01
+
+
+def test_redistribute_total_en_zero_preserves_zh():
+    """V_R11 Bug M3: when total_en_words==0 (silence segs with empty EN),
+    ZH content must NOT be silently dropped."""
+    from translation.sentence_pipeline import redistribute_to_segments
+    en_segs = [
+        {"start": 0.0, "end": 1.0, "text": ""},
+        {"start": 1.0, "end": 2.0, "text": ""},
+    ]
+    merged = [{"seg_indices": [0, 1], "seg_word_counts": {0: 0, 1: 0}}]
+    zh = ["有內容嘅中文字。"]
+    result = redistribute_to_segments(merged, zh, en_segs)
+    total_in = sum(len(z) for z in zh)
+    total_out = sum(len(r["zh_text"]) for r in result)
+    assert total_out == total_in, f"ZH chars dropped: {total_in} → {total_out}"
+
+
+def test_redistribute_fully_locked_run_preserved():
+    """V_R11 Bug #3: pure transliterated foreign name (all chars locked) must
+    NOT be split. Caller must handle _find_unlocked_anywhere -1 sentinel by
+    allocating the locked run intact."""
+    from translation.sentence_pipeline import redistribute_to_segments
+    # 6-char pure translit run flanked by non-translit chars
+    en_segs = [
+        {"start": 0.0, "end": 2.0, "text": "Two words"},
+        {"start": 2.0, "end": 4.0, "text": "more here"},
+    ]
+    merged = [{"seg_indices": [0, 1], "seg_word_counts": {0: 2, 1: 2}}]
+    zh = ["AB雲尼素斯諾託CD"]  # 雲尼素斯諾託 all in _TRANSLIT_CHARS
+    result = redistribute_to_segments(merged, zh, en_segs)
+    combined = result[0]["zh_text"] + result[1]["zh_text"]
+    # The 6-char name must appear intact in ONE segment
+    assert "雲尼素斯諾託" in result[0]["zh_text"] or "雲尼素斯諾託" in result[1]["zh_text"], \
+        f"name split across segs: {[s['zh_text'] for s in result]}"
+    # Char preservation
+    assert combined == "AB雲尼素斯諾託CD"
+
+
+def test_dot_heuristic_locks_oov_compound_name():
+    """V_R11 Bug #4: ·-flanked CJK heuristic locks compound names like
+    阿爾瓦羅·卡列拉斯 even when individual chars aren't all in translit set
+    or glossary."""
+    from translation.sentence_pipeline import _build_locked_mask
+    text = "是左閘阿爾瓦羅·卡列拉斯。"
+    locked = _build_locked_mask(text)
+    # 阿爾瓦羅·卡列拉斯 spans index 3-11. All internal positions 4..11 locked
+    for p in range(4, 12):
+        assert locked[p] is True, f"position {p} inside 阿爾瓦羅·卡列拉斯 must be locked"
+
+
 def test_translit_lock_protects_vinicius():
     """V_R10 A.2: 雲尼素斯 (Cantonese for Vinicius) — no `·` separator,
     must NOT be split mid-name by transliteration heuristic."""

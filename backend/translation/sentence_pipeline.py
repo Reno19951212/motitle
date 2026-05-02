@@ -184,6 +184,47 @@ def _extend_lock_with_translit_runs(text: str, locked: List[bool],
     return out
 
 
+def _extend_lock_with_dot_heuristic(text: str, locked: List[bool]) -> List[bool]:
+    """V_R11 Bug #4: lock CJK chars flanking middle-dot `·` regardless of glossary
+    or translit-set membership. Catches OOV foreign-name compounds (馬斯坦託諾,
+    阿森西奧, etc.) that aren't in glossary AND have chars not in translit set.
+
+    For each `·` at position i: walk left up to 5 CJK chars, lock interior
+    (positions 2..i+1); walk right up to 5 CJK chars, lock interior
+    (positions i+2..end_of_run). Edges (start of run, end of run) remain
+    breakable so adjacent words/phrases can still split.
+    """
+    n = len(text)
+    if n == 0:
+        return locked
+    out = list(locked)
+    for i, ch in enumerate(text):
+        if ch != _NAME_MIDDLE_DOT:
+            continue
+        # Walk left through CJK chars (up to 5)
+        j = i - 1
+        steps = 0
+        while j >= 0 and steps < 5 and '一' <= text[j] <= '鿿':
+            j -= 1
+            steps += 1
+        left_start = j + 1  # first CJK char of left run
+        # Lock interior of left run (positions left_start+1 .. i)
+        for p in range(left_start + 1, i + 1):
+            if 0 < p <= n:
+                out[p] = True
+        # Walk right through CJK chars (up to 5)
+        k = i + 1
+        steps = 0
+        while k < n and steps < 5 and '一' <= text[k] <= '鿿':
+            k += 1
+            steps += 1
+        # Lock interior of right run (positions i+2 .. k)
+        for p in range(i + 2, k + 1):
+            if 0 < p <= n:
+                out[p] = True
+    return out
+
+
 def _extract_zh_terms(glossary: Optional[List[dict]]) -> List[str]:
     """Pull ZH terms from a glossary entry list. Skips empty / 1-char terms."""
     if not glossary:
@@ -228,7 +269,10 @@ def _find_unlocked_anywhere(locked: List[bool], char_offset: int,
     Forward: walk [min_pos, max_pos] until non-locked spot. If found, return.
     Backward fallback: walk [min_pos-1, char_offset+soft_min_chars] until non-
     locked. Prevents ultra-tiny orphan segments.
-    Last resort: return original min_pos (caller will accept the locked split).
+
+    V_R11 Bug #3 fix: when entire search range is locked, returns -1 sentinel
+    (instead of returning a locked min_pos which silently bypasses lock).
+    Caller must handle -1 by allocating the full locked run to one side.
     """
     n = len(locked)
     p = min_pos
@@ -240,7 +284,7 @@ def _find_unlocked_anywhere(locked: List[bool], char_offset: int,
     for q in range(min_pos - 1, floor - 1, -1):
         if 0 < q < n and not locked[q]:
             return q
-    return min_pos
+    return -1  # SENTINEL: range fully locked — caller allocates locked run intact
 
 
 def _build_locked_mask(text: str,
@@ -298,6 +342,9 @@ def _build_locked_mask(text: str,
         locked = _extend_lock_with_translit_runs(text, locked)
     if glossary_zh_terms:
         locked = _extend_lock_with_glossary(text, locked, glossary_zh_terms)
+    # V_R11 Bug #4: dot-flanked CJK heuristic — locks any CJK run abutting `·`
+    # without requiring the run to be in glossary or translit-set
+    locked = _extend_lock_with_dot_heuristic(text, locked)
     return locked
 
 
@@ -411,8 +458,16 @@ def redistribute_to_segments(
         total_zh_chars = len(zh_text)
         total_en_words = sum(merged["seg_word_counts"].values())
 
-        if total_en_words == 0 or total_zh_chars == 0:
+        if total_zh_chars == 0:
             for sid in merged["seg_indices"]:
+                seg_parts[sid].append("")
+            continue
+        if total_en_words == 0:
+            # V_R11 Bug M3: total_en_words==0 means EN segs are all empty (rare,
+            # e.g. silence segments). Don't drop ZH — allocate to FIRST seg so
+            # data is preserved (downstream can flag for review).
+            seg_parts[merged["seg_indices"][0]].append(zh_text)
+            for sid in merged["seg_indices"][1:]:
                 seg_parts[sid].append("")
             continue
 
@@ -450,14 +505,26 @@ def redistribute_to_segments(
                 if max_break_pos > char_offset:
                     target_end = min(target_end, max_break_pos)
 
-                # V_R10: lock-aware min_pos advancement (bug fix). When the
-                # forward-only floor (char_offset+1) lands on a locked
-                # position (inside name/number/glossary term), advance to the
-                # next non-locked spot instead of clamping back onto it.
+                # V_R10: lock-aware min_pos advancement.
+                # V_R11 Bug #3: handle -1 sentinel (range fully locked) by
+                # allocating the entire locked run to current seg. Caller
+                # walks past the locked run rather than splitting inside it.
                 raw_min = char_offset + 1
-                min_pos = _find_unlocked_anywhere(
+                min_pos_candidate = _find_unlocked_anywhere(
                     locked, char_offset, raw_min, max(max_break_pos, raw_min)
                 )
+                if min_pos_candidate == -1:
+                    # Entire range [raw_min, max_break_pos] is locked.
+                    # Allocate locked run to current seg by walking past it.
+                    p = raw_min
+                    while p <= total_zh_chars and p < len(locked) and locked[p]:
+                        p += 1
+                    break_at = max(char_offset + 1, min(p, total_zh_chars))
+                    allocated = zh_text[char_offset:break_at]
+                    char_offset = break_at
+                    seg_parts[sid].append(allocated)
+                    continue
+                min_pos = min_pos_candidate
 
                 break_at = _find_break_point(
                     zh_text, target_end,
@@ -470,10 +537,18 @@ def redistribute_to_segments(
                 # V_R10: if the clamp landed on a locked position, find a nearby
                 # non-locked alternative rather than splitting inside a name.
                 if break_at < len(locked) and locked[break_at]:
-                    break_at = _find_unlocked_anywhere(
+                    alt = _find_unlocked_anywhere(
                         locked, char_offset, break_at,
                         max(max_break_pos, break_at)
                     )
+                    if alt == -1:
+                        # Walk past the locked run forward
+                        p = break_at
+                        while p <= total_zh_chars and p < len(locked) and locked[p]:
+                            p += 1
+                        break_at = p
+                    else:
+                        break_at = alt
                 break_at = max(char_offset + 1, min(break_at, total_zh_chars))
                 allocated = zh_text[char_offset:break_at]
                 char_offset = break_at
@@ -500,9 +575,14 @@ def _orphan_merge(segments: List[TranslatedSegment],
                   min_chars: int) -> List[TranslatedSegment]:
     """Merge < min_chars ZH fragments forward into next segment.
 
-    Preserves segment count (donor becomes empty time slot). Sentence-end
-    fragments ("好。") are kept standalone — only orphans without `.!?。！？`
-    terminator are merged.
+    Preserves segment count + ORIGINAL TIMING (donor becomes empty time slot,
+    recipient keeps its own start/end). Chained-orphan timing corruption fix
+    (V_R11 Bug #2): previously, recipient.start was shifted to donor.start —
+    in a 3+ orphan chain this produced overlapping cues. Now timing is left
+    alone; only zh_text moves.
+
+    Sentence-end fragments ("好。") are kept standalone — only orphans without
+    `.!?。！？` terminator are merged.
     """
     if not segments:
         return segments
@@ -516,11 +596,11 @@ def _orphan_merge(segments: List[TranslatedSegment],
             continue
         if i + 1 < n:
             out[i + 1]["zh_text"] = z + (out[i + 1]["zh_text"] or "")
-            out[i + 1]["start"] = out[i]["start"]
+            # NOTE: start/end of both segs UNCHANGED — preserves cue timing
             out[i]["zh_text"] = ""
         elif i > 0:
             out[i - 1]["zh_text"] = (out[i - 1]["zh_text"] or "") + z
-            out[i - 1]["end"] = out[i]["end"]
+            # NOTE: start/end of both segs UNCHANGED
             out[i]["zh_text"] = ""
     return [TranslatedSegment(**s) for s in out]
 
