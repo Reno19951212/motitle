@@ -445,6 +445,166 @@ class OllamaTranslationEngine(TranslationEngine):
                     results[idx] = m.group(2).strip()
         return results
 
+    def _brevity_translate_pass(
+        self,
+        segments: List[dict],
+        glossary: Optional[List[dict]] = None,
+        temperature: float = 0.1,
+        batch_size: int = BATCH_SIZE,
+        progress_callback=None,
+    ) -> List[TranslatedSegment]:
+        """Translate using SYSTEM_PROMPT_BREVITY_TC (≤14 char target).
+
+        Mirrors translate() orchestration but with the brevity prompt and a
+        simpler 1-to-1 numbered-line parser. Used by sentence_pipeline as the
+        K2 (brevity_translate) ensemble candidate. No retry loop and no
+        post-processor — caller is expected to pair this with K4 brevity
+        rewrite for must-keep validation.
+        """
+        if not segments:
+            return []
+
+        glossary = glossary or []
+        relevant = self._filter_glossary_for_batch(glossary, segments)
+        system_prompt = SYSTEM_PROMPT_BREVITY_TC
+        if relevant:
+            terms = "\n".join(
+                f'- {entry["en"]} → {entry["zh"]}'
+                for entry in relevant
+                if entry.get("en") and entry.get("zh")
+            )
+            if terms:
+                system_prompt = (
+                    f"{system_prompt}\n\n"
+                    f"【指定譯名表】（必須採用以下譯名）:\n{terms}"
+                )
+
+        out: List[TranslatedSegment] = []
+        total = len(segments)
+        for i in range(0, total, batch_size):
+            batch = segments[i : i + batch_size]
+            user_message = "\n".join(
+                f"{j + 1}. {seg.get('text', '')}" for j, seg in enumerate(batch)
+            )
+            response = self._call_ollama(system_prompt, user_message, temperature)
+            parsed = self._parse_numbered_lines(response, len(batch))
+            for seg, zh in zip(batch, parsed):
+                out.append(
+                    TranslatedSegment(
+                        start=seg["start"],
+                        end=seg["end"],
+                        en_text=seg.get("text", ""),
+                        zh_text=zh,
+                    )
+                )
+            if progress_callback is not None:
+                try:
+                    progress_callback(min(i + batch_size, total), total)
+                except Exception:
+                    pass
+        return out
+
+    def _brevity_rewrite_pass(
+        self,
+        translations: List[dict],
+        must_keep_per_seg: List[List[str]],
+        cap: int = 14,
+        temperature: float = 0.1,
+    ) -> List[dict]:
+        """Per-segment rewrite to compress ZH > cap chars while preserving
+        must-keep entities verbatim.
+
+        For each translation whose zh_text exceeds ``cap`` chars, sends a
+        rewrite prompt to the LLM with the explicit must-keep list. If the
+        rewrite drops any must-keep entity (or returns empty / >32 chars),
+        falls back to the original zh_text. Segments at or below the cap
+        are returned unchanged without any LLM call.
+
+        Args:
+            translations: list of dicts with at least ``zh_text`` (and
+                typically ``start``/``end``/``en_text``).
+            must_keep_per_seg: parallel list of must-keep ZH variants per
+                segment index. Empty inner list → no entity constraint.
+            cap: target soft cap (default 14, CityU broadcast standard).
+            temperature: LLM sampling temperature.
+
+        Returns:
+            New list (immutable: never mutates input dicts) with rewritten
+            zh_text where applicable, original elsewhere.
+        """
+        out: List[dict] = []
+        for t, must_keep in zip(translations, must_keep_per_seg):
+            zh = (t.get("zh_text") or "").strip()
+            if len(zh) <= cap:
+                out.append(t)
+                continue
+
+            must_keep = list(must_keep or [])
+            if must_keep:
+                keep_str = "、".join(must_keep)
+                prompt = (
+                    f"任務：濃縮以下中文字幕至 ≤{cap} 字。\n\n"
+                    f"【絕對規則】\n"
+                    f"必須保留以下實體（一字不漏，不可截斷不可改寫）：{keep_str}\n"
+                    f"可刪減語助詞、副詞、形容詞，但保留主謂結構\n"
+                    f"如為保實體無法達 {cap} 字，可超過至 16 字（Netflix 上限）\n\n"
+                    f"中文初譯：{zh}\n\n"
+                    f"只輸出濃縮後的中文字幕，不加解釋。"
+                )
+            else:
+                prompt = (
+                    f"請將以下中文字幕濃縮至 {cap} 字以內：\n"
+                    f"{zh}\n"
+                    f"只輸出濃縮後的中文字幕，不加解釋。"
+                )
+
+            try:
+                response = self._call_ollama("", prompt, temperature)
+            except Exception:
+                out.append(t)
+                continue
+
+            new_zh = (response or "").strip().strip("「」\"' \n\t")
+
+            # Validate: non-empty, ≤32 chars (Netflix hard cap), all
+            # must-keep entities preserved verbatim.
+            if not new_zh or len(new_zh) > 32:
+                out.append(t)
+                continue
+            if any(entity not in new_zh for entity in must_keep):
+                out.append(t)
+                continue
+
+            # Immutable: build new dict, never mutate t
+            out.append({**t, "zh_text": new_zh})
+
+        return out
+
+    @staticmethod
+    def _parse_numbered_lines(response: str, expected_count: int) -> List[str]:
+        """Extract numbered translation lines into a positional list.
+
+        Accepts ``1. xxx`` / ``2) yyy`` / ``3、zzz`` patterns. Pads with
+        empty strings if fewer numbered lines were returned, truncates to
+        expected_count. Falls back to plain-line positional alignment when
+        no numbered lines are detected (mirrors _parse_response behaviour).
+        """
+        text = (response or "").strip()
+        lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
+        numbered: List[tuple] = []
+        for ln in lines:
+            m = re.match(r"^(\d+)[.\)、]\s*(.+)$", ln)
+            if m:
+                numbered.append((int(m.group(1)), m.group(2).strip()))
+        if numbered:
+            numbered.sort(key=lambda x: x[0])
+            results = [t for _, t in numbered]
+        else:
+            results = lines
+        while len(results) < expected_count:
+            results.append("")
+        return results[:expected_count]
+
     def _translate_batch(
         self,
         segments: List[dict],
