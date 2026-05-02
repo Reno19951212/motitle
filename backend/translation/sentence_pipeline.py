@@ -4,9 +4,10 @@ Merges ASR sentence fragments into complete sentences before translation,
 then redistributes Chinese text back to original segment timestamps.
 """
 import pysbd
+from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Dict, List, Optional, TypedDict
 
-from . import TranslatedSegment, TranslationEngine
+from . import TranslatedSegment, TranslationEngine, create_translation_engine
 from .post_processor import validate_batch
 
 
@@ -695,3 +696,115 @@ def translate_with_sentences(
         results[idx] = {**results[idx], "flags": existing_flags}
 
     return results
+
+
+def translate_with_a3_ensemble(
+    segments: List[dict],
+    glossary: Optional[List[dict]] = None,
+    profile_config: Optional[dict] = None,
+    progress_callback: Optional[Callable[[int, int], None]] = None,
+) -> List[TranslatedSegment]:
+    """A3 ensemble orchestration — parallel L1 (K0) + L2 (K2), then L3 (K4).
+
+    When ``profile_config["a3_ensemble"]`` is False / missing, falls back to a
+    single-pass K0 baseline (current production behaviour, fully backward-
+    compatible — no `source` field added).
+
+    When enabled:
+      1. Run K0 (engine.translate baseline) and K2 (_brevity_translate_pass)
+         in parallel via ThreadPoolExecutor (max_workers=2).
+      2. Build per-segment must-keep lists from K2 zh_text using the runtime
+         entity index (glossary-extended). Any known entity present in K2's
+         output is locked as must-keep for the rewrite pass.
+      3. Run K4 = engine._brevity_rewrite_pass(K2 output, must_keep_per_seg)
+         sequentially after K2 completes.
+      4. Apply A3 ensemble selector (a3_ensemble.apply_a3_ensemble) to merge
+         K0/K2/K4 → winner per segment with CPS gate + entity recall scoring.
+
+    profile_config: dict with at least {engine}; optional {a3_ensemble: bool,
+    batch_size, temperature, style}. Used to instantiate the translation
+    engine via the standard factory.
+
+    Returns list of TranslatedSegment with ``source`` field (k0/k2/k4/
+    k4_unrescuable) when A3 ensemble is active.
+    """
+    profile_config = profile_config or {}
+    glossary = glossary or []
+
+    # Lazy imports for ensemble-only deps to avoid loading them when disabled.
+    from .entity_recall import build_runtime_index
+    from .a3_ensemble import apply_a3_ensemble
+
+    style = profile_config.get("style", "formal")
+    batch_size = profile_config.get("batch_size", 10)
+    temperature = profile_config.get("temperature", 0.1)
+
+    engine = create_translation_engine(profile_config)
+
+    # Backward-compat path: A3 disabled → K0 only, no source field added.
+    if not profile_config.get("a3_ensemble"):
+        return engine.translate(
+            segments,
+            glossary=glossary,
+            style=style,
+            batch_size=batch_size,
+            temperature=temperature,
+            progress_callback=progress_callback,
+        )
+
+    if not segments:
+        return []
+
+    # Parallel K0 (full baseline pipeline) + K2 (brevity translate)
+    def run_k0():
+        return engine.translate(
+            segments,
+            glossary=glossary,
+            style=style,
+            batch_size=batch_size,
+            temperature=temperature,
+            progress_callback=None,
+        )
+
+    def run_k2():
+        return engine._brevity_translate_pass(
+            segments, glossary, temperature, batch_size, None
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        f_k0 = ex.submit(run_k0)
+        f_k2 = ex.submit(run_k2)
+        k0_segs = f_k0.result()
+        k2_segs = f_k2.result()
+
+    if progress_callback is not None:
+        try:
+            progress_callback(int(len(segments) * 0.66), len(segments))
+        except Exception:
+            pass
+
+    # Build must-keep entity lists from K2 ZH for K4 rewrite
+    name_index = build_runtime_index(glossary)
+    must_keep_per_seg: List[List[str]] = []
+    for k2_seg in k2_segs:
+        zh = k2_seg.get("zh_text", "") or ""
+        keep: List[str] = []
+        for key in name_index:
+            for v in name_index[key]:
+                if v and v in zh and v not in keep:
+                    keep.append(v)
+        must_keep_per_seg.append(keep)
+
+    k4_segs = engine._brevity_rewrite_pass(
+        k2_segs, must_keep_per_seg, cap=14, temperature=temperature
+    )
+
+    merged = apply_a3_ensemble(k0_segs, k2_segs, k4_segs, name_index, cps_limit=9.0)
+
+    if progress_callback is not None:
+        try:
+            progress_callback(len(segments), len(segments))
+        except Exception:
+            pass
+
+    return merged
