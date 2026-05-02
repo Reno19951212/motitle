@@ -2437,7 +2437,19 @@ def _auto_translate(fid: str, segments: list, session_id) -> None:
         parallel_batches = int(translation_config.get("parallel_batches") or 1)
         alignment_mode = str(translation_config.get("alignment_mode", "")).lower()
         use_sentence_pipeline = bool(translation_config.get("use_sentence_pipeline", False))
-        if alignment_mode == "llm-markers":
+        a3_ensemble = bool(translation_config.get("a3_ensemble", False))
+        # v3.9 (C1 fix): a3_ensemble takes precedence over alignment_mode/sentence_pipeline
+        if a3_ensemble:
+            from translation.sentence_pipeline import translate_with_a3_ensemble
+            translated = translate_with_a3_ensemble(
+                asr_segments, glossary=glossary_entries,
+                profile_config={**translation_config, "a3_ensemble": True,
+                                "batch_size": trans_params["batch_size"],
+                                "temperature": trans_params["temperature"],
+                                "style": style},
+                progress_callback=_emit_auto_progress,
+            )
+        elif alignment_mode == "llm-markers":
             from translation.alignment_pipeline import translate_with_alignment
             translated = translate_with_alignment(
                 engine, asr_segments, glossary=glossary_entries, style=style,

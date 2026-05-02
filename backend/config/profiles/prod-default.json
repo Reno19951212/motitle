@@ -19,7 +19,7 @@
     "openrouter_reasoning": false,
     "alignment_mode": "sentence",
     "a3_ensemble": true,
-    "api_key": "REDACTED-ROTATED"
+    "api_key": ""
   },
   "font": {
     "family": "Noto Sans TC",

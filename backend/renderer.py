@@ -191,9 +191,13 @@ class SubtitleRenderer:
                         locked=locked,
                     )
                     if hyb.lock_violated:
-                        # Mod 3: surface lock-violated to proofread UI so the
-                        # editor can flag manual review on the offending seg.
-                        seg.setdefault("flags", []).append("lock-violated")
+                        # Mod 3 (C3 fix): emit dedup'd lock-violated flag without
+                        # mutating caller's seg dict in-place. Build new flags list
+                        # rather than appending, and dedup since multiple ZH lines
+                        # in same seg may each fire Pass 4.
+                        existing_flags = list(seg.get("flags") or [])
+                        if "lock-violated" not in existing_flags:
+                            seg["flags"] = existing_flags + ["lock-violated"]
                     wrapped_lines.extend(hyb.lines)
                 else:
                     wrap_result = wrap_with_config(raw_line, font_config)
