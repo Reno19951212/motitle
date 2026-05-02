@@ -268,5 +268,176 @@
     });
   }
 
-  window.SubtitleWrap = { wrapZh, wrapEn, wrapWithConfig, resolveWrapConfig, isZhText, PRESETS };
+  // === v3.9 wrap_hybrid: soft target + hard cap + bottom-heavy + lock-aware ===
+  // Mirror of backend/subtitle_wrap.py wrap_hybrid (Mod 5: F/B parity)
+
+  function _scoreBreak(text, i) {
+    // Score a break position. i is the line1 length (split between text[i-1] and text[i]).
+    if (i < 1 || i > text.length) return 0;
+    const ch = text[i - 1];
+    if (HARD_BREAKS.includes(ch)) return 100;
+    if (SOFT_BREAKS.includes(ch)) return 50;
+    if (PAREN_CLOSE.includes(ch)) return 30;
+    if (i < text.length && PAREN_OPEN.includes(text[i])) return 25;
+    return 0;
+  }
+
+  function _findBestBreakInRange(text, lo, hi, locked) {
+    // Return best break position in [lo, hi]. -1 if no scoring break found.
+    let best = -1;
+    let bestScore = -1;
+    const n = text.length;
+    hi = Math.min(hi, n);
+    const start = Math.max(1, lo);
+    for (let i = start; i <= hi; i++) {
+      if (locked && i < locked.length && locked[i]) continue;
+      let s = _scoreBreak(text, i);
+      if (s > 0) {
+        s += i; // tiebreaker: prefer later position
+        if (s > bestScore) {
+          bestScore = s;
+          best = i;
+        }
+      }
+    }
+    return best;
+  }
+
+  // Python-compatible truthiness for `locked`:
+  //   Python: bool([])=False, bool([False, False])=True, bool(None)=False
+  //   JS equivalent: locked is non-null AND (if array, length > 0)
+  function _lockedTruthy(locked) {
+    if (locked == null) return false;
+    if (Array.isArray(locked)) return locked.length > 0;
+    return !!locked;
+  }
+
+  function wrapHybrid(text, opts) {
+    opts = opts || {};
+    let softCap = opts.soft_cap != null ? opts.soft_cap : 14;
+    let hardCap = opts.hard_cap != null ? opts.hard_cap : 16;
+    let maxLines = opts.max_lines != null ? opts.max_lines : 2;
+    let tailTolerance = opts.tail_tolerance != null ? opts.tail_tolerance : 2;
+    const locked = opts.locked || null;
+
+    softCap = Math.max(1, softCap || 1);
+    hardCap = Math.max(softCap, hardCap || softCap);
+    maxLines = Math.max(1, maxLines || 1);
+    tailTolerance = Math.max(0, tailTolerance || 0);
+
+    const txt = (text || "").trim();
+    if (!txt) {
+      return {
+        lines: [],
+        hard_cut: false,
+        soft_overflow: false,
+        bottom_heavy_violation: false,
+        lock_violated: false,
+      };
+    }
+
+    const n = txt.length;
+
+    // Single-line case 1: fits soft target
+    if (n <= softCap + tailTolerance) {
+      return {
+        lines: [txt],
+        hard_cut: false,
+        soft_overflow: false,
+        bottom_heavy_violation: false,
+        lock_violated: false,
+      };
+    }
+
+    // Single-line case 2: fits hard cap (band 2 — Netflix-compliant 1-line)
+    if (n <= hardCap + tailTolerance) {
+      return {
+        lines: [txt],
+        hard_cut: false,
+        soft_overflow: true,
+        bottom_heavy_violation: false,
+        lock_violated: false,
+      };
+    }
+
+    // Two-line wrap
+    const lower = Math.max(1, n - hardCap);
+    const upper = Math.min(hardCap, n - 1);
+
+    if (lower > upper) {
+      // Cannot fit in 2 lines without truncation (n > 2*hard_cap)
+      const line1 = txt.slice(0, hardCap);
+      const line2 = txt.slice(hardCap, hardCap * 2);
+      return {
+        lines: [line1, line2],
+        hard_cut: true,
+        soft_overflow: true,
+        bottom_heavy_violation: line1.length > line2.length,
+        lock_violated: false,
+      };
+    }
+
+    const bhUpper = Math.min(upper, Math.floor(n / 2) + tailTolerance);
+
+    // Pass 1: bottom-heavy
+    if (bhUpper >= lower) {
+      const best = _findBestBreakInRange(txt, lower, bhUpper, locked);
+      if (best > 0) {
+        const line1 = txt.slice(0, best).replace(/\s+$/, "");
+        const line2 = txt.slice(best).replace(/^\s+/, "");
+        return {
+          lines: [line1, line2],
+          hard_cut: false,
+          soft_overflow: line1.length > softCap || line2.length > softCap,
+          bottom_heavy_violation: line1.length > line2.length,
+          lock_violated: false,
+        };
+      }
+    }
+
+    // Pass 2: full hard-cap range
+    const best2 = _findBestBreakInRange(txt, lower, upper, locked);
+    if (best2 > 0) {
+      const line1 = txt.slice(0, best2).replace(/\s+$/, "");
+      const line2 = txt.slice(best2).replace(/^\s+/, "");
+      return {
+        lines: [line1, line2],
+        hard_cut: false,
+        soft_overflow: line1.length > softCap || line2.length > softCap,
+        bottom_heavy_violation: line1.length > line2.length,
+        lock_violated: false,
+      };
+    }
+
+    // Pass 3: any unlocked scoring break in [1, n-1] — only fires when locked truthy
+    if (_lockedTruthy(locked)) {
+      const anyUnlocked = _findBestBreakInRange(txt, 1, n - 1, locked);
+      if (anyUnlocked > 0) {
+        const line1 = txt.slice(0, anyUnlocked).replace(/\s+$/, "");
+        const line2 = txt.slice(anyUnlocked).replace(/^\s+/, "");
+        return {
+          lines: [line1, line2],
+          hard_cut: false,
+          soft_overflow: true,
+          bottom_heavy_violation: line1.length > line2.length,
+          lock_violated: false,
+        };
+      }
+    }
+
+    // Pass 4: forced hard-cut
+    const cut = Math.min(hardCap, Math.floor(n / 2));
+    const line1 = txt.slice(0, cut);
+    let line2 = txt.slice(cut);
+    if (line2.length > hardCap) line2 = line2.slice(0, hardCap);
+    return {
+      lines: [line1, line2],
+      hard_cut: true,
+      soft_overflow: line1.length > softCap || line2.length > softCap,
+      bottom_heavy_violation: line1.length > line2.length,
+      lock_violated: _lockedTruthy(locked),
+    };
+  }
+
+  window.SubtitleWrap = { wrapZh, wrapEn, wrapHybrid, wrapWithConfig, resolveWrapConfig, isZhText, PRESETS };
 })();
