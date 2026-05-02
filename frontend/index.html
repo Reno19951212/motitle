@@ -2262,20 +2262,24 @@
         document.getElementById('ppsBilingualOrderRow').style.display =
           (this.value === 'bilingual') ? 'flex' : 'none';
       };
+      // Load A3 ensemble flag (v3.9)
+      document.getElementById('ppsA3Ensemble').checked = !!(src.translation?.a3_ensemble);
       // Load line_wrap fields
       const fontSrc = src.font || {};
       document.getElementById('ppsSubtitleStandard').value = fontSrc.subtitle_standard || '';
       const lw = fontSrc.line_wrap || {};
       document.getElementById('ppsLineWrapEnabled').checked = lw.enabled !== false;
-      if (lw.line_cap != null) document.getElementById('ppsLineCap').value = lw.line_cap;
-      else document.getElementById('ppsLineCap').value = 23;
+      // v3.9: cityu_hybrid uses soft_cap (display as line_cap proxy); fallback to line_cap for legacy presets
+      const displayCap = lw.line_cap != null ? lw.line_cap : (lw.soft_cap != null ? lw.soft_cap : 23);
+      document.getElementById('ppsLineCap').value = displayCap;
       if (lw.max_lines != null) document.getElementById('ppsMaxLines').value = lw.max_lines;
       else document.getElementById('ppsMaxLines').value = 2;
       if (lw.tail_tolerance != null) document.getElementById('ppsTailTol').value = lw.tail_tolerance;
       else document.getElementById('ppsTailTol').value = 3;
-      // v3.8 — preset onchange auto-populates the 3 numeric inputs (ZH side)
+      // v3.8/3.9 — preset onchange auto-populates the 3 numeric inputs
       document.getElementById('ppsSubtitleStandard').onchange = function() {
         const presets = {
+          cityu_hybrid:      { line_cap: 14, max_lines: 2, tail_tolerance: 2 },
           netflix_originals: { line_cap: 16, max_lines: 2, tail_tolerance: 2 },
           netflix_general:   { line_cap: 23, max_lines: 2, tail_tolerance: 3 },
           broadcast:         { line_cap: 28, max_lines: 3, tail_tolerance: 3 },
@@ -2303,6 +2307,7 @@
       const subSrc = document.getElementById('ppsSubtitleSource').value;
       const subOrder = document.getElementById('ppsBilingualOrder').value;
       const subStandardRaw = document.getElementById('ppsSubtitleStandard').value;
+      const a3Enabled = document.getElementById('ppsA3Ensemble').checked;
       const lineWrapBlock = {
         enabled: document.getElementById('ppsLineWrapEnabled').checked,
         line_cap: parseInt(document.getElementById('ppsLineCap').value, 10),
@@ -2311,15 +2316,20 @@
       };
       try {
         if (_ppsEditingId) {
-          // Edit mode: PATCH name, description, and subtitle source fields
+          // Edit mode: PATCH name, description, translation flags, and subtitle source fields
           const editingProf = availableProfiles.find(p => p.id === _ppsEditingId);
           const existingFont = editingProf?.font || activeProfile?.font || {};
+          const existingTr = editingProf?.translation || activeProfile?.translation || {};
           const r = await fetch(`${API_BASE}/api/profiles/${_ppsEditingId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               name,
               description,
+              translation: {
+                ...existingTr,
+                a3_ensemble: a3Enabled,
+              },
               font: {
                 ...existingFont,
                 subtitle_source: subSrc,
@@ -2349,7 +2359,11 @@
             ...(subStandardRaw ? { subtitle_standard: subStandardRaw } : {}),
             line_wrap: lineWrapBlock,
           };
-          const body = { ...rest, name, description, font: clonedFont };
+          const clonedTr = {
+            ...(rest.translation || {}),
+            a3_ensemble: a3Enabled,
+          };
+          const body = { ...rest, name, description, translation: clonedTr, font: clonedFont };
           const r = await fetch(`${API_BASE}/api/profiles`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -4381,10 +4395,21 @@
             </label>
           </fieldset>
           <fieldset style="border:1px solid var(--border);border-radius:6px;padding:10px 14px;">
+            <legend style="font-size:11px;color:var(--text-dim);padding:0 6px;">翻譯品質（v3.9）</legend>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;margin:6px 0;">
+              <input type="checkbox" id="ppsA3Ensemble">
+              A3 Ensemble (3-way translation + entity preservation)
+            </label>
+            <small style="display:block;color:var(--text-dim);font-size:11px;line-height:1.5;margin-top:4px;">
+              啟用後翻譯時間 +40s，cost +$0.025/file，但 entity recall 提升約 4-5pp。
+            </small>
+          </fieldset>
+          <fieldset style="border:1px solid var(--border);border-radius:6px;padding:10px 14px;">
             <legend style="font-size:11px;color:var(--text-dim);padding:0 6px;">字幕分行（v3.8）</legend>
             <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;margin:6px 0;">
               標準預設
               <select id="ppsSubtitleStandard" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface-2);color:var(--text);">
+                <option value="cityu_hybrid">CityU + Netflix Hybrid (推薦)</option>
                 <option value="">— 自訂 —</option>
                 <option value="netflix_originals">Netflix Originals (16字 ×2)</option>
                 <option value="netflix_general">Netflix general (23字 ×2)</option>
