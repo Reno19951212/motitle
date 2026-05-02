@@ -123,9 +123,73 @@ def merge_to_sentences(
 # at sentence end where splitting is useless.
 _ZH_SOFT = set("，、；：")
 _ZH_PAREN_CLOSE = set("）」』】")
+_ZH_PAREN_OPEN = set("（「『【")
 _ZH_HARD = set("。！？")
 # Backward-compat: union of all (kept for any external callers).
 _ZH_PUNCTUATION = _ZH_SOFT | _ZH_PAREN_CLOSE | _ZH_HARD
+
+# V_R9 (MT-α) — ZH-aware locked positions + conjunction bonus
+_NAME_MIDDLE_DOT = "·"
+_NUMBER_CHARS = set("一二三四五六七八九十百千萬億零兩〇0123456789")
+_MEASURE_WORDS = set("個位件條人項年月日時分秒次回十百千萬億歲名場屆組張頁")
+_CONJUNCTIONS_2 = {"所以", "因為", "雖然", "即使", "如果", "儘管",
+                    "由於", "可是", "不過", "然而"}
+_CONJUNCTIONS_1 = {"而", "和", "與", "及", "但", "或"}
+
+
+def _build_locked_mask(text: str) -> List[bool]:
+    """Return mask[p]=True means break BEFORE text[p] is forbidden.
+
+    Locked positions:
+      - Adjacent to middle-dot in foreign names (X·Y must stay together)
+      - Inside number+量詞 runs (e.g. "二零二六年", "三個", "150次")
+      - Right after open bracket / right before close bracket
+    """
+    n = len(text)
+    locked = [False] * (n + 1)
+
+    in_num_run = [False] * n
+    i = 0
+    while i < n:
+        if text[i] in _NUMBER_CHARS:
+            j = i
+            while j < n and text[j] in _NUMBER_CHARS:
+                j += 1
+            if j < n and text[j] in _MEASURE_WORDS:
+                j += 1
+            for k in range(i, j):
+                in_num_run[k] = True
+            i = j if j > i else i + 1
+        else:
+            i += 1
+
+    for p in range(1, n):
+        prev = text[p - 1]
+        cur = text[p]
+        if prev == _NAME_MIDDLE_DOT or cur == _NAME_MIDDLE_DOT:
+            locked[p] = True
+            continue
+        if in_num_run[p - 1] and in_num_run[p]:
+            locked[p] = True
+            continue
+        if prev in _ZH_PAREN_OPEN:
+            locked[p] = True
+            continue
+        if cur in _ZH_PAREN_CLOSE:
+            locked[p] = True
+            continue
+    return locked
+
+
+def _conjunction_bonus(text: str, p: int) -> int:
+    """If a conjunction starts at position p, return bonus score (encourage break)."""
+    if p >= len(text):
+        return 0
+    if p + 2 <= len(text) and text[p:p + 2] in _CONJUNCTIONS_2:
+        return 30
+    if text[p] in _CONJUNCTIONS_1:
+        return 20
+    return 0
 
 
 def _find_break_point(
@@ -133,6 +197,8 @@ def _find_break_point(
     target: int,
     search_range: int = 15,
     max_pos: int = None,
+    locked: List[bool] = None,
+    use_conjunction_bonus: bool = False,
 ) -> int:
     """Find a natural break point near `target`.
 
@@ -145,6 +211,14 @@ def _find_break_point(
     `max_pos` (optional) limits search ceiling to avoid leaving subsequent
     segment empty when sentence-final HARD punct sits beyond a min-remaining
     boundary.
+
+    `locked` (optional, V_R9 MT-α) — bool[p] True means BREAK BEFORE p is
+    forbidden (X·Y middle-dot, number+量詞, brackets). Disqualifies the
+    candidate.
+
+    `use_conjunction_bonus` (V_R9 MT-α) — when True, candidates immediately
+    followed by a coordinating conjunction (而/和/與/但/或/所以/因為/…) get
+    a +20/+30 score bonus (more natural clause break).
     """
     if target <= 0 or target >= len(text):
         return target
@@ -155,6 +229,8 @@ def _find_break_point(
     if max_pos is not None:
         hi = min(hi, max_pos)
     for candidate in range(lo, hi + 1):
+        if locked is not None and candidate < len(locked) and locked[candidate]:
+            continue
         ch = text[candidate - 1]
         score = 0
         if ch in _ZH_SOFT:
@@ -165,6 +241,8 @@ def _find_break_point(
             score = 50
         if score > 0:
             score -= abs(candidate - target) * 3
+            if use_conjunction_bonus:
+                score += _conjunction_bonus(text, candidate)
             if score > best_score:
                 best_score = score
                 best_pos = candidate
@@ -175,8 +253,26 @@ def redistribute_to_segments(
     merged_sentences: List[MergedSentence],
     zh_sentences: List[str],
     original_segments: List[dict],
+    *,
+    min_chars_per_segment: int = 4,
+    lopsided_threshold: float = 0.30,
+    use_conjunction_bonus: bool = True,
+    enable_orphan_merge: bool = False,
 ) -> List[TranslatedSegment]:
-    """Redistribute Chinese translations back to original segment timestamps."""
+    """Redistribute Chinese translations back to original segment timestamps.
+
+    V_R9 MT-α additions:
+      - `_build_locked_mask` per sentence: forbids splits inside X·Y names,
+        number+量詞 runs, and adjacent to brackets.
+      - Lopsided rebalance: enforces `min_chars_per_segment` floor on the
+        current allocation AND on the remaining tail, so empty / 1-char
+        orphans don't appear.
+      - Conjunction bonus inside `_find_break_point`: rewards splits that
+        leave next clause starting with 而/和/與/但/或/所以/因為/...
+      - Orphan merge post-pass: any final segment with stripped ZH < min_chars
+        AND not ending in `.!?。！？` is forward-merged into next segment
+        (donor segment becomes empty time slot, count preserved).
+    """
     seg_parts: Dict[int, List[str]] = {}
     for seg_idx in range(len(original_segments)):
         seg_parts[seg_idx] = []
@@ -195,6 +291,8 @@ def redistribute_to_segments(
             seg_parts[merged["seg_indices"][0]].append(zh_text)
             continue
 
+        locked = _build_locked_mask(zh_text)
+
         char_offset = 0
         for i, sid in enumerate(merged["seg_indices"]):
             en_words = merged["seg_word_counts"].get(sid, 0)
@@ -203,19 +301,32 @@ def redistribute_to_segments(
             if i == len(merged["seg_indices"]) - 1:
                 allocated = zh_text[char_offset:]
             else:
-                # Reserve a minimum slice for remaining segments so a sentence-final
-                # HARD punct doesn't get picked, leaving the tail empty.
                 remaining_en = sum(
                     merged["seg_word_counts"].get(sj, 0)
                     for sj in merged["seg_indices"][i + 1:]
                 )
                 expected_remaining = total_zh_chars * (remaining_en / total_en_words)
-                min_remaining = max(3, int(expected_remaining * 0.3))
+                min_remaining = max(min_chars_per_segment,
+                                    int(expected_remaining * lopsided_threshold))
                 max_break_pos = total_zh_chars - min_remaining
 
                 target_end = char_offset + round(total_zh_chars * proportion)
                 target_end = min(target_end, total_zh_chars)
-                break_at = _find_break_point(zh_text, target_end, max_pos=max_break_pos)
+
+                # Floor for THIS segment's allocation (avoid lopsided shrink)
+                min_for_this = max(min_chars_per_segment,
+                                   int(total_zh_chars * proportion * lopsided_threshold))
+                lo_break = char_offset + min_for_this
+                target_end = max(target_end, lo_break)
+                if max_break_pos > char_offset:
+                    target_end = min(target_end, max_break_pos)
+
+                break_at = _find_break_point(
+                    zh_text, target_end,
+                    max_pos=max_break_pos,
+                    locked=locked,
+                    use_conjunction_bonus=use_conjunction_bonus,
+                )
                 break_at = max(char_offset + 1, min(break_at, total_zh_chars))
                 allocated = zh_text[char_offset:break_at]
                 char_offset = break_at
@@ -232,7 +343,39 @@ def redistribute_to_segments(
             zh_text=zh_combined,
         ))
 
+    if enable_orphan_merge:
+        results = _orphan_merge(results, min_chars=min_chars_per_segment)
+
     return results
+
+
+def _orphan_merge(segments: List[TranslatedSegment],
+                  min_chars: int) -> List[TranslatedSegment]:
+    """Merge < min_chars ZH fragments forward into next segment.
+
+    Preserves segment count (donor becomes empty time slot). Sentence-end
+    fragments ("好。") are kept standalone — only orphans without `.!?。！？`
+    terminator are merged.
+    """
+    if not segments:
+        return segments
+    out = [dict(s) for s in segments]
+    n = len(out)
+    for i in range(n):
+        z = (out[i]["zh_text"] or "").strip()
+        if not z or len(z) >= min_chars:
+            continue
+        if z[-1] in "。！？.!?":
+            continue
+        if i + 1 < n:
+            out[i + 1]["zh_text"] = z + (out[i + 1]["zh_text"] or "")
+            out[i + 1]["start"] = out[i]["start"]
+            out[i]["zh_text"] = ""
+        elif i > 0:
+            out[i - 1]["zh_text"] = (out[i - 1]["zh_text"] or "") + z
+            out[i - 1]["end"] = out[i]["end"]
+            out[i]["zh_text"] = ""
+    return [TranslatedSegment(**s) for s in out]
 
 
 def translate_with_sentences(

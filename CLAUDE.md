@@ -391,6 +391,16 @@ Whenever a new feature is completed or existing functionality is modified, you *
 - **Validation**（V0-V3 empirical）：基於 11 項 evidence-based testing（V1.1 char ratio 2.88, V1.2 sentence pipeline undo, V1.3 LLM follow-rate STRONG 83%, V1.5 ZH ASR config broken, V2.1 jieba 對繁體失敗, V_a 全 file 82-segs 跑出 hard-cut 2.4%）。Production stack: mlx-whisper medium + OpenRouter `qwen/Qwen3.5-35B-A3B`. Spec 文件: [docs/superpowers/specs/2026-04-30-line-wrap-design.md](docs/superpowers/specs/2026-04-30-line-wrap-design.md)
 - **Tests**: 18 個 backend pytest（subtitle_wrap algorithm + presets + resolver）+ 4 個 profile validation tests + 3 個 renderer integration tests + 2 個 API ?wrap= tests + 1 language config test + 5 個 Playwright E2E scenarios
 - **Real Madrid 全 82 seg**：56% 1-line / 43% 2-line / 1% 3-line / 0% overflow，hard-cut 2.4%。ZH ASR 警察學院 47 seg：100% 1-line（中文 Whisper raw segment 已夠短）
+- **MT-α redistribute upgrade (V_R9, 2026-05-02)**: `translation/sentence_pipeline.py` 加 ZH-aware defensive layers，解 user-reported MT 中切 + single-char orphan 問題。3-direction parallel validation (A/B/C × 5 rounds)，A 唯一 winner：
+  - **`_build_locked_mask(text)`**: 禁切位 list — middle-dot foreign name (X·Y), number+量詞 run (二零二六年/三個), bracket-adjacent (open 後/close 前)
+  - **`_conjunction_bonus(text, p)`**: 候選 break 後 1-2 字若為 `而/和/與/但/或/所以/因為/雖然/即使/如果/儘管/由於/可是/不過/然而` → +20/+30 score
+  - **`_find_break_point` 接受 `locked` + `use_conjunction_bonus` kwargs**：locked 位置 disqualified；conjunction bonus 鼓勵子句 break；punctuation 優先級保持 SOFT 100 > PAREN_CLOSE 70 > HARD 50（preserve existing tests）
+  - **`redistribute_to_segments` 加 lopsided rebalance**: `min_chars_per_segment=4` floor + `lopsided_threshold=0.30`（min for current seg + min reserved for tail）— 防止 empty seg 同 single-char orphan
+  - **`_orphan_merge(segments, min_chars)`**: opt-in safety net (default `enable_orphan_merge=False`) — 將 < min_chars 又無 sentence-end punct 嘅段 forward-merge 落鄰段；preserve segment count
+  - 實證 V_R9 (Real Madrid 82-seg corpus): empty 3 → **0**, single-char 2 → **0**, wrap-hc 3.7% → **2.4%**, 16 segs (19.5%) 改善
+  - 5-sample 4-way audit：A 修正 #26 empty「」→「在中場方面，」、#65-66「中尋/找。」→「離隊，/皇馬...尋找。」（合返「尋找」名詞 + 完整句子）；B (LLM markers) 17% fallback rate + wrap_hc 6.7%；C (per-seg translate) mid_cut +30pp regression（trailing 「……」+ hallucination on fragments）
+  - 5 個新 pytest（locked mask name+number, lopsided rebalance, orphan merge default OFF, conjunction bonus）；29/29 sentence_pipeline tests pass
+  - Validation evidence: docs/superpowers/specs/2026-04-30-validation-tracker.md V_R9 section
 - **α segmentation algorithm (V_R8, 2026-05-02)**：`split_segments` 加 sentence-first 路徑，由 `min_words_per_segment + sentence_lookahead_factor` opt-in 啟用：
   - 算法：逐字 walk → 優先 `.!?` 切位（lookahead `1.5×soft_max_words` 字數內）→ fallback `,;:` 子句切位 → 最後 hard char-cap
   - **`merge_orphans` post-pass**：< min_words 嘅段（除非以 `.!?` 結尾）會 forward-merge 落隔離段
