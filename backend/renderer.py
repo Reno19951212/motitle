@@ -15,7 +15,7 @@ from subtitle_text import (
     VALID_SUBTITLE_SOURCES,
     VALID_BILINGUAL_ORDERS,
 )
-from subtitle_wrap import wrap_with_config
+from subtitle_wrap import wrap_with_config, wrap_hybrid, _is_zh_text
 
 DEFAULT_FONT_CONFIG = {
     "family": "Noto Sans TC",
@@ -158,10 +158,46 @@ class SubtitleRenderer:
 
             # Apply line-wrap. Each pre-existing line (e.g. bilingual EN/ZH split)
             # wraps independently; results join with ASS line-break \N.
+            #
+            # v3.9 cityu_hybrid preset: route ZH lines through wrap_hybrid with
+            # the V_R11 lock chain (translit + glossary + dot heuristic). EN
+            # lines still use wrap_with_config (legacy _wrap_en path) since
+            # wrap_hybrid is ZH-tuned. Other presets (broadcast / netflix_*)
+            # keep the legacy wrap_with_config path unchanged for backward
+            # compat.
+            subtitle_std = (
+                font_config.get("subtitle_standard")
+                if isinstance(font_config, dict) else None
+            )
+            wrap_cfg = (
+                font_config.get("line_wrap", {})
+                if isinstance(font_config, dict) else {}
+            ) or {}
+            use_hybrid = (subtitle_std == "cityu_hybrid") and wrap_cfg.get("enabled", True)
+
             wrapped_lines: List[str] = []
             for raw_line in text.split("\n"):
-                wrap_result = wrap_with_config(raw_line, font_config)
-                wrapped_lines.extend(wrap_result.lines)
+                if use_hybrid and _is_zh_text(raw_line):
+                    # Lazy-import to avoid pulling translation deps at module
+                    # load (renderer is also used by SRT/VTT export paths).
+                    from translation.sentence_pipeline import _build_full_lock
+                    locked = _build_full_lock(raw_line)
+                    hyb = wrap_hybrid(
+                        raw_line,
+                        soft_cap=wrap_cfg.get("soft_cap", 14),
+                        hard_cap=wrap_cfg.get("hard_cap", 16),
+                        max_lines=wrap_cfg.get("max_lines", 2),
+                        tail_tolerance=wrap_cfg.get("tail_tolerance", 2),
+                        locked=locked,
+                    )
+                    if hyb.lock_violated:
+                        # Mod 3: surface lock-violated to proofread UI so the
+                        # editor can flag manual review on the offending seg.
+                        seg.setdefault("flags", []).append("lock-violated")
+                    wrapped_lines.extend(hyb.lines)
+                else:
+                    wrap_result = wrap_with_config(raw_line, font_config)
+                    wrapped_lines.extend(wrap_result.lines)
             joined = "\\N".join(wrapped_lines)
             if not joined:
                 continue

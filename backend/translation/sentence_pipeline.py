@@ -349,6 +349,22 @@ def _build_locked_mask(text: str,
     return locked
 
 
+def _build_full_lock(text: str,
+                     glossary_terms: Optional[List[str]] = None) -> List[bool]:
+    """Apply full V_R11 lock chain: base + translit + glossary + dot-heuristic.
+
+    Thin wrapper over `_build_locked_mask` with a renderer-friendly signature
+    (positional `glossary_terms` rather than the kwarg-only
+    `glossary_zh_terms` form). Always enables translit lock — the renderer
+    burn-in path needs every defensive lock the V_R11 chain provides.
+    """
+    return _build_locked_mask(
+        text,
+        glossary_zh_terms=glossary_terms,
+        enable_translit_lock=True,
+    )
+
+
 def _conjunction_bonus(text: str, p: int) -> int:
     """If a conjunction starts at position p, return bonus score (encourage break)."""
     if p >= len(text):
