@@ -14,6 +14,10 @@ MIN_MAX_DURATION = 1.0
 MAX_MAX_DURATION = 60.0
 MIN_MAX_CHARS = 20
 MAX_MAX_CHARS = 500
+MIN_MIN_WORDS = 1
+MAX_MIN_WORDS = 20
+MIN_LOOKAHEAD = 1.0
+MAX_LOOKAHEAD = 3.0
 MIN_BATCH_SIZE = 1
 MAX_BATCH_SIZE = 50
 MIN_TEMPERATURE = 0.0
@@ -155,6 +159,28 @@ class LanguageConfigManager:
                 f"asr.max_chars_per_segment must be an integer between "
                 f"{MIN_MAX_CHARS} and {MAX_MAX_CHARS}"
             )
+
+        mwords = asr.get("min_words_per_segment")
+        if mwords is not None and (
+            not isinstance(mwords, int) or mwords < MIN_MIN_WORDS or mwords > MAX_MIN_WORDS
+        ):
+            errors.append(
+                f"asr.min_words_per_segment must be an integer between "
+                f"{MIN_MIN_WORDS} and {MAX_MIN_WORDS}"
+            )
+
+        slf = asr.get("sentence_lookahead_factor")
+        if slf is not None and (
+            not isinstance(slf, (int, float)) or slf < MIN_LOOKAHEAD or slf > MAX_LOOKAHEAD
+        ):
+            errors.append(
+                f"asr.sentence_lookahead_factor must be a number between "
+                f"{MIN_LOOKAHEAD} and {MAX_LOOKAHEAD}"
+            )
+
+        mo = asr.get("merge_orphans")
+        if mo is not None and not isinstance(mo, bool):
+            errors.append("asr.merge_orphans must be a boolean")
 
         bs = trans.get("batch_size")
         if bs is not None and (
