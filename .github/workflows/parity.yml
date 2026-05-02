@@ -1,0 +1,90 @@
+name: F/B Parity + Regression
+
+on:
+  pull_request:
+    paths:
+      - 'backend/subtitle_wrap.py'
+      - 'frontend/js/subtitle-wrap.js'
+      - 'backend/translation/**'
+      - 'backend/tests/validation/**'
+      - 'backend/tests/test_subtitle_wrap_hybrid.py'
+      - 'backend/tests/test_a3_ensemble.py'
+      - 'backend/tests/test_entity_recall.py'
+      - 'backend/tests/test_proxy_entities.py'
+      - 'backend/tests/test_brevity_rewrite.py'
+      - 'backend/tests/test_brevity_prompt.py'
+      - 'backend/tests/test_translation_queue.py'
+      - 'backend/tests/test_sentence_pipeline_a3.py'
+      - 'backend/tests/test_renderer_wrap.py'
+      - 'backend/tests/test_lazy_migration.py'
+      - 'backend/tests/test_wrap_parity_playwright.py'
+      - 'backend/tests/test_profiles_a3.py'
+
+jobs:
+  unit:
+    name: G1 Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt pytest
+      - name: Run wrap_hybrid + A3 unit tests
+        run: |
+          cd backend
+          pytest tests/test_subtitle_wrap_hybrid.py \
+                 tests/test_entity_recall.py \
+                 tests/test_proxy_entities.py \
+                 tests/test_a3_ensemble.py \
+                 tests/test_brevity_prompt.py \
+                 tests/test_brevity_rewrite.py \
+                 tests/test_translation_queue.py \
+                 tests/test_sentence_pipeline_a3.py \
+                 tests/test_renderer_wrap.py \
+                 tests/test_lazy_migration.py \
+                 tests/test_profiles_a3.py \
+                 -v --tb=short
+
+  parity:
+    name: P3 + P5 Frontend-Backend Parity (Playwright)
+    runs-on: ubuntu-latest
+    needs: unit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install backend + Playwright
+        run: |
+          cd backend
+          pip install -r requirements.txt pytest pytest-playwright
+          playwright install chromium --with-deps
+      - name: Run Playwright parity test
+        run: |
+          cd backend
+          pytest tests/test_wrap_parity_playwright.py -v
+
+  regression:
+    name: G3 Regression (golden corpora, requires API key)
+    runs-on: ubuntu-latest
+    needs: unit
+    if: contains(github.event.pull_request.labels.*.name, 'validation:required')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+      - name: G3 regression on 4 golden corpora
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          cd backend
+          python3 -m tests.validation.run_regression

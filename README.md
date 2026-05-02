@@ -21,6 +21,7 @@
 | ⚡ **雙引擎支援** | 自動選用 faster-whisper（快 4–8 倍）或 openai-whisper |
 | 💾 **字幕導出** | 每個文件獨立提供 SRT、VTT、TXT 下載（可選 `?wrap=1` 自動分行） |
 | 🪧 **字幕自動分行（v3.8）** | 中文字幕過長時自動按廣播標準切到多行（每行 ≤23 字、最多 3 行）；保留完整翻譯內容、唔縮短意思；支援 Netflix Originals / Netflix general / Broadcast 三個預設 |
+| 🎯 **A3 智能字幕分句（v3.9）** | 同時兼顧 Netflix TC（≤16 字/行 × 2 行 bottom-heavy）+ CityU 香港業界標準（13–15 字單行優先）+ **人名/地名/術語永不切斷**。3-way 翻譯（K0 基準 + K2 簡潔 + K4 entity-aware 改寫）+ entity recall ensemble selector + lock-aware hybrid wrap。45-round 實證 F1=83.7%、M2=96.8%、L1=0。新預設 `cityu_hybrid` + `a3_ensemble` toggle。每個影片 +40 秒翻譯時間 + USD $0.025 OpenRouter 成本。|
 
 ---
 
