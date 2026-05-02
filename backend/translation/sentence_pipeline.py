@@ -197,6 +197,7 @@ def _find_break_point(
     target: int,
     search_range: int = 15,
     max_pos: int = None,
+    min_pos: int = None,
     locked: List[bool] = None,
     use_conjunction_bonus: bool = False,
 ) -> int:
@@ -228,6 +229,13 @@ def _find_break_point(
     hi = min(len(text), target + search_range)
     if max_pos is not None:
         hi = min(hi, max_pos)
+    if min_pos is not None:
+        lo = max(lo, min_pos)
+    if lo > hi:
+        # Search range collapsed (e.g. min_pos > max_pos). Fall back to clamped target.
+        if min_pos is not None and max_pos is not None:
+            return max(min_pos, min(target, max_pos))
+        return target
     for candidate in range(lo, hi + 1):
         if locked is not None and candidate < len(locked) and locked[candidate]:
             continue
@@ -324,6 +332,7 @@ def redistribute_to_segments(
                 break_at = _find_break_point(
                     zh_text, target_end,
                     max_pos=max_break_pos,
+                    min_pos=char_offset + 1,
                     locked=locked,
                     use_conjunction_bonus=use_conjunction_bonus,
                 )
