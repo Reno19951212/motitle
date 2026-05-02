@@ -18,6 +18,7 @@
     "openrouter_model": "qwen/Qwen3.5-35B-A3B",
     "openrouter_reasoning": false,
     "alignment_mode": "sentence",
+    "a3_ensemble": true,
     "api_key": "REDACTED-ROTATED"
   },
   "font": {
@@ -30,12 +31,14 @@
     "margin_bottom": 40,
     "subtitle_source": "auto",
     "bilingual_order": "en_top",
-    "subtitle_standard": "broadcast",
+    "subtitle_standard": "cityu_hybrid",
     "line_wrap": {
       "enabled": true,
-      "line_cap": 28,
+      "soft_cap": 14,
+      "hard_cap": 16,
       "max_lines": 2,
-      "tail_tolerance": 2
+      "tail_tolerance": 2,
+      "bottom_heavy": true
     }
   },
   "created_at": 1712534400,

@@ -10,6 +10,7 @@
     "temperature": 0.1
   },
   "subtitle": {
-    "line_cap": 23
+    "line_cap": 23,
+    "target_cps": 9.0
   }
 }

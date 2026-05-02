@@ -25,6 +25,12 @@ VALID_TRANSLATION_ENGINES = {
     "openrouter",
 }
 VALID_DEVICES = {"cpu", "cuda", "mps", "auto"}
+VALID_SUBTITLE_STANDARDS = {
+    "netflix_originals",
+    "netflix_general",
+    "broadcast",
+    "cityu_hybrid",
+}
 
 SETTINGS_FILENAME = "settings.json"
 PROFILES_DIRNAME = "profiles"
@@ -84,8 +90,10 @@ class ProfileManager:
         elif not isinstance(translation, dict):
             errors.append("translation must be an object")
         else:
-            translation_errors = _validate_translation(translation)
-            errors.extend(translation_errors)
+            try:
+                _validate_translation(translation)
+            except ValueError as exc:
+                errors.extend(str(exc).split("\n"))
 
         # font (optional — absent means "no change"; present must be a dict)
         font = data.get("font")
@@ -93,59 +101,10 @@ class ProfileManager:
             if not isinstance(font, dict):
                 errors.append("font must be a dict")
             else:
-                if "family" in font and not isinstance(font["family"], str):
-                    errors.append("font.family must be a string")
-                if "size" in font:
-                    if not isinstance(font["size"], int) or font["size"] < 12 or font["size"] > 120:
-                        errors.append("font.size must be an integer between 12 and 120")
-                if "outline_width" in font:
-                    if not isinstance(font["outline_width"], int) or font["outline_width"] < 0 or font["outline_width"] > 10:
-                        errors.append("font.outline_width must be an integer between 0 and 10")
-                if "margin_bottom" in font:
-                    if not isinstance(font["margin_bottom"], int) or font["margin_bottom"] < 0 or font["margin_bottom"] > 200:
-                        errors.append("font.margin_bottom must be an integer between 0 and 200")
-
-                # Optional subtitle source mode (added 2026-04-28)
-                src = font.get("subtitle_source")
-                if src is not None and src not in {"auto", "en", "zh", "bilingual"}:
-                    errors.append(
-                        f"font.subtitle_source must be one of auto/en/zh/bilingual; got {src!r}"
-                    )
-
-                order = font.get("bilingual_order")
-                if order is not None and order not in {"en_top", "zh_top"}:
-                    errors.append(
-                        f"font.bilingual_order must be 'en_top' or 'zh_top'; got {order!r}"
-                    )
-
-                # subtitle_standard preset (optional)
-                if "subtitle_standard" in font:
-                    std = font["subtitle_standard"]
-                    if std not in ("netflix_originals", "netflix_general", "broadcast"):
-                        errors.append(
-                            "font.subtitle_standard must be one of: netflix_originals, netflix_general, broadcast"
-                        )
-
-                # line_wrap explicit overrides (optional)
-                if "line_wrap" in font:
-                    lw = font["line_wrap"]
-                    if not isinstance(lw, dict):
-                        errors.append("font.line_wrap must be an object")
-                    else:
-                        if "enabled" in lw and not isinstance(lw["enabled"], bool):
-                            errors.append("font.line_wrap.enabled must be a boolean")
-                        if "line_cap" in lw:
-                            v = lw["line_cap"]
-                            if not isinstance(v, int) or isinstance(v, bool) or v < 10 or v > 50:
-                                errors.append("font.line_wrap.line_cap must be int 10-50")
-                        if "max_lines" in lw:
-                            v = lw["max_lines"]
-                            if not isinstance(v, int) or isinstance(v, bool) or v < 1 or v > 4:
-                                errors.append("font.line_wrap.max_lines must be int 1-4")
-                        if "tail_tolerance" in lw:
-                            v = lw["tail_tolerance"]
-                            if not isinstance(v, int) or isinstance(v, bool) or v < 0 or v > 10:
-                                errors.append("font.line_wrap.tail_tolerance must be int 0-10")
+                try:
+                    _validate_font(font)
+                except ValueError as exc:
+                    errors.extend(str(exc).split("\n"))
 
         return errors
 
@@ -339,7 +298,14 @@ def _validate_asr(asr: dict) -> list:
     return errors
 
 
-def _validate_translation(translation: dict) -> list:
+def _validate_translation(translation: dict) -> bool:
+    """
+    Validate the translation block of a profile.
+
+    Returns True on success. Raises ValueError with all collected error
+    messages joined by ``\\n`` on failure so callers can either treat the
+    exception as a single failure or split the message back into a list.
+    """
     errors = []
 
     engine = translation.get("engine")
@@ -353,9 +319,119 @@ def _validate_translation(translation: dict) -> list:
 
     parallel_batches = translation.get("parallel_batches")
     if parallel_batches is not None:
-        if not isinstance(parallel_batches, int) or isinstance(parallel_batches, bool) or not (1 <= parallel_batches <= 8):
+        if (
+            not isinstance(parallel_batches, int)
+            or isinstance(parallel_batches, bool)
+            or not (1 <= parallel_batches <= 8)
+        ):
             errors.append(
                 "translation.parallel_batches must be an integer between 1 and 8"
             )
 
-    return errors
+    a3_ensemble = translation.get("a3_ensemble")
+    if a3_ensemble is not None and not isinstance(a3_ensemble, bool):
+        errors.append("translation.a3_ensemble must be bool")
+
+    if errors:
+        raise ValueError("\n".join(errors))
+    return True
+
+
+def _validate_font(font: dict) -> bool:
+    """
+    Validate the font block of a profile.
+
+    Returns True on success. Raises ValueError with all collected error
+    messages joined by ``\\n`` on failure.
+
+    Recognised optional fields:
+      - family (str), size (12-120), outline_width (0-10), margin_bottom (0-200)
+      - subtitle_source: auto/en/zh/bilingual
+      - bilingual_order: en_top/zh_top
+      - subtitle_standard: one of VALID_SUBTITLE_STANDARDS
+      - line_wrap.enabled (bool)
+      - line_wrap.line_cap (10-50)  — legacy single-cap field
+      - line_wrap.soft_cap (8-30)   — v3.9 hybrid wrap
+      - line_wrap.hard_cap (8-32)   — v3.9 hybrid wrap (must be >= soft_cap)
+      - line_wrap.max_lines (1-4)
+      - line_wrap.tail_tolerance (0-10)
+      - line_wrap.bottom_heavy (bool)
+    """
+    errors = []
+
+    if "family" in font and not isinstance(font["family"], str):
+        errors.append("font.family must be a string")
+    if "size" in font:
+        size = font["size"]
+        if not isinstance(size, int) or isinstance(size, bool) or size < 12 or size > 120:
+            errors.append("font.size must be an integer between 12 and 120")
+    if "outline_width" in font:
+        ow = font["outline_width"]
+        if not isinstance(ow, int) or isinstance(ow, bool) or ow < 0 or ow > 10:
+            errors.append("font.outline_width must be an integer between 0 and 10")
+    if "margin_bottom" in font:
+        mb = font["margin_bottom"]
+        if not isinstance(mb, int) or isinstance(mb, bool) or mb < 0 or mb > 200:
+            errors.append("font.margin_bottom must be an integer between 0 and 200")
+
+    src = font.get("subtitle_source")
+    if src is not None and src not in {"auto", "en", "zh", "bilingual"}:
+        errors.append(
+            f"font.subtitle_source must be one of auto/en/zh/bilingual; got {src!r}"
+        )
+
+    order = font.get("bilingual_order")
+    if order is not None and order not in {"en_top", "zh_top"}:
+        errors.append(
+            f"font.bilingual_order must be 'en_top' or 'zh_top'; got {order!r}"
+        )
+
+    if "subtitle_standard" in font:
+        std = font["subtitle_standard"]
+        if std not in VALID_SUBTITLE_STANDARDS:
+            errors.append(
+                "font.subtitle_standard must be one of: "
+                f"{sorted(VALID_SUBTITLE_STANDARDS)}; got {std!r}"
+            )
+
+    if "line_wrap" in font:
+        lw = font["line_wrap"]
+        if not isinstance(lw, dict):
+            errors.append("font.line_wrap must be an object")
+        else:
+            if "enabled" in lw and not isinstance(lw["enabled"], bool):
+                errors.append("font.line_wrap.enabled must be a boolean")
+            if "line_cap" in lw:
+                v = lw["line_cap"]
+                if not isinstance(v, int) or isinstance(v, bool) or v < 10 or v > 50:
+                    errors.append("font.line_wrap.line_cap must be int 10-50")
+            soft = lw.get("soft_cap")
+            if soft is not None:
+                if not isinstance(soft, int) or isinstance(soft, bool) or soft < 8 or soft > 30:
+                    errors.append("font.line_wrap.soft_cap must be int 8-30")
+            hard = lw.get("hard_cap")
+            if hard is not None:
+                if not isinstance(hard, int) or isinstance(hard, bool) or hard < 8 or hard > 32:
+                    errors.append("font.line_wrap.hard_cap must be int 8-32")
+            if (
+                isinstance(soft, int) and not isinstance(soft, bool)
+                and isinstance(hard, int) and not isinstance(hard, bool)
+                and hard < soft
+            ):
+                errors.append(
+                    f"font.line_wrap.hard_cap ({hard}) must be >= soft_cap ({soft})"
+                )
+            if "max_lines" in lw:
+                v = lw["max_lines"]
+                if not isinstance(v, int) or isinstance(v, bool) or v < 1 or v > 4:
+                    errors.append("font.line_wrap.max_lines must be int 1-4")
+            if "tail_tolerance" in lw:
+                v = lw["tail_tolerance"]
+                if not isinstance(v, int) or isinstance(v, bool) or v < 0 or v > 10:
+                    errors.append("font.line_wrap.tail_tolerance must be int 0-10")
+            if "bottom_heavy" in lw and not isinstance(lw["bottom_heavy"], bool):
+                errors.append("font.line_wrap.bottom_heavy must be bool")
+
+    if errors:
+        raise ValueError("\n".join(errors))
+    return True
