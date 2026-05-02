@@ -136,14 +136,128 @@ _CONJUNCTIONS_2 = {"所以", "因為", "雖然", "即使", "如果", "儘管",
                     "由於", "可是", "不過", "然而"}
 _CONJUNCTIONS_1 = {"而", "和", "與", "及", "但", "或"}
 
+# V_R10 (MT-α2) — Curated transliteration chars for HK/TW/CN broadcast names.
+# A.2 heuristic: runs of ≥3 consecutive translit chars (with optional middle-dot)
+# are likely foreign-name transliterations and locked from internal splits.
+# Validated empirically on Real Madrid + user-uploaded files.
+_TRANSLIT_CHARS = set(
+    # Common HK/Cantonese broadcast phonetic chars
+    "雲尼素斯諾託維修哥卡拉咸鹹朗察堤萊莉雯阿巴爾瓦羅森西奧豪迪楚梅"
+    "塞瓦埃克羅斯尼科史洛達碧密特華頓費南迪斯祖貝門姆佩法蘭高布拉希"
+    "穆罕默德蘇帕坦託貝靈洛多蒙茲拜仁巴塞隆拿祖梅佐特利安連雷夫斯堡爾"
+    "亞當恩奧馬蒂雅斯範坎培紐曼諾耶夫鄭安東洛夫菲利普米契沙比"
+    # Extended HK chars (V_R10 production additions: 里/馬/列/林/漢/加 etc)
+    "里馬列林漢加里耶魯費奇茨基本基本卡達伊達蒂諾賈斯特蘭多娃柯蒂"
+    # Common Mandarin transliteration chars
+    "维亚斯尔达拉莫卡基米奇罗德安东尼佩雷斯弗朗哥巴兰廷莱昂"
+    "霍夫曼施泰因伯格哈特纳格尔门德斯桑切斯戈麦兹奎瓦"
+    "贝拉蒙佐拉摩雷诺加西亚阿尔瓦雷斯穆斯泰基本吉马拉"
+    # Place transliterations
+    "倫敦巴黎柏林馬德里拿玻里米蘭利物浦曼徹斯特愛丁堡都柏林"
+    # General foreign-name chars
+    "賓利夏洛特馬里奧奧斯卡傑拉德利文斯通霍華德威廉斯密"
+)
 
-def _build_locked_mask(text: str) -> List[bool]:
+
+def _extend_lock_with_translit_runs(text: str, locked: List[bool],
+                                     min_run_len: int = 3) -> List[bool]:
+    """A.2 heuristic — lock interior of consecutive transliteration char runs.
+
+    Allows `·` inside a run as if it were a translit char (covers X·Y names
+    where X and Y are individually short).
+    """
+    n = len(text)
+    out = list(locked)
+    i = 0
+    while i < n:
+        if text[i] in _TRANSLIT_CHARS:
+            j = i
+            while j < n and (text[j] in _TRANSLIT_CHARS or text[j] == _NAME_MIDDLE_DOT):
+                j += 1
+            if j - i >= min_run_len:
+                for p in range(i + 1, j):
+                    if 0 < p <= n:
+                        out[p] = True
+            i = j
+        else:
+            i += 1
+    return out
+
+
+def _extract_zh_terms(glossary: Optional[List[dict]]) -> List[str]:
+    """Pull ZH terms from a glossary entry list. Skips empty / 1-char terms."""
+    if not glossary:
+        return []
+    out = []
+    for entry in glossary:
+        zh = (entry.get("zh") or "").strip()
+        if zh and len(zh) >= 2:
+            out.append(zh)
+    return out
+
+
+def _extend_lock_with_glossary(text: str, locked: List[bool],
+                                terms: List[str]) -> List[bool]:
+    """A.1 — lock interior positions of every active glossary ZH term occurrence.
+
+    Edges (start of term, end of term) remain breakable. Internal positions are
+    locked. Skips 1-char terms (too noisy).
+    """
+    n = len(text)
+    out = list(locked)
+    for term in terms:
+        if not term or len(term) < 2:
+            continue
+        start = 0
+        while True:
+            idx = text.find(term, start)
+            if idx == -1:
+                break
+            for p in range(idx + 1, idx + len(term)):
+                if 0 < p <= n:
+                    out[p] = True
+            start = idx + 1
+    return out
+
+
+def _find_unlocked_anywhere(locked: List[bool], char_offset: int,
+                             min_pos: int, max_pos: int,
+                             soft_min_chars: int = 3) -> int:
+    """Find first non-locked position. Forward first, then bounded backward.
+
+    Forward: walk [min_pos, max_pos] until non-locked spot. If found, return.
+    Backward fallback: walk [min_pos-1, char_offset+soft_min_chars] until non-
+    locked. Prevents ultra-tiny orphan segments.
+    Last resort: return original min_pos (caller will accept the locked split).
+    """
+    n = len(locked)
+    p = min_pos
+    while p <= max_pos and p < n and locked[p]:
+        p += 1
+    if p <= max_pos and p < n:
+        return p
+    floor = char_offset + soft_min_chars
+    for q in range(min_pos - 1, floor - 1, -1):
+        if 0 < q < n and not locked[q]:
+            return q
+    return min_pos
+
+
+def _build_locked_mask(text: str,
+                        glossary_zh_terms: Optional[List[str]] = None,
+                        enable_translit_lock: bool = True) -> List[bool]:
     """Return mask[p]=True means break BEFORE text[p] is forbidden.
 
-    Locked positions:
+    Base locks:
       - Adjacent to middle-dot in foreign names (X·Y must stay together)
       - Inside number+量詞 runs (e.g. "二零二六年", "三個", "150次")
       - Right after open bracket / right before close bracket
+
+    Optional extensions (V_R10 / A.1+A.2):
+      - `glossary_zh_terms`: lock interior of every glossary ZH term occurrence
+        (canonical names, places, organisations from the active glossary)
+      - `enable_translit_lock`: lock runs of ≥3 consecutive transliteration chars
+        (catches Cantonese-style foreign names without `·` like 雲尼素斯)
     """
     n = len(text)
     locked = [False] * (n + 1)
@@ -178,6 +292,12 @@ def _build_locked_mask(text: str) -> List[bool]:
         if cur in _ZH_PAREN_CLOSE:
             locked[p] = True
             continue
+
+    # V_R10 extensions
+    if enable_translit_lock:
+        locked = _extend_lock_with_translit_runs(text, locked)
+    if glossary_zh_terms:
+        locked = _extend_lock_with_glossary(text, locked, glossary_zh_terms)
     return locked
 
 
@@ -266,6 +386,7 @@ def redistribute_to_segments(
     lopsided_threshold: float = 0.30,
     use_conjunction_bonus: bool = True,
     enable_orphan_merge: bool = False,
+    glossary_zh_terms: Optional[List[str]] = None,
 ) -> List[TranslatedSegment]:
     """Redistribute Chinese translations back to original segment timestamps.
 
@@ -299,7 +420,7 @@ def redistribute_to_segments(
             seg_parts[merged["seg_indices"][0]].append(zh_text)
             continue
 
-        locked = _build_locked_mask(zh_text)
+        locked = _build_locked_mask(zh_text, glossary_zh_terms=glossary_zh_terms)
 
         char_offset = 0
         for i, sid in enumerate(merged["seg_indices"]):
@@ -329,13 +450,30 @@ def redistribute_to_segments(
                 if max_break_pos > char_offset:
                     target_end = min(target_end, max_break_pos)
 
+                # V_R10: lock-aware min_pos advancement (bug fix). When the
+                # forward-only floor (char_offset+1) lands on a locked
+                # position (inside name/number/glossary term), advance to the
+                # next non-locked spot instead of clamping back onto it.
+                raw_min = char_offset + 1
+                min_pos = _find_unlocked_anywhere(
+                    locked, char_offset, raw_min, max(max_break_pos, raw_min)
+                )
+
                 break_at = _find_break_point(
                     zh_text, target_end,
                     max_pos=max_break_pos,
-                    min_pos=char_offset + 1,
+                    min_pos=min_pos,
                     locked=locked,
                     use_conjunction_bonus=use_conjunction_bonus,
                 )
+                break_at = max(min_pos, min(break_at, total_zh_chars))
+                # V_R10: if the clamp landed on a locked position, find a nearby
+                # non-locked alternative rather than splitting inside a name.
+                if break_at < len(locked) and locked[break_at]:
+                    break_at = _find_unlocked_anywhere(
+                        locked, char_offset, break_at,
+                        max(max_break_pos, break_at)
+                    )
                 break_at = max(char_offset + 1, min(break_at, total_zh_chars))
                 allocated = zh_text[char_offset:break_at]
                 char_offset = break_at
@@ -440,7 +578,10 @@ def translate_with_sentences(
     )
     zh_sentences = [t["zh_text"] for t in translated_sentences]
 
-    results = redistribute_to_segments(merged, zh_sentences, segments)
+    results = redistribute_to_segments(
+        merged, zh_sentences, segments,
+        glossary_zh_terms=_extract_zh_terms(glossary),
+    )
 
     bad_indices = validate_batch(results)
     if not bad_indices:
@@ -461,7 +602,10 @@ def translate_with_sentences(
         if retry_result:
             zh_sentences[sent_idx] = retry_result[0]["zh_text"]
 
-    results = redistribute_to_segments(merged, zh_sentences, segments)
+    results = redistribute_to_segments(
+        merged, zh_sentences, segments,
+        glossary_zh_terms=_extract_zh_terms(glossary),
+    )
 
     still_bad = validate_batch(results)
     for idx in still_bad:

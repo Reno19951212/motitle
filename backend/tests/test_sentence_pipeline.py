@@ -155,6 +155,79 @@ def test_redistribute_orphan_merge_disabled_by_default():
     assert result[1]["start"] == 2.0
 
 
+def test_translit_lock_protects_vinicius():
+    """V_R10 A.2: 雲尼素斯 (Cantonese for Vinicius) — no `·` separator,
+    must NOT be split mid-name by transliteration heuristic."""
+    from translation.sentence_pipeline import _build_locked_mask
+    text = "惟雲尼素斯與羅德里哥的前景仍存疑慮。"
+    locked = _build_locked_mask(text)
+    # 雲尼素斯 starts at index 1, ends at 5. Internal positions 2,3,4 locked.
+    assert locked[2] is True, "break at pos 2 (inside 雲尼素斯) must be locked"
+    assert locked[3] is True
+    assert locked[4] is True
+    # 羅德里哥 starts at index 6, internal 7,8,9 locked
+    assert locked[7] is True
+    assert locked[8] is True
+    assert locked[9] is True
+
+
+def test_translit_lock_protects_compound_with_dot():
+    """V_R10 A.2: 法蘭高·馬斯坦託諾 — translit chars + middle dot. Whole
+    span must be locked from internal splits (·-aware)."""
+    from translation.sentence_pipeline import _build_locked_mask
+    text = "僅有法蘭高·馬斯坦託諾與布拉希姆"
+    locked = _build_locked_mask(text)
+    # 法蘭高·馬斯坦託諾 at idx 2-10. Internal locks 3..10
+    for p in range(3, 10):
+        assert locked[p] is True, f"position {p} inside 法蘭高·馬斯坦託諾 must be locked"
+
+
+def test_glossary_lock_extends_locked_mask():
+    """V_R10 A.1: glossary ZH terms lock interior positions."""
+    from translation.sentence_pipeline import _build_locked_mask
+    text = "今晚由皇家馬德里對拜仁慕尼黑，誰勝誰負？"
+    # Pretend glossary has these terms (note: 皇家馬德里 has length 5)
+    terms = ["皇家馬德里", "拜仁慕尼黑"]
+    locked = _build_locked_mask(text, glossary_zh_terms=terms)
+    # 皇家馬德里 at idx 3, internal pos 4..7 locked (NOT 3 or 8)
+    for p in range(4, 8):
+        assert locked[p] is True, f"pos {p} inside 皇家馬德里 must be locked"
+
+
+def test_redistribute_lock_aware_min_pos_advancement():
+    """V_R10 bug fix: when char_offset+1 lands on a locked position,
+    redistribute must advance forward through locks rather than clamp back.
+
+    Regression: previously the clamp `max(min_pos, _find_break_point(...))`
+    pushed break_at back onto a locked position even when find_break_point
+    returned a valid non-locked spot.
+
+    Scenario: 3-segment sentence, ZH starts with a name. Seg 1 expected to
+    skip past the name's internal positions.
+    """
+    from translation.sentence_pipeline import redistribute_to_segments
+    # ZH text: 雲尼素斯與羅德里哥都打主力，皇家馬德里取得勝利。
+    # 雲尼素斯 at idx 0-3, must not be split inside.
+    original_segments = [
+        {"start": 0.0, "end": 2.0, "text": "Vinicius and Rodrigo"},  # 3 words
+        {"start": 2.0, "end": 4.0, "text": "both started, Real Madrid"},  # 4 words
+        {"start": 4.0, "end": 6.0, "text": "won the match."},  # 3 words
+    ]
+    merged = [{"seg_indices": [0, 1, 2], "seg_word_counts": {0: 3, 1: 4, 2: 3}}]
+    zh = ["雲尼素斯與羅德里哥都打主力，皇家馬德里取得勝利。"]
+    result = redistribute_to_segments(merged, zh, original_segments)
+    # No segment should land mid-name
+    for r in result[:-1]:
+        z = r["zh_text"].strip()
+        # 雲尼素斯 / 羅德里哥 / 皇家馬德里 chars should not be at edge
+        assert not z.endswith("雲"), f"split mid-雲尼素斯: {result}"
+        assert not z.endswith("尼"), f"split mid-雲尼素斯: {result}"
+        assert not z.endswith("素"), f"split mid-雲尼素斯: {result}"
+        assert not z.endswith("羅"), f"split mid-羅德里哥: {result}"
+        assert not z.endswith("德"), f"split mid-羅德里哥: {result}"
+        assert not z.endswith("里"), f"split mid-羅德里哥: {result}"
+
+
 def test_redistribute_no_single_char_orphan_when_punct_behind_offset():
     """Regression: user-uploaded video showed 13 single-char ZH segments
     because _find_break_point returned a position BEHIND char_offset (the
