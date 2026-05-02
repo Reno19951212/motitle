@@ -331,3 +331,138 @@ def wrap_with_config(text: str, font_config: dict) -> WrapResult:
     if _is_zh_text(text):
         return wrap_zh(text, cap=sub["line_cap"], max_lines=sub["max_lines"], tail_tolerance=sub["tail_tolerance"])
     return _wrap_en(text, cap=sub["line_cap"], max_lines=sub["max_lines"], tail_tolerance=sub["tail_tolerance"])
+
+
+# === v3.9 wrap_hybrid: soft target + hard cap + bottom-heavy + lock-aware ===
+
+
+@dataclass
+class WrapResult2:
+    """Result of wrap_hybrid — extends WrapResult with bottom-heavy + lock-violated flags."""
+    lines: List[str] = field(default_factory=list)
+    hard_cut: bool = False
+    soft_overflow: bool = False
+    bottom_heavy_violation: bool = False
+    lock_violated: bool = False
+
+
+def _score_break(text: str, i: int) -> int:
+    """Score a break position. i is the line1 length (split between text[i-1] and text[i])."""
+    if i < 1 or i > len(text):
+        return 0
+    ch = text[i - 1]
+    if ch in HARD_BREAKS:
+        return 100
+    if ch in SOFT_BREAKS:
+        return 50
+    if ch in PAREN_CLOSE:
+        return 30
+    if i < len(text) and text[i] in PAREN_OPEN:
+        return 25
+    return 0
+
+
+def _find_best_break_in_range(text, lo, hi, locked):
+    """Return best break position in [lo, hi]. -1 if no scoring break found."""
+    best, best_score = -1, -1
+    n = len(text)
+    hi = min(hi, n)
+    for i in range(max(1, lo), hi + 1):
+        if locked and i < len(locked) and locked[i]:
+            continue
+        s = _score_break(text, i)
+        if s > 0:
+            s += i  # tiebreaker: prefer later position
+            if s > best_score:
+                best_score, best = s, i
+    return best
+
+
+def wrap_hybrid(text, soft_cap=14, hard_cap=16, max_lines=2, tail_tolerance=2, locked=None):
+    """Hybrid wrap: soft target + hard cap + bottom-heavy + lock-aware.
+
+    Pass 1: bottom-heavy range [n-hard_cap, n//2+tail], find scoring break
+    Pass 2: full hard-cap range [n-hard_cap, hard_cap]
+    Pass 3 (only if locked truthy): any unlocked scoring break in [1, n-1]
+    Pass 4: forced cut at min(hard_cap, n//2). lock_violated=True only if locked truthy.
+    """
+    soft_cap = max(1, soft_cap or 1)
+    hard_cap = max(soft_cap, hard_cap or soft_cap)
+    max_lines = max(1, max_lines or 1)
+    tail_tolerance = max(0, tail_tolerance or 0)
+    text = (text or "").strip()
+    if not text:
+        return WrapResult2(lines=[])
+
+    n = len(text)
+
+    # Single-line case 1: fits soft target
+    if n <= soft_cap + tail_tolerance:
+        return WrapResult2(lines=[text])
+
+    # Single-line case 2: fits hard cap (band 2 — Netflix-compliant 1-line)
+    if n <= hard_cap + tail_tolerance:
+        return WrapResult2(lines=[text], soft_overflow=True)
+
+    # Two-line wrap
+    lower = max(1, n - hard_cap)
+    upper = min(hard_cap, n - 1)
+
+    if lower > upper:
+        # Cannot fit in 2 lines without truncation (n > 2*hard_cap)
+        line1 = text[:hard_cap]
+        line2 = text[hard_cap : hard_cap * 2]
+        return WrapResult2(
+            lines=[line1, line2],
+            hard_cut=True,
+            soft_overflow=True,
+            bottom_heavy_violation=(len(line1) > len(line2)),
+        )
+
+    bh_upper = min(upper, n // 2 + tail_tolerance)
+
+    # Pass 1: bottom-heavy
+    if bh_upper >= lower:
+        best = _find_best_break_in_range(text, lower, bh_upper, locked)
+        if best > 0:
+            line1, line2 = text[:best].rstrip(), text[best:].lstrip()
+            return WrapResult2(
+                lines=[line1, line2],
+                soft_overflow=(len(line1) > soft_cap or len(line2) > soft_cap),
+                bottom_heavy_violation=(len(line1) > len(line2)),
+            )
+
+    # Pass 2: full hard-cap range
+    best = _find_best_break_in_range(text, lower, upper, locked)
+    if best > 0:
+        line1, line2 = text[:best].rstrip(), text[best:].lstrip()
+        return WrapResult2(
+            lines=[line1, line2],
+            soft_overflow=(len(line1) > soft_cap or len(line2) > soft_cap),
+            bottom_heavy_violation=(len(line1) > len(line2)),
+        )
+
+    # Pass 3: any unlocked scoring break in [1, n-1] — only fires when locked truthy
+    if locked:
+        any_unlocked = _find_best_break_in_range(text, 1, n - 1, locked)
+        if any_unlocked > 0:
+            line1, line2 = text[:any_unlocked].rstrip(), text[any_unlocked:].lstrip()
+            return WrapResult2(
+                lines=[line1, line2],
+                soft_overflow=True,
+                bottom_heavy_violation=(len(line1) > len(line2)),
+            )
+
+    # Pass 4: forced hard-cut
+    cut = min(hard_cap, n // 2)
+    line1 = text[:cut]
+    line2 = text[cut:]
+    if len(line2) > hard_cap:
+        line2 = line2[:hard_cap]
+    return WrapResult2(
+        lines=[line1, line2],
+        hard_cut=True,
+        soft_overflow=(len(line1) > soft_cap or len(line2) > soft_cap),
+        bottom_heavy_violation=(len(line1) > len(line2)),
+        lock_violated=bool(locked),  # only True if any positions actually locked
+    )
