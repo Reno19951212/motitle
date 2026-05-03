@@ -2261,6 +2261,9 @@ def _auto_translate_pick_route(translation_config: dict) -> str:
 
     skip_sentence_merge=True takes precedence over use_sentence_pipeline/alignment_mode='sentence'
     so users can pair it with fine_segmentation without disabling the upstream flag.
+
+    Note: skip_sentence_merge has NO effect when alignment_mode='llm-markers' — the LLM marker
+    pipeline is a separate routing path that does not perform sentence merging in the first place.
     """
     alignment_mode = str(translation_config.get("alignment_mode", "")).lower()
     use_pipeline = bool(translation_config.get("use_sentence_pipeline", False))
