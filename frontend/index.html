@@ -1873,12 +1873,20 @@
           ? '用當前 Profile 重新翻譯（會覆蓋現有譯文同批核狀態）'
           : '用當前 Profile 開始翻譯';
 
+      // Resolve effective source+order (file → profile → default) and pin them
+      // onto every download URL so the link reflects current state explicitly.
+      // Backend honours ?source= and ?order= (app.py:2540-2545); without them
+      // it would re-derive from the same chain, but explicit is safer for
+      // users who copy / share the URL.
+      const _dlSrc   = resolveSubtitleSource(f, activeProfile);
+      const _dlOrder = resolveBilingualOrder(f, activeProfile);
+      const _dlQuery = `?source=${encodeURIComponent(_dlSrc)}&order=${encodeURIComponent(_dlOrder)}`;
       const subtitleMenu = `
         <div class="split-menu" role="menu">
           <div class="split-head">字幕檔格式</div>
-          <a href="${API_BASE}/api/files/${f.id}/subtitle.srt" download><span class="fmt-badge">SRT</span><span class="fmt-desc">SubRip · 通用字幕</span></a>
-          <a href="${API_BASE}/api/files/${f.id}/subtitle.vtt" download><span class="fmt-badge">VTT</span><span class="fmt-desc">WebVTT · 網頁字幕</span></a>
-          <a href="${API_BASE}/api/files/${f.id}/subtitle.txt" download><span class="fmt-badge">TXT</span><span class="fmt-desc">純文字（無時碼）</span></a>
+          <a href="${API_BASE}/api/files/${f.id}/subtitle.srt${_dlQuery}" download><span class="fmt-badge">SRT</span><span class="fmt-desc">SubRip · 通用字幕</span></a>
+          <a href="${API_BASE}/api/files/${f.id}/subtitle.vtt${_dlQuery}" download><span class="fmt-badge">VTT</span><span class="fmt-desc">WebVTT · 網頁字幕</span></a>
+          <a href="${API_BASE}/api/files/${f.id}/subtitle.txt${_dlQuery}" download><span class="fmt-badge">TXT</span><span class="fmt-desc">純文字（無時碼）</span></a>
         </div>`;
       const videoMenu = `
         <div class="split-menu" role="menu">
@@ -1928,7 +1936,7 @@
               </select>`;
           })()}
           <div class="split-btn">
-            <a class="btn btn-secondary split-main" ${disabled ? '' : `href="${API_BASE}/api/files/${f.id}/subtitle.srt" download`} title="下載字幕檔" style="${disabled ? 'opacity:0.5;pointer-events:none;' : ''}">
+            <a class="btn btn-secondary split-main" ${disabled ? '' : `href="${API_BASE}/api/files/${f.id}/subtitle.srt${_dlQuery}" download`} title="下載字幕檔" style="${disabled ? 'opacity:0.5;pointer-events:none;' : ''}">
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M4 7l4 4 4-4M2 13h12"/></svg>
               字幕 · SRT
             </a>

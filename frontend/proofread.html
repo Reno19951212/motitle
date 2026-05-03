@@ -721,7 +721,7 @@
         <select id="proofreadSourceMode" onchange="updateProofreadSubtitleSource(this)"
                 aria-label="字幕來源"
                 style="padding:2px 6px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text);">
-          <option value="">— 跟 Profile —</option>
+          <option value="" id="proofreadSourceModeFollow">— 跟 Profile —</option>
           <option value="auto">Auto</option>
           <option value="en">EN 原文</option>
           <option value="zh">ZH 譯文</option>
@@ -956,6 +956,14 @@
     const ordSel = document.getElementById('proofreadBilingualOrder');
     if (!srcSel) return;
     srcSel.value = (fileInfo && fileInfo.subtitle_source) ? fileInfo.subtitle_source : '';
+    // Surface the effective profile-level mode in the placeholder so users see
+    // what "follow Profile" actually resolves to (matches dashboard UX).
+    const followOpt = document.getElementById('proofreadSourceModeFollow');
+    if (followOpt) {
+      const p = (activeProfile && activeProfile.font && activeProfile.font.subtitle_source) || 'auto';
+      const label = ({auto:'Auto', en:'EN', zh:'ZH', bilingual:'雙語'})[p] || 'Auto';
+      followOpt.textContent = `— 跟 Profile（${label}）—`;
+    }
     if (ordSel) {
       ordSel.value = (fileInfo && fileInfo.bilingual_order) ? fileInfo.bilingual_order : 'en_top';
       ordSel.style.display = ((fileInfo && fileInfo.subtitle_source) === 'bilingual') ? '' : 'none';
