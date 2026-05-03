@@ -375,6 +375,11 @@ def _validate_translation(translation: dict) -> list:
                 "translation.parallel_batches must be an integer between 1 and 8"
             )
 
+    # skip_sentence_merge flag (added 2026-05-03 for fine_segmentation pairing)
+    skip = translation.get("skip_sentence_merge")
+    if skip is not None and not isinstance(skip, bool):
+        errors.append("translation.skip_sentence_merge must be bool")
+
     return errors
 
 

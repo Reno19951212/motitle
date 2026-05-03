@@ -621,3 +621,27 @@ def test_profile_backward_compat_no_new_fields(config_dir):
     }
     errors = mgr.validate(cfg)
     assert errors == [], f"unexpected errors: {errors}"
+
+
+def test_profile_validates_skip_sentence_merge_bool(config_dir):
+    """translation.skip_sentence_merge must be bool when present."""
+    from profiles import ProfileManager
+    mgr = ProfileManager(config_dir)
+    cfg = {
+        "name": "Bad skip_merge type",
+        "asr": {"engine": "mlx-whisper", "model_size": "large-v3"},
+        "translation": {"engine": "mock", "skip_sentence_merge": "yes"},
+    }
+    errors = mgr.validate(cfg)
+    assert any("skip_sentence_merge" in e and "bool" in e for e in errors), errors
+
+    # Valid bool accepted
+    for valid in (True, False):
+        ok = {
+            "name": f"skip={valid}",
+            "asr": {"engine": "mlx-whisper", "model_size": "large-v3"},
+            "translation": {"engine": "mock", "skip_sentence_merge": valid},
+        }
+        errors = mgr.validate(ok)
+        skip_errors = [e for e in errors if "skip_sentence_merge" in e]
+        assert skip_errors == [], f"valid={valid}: {skip_errors}"
