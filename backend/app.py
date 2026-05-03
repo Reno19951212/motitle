@@ -462,6 +462,16 @@ def _run_profile_asr_with_optional_fine_seg(audio_path, profile, sid,
     }
 
 
+def _compute_transcribed_with_fine_seg_flag(profile: dict) -> bool:
+    """Return True iff fine_segmentation pipeline was used for this transcribe.
+
+    Includes the VAD-fallback path (_fallback_whole_file) — flag tracks
+    transcribe_fine_seg() ENTRY, not whether VAD chunking actually happened.
+    """
+    asr_cfg = (profile or {}).get("asr") or {}
+    return bool(asr_cfg.get("fine_segmentation")) and asr_cfg.get("engine") == "mlx-whisper"
+
+
 def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str = None):
     """
     Transcribe audio/video file and emit segments with timestamps.
@@ -2410,6 +2420,7 @@ def transcribe_file():
                     segments=result['segments'],
                     backend=result.get('backend'),
                     model=actual_model,
+                    transcribed_with_fine_seg=_compute_transcribed_with_fine_seg_flag(profile),
                 )
                 _update_file(file_id, asr_seconds=round(time.time() - asr_start_time, 1))
                 if sid:

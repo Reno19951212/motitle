@@ -36,3 +36,26 @@ def test_transcribe_with_segments_calls_fine_seg_when_enabled(monkeypatch):
     )
     assert called, "fine_seg branch was not taken"
     assert result["segments"][0]["text"] == "fake"
+
+
+def test_registry_records_transcribed_with_fine_seg_flag():
+    """After fine_seg path runs, registry entry has transcribed_with_fine_seg=True."""
+    import app
+
+    profile = {
+        "asr": {"engine": "mlx-whisper", "fine_segmentation": True, "language": "en"},
+        "translation": {"engine": "mock"},
+    }
+    flag = app._compute_transcribed_with_fine_seg_flag(profile)
+    assert flag is True
+
+
+def test_registry_flag_false_for_legacy_profile():
+    """Profile without fine_segmentation → flag is False."""
+    import app
+    profile = {
+        "asr": {"engine": "whisper", "model_size": "tiny", "language": "en"},
+        "translation": {"engine": "mock"},
+    }
+    flag = app._compute_transcribed_with_fine_seg_flag(profile)
+    assert flag is False
