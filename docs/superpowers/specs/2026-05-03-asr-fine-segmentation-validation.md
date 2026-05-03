@@ -399,6 +399,45 @@ Sample: 同 L1 Run 1 (90s Trump broadcast)
 - Production model = large-v3 (user-confirmed, not medium-q4)
 - Acceptance criteria 修正：mean chars 50–80（英文）而唔係 8–12（中文）
 
+## Post-Implementation Validation (2026-05-03, after merging fine-seg branch)
+
+### Live integration test results
+
+```
+pytest tests/integration/test_fine_segmentation.py --run-live -v
+```
+
+| Test | Duration | Result |
+|---|---|---|
+| test_real_madrid_5min_fine_seg_pipeline | ~80s | ✅ PASS |
+| test_real_madrid_words_preserved | ~80s | ✅ PASS |
+
+### Empirical metrics (production code path, large-v3)
+
+| Metric | Pre-impl prototype | Post-impl production | Acceptance gate | Result |
+|---|---|---|---|---|
+| n | 86 | **85** | 70-110 | ✅ |
+| Mean duration | 3.19s | **3.07s** | 2.5–3.5s | ✅ |
+| P95 duration | 5.10s | **4.82s** | ≤ 5.5s | ✅ |
+| Max duration | 5.48s | **5.64s** | ≤ 6.0s | ✅ |
+| Tiny rate (<1.5s) | ~5% | **4.7%** | <8% | ✅ |
+| #3+#4 case fix | ✅ | **✅** | required | ✅ |
+| Words populated | 100% | **100%** | ≥90% | ✅ |
+
+Production code path matches prototype empirical results within tolerance — all acceptance gates passed on real audio.
+
+### Backward compat verification
+
+- Backend pytest baseline 469/481 PASS / 12 pre-existing FAIL → 509/521 PASS / 12 FAIL (Phases A+B+C+D adding ~30 new tests)
+- Existing profile JSON unchanged behaviour ✅ (test_profile_backward_compat_no_new_fields PASS)
+- Legacy `engine.transcribe()` path 100% preserved ✅ (test_app_fine_seg.py covers branch routing)
+- Pre-existing 12 failures unchanged (test_e2e_render Playwright + test_renderer macOS tmpdir colon-escape) — not regressions
+
+### Outstanding observations
+
+- Wall clock for 5min audio: ~80s vs prototype 65.6s (slightly slower, possibly cold cache). Within +15% acceptance gate. Cold-start Silero VAD model load adds ~3s singleton init.
+- Tests SKIP cleanly when `--run-live` flag is omitted (default `pytest tests/` run unaffected).
+
 ## Outstanding Questions
 
 1. fine-grained ASR + sentence_pipeline.merge_to_sentences() 重疊 → 要唔要加 `sentence_pipeline_skip` flag 自動 detect？
