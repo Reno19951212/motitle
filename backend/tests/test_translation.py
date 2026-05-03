@@ -788,19 +788,26 @@ def test_translate_applies_post_processor():
 
 
 def test_parse_response_non_sequential_numbers():
-    """Model starts numbering from context window's last number instead of 1.
-    E.g. 3 context pairs → model outputs 4. t1  5. t2 instead of 1. t1  2. t2.
-    Primary path should map positionally, not by key value."""
+    """Model emits numbers entirely outside [1, n] range (e.g. continues
+    context-window numbering: 4, 5 instead of 1, 2 for n=2).
+
+    v3.x behaviour change: this used to be salvaged via sort+positional remap,
+    but that logic was the root cause of cascade drift in production
+    (ZH#2 carrying EN#4 content when LLM SKIP-mode dropped a number). The new
+    slot-fill-by-number algorithm correctly rejects out-of-range numbers as
+    overshoot — both slots end up [TRANSLATION MISSING], retry path picks them
+    up, and downstream segments are guaranteed not to absorb shifted content.
+    """
     from translation.ollama_engine import OllamaTranslationEngine
     engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
     # Model numbered from 4 instead of 1 (as if continuing context numbering)
     response_text = "4. 各位晚上好。\n5. 歡迎收看新聞。"
     result = engine._parse_response(response_text, SAMPLE_SEGMENTS)
     assert len(result) == 2
-    assert result[0]["zh_text"] == "各位晚上好。"
-    assert result[1]["zh_text"] == "歡迎收看新聞。"
-    assert "[TRANSLATION MISSING]" not in result[0]["zh_text"]
-    assert "[TRANSLATION MISSING]" not in result[1]["zh_text"]
+    # Both slots are [TRANSLATION MISSING] sentinels — numbers 4/5 are out of
+    # range for n=2 segments, so they're treated as overshoot and dropped.
+    assert "[TRANSLATION MISSING]" in result[0]["zh_text"]
+    assert "[TRANSLATION MISSING]" in result[1]["zh_text"]
 
 
 def test_parse_response_fallback_ignores_non_translation_lines():
@@ -820,6 +827,145 @@ def test_parse_response_fallback_ignores_non_translation_lines():
     assert result[0]["zh_text"] == "各位晚上好。"  # not "Here are the translations:"
     assert result[1]["zh_text"] == "歡迎收看新聞。"
     assert "[TRANSLATION MISSING]" in result[2]["zh_text"]  # only 2 of 3 provided
+
+
+def test_parse_response_skip_mode_no_cascade():
+    """v3.x cascade-drift fix: when LLM SKIPs a number (e.g. emits 1,2,4,5,6
+    for 6 segments), slot 3 (number 3) must stay MISSING — the later numbers
+    must NOT shift left to fill the hole. This is the core invariant that
+    distinguishes slot-fill-by-number from the v1 sort+positional algorithm.
+    """
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+    six_segs = [
+        {"start": float(i), "end": float(i) + 1.0, "text": f"seg{i+1}"}
+        for i in range(6)
+    ]
+    # LLM skipped number 3 (SKIP mode — the production drift trigger).
+    response_text = "1. a\n2. b\n4. d\n5. e\n6. f"
+    result = engine._parse_response(response_text, six_segs)
+    assert len(result) == 6
+    assert result[0]["zh_text"] == "a"
+    assert result[1]["zh_text"] == "b"
+    # Critical: slot 2 (the skipped one) is MISSING — d/e/f did NOT shift left.
+    assert "[TRANSLATION MISSING]" in result[2]["zh_text"]
+    assert result[3]["zh_text"] == "d"
+    assert result[4]["zh_text"] == "e"
+    assert result[5]["zh_text"] == "f"
+
+
+def test_parse_response_echo_mode_drift_contained_to_slot_0():
+    """ECHO mode: LLM prefixes output with a "0. ..." line (e.g. echoing the
+    instruction, repeating an example, or numbering from zero). Number 0 is
+    out-of-range (must be ≥ 1) so it's silently dropped as overshoot. Real
+    translations 1..n then land in their correct slots — drift contained,
+    no slot 0 contamination.
+    """
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+    five_segs = [
+        {"start": float(i), "end": float(i) + 1.0, "text": f"seg{i+1}"}
+        for i in range(5)
+    ]
+    # "0. ..." is echo content the LLM prepended; numbers 1..5 are real.
+    response_text = (
+        "0. echo_content\n"
+        "1. seg1\n"
+        "2. seg2\n"
+        "3. seg3\n"
+        "4. seg4\n"
+        "5. seg5"
+    )
+    result = engine._parse_response(response_text, five_segs)
+    assert len(result) == 5
+    # Slot 0 has the real seg1 — echo at "0." was dropped as overshoot.
+    assert result[0]["zh_text"] == "seg1"
+    assert "echo_content" not in result[0]["zh_text"]
+    assert result[1]["zh_text"] == "seg2"
+    assert result[2]["zh_text"] == "seg3"
+    assert result[3]["zh_text"] == "seg4"
+    assert result[4]["zh_text"] == "seg5"
+    # Sanity: no MISSING sentinels — all five slots filled correctly.
+    for r in result:
+        assert "[TRANSLATION MISSING]" not in r["zh_text"]
+
+
+def test_parse_response_overshoot_silently_dropped():
+    """When LLM emits one extra trailing pair (n+1 for n segments), the
+    overshoot pair is silently dropped — no exception, no slot n+1 created,
+    diagnostics record the overshoot for telemetry.
+    """
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+    five_segs = [
+        {"start": float(i), "end": float(i) + 1.0, "text": f"seg{i+1}"}
+        for i in range(5)
+    ]
+    # 6 numbered pairs for 5 segments — pair "6." is overshoot.
+    response_text = "1. a\n2. b\n3. c\n4. d\n5. e\n6. f"
+    result = engine._parse_response(response_text, five_segs)
+    assert len(result) == 5
+    assert result[0]["zh_text"] == "a"
+    assert result[1]["zh_text"] == "b"
+    assert result[2]["zh_text"] == "c"
+    assert result[3]["zh_text"] == "d"
+    assert result[4]["zh_text"] == "e"
+    # "f" was the overshoot — silently dropped, no exception.
+    for r in result:
+        assert "f" != r["zh_text"]
+        assert "[TRANSLATION MISSING]" not in r["zh_text"]
+
+
+def test_parse_response_duplicate_label_first_wins():
+    """When LLM emits duplicate numbers (e.g. "1. a\\n1. b"), first-write-wins.
+    The slot is set on first match and subsequent duplicates increment the
+    duplicate counter without overwriting — preserves the LLM's strongest
+    initial commitment to that slot.
+    """
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+    response_text = "1. a\n1. b\n2. c"
+    result = engine._parse_response(response_text, SAMPLE_SEGMENTS)
+    assert len(result) == 2
+    # First "1. a" wins; second "1. b" is silently dropped as duplicate.
+    assert result[0]["zh_text"] == "a"
+    assert result[1]["zh_text"] == "c"
+
+
+def test_parse_response_drop_in_compat_returns_v1_shape():
+    """Drop-in compat: return shape matches v1 — TypedDict with keys start,
+    end, en_text, zh_text. Missing slots use the same `[TRANSLATION MISSING] `
+    sentinel prefix that the retry path detects.
+    """
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+
+    # Healthy case: 2 segments, 2 numbered translations.
+    response_text = "1. zh1\n2. zh2"
+    result = engine._parse_response(response_text, SAMPLE_SEGMENTS)
+    assert len(result) == 2
+    for r in result:
+        assert set(r.keys()) >= {"start", "end", "en_text", "zh_text"}
+    assert result[0] == {
+        "start": 0.0,
+        "end": 2.5,
+        "en_text": "Good evening everyone.",
+        "zh_text": "zh1",
+    }
+    assert result[1] == {
+        "start": 2.5,
+        "end": 5.0,
+        "en_text": "Welcome to the news.",
+        "zh_text": "zh2",
+    }
+
+    # Missing case: only 1 of 2 translated → second slot uses the sentinel
+    # prefix that the retry path uses to detect missing translations.
+    response_text_missing = "1. only_one"
+    result_missing = engine._parse_response(response_text_missing, SAMPLE_SEGMENTS)
+    assert len(result_missing) == 2
+    assert result_missing[0]["zh_text"] == "only_one"
+    assert result_missing[1]["zh_text"].startswith("[TRANSLATION MISSING] ")
 
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 """Ollama-based translation engine using local LLMs."""
 
 import json
+import logging
 import re
 import subprocess
 import sys
@@ -9,10 +10,24 @@ import time
 import urllib.request
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple, TypedDict
 
 from . import TranslationEngine, TranslatedSegment
 from .post_processor import TranslationPostProcessor
+
+logger = logging.getLogger(__name__)
+
+
+class ParseDiagnostics(TypedDict, total=False):
+    pairs_found: int
+    pairs_in_range: int
+    pairs_overshoot: int
+    pairs_duplicate: int
+    fallback_used: bool
+    missing_slots: int
+
+
+_NUMBERED_RE = re.compile(r"^(\d+)[.)]\s*(.+)")
 
 # ---------------------------------------------------------------------------
 # Ollama Cloud signin status cache
@@ -637,39 +652,54 @@ class OllamaTranslationEngine(TranslationEngine):
     def _parse_response(
         self, response_text: str, segments: List[dict]
     ) -> List[TranslatedSegment]:
-        lines = [ln.strip() for ln in response_text.strip().split("\n") if ln.strip()]
+        n = len(segments)
+        slots: List[Optional[str]] = [None] * n
+        diag: ParseDiagnostics = {
+            "pairs_found": 0, "pairs_in_range": 0, "pairs_overshoot": 0,
+            "pairs_duplicate": 0, "fallback_used": False, "missing_slots": 0,
+        }
 
-        # Extract numbered lines only — ignores headers, explanations, and any
-        # other non-translation text the model might output.
-        numbered_pairs: list = []
-        for line in lines:
-            match = re.match(r"^(\d+)[.)]\s*(.+)", line)
-            if match:
-                numbered_pairs.append((int(match.group(1)), match.group(2).strip()))
+        lines = [ln.strip() for ln in response_text.split("\n") if ln.strip()]
+        pairs: List[Tuple[int, str]] = []
+        for ln in lines:
+            m = _NUMBERED_RE.match(ln)
+            if m:
+                pairs.append((int(m.group(1)), m.group(2).strip()))
 
-        # Sort by number then map positionally.
-        # Positional mapping handles models that continue numbering from a context
-        # window (e.g. outputting "4. t1\n5. t2" instead of "1. t1\n2. t2"),
-        # which would KeyError with the old numbered[i+1] approach.
-        numbered_pairs.sort(key=lambda x: x[0])
-        translations = [text for _, text in numbered_pairs]
+        diag["pairs_found"] = len(pairs)
 
-        # Fallback: if the model produced no numbered lines at all, treat every
-        # line as a plain translation (positional alignment, best effort).
-        if not translations:
-            translations = lines
+        if pairs:
+            for num, text in pairs:
+                if 1 <= num <= n:
+                    if slots[num - 1] is None:
+                        slots[num - 1] = text
+                        diag["pairs_in_range"] += 1
+                    else:
+                        diag["pairs_duplicate"] += 1
+                else:
+                    diag["pairs_overshoot"] += 1
+        else:
+            # Fallback: positional from raw lines (preserves v1 best-effort behaviour)
+            diag["fallback_used"] = True
+            for i, ln in enumerate(lines[:n]):
+                slots[i] = ln
 
-        results = []
+        diag["missing_slots"] = sum(1 for s in slots if s is None)
+
+        # Telemetry — log diagnostics if anything abnormal happened.
+        # Healthy batch (all in_range, no overshoot/duplicate/missing) stays silent.
+        if diag["missing_slots"] or diag["pairs_overshoot"] or diag["pairs_duplicate"] or diag["fallback_used"]:
+            logger.info("translation parse diag: %s", diag)
+
+        results: List[TranslatedSegment] = []
         for i, seg in enumerate(segments):
-            zh = translations[i] if i < len(translations) else f"[TRANSLATION MISSING] {seg['text']}"
-            results.append(
-                TranslatedSegment(
-                    start=seg["start"],
-                    end=seg["end"],
-                    en_text=seg["text"],
-                    zh_text=zh,
-                )
-            )
+            zh = slots[i] if slots[i] is not None else f"[TRANSLATION MISSING] {seg['text']}"
+            results.append(TranslatedSegment(
+                start=seg["start"],
+                end=seg["end"],
+                en_text=seg["text"],
+                zh_text=zh,
+            ))
         return results
 
     def get_info(self) -> dict:
