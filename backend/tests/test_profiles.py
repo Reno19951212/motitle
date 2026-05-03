@@ -517,3 +517,47 @@ def test_profile_rejects_fine_segmentation_with_non_mlx_engine(config_dir):
     }
     errors = mgr.validate(profile_data)
     assert any("fine_segmentation" in e and "mlx-whisper" in e for e in errors), errors
+
+
+def test_profile_validates_temperature_range(config_dir):
+    """asr.temperature must be float in [0.0, 1.0] or null."""
+    from profiles import ProfileManager
+    mgr = ProfileManager(config_dir)
+
+    # Out of range high
+    high = {
+        "name": "Temp too high",
+        "asr": {"engine": "mlx-whisper", "model_size": "large-v3", "temperature": 1.5},
+        "translation": {"engine": "mock"},
+    }
+    errors = mgr.validate(high)
+    assert any("temperature" in e and "0.0" in e for e in errors), errors
+
+    # Out of range low
+    low = {
+        "name": "Temp too low",
+        "asr": {"engine": "mlx-whisper", "model_size": "large-v3", "temperature": -0.1},
+        "translation": {"engine": "mock"},
+    }
+    errors = mgr.validate(low)
+    assert any("temperature" in e and "0.0" in e for e in errors), errors
+
+    # Boolean rejected (must be float|null)
+    bool_temp = {
+        "name": "Temp bool",
+        "asr": {"engine": "mlx-whisper", "model_size": "large-v3", "temperature": True},
+        "translation": {"engine": "mock"},
+    }
+    errors = mgr.validate(bool_temp)
+    assert any("temperature" in e for e in errors), errors
+
+    # Valid 0.0 + null accepted
+    for valid_t in (0.0, 0.5, 1.0, None):
+        ok = {
+            "name": f"Valid temp {valid_t}",
+            "asr": {"engine": "mlx-whisper", "model_size": "large-v3", "temperature": valid_t},
+            "translation": {"engine": "mock"},
+        }
+        errors = mgr.validate(ok)
+        temp_errors = [e for e in errors if "temperature" in e]
+        assert temp_errors == [], f"unexpected errors for temp={valid_t}: {temp_errors}"

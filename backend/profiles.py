@@ -312,6 +312,16 @@ def _validate_asr(asr: dict) -> list:
                 f"(got engine={engine!r})"
             )
 
+    # temperature (float|null, [0.0, 1.0])
+    temp = asr.get("temperature")
+    if temp is not None:
+        if isinstance(temp, bool) or not isinstance(temp, (int, float)):
+            errors.append("asr.temperature must be a float in [0.0, 1.0] or null")
+        elif not (0.0 <= float(temp) <= 1.0):
+            errors.append(
+                f"asr.temperature {temp!r} out of range; must be in [0.0, 1.0] or null"
+            )
+
     device = asr.get("device")
     if device is not None and device not in VALID_DEVICES:
         errors.append(
