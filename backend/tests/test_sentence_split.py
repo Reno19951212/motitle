@@ -166,3 +166,35 @@ def test_subcap_chunks_exact_boundary():
     out = _subcap_chunks([(0, 25 * SR)], max_s=25)
     assert len(out) == 1
     assert out[0] == (0, 25 * SR)
+
+
+def test_transcribe_fine_seg_raises_when_silero_missing(monkeypatch):
+    """F1 (strict): silero_vad import failure → FineSegmentationError with hint."""
+    import sys
+    # Force ImportError when sentence_split tries `from silero_vad import ...`
+    monkeypatch.setitem(sys.modules, "silero_vad", None)
+
+    from asr.sentence_split import transcribe_fine_seg, FineSegmentationError
+    with pytest.raises(FineSegmentationError, match="silero-vad"):
+        transcribe_fine_seg("dummy.wav", _profile_with_fine_seg(), None)
+
+
+def _profile_with_fine_seg() -> dict:
+    """Helper for tests: minimal profile dict with fine_segmentation enabled."""
+    return {
+        "asr": {
+            "engine": "mlx-whisper",
+            "model_size": "large-v3",
+            "language": "en",
+            "fine_segmentation": True,
+            "temperature": 0.0,
+            "vad_threshold": 0.5,
+            "vad_min_silence_ms": 500,
+            "vad_min_speech_ms": 250,
+            "vad_speech_pad_ms": 200,
+            "vad_chunk_max_s": 25,
+            "refine_max_dur": 4.0,
+            "refine_gap_thresh": 0.10,
+            "refine_min_dur": 1.5,
+        },
+    }

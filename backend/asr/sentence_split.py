@@ -27,9 +27,36 @@ class FineSegmentationError(Exception):
 
 
 # Public API — implementations added in subsequent tasks
-def transcribe_fine_seg(audio_path: str, profile: dict, ws_emit: Optional[Callable[[str, str], None]] = None):
-    """Full pipeline; returns List[Segment] with words[]."""
-    raise NotImplementedError("transcribe_fine_seg implemented in Task B5/B6")
+def transcribe_fine_seg(audio_path: str, profile: dict,
+                        ws_emit: Optional[Callable[[str, str], None]] = None):
+    """Full pipeline: VAD pre-seg → per-chunk mlx transcribe → word-gap refine.
+
+    Args:
+        audio_path: 16kHz mono WAV path
+        profile: full active profile dict (reads asr.* fields)
+        ws_emit: optional callback (kind, message) for runtime warnings
+
+    Raises:
+        FineSegmentationError: setup-level (missing silero-vad or mlx-whisper)
+
+    Returns:
+        List[Segment] dicts with words[] preserved
+    """
+    # F1 strict — setup errors raise immediately
+    try:
+        from silero_vad import load_silero_vad, get_speech_timestamps, read_audio
+    except ImportError as e:
+        raise FineSegmentationError(
+            "silero-vad not installed; run: pip install silero-vad"
+        ) from e
+
+    try:
+        import mlx_whisper
+    except ImportError as e:
+        raise FineSegmentationError("mlx-whisper not installed") from e
+
+    # Pipeline implementation completed in Task B6
+    raise NotImplementedError("Pipeline body in Task B6")
 
 
 def word_gap_split(segments, *, max_dur: float = 4.0, gap_thresh: float = 0.10,
