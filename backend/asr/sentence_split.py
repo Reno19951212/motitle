@@ -34,5 +34,66 @@ def transcribe_fine_seg(audio_path: str, profile: dict, ws_emit: Optional[Callab
 
 def word_gap_split(segments, *, max_dur: float = 4.0, gap_thresh: float = 0.10,
                    min_dur: float = 1.5, safety_max_dur: float = 9.0):
-    """Recursive split of long segments at largest inter-word gap."""
-    raise NotImplementedError("word_gap_split implemented in Task B2")
+    """Recursively split segments > max_dur at largest inter-word gap.
+
+    Behavior:
+      - Segment with duration ≤ max_dur or < 4 words → kept as-is
+      - Segment with duration > max_dur:
+          1. Find candidate gaps (must respect min_dur on both sides)
+          2. Take largest gap
+          3. If best gap ≥ gap_thresh: split, recurse on both halves
+          4. If best gap < gap_thresh AND duration ≤ safety_max_dur: keep as-is
+          5. If duration > safety_max_dur: force split at largest gap regardless
+    """
+    out = []
+    for s in segments:
+        out.extend(_split_one(s, max_dur, gap_thresh, min_dur, safety_max_dur))
+    return out
+
+
+def _split_one(seg, max_dur, gap_thresh, min_dur, safety_max_dur):
+    duration = seg["end"] - seg["start"]
+    words = seg.get("words") or []
+    if duration <= max_dur or len(words) < 4:
+        return [seg]
+
+    seg_start, seg_end = seg["start"], seg["end"]
+    candidates = []
+    for i in range(1, len(words)):
+        gap = words[i]["start"] - words[i - 1]["end"]
+        left_dur = words[i - 1]["end"] - seg_start
+        right_dur = seg_end - words[i]["start"]
+        if left_dur >= min_dur and right_dur >= min_dur:
+            candidates.append((i, gap))
+
+    if not candidates:
+        return [seg]
+
+    candidates.sort(key=lambda x: -x[1])
+    best_i, best_gap = candidates[0]
+
+    force_split = duration > safety_max_dur
+    if best_gap < gap_thresh and not force_split:
+        return [seg]
+
+    left_words = words[:best_i]
+    right_words = words[best_i:]
+    left = {
+        **seg,
+        "text": " ".join(w["word"].strip() for w in left_words).strip(),
+        "start": left_words[0]["start"],
+        "end": left_words[-1]["end"],
+        "words": left_words,
+    }
+    right = {
+        **seg,
+        "text": " ".join(w["word"].strip() for w in right_words).strip(),
+        "start": right_words[0]["start"],
+        "end": right_words[-1]["end"],
+        "words": right_words,
+    }
+
+    result = []
+    for c in (left, right):
+        result.extend(_split_one(c, max_dur, gap_thresh, min_dur, safety_max_dur))
+    return result
