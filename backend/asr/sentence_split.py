@@ -19,6 +19,12 @@ import logging
 import threading
 from typing import Callable, Optional
 
+# Cross-module dependency: shares the Apple Silicon Metal context lock with
+# the mlx-whisper engine. Both must serialize transcribe() calls to avoid
+# Metal context conflicts.
+from asr import Word
+from asr.mlx_whisper_engine import MODEL_REPO, _model_lock as _MLX_LOCK
+
 logger = logging.getLogger(__name__)
 
 
@@ -191,6 +197,34 @@ def _get_silero_model(load_fn):
     return _silero_model
 
 
+def _build_segment(s: dict, offset: float = 0.0) -> dict:
+    """Build a normalised segment dict from an mlx-whisper raw segment.
+
+    Args:
+        s: raw segment dict from mlx_whisper.transcribe() output
+        offset: seconds to add to every timestamp (chunk start time in file
+                timeline; 0.0 for whole-file transcriptions)
+
+    Returns:
+        dict with keys start, end, text, words — all timestamps offset-shifted.
+    """
+    words = [
+        Word(
+            word=w.get("word", ""),
+            start=float(w.get("start", 0.0)) + offset,
+            end=float(w.get("end", 0.0)) + offset,
+            probability=float(w.get("probability", 0.0) or 0.0),
+        )
+        for w in (s.get("words") or [])
+    ]
+    return {
+        "start": float(s["start"]) + offset,
+        "end": float(s["end"]) + offset,
+        "text": (s.get("text") or "").strip(),
+        "words": words,
+    }
+
+
 def _vad_segment(audio_path: str, asr_cfg: dict, *, load_fn, get_ts_fn, read_fn):
     """Run Silero VAD; return list of (start_sample, end_sample) tuples + audio array."""
     model = _get_silero_model(load_fn)
@@ -209,9 +243,6 @@ def _vad_segment(audio_path: str, asr_cfg: dict, *, load_fn, get_ts_fn, read_fn)
 
 def _transcribe_chunks(wav, chunks, asr_cfg, mlx_module, ws_emit):
     """Transcribe each chunk with mlx-whisper, shifting offsets to file timeline."""
-    from asr import Word
-    from asr.mlx_whisper_engine import MODEL_REPO, _model_lock as mlx_lock
-
     repo = MODEL_REPO.get(asr_cfg.get("model_size", "large-v3"), MODEL_REPO["large-v3"])
     out = []
     failed = 0
@@ -222,7 +253,7 @@ def _transcribe_chunks(wav, chunks, asr_cfg, mlx_module, ws_emit):
             chunk_audio = chunk_audio.numpy()
         offset = cs / _SR
         try:
-            with mlx_lock:
+            with _MLX_LOCK:
                 r = mlx_module.transcribe(
                     chunk_audio,
                     path_or_hf_repo=repo,
@@ -241,24 +272,10 @@ def _transcribe_chunks(wav, chunks, asr_cfg, mlx_module, ws_emit):
             continue
 
         for s in r.get("segments", []):
-            text = (s.get("text") or "").strip()
-            if not text:
+            seg = _build_segment(s, offset)
+            if not seg["text"]:
                 continue
-            words = [
-                Word(
-                    word=w.get("word", ""),
-                    start=float(w.get("start", 0.0)) + offset,
-                    end=float(w.get("end", 0.0)) + offset,
-                    probability=float(w.get("probability", 0.0) or 0.0),
-                )
-                for w in (s.get("words") or [])
-            ]
-            out.append({
-                "start": float(s["start"]) + offset,
-                "end": float(s["end"]) + offset,
-                "text": text,
-                "words": words,
-            })
+            out.append(seg)
 
     if failed > 0 and ws_emit is not None:
         ws_emit("chunk_fail",
@@ -268,11 +285,8 @@ def _transcribe_chunks(wav, chunks, asr_cfg, mlx_module, ws_emit):
 
 def _fallback_whole_file(audio_path: str, asr_cfg: dict, mlx_module):
     """Used when VAD returns 0 spans or all chunks fail. Baseline mlx transcribe."""
-    from asr import Word
-    from asr.mlx_whisper_engine import MODEL_REPO, _model_lock as mlx_lock
-
     repo = MODEL_REPO.get(asr_cfg.get("model_size", "large-v3"), MODEL_REPO["large-v3"])
-    with mlx_lock:
+    with _MLX_LOCK:
         r = mlx_module.transcribe(
             audio_path,
             path_or_hf_repo=repo,
@@ -285,22 +299,8 @@ def _fallback_whole_file(audio_path: str, asr_cfg: dict, mlx_module):
         )
     out = []
     for s in r.get("segments", []):
-        text = (s.get("text") or "").strip()
-        if not text:
+        seg = _build_segment(s)
+        if not seg["text"]:
             continue
-        words = [
-            Word(
-                word=w.get("word", ""),
-                start=float(w.get("start", 0.0)),
-                end=float(w.get("end", 0.0)),
-                probability=float(w.get("probability", 0.0) or 0.0),
-            )
-            for w in (s.get("words") or [])
-        ]
-        out.append({
-            "start": float(s["start"]),
-            "end": float(s["end"]),
-            "text": text,
-            "words": words,
-        })
+        out.append(seg)
     return out
