@@ -621,6 +621,44 @@ Sentence pipeline 嘅進階版：合併成句後，prompt LLM 喺中文輸出中
 
 ## 更新記錄
 
+### v3.8 細粒度 ASR 分句（廣播字幕優化）
+
+廣播字幕場景下，mlx-whisper 預設嘅 30 秒 window 會喺 sentence 中段切斷（例如「...needs is a」與「radical overhaul...」應屬同一句但被切成兩段）。v3.8 加入 Silero VAD pre-segment + word-gap refine 嘅 stack，架構性解決呢類 mid-clause cut。
+
+**啟用方式**（Profile 設定）：
+- ASR engine 揀 `mlx-whisper`（其他 engine 暫時唔支援）
+- 開「細粒度分句（廣播字幕優化）」
+- 「解碼溫度」設 `0.0`（建議；停 mlx fallback tuple，最穩定 boundary）
+- 翻譯設定建議勾選「跳過句子合併」（避免 fine-seg 後再次 merge）
+
+**Profile JSON 例子**（高階用戶可手動編輯）：
+```json
+{
+  "asr": {
+    "engine": "mlx-whisper",
+    "model_size": "large-v3",
+    "language": "en",
+    "fine_segmentation": true,
+    "temperature": 0.0,
+    "vad_threshold": 0.5,
+    "vad_min_silence_ms": 500,
+    "vad_chunk_max_s": 25,
+    "refine_max_dur": 4.0,
+    "refine_gap_thresh": 0.10
+  },
+  "translation": {
+    "skip_sentence_merge": true
+  }
+}
+```
+
+**新增依賴**：`pip install silero-vad>=6.2.0`（已加入 `requirements.txt`，跑 `./setup.sh` 會自動安裝）
+
+**注意事項**：
+- 既有已轉錄嘅 file 不受影響；只有新 upload 嘅 file 會行 fine-seg pipeline
+- Wall clock 比 baseline 略增 5-15%（VAD pre-segment + word_timestamps DTW overhead）
+- 對極短 audio（< 1 秒）或全 silence 檔案，pipeline 會自動 fallback 到完整檔案轉錄並 emit warning toast
+
 ### v3.3 — MP4 進階輸出參數（Bitrate Mode + Pixel Format + H.264 Profile / Level）
 
 - **Bitrate 控制模式**：MP4 卡片加入 3 個 tab 切換 — CRF（質素目標，default）/ CBR（固定碼率）/ 2-pass（兩次編碼達至更佳 bitrate 利用，慢 ~2×）。
