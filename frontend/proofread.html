@@ -2127,8 +2127,8 @@
     if (typeof FontPreview !== 'undefined') {
       if (active >= 0) {
         const s = segs[active];
-        const mode = resolveSubtitleSource(fileInfo, null);
-        const order = resolveBilingualOrder(fileInfo, null);
+        const mode = resolveSubtitleSource(fileInfo, activeProfile);
+        const order = resolveBilingualOrder(fileInfo, activeProfile);
         FontPreview.updateText(pickSubtitleText({ en: s.en, zh: s.zh }, mode, order));
       } else {
         FontPreview.updateText('');

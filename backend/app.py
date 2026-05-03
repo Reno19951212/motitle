@@ -2035,8 +2035,9 @@ def api_start_render():
             return jsonify({"error": f"{len(unapproved)} segment(s) not yet approved. All translations must be approved before rendering."}), 400
 
     # Count segments where ZH would be required but is empty (warn user).
+    # Bilingual mode also relies on ZH — segments missing ZH degrade to single-line EN.
     warning_missing_zh = 0
-    if subtitle_source == "zh":
+    if subtitle_source in ("zh", "bilingual"):
         for t in translations:
             if not (t.get("zh_text") or "").strip():
                 warning_missing_zh += 1
