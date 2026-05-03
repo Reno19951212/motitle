@@ -98,7 +98,7 @@ def transcribe_fine_seg(audio_path: str, profile: dict,
 
 
 def word_gap_split(segments, *, max_dur: float = 4.0, gap_thresh: float = 0.10,
-                   min_dur: float = 1.5, safety_max_dur: float = 9.0):
+                   min_dur: float = 1.5, safety_max_dur: float = 6.0):
     """Recursively split segments > max_dur at largest inter-word gap.
 
     Behavior:

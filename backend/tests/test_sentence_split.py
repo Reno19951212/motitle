@@ -105,6 +105,25 @@ def test_word_gap_split_keeps_under_safety_max_dur():
     assert len(out) == 1, f"should keep, got {len(out)}"
 
 
+def test_word_gap_split_default_safety_max_dur_is_6_0():
+    """Default safety cap = 6.0s (cross-fixture A/B picked from 5 candidates).
+
+    Locks in v3.9 ship decision: a 7s segment with no qualifying gaps still
+    gets force-split under defaults so that broadcast-style long monologues
+    (Trump fixture: max 8.00 → 5.98) don't pass through the v3.8 max ≤ 6.0
+    acceptance gate.
+    """
+    from asr.sentence_split import word_gap_split
+    # 7s segment, all inter-word gaps below default 0.10 threshold
+    words = [_word(str(i), i * 0.65, i * 0.65 + 0.6) for i in range(11)]
+    last_end = words[-1]["end"]
+    seg = _seg(0, last_end, words)
+    # Use ONLY default safety_max_dur (don't pass explicit value)
+    out = word_gap_split([seg], max_dur=4.0, gap_thresh=0.20, min_dur=1.5)
+    assert len(out) >= 2, (
+        f"7s seg under default safety_max_dur=6.0 must force-split, got {len(out)}")
+
+
 def test_word_gap_split_recursive_chains():
     """12s segment with two big gaps → split into 3 pieces."""
     from asr.sentence_split import word_gap_split
