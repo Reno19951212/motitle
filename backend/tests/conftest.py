@@ -98,3 +98,23 @@ def _isolate_app_data(tmp_path, monkeypatch):
     with app._registry_lock:
         app._file_registry.clear()
         app._file_registry.update(original_registry)
+
+
+def pytest_addoption(parser):
+    """Add --run-live flag for tests requiring real mlx-whisper + audio fixtures."""
+    parser.addoption(
+        "--run-live",
+        action="store_true",
+        default=False,
+        help="Run live integration tests (requires mlx-whisper + audio fixtures)",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    """Skip @pytest.mark.live tests unless --run-live flag is set."""
+    if config.getoption("--run-live"):
+        return
+    skip_live = pytest.mark.skip(reason="needs --run-live flag")
+    for item in items:
+        if "live" in item.keywords:
+            item.add_marker(skip_live)
