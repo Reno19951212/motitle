@@ -1082,14 +1082,26 @@ def api_translate_file():
             })
 
         parallel_batches = int(translation_config.get("parallel_batches") or 1)
+        # v3.9: a3_ensemble takes precedence over alignment_mode/sentence_pipeline
         # alignment_mode takes precedence over use_sentence_pipeline when set:
         #   "llm-markers"   → Phase 6 Step 2 LLM-anchored alignment
         #   "sentence"      → Phase 2 sentence pipeline (merge+translate+redistribute by word count)
         #   "off" / absent  → Phase 4 1-to-1 translation (default)
         alignment_mode = str(translation_config.get("alignment_mode", "")).lower()
         use_sentence_pipeline = bool(translation_config.get("use_sentence_pipeline", False))
+        a3_ensemble = bool(translation_config.get("a3_ensemble", False))
 
-        if alignment_mode == "llm-markers":
+        if a3_ensemble:
+            from translation.sentence_pipeline import translate_with_a3_ensemble
+            translated = translate_with_a3_ensemble(
+                asr_segments, glossary=glossary_entries,
+                profile_config={**translation_config, "a3_ensemble": True,
+                                "batch_size": trans_params["batch_size"],
+                                "temperature": trans_params["temperature"],
+                                "style": style},
+                progress_callback=_emit_progress,
+            )
+        elif alignment_mode == "llm-markers":
             from translation.alignment_pipeline import translate_with_alignment
             translated = translate_with_alignment(
                 engine, asr_segments, glossary=glossary_entries, style=style,
