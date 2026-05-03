@@ -97,3 +97,22 @@ def _split_one(seg, max_dur, gap_thresh, min_dur, safety_max_dur):
     for c in (left, right):
         result.extend(_split_one(c, max_dur, gap_thresh, min_dur, safety_max_dur))
     return result
+
+
+# Sample rate for Silero VAD + mlx-whisper
+_SR = 16000
+
+
+def _subcap_chunks(spans, max_s: int):
+    """Sub-cap any span > max_s seconds into ≤ max_s sub-chunks (sample-indexed)."""
+    chunk_max = max_s * _SR
+    out = []
+    for cs, ce in spans:
+        if (ce - cs) <= chunk_max:
+            out.append((cs, ce))
+        else:
+            cur = cs
+            while cur < ce:
+                out.append((cur, min(cur + chunk_max, ce)))
+                cur += chunk_max
+    return out

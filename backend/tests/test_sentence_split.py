@@ -133,3 +133,36 @@ def test_word_gap_split_preserves_text_content():
     parent_text = seg["text"]
     children_text = " ".join(s["text"] for s in out)
     assert parent_text == children_text, f"parent={parent_text!r} vs children={children_text!r}"
+
+
+def test_subcap_chunks_no_subcap_needed():
+    """Spans all ≤ max_s → output identical to input."""
+    from asr.sentence_split import _subcap_chunks
+    SR = 16000
+    spans = [(0, 10 * SR), (15 * SR, 25 * SR)]
+    assert _subcap_chunks(spans, max_s=25) == spans
+
+
+def test_subcap_chunks_splits_long_span():
+    """60s span with max_s=25 → 3 sub-chunks (25 + 25 + 10)."""
+    from asr.sentence_split import _subcap_chunks
+    SR = 16000
+    out = _subcap_chunks([(0, 60 * SR)], max_s=25)
+    assert len(out) == 3
+    assert out[0] == (0, 25 * SR)
+    assert out[1] == (25 * SR, 50 * SR)
+    assert out[2] == (50 * SR, 60 * SR)
+
+
+def test_subcap_chunks_empty_input():
+    from asr.sentence_split import _subcap_chunks
+    assert _subcap_chunks([], max_s=25) == []
+
+
+def test_subcap_chunks_exact_boundary():
+    """Span exactly = max_s → single chunk."""
+    from asr.sentence_split import _subcap_chunks
+    SR = 16000
+    out = _subcap_chunks([(0, 25 * SR)], max_s=25)
+    assert len(out) == 1
+    assert out[0] == (0, 25 * SR)
