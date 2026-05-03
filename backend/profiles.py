@@ -322,6 +322,31 @@ def _validate_asr(asr: dict) -> list:
                 f"asr.temperature {temp!r} out of range; must be in [0.0, 1.0] or null"
             )
 
+    # VAD parameters (Silero VAD pre-segmentation, added 2026-05-03)
+    _validate_int_range(errors, asr, "vad_min_silence_ms", 200, 2000)
+    _validate_int_range(errors, asr, "vad_min_speech_ms", 100, 1000)
+    _validate_int_range(errors, asr, "vad_speech_pad_ms", 0, 500)
+    _validate_int_range(errors, asr, "vad_chunk_max_s", 10, 30)
+    _validate_float_range(errors, asr, "vad_threshold", 0.0, 1.0)
+
+    # Word-gap refine parameters
+    _validate_float_range(errors, asr, "refine_max_dur", 3.0, 8.0)
+    _validate_float_range(errors, asr, "refine_gap_thresh", 0.05, 0.50)
+    _validate_float_range(errors, asr, "refine_min_dur", 0.5, 2.0)
+
+    # Cross-field: refine_min_dur < refine_max_dur
+    rmin = asr.get("refine_min_dur")
+    rmax = asr.get("refine_max_dur")
+    if (
+        rmin is not None and rmax is not None
+        and isinstance(rmin, (int, float)) and isinstance(rmax, (int, float))
+        and not isinstance(rmin, bool) and not isinstance(rmax, bool)
+        and rmin >= rmax
+    ):
+        errors.append(
+            f"asr.refine_min_dur ({rmin}) must be < asr.refine_max_dur ({rmax})"
+        )
+
     device = asr.get("device")
     if device is not None and device not in VALID_DEVICES:
         errors.append(
@@ -351,3 +376,25 @@ def _validate_translation(translation: dict) -> list:
             )
 
     return errors
+
+
+def _validate_int_range(errors: list, cfg: dict, key: str, lo: int, hi: int) -> None:
+    """Validate that cfg[key] is an int in [lo, hi] range (if present)."""
+    val = cfg.get(key)
+    if val is None:
+        return
+    if isinstance(val, bool) or not isinstance(val, int):
+        errors.append(f"asr.{key} must be an integer in [{lo}, {hi}]")
+    elif not (lo <= val <= hi):
+        errors.append(f"asr.{key} {val!r} out of range; must be in [{lo}, {hi}]")
+
+
+def _validate_float_range(errors: list, cfg: dict, key: str, lo: float, hi: float) -> None:
+    """Validate that cfg[key] is a number in [lo, hi] range (if present)."""
+    val = cfg.get(key)
+    if val is None:
+        return
+    if isinstance(val, bool) or not isinstance(val, (int, float)):
+        errors.append(f"asr.{key} must be a number in [{lo}, {hi}]")
+    elif not (lo <= float(val) <= hi):
+        errors.append(f"asr.{key} {val!r} out of range; must be in [{lo}, {hi}]")

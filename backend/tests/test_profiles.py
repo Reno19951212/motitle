@@ -561,3 +561,63 @@ def test_profile_validates_temperature_range(config_dir):
         errors = mgr.validate(ok)
         temp_errors = [e for e in errors if "temperature" in e]
         assert temp_errors == [], f"unexpected errors for temp={valid_t}: {temp_errors}"
+
+
+# ============================================================
+# VAD + refine field validation (Task A4, added 2026-05-03)
+# ============================================================
+
+def test_profile_validates_vad_chunk_max_s_range(config_dir):
+    """asr.vad_chunk_max_s must be int in [10, 30]."""
+    from profiles import ProfileManager
+    mgr = ProfileManager(config_dir)
+    for bad in (5, 35):
+        cfg = {
+            "name": f"vad_chunk_max_s={bad}",
+            "asr": {"engine": "mlx-whisper", "model_size": "large-v3", "vad_chunk_max_s": bad},
+            "translation": {"engine": "mock"},
+        }
+        errors = mgr.validate(cfg)
+        assert any("vad_chunk_max_s" in e for e in errors), f"bad={bad}: {errors}"
+
+
+def test_profile_validates_refine_min_lt_max(config_dir):
+    """refine_min_dur must be < refine_max_dur."""
+    from profiles import ProfileManager
+    mgr = ProfileManager(config_dir)
+    cfg = {
+        "name": "Bad refine pair",
+        "asr": {
+            "engine": "mlx-whisper", "model_size": "large-v3",
+            "refine_min_dur": 5.0, "refine_max_dur": 4.0,
+        },
+        "translation": {"engine": "mock"},
+    }
+    errors = mgr.validate(cfg)
+    assert any("refine_min_dur" in e and "refine_max_dur" in e for e in errors), errors
+
+
+def test_profile_validates_vad_threshold_range(config_dir):
+    """asr.vad_threshold must be float in [0.0, 1.0]."""
+    from profiles import ProfileManager
+    mgr = ProfileManager(config_dir)
+    cfg = {
+        "name": "vad_threshold out of range",
+        "asr": {"engine": "mlx-whisper", "model_size": "large-v3", "vad_threshold": 1.5},
+        "translation": {"engine": "mock"},
+    }
+    errors = mgr.validate(cfg)
+    assert any("vad_threshold" in e for e in errors), errors
+
+
+def test_profile_backward_compat_no_new_fields(config_dir):
+    """Profile without any new v3.8 fields validates cleanly (defaults applied)."""
+    from profiles import ProfileManager
+    mgr = ProfileManager(config_dir)
+    cfg = {
+        "name": "Legacy profile",
+        "asr": {"engine": "mlx-whisper", "model_size": "large-v3", "language": "en"},
+        "translation": {"engine": "mock"},
+    }
+    errors = mgr.validate(cfg)
+    assert errors == [], f"unexpected errors: {errors}"
