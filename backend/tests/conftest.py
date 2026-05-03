@@ -110,6 +110,13 @@ def pytest_addoption(parser):
     )
 
 
+def pytest_configure(config):
+    """Register custom markers."""
+    config.addinivalue_line(
+        "markers", "live: mark test as requiring --run-live flag and live fixtures"
+    )
+
+
 def pytest_collection_modifyitems(config, items):
     """Skip @pytest.mark.live tests unless --run-live flag is set."""
     if config.getoption("--run-live"):
