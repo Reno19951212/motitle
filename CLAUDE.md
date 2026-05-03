@@ -360,6 +360,21 @@ Whenever a new feature is completed or existing functionality is modified, you *
 - **Glossary Apply（LLM 智能替換）**: Proofread page 詞彙表 panel 新增「套用」按鈕。Two-phase 流程：(1) `POST /api/files/<id>/glossary-scan` 用純字串匹配搵出違規（EN 包含 glossary term 但 ZH 唔包含對應翻譯）；(2) 預覽 modal 俾用戶剔選 violations（未批核預設勾選，已批核預設唔勾選）；(3) `POST /api/files/<id>/glossary-apply` 逐條調用 Ollama LLM 做智能替換（保留句子其他部分），多個違規同一 segment 時序列處理。後端會驗證 `(term_en, term_zh)` 確實屬於指定 glossary，錯誤訊息經 `app.logger.exception` 記錄並返回統一 `"LLM request failed"` 俾 client
 - **304 automated tests**（+13 new: glossary-scan/apply 端到端 coverage，包含 sequential chaining、term validation、approval 狀態保留）
 
+### v3.8 — ASR Fine Segmentation (Silero VAD chunk-mode + word-gap refine)
+- **Background**：mlx-whisper 30s window 結構性限制令 broadcast 訪問風格（run-on 句）經常喺 sentence 中段 emit timestamp（cross-30s-window mid-clause cut）。例如「...what the team really needs is a」+「radical overhaul...」應為一句但被 Whisper 30s window 強行切開。純 mlx-whisper kwargs（length_penalty / beam_size / max_initial_timestamp / hallucination_silence_threshold 等）11-config A/B 證實無法解決。
+- **Validation**: 詳見 [docs/superpowers/specs/2026-05-03-asr-fine-segmentation-validation.md](docs/superpowers/specs/2026-05-03-asr-fine-segmentation-validation.md)。跑 11 mlx-whisper kwargs configs + 3-way prototype（faster-whisper+vad / word-gap split / Silero VAD chunk）+ stack tuning。Cross-style 已驗證 Real Madrid sports interview + Trump 政治演講兩個極端 broadcast style。
+- **新 module**: [backend/asr/sentence_split.py](backend/asr/sentence_split.py) — Silero VAD pre-segment（threshold 0.5 / min_silence 500ms）→ sub-cap chunks ≤ 25s → mlx-whisper transcribe per chunk（temperature=0.0 + word_timestamps=True + condition_on_previous_text=False）→ word-gap refine（max_dur=4.0s / gap_thresh=0.10s / min_dur=1.5s）。架構性消除 cross-30s-window mid-clause cut。
+- **Profile schema**：ASR block 加 10 個 fields（fine_segmentation, temperature, vad_threshold, vad_min_silence_ms, vad_min_speech_ms, vad_speech_pad_ms, vad_chunk_max_s, refine_max_dur, refine_gap_thresh, refine_min_dur）；translation block 加 1 個 field（skip_sentence_merge）。Frontend UI 暴露 fine_segmentation toggle + temperature；其餘 9 fields 只 JSON edit。
+- **Validation 結果**（5min Real Madrid，large-v3，post-impl live test）：
+  - Baseline: 66 segs, mean 4.44s, max 6.24s, 43/66 (65%) 過 84c, sent_end 19.4%, ❌ #3+#4 mid-clause cut
+  - L1 + L3 stack（fine_seg）: 85 segs, mean 3.07s, p95 4.82s, max 5.64s, tiny rate 4.7%, ✅ #3+#4 修復, 100% words populated
+- **Engine compat**：Phase 1 只 mlx-whisper；whisper engine（faster-whisper / openai-whisper）已有自己 vad_filter 機制。Profile validation reject `fine_segmentation: true` 配 engine ≠ mlx-whisper。
+- **Grandfather 策略**：既有 file 唔重新 transcribe；只新 upload 行新 stack。Registry 加 `transcribed_with_fine_seg` flag 標記。
+- **Error handling**：Setup error（silero-vad 缺）= strict raise；runtime fallback（VAD 0 chunks / chunk fail）= permissive + WebSocket `transcription_warning` event。
+- **新 dep**: `silero-vad>=6.2.0` (~1.8 MB ONNX，無 PyTorch 需要)
+- **新 test 數量**: ~30（17 sentence_split + 3 mlx_engine + 9 profiles + 5 app + 2 live integration）
+- **Backend total**: 469 → 509 PASS / 12 pre-existing FAIL (521 total)
+
 ### v3.7 — Subtitle Source Mode (per-file EN / ZH / Bilingual)
 - **`backend/subtitle_text.py`**: 新 module，shared resolver `resolve_segment_text(seg, mode, order, line_break)` + `strip_qa_prefixes` + `resolve_subtitle_source` / `resolve_bilingual_order` 三層 fallback helper（render-modal override > file > profile > `auto`）
 - **`renderer.generate_ass()`**: 加 `subtitle_source` + `bilingual_order` keyword-only kwargs，default `auto`/`en_top`，預設行為同 v3.6 一樣
