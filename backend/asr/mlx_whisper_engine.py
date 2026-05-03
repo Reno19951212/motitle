@@ -130,6 +130,14 @@ class MlxWhisperEngine(ASREngine):
                     "hint": "開 = 每個英文字都有時間碼，可用於對齊翻譯；略增記憶體。關 = 只有 segment 級別。",
                     "default": False,
                 },
+                "fine_segmentation": {
+                    "type": "boolean",
+                    "label": "細粒度分句（廣播字幕優化）",
+                    "widget": "switch",
+                    "description": "Use Silero VAD pre-segmentation + word-gap refine for finer subtitle units",
+                    "hint": "開 = 廣播字幕優化（mean ~3s / max ~5.5s）；只 mlx-whisper 支援。略增轉錄時間。",
+                    "default": False,
+                },
                 "temperature": {
                     "type": "float",
                     "label": "解碼溫度",
