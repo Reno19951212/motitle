@@ -2251,6 +2251,28 @@ def api_renders_in_progress():
     return jsonify({'jobs': out}), 200
 
 
+def _auto_translate_pick_route(translation_config: dict) -> str:
+    """Return one of {'llm-markers', 'sentence_pipeline', 'direct'} for translate routing.
+
+    Priority:
+        1. alignment_mode='llm-markers' → 'llm-markers'
+        2. (use_sentence_pipeline OR alignment_mode='sentence') AND NOT skip_sentence_merge → 'sentence_pipeline'
+        3. otherwise → 'direct'
+
+    skip_sentence_merge=True takes precedence over use_sentence_pipeline/alignment_mode='sentence'
+    so users can pair it with fine_segmentation without disabling the upstream flag.
+    """
+    alignment_mode = str(translation_config.get("alignment_mode", "")).lower()
+    use_pipeline = bool(translation_config.get("use_sentence_pipeline", False))
+    skip = bool(translation_config.get("skip_sentence_merge", False))
+
+    if alignment_mode == "llm-markers":
+        return "llm-markers"
+    if (use_pipeline or alignment_mode == "sentence") and not skip:
+        return "sentence_pipeline"
+    return "direct"
+
+
 def _auto_translate(fid: str, segments: list, session_id) -> None:
     """Auto-translate segments after transcription using the active profile."""
     try:
@@ -2307,9 +2329,9 @@ def _auto_translate(fid: str, segments: list, session_id) -> None:
             })
 
         parallel_batches = int(translation_config.get("parallel_batches") or 1)
-        alignment_mode = str(translation_config.get("alignment_mode", "")).lower()
-        use_sentence_pipeline = bool(translation_config.get("use_sentence_pipeline", False))
-        if alignment_mode == "llm-markers":
+        route = _auto_translate_pick_route(translation_config)
+
+        if route == "llm-markers":
             from translation.alignment_pipeline import translate_with_alignment
             translated = translate_with_alignment(
                 engine, asr_segments, glossary=glossary_entries, style=style,
@@ -2318,7 +2340,7 @@ def _auto_translate(fid: str, segments: list, session_id) -> None:
                 progress_callback=_emit_auto_progress,
                 parallel_batches=parallel_batches,
             )
-        elif use_sentence_pipeline or alignment_mode == "sentence":
+        elif route == "sentence_pipeline":
             from translation.sentence_pipeline import translate_with_sentences
             translated = translate_with_sentences(
                 engine, asr_segments, glossary=glossary_entries, style=style,
@@ -2327,7 +2349,7 @@ def _auto_translate(fid: str, segments: list, session_id) -> None:
                 progress_callback=_emit_auto_progress,
                 parallel_batches=parallel_batches,
             )
-        else:
+        else:  # 'direct'
             translated = engine.translate(
                 asr_segments, glossary=glossary_entries, style=style,
                 batch_size=trans_params["batch_size"],

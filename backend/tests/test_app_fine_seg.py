@@ -59,3 +59,34 @@ def test_registry_flag_false_for_legacy_profile():
     }
     flag = app._compute_transcribed_with_fine_seg_flag(profile)
     assert flag is False
+
+
+def test_auto_translate_skip_flag_bypasses_sentence_pipeline(monkeypatch):
+    """translation.skip_sentence_merge=True → translate_with_sentences NOT called."""
+    import app
+
+    spy_called = []
+    monkeypatch.setattr(
+        "translation.sentence_pipeline.translate_with_sentences",
+        lambda *a, **kw: spy_called.append(True) or [],
+    )
+
+    translation_config = {
+        "engine": "mock",
+        "use_sentence_pipeline": True,    # would normally trigger merge
+        "skip_sentence_merge": True,      # but this skip overrides
+    }
+    routed = app._auto_translate_pick_route(translation_config)
+    assert routed == "direct", f"expected 'direct', got {routed!r}"
+    assert spy_called == []
+
+
+def test_auto_translate_uses_sentence_pipeline_without_skip_flag(monkeypatch):
+    """translation.skip_sentence_merge=False (default) + use_sentence_pipeline=True → sentence path."""
+    import app
+    translation_config = {
+        "engine": "mock",
+        "use_sentence_pipeline": True,
+    }
+    routed = app._auto_translate_pick_route(translation_config)
+    assert routed == "sentence_pipeline"
