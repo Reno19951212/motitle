@@ -167,6 +167,18 @@ def _split_one(seg, max_dur, gap_thresh, min_dur, safety_max_dur):
 # Sample rate for Silero VAD + mlx-whisper
 _SR = 16000
 
+# Whisper hallucination guard kwargs (per mbotsu/mlx_speech2text reference).
+# Lowers no_speech sensitivity + tightens compression-ratio + logprob filters
+# so silent / low-information chunks don't get LLM-fabricated text like
+# "Thanks for watching" / "Subscribe to my channel". Empirically validated
+# across RealMadrid + Trump 5min fixtures (no regression on continuous-speech
+# audio; expected to suppress hallucination on chunks with silence tail).
+_HALLUCINATION_GUARDS = {
+    "no_speech_threshold": 0.1,
+    "compression_ratio_threshold": 1.4,
+    "logprob_threshold": -1.0,
+}
+
 
 def _subcap_chunks(spans, max_s: int):
     """Sub-cap any span > max_s seconds into ≤ max_s sub-chunks (sample-indexed)."""
@@ -235,7 +247,7 @@ def _vad_segment(audio_path: str, asr_cfg: dict, *, load_fn, get_ts_fn, read_fn)
         threshold=asr_cfg.get("vad_threshold", 0.5),
         min_speech_duration_ms=asr_cfg.get("vad_min_speech_ms", 250),
         min_silence_duration_ms=asr_cfg.get("vad_min_silence_ms", 500),
-        speech_pad_ms=asr_cfg.get("vad_speech_pad_ms", 200),
+        speech_pad_ms=asr_cfg.get("vad_speech_pad_ms", 300),
         return_seconds=False,
     )
     return [(s["start"], s["end"]) for s in spans], wav
@@ -263,6 +275,7 @@ def _transcribe_chunks(wav, chunks, asr_cfg, mlx_module, ws_emit):
                     condition_on_previous_text=False,  # chunk-isolated
                     word_timestamps=True,
                     temperature=float(asr_cfg.get("temperature") or 0.0),
+                    **_HALLUCINATION_GUARDS,
                 )
         except Exception as e:  # noqa: BLE001 — permissive runtime fallback
             failed += 1
@@ -296,6 +309,7 @@ def _fallback_whole_file(audio_path: str, asr_cfg: dict, mlx_module):
             condition_on_previous_text=True,
             word_timestamps=True,
             temperature=float(asr_cfg.get("temperature") or 0.0),
+            **_HALLUCINATION_GUARDS,
         )
     out = []
     for s in r.get("segments", []):

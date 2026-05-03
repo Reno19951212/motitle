@@ -277,3 +277,92 @@ def test_transcribe_fine_seg_falls_back_when_all_chunks_fail(monkeypatch, tmp_pa
     )
     assert out == fake_segments
     assert any(k == "vad_fail" for k, _ in emits), emits
+
+
+def test_vad_speech_pad_default_is_300_when_omitted():
+    """Profile without vad_speech_pad_ms uses 300ms (cross-fixture A/B validated)."""
+    from asr.sentence_split import _vad_segment
+
+    captured = {}
+
+    def fake_load(onnx=True):
+        return object()
+
+    def fake_get_ts(wav, model, **kwargs):
+        captured.update(kwargs)
+        return []
+
+    def fake_read(path, sampling_rate=16000):
+        return [0] * sampling_rate
+
+    _vad_segment("fake.wav", {}, load_fn=fake_load, get_ts_fn=fake_get_ts, read_fn=fake_read)
+    assert captured.get("speech_pad_ms") == 300, (
+        f"default pad must be 300 (was {captured.get('speech_pad_ms')})")
+
+
+def test_vad_speech_pad_explicit_value_overrides_default():
+    """Profile with explicit vad_speech_pad_ms wins over default."""
+    from asr.sentence_split import _vad_segment
+    captured = {}
+
+    def fake_get_ts(wav, model, **kwargs):
+        captured.update(kwargs)
+        return []
+
+    _vad_segment("fake.wav", {"vad_speech_pad_ms": 200},
+                 load_fn=lambda onnx=True: object(),
+                 get_ts_fn=fake_get_ts,
+                 read_fn=lambda p, sampling_rate=16000: [0] * sampling_rate)
+    assert captured.get("speech_pad_ms") == 200
+
+
+def test_transcribe_chunks_passes_hallucination_guards():
+    """_transcribe_chunks forwards no_speech / compression_ratio / logprob guards to mlx."""
+    from asr.sentence_split import _transcribe_chunks
+
+    captured_kwargs = {}
+
+    class _FakeMlx:
+        @staticmethod
+        def transcribe(audio, **kwargs):
+            captured_kwargs.update(kwargs)
+            return {"segments": []}
+
+    SR = 16000
+    fake_wav = [0] * (SR * 2)  # 2s audio
+    chunks = [(0, SR * 2)]  # one 2-second chunk
+    asr_cfg = {"model_size": "large-v3", "language": "en", "temperature": 0.0}
+
+    _transcribe_chunks(fake_wav, chunks, asr_cfg, _FakeMlx, ws_emit=None)
+
+    # Guard kwargs (mbotsu/mlx_speech2text reference values) must reach mlx
+    assert captured_kwargs.get("no_speech_threshold") == 0.1
+    assert captured_kwargs.get("compression_ratio_threshold") == 1.4
+    assert captured_kwargs.get("logprob_threshold") == -1.0
+    # Existing kwargs preserved
+    assert captured_kwargs.get("language") == "en"
+    assert captured_kwargs.get("word_timestamps") is True
+    assert captured_kwargs.get("condition_on_previous_text") is False
+
+
+def test_fallback_whole_file_passes_hallucination_guards(tmp_path):
+    """Fallback path also forwards hallucination guards (silence-tail risk highest here)."""
+    from asr.sentence_split import _fallback_whole_file
+
+    captured = {}
+
+    class _FakeMlx:
+        @staticmethod
+        def transcribe(path, **kwargs):
+            captured.update(kwargs)
+            return {"segments": []}
+
+    audio = tmp_path / "fake.wav"
+    audio.touch()
+    _fallback_whole_file(str(audio), {"model_size": "large-v3"}, _FakeMlx)
+
+    assert captured.get("no_speech_threshold") == 0.1
+    assert captured.get("compression_ratio_threshold") == 1.4
+    assert captured.get("logprob_threshold") == -1.0
+    # Fallback uses condition_on_previous_text=True (different from chunk path)
+    assert captured.get("condition_on_previous_text") is True
