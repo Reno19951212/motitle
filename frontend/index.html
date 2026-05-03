@@ -4057,6 +4057,16 @@
         isProcessing = false;
         showToast(`轉錄失敗: ${d.error}`, 'error');
       });
+      socket.on('transcription_warning', d => {
+        const kindLabels = {
+          'vad_zero': 'VAD 偵測唔到語音 — 已 fallback 到完整檔案轉錄',
+          'vad_fail': '所有 chunk 轉錄失敗 — 已 fallback 到完整檔案轉錄',
+          'chunk_fail': '部分 chunk 轉錄失敗 — 字幕可能有空白',
+          'fine_seg_unavailable': '細粒度分句模組不可用',
+        };
+        const label = kindLabels[d.kind] || d.kind;
+        showToast(`⚠️ ${label}${d.message ? ': ' + d.message : ''}`, 'warning');
+      });
       socket.on('translation_progress', d => {
         if (uploadedFiles[d.file_id]) {
           const f = uploadedFiles[d.file_id];
