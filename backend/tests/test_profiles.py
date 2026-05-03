@@ -491,3 +491,29 @@ def test_parallel_batches_non_int_invalid(tmp_path):
     data["translation"]["parallel_batches"] = "2"
     errors = pm.validate(data)
     assert any("parallel_batches" in e for e in errors)
+
+
+def test_profile_validates_fine_segmentation_bool(config_dir):
+    """fine_segmentation must be bool when present."""
+    from profiles import ProfileManager
+    mgr = ProfileManager(config_dir)
+    profile_data = {
+        "name": "Bad fine_seg type",
+        "asr": {"engine": "mlx-whisper", "model_size": "large-v3", "fine_segmentation": "yes"},
+        "translation": {"engine": "mock"},
+    }
+    errors = mgr.validate(profile_data)
+    assert any("fine_segmentation" in e and "bool" in e for e in errors), errors
+
+
+def test_profile_rejects_fine_segmentation_with_non_mlx_engine(config_dir):
+    """fine_segmentation=true requires engine=mlx-whisper."""
+    from profiles import ProfileManager
+    mgr = ProfileManager(config_dir)
+    profile_data = {
+        "name": "Bad engine combo",
+        "asr": {"engine": "whisper", "model_size": "tiny", "fine_segmentation": True},
+        "translation": {"engine": "mock"},
+    }
+    errors = mgr.validate(profile_data)
+    assert any("fine_segmentation" in e and "mlx-whisper" in e for e in errors), errors

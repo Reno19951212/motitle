@@ -301,6 +301,17 @@ def _validate_asr(asr: dict) -> list:
             f"asr.engine '{engine}' is not valid; must be one of {sorted(VALID_ASR_ENGINES)}"
         )
 
+    # fine_segmentation flag (added 2026-05-03)
+    fine_seg = asr.get("fine_segmentation")
+    if fine_seg is not None:
+        if not isinstance(fine_seg, bool):
+            errors.append("asr.fine_segmentation must be bool")
+        elif fine_seg is True and engine != "mlx-whisper":
+            errors.append(
+                f"asr.fine_segmentation=true requires asr.engine='mlx-whisper' "
+                f"(got engine={engine!r})"
+            )
+
     device = asr.get("device")
     if device is not None and device not in VALID_DEVICES:
         errors.append(
