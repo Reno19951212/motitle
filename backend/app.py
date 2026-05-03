@@ -2430,6 +2430,7 @@ def transcribe_file():
 
     # Start transcription in background thread
     def do_transcribe():
+        profile = _profile_manager.get_active()
         _update_file(file_id, status='transcribing', model=model_size)
         if sid:
             socketio.emit('file_updated', {'id': file_id, 'status': 'transcribing', 'model': model_size}, room=sid)

@@ -90,3 +90,22 @@ def test_auto_translate_uses_sentence_pipeline_without_skip_flag(monkeypatch):
     }
     routed = app._auto_translate_pick_route(translation_config)
     assert routed == "sentence_pipeline"
+
+
+def test_transcribe_file_does_not_crash_on_registry_write(monkeypatch):
+    """Regression: app.py used `profile` outside its scope in do_transcribe(), causing
+    NameError on every transcribe call.
+
+    Verifies the do_transcribe closure resolves profile via _profile_manager.get_active()
+    rather than relying on an undefined outer variable.
+    """
+    import app
+    import inspect
+
+    src = inspect.getsource(app.transcribe_file)
+
+    if "_compute_transcribed_with_fine_seg_flag" in src:
+        assert (
+            "_profile_manager.get_active()" in src
+            or "profile = " in src
+        ), "do_transcribe must define `profile` before _compute_transcribed_with_fine_seg_flag call"
