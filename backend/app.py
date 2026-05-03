@@ -380,6 +380,88 @@ def extract_audio(video_path: str, output_path: str) -> bool:
         return False
 
 
+def _run_profile_asr_with_optional_fine_seg(audio_path, profile, sid,
+                                            emit_segment_with_progress):
+    """Run ASR via fine_segmentation pipeline if enabled, else legacy engine path.
+
+    Returns dict with keys: text, language, segments, backend, model.
+    Segments include `words` field always (empty list when not produced by engine).
+    """
+    asr_cfg = profile.get("asr") or {}
+    engine_name = asr_cfg.get("engine")
+    fine_seg = bool(asr_cfg.get("fine_segmentation"))
+    language = asr_cfg.get("language", "en")
+    segments = []
+
+    if fine_seg and engine_name == "mlx-whisper":
+        from asr import sentence_split
+
+        def _ws_emit(kind: str, message: str):
+            try:
+                socketio.emit('transcription_warning',
+                              {'kind': kind, 'message': message},
+                              room=sid)
+            except Exception:
+                app.logger.warning(
+                    f"transcription_warning emit failed: {kind}={message}"
+                )
+
+        try:
+            raw = sentence_split.transcribe_fine_seg(audio_path, profile, _ws_emit)
+        except sentence_split.FineSegmentationError as e:
+            _ws_emit("fine_seg_unavailable", str(e))
+            raise
+        for i, seg in enumerate(raw):
+            segment = {
+                'id': i,
+                'start': seg['start'],
+                'end': seg['end'],
+                'text': seg['text'],
+                'words': seg.get('words', []) or [],
+            }
+            segments.append(segment)
+            emit_segment_with_progress(segment, sid)
+        return {
+            'text': ' '.join(s['text'] for s in segments),
+            'language': language,
+            'segments': segments,
+            'backend': 'mlx-whisper-fine-seg',
+            'model': asr_cfg.get('model_size', ''),
+        }
+
+    # Legacy path — existing behaviour
+    from asr import create_asr_engine
+    engine = create_asr_engine(asr_cfg)
+    raw_segments = engine.transcribe(audio_path, language=language)
+    from asr.segment_utils import split_segments
+    lang_config_id = asr_cfg.get("language_config_id", language)
+    lang_config = _language_config_manager.get(lang_config_id)
+    asr_params = lang_config["asr"] if lang_config else DEFAULT_ASR_CONFIG
+    raw_segments = split_segments(
+        raw_segments,
+        max_words=asr_params["max_words_per_segment"],
+        max_duration=asr_params["max_segment_duration"],
+    )
+    for i, seg in enumerate(raw_segments):
+        segment = {
+            'id': i,
+            'start': seg['start'],
+            'end': seg['end'],
+            'text': seg['text'],
+            'words': seg.get('words', []) or [],
+        }
+        segments.append(segment)
+        emit_segment_with_progress(segment, sid)
+    engine_info = engine.get_info()
+    return {
+        'text': ' '.join(s['text'] for s in segments),
+        'language': language,
+        'segments': segments,
+        'backend': engine_info.get('engine', 'whisper'),
+        'model': engine_info.get('model_size', asr_cfg.get('model_size', '')),
+    }
+
+
 def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str = None):
     """
     Transcribe audio/video file and emit segments with timestamps.
@@ -453,46 +535,14 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
                 'total_duration': total_duration,
             }, room=sid)
 
-        # === Profile-based ASR engine path ===
+        # === Profile-based ASR engine path (legacy or fine_segmentation) ===
         if use_profile_engine:
-            from asr import create_asr_engine
-            engine = create_asr_engine(profile["asr"])
-            language = profile["asr"].get("language", "en")
-            raw_segments = engine.transcribe(audio_path, language=language)
-
-            # Post-process segments with language config
-            from asr.segment_utils import split_segments
-            lang_config_id = profile["asr"].get("language_config_id", language)
-            lang_config = _language_config_manager.get(lang_config_id)
-            asr_params = lang_config["asr"] if lang_config else DEFAULT_ASR_CONFIG
-            raw_segments = split_segments(
-                raw_segments,
-                max_words=asr_params["max_words_per_segment"],
-                max_duration=asr_params["max_segment_duration"],
+            return _run_profile_asr_with_optional_fine_seg(
+                audio_path=audio_path,
+                profile=profile,
+                sid=sid,
+                emit_segment_with_progress=emit_segment_with_progress,
             )
-
-            for i, seg in enumerate(raw_segments):
-                segment = {
-                    'id': i,
-                    'start': seg['start'],
-                    'end': seg['end'],
-                    'text': seg['text'],
-                    # Forward word-level timestamps when the engine produced them
-                    # (opt-in via profile asr.word_timestamps=true). Empty list
-                    # preserves existing frontend contract when disabled.
-                    'words': seg.get('words', []) or [],
-                }
-                segments.append(segment)
-                emit_segment_with_progress(segment, sid)
-
-            engine_info = engine.get_info()
-            return {
-                'text': ' '.join(s['text'] for s in segments),
-                'language': language,
-                'segments': segments,
-                'backend': engine_info.get('engine', 'whisper'),
-                'model': engine_info.get('model_size', profile['asr'].get('model_size', '')),
-            }
 
         # === Legacy path (no profile or non-whisper engine) ===
         if backend == 'faster':
