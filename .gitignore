@@ -45,6 +45,7 @@ test-results/
 # Local profile configs — may contain API keys (OpenRouter, etc.).
 # Tracked templates end in .example.json — copy one to <name>.json and edit locally.
 backend/config/profiles/dev-default.json
+backend/config/profiles/prod-default.json
 backend/config/profiles/*.local.json
 
 # Private / commercially sensitive docs (client assessments, internal notes).
