@@ -37,17 +37,22 @@ class MlxWhisperEngine(ASREngine):
 
         condition_on_previous_text = self._config.get("condition_on_previous_text", True)
         word_timestamps = bool(self._config.get("word_timestamps", False))
+        temperature = self._config.get("temperature")  # may be None or float
+
+        kwargs = {
+            "path_or_hf_repo": self._repo,
+            "language": language,
+            "task": "transcribe",
+            "condition_on_previous_text": condition_on_previous_text,
+            "word_timestamps": word_timestamps,
+            "verbose": False,
+        }
+        # Only pass temperature when explicitly set; None → use mlx default fallback tuple
+        if temperature is not None:
+            kwargs["temperature"] = float(temperature)
 
         with _model_lock:
-            result = mlx_whisper.transcribe(
-                audio_path,
-                path_or_hf_repo=self._repo,
-                language=language,
-                task="transcribe",
-                condition_on_previous_text=condition_on_previous_text,
-                word_timestamps=word_timestamps,
-                verbose=False,
-            )
+            result = mlx_whisper.transcribe(audio_path, **kwargs)
 
         segments = []
         for seg in result.get("segments", []):
@@ -124,6 +129,17 @@ class MlxWhisperEngine(ASREngine):
                     "description": "Emit per-word start/end timestamps",
                     "hint": "開 = 每個英文字都有時間碼，可用於對齊翻譯；略增記憶體。關 = 只有 segment 級別。",
                     "default": False,
+                },
+                "temperature": {
+                    "type": "float",
+                    "label": "解碼溫度",
+                    "widget": "input",
+                    "nullable": True,
+                    "description": "Decoder temperature; 0.0 disables fallback (recommended for fine_segmentation)",
+                    "hint": "0.0 = 固定 greedy decode；留空 = 用 mlx 預設 fallback tuple",
+                    "min": 0.0,
+                    "max": 1.0,
+                    "default": None,
                 },
             },
         }
