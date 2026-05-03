@@ -26,7 +26,6 @@ class FineSegmentationError(Exception):
     """Raised for setup-level failures (missing silero-vad, missing mlx-whisper)."""
 
 
-# Public API — implementations added in subsequent tasks
 def transcribe_fine_seg(audio_path: str, profile: dict,
                         ws_emit: Optional[Callable[[str, str], None]] = None):
     """Full pipeline: VAD pre-seg → per-chunk mlx transcribe → word-gap refine.
@@ -37,7 +36,7 @@ def transcribe_fine_seg(audio_path: str, profile: dict,
         ws_emit: optional callback (kind, message) for runtime warnings
 
     Raises:
-        FineSegmentationError: setup-level (missing silero-vad or mlx-whisper)
+        FineSegmentationError: setup-level (silero-vad or mlx-whisper missing)
 
     Returns:
         List[Segment] dicts with words[] preserved
@@ -49,14 +48,47 @@ def transcribe_fine_seg(audio_path: str, profile: dict,
         raise FineSegmentationError(
             "silero-vad not installed; run: pip install silero-vad"
         ) from e
-
     try:
         import mlx_whisper
     except ImportError as e:
         raise FineSegmentationError("mlx-whisper not installed") from e
 
-    # Pipeline implementation completed in Task B6
-    raise NotImplementedError("Pipeline body in Task B6")
+    asr_cfg = profile.get("asr") or {}
+
+    # Stage 1: VAD pre-segment
+    spans, wav = _vad_segment(
+        audio_path, asr_cfg,
+        load_fn=load_silero_vad, get_ts_fn=get_speech_timestamps, read_fn=read_audio,
+    )
+
+    # F2 permissive — VAD returns 0 chunks → fallback whole file
+    if not spans:
+        if ws_emit is not None:
+            ws_emit("vad_zero",
+                    "VAD detected 0 speech chunks; using whole-file transcribe")
+        return _fallback_whole_file(audio_path, asr_cfg, mlx_whisper)
+
+    # Stage 2: Sub-cap > vad_chunk_max_s
+    chunks = _subcap_chunks(spans, asr_cfg.get("vad_chunk_max_s", 25))
+
+    # Stage 3: Per-chunk mlx transcribe + offset shift
+    raw = _transcribe_chunks(wav, chunks, asr_cfg, mlx_whisper, ws_emit)
+
+    # F4 permissive — all chunks failed → fallback whole file
+    if not raw:
+        if ws_emit is not None:
+            ws_emit("vad_fail",
+                    "All chunks failed; using whole-file transcribe")
+        return _fallback_whole_file(audio_path, asr_cfg, mlx_whisper)
+
+    # Stage 4: Word-gap refine
+    refined = word_gap_split(
+        raw,
+        max_dur=float(asr_cfg.get("refine_max_dur", 4.0)),
+        gap_thresh=float(asr_cfg.get("refine_gap_thresh", 0.10)),
+        min_dur=float(asr_cfg.get("refine_min_dur", 1.5)),
+    )
+    return refined
 
 
 def word_gap_split(segments, *, max_dur: float = 4.0, gap_thresh: float = 0.10,
@@ -142,4 +174,133 @@ def _subcap_chunks(spans, max_s: int):
             while cur < ce:
                 out.append((cur, min(cur + chunk_max, ce)))
                 cur += chunk_max
+    return out
+
+
+# Silero VAD model singleton (thread-safe lazy init)
+_silero_model = None
+_silero_lock = threading.Lock()
+
+
+def _get_silero_model(load_fn):
+    """Lazy-load Silero VAD ONNX model (thread-safe singleton)."""
+    global _silero_model
+    with _silero_lock:
+        if _silero_model is None:
+            _silero_model = load_fn(onnx=True)
+    return _silero_model
+
+
+def _vad_segment(audio_path: str, asr_cfg: dict, *, load_fn, get_ts_fn, read_fn):
+    """Run Silero VAD; return list of (start_sample, end_sample) tuples + audio array."""
+    model = _get_silero_model(load_fn)
+    wav = read_fn(audio_path, sampling_rate=_SR)
+    spans = get_ts_fn(
+        wav, model,
+        sampling_rate=_SR,
+        threshold=asr_cfg.get("vad_threshold", 0.5),
+        min_speech_duration_ms=asr_cfg.get("vad_min_speech_ms", 250),
+        min_silence_duration_ms=asr_cfg.get("vad_min_silence_ms", 500),
+        speech_pad_ms=asr_cfg.get("vad_speech_pad_ms", 200),
+        return_seconds=False,
+    )
+    return [(s["start"], s["end"]) for s in spans], wav
+
+
+def _transcribe_chunks(wav, chunks, asr_cfg, mlx_module, ws_emit):
+    """Transcribe each chunk with mlx-whisper, shifting offsets to file timeline."""
+    from asr import Word
+    from asr.mlx_whisper_engine import MODEL_REPO, _model_lock as mlx_lock
+
+    repo = MODEL_REPO.get(asr_cfg.get("model_size", "large-v3"), MODEL_REPO["large-v3"])
+    out = []
+    failed = 0
+
+    for ci, (cs, ce) in enumerate(chunks):
+        chunk_audio = wav[cs:ce]
+        if hasattr(chunk_audio, "numpy"):  # torch.Tensor → numpy
+            chunk_audio = chunk_audio.numpy()
+        offset = cs / _SR
+        try:
+            with mlx_lock:
+                r = mlx_module.transcribe(
+                    chunk_audio,
+                    path_or_hf_repo=repo,
+                    language=asr_cfg.get("language", "en"),
+                    task="transcribe",
+                    verbose=False,
+                    condition_on_previous_text=False,  # chunk-isolated
+                    word_timestamps=True,
+                    temperature=float(asr_cfg.get("temperature") or 0.0),
+                )
+        except Exception as e:  # noqa: BLE001 — permissive runtime fallback
+            failed += 1
+            logger.warning(
+                f"sentence_split: chunk {ci} ({cs/_SR:.1f}-{ce/_SR:.1f}s) failed: {e}"
+            )
+            continue
+
+        for s in r.get("segments", []):
+            text = (s.get("text") or "").strip()
+            if not text:
+                continue
+            words = [
+                Word(
+                    word=w.get("word", ""),
+                    start=float(w.get("start", 0.0)) + offset,
+                    end=float(w.get("end", 0.0)) + offset,
+                    probability=float(w.get("probability", 0.0) or 0.0),
+                )
+                for w in (s.get("words") or [])
+            ]
+            out.append({
+                "start": float(s["start"]) + offset,
+                "end": float(s["end"]) + offset,
+                "text": text,
+                "words": words,
+            })
+
+    if failed > 0 and ws_emit is not None:
+        ws_emit("chunk_fail",
+                f"{failed}/{len(chunks)} chunks failed; output may have gaps")
+    return out
+
+
+def _fallback_whole_file(audio_path: str, asr_cfg: dict, mlx_module):
+    """Used when VAD returns 0 spans or all chunks fail. Baseline mlx transcribe."""
+    from asr import Word
+    from asr.mlx_whisper_engine import MODEL_REPO, _model_lock as mlx_lock
+
+    repo = MODEL_REPO.get(asr_cfg.get("model_size", "large-v3"), MODEL_REPO["large-v3"])
+    with mlx_lock:
+        r = mlx_module.transcribe(
+            audio_path,
+            path_or_hf_repo=repo,
+            language=asr_cfg.get("language", "en"),
+            task="transcribe",
+            verbose=False,
+            condition_on_previous_text=True,
+            word_timestamps=True,
+            temperature=float(asr_cfg.get("temperature") or 0.0),
+        )
+    out = []
+    for s in r.get("segments", []):
+        text = (s.get("text") or "").strip()
+        if not text:
+            continue
+        words = [
+            Word(
+                word=w.get("word", ""),
+                start=float(w.get("start", 0.0)),
+                end=float(w.get("end", 0.0)),
+                probability=float(w.get("probability", 0.0) or 0.0),
+            )
+            for w in (s.get("words") or [])
+        ]
+        out.append({
+            "start": float(s["start"]),
+            "end": float(s["end"]),
+            "text": text,
+            "words": words,
+        })
     return out
