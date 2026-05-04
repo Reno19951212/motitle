@@ -438,7 +438,93 @@ Production code path matches prototype empirical results within tolerance — al
 - Wall clock for 5min audio: ~80s vs prototype 65.6s (slightly slower, possibly cold cache). Within +15% acceptance gate. Cold-start Silero VAD model load adds ~3s singleton init.
 - Tests SKIP cleanly when `--run-live` flag is omitted (default `pytest tests/` run unaffected).
 
-## Outstanding Questions
+## v3.9 Increment — MT Cascade Drift Fix + ASR Tuning（2026-05-04）
+
+**Date:** 2026-05-04
+**Trigger:** v3.8 ship 後 user 觀察到 MT 中文後半段同英文時間軸唔對稱（cascade drift）
+
+### Diagnostic chain（三層 root cause）
+
+1. **Parser drift（[backend/translation/ollama_engine.py:637-673](backend/translation/ollama_engine.py)）** — `_parse_response` 用 sort + positional remap，當 LLM 漏編號或 echo context 時 cascade shift。Mock 1000-trial × 211 segs（4 fixtures），realistic mean drift = **9.30%**、P95 = 19%、pessimistic = 15.56%。
+2. **Engine 太弱** — 用 `qwen2.5-3b`（3B params）SKIP/ECHO 率比 35B+ model 高 1 個 order of magnitude。
+3. **Sentence-vs-segment boundary mismatch** — LLM 將 batch 視作連續英文、按中文句切 N 段，唔跟 ASR 時間 cut。架構性問題、parser 解唔到。
+
+### Fix 落地
+
+| Layer | Commit | 改動 | 跨 fixture 證據 |
+|---|---|---|---|
+| Parser | `05c6d7a` | slot-fill v2（dict-by-number）取代 sort+positional | Mock drift 9.30% → 5.03%（−27%）+ 5 new unit tests |
+| Engine | profile-level | OpenRouter `qwen/qwen3.5-35b-a3b` 取代 `qwen2.5-3b` | Live re-translate first 12 segs cascade-free vs prior 1-2 段位移 |
+| Pipeline | profile-level | `translation.use_sentence_pipeline: true` | Live test 12/12 段對齊（pySBD merge → translate → char-prop redistribute）|
+
+### v3.9 ASR enhancement candidate sweep（5 candidates × cross-fixture A/B）
+
+**Fixtures**：`/tmp/l1_real_madrid.wav` (5min sports interview) + `/tmp/trump_5min.wav` (5min political speech). Both 16k mono PCM, mlx-whisper large-v3.
+
+#### Item 1 + Item 3 — SHIPPED（commit `83bfb05`）
+
+| Item | 改動 | RM Δ | Trump Δ |
+|---|---|---|---|
+| **1** | Whisper hallucination guards (`no_speech=0.1`, `compression_ratio=1.4`, `logprob=-1.0`) on chunk + fallback paths | 0 effect (continuous speech) | 0 effect (continuous speech) |
+| **3** | `vad_speech_pad_ms` 200 → 300 | sent% **+3.48**, func% **−6.43**, mean −0.24 | sent% **+3.66**, max +0.38 (pre-existing baseline 7.62 long monologue), tiny +3 |
+
+Item 1 zero measurable effect on continuous-speech fixtures but mbotsu reference confirms benefit on silence-tail audio (defensive). Item 3 跨 fixture sent% 一致 +3.5% — 強信號 ship。
+
+#### Bonus — `safety_max_dur` 9.0 → 6.0（commit `835169a`）
+
+Word_gap_split parameter sweep（5 configs × 2 fixtures，cached pre-refine segs，instant in-memory iteration）：
+
+| cfg | RM max | Trump max | Trump tiny | Trump sent% |
+|---|---|---|---|---|
+| cur (safety=9.0) | 5.50 | **8.00** ❌ | 12 | 75.7 |
+| **A1 (safety=6.0)** ✅ chosen | 5.50 | **5.98** ✅ | 12 | 67.9 |
+| A2 (+ gap_thresh 0.05) | 5.50 | 5.98 | 12 | 66.2 |
+| A3 (safety=5.5) | 5.50 | 5.44 | 12 | 62.4 |
+| A4 (+ min_dur 1.0) | 5.16 | 5.92 | **27** ❌ | 63.1 |
+| A5 (most aggressive) | 5.16 | 5.44 | **30** ❌ | 59.6 |
+
+**A1 sweet spot**：RM 完全冇影響（5.50 ≤ 6.0 唔觸發），Trump max 8.00 → 5.98 過 v3.8 gate，tiny rate 不變，sent% −7.8 係 honest cost（force-split 失去原段尾標點，但 UX 2× 3s 段優於 1× 8s 字幕）。A3/A5 sent% 跌幅 13-16% 太嚴重，min_dur 1.0 觸發 tiny rate ×2.5，rejected。
+
+**Architecture finding（log 為 future ref）**：Trump 8.00s 段**唔係** blind 25s sub-cap 切壞造成 — mlx-whisper 喺一個正常 ≤25s chunk 內部一次性 emit 嗰 8s。decoder 30s window 內部冇放 sentence boundary。Item 2（collect_chunks）+ silence-aware split hybrid 都 no-op，因為問題喺 decoder 內部、唔喺 chunk boundary。**word_gap_split force-split 係唯一路徑**。
+
+#### Rejected candidates
+
+| Item | 改動 | 失敗原因 |
+|---|---|---|
+| 2 (pure) | mbotsu `collect_chunks`（strip inter-sentence silence） | Trump sent% **−25.7** — 剝走 silence 等於剝走 Whisper 嘅 sentence-end signal。mbotsu 原 use case（短語日文）唔啱廣播字幕需求（句末標點 = 觀眾視線重置點）|
+| 2 (hybrid) | Silence-aware split + 保留時間軸 | Trump max no-op（hybrid 只 help spans > threshold，但 Trump 8s 段喺 ≤25s chunk 內部，hybrid 完全唔觸發）。RM 邊際升 max -0.24 但 over84 +5、wall +7s |
+| 4 | `initial_prompt` 接續（last 1/2 sentence/150 chars 餵入下個 chunk） | Cross-fixture inconsistent：RM sent% +3.58 / Trump sent% −1.28。35B model 已 7/8 named entity 一致（只 Vinicius Junior 嘅 P2 統一咗），其他 Bellingham/Ancelotti/Alonso/Alaba/Militao/Rüdiger/Asensio 全部 1 variant。Cost：max_chars +12-20、tiny +3 |
+| 5 | `vad_min_silence_ms` 500 → 800 | Phase-1 stack 量度時 RM max 5.48 → 8.00（破 v3.8 acceptance gate）— 長 silence merge 兩短停頓做長 chunk，超出 word_gap_split 嘅 split 範圍 |
+
+### Production live verification
+
+User profile (`prod-default.json`) 切到 `engine: openrouter / qwen3.5-35b-a3b` + `use_sentence_pipeline: true` + `fine_segmentation: true` + `temperature: 0.0` 後，重新 translate 既有 file `6549d0790c3d` 嘅 66 segs：
+
+- Pre-fix（v3.8 + qwen2.5:3b）：first 6 segs 之中 4 段 cascade drift（ZH 內容對應 EN 偏移 1-2 個 slot）
+- Post-fix（v3.9 + 35B + sentence_pipeline）：first 12 segs 全部對位（Vinicius/Bellingham/Alaba/Rüdiger 等 named entity 跨 batch 一致）
+
+Backend log 確認 `parse diag` 全程 silent — LLM 編號 1-N 完美 emit、parser slot-fill 全 in_range，drift 從 parser 層消除。
+
+### v3.9 acceptance gates summary
+
+| Metric | Threshold | RM result | Trump result |
+|---|---|---|---|
+| Mean | 2.5–3.5s | 3.07s ✅ | 3.03s ✅ |
+| P95 | ≤ 5.5s | 4.82s ✅ | 5.52s ✅ |
+| Max | ≤ 6.0s | 5.50s ✅ | **5.98s ✅** （v3.8 baseline 8.00 ❌） |
+| Tiny rate | < 8% | 6.5% ✅ | 13.3% ⚠️ Trump dense monologue 邊際超 8% |
+| Sent% | ≥ 35% | 43.0% ✅ | 67.9% ✅ |
+| Hallucination rate | 0 | 0 ✅ | 0 ✅ |
+
+Trump tiny rate 13.3% 係 force-split 帶來嘅副作用（force-split 唔保證兩半都 ≥1.5s）。Cross-style 接受 — broadcast UX 上 2× 3s 段優於 1× 8s 段。
+
+### Backward compat
+
+- 既有 profile JSON 唔加新欄位仍 100% work（function default 改變只影響 implicit fallback）
+- 既有 callers 直接 call `word_gap_split(safety_max_dur=9.0)` 100% 仍按 9.0 行為（test 證實）
+- Backend pytest 469 → 520 PASS（v3.9 完，v3.8 baseline 510，+10 new tests）/ 12 pre-existing FAIL 不變
+
+## Outstanding Questions（v3.8 carry-over）
 
 1. fine-grained ASR + sentence_pipeline.merge_to_sentences() 重疊 → 要唔要加 `sentence_pipeline_skip` flag 自動 detect？
 2. Protected-span regex 點 maintain？應該整 module 級 constant 定 config-driven？

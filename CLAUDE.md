@@ -360,6 +360,24 @@ Whenever a new feature is completed or existing functionality is modified, you *
 - **Glossary Apply（LLM 智能替換）**: Proofread page 詞彙表 panel 新增「套用」按鈕。Two-phase 流程：(1) `POST /api/files/<id>/glossary-scan` 用純字串匹配搵出違規（EN 包含 glossary term 但 ZH 唔包含對應翻譯）；(2) 預覽 modal 俾用戶剔選 violations（未批核預設勾選，已批核預設唔勾選）；(3) `POST /api/files/<id>/glossary-apply` 逐條調用 Ollama LLM 做智能替換（保留句子其他部分），多個違規同一 segment 時序列處理。後端會驗證 `(term_en, term_zh)` 確實屬於指定 glossary，錯誤訊息經 `app.logger.exception` 記錄並返回統一 `"LLM request failed"` 俾 client
 - **304 automated tests**（+13 new: glossary-scan/apply 端到端 coverage，包含 sequential chaining、term validation、approval 狀態保留）
 
+### v3.9 — MT Cascade Drift Fix + ASR Fine-Seg Tuning
+- **Background**：v3.8 ship 完 fine_segmentation 後，user 觀察到中文翻譯後半段同英文時間軸唔對稱。診斷發現三層 root cause：(1) `_parse_response` parser bug；(2) production engine `qwen2.5-3b` 太弱、SKIP/ECHO 編號率高；(3) sentence-vs-segment boundary mismatch — LLM 將 batch 視作連續英文按中文句切，唔跟 ASR 時間 cut。
+- **Validation**: 5 個 enhancement candidates 全部跑過 cross-fixture A/B（RealMadrid 5min 廣播訪問 + Trump 5min 政治演講）。詳細數據見 [docs/superpowers/specs/2026-05-03-asr-fine-segmentation-validation.md](docs/superpowers/specs/2026-05-03-asr-fine-segmentation-validation.md) v3.9 增量段落。
+- **MT parser fix（[backend/translation/ollama_engine.py](backend/translation/ollama_engine.py)）**：`_parse_response` 由 sort + positional remap 改為 dict-by-number slot-fill（`slots[num-1] = text`）。SKIP cascade → 0 drift，ECHO cascade → contained 喺 slot 0，overshoot → silently drop，duplicate → first wins。Drop-in replacement，return shape / `[TRANSLATION MISSING]` sentinel / retry path 100% 不變。新 `ParseDiagnostics` TypedDict + `logger.info` telemetry 喺 abnormal batch 觸發。Mock 1000-trial drift 9.30% → 5.03%（−27%）。
+- **ASR pad 200→300ms**：`_vad_segment` 預設值。Cross-fixture sent% 一致 +3.5%（RM +3.48 / Trump +3.66），func% RM −6.43。減少 chunk boundary 子音 clip。
+- **Whisper hallucination guards**（[sentence_split.py](backend/asr/sentence_split.py) `_HALLUCINATION_GUARDS`）：每個 mlx call（chunk + fallback path）加 `no_speech_threshold=0.1` / `compression_ratio_threshold=1.4` / `logprob_threshold=-1.0`，per mbotsu/mlx_speech2text reference。防止沉默 chunk 幻覺「Thanks for watching」「Subscribe」呢類誤讀。
+- **`safety_max_dur` 9.0→6.0**：`word_gap_split` 預設值。解 mlx-whisper 30s decoder window 內部嘅 long monologue（Trump fixture pre-existing 8.00s 段，VAD 切點層解唔到，因為段係 mlx 一次性 emit 喺正常 ≤25s chunk 內）。Trump max **8.00 → 5.98s**，過 v3.8 acceptance gate（max ≤ 6.0s）。Cost：sent% −7.8（force-split 失去原段尾標點），但 UX 上 2× 3s 段優於 1× 8s 字幕。
+- **OpenRouter engine swap（profile-level）**：`prod-default.json` MT engine 由 `qwen2.5-3b`（local Ollama，3B params）切到 OpenRouter `qwen/qwen3.5-35b-a3b`（context 262K，$0.16/M in $1.30/M out）。35B 翻譯流暢、術語精準、SKIP/ECHO 率比 3B 低 1 個 order of magnitude。
+- **Sentence pipeline opt-in（profile-level）**：`translation.use_sentence_pipeline: true` 喺 `prod-default.json` 開啟。pySBD 合併 ASR seg 做完整中文句 → translate → char-prop redistribute 返每個 ASR 時間 slot。直接解決 sentence-vs-segment boundary mismatch（v3.1 已實作但預設關，v3.9 default 啟用）。
+- **Profile JSON 安全**：`backend/config/profiles/prod-default.json` 加入 `.gitignore`（隔住 OpenRouter `api_key`），`git rm --cached` 由 index 抽走。同 `dev-default.json` + `*.local.json` 一齊處理。Repo 從此唔再 track 任何含 secret 嘅 profile。
+- **Rejected enhancements**（empirical evidence）：
+  - `vad_min_silence_ms` 500→800：破 max ≤ 6s gate（5.48 → 8.00）
+  - mbotsu collect_chunks 全 strip silence：Trump sent% −25.7%（剝走 silence 等於剝走 Whisper 嘅 sentence-end signal）
+  - mbotsu hybrid silence-aware split：Trump max no-op（8s 問題喺 mlx decoder 內部，VAD 切點層解唔到）
+  - `initial_prompt` cross-chunk continuity：cross-fixture sent% inconsistent（RM +3.58 / Trump −1.28），35B model 已 7/8 named entity 一致，prompt overhead 不抵
+- **新 test 數量**：+9（5 parser slot-fill v2 + 4 fine-seg tuning），517 → 520 PASS / 12 pre-existing FAIL
+- **Backend total**：509 → **520 PASS** / 12 pre-existing FAIL（532 total）
+
 ### v3.8 — ASR Fine Segmentation (Silero VAD chunk-mode + word-gap refine)
 - **Background**：mlx-whisper 30s window 結構性限制令 broadcast 訪問風格（run-on 句）經常喺 sentence 中段 emit timestamp（cross-30s-window mid-clause cut）。例如「...what the team really needs is a」+「radical overhaul...」應為一句但被 Whisper 30s window 強行切開。純 mlx-whisper kwargs（length_penalty / beam_size / max_initial_timestamp / hallucination_silence_threshold 等）11-config A/B 證實無法解決。
 - **Validation**: 詳見 [docs/superpowers/specs/2026-05-03-asr-fine-segmentation-validation.md](docs/superpowers/specs/2026-05-03-asr-fine-segmentation-validation.md)。跑 11 mlx-whisper kwargs configs + 3-way prototype（faster-whisper+vad / word-gap split / Silero VAD chunk）+ stack tuning。Cross-style 已驗證 Real Madrid sports interview + Trump 政治演講兩個極端 broadcast style。

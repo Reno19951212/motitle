@@ -621,6 +621,54 @@ Sentence pipeline 嘅進階版：合併成句後，prompt LLM 喺中文輸出中
 
 ## 更新記錄
 
+### v3.9 翻譯對齊修復 + ASR 細粒度調優
+
+v3.8 ship 後實際 production 跑大量片時發現中文字幕後半段同英文時間軸唔對稱（cascade drift）。v3.9 拆三層 root cause + 沿廣播字幕需求進一步收緊 ASR 段邊界。
+
+**翻譯層修復**：
+
+- **Parser slot-fill v2** — `_parse_response` 由 sort+positional 改為 dict-by-number。當翻譯 LLM 漏咗一個編號（SKIP）或重複咗（ECHO），cascade shift 完全消除：漏 3 號 → segment 3 顯示 `[TRANSLATION MISSING]`，後續 4/5/6 編號內容對位正確。Mock 1000-trial drift 9.30% → 5.03%。
+- **OpenRouter 35B engine（建議）** — Profile 翻譯引擎可揀 `openrouter` + `qwen/qwen3.5-35b-a3b`（context 262K）。3B 本地 model 嘅 SKIP / ECHO 問題喺 35B+ model 上幾乎絕跡，譯文亦顯著流暢。需要 OpenRouter API key。
+- **`use_sentence_pipeline: true`（建議）** — Profile 翻譯設定加呢個 flag，pySBD 會將 ASR 段合併做完整中文句、translate 一次、再按字符比例切返每個原 ASR 時間 slot。直接解 sentence-vs-segment boundary mismatch。
+
+**ASR 層調優**：
+
+- **`vad_speech_pad_ms` 200 → 300（預設）** — 跨 fixture validation：sent% +3.5%、func% −6.4%。減少 chunk boundary 嘅子音 clip。
+- **Whisper 幻覺 guards（自動加上）** — 每個 chunk call 加入 `no_speech_threshold=0.1`、`compression_ratio_threshold=1.4`、`logprob_threshold=−1.0`。防止沉默段尾誤讀「Thanks for watching」「Subscribe」呢類 YouTube 訓練 artefact。
+- **`safety_max_dur` 9.0 → 6.0（預設）** — 強制切超過 6 秒嘅段（即使內部 word gap 細過 threshold）。Trump 政治演講 fixture 嘅 8.00s long monologue 直接降到 5.98s，符合 v3.8 max ≤ 6.0s 標準。
+
+**安全性改善**：
+
+- `prod-default.json` 加入 `.gitignore`（同 `dev-default.json` 一致）— OpenRouter `api_key` 等 secret 唔再入 git。
+
+**新預設效果**（`prod-default.json`）：
+
+```json
+{
+  "asr": {
+    "engine": "mlx-whisper",
+    "model_size": "large-v3",
+    "fine_segmentation": true,
+    "temperature": 0.0
+  },
+  "translation": {
+    "engine": "openrouter",
+    "openrouter_model": "qwen/qwen3.5-35b-a3b",
+    "api_key": "sk-or-...",
+    "use_sentence_pipeline": true,
+    "batch_size": 10
+  }
+}
+```
+
+**已驗證 reject**（避免將來重蹈覆轍，記錄 empirical evidence）：
+
+- 將 `vad_min_silence_ms` 由 500 加到 800ms — 破 max ≤ 6s gate
+- mbotsu 嘅 `collect_chunks`（剝走 silence）— Trump sent% 跌 25.7%（剝走 Whisper 用嚟識句末嘅信號）
+- `initial_prompt` 跨 chunk 接續 — Cross-fixture 不一致，35B model 已 7/8 named entity 一致
+
+**升級指引**：既有 user 唔需要改 profile JSON。新預設值會自動生效。如要使用 OpenRouter 35B 譯文質素，需手動編輯 profile（或喺前端 Profile UI 切引擎、輸入 API key）。
+
 ### v3.8 細粒度 ASR 分句（廣播字幕優化）
 
 廣播字幕場景下，mlx-whisper 預設嘅 30 秒 window 會喺 sentence 中段切斷（例如「...needs is a」與「radical overhaul...」應屬同一句但被切成兩段）。v3.8 加入 Silero VAD pre-segment + word-gap refine 嘅 stack，架構性解決呢類 mid-clause cut。
