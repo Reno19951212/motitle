@@ -524,8 +524,106 @@ Trump tiny rate 13.3% 係 force-split 帶來嘅副作用（force-split 唔保證
 - 既有 callers 直接 call `word_gap_split(safety_max_dur=9.0)` 100% 仍按 9.0 行為（test 證實）
 - Backend pytest 469 → 520 PASS（v3.9 完，v3.8 baseline 510，+10 new tests）/ 12 pre-existing FAIL 不變
 
+## v3.11 Increment — Phase A Dead Code Purge + Phase B Simplification A/B（2026-05-05）
+
+**Date:** 2026-05-05
+**Trigger:** 用戶提出 simplification audit — 用 3 agent team 並行檢視 ASR / MT / cross-layer 有冇 dead code 或 over-engineering 可以收口。
+
+### 背景
+
+v3.10 ship direct batch translate 後，stack 累積咗大量 v3.1-v3.9 開發過程嘅實驗性 module（sentence_pipeline、alignment_pipeline、Pass 2 enrichment、stub engines、live recording streaming family）。production 路徑由 `prod-default.json` 已收緊到只用：mlx-whisper fine_seg + OpenRouter 35B direct batch + slot-fill v2 parser。其他全部 dead-by-config。
+
+### Phase A — PROVEN_SAFE dead code purge（commit `b3a4960`）✅
+
+3 agent team 獨立確認 5 大類 orphan code，逐項驗證後一次過刪除：
+
+| Target | LOC removed | 證據 |
+|---|---|---|
+| `backend/translation/alignment_pipeline.py` + test | 319 + 196 | 兩個 profile 都無 set `alignment_mode`；只 reachable 由 `app.py` 兩個 dead routing branch |
+| `backend/translation/sentence_pipeline.py` + test | 271 + 269 | 兩個 profile 都無 set `use_sentence_pipeline`；同樣 dead routing |
+| `backend/asr/qwen3_engine.py` + `flg_engine.py` | 82 | Stub engines 從未實作；factory 從未 instantiate |
+| `ENRICH_SYSTEM_PROMPT` + `_enrich_pass` + `_get_translation_passes` | ~135 | `translation_passes: 2` 從未喺任何 profile set |
+| `live_subtitle` / `streaming_*` event family + 5 SocketIO handlers + StreamingSession class + `/api/streaming/available` route + dead state caches | ~370 | **Frontend 0 listener**；v2.0 「removed live recording mode」嘅 cleanup miss；`live_audio_chunk` handler 內部 call 4 個不存在嘅 helper（invoke 即 NameError） |
+| F4「all chunks failed」fallback（`sentence_split.py`） | ~22 | 觸發等於 mlx 全死，silent fallback 隱藏 real bug；F2 zero-spans 路徑保留 |
+| `condition_on_previous_text` schema entry（`mlx_whisper_engine.py`） | ~10 | fine_seg path hardcode False / fallback path hardcode True；UI field 唔生效，runtime 仍接受 JSON edit |
+| `qwen3-asr` / `flg-asr` 由 `VALID_ASR_ENGINES` + UI engine list 移除 | ~3 | 收緊到 `{whisper, mlx-whisper}` 兩個真實 engine |
+| 4 個 affected test file 移除 orphan 測試 | minor | `test_app_fine_seg.py` / `test_renderer.py` / `test_asr.py` / `test_translation.py` |
+
+**Net diff: 22 insertions, 1907 deletions**（commit `b3a4960`）
+
+**Pytest baseline shift**: 520 PASS → **469 PASS / 12 pre-existing FAIL**（純 orphan test 移除，零 production regression）。
+
+**Live verification post-purge**: `/api/health` OK / active profile config 不變 / `/api/asr/engines` 由 4→2 engines / 重譯 file `a283cdcbfe0a` 93 segs 0 empty / 0 short / 0 mid_cut。
+
+### Phase B — NEEDS_RECHECK candidates（全部 reject 唔 ship）
+
+3 個 agent team 標記咗 3 項 tunable simplification candidates 需要 live behavioral A/B 先決定：
+
+#### B.1 ❌ **ASR.A1**：collapse `word_gap_split` thresholds（remove `min_dur` + `safety_max_dur`）
+
+**Verdict: REJECT — production metric 已證實兩個 threshold 都 load-bearing**
+
+- `safety_max_dur=6.0` force-split 係 v3.9 commit `835169a` 解 Trump 8.00s long monologue 嘅唯一機制
+- `min_dur=1.5` 護住短段唔會喺 word_gap_split 內部產生 < 1.5s 殘段
+- 移除即恢復 v3.8 嘅 max ≤ 6s gate 失敗 + tiny rate 上升
+- **唔需要 live A/B**：production 跑緊嘅 max=5.98s + tiny=12 數字本身就係 evidence
+
+#### B.2 ❌ **MT.M1**：remove `context_window` plumbing
+
+**Verdict: REJECT — non-prod profile 仍有用緊**
+
+- `prod-default.json` 唔 set `context_window`（default 3）
+- 但 `b877d8b5-….json` profile **明確 set** `context_window: 3`
+- 兩個 profile 共存於 repo，不能假設 b877 係 abandoned
+- **唔需要 live A/B**：靜態檢查已足夠 reject
+
+#### B.3 ❌ **MT.M2**：trim few-shot examples 4→2 + drop `_retry_missing`
+
+**Verdict: REJECT — 經兩輪 live A/B 驗證後發現 quality regression**
+
+A/B setup：
+- Baseline = current production prompt（4 examples：例一/例二/例三/例四 + retry-on-missing 機制保留）
+- Variant = monkey-patch `SYSTEM_PROMPT_FORMAL` 移除例三/例四，留 698 chars vs baseline 1025 chars（−32%）
+- Re-translate file `a283cdcbfe0a`（93 segs，~50s/run）
+- Production prompt 跑後即時 restore
+
+**Aggregate metric 睇似平手**（兩者都 0 empty / 0 short / 0 mid_cut，14/16 entity preservation tied），但 cluster 級眼睇發現 2ex variant 出現嚴重 quality regression：
+
+| 失敗類型 | 4ex baseline | 2ex variant |
+|---|---|---|
+| **專名 hallucination**：Vinicius **Junior** 譯名 | ✅ 雲尼素斯·祖連奴（正確 HK 譯名） | ❌ 「小**蘇亞雷斯**」（將 Junior 變成 Suarez 姓氏 — 完全唔同球星） |
+| **事實錯誤**：「RZ's Case Smit」嘅球會歸屬 | ✅ 「雷恩的凱斯·史密特」（猜 Rennes — 估錯但中性，RZ ≈ Real Sociedad）| ❌ 「皇家馬德里（RZ）的凱斯·史密特」（誤指做 Real Madrid — 觀眾會以為 Smit 已喺皇馬，全段論述邏輯崩潰）|
+| **Cluster 1 對位 cascade** | ✅ 完美 align（segs 1-6） | ❌ +1 shift cascade（ZH #3 = EN #4 / ZH #4 = EN #5 / etc）|
+
+**Root cause**：`例三` + `例四` 兩個例子**唔係** redundant，佢哋承擔住：
+- 專名譯名約束（防止 LLM 將 "Junior" 自由替換成其他球星 surname）
+- 模糊縮寫（如 RZ）嘅謹慎處理態度
+- Cluster 級對位嘅 numbered output 紀律
+
+—— 呢三項都係 v3.0/v3.1 開發時用 examples 解決過嘅問題，trim 等於回退到嗰個年代嘅 failure mode。
+
+**Retry path drop**：因 baseline 跑時 retry 觸發率 = 0/93（35B + slot-fill v2 emit 完美 numbered output），呢輪 fixture 量唔到效果，**保留作 SKIP/ECHO safety net**，唔 drop。
+
+### v3.11 ship 結果
+
+- Phase A：~1900 LOC dead code 移除（commit `b3a4960`）✅
+- Phase B：全 3 項 reject，production 配置維持 v3.10 不變
+- Backend pytest: 469 PASS / 12 pre-existing FAIL / 2 skipped — 同 baseline 一致
+- Production live verification 通過（重譯 93 segs metric 同 v3.10 一致）
+
+### 教訓總結 — 將來 simplification audit 嘅 anti-pattern
+
+| Anti-pattern | 反例證據 |
+|---|---|
+| **Aggregate 0/0/0 metric 唔等於 quality OK** | M.2 兩個 config 都 0/0/0 但 2ex 引入 entity hallucination |
+| **Few-shot example 表面 redundant 實質 load-bearing** | 例三 + 例四 對 LLM 嘅 implicit 約束（專名穩定、縮寫謹慎、編號紀律）唔會喺 aggregate metric 顯現 |
+| **`b877d8b5-….json` 等用戶自訂 profile 唔可以假設 abandoned** | M.1 context_window 唯一持有者 |
+| **Production metric 本身就係最強 validation evidence** | A.1 嘅 max=5.98 + tiny=12 數字證明 thresholds 在工作 |
+| **Stochastic LLM 跑兩次同一 config 出唔同結果** | 4ex baseline 喺前 run cluster 1 cascade、後 run 完美對位；temp=0.1 引入 noise，single-run A/B 結論不充分，要多 run 平均化 |
+
 ## Outstanding Questions（v3.8 carry-over）
 
 1. fine-grained ASR + sentence_pipeline.merge_to_sentences() 重疊 → 要唔要加 `sentence_pipeline_skip` flag 自動 detect？
+   **→ v3.11 已解：sentence_pipeline.py 整個刪除，問題不存在。**
 2. Protected-span regex 點 maintain？應該整 module 級 constant 定 config-driven？
 3. word_timestamps=True 性能 cost 幾多？要唔要 default true 還是 opt-in？
