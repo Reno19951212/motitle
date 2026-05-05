@@ -292,3 +292,96 @@ def test_validate_entry_rejects_en_without_letters(glossary_dir):
     assert any("en" in e for e in errors), f"Expected en error, got: {errors}"
     errors = mgr.validate_entry({"en": "!!!", "zh": "驚嘆"})
     assert any("en" in e for e in errors), f"Expected en error, got: {errors}"
+
+
+# ---------------------------------------------------------------------------
+# Phase 1 — zh_aliases support
+# ---------------------------------------------------------------------------
+
+
+def test_glossary_entry_supports_zh_aliases_field(glossary_dir):
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    errors = mgr.validate_entry({
+        "en": "Real Madrid",
+        "zh": "皇家馬德里",
+        "zh_aliases": ["拉爾馬德里", "里阿馬德里"],
+    })
+    assert errors == []
+
+
+def test_glossary_entry_zh_aliases_must_be_list(glossary_dir):
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    errors = mgr.validate_entry({
+        "en": "Real Madrid", "zh": "皇家馬德里", "zh_aliases": "not a list",
+    })
+    assert any("zh_aliases" in e for e in errors)
+
+
+def test_glossary_entry_alias_must_contain_cjk(glossary_dir):
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    errors = mgr.validate_entry({
+        "en": "Real Madrid", "zh": "皇家馬德里",
+        "zh_aliases": ["abcde"],  # ASCII only — should be rejected
+    })
+    assert any("zh_aliases" in e for e in errors)
+
+
+def test_glossary_entry_alias_empty_string_rejected(glossary_dir):
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    errors = mgr.validate_entry({
+        "en": "Real Madrid", "zh": "皇家馬德里",
+        "zh_aliases": ["拉爾馬德里", "  "],
+    })
+    assert any("zh_aliases" in e for e in errors)
+
+
+def test_csv_import_with_aliases_column(glossary_dir):
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    glossary = mgr.create({"name": "Football", "entries": []})
+    csv_text = (
+        "en,zh,zh_aliases\n"
+        "Real Madrid,皇家馬德里,拉爾馬德里;里阿馬德里\n"
+        "Barcelona,巴塞隆納,巴塞隆拿\n"
+    )
+    updated = mgr.import_csv(glossary["id"], csv_text)
+    assert updated is not None
+    entries = updated["entries"]
+    assert len(entries) == 2
+    real_madrid = next(e for e in entries if e["en"] == "Real Madrid")
+    assert real_madrid["zh_aliases"] == ["拉爾馬德里", "里阿馬德里"]
+    barcelona = next(e for e in entries if e["en"] == "Barcelona")
+    assert barcelona["zh_aliases"] == ["巴塞隆拿"]
+
+
+def test_csv_import_without_aliases_column_still_works(glossary_dir):
+    """Backward-compat: legacy 2-column CSV must still import cleanly."""
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    glossary = mgr.create({"name": "Legacy", "entries": []})
+    csv_text = "en,zh\nReal Madrid,皇家馬德里\n"
+    updated = mgr.import_csv(glossary["id"], csv_text)
+    assert updated is not None
+    assert len(updated["entries"]) == 1
+    # No zh_aliases attached when the column is absent
+    assert "zh_aliases" not in updated["entries"][0]
+
+
+def test_csv_export_includes_aliases_column(glossary_dir):
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    glossary = mgr.create({
+        "name": "Football",
+        "entries": [
+            {"en": "Real Madrid", "zh": "皇家馬德里",
+             "zh_aliases": ["拉爾馬德里", "里阿馬德里"]},
+            {"en": "Barcelona", "zh": "巴塞隆納"},
+        ],
+    })
+    csv_text = mgr.export_csv(glossary["id"])
+    assert "zh_aliases" in csv_text
+    assert "拉爾馬德里;里阿馬德里" in csv_text

@@ -101,6 +101,21 @@ class GlossaryManager:
                 "(pure ASCII / digits are not valid translations)"
             )
 
+        # Optional zh_aliases: used by post-correction to normalize
+        # wrong-form ZH transliterations from Whisper back to canonical zh.
+        aliases = entry.get("zh_aliases")
+        if aliases is not None:
+            if not isinstance(aliases, list):
+                errors.append("zh_aliases must be a list of strings")
+            else:
+                for i, alias in enumerate(aliases):
+                    if not isinstance(alias, str) or not alias.strip():
+                        errors.append(f"zh_aliases[{i}] must be a non-empty string")
+                    elif not re.search(r"[\u4e00-\u9fff\u3400-\u4dbf]", alias):
+                        errors.append(
+                            f"zh_aliases[{i}] must contain at least one Chinese character"
+                        )
+
         return errors
 
     # ------------------------------------------------------------------
@@ -278,8 +293,11 @@ class GlossaryManager:
 
     def import_csv(self, glossary_id: str, csv_text: str) -> Optional[dict]:
         """
-        Append entries from a CSV string (columns: en, zh) to a glossary.
+        Append entries from a CSV string (columns: en, zh, optional
+        zh_aliases) to a glossary.
 
+        zh_aliases column is parsed as a semicolon-separated list — any
+        whitespace around each alias is stripped, empty entries skipped.
         Rows with validation errors are skipped.
         Returns the updated glossary, or None if glossary_id is not found.
         """
@@ -290,7 +308,15 @@ class GlossaryManager:
         reader = csv.DictReader(io.StringIO(csv_text))
         new_entries = []
         for row in reader:
-            entry = {"en": (row.get("en") or "").strip(), "zh": (row.get("zh") or "").strip()}
+            entry = {
+                "en": (row.get("en") or "").strip(),
+                "zh": (row.get("zh") or "").strip(),
+            }
+            raw_aliases = (row.get("zh_aliases") or "").strip()
+            if raw_aliases:
+                aliases = [a.strip() for a in raw_aliases.split(";") if a.strip()]
+                if aliases:
+                    entry["zh_aliases"] = aliases
             if self.validate_entry(entry):
                 continue
             new_entries.append({**entry, "id": str(uuid.uuid4())})
@@ -301,7 +327,8 @@ class GlossaryManager:
 
     def export_csv(self, glossary_id: str) -> Optional[str]:
         """
-        Export the entries of a glossary as a CSV string (columns: en, zh).
+        Export the entries of a glossary as a CSV string (columns: en, zh,
+        zh_aliases). zh_aliases is serialised as a semicolon-separated list.
 
         Returns the CSV text, or None if glossary_id is not found.
         """
@@ -310,10 +337,15 @@ class GlossaryManager:
             return None
 
         output = io.StringIO()
-        writer = csv.DictWriter(output, fieldnames=["en", "zh"])
+        writer = csv.DictWriter(output, fieldnames=["en", "zh", "zh_aliases"])
         writer.writeheader()
         for entry in glossary.get("entries") or []:
-            writer.writerow({"en": entry.get("en", ""), "zh": entry.get("zh", "")})
+            aliases = entry.get("zh_aliases") or []
+            writer.writerow({
+                "en": entry.get("en", ""),
+                "zh": entry.get("zh", ""),
+                "zh_aliases": ";".join(a for a in aliases if a),
+            })
         return output.getvalue()
 
     # ------------------------------------------------------------------

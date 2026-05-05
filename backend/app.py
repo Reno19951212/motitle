@@ -250,6 +250,47 @@ def extract_audio(video_path: str, output_path: str) -> bool:
         return False
 
 
+def _ws_emit_factory(sid):
+    """Build a (kind, message) → socketio emit closure for transcription warnings.
+
+    Returns a no-op-on-failure callable so non-critical telemetry never
+    breaks the ASR pipeline.
+    """
+    def _ws_emit(kind: str, message: str):
+        try:
+            socketio.emit('transcription_warning',
+                          {'kind': kind, 'message': message},
+                          room=sid)
+        except Exception:
+            app.logger.warning(
+                f"transcription_warning emit failed: {kind}={message}"
+            )
+    return _ws_emit
+
+
+def _apply_zh_alias_correction_if_zh(raw_segments, profile, language, ws_emit):
+    """Run zh_alias_correction.correct_segments when ``language == "zh"``.
+
+    Looks up the glossary referenced by the profile's translation config
+    and rewrites each segment's text + words[] in place. No-op for non-ZH
+    paths (preserves legacy EN behaviour).
+    """
+    if (language or "").lower() != "zh":
+        return raw_segments
+    translation_cfg = (profile or {}).get("translation") or {}
+    glossary_id = translation_cfg.get("glossary_id")
+    if not glossary_id:
+        return raw_segments
+    glossary = _glossary_manager.get(glossary_id)
+    if not glossary:
+        return raw_segments
+    entries = glossary.get("entries") or []
+    if not entries:
+        return raw_segments
+    from asr.zh_alias_correction import correct_segments
+    return correct_segments(raw_segments, entries, ws_emit=ws_emit)
+
+
 def _run_profile_asr_with_optional_fine_seg(audio_path, profile, sid,
                                             emit_segment_with_progress):
     """Run ASR via fine_segmentation pipeline if enabled, else legacy engine path.
@@ -262,25 +303,18 @@ def _run_profile_asr_with_optional_fine_seg(audio_path, profile, sid,
     fine_seg = bool(asr_cfg.get("fine_segmentation"))
     language = asr_cfg.get("language", "en")
     segments = []
+    _ws_emit = _ws_emit_factory(sid)
 
     if fine_seg and engine_name == "mlx-whisper":
         from asr import sentence_split
-
-        def _ws_emit(kind: str, message: str):
-            try:
-                socketio.emit('transcription_warning',
-                              {'kind': kind, 'message': message},
-                              room=sid)
-            except Exception:
-                app.logger.warning(
-                    f"transcription_warning emit failed: {kind}={message}"
-                )
 
         try:
             raw = sentence_split.transcribe_fine_seg(audio_path, profile, _ws_emit)
         except sentence_split.FineSegmentationError as e:
             _ws_emit("fine_seg_unavailable", str(e))
             raise
+        # Phase 1 — ZH-direct alias correction (no-op for EN paths)
+        raw = _apply_zh_alias_correction_if_zh(raw, profile, language, _ws_emit)
         for i, seg in enumerate(raw):
             segment = {
                 'id': i,
@@ -315,6 +349,10 @@ def _run_profile_asr_with_optional_fine_seg(audio_path, profile, sid,
         raw_segments,
         max_words=asr_params["max_words_per_segment"],
         max_duration=asr_params["max_segment_duration"],
+    )
+    # Phase 1 — ZH-direct alias correction (no-op for EN paths)
+    raw_segments = _apply_zh_alias_correction_if_zh(
+        raw_segments, profile, language, _ws_emit
     )
     for i, seg in enumerate(raw_segments):
         segment = {
