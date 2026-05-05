@@ -621,6 +621,70 @@ Sentence pipeline 嘅進階版：合併成句後，prompt LLM 喺中文輸出中
 
 ## 更新記錄
 
+### v3.13 ZH-Direct ASR 優化（Whisper 跨語言英文→中文）
+
+如果你揀 Profile ASR `language="zh"` + 喂英文音頻（用 Whisper 跨語言能力直接出中文字幕、跳過 LLM 翻譯步驟），v3.13 加咗 3 個機制提升準確度。**完全唔修改 mlx-whisper library 本身**，只係更聰明咁配置 + 後處理。
+
+**問題嚟源**：Whisper large-v3 雖然有 cross-lingual capability、可以 EN audio → ZH text，但有 systemic 錯誤：
+- Proper noun 拼寫錯：「Xabi Alonso」→「Jabi」、「Real Madrid」→「Rail Madrid」、「Vinicius Junior」→「簡拿華」
+- YouTube 訓練數據污染：「由 Amara.org 字幕」、「请订阅」、「感谢观看」幻覺
+- 預設出簡體中文（廣東話用戶要繁體）
+- 用戶睇唔到邊段最唔準確
+
+**Phase 0 — 防止 YouTube credit hallucination + 信心 flag**（已 ship）：
+
+mlx-whisper engine 自動將以下 phrases tokenize 後加入 `suppress_tokens`，token-level 阻止 decoder emit：
+- 「由 Amara.org 社群提供的字幕」
+- 「中文字幕志愿者」
+- 「中文字幕——YK」
+- 「字幕由」/「请订阅」/「请关注」/「感谢观看」/「Thanks for watching」
+
+呢個 only fires 喺 `language="zh"`，EN 路徑唔受影響。
+
+同時 plumb `avg_logprob` + `compression_ratio`（Whisper 自家信心指標）落 segment metadata。當 `avg_logprob < -0.6` 或 `compression_ratio > 2.4`（Whisper 自家 fallback threshold），自動加 `low_confidence` flag — Proofread 頁面會用 `LOW_CONF` badge 標出嚟，提示用戶優先 review。
+
+**Phase 1 — Glossary `zh_aliases` 後處理修正**（已 ship）：
+
+Glossary entry 加 optional `zh_aliases: List[str]` field，記錄 Whisper 常見錯版。**Deterministic、唔用 LLM、零 token cost**：
+
+```json
+{
+  "en": "Real Madrid",
+  "zh": "皇家馬德里",
+  "zh_aliases": ["拉爾馬德里", "雷亞爾馬德里", "Rail Madrid", "Rio Madrid", "皇家瑪德里"]
+}
+```
+
+Transcribe 完即時 scan 每段 ZH text，發現任一 alias 就替換為 canonical。Longest-first 排序（避免短 prefix 先 match），CJK 純 substring match（無 word boundary）。Only triggers 喺 `language="zh"`。
+
+**點樣加 zh_aliases**（3 條 path）：
+
+1. **直接 edit JSON**（最快）：`backend/config/glossaries/broadcast-news.json` 入面每 entry 加 `zh_aliases` array。Profile manager 每次 request reload，唔需要 restart。
+2. **CSV import**：CSV 檔加 `zh_aliases` column，**用 semicolon 分隔**多個 alias（例如 `拉爾馬德里;雷亞爾馬德里;Rail Madrid`），透過 `POST /api/glossaries/<id>/import` 推上 backend。
+3. **REST API**：`POST /api/glossaries/<id>/entries` 或 `PATCH /api/glossaries/<id>/entries/<entry_id>` 帶 `zh_aliases` field。
+
+實戰建議：
+- **只 alias 球員/球會/地名等 proper noun**，唔好 alias verbs / phrases（如「sacked」「January 2026」）— 後者依賴語境，盲目替換會搞錯其他段。
+- 跑完一次 ZH-direct transcribe 之後 eyeball 輸出，將見到嘅錯版直接 copy-paste 入 glossary。同一個 entity Whisper 嘅錯版係**有限種**（通常 3-5 個版本 cover 大部分 case）。
+- 既有已轉錄嘅 file 唔會 retroactively 修正 — alias 係喺 transcribe 時 apply，cached segments 已寫入 registry 之後唔會自動 update。要見效需要 trigger 重新轉錄。
+
+**Phase 2 — Dialogue prompt（已 reject、唔 ship）**：
+
+試過用 dialogue-styled bilingual `initial_prompt`（例如 `「嗯，呢場波好緊湊呀！— Real Madrid (皇家馬德里), Vinicius Junior (雲尼素斯·祖連奴)... — 沙比話：」`）引導 Whisper 出更準確專名。但 A/B 測試結果（Real Madrid 5min fixture）：
+- max segment dur 27.80s（破 v3.8 acceptance gate ≤ 6.0s）
+- segment count +16.1%（破 ±10%）
+- entity correction 1/5（要求 ≥ 2/5）
+
+3 個 gate 全 fail，per Validation-First 原則**production code 完全唔 ship**。Whisper prompt 影響段落結構嘅 inherent issue，呢輪 trade-off 唔抵。Phase 1 嘅 deterministic alias post-correction 已實際 cover 同一痛點（專名錯誤），**無 segment-break risk**。
+
+**累積成效**：
+
+- 35 個新 unit test、477 → **511 PASS** / 12 pre-existing FAIL
+- mlx-whisper library 100% 唔郁，`requirements.txt` / venv 唔變
+- Suppress YouTube credit hallucination automatic（zh path）
+- Per-entity Whisper 錯版 deterministic 修復（user 加完 alias 即時生效）
+- Low-confidence segments 喺 Proofread 頁面有 visual signal 提示
+
 ### v3.9 翻譯對齊修復 + ASR 細粒度調優
 
 v3.8 ship 後實際 production 跑大量片時發現中文字幕後半段同英文時間軸唔對稱（cascade drift）。v3.9 拆三層 root cause + 沿廣播字幕需求進一步收緊 ASR 段邊界。
