@@ -360,6 +360,34 @@ Whenever a new feature is completed or existing functionality is modified, you *
 - **Glossary Apply（LLM 智能替換）**: Proofread page 詞彙表 panel 新增「套用」按鈕。Two-phase 流程：(1) `POST /api/files/<id>/glossary-scan` 用純字串匹配搵出違規（EN 包含 glossary term 但 ZH 唔包含對應翻譯）；(2) 預覽 modal 俾用戶剔選 violations（未批核預設勾選，已批核預設唔勾選）；(3) `POST /api/files/<id>/glossary-apply` 逐條調用 Ollama LLM 做智能替換（保留句子其他部分），多個違規同一 segment 時序列處理。後端會驗證 `(term_en, term_zh)` 確實屬於指定 glossary，錯誤訊息經 `app.logger.exception` 記錄並返回統一 `"LLM request failed"` 俾 client
 - **304 automated tests**（+13 new: glossary-scan/apply 端到端 coverage，包含 sequential chaining、term validation、approval 狀態保留）
 
+### v3.13 — ZH-Direct ASR Optimization（mlx-whisper EN→ZH cross-lingual）
+- **Background**：用戶切咗 production 用 mlx-whisper 嘅 cross-lingual 模式（`language="zh", task="transcribe"` on English audio），跳過 EN ASR + LLM EN→ZH 兩 step pipeline。Whisper large-v3 雖然有 cross-lingual capability、可以直接出中文字幕，但有 systemic accuracy 問題：(1) **proper-noun phonetic guess errors**（"Xabi"→"Jabi"、"Real Madrid"→"Rail/Rio Madrid"、"Vinicius Junior"→"簡拿華"/"蘇亞雷斯"）；(2) **YouTube credit hallucination**（"由 Amara.org 字幕"、"请订阅" 等訓練數據污染）；(3) Whisper 預設出**簡體中文**，廣東話用戶需要繁體；(4) 無 surface-level 信心信號（user 唔知邊段最唔準確）。
+- **Validation**：5 agent team 並行研究（Decoder kwargs / Prompt engineering / Multi-pass ensemble / Post-process correction / Alternative models），結論收斂喺 4 個 high-leverage solution。詳見 [docs/superpowers/specs/2026-05-03-asr-fine-segmentation-validation.md](docs/superpowers/specs/2026-05-03-asr-fine-segmentation-validation.md) v3.13 增量段落 + [docs/superpowers/specs/2026-05-04-zh-prompt-ab-validation.md](docs/superpowers/specs/2026-05-04-zh-prompt-ab-validation.md)。
+- **Phase 0 — `suppress_tokens` + Whisper confidence flags**（commit `aaefe9b`）：
+  - 新 `_build_suppress_tokens(language)` helper 喺 [backend/asr/mlx_whisper_engine.py](backend/asr/mlx_whisper_engine.py)。當 `language="zh"`，將 `_ZH_HALLUCINATION_PHRASES`（"由 Amara.org 社群提供的字幕"、"中文字幕志愿者"、"中文字幕——YK"、"字幕由"、"请订阅"、"请关注"、"感谢观看"、"Thanks for watching"）tokenize 後 append 落 `[-1]` default suppress list。Token-level 阻止呢類 YouTube credit phrases 喺 decoder output 出現。EN 路徑唔受影響（return `[-1]` only）。
+  - mlx-whisper 已 emit `avg_logprob` + `compression_ratio` per segment，之前 discarded。v3.13 plumb 落 ASR Segment dict → TranslatedSegment dict → post_processor `flag_low_confidence()`：當 `avg_logprob < -0.6` 或 `compression_ratio > 2.4`（Whisper 自家 fallback threshold），自動加 `"low_confidence"` 落 `flags: List[str]`。
+  - Frontend `proofread.html` 新增 `LOW_CONF` badge label，提示用戶優先 review 呢類段落。
+  - 477 → 488 PASS（+11 unit tests，零 regression）。
+- **Phase 1 — Glossary `zh_aliases` post-correction**（commit `1a27dd5`）：
+  - Glossary entry schema 新增 optional `zh_aliases: List[str]` field。例如：`{"en": "Real Madrid", "zh": "皇家馬德里", "zh_aliases": ["拉爾馬德里", "雷亞爾馬德里", "Rail Madrid", "Rio Madrid"]}`。
+  - 新 module [backend/asr/zh_alias_correction.py](backend/asr/zh_alias_correction.py)：deterministic post-process（**唔用 LLM、唔花 token cost**）。Longest-alias-first 替換（避免「拉爾」prefix 先 match 而漏「拉爾馬德里」）。CJK 無 word boundary，純 substring match。
+  - Wire 入兩條 ASR 路徑：[app.py](backend/app.py) `transcribe_with_segments`（legacy）+ [sentence_split.py](backend/asr/sentence_split.py) `transcribe_fine_seg`（v3.8 fine_seg），透過 `_apply_zh_alias_correction_if_zh()` gate 喺 `language="zh"` only — EN-direct 路徑完全唔受影響。
+  - WebSocket emit `zh_alias_corrected` event 表示應用咗幾多次替換，UX surface。
+  - CSV import/export 多支援 `zh_aliases` column（**semicolon 分隔**，避免同 CSV comma 撞）。Backward-compatible — 舊 CSV 冇呢個 column 仍然 import 得，alias 為空 list。
+  - 488 → 511 PASS（+23 unit tests）。
+- **Phase 2 — Dialogue-styled bilingual glossary `initial_prompt`**（commit `c457cdf`，**doc-only，code REJECTED at A/B gate**）：
+  - 設計：build prompt `「嗯，呢場波好緊湊呀！— Real Madrid (皇家馬德里), Vinicius Junior (雲尼素斯·祖連奴), … — 沙比話：」`（dense punctuation + dialogue particles + bilingual `EN(中文)` 格式 per Team 2 research）。
+  - A/B test 結果（fixture `/tmp/l1_real_madrid.wav`，mlx-whisper large-v3 production stack）：max segment dur 27.80s（破 v3.8 acceptance gate ≤ 6.0s）、segment count +16.1%（破 ±10%）、entity correction 1/5（gate 要求 ≥ 2/5）。**3 個 gate 全 fail**。
+  - Per CLAUDE.md Validation-First mandate：**production code 完全唔 ship**。淨係 commit 一份 [docs/superpowers/specs/2026-05-04-zh-prompt-ab-validation.md](docs/superpowers/specs/2026-05-04-zh-prompt-ab-validation.md) 記錄 reject 證據 + 將來 retry 嘅方向（per-chunk path 內部 prompt + 配 Phase 1 alias 兜底）。
+- **mlx-whisper library 100% untouched**：3 個 phase 全部走 wrapper / kwarg / post-process pattern，跟 v3.8 fine_segmentation 同樣 paradigm。`requirements.txt` 唔變、venv 唔需要 reinstall。
+- **點用 zh_aliases**（user-facing）：
+  - **Path A（最快）**：直接 edit `backend/config/glossaries/broadcast-news.json`，每個 entry 加 `zh_aliases: List[str]`。Profile manager 每次 request reload，唔需要 restart。
+  - **Path B**：CSV import — `zh_aliases` column 用 semicolon 分隔多個 alias（`拉爾馬德里;雷亞爾馬德里;Rail Madrid`），透過 `POST /api/glossaries/<id>/import` 推上 backend。
+  - **Path C**：REST API — `POST /api/glossaries/<id>/entries` 或 `PATCH /api/glossaries/<id>/entries/<eid>` 帶 `zh_aliases` field。
+  - **建議只 alias proper noun + named entity**（球員名、球會、地名），唔好 alias verbs / phrases（如「sacked」/「January 2026」）— 後者依賴 semantic context、盲目替換會搞錯其他段。
+- **新 test 數量**：+34（11 Phase 0 + 23 Phase 1）；total 477 → **511 PASS** / 12 pre-existing FAIL / 2 skipped
+- **Net diff**: +962 / −32 LOC across 13 files
+
 ### v3.9 — MT Cascade Drift Fix + ASR Fine-Seg Tuning
 - **Background**：v3.8 ship 完 fine_segmentation 後，user 觀察到中文翻譯後半段同英文時間軸唔對稱。診斷發現三層 root cause：(1) `_parse_response` parser bug；(2) production engine `qwen2.5-3b` 太弱、SKIP/ECHO 編號率高；(3) sentence-vs-segment boundary mismatch — LLM 將 batch 視作連續英文按中文句切，唔跟 ASR 時間 cut。
 - **Validation**: 5 個 enhancement candidates 全部跑過 cross-fixture A/B（RealMadrid 5min 廣播訪問 + Trump 5min 政治演講）。詳細數據見 [docs/superpowers/specs/2026-05-03-asr-fine-segmentation-validation.md](docs/superpowers/specs/2026-05-03-asr-fine-segmentation-validation.md) v3.9 增量段落。
