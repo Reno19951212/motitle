@@ -257,47 +257,6 @@ def test_transcribe_fine_seg_falls_back_when_vad_returns_zero(monkeypatch, tmp_p
     assert any(k == "vad_zero" for k, _ in emits), emits
 
 
-def test_transcribe_fine_seg_falls_back_when_all_chunks_fail(monkeypatch, tmp_path):
-    """F4 permissive: VAD returns spans but all chunk transcribes fail → vad_fail warning."""
-    from asr import sentence_split
-
-    SR = 16000
-    fake_segments = [{"start": 0, "end": 5.0, "text": "fallback", "words": []}]
-
-    class _FakeSilero:
-        @staticmethod
-        def load_silero_vad(onnx=True):
-            return object()
-
-        @staticmethod
-        def get_speech_timestamps(*a, **kw):
-            return [{"start": 0, "end": 10 * SR}]
-
-        @staticmethod
-        def read_audio(path, sampling_rate=16000):
-            return [0] * (10 * SR)
-
-    monkeypatch.setitem(sys.modules, "silero_vad", _FakeSilero)
-
-    # Force chunk transcribe to return empty (simulating all failures)
-    monkeypatch.setattr(sentence_split, "_transcribe_chunks",
-                        lambda *a, **k: [])
-    monkeypatch.setattr(sentence_split, "_fallback_whole_file",
-                        lambda *a, **k: fake_segments)
-
-    audio = tmp_path / "fake.wav"
-    audio.touch()
-    emits = []
-    out = sentence_split.transcribe_fine_seg(
-        str(audio),
-        {"asr": {"engine": "mlx-whisper", "fine_segmentation": True,
-                 "vad_chunk_max_s": 25}},
-        lambda kind, msg: emits.append((kind, msg)),
-    )
-    assert out == fake_segments
-    assert any(k == "vad_fail" for k, _ in emits), emits
-
-
 def test_vad_speech_pad_default_is_300_when_omitted():
     """Profile without vad_speech_pad_ms uses 300ms (cross-fixture A/B validated)."""
     from asr.sentence_split import _vad_segment

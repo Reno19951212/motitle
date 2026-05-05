@@ -80,13 +80,6 @@ def transcribe_fine_seg(audio_path: str, profile: dict,
     # Stage 3: Per-chunk mlx transcribe + offset shift
     raw = _transcribe_chunks(wav, chunks, asr_cfg, mlx_whisper, ws_emit)
 
-    # F4 permissive — all chunks failed → fallback whole file
-    if not raw:
-        if ws_emit is not None:
-            ws_emit("vad_fail",
-                    "All chunks failed; using whole-file transcribe")
-        return _fallback_whole_file(audio_path, asr_cfg, mlx_whisper)
-
     # Stage 4: Word-gap refine
     refined = word_gap_split(
         raw,

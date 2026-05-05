@@ -11,7 +11,7 @@ Config keys:
     api_key:            OpenRouter API key (or set env OPENROUTER_API_KEY)
     openrouter_url:     Override base URL (default https://openrouter.ai/api/v1)
     temperature:        Same as Ollama (default 0.1)
-    batch_size/style/context_window/parallel_batches/alignment_mode/...: same
+    batch_size/style/context_window/parallel_batches/...: same
 """
 import json
 import os

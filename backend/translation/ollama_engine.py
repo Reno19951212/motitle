@@ -10,7 +10,7 @@ import time
 import urllib.request
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, List, Optional, Tuple, TypedDict
+from typing import List, Optional, Tuple, TypedDict
 
 from . import TranslationEngine, TranslatedSegment
 from .post_processor import TranslationPostProcessor
@@ -171,36 +171,6 @@ SYSTEM_PROMPT_CANTONESE = (
 )
 
 
-# Pass 2 enrichment system prompt (Strategy C — enhanced mode).
-# Takes each [EN + terse ZH] pair and produces a richer ZH preserving all
-# descriptive modifiers from EN. Only factual content from EN is allowed;
-# Pass 1 translation is treated as a starting point, not a constraint.
-ENRICH_SYSTEM_PROMPT = (
-    "你是香港電視廣播嘅資深字幕編輯。你會收到初譯字幕，任務係**大幅改寫增強**，"
-    "令譯稿達到專業廣播質素。\n\n"
-    "【核心心態】\n"
-    "初譯太簡短，係初學者水平。你係資深編輯，有責任將每條字幕改寫得更完整、"
-    "更生動、更文學化。**目標每行 22–30 字**，少於 20 字即表示仍需加強。\n\n"
-    "【規則】\n"
-    "1. **必須大幅擴寫** — 將英文所有形容詞、副詞、限定詞、介詞短語全部譯出。\n"
-    "   例：persistent → 傷病纏身，really → 真正，radical → 大刀闊斧，light → 嚴重告急\n"
-    "2. 人名首次出現必須用完整譯名（如 David Alaba → 大衛·阿拉巴），不可縮寫姓氏。\n"
-    "3. 使用完整主謂結構，不得省略主語；加結構連接詞（在…方面、就此而言、儘管…但）\n"
-    "4. 採用香港廣播文筆：「表示」「指出」「透露」「傳出」優於「稱」「說」。\n"
-    "5. 善用四字詞、文學化表達：傷病纏身、大刀闊斧、嚴重告急、巔峰年齡、飽受困擾\n"
-    "6. 事實層面必須忠於英文原文 — 不得新增英文無提及嘅信息。\n"
-    "7. **絕不接受短於 18 字嘅輸出** — 如果初譯短，你必須重寫更長版本。\n"
-    "8. 僅輸出編號譯文（1. 2. ...），不加解釋或註釋。必須繁體中文。\n\n"
-    "【正確改寫示例】\n"
-    "英文：In the backline, persistent injuries to David Alaba and Antonio Rudiger have left Real light.\n"
-    "初譯（13字）：阿拉巴盧迪加屢傷，皇馬薄弱。\n"
-    "正確改寫（37字）：在後防方面，大衛·阿拉巴與安東尼奧·呂迪格的傷病纏身，令皇馬後防嚴重告急。\n\n"
-    "英文：They said that what the team really needs is a radical overhaul in the summer.\n"
-    "初譯（13字）：他們稱球隊急需夏季徹底改革。\n"
-    "正確改寫（24字）：他們表示，球隊真正需要的是夏窗大刀闊斧的全面重建。"
-)
-
-
 class OllamaTranslationEngine(TranslationEngine):
     """Translation engine that calls Ollama's local HTTP API."""
 
@@ -311,127 +281,8 @@ class OllamaTranslationEngine(TranslationEngine):
                 for future in futures:
                     all_translated.extend(future.result())
 
-        # Optional Pass 2: enrichment (Strategy C).
-        # When translation_passes >= 2, each batch's Pass 1 output is fed back
-        # to the LLM with the original EN for descriptive-language expansion.
-        passes = self._get_translation_passes()
-        if passes >= 2:
-            all_translated = self._enrich_pass(
-                segments, all_translated, effective_batch,
-                glossary, effective_temp, progress_callback, total,
-            )
-
         processor = TranslationPostProcessor(max_chars=MAX_SUBTITLE_CHARS)
         return processor.process(all_translated)
-
-    def _get_translation_passes(self) -> int:
-        """Return 1 (normal) or 2 (enhanced) based on config."""
-        try:
-            raw = int(self._config.get("translation_passes", 1))
-        except (ValueError, TypeError):
-            return 1
-        return max(1, min(2, raw))
-
-    def _enrich_pass(
-        self,
-        segments: List[dict],
-        pass1_results: List[TranslatedSegment],
-        batch_size: int,
-        glossary: List[dict],
-        temperature: float,
-        progress_callback=None,
-        total: int = 0,
-    ) -> List[TranslatedSegment]:
-        """Pass 2: enrich each batch's Pass 1 translation with richer language.
-
-        Preserves Pass 1 facts, fills in modifiers/adverbs that were dropped.
-        On any batch failure, falls back to the original Pass 1 translation
-        (the feature is strictly additive — never worsens output).
-        """
-        if not pass1_results or len(pass1_results) != len(segments):
-            return pass1_results
-
-        enriched_total = list(pass1_results)  # shallow copy
-        batches_meta = []
-        for i in range(0, len(segments), batch_size):
-            batches_meta.append((i, segments[i:i + batch_size],
-                                 pass1_results[i:i + batch_size]))
-
-        for batch_start, batch_segs, batch_p1 in batches_meta:
-            try:
-                enriched_batch = self._enrich_batch(
-                    batch_segs, batch_p1, glossary, temperature
-                )
-                for j, entry in enumerate(enriched_batch):
-                    enriched_total[batch_start + j] = entry
-            except Exception as e:
-                print(f"[enrich] batch starting {batch_start} failed: {e}", file=sys.stderr)
-                # Keep Pass 1 for this batch
-                continue
-
-        if progress_callback is not None and total:
-            try:
-                progress_callback(total, total)  # signal Pass 2 done
-            except Exception:
-                pass
-
-        return enriched_total
-
-    def _enrich_batch(
-        self,
-        batch_segs: List[dict],
-        batch_p1: List[TranslatedSegment],
-        glossary: List[dict],
-        temperature: float,
-    ) -> List[TranslatedSegment]:
-        """Enrich one batch via a single LLM call. Returns list same length as batch_segs."""
-        # Build interleaved user message
-        lines = ["Enrich the following subtitle segments. Return only numbered lines (1. ...):\n"]
-        for i, (seg, p1) in enumerate(zip(batch_segs, batch_p1), 1):
-            en = seg.get("text", "").strip()
-            zh = (p1.get("zh_text", "") or "").strip()
-            # Strip any post-process prefix so enrichment doesn't echo flags.
-            zh = zh.removeprefix("[LONG] ").removeprefix("[NEEDS REVIEW] ")
-            lines.append(f"{i}. [EN] {en}")
-            lines.append(f"   [ZH] {zh}")
-            lines.append("")
-        user_message = "\n".join(lines)
-
-        # Include glossary in the same Chinese format as Pass 1
-        system_prompt = ENRICH_SYSTEM_PROMPT
-        relevant_glossary = self._filter_glossary_for_batch(glossary, batch_segs)
-        if relevant_glossary:
-            terms = "\n".join(
-                f'- {entry["en"]} → {entry["zh"]}' for entry in relevant_glossary
-            )
-            system_prompt += f"\n\n【指定譯名表】（必須採用以下譯名）:\n{terms}"
-
-        response_text = self._call_ollama(system_prompt, user_message, temperature)
-        parsed_zh = self._parse_enriched_response(response_text, len(batch_segs))
-
-        # Merge: use enriched only when (a) we got output for this index AND
-        # (b) enriched is non-empty.  Otherwise keep Pass 1 unchanged.
-        result: List[TranslatedSegment] = []
-        for i, p1 in enumerate(batch_p1):
-            enriched_zh = parsed_zh.get(i + 1)
-            if enriched_zh:
-                result.append({**p1, "zh_text": enriched_zh})
-            else:
-                result.append(p1)
-        return result
-
-    @staticmethod
-    def _parse_enriched_response(text: str, expected_count: int) -> Dict[int, str]:
-        """Parse '1. xxx\\n2. yyy' into {1: 'xxx', 2: 'yyy'}."""
-        import re
-        results: Dict[int, str] = {}
-        for line in text.split("\n"):
-            m = re.match(r"^\s*(\d+)[.\)]\s*(.+?)\s*$", line)
-            if m:
-                idx = int(m.group(1))
-                if 1 <= idx <= expected_count:
-                    results[idx] = m.group(2).strip()
-        return results
 
     def _translate_batch(
         self,

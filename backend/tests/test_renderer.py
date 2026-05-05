@@ -709,7 +709,7 @@ def test_strip_qa_prefixes_needs_review():
 
 def test_strip_qa_prefixes_stacked():
     from renderer import strip_qa_prefixes
-    # sentence_pipeline can prepend [NEEDS REVIEW] on top of an existing [LONG]
+    # legacy registry data can have stacked [NEEDS REVIEW] [LONG] prefixes
     assert strip_qa_prefixes("[NEEDS REVIEW] [LONG] 各位晚上好。") == "各位晚上好。"
     assert strip_qa_prefixes("[LONG] [NEEDS REVIEW] 各位晚上好。") == "各位晚上好。"
 

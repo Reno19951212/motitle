@@ -114,14 +114,6 @@ class MlxWhisperEngine(ASREngine):
                     },
                     "default": "en",
                 },
-                "condition_on_previous_text": {
-                    "type": "boolean",
-                    "label": "條件於前文",
-                    "widget": "switch",
-                    "description": "Use previous segment as context",
-                    "hint": "開 = 更連貫但會放大錯誤；關 = 每句獨立。預設開。",
-                    "default": True,
-                },
                 "word_timestamps": {
                     "type": "boolean",
                     "label": "詞級時間碼",
