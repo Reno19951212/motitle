@@ -16,6 +16,7 @@ Activated by profile asr.fine_segmentation=true. Engine must be mlx-whisper.
 from __future__ import annotations
 
 import logging
+import re
 import threading
 from typing import Callable, Optional
 
@@ -80,9 +81,15 @@ def transcribe_fine_seg(audio_path: str, profile: dict,
     # Stage 3: Per-chunk mlx transcribe + offset shift
     raw = _transcribe_chunks(wav, chunks, asr_cfg, mlx_whisper, ws_emit)
 
+    # Stage 3.5: Seam merge — repair cross-30s-window mid-clause cuts
+    seamed = _seam_merge(
+        raw,
+        max_gap_s=float(asr_cfg.get("seam_max_gap_s", 0.30)),
+    )
+
     # Stage 4: Word-gap refine
     refined = word_gap_split(
-        raw,
+        seamed,
         max_dur=float(asr_cfg.get("refine_max_dur", 4.0)),
         gap_thresh=float(asr_cfg.get("refine_gap_thresh", 0.10)),
         min_dur=float(asr_cfg.get("refine_min_dur", 1.5)),
@@ -171,6 +178,99 @@ _HALLUCINATION_GUARDS = {
     "compression_ratio_threshold": 1.4,
     "logprob_threshold": -1.0,
 }
+
+
+# Words at end of an English segment that strongly suggest the segment was
+# cut mid-clause by Whisper's 30s decoder-window boundary, not by a natural
+# speech pause. _seam_merge fuses such adjacent segments BEFORE word_gap_split
+# so the LLM downstream sees a complete sentence and translates it within a
+# single ZH slot, eliminating cross-30s cascade drift.
+INCOMPLETE_TAIL_WORDS = frozenset({
+    # Coordinating + subordinating conjunctions
+    "and", "but", "or", "so", "because", "if", "when", "while", "unless",
+    "until", "since", "as", "that", "though", "although",
+    # Prepositions (any preposition at clause-end is a strong cut signal)
+    "to", "for", "of", "on", "at", "in", "with", "from", "by", "into",
+    "onto", "upon", "about", "over", "under", "between", "through",
+    "during", "against", "near",
+    # Wh-words (mid-question continuation)
+    "where", "who", "what", "when", "why", "how", "which", "whose", "whom",
+    # Articles + determiners
+    "a", "an", "the", "this", "these", "those", "such",
+    # Copula + auxiliary verbs (incomplete predicate)
+    "is", "are", "was", "were", "be", "been", "being",
+    "have", "has", "had", "will", "would", "should", "could", "might",
+    "must", "may", "can",
+})
+
+_END_PUNCT = ".!?…"
+_INCOMPLETE_TAIL_TOKEN_RE = re.compile(r"[a-zA-Z']+")
+
+
+def _is_incomplete_tail(text: str) -> bool:
+    """Detect whether `text` looks like a mid-clause cut.
+
+    Returns True if text ends with INCOMPLETE_TAIL_WORDS and is NOT already
+    sentence-terminated and NOT trailing-comma/ellipsis-intentional.
+    """
+    text = text.strip()
+    if not text:
+        return False
+    if text[-1] in _END_PUNCT:
+        return False
+    # Trailing comma / ellipsis: speaker intentionally trailed off — don't merge
+    if text.endswith((",", "，", "...")):
+        return False
+    tokens = _INCOMPLETE_TAIL_TOKEN_RE.findall(text)
+    if not tokens:
+        return False
+    last_word = tokens[-1].lower()
+    # Strip possessive 's suffix (e.g. "Madrid's" → "Madrid"), but only if
+    # the suffix is exactly "'s" — don't strip individual 's' or apostrophes.
+    if last_word.endswith("'s"):
+        last_word = last_word[:-2]
+    return last_word in INCOMPLETE_TAIL_WORDS
+
+
+def _seam_merge(segments, *, max_gap_s: float = 0.30):
+    """Merge adjacent segments where seg N appears mid-clause cut.
+
+    Targets cross-30s-window mid-sentence cuts: Whisper emits a timestamp
+    boundary at chunk edge mid-clause due to decoder-window limit, not
+    natural speech pause. The downstream LLM then translates the whole
+    sentence into ZH slot N (correct Chinese) but leaves ZH slot N+1
+    empty of original content, causing cascade drift.
+
+    By fusing such pairs BEFORE word_gap_split, we present the LLM with a
+    semantically complete English sentence per segment, so its Chinese
+    output stays aligned. word_gap_split downstream still re-splits any
+    over-long merged segment via its normal max_dur / safety_max_dur logic,
+    so the fine-grained ~3s segment count is preserved.
+
+    Conservative defaults: max_gap_s=0.30 (anything > this is a real pause).
+    """
+    if len(segments) < 2:
+        return [dict(s) for s in segments]
+
+    out = [dict(segments[0])]
+    for nxt in segments[1:]:
+        prev = out[-1]
+        gap = float(nxt["start"]) - float(prev["end"])
+        if gap > max_gap_s or gap < 0:
+            out.append(dict(nxt))
+            continue
+        if not _is_incomplete_tail(prev.get("text", "")):
+            out.append(dict(nxt))
+            continue
+        # Merge: extend prev to cover nxt
+        merged_words = list(prev.get("words") or []) + list(nxt.get("words") or [])
+        out[-1] = {
+            **prev,
+            "end": float(nxt["end"]),
+            "text": (prev["text"].rstrip() + " " + nxt["text"].lstrip()).strip(),
+            "words": merged_words,
+        }
+    return out
 
 
 def _subcap_chunks(spans, max_s: int):

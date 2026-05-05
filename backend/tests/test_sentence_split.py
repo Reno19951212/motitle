@@ -323,6 +323,117 @@ def test_transcribe_chunks_passes_hallucination_guards():
     assert captured_kwargs.get("condition_on_previous_text") is False
 
 
+def test_seam_merge_merges_when_prev_ends_with_preposition():
+    """Adjacent segs with prev ending 'with' + tight gap → merge into one."""
+    from asr.sentence_split import _seam_merge
+    segs = [
+        {"start": 0.0, "end": 2.5,
+         "text": "He loves to fizz the ball through the lines with",
+         "words": [{"word": "with", "start": 2.4, "end": 2.5}]},
+        {"start": 2.5, "end": 4.5,
+         "text": "sharp disguised passes into midfield.",
+         "words": [{"word": "midfield", "start": 4.4, "end": 4.5}]},
+    ]
+    out = _seam_merge(segs, max_gap_s=0.30)
+    assert len(out) == 1, f"Expected merge into 1, got {len(out)}"
+    assert out[0]["end"] == 4.5
+    assert "with sharp disguised passes" in out[0]["text"]
+
+
+def test_seam_merge_does_not_merge_when_prev_ends_with_period():
+    """Sentence-terminated prev → no merge even with tight gap."""
+    from asr.sentence_split import _seam_merge
+    segs = [
+        {"start": 0.0, "end": 2.5,
+         "text": "He loves the game.", "words": []},
+        {"start": 2.5, "end": 4.5,
+         "text": "It's beautiful.", "words": []},
+    ]
+    out = _seam_merge(segs, max_gap_s=0.30)
+    assert len(out) == 2
+
+
+def test_seam_merge_does_not_merge_when_gap_too_large():
+    """Large gap means real speaker pause → no merge even with incomplete tail."""
+    from asr.sentence_split import _seam_merge
+    segs = [
+        {"start": 0.0, "end": 2.5, "text": "He loves the", "words": []},
+        {"start": 5.0, "end": 7.0, "text": "game.", "words": []},  # gap=2.5s
+    ]
+    out = _seam_merge(segs, max_gap_s=0.30)
+    assert len(out) == 2
+
+
+def test_seam_merge_skips_when_prev_ends_with_comma():
+    """Trailing comma is intentional trail-off → no merge."""
+    from asr.sentence_split import _seam_merge
+    segs = [
+        {"start": 0.0, "end": 2.5, "text": "He thought, but didn't,", "words": []},
+        {"start": 2.5, "end": 4.5, "text": "complete the pass.", "words": []},
+    ]
+    out = _seam_merge(segs, max_gap_s=0.30)
+    assert len(out) == 2
+
+
+def test_seam_merge_recurses_chained_incomplete():
+    """Three segs each ending mid-clause → merge into 1 (recursive chain)."""
+    from asr.sentence_split import _seam_merge
+    segs = [
+        {"start": 0.0, "end": 2.0, "text": "When the ball is", "words": []},
+        {"start": 2.0, "end": 4.0, "text": "passed back to", "words": []},
+        {"start": 4.0, "end": 6.0, "text": "the keeper.", "words": []},
+    ]
+    out = _seam_merge(segs, max_gap_s=0.30)
+    assert len(out) == 1, f"Three chained mid-clause cuts should merge, got {len(out)}"
+    assert "When the ball is passed back to the keeper." in out[0]["text"]
+
+
+def test_seam_merge_does_not_merge_complete_clause():
+    """Prev ends with full content word (not in INCOMPLETE_TAIL) → no merge."""
+    from asr.sentence_split import _seam_merge
+    segs = [
+        {"start": 0.0, "end": 2.5, "text": "Real Madrid played well", "words": []},
+        {"start": 2.5, "end": 4.5, "text": "yesterday.", "words": []},
+    ]
+    out = _seam_merge(segs, max_gap_s=0.30)
+    # "well" is not in INCOMPLETE_TAIL_WORDS — no merge
+    assert len(out) == 2
+
+
+def test_is_incomplete_tail_recognises_common_patterns():
+    """Direct test of _is_incomplete_tail helper."""
+    from asr.sentence_split import _is_incomplete_tail
+    # Should recognize as incomplete (= mid-clause)
+    assert _is_incomplete_tail("sources close to")
+    assert _is_incomplete_tail("but is a risk-taker who might")
+    assert _is_incomplete_tail("Many of Madrid's opponents in La Liga are")
+    # Should NOT recognize as incomplete
+    assert not _is_incomplete_tail("He scored a goal.")
+    assert not _is_incomplete_tail("They played well!")
+    assert not _is_incomplete_tail("And he loves it,")  # trailing comma
+    assert not _is_incomplete_tail("")  # empty
+    assert not _is_incomplete_tail("Real Madrid played well")  # ends with content word
+
+
+def test_seam_merge_preserves_words_list():
+    """words[] from both segs concatenated correctly in merged segment."""
+    from asr.sentence_split import _seam_merge
+    segs = [
+        {"start": 0.0, "end": 2.5, "text": "He loves to",
+         "words": [{"word": "He", "start": 0.1, "end": 0.3},
+                   {"word": "loves", "start": 0.4, "end": 0.8},
+                   {"word": "to", "start": 0.9, "end": 1.0}]},
+        {"start": 2.5, "end": 4.5, "text": "play football.",
+         "words": [{"word": "play", "start": 2.6, "end": 2.9},
+                   {"word": "football", "start": 3.0, "end": 3.5}]},
+    ]
+    out = _seam_merge(segs, max_gap_s=0.30)
+    assert len(out) == 1
+    assert len(out[0]["words"]) == 5
+    assert out[0]["words"][0]["word"] == "He"
+    assert out[0]["words"][-1]["word"] == "football"
+
+
 def test_fallback_whole_file_passes_hallucination_guards(tmp_path):
     """Fallback path also forwards hallucination guards (silence-tail risk highest here)."""
     from asr.sentence_split import _fallback_whole_file
