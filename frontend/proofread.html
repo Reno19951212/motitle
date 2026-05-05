@@ -1783,6 +1783,7 @@
   const QA_FLAG_MESSAGES = {
     long: '中文長度超過 28 字（廣播單行上限）',
     review: '翻譯品質有疑問，請覆檢',
+    low_confidence: 'ASR 置信度偏低（avg_logprob 或 compression_ratio 超出健康範圍）',
   };
   function qaFlagsFromBackend(apiFlags, prefixFlags) {
     if (apiFlags && apiFlags.length) {

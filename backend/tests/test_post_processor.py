@@ -231,3 +231,71 @@ def test_process_emits_clean_zh_text_for_renderer():
     assert "long" in processed[1]["flags"]
     for i in (2, 3, 4):
         assert "review" in processed[i]["flags"]
+
+
+# ---------------------------------------------------------------------------
+# Phase 0 — flag_low_confidence (Whisper avg_logprob / compression_ratio)
+# ---------------------------------------------------------------------------
+
+
+def test_post_processor_flags_low_confidence_when_logprob_low():
+    """avg_logprob < -0.6 → 'low_confidence' flag added."""
+    from translation.post_processor import flag_low_confidence
+    out = flag_low_confidence([
+        {"en_text": "Hello", "zh_text": "你好", "asr_avg_logprob": -0.85},
+    ])
+    assert "low_confidence" in out[0]["flags"]
+
+
+def test_post_processor_flags_low_confidence_when_compression_ratio_high():
+    """compression_ratio > 2.4 → 'low_confidence' flag (Whisper's own threshold)."""
+    from translation.post_processor import flag_low_confidence
+    out = flag_low_confidence([
+        {"en_text": "Hi", "zh_text": "你好", "asr_compression_ratio": 2.7},
+    ])
+    assert "low_confidence" in out[0]["flags"]
+
+
+def test_post_processor_no_low_confidence_when_metrics_clean():
+    """Healthy metrics → no flag added."""
+    from translation.post_processor import flag_low_confidence
+    out = flag_low_confidence([
+        {
+            "en_text": "Hi", "zh_text": "你好",
+            "asr_avg_logprob": -0.30,
+            "asr_compression_ratio": 1.5,
+        },
+    ])
+    assert "low_confidence" not in out[0].get("flags", [])
+
+
+def test_post_processor_no_low_confidence_when_metrics_absent():
+    """Missing metrics treated as no-signal (no flag)."""
+    from translation.post_processor import flag_low_confidence
+    out = flag_low_confidence([
+        {"en_text": "Hi", "zh_text": "你好"},
+    ])
+    assert "low_confidence" not in out[0].get("flags", [])
+
+
+def test_flag_low_confidence_preserves_existing_flags():
+    """Adding 'low_confidence' must not clobber pre-existing 'long' or 'review'."""
+    from translation.post_processor import flag_low_confidence
+    out = flag_low_confidence([
+        {
+            "en_text": "Hi", "zh_text": "x" * 30,
+            "flags": ["long"],
+            "asr_avg_logprob": -0.95,
+        },
+    ])
+    assert "long" in out[0]["flags"]
+    assert "low_confidence" in out[0]["flags"]
+
+
+def test_flag_low_confidence_does_not_mutate_input():
+    """Pure-function semantics: input list and dicts untouched."""
+    from translation.post_processor import flag_low_confidence
+    inp = [{"en_text": "Hi", "zh_text": "你好", "asr_avg_logprob": -0.95}]
+    out = flag_low_confidence(inp)
+    assert "flags" not in inp[0]
+    assert "low_confidence" in out[0]["flags"]

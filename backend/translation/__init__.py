@@ -9,11 +9,16 @@ class TranslatedSegment(TypedDict, total=False):
     en_text: str
     zh_text: str
     # QA flags raised by post_processor.
-    # Known values: "long" (zh_text length exceeds broadcast single-line max)
-    #               "review" (validate_batch flagged repetition / hallucination / missing)
+    # Known values: "long"           (zh_text length exceeds broadcast single-line max)
+    #               "review"          (validate_batch flagged repetition / hallucination / missing)
+    #               "low_confidence"  (Whisper avg_logprob/compression_ratio outside healthy range)
     # Stored as a structured field so UI can render badges and renderer
     # never has to strip text prefixes. Empty list / missing field == clean.
     flags: List[str]
+    # ASR confidence metrics carried through from Whisper for low_confidence flagging.
+    # Optional — may be absent for engines that don't surface these (e.g. Mock).
+    asr_avg_logprob: float
+    asr_compression_ratio: float
 
 
 # Progress callback shape: called after each batch with (completed_count, total_count)

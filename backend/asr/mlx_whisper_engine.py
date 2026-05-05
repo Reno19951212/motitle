@@ -23,6 +23,59 @@ MODEL_REPO = {
 _model_lock = threading.Lock()
 
 
+# Hallucination strings observed in ZH-direct mode (per openai/whisper#1873).
+# These are YouTube subtitle scrape contamination — Whisper occasionally emits
+# them with plausible perplexity, bypassing compression_ratio guards. Tokenized
+# and added to suppress_tokens for ZH-direct decoding.
+_ZH_HALLUCINATION_PHRASES = [
+    "由 Amara.org 社群提供的字幕",
+    "中文字幕志愿者",
+    "中文字幕——YK",
+    "字幕由",
+    "请订阅",
+    "请关注",
+    "感谢观看",
+    "Thanks for watching",
+]
+
+
+def _build_suppress_tokens(language):
+    """Return list of token IDs to suppress during decoding.
+
+    For ZH-direct mode, append known hallucination-phrase tokens to the
+    default ``[-1]`` (mlx-whisper's non-speech-token sentinel). For all other
+    languages, return the bare default. If the tokenizer cannot be loaded
+    (e.g. during isolated unit-tests when mlx-whisper isn't installed), we
+    return the bare default — the engine still runs, just without the extra
+    suppression.
+    """
+    base = [-1]
+    lang = (language or "").lower()
+    if lang != "zh":
+        return base
+    try:
+        from mlx_whisper.tokenizer import get_tokenizer  # type: ignore
+    except Exception:
+        return base
+    try:
+        tokenizer = get_tokenizer(multilingual=True, language="zh", task="transcribe")
+        suppress = list(base)
+        for phrase in _ZH_HALLUCINATION_PHRASES:
+            try:
+                suppress.extend(tokenizer.encode(phrase))
+            except Exception:
+                continue
+        seen = set()
+        out = []
+        for t in suppress:
+            if t not in seen:
+                seen.add(t)
+                out.append(t)
+        return out
+    except Exception:
+        return base
+
+
 class MlxWhisperEngine(ASREngine):
     """Whisper via MLX — uses Metal GPU on Apple Silicon for 30-40% faster inference."""
 
@@ -45,6 +98,7 @@ class MlxWhisperEngine(ASREngine):
             "task": "transcribe",
             "condition_on_previous_text": condition_on_previous_text,
             "word_timestamps": word_timestamps,
+            "suppress_tokens": _build_suppress_tokens(language),
             "verbose": False,
         }
         # Only pass temperature when explicitly set; None → use mlx default fallback tuple
@@ -64,6 +118,13 @@ class MlxWhisperEngine(ASREngine):
                 "end": seg["end"],
                 "text": text,
             }
+            # Propagate Whisper's confidence metrics for downstream low-confidence
+            # flagging in the translation post-processor. Both fields are optional
+            # — missing values simply skip the flag.
+            if "avg_logprob" in seg:
+                entry["avg_logprob"] = float(seg["avg_logprob"])
+            if "compression_ratio" in seg:
+                entry["compression_ratio"] = float(seg["compression_ratio"])
             if word_timestamps and seg.get("words"):
                 entry["words"] = [
                     Word(

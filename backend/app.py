@@ -289,6 +289,10 @@ def _run_profile_asr_with_optional_fine_seg(audio_path, profile, sid,
                 'text': seg['text'],
                 'words': seg.get('words', []) or [],
             }
+            if 'avg_logprob' in seg:
+                segment['avg_logprob'] = seg['avg_logprob']
+            if 'compression_ratio' in seg:
+                segment['compression_ratio'] = seg['compression_ratio']
             segments.append(segment)
             emit_segment_with_progress(segment, sid)
         return {
@@ -320,6 +324,10 @@ def _run_profile_asr_with_optional_fine_seg(audio_path, profile, sid,
             'text': seg['text'],
             'words': seg.get('words', []) or [],
         }
+        if 'avg_logprob' in seg:
+            segment['avg_logprob'] = seg['avg_logprob']
+        if 'compression_ratio' in seg:
+            segment['compression_ratio'] = seg['compression_ratio']
         segments.append(segment)
         emit_segment_with_progress(segment, sid)
     engine_info = engine.get_info()
@@ -2161,6 +2169,21 @@ def _auto_translate(fid: str, segments: list, session_id) -> None:
             progress_callback=_emit_auto_progress,
             parallel_batches=parallel_batches,
         )
+        # Carry ASR confidence metrics through to TranslatedSegment so the
+        # post-processor can flag low-confidence segments. Translation engines
+        # produce results in the same positional order as input segments.
+        for i, t in enumerate(translated):
+            if i < len(segments):
+                src = segments[i]
+                if 'avg_logprob' in src:
+                    t['asr_avg_logprob'] = src['avg_logprob']
+                if 'compression_ratio' in src:
+                    t['asr_compression_ratio'] = src['compression_ratio']
+        # Run post-processor low-confidence flagging now that ASR metrics are
+        # attached. Other flags ("long" / "review") were already applied by the
+        # engine itself; this pass only adds "low_confidence" where applicable.
+        from translation.post_processor import flag_low_confidence
+        translated = flag_low_confidence(translated)
         for t in translated:
             t["status"] = "pending"
             t["baseline_zh"] = t.get("zh_text", "")

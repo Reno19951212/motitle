@@ -24,7 +24,11 @@ from typing import Callable, Optional
 # the mlx-whisper engine. Both must serialize transcribe() calls to avoid
 # Metal context conflicts.
 from asr import Word
-from asr.mlx_whisper_engine import MODEL_REPO, _model_lock as _MLX_LOCK
+from asr.mlx_whisper_engine import (
+    MODEL_REPO,
+    _build_suppress_tokens,
+    _model_lock as _MLX_LOCK,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -312,6 +316,8 @@ def _build_segment(s: dict, offset: float = 0.0) -> dict:
 
     Returns:
         dict with keys start, end, text, words — all timestamps offset-shifted.
+        avg_logprob / compression_ratio are also propagated when present so
+        downstream consumers can flag low-confidence segments.
     """
     words = [
         Word(
@@ -322,12 +328,17 @@ def _build_segment(s: dict, offset: float = 0.0) -> dict:
         )
         for w in (s.get("words") or [])
     ]
-    return {
+    out = {
         "start": float(s["start"]) + offset,
         "end": float(s["end"]) + offset,
         "text": (s.get("text") or "").strip(),
         "words": words,
     }
+    if "avg_logprob" in s:
+        out["avg_logprob"] = float(s["avg_logprob"])
+    if "compression_ratio" in s:
+        out["compression_ratio"] = float(s["compression_ratio"])
+    return out
 
 
 def _vad_segment(audio_path: str, asr_cfg: dict, *, load_fn, get_ts_fn, read_fn):
@@ -349,6 +360,8 @@ def _vad_segment(audio_path: str, asr_cfg: dict, *, load_fn, get_ts_fn, read_fn)
 def _transcribe_chunks(wav, chunks, asr_cfg, mlx_module, ws_emit):
     """Transcribe each chunk with mlx-whisper, shifting offsets to file timeline."""
     repo = MODEL_REPO.get(asr_cfg.get("model_size", "large-v3"), MODEL_REPO["large-v3"])
+    language = asr_cfg.get("language", "en")
+    suppress_tokens = _build_suppress_tokens(language)
     out = []
     failed = 0
 
@@ -362,12 +375,13 @@ def _transcribe_chunks(wav, chunks, asr_cfg, mlx_module, ws_emit):
                 r = mlx_module.transcribe(
                     chunk_audio,
                     path_or_hf_repo=repo,
-                    language=asr_cfg.get("language", "en"),
+                    language=language,
                     task="transcribe",
                     verbose=False,
                     condition_on_previous_text=False,  # chunk-isolated
                     word_timestamps=True,
                     temperature=float(asr_cfg.get("temperature") or 0.0),
+                    suppress_tokens=suppress_tokens,
                     **_HALLUCINATION_GUARDS,
                 )
         except Exception as e:  # noqa: BLE001 — permissive runtime fallback
@@ -392,16 +406,18 @@ def _transcribe_chunks(wav, chunks, asr_cfg, mlx_module, ws_emit):
 def _fallback_whole_file(audio_path: str, asr_cfg: dict, mlx_module):
     """Used when VAD returns 0 spans or all chunks fail. Baseline mlx transcribe."""
     repo = MODEL_REPO.get(asr_cfg.get("model_size", "large-v3"), MODEL_REPO["large-v3"])
+    language = asr_cfg.get("language", "en")
     with _MLX_LOCK:
         r = mlx_module.transcribe(
             audio_path,
             path_or_hf_repo=repo,
-            language=asr_cfg.get("language", "en"),
+            language=language,
             task="transcribe",
             verbose=False,
             condition_on_previous_text=True,
             word_timestamps=True,
             temperature=float(asr_cfg.get("temperature") or 0.0),
+            suppress_tokens=_build_suppress_tokens(language),
             **_HALLUCINATION_GUARDS,
         )
     out = []
