@@ -2,11 +2,11 @@
   "id": "en",
   "name": "English",
   "asr": {
-    "max_words_per_segment": 25,
-    "max_segment_duration": 40
+    "max_words_per_segment": 12,
+    "max_segment_duration": 60
   },
   "translation": {
     "batch_size": 8,
-    "temperature": 0.1
+    "temperature": 0
   }
 }
