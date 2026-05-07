@@ -550,14 +550,14 @@ def test_ollama_engine_get_models_mocked():
          patch("urllib.request.urlopen", return_value=mock_resp):
         models = engine.get_models()
 
-    # 5 local + 3 cloud = 8 total
-    assert len(models) == 8
+    # 6 local + 3 cloud = 9 total
+    assert len(models) == 9
 
     available_models = [m for m in models if m["available"]]
     assert len(available_models) == 2  # qwen2.5:3b and qwen2.5:7b
 
     unavailable_models = [m for m in models if not m["available"]]
-    assert len(unavailable_models) == 6
+    assert len(unavailable_models) == 7
 
     # Every entry must expose is_cloud boolean
     for m in models:
@@ -573,7 +573,7 @@ def test_ollama_engine_get_models_mocked():
     }
 
     local_entries = [m for m in models if not m["is_cloud"]]
-    assert len(local_entries) == 5
+    assert len(local_entries) == 6
 
 
 def test_api_translation_engine_params_mock():

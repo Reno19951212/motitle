@@ -78,6 +78,7 @@ ENGINE_TO_MODEL = {
     "qwen2.5-72b": "qwen2.5:72b",
     "qwen3-235b": "qwen3:235b",
     "qwen3.5-9b": "qwen3.5:9b",
+    "qwen3.5-35b-a3b": "qwen3.5:35b-a3b-mlx-bf16",
     "glm-4.6-cloud": "glm-4.6:cloud",
     "qwen3.5-397b-cloud": "qwen3.5:397b-cloud",
     "gpt-oss-120b-cloud": "gpt-oss:120b-cloud",

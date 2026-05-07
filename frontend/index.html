@@ -1860,18 +1860,20 @@
           ? `${segCount - approved} 段未批核 — 可直接渲染（會自動批核）`
           : '下載燒入字幕後嘅影片';
       // Translate button state: hidden if ASR not done; translating → disabled spinner;
-      // never translated → "▶ 翻譯"; already done → "🔄 重新翻譯"
+      // never translated → "▶ 翻譯" (translation only, ASR already done);
+      // already done → "🔄 重新執行" (full pipeline rerun: ASR + translation)
       const translateBtnDisabled = disabled || isTranslating;
       const translateBtnLabel = isTranslating
         ? '⏳ 翻譯中…'
         : hasTrans
-          ? '🔄 重新翻譯'
+          ? '🔄 重新執行'
           : '▶ 翻譯';
       const translateBtnTooltip = isTranslating
         ? '翻譯進行中，請等待完成'
         : hasTrans
-          ? '用當前 Profile 重新翻譯（會覆蓋現有譯文同批核狀態）'
+          ? '重新走整條 Pipeline：ASR + 翻譯（會清掉現有 segments、譯文、批核狀態）'
           : '用當前 Profile 開始翻譯';
+      const translateBtnHandler = hasTrans ? 'rerunPipeline' : 'reTranslateFile';
 
       // Resolve effective source+order (file → profile → default) and pin them
       // onto every download URL so the link reflects current state explicitly.
@@ -1951,7 +1953,7 @@
             <button class="btn btn-secondary split-caret" title="更多影片格式" ${renderDisabled ? 'disabled' : ''}><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></button>
             ${videoMenu}
           </div>
-          <button class="btn btn-secondary" onclick="reTranslateFile('${f.id}')" ${translateBtnDisabled ? 'disabled' : ''} title="${escapeHtml(translateBtnTooltip)}">
+          <button class="btn btn-secondary" onclick="${translateBtnHandler}('${f.id}')" ${translateBtnDisabled ? 'disabled' : ''} title="${escapeHtml(translateBtnTooltip)}">
             ${translateBtnLabel}
           </button>
           <a class="btn btn-primary" href="proofread.html?file_id=${f.id}" ${disabled ? 'style="opacity:0.5;pointer-events:none;"' : ''}>
@@ -2051,6 +2053,7 @@
       { name: 'qwen2.5:7b',       badge: '本地', desc: 'Ollama · 平衡' },
       { name: 'qwen2.5:3b',       badge: '本地', desc: 'Ollama · 快速' },
       { name: 'qwen2.5:72b',      badge: '本地', desc: 'Ollama · 高品質' },
+      { name: 'qwen3.5-35b-a3b',  badge: '本地', desc: 'Ollama · MLX BF16 · Apple Silicon 加速' },
       { name: 'glm-4.6-cloud',    badge: '雲',   desc: 'Ollama Cloud · 198K ctx' },
       { name: 'qwen3.5-397b-cloud', badge: '雲', desc: 'Ollama Cloud · 粵語最佳' },
       { name: 'gpt-oss-120b-cloud', badge: '雲', desc: 'Ollama Cloud · 128K ctx' },
@@ -3492,6 +3495,23 @@
         if (resp.ok) { showToast('翻譯完成', 'success'); await fetchFileList(); }
         else { const err = await resp.json(); showToast(err.error || '翻譯失敗', 'error'); }
       } catch (e) { showToast('翻譯失敗', 'error'); }
+    }
+
+    async function rerunPipeline(id) {
+      if (!confirm('重新走整條 Pipeline 會清掉現有 segments、譯文、批核狀態，確定？')) return;
+      try {
+        const resp = await fetch(`${API_BASE}/api/files/${encodeURIComponent(id)}/transcribe`, {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({sid: socket?.id || null}),
+        });
+        if (resp.ok) {
+          showToast('重新轉錄已開始，等 ASR + 翻譯完成', 'info');
+          await fetchFileList();
+        } else {
+          const err = await resp.json().catch(() => ({}));
+          showToast(err.error || '重走 Pipeline 失敗', 'error');
+        }
+      } catch (e) { showToast('重走 Pipeline 失敗', 'error'); }
     }
 
     // Parse JSON safely; if backend returned HTML (e.g. 405 from an outdated
