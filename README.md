@@ -349,10 +349,14 @@ ollama signin
 
 | 參數 | 說明 | 預設值 (EN) |
 |------|------|------------|
-| `max_words_per_segment` | ASR 每段最大字數 | 40 |
-| `max_segment_duration` | ASR 每段最大時長（秒） | 10.0 |
+| `max_words_per_segment` | ASR 每段最大字數 | 12 |
+| `max_segment_duration` | ASR 每段最大時長（秒） | 60.0 |
+| `merge_short_max_words` | 合併「短 segment」嘅字數門檻（≤ 此字數視為短，0 = 停用） | 2 |
+| `merge_short_max_gap` | 合併嘅時間 gap 容忍度（秒，超過唔合併） | 0.5 |
 | `batch_size` | 翻譯批次大小 | 10 |
-| `temperature` | 翻譯隨機度 | 0.1 |
+| `temperature` | 翻譯隨機度 | 0.0 |
+
+> **`merge_short_*` 用途**（v3.8 新增）：Whisper 偶爾喺句子邊界生成單字 segment（如 `'a'`、`'settle.'`），燒入字幕只顯示 0.3 秒。後處理會用句子標點啟發式合返去鄰居 — 以 `.!?` 結尾 → 合上一段尾；唔以標點結尾 → 合下一段頭。中文配置（zh.json）預設 `merge_short_max_words: 0` 停用，因為現時只支援英文標點，中文 `。！？` 支援將來加。
 
 ### 前端頁面
 

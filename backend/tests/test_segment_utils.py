@@ -126,3 +126,184 @@ def test_split_skips_words_on_count_mismatch():
     # Split happens, but words not partitioned (count mismatch safe-fallback)
     for seg in result:
         assert "words" not in seg
+
+
+# ---------------------------------------------------------------------------
+# merge_short_segments — sentence-punctuation heuristic post-processor
+# ---------------------------------------------------------------------------
+
+def test_merge_short_backward_with_period():
+    """Short segment ending with sentence punctuation merges into PREVIOUS."""
+    from asr.segment_utils import merge_short_segments
+    segments = [
+        {"start": 0.0, "end": 4.0, "text": "this is a perfectly normal segment"},
+        {"start": 4.0, "end": 4.3, "text": "okay."},
+    ]
+    result = merge_short_segments(segments, max_words_short=2, max_gap_sec=0.5,
+                                   max_words_cap=12)
+    assert len(result) == 1
+    assert result[0]["text"] == "this is a perfectly normal segment okay."
+    assert result[0]["start"] == 0.0
+    assert result[0]["end"] == 4.3
+
+
+def test_merge_short_forward_no_period():
+    """Short segment WITHOUT sentence punctuation merges into NEXT."""
+    from asr.segment_utils import merge_short_segments
+    segments = [
+        {"start": 0.0, "end": 0.3, "text": "a"},
+        {"start": 0.3, "end": 4.0, "text": "normal segment after the lonely a"},
+    ]
+    result = merge_short_segments(segments, max_words_short=2, max_gap_sec=0.5,
+                                   max_words_cap=12)
+    assert len(result) == 1
+    assert result[0]["text"] == "a normal segment after the lonely a"
+    assert result[0]["start"] == 0.0
+    assert result[0]["end"] == 4.0
+
+
+def test_merge_skips_when_gap_too_large():
+    """Gap > max_gap_sec → leave segment alone (no merge)."""
+    from asr.segment_utils import merge_short_segments
+    segments = [
+        {"start": 0.0, "end": 4.0, "text": "first segment ends here"},
+        {"start": 5.5, "end": 5.8, "text": "okay."},  # 1.5s gap > 0.5s
+    ]
+    result = merge_short_segments(segments, max_words_short=2, max_gap_sec=0.5,
+                                   max_words_cap=12)
+    assert len(result) == 2
+    assert result[1]["text"] == "okay."
+
+
+def test_merge_skips_when_cap_exceeded():
+    """Merge that would exceed max_words_cap is skipped."""
+    from asr.segment_utils import merge_short_segments
+    segments = [
+        {"start": 0.0, "end": 5.0,
+         "text": "one two three four five six seven eight nine ten eleven"},  # 11 words
+        {"start": 5.0, "end": 5.3, "text": "foo bar."},  # 2 words, ends with period
+    ]
+    result = merge_short_segments(segments, max_words_short=2, max_gap_sec=0.5,
+                                   max_words_cap=12)
+    # 11 + 2 = 13 > 12 → skip merge
+    assert len(result) == 2
+    assert result[0]["text"].split() == ["one", "two", "three", "four", "five",
+                                          "six", "seven", "eight", "nine", "ten", "eleven"]
+    assert result[1]["text"] == "foo bar."
+
+
+def test_merge_chained_shorts_loops_until_stable():
+    """Multiple consecutive short segments all get merged via iterative passes."""
+    from asr.segment_utils import merge_short_segments
+    segments = [
+        {"start": 0.0, "end": 3.0, "text": "first segment that is long enough"},
+        {"start": 3.0, "end": 3.3, "text": "a"},
+        {"start": 3.3, "end": 3.6, "text": "b."},
+        {"start": 3.6, "end": 3.9, "text": "c"},
+        {"start": 3.9, "end": 7.0, "text": "finally another long segment here"},
+    ]
+    result = merge_short_segments(segments, max_words_short=2, max_gap_sec=0.5,
+                                   max_words_cap=12)
+    # All shorts must be folded; no remaining ≤2-word segments.
+    short_remaining = [s for s in result if len(s["text"].split()) <= 2]
+    assert short_remaining == []
+
+
+def test_merge_short_at_start_no_prev():
+    """Short at very start (no prev) without period merges forward."""
+    from asr.segment_utils import merge_short_segments
+    segments = [
+        {"start": 0.0, "end": 0.3, "text": "a"},
+        {"start": 0.3, "end": 4.0, "text": "normal segment"},
+    ]
+    result = merge_short_segments(segments, max_words_short=2, max_gap_sec=0.5,
+                                   max_words_cap=12)
+    assert len(result) == 1
+    assert result[0]["text"] == "a normal segment"
+
+
+def test_merge_short_at_end_no_next():
+    """Short at very end (no next) WITH period merges backward."""
+    from asr.segment_utils import merge_short_segments
+    segments = [
+        {"start": 0.0, "end": 4.0, "text": "normal segment here before tail"},
+        {"start": 4.0, "end": 4.3, "text": "okay."},
+    ]
+    result = merge_short_segments(segments, max_words_short=2, max_gap_sec=0.5,
+                                   max_words_cap=12)
+    assert len(result) == 1
+    assert result[0]["text"] == "normal segment here before tail okay."
+
+
+def test_merge_disabled_when_max_words_zero():
+    """max_words_short=0 disables merge entirely → no-op."""
+    from asr.segment_utils import merge_short_segments
+    segments = [
+        {"start": 0.0, "end": 3.0, "text": "first long segment here"},
+        {"start": 3.0, "end": 3.3, "text": "okay."},
+    ]
+    result = merge_short_segments(segments, max_words_short=0, max_gap_sec=0.5,
+                                   max_words_cap=12)
+    assert len(result) == 2  # nothing merged
+    assert result[1]["text"] == "okay."
+
+
+def test_merge_preserves_word_timestamps():
+    """When word-level timestamps exist, merge concatenates them."""
+    from asr.segment_utils import merge_short_segments
+    prev_words = [
+        {"word": "long", "start": 0.0, "end": 0.5, "probability": 0.9},
+        {"word": "stretch", "start": 0.5, "end": 1.0, "probability": 0.9},
+    ]
+    short_words = [
+        {"word": "okay.", "start": 1.0, "end": 1.3, "probability": 0.9},
+    ]
+    segments = [
+        {"start": 0.0, "end": 1.0, "text": "long stretch", "words": prev_words},
+        {"start": 1.0, "end": 1.3, "text": "okay.", "words": short_words},
+    ]
+    result = merge_short_segments(segments, max_words_short=2, max_gap_sec=0.5,
+                                   max_words_cap=12)
+    # Wait — "long stretch" is 2 words, treated as short with no period → forward merge
+    # would target "okay." which is also short. After loop iteration, both fold.
+    # The test design here picks max_words_short=1 to make "long stretch" non-short.
+    # Re-do with cleaner setup.
+    segments2 = [
+        {"start": 0.0, "end": 2.0, "text": "this is a longer prev", "words": [
+            {"word": "this", "start": 0.0, "end": 0.5},
+            {"word": "is", "start": 0.5, "end": 0.8},
+            {"word": "a", "start": 0.8, "end": 1.0},
+            {"word": "longer", "start": 1.0, "end": 1.5},
+            {"word": "prev", "start": 1.5, "end": 2.0},
+        ]},
+        {"start": 2.0, "end": 2.3, "text": "okay.", "words": [
+            {"word": "okay.", "start": 2.0, "end": 2.3},
+        ]},
+    ]
+    result2 = merge_short_segments(segments2, max_words_short=2, max_gap_sec=0.5,
+                                    max_words_cap=12)
+    assert len(result2) == 1
+    assert "words" in result2[0]
+    assert len(result2[0]["words"]) == 6
+    assert result2[0]["words"][-1]["word"] == "okay."
+
+
+def test_merge_idempotent():
+    """Running on already-merged output produces no further changes."""
+    from asr.segment_utils import merge_short_segments
+    segments = [
+        {"start": 0.0, "end": 4.0, "text": "a normal long segment"},
+        {"start": 4.0, "end": 4.3, "text": "okay."},
+    ]
+    once = merge_short_segments(segments, max_words_short=2, max_gap_sec=0.5,
+                                 max_words_cap=12)
+    twice = merge_short_segments(once, max_words_short=2, max_gap_sec=0.5,
+                                  max_words_cap=12)
+    assert once == twice
+
+
+def test_merge_no_input_no_crash():
+    """Empty input → empty output, no exceptions."""
+    from asr.segment_utils import merge_short_segments
+    assert merge_short_segments([], max_words_short=2, max_gap_sec=0.5,
+                                 max_words_cap=12) == []

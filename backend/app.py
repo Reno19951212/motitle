@@ -461,7 +461,7 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
             raw_segments = engine.transcribe(audio_path, language=language)
 
             # Post-process segments with language config
-            from asr.segment_utils import split_segments
+            from asr.segment_utils import split_segments, merge_short_segments
             lang_config_id = profile["asr"].get("language_config_id", language)
             lang_config = _language_config_manager.get(lang_config_id)
             asr_params = lang_config["asr"] if lang_config else DEFAULT_ASR_CONFIG
@@ -469,6 +469,14 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
                 raw_segments,
                 max_words=asr_params["max_words_per_segment"],
                 max_duration=asr_params["max_segment_duration"],
+            )
+            # Fold ≤N-word Whisper sentence-boundary fragments back into
+            # adjacent segments (no-op when merge_short_max_words=0).
+            raw_segments = merge_short_segments(
+                raw_segments,
+                max_words_short=asr_params.get("merge_short_max_words", 0),
+                max_gap_sec=asr_params.get("merge_short_max_gap", 0.5),
+                max_words_cap=asr_params["max_words_per_segment"],
             )
 
             for i, seg in enumerate(raw_segments):

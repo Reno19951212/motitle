@@ -3,7 +3,9 @@
   "name": "English",
   "asr": {
     "max_words_per_segment": 12,
-    "max_segment_duration": 60
+    "max_segment_duration": 60,
+    "merge_short_max_words": 2,
+    "merge_short_max_gap": 0.5
   },
   "translation": {
     "batch_size": 8,

@@ -6,6 +6,11 @@ from typing import List
 
 
 _SENTENCE_END_PATTERN = re.compile(r"[.!?]")
+# Anchored variant: text terminates with sentence-end punctuation (optionally
+# followed by trailing whitespace). Used by merge_short_segments to decide
+# whether a short fragment is a sentence tail (merge backward) or head
+# (merge forward).
+_SENTENCE_END_ANCHORED = re.compile(r"[.!?]\s*$")
 
 
 def split_segments(
@@ -184,3 +189,106 @@ def _assign_timings(
         word_offset += group_size
 
     return segments
+
+
+def merge_short_segments(
+    segments: List[dict],
+    *,
+    max_words_short: int = 2,
+    max_gap_sec: float = 0.5,
+    max_words_cap: int = 12,
+    max_iter: int = 3,
+) -> List[dict]:
+    """Fold ≤max_words_short Whisper fragments into adjacent neighbours.
+
+    Heuristic: a short segment whose text terminates with sentence-end
+    punctuation is treated as a tail and merged backward; otherwise as a
+    head and merged forward. Merges are skipped when the time gap to the
+    chosen neighbour exceeds ``max_gap_sec`` or when the merged word count
+    would exceed ``max_words_cap``. Iterates up to ``max_iter`` passes
+    until no further merges happen (idempotent).
+
+    Args:
+        segments: List of segment dicts (start, end, text, optional words).
+        max_words_short: Threshold ≤ which a segment is considered short.
+            Set to 0 to disable merging entirely.
+        max_gap_sec: Skip merge if (next.start − seg.end) or
+            (seg.start − prev.end) exceeds this many seconds. Negative
+            gaps (overlapping segments) are also rejected for safety.
+        max_words_cap: Hard ceiling on resulting segment word count.
+        max_iter: Safety cap to prevent runaway iteration.
+
+    Returns:
+        New list — input segments are never mutated. Word-level timestamp
+        arrays (``words``) are concatenated when both sides carry them.
+    """
+    if not segments or max_words_short <= 0:
+        return [dict(s) for s in segments]
+
+    segs = [dict(s) for s in segments]
+
+    for _ in range(max_iter):
+        result: List[dict] = []
+        i = 0
+        merged_any = False
+        while i < len(segs):
+            seg = segs[i]
+            words = (seg.get("text") or "").split()
+            wc = len(words)
+
+            if wc > max_words_short:
+                result.append(seg)
+                i += 1
+                continue
+
+            ends_punct = bool(_SENTENCE_END_ANCHORED.search(seg.get("text") or ""))
+
+            # Try BACKWARD merge — sentence tail folds into previous segment.
+            if ends_punct and result:
+                prev = result[-1]
+                gap = seg["start"] - prev["end"]
+                prev_wc = len((prev.get("text") or "").split())
+                if 0 <= gap <= max_gap_sec and prev_wc + wc <= max_words_cap:
+                    merged = {
+                        **prev,
+                        "end": seg["end"],
+                        "text": f'{prev["text"]} {seg["text"]}'.strip(),
+                    }
+                    if "words" in prev or "words" in seg:
+                        merged["words"] = list(prev.get("words") or []) + list(
+                            seg.get("words") or []
+                        )
+                    result[-1] = merged
+                    merged_any = True
+                    i += 1
+                    continue
+
+            # Try FORWARD merge — sentence head folds into next segment.
+            if not ends_punct and i + 1 < len(segs):
+                nxt = segs[i + 1]
+                gap = nxt["start"] - seg["end"]
+                nxt_wc = len((nxt.get("text") or "").split())
+                if 0 <= gap <= max_gap_sec and nxt_wc + wc <= max_words_cap:
+                    merged = {
+                        **nxt,
+                        "start": seg["start"],
+                        "text": f'{seg["text"]} {nxt["text"]}'.strip(),
+                    }
+                    if "words" in nxt or "words" in seg:
+                        merged["words"] = list(seg.get("words") or []) + list(
+                            nxt.get("words") or []
+                        )
+                    segs[i + 1] = merged
+                    merged_any = True
+                    i += 1
+                    continue
+
+            # No viable merge — keep segment as-is.
+            result.append(seg)
+            i += 1
+
+        segs = result
+        if not merged_any:
+            break
+
+    return segs

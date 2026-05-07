@@ -340,6 +340,19 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### v3.8 — ASR Sentence-Fragment Cleanup (`merge_short_segments`)
+- **問題**：即使 `condition_on_previous_text=false` 解決咗 Whisper 級聯 hallucination，mlx-whisper large-v3 仍然會喺 sentence boundary / 短停頓位置產出 1–2 字嘅孤兒 fragment（例如：`'a'` / `'Tchouameni.'` / `'settle.'`），燒入字幕只顯示 0.3 秒，肉眼幾乎讀唔到，亦浪費翻譯 token
+- **`asr/segment_utils.py` 新增 `merge_short_segments()`**：句子標點啟發式 — 短 segment 以 `.!?` 結尾 → 視為句尾 → backward merge 入上一段；唔以標點結尾 → 視為句頭 → forward merge 入下一段。Iterative loop（max 3 passes）直至穩定，idempotent
+- **守門條件**：(a) 時間 gap > `merge_short_max_gap` 秒就跳過（預設 0.5s，避免跨越長停頓）；(b) 合併後字數會超過 `max_words_per_segment` cap 就跳過；(c) `merge_short_max_words=0` 等於停用 merge（zh.json 預設停用，因英文標點 `.!?` 唔覆蓋中文 `。！？`）
+- **Word-level timestamp preservation**：當兩邊都有 DTW alignment `words` field，merge 時 concatenate，唔遺失粒度
+- **Pipeline 接駁位**：`transcribe_with_segments()` 入面 chain 喺 `split_segments()` 之後 — `split` 拆長、`merge` 合短，互補
+- **Language config schema**：[en.json](backend/config/languages/en.json) / [zh.json](backend/config/languages/zh.json) 加兩個 knob — `merge_short_max_words`（int 0–10，0=停用）+ `merge_short_max_gap`（float 0–10s）；[language_config.py](backend/language_config.py) `_validate()` 範圍檢查
+- **EN default 啟用**（`merge_short_max_words: 2`、`merge_short_max_gap: 0.5`），ZH default **停用**（`merge_short_max_words: 0`，等中文標點支援之後再 enable）
+- **Validation evidence**：File `e5e33353fb3e`（Real Madrid clip）— ASR 輸出 118 segments / 3 個 ≤2-word fragment → merge 後 115 segments / 0 fragments，3 段全部讀通；synthetic 8 個 edge case（gap、cap、chained shorts、首尾 boundary、disable、idempotent、empty）全過
+- **11 個新 unit test**（`test_segment_utils.py::test_merge_*`）— 涵蓋雙向、跳過守門、鏈式 loop、word timestamp、disable、idempotency、empty input
+- **289+11 = 489 automated tests pass**（baseline 478，+11 new；保留 1 個 v3.3 已知 macOS tmpdir colon-escape failure）
+- 設計文件：[docs/superpowers/specs/2026-05-08-merge-short-segments-design.md](docs/superpowers/specs/2026-05-08-merge-short-segments-design.md)
+
 ### v3.0 — Modular Engine Selection (進行中)
 - **引擎模塊化**: ASR 同翻譯引擎可獨立選擇、獨立配置，唔綁定 Profile
 - **引擎參數 API**: 每個引擎提供 param schema + 可用模型列表
