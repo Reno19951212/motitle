@@ -423,3 +423,62 @@ def test_renders_in_progress(client, tmp_path, monkeypatch):
     finally:
         _render_jobs.pop("job-test-aaa", None)
         _render_jobs.pop("job-test-bbb", None)
+
+
+# ---- segment edit propagation to translation.en_text ----
+
+def test_segment_text_edit_propagates_to_translation_en_text(client):
+    """When user edits a segment's text via PATCH, translations[i].en_text must
+    also update so EN-mode burnt-in renders reflect the edit (not stale data).
+    Without this, the SRT download (which normalises via segment.text) and the
+    burnt-in render (which reads translation.en_text) drift apart."""
+    file_id = "file-edit-propagation"
+    with _registry_lock:
+        _file_registry[file_id] = {
+            "id": file_id, "original_name": "v.mp4", "status": "done",
+            "segments": [
+                {"id": 0, "start": 0, "end": 1, "text": "hello"},
+                {"id": 1, "start": 1, "end": 2, "text": "world"},
+            ],
+            "translations": [
+                {"seg_idx": 0, "start": 0, "end": 1,
+                 "en_text": "hello", "zh_text": "你好", "status": "approved"},
+                {"seg_idx": 1, "start": 1, "end": 2,
+                 "en_text": "world", "zh_text": "世界", "status": "approved"},
+            ],
+        }
+    try:
+        resp = client.patch(f"/api/files/{file_id}/segments/0",
+                            json={"text": "EDITED hello"})
+        assert resp.status_code == 200
+        with _registry_lock:
+            entry = _file_registry[file_id]
+        assert entry["segments"][0]["text"] == "EDITED hello"
+        assert entry["translations"][0]["en_text"] == "EDITED hello"
+        # Untouched segment must remain untouched.
+        assert entry["segments"][1]["text"] == "world"
+        assert entry["translations"][1]["en_text"] == "world"
+    finally:
+        with _registry_lock:
+            _file_registry.pop(file_id, None)
+
+
+def test_segment_text_edit_no_translations_does_not_crash(client):
+    """Editing a segment when translations don't exist yet must not crash."""
+    file_id = "file-edit-no-translations"
+    with _registry_lock:
+        _file_registry[file_id] = {
+            "id": file_id, "original_name": "v.mp4", "status": "done",
+            "segments": [{"id": 0, "start": 0, "end": 1, "text": "hello"}],
+            # No translations key at all
+        }
+    try:
+        resp = client.patch(f"/api/files/{file_id}/segments/0",
+                            json={"text": "EDITED hello"})
+        assert resp.status_code == 200
+        with _registry_lock:
+            entry = _file_registry[file_id]
+        assert entry["segments"][0]["text"] == "EDITED hello"
+    finally:
+        with _registry_lock:
+            _file_registry.pop(file_id, None)

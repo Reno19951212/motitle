@@ -2664,6 +2664,16 @@ def update_segment_text(file_id, seg_id):
         matched[0]['text'] = new_text
         # Also update the full text
         entry['text'] = ' '.join(s['text'] for s in segs)
+        # Propagate edit to translations[i].en_text so EN-mode burnt-in renders
+        # surface the edit (otherwise renderer reads stale en_text while SRT
+        # download — which normalises via segment.text — would diverge).
+        seg_position = next((i for i, s in enumerate(segs) if s.get('id') == seg_id), None)
+        if seg_position is not None:
+            translations = entry.get('translations') or []
+            for i, t in enumerate(translations):
+                if t.get('seg_idx', i) == seg_position:
+                    t['en_text'] = new_text
+                    break
         _save_registry()
 
     return jsonify({'status': 'ok', 'id': seg_id, 'text': new_text})
