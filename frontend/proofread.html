@@ -1854,7 +1854,10 @@
             <span>原文 · EN</span>
             ${confStub}
           </div>
-          <div class="rv-b-detail-en">${escapeHtml(s.en) || '<em style="color:var(--text-dim)">（空白）</em>'}</div>
+          <textarea class="rv-b-detail-input" id="enInput"
+                    oninput="onEnInput()"
+                    onblur="saveEnIfDirty()"
+                    rows="2">${escapeHtml(s.en)}</textarea>
         </div>
 
         <div class="rv-b-detail-field">
@@ -1867,6 +1870,7 @@
           <textarea class="rv-b-detail-input" id="zhInput"
                     oninput="onZhInput()"
                     onkeydown="onZhKey(event)"
+                    onblur="saveEditIfDirty()"
                     rows="2">${escapeHtml(s.zh)}</textarea>
         </div>
 
@@ -1903,6 +1907,11 @@
           ✓ 批核並前進 <span class="kbd">⌘↵</span>
         </button>
       </div>`;
+    // Fresh DOM matches segment data — reset dirty flags so a stale flag
+    // from a failed save on the previous segment doesn't accidentally
+    // re-PATCH (and re-flip approval status of) the new segment.
+    dirty = false;
+    enDirty = false;
   }
 
   // ============================================================
@@ -2012,7 +2021,10 @@
   // ============================================================
   // Edit + approve
   // ============================================================
-  let dirty = false;
+  // Two parallel dirty flags — EN (original transcript) and ZH (translation)
+  // are saved to different endpoints (/segments/<idx> vs /translations/<idx>).
+  let dirty = false;     // ZH translation dirty
+  let enDirty = false;   // EN transcript dirty
   function onZhInput() {
     const ta = document.getElementById('zhInput');
     if (!ta) return;
@@ -2028,6 +2040,15 @@
       cpsEl.textContent = cps;
       cpsEl.parentElement.classList.toggle('over', cps > 12);
     }
+  }
+
+  function onEnInput() {
+    const ta = document.getElementById('enInput');
+    if (!ta) return;
+    const s = segs[cursorIdx];
+    if (!s) return;
+    if (ta.value !== s.en) { ta.classList.add('dirty'); enDirty = true; }
+    else { ta.classList.remove('dirty'); enDirty = false; }
   }
 
   function onZhKey(e) {
@@ -2066,12 +2087,37 @@
     }
   }
 
+  async function saveEnIfDirty() {
+    const ta = document.getElementById('enInput');
+    if (!ta || !enDirty) return true;
+    const s = segs[cursorIdx];
+    if (!s) return true;
+    const newText = ta.value.trim();
+    try {
+      const r = await fetch(`${API_BASE}/api/files/${fileId}/segments/${s.idx}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: newText }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      s.en = newText;
+      enDirty = false;
+      ta.classList.remove('dirty');
+      return true;
+    } catch (e) {
+      showToast(`儲存原文失敗: ${e.message}`, 'error');
+      return false;
+    }
+  }
+
   async function approveAndAdvance() {
     const s = segs[cursorIdx];
     if (!s) return;
-    // Save edit first if dirty (PATCH auto-approves on backend)
-    const saved = await saveEditIfDirty();
-    if (!saved) return;
+    // Save EN + ZH edits first if dirty (defensive — onblur usually fires
+    // before keyboard shortcut, but Cmd+Enter inside a textarea bypasses blur).
+    const enSaved = await saveEnIfDirty();
+    const zhSaved = await saveEditIfDirty();
+    if (!enSaved || !zhSaved) return;
     if (!s.approved) {
       try {
         const r = await fetch(`${API_BASE}/api/files/${fileId}/translations/${s.idx}/approve`, { method: 'POST' });
