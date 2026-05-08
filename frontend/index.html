@@ -209,7 +209,11 @@
 
     .b-topbar {
       display: grid;
-      grid-template-columns: 280px 1fr auto;
+      /* auto / minmax(0,1fr) / auto — search and health pills shrink to
+         content; the middle (pipeline + actions) takes all remaining
+         space. Previous 280px hard column made the search look oversized
+         on smaller laptops. */
+      grid-template-columns: auto minmax(0, 1fr) auto;
       align-items: center;
       gap: 12px;
       padding: 10px 18px;
@@ -229,8 +233,12 @@
       border-radius: 8px;
       color: var(--text-mid);
       font-size: 13px;
-      min-width: 0;
+      min-width: 200px; max-width: 280px;
     }
+    /* ⌘K hint takes meaningful space; hide on smaller laptops so the
+       search field doesn't crowd the pipeline strip. */
+    @media (max-width: 1500px) { .b-topbar .search .kbd { display: none; } }
+    @media (max-width: 1200px) { .b-topbar .search { min-width: 160px; } }
     .topbar-mid {
       display: flex; align-items: center; gap: 10px;
       min-width: 0;
@@ -941,6 +949,70 @@
       padding: 6px 8px 4px;
     }
 
+    /* Subtitle download menu — unified language source + format picker.
+       Replaces the old "two <select> dropdowns + format menu" split UX
+       so the user picks 原文 / 譯文 / 雙語 in the same place where they
+       choose the file format. Mirrors the design's SubtitleSplitMenu. */
+    .split-btn .sub-menu { min-width: 264px; }
+    .sub-menu .sub-lang-seg {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 2px;
+      margin: 4px 4px 6px;
+      padding: 2px;
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+    }
+    .sub-menu .sub-lang-seg button {
+      padding: 6px 4px;
+      background: transparent; color: var(--text-mid);
+      border: 0; border-radius: 5px;
+      font-size: 11px; font-weight: 600;
+      transition: background 0.1s, color 0.1s;
+    }
+    .sub-menu .sub-lang-seg button:hover { color: var(--text); background: var(--surface-2); }
+    .sub-menu .sub-lang-seg button.on {
+      background: var(--accent); color: #fff;
+      box-shadow: 0 1px 2px rgba(108,99,255,0.4);
+    }
+    .sub-menu .sub-order-row {
+      display: flex; align-items: center; gap: 6px;
+      margin: 0 4px 6px;
+      padding: 5px 6px;
+      background: var(--bg-soft); border: 1px solid var(--border);
+      border-radius: 7px;
+    }
+    .sub-menu .sub-order-lab {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--text-dim);
+    }
+    .sub-menu .sub-order-btn {
+      flex: 1;
+      padding: 4px 6px;
+      background: transparent; border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--text-mid);
+    }
+    .sub-menu .sub-order-btn:hover { background: var(--surface-2); color: var(--text); }
+    .sub-menu .sub-order-btn.on {
+      background: var(--accent-soft); color: var(--accent);
+      border-color: var(--accent-ring);
+    }
+    .sub-menu .sub-order-stack {
+      display: inline-flex; flex-direction: column; align-items: center; gap: 0;
+      font-family: var(--font-mono);
+      font-size: 9.5px; line-height: 1.05; font-weight: 700;
+    }
+    .sub-menu .sub-head-fmt {
+      display: flex; align-items: baseline; justify-content: space-between;
+      gap: 8px; padding-right: 8px;
+    }
+    .sub-menu .sub-head-meta {
+      font-size: 10px; font-family: var(--font-mono);
+      color: var(--accent-2); text-transform: none; letter-spacing: 0;
+      font-weight: 600;
+    }
+
     /* OpenRouter settings modal */
     .or-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,0.6);
@@ -1142,7 +1214,7 @@
         <button class="rail-btn" data-route="files"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 6h12M2 10h12M5 3v10M11 3v10"/></svg><span class="tt">檔案</span></button>
         <button class="rail-btn" data-route="proof" onclick="jumpToProofread()"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-8 8H3v-3z"/></svg><span class="tt">校對</span></button>
         <button class="rail-btn" data-route="pipeline"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="5" width="4" height="6" rx="1"/><rect x="11" y="5" width="4" height="6" rx="1"/><circle cx="8" cy="2" r="1.5"/><circle cx="8" cy="14" r="1.5"/><path d="M5 8h6 M8 3.5v3 M8 9.5v3"/></svg><span class="tt">Pipeline</span></button>
-        <button class="rail-btn" data-route="gloss"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h4a3 3 0 013 3v8a2 2 0 00-2-2H3z M13 3H9a3 3 0 00-3 3v8a2 2 0 012-2h5z"/></svg><span class="tt">術語表</span></button>
+        <a class="rail-btn" data-route="gloss" href="Glossary.html" title="術語表"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h4a3 3 0 013 3v8a2 2 0 00-2-2H3z M13 3H9a3 3 0 00-3 3v8a2 2 0 012-2h5z"/></svg><span class="tt">術語表</span></a>
         <button class="rail-btn" data-route="lang"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2l6 3-6 3-6-3zM2 8l6 3 6-3M2 11l6 3 6-3"/></svg><span class="tt">語言</span></button>
         <div class="flex1"></div>
         <button class="rail-btn" title="服務狀態" id="restartBtn" onclick="restartService()"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6L13 13M3 13l1.4-1.4M11.6 4.4L13 3"/></svg></button>
@@ -1861,9 +1933,36 @@
       const _dlSrc   = resolveSubtitleSource(f, activeProfile);
       const _dlOrder = resolveBilingualOrder(f, activeProfile);
       const _dlQuery = `?source=${encodeURIComponent(_dlSrc)}&order=${encodeURIComponent(_dlOrder)}`;
+      const _fileSrc = f.subtitle_source || '';   // raw override (empty = follow profile)
+      const _profSrc = (activeProfile?.font?.subtitle_source) || 'auto';
+      const _profLabel = ({auto:'Auto', en:'EN', zh:'ZH', bilingual:'雙語'})[_profSrc] || 'Auto';
+      const _srcLabel = ({en:'原文 (EN)', zh:'譯文 (ZH)', bilingual:'雙語對照', auto:'自動 (Auto)'})[_dlSrc] || '自動';
+      const _orderLabel = _dlOrder === 'en_top' ? 'EN 上 / ZH 下' : 'ZH 上 / EN 下';
+      const _on = (v) => _fileSrc === v ? 'on' : '';
       const subtitleMenu = `
-        <div class="split-menu" role="menu">
-          <div class="split-head">字幕檔格式</div>
+        <div class="split-menu sub-menu" role="menu">
+          <div class="split-head">字幕內容</div>
+          <div class="sub-lang-seg">
+            <button class="${_on('en')}" onclick="setFileSubtitleSource('${f.id}', 'en')" title="只匯出英文原文">原文 EN</button>
+            <button class="${_on('zh')}" onclick="setFileSubtitleSource('${f.id}', 'zh')" title="只匯出中文譯文">譯文 ZH</button>
+            <button class="${_on('bilingual')}" onclick="setFileSubtitleSource('${f.id}', 'bilingual')" title="雙語對照（兩行同顯）">雙語</button>
+            <button class="${_on('')}" onclick="setFileSubtitleSource('${f.id}', '')" title="跟 Profile 嘅預設">跟 Profile（${_profLabel}）</button>
+          </div>
+          ${_dlSrc === 'bilingual' ? `
+          <div class="sub-order-row">
+            <span class="sub-order-lab">次序</span>
+            <button class="sub-order-btn ${_dlOrder==='en_top'?'on':''}" onclick="setFileBilingualOrder('${f.id}','en_top')" title="EN 上 / ZH 下">
+              <span class="sub-order-stack"><span>EN</span><span>ZH</span></span>
+            </button>
+            <button class="sub-order-btn ${_dlOrder==='zh_top'?'on':''}" onclick="setFileBilingualOrder('${f.id}','zh_top')" title="ZH 上 / EN 下">
+              <span class="sub-order-stack"><span>ZH</span><span>EN</span></span>
+            </button>
+          </div>` : ''}
+          <div class="split-divider"></div>
+          <div class="split-head sub-head-fmt">
+            <span>字幕檔格式</span>
+            <span class="sub-head-meta">${_srcLabel}${_dlSrc==='bilingual' ? ` · ${_orderLabel}` : ''}</span>
+          </div>
           <a href="${API_BASE}/api/files/${f.id}/subtitle.srt${_dlQuery}" download><span class="fmt-badge">SRT</span><span class="fmt-desc">SubRip · 通用字幕</span></a>
           <a href="${API_BASE}/api/files/${f.id}/subtitle.vtt${_dlQuery}" download><span class="fmt-badge">VTT</span><span class="fmt-desc">WebVTT · 網頁字幕</span></a>
           <a href="${API_BASE}/api/files/${f.id}/subtitle.txt${_dlQuery}" download><span class="fmt-badge">TXT</span><span class="fmt-desc">純文字（無時碼）</span></a>
@@ -1894,27 +1993,6 @@
           <div><span class="k">語言</span>${escapeHtml(lang)}</div>
         </div>
         <div class="fh-actions">
-          ${(() => {
-            const profileSrcLabel = (() => {
-              const p = (activeProfile?.font?.subtitle_source) || 'auto';
-              return ({auto:'Auto', en:'EN', zh:'ZH', bilingual:'雙語'})[p] || 'Auto';
-            })();
-            const fileSrc = f.subtitle_source || '';
-            const fileOrder = f.bilingual_order || 'en_top';
-            return `
-              <select class="fc-source-mode" data-file-id="${f.id}" onchange="updateFileSubtitleSource(this)" title="字幕來源">
-                <option value="">— 跟 Profile（${profileSrcLabel}）—</option>
-                <option value="auto"      ${fileSrc==='auto'?'selected':''}>Auto</option>
-                <option value="en"        ${fileSrc==='en'?'selected':''}>EN 原文</option>
-                <option value="zh"        ${fileSrc==='zh'?'selected':''}>ZH 譯文</option>
-                <option value="bilingual" ${fileSrc==='bilingual'?'selected':''}>雙語</option>
-              </select>
-              <select class="fc-bilingual-order" data-file-id="${f.id}" onchange="updateFileBilingualOrder(this)"
-                      style="${fileSrc==='bilingual'?'':'display:none;'}" title="雙語上下次序">
-                <option value="en_top" ${fileOrder==='en_top'?'selected':''}>EN 上 / ZH 下</option>
-                <option value="zh_top" ${fileOrder==='zh_top'?'selected':''}>ZH 上 / EN 下</option>
-              </select>`;
-          })()}
           <div class="split-btn">
             <a class="btn btn-secondary split-main" ${disabled ? '' : `href="${API_BASE}/api/files/${f.id}/subtitle.srt${_dlQuery}" download`} title="下載字幕檔" style="${disabled ? 'opacity:0.5;pointer-events:none;' : ''}">
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M4 7l4 4 4-4M2 13h12"/></svg>
@@ -3507,39 +3585,33 @@
       return data;
     }
 
-    async function updateFileSubtitleSource(selectEl) {
-      const fileId = selectEl.dataset.fileId;
-      const value = selectEl.value || null; // empty → null (clear override)
+    /* PATCH a file's subtitle_source override and refresh dependent UI.
+       `value` may be 'auto' / 'en' / 'zh' / 'bilingual' / '' (empty means
+       clear the override and fall back to the active profile). */
+    async function setFileSubtitleSource(fileId, value) {
       try {
         const r = await fetch(`${API_BASE}/api/files/${encodeURIComponent(fileId)}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ subtitle_source: value }),
+          body: JSON.stringify({ subtitle_source: value || null }),
         });
         const updated = await _parseJsonOrThrow(r, '更新失敗');
         if (uploadedFiles[fileId]) {
           uploadedFiles[fileId].subtitle_source = updated.subtitle_source;
         }
-        // Show/hide the bilingual order dropdown for this row
-        const orderSel = document.querySelector(
-          `select.fc-bilingual-order[data-file-id="${fileId}"]`);
-        if (orderSel) {
-          orderSel.style.display = (value === 'bilingual') ? '' : 'none';
-        }
-        // Repaint live overlay so paused video reflects the new mode immediately.
+        renderFileHeader();  // rebuild menu so seg highlights + hrefs refresh
         const _v = document.getElementById('videoPlayer');
         if (_v && typeof updateSubtitleOverlay === 'function') {
           updateSubtitleOverlay(_v.currentTime || 0);
         }
-        showToast(`已更新字幕來源：${selectEl.options[selectEl.selectedIndex].textContent}`, 'success');
+        const label = ({en:'原文 EN', zh:'譯文 ZH', bilingual:'雙語', auto:'Auto'})[value] || '跟 Profile';
+        showToast(`字幕來源：${label}`, 'success');
       } catch (e) {
         showToast(`更新失敗: ${e.message}`, 'error');
       }
     }
 
-    async function updateFileBilingualOrder(selectEl) {
-      const fileId = selectEl.dataset.fileId;
-      const value = selectEl.value;
+    async function setFileBilingualOrder(fileId, value) {
       try {
         const r = await fetch(`${API_BASE}/api/files/${encodeURIComponent(fileId)}`, {
           method: 'PATCH',
@@ -3550,11 +3622,12 @@
         if (uploadedFiles[fileId]) {
           uploadedFiles[fileId].bilingual_order = value;
         }
+        renderFileHeader();
         const _v = document.getElementById('videoPlayer');
         if (_v && typeof updateSubtitleOverlay === 'function') {
           updateSubtitleOverlay(_v.currentTime || 0);
         }
-        showToast(`已更新雙語次序：${value === 'en_top' ? 'EN 上' : 'ZH 上'}`, 'success');
+        showToast(`雙語次序：${value === 'en_top' ? 'EN 上 / ZH 下' : 'ZH 上 / EN 下'}`, 'success');
       } catch (e) {
         showToast(`更新失敗: ${e.message}`, 'error');
       }
