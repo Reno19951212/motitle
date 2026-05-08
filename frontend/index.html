@@ -2455,6 +2455,10 @@
       document.getElementById('lcName').value = existing?.name || '';
       document.getElementById('lcMaxWords').value = existing?.asr?.max_words_per_segment ?? 25;
       document.getElementById('lcMaxDur').value = existing?.asr?.max_segment_duration ?? 8;
+      // OpenCC s2hk default ON when creating ZH-related config (id contains 'zh').
+      // For other languages, default OFF unless explicitly set.
+      const _s2tDefault = !isEdit && /zh/i.test(prefillId || '');
+      document.getElementById('lcS2T').checked = existing?.asr?.simplified_to_traditional ?? _s2tDefault;
       document.getElementById('lcBatch').value = existing?.translation?.batch_size ?? 8;
       document.getElementById('lcTemp').value = existing?.translation?.temperature ?? 0.1;
       _lcSyncSliderLabels();
@@ -2494,6 +2498,7 @@
         asr: {
           max_words_per_segment: parseInt(document.getElementById('lcMaxWords').value, 10),
           max_segment_duration: parseFloat(document.getElementById('lcMaxDur').value),
+          simplified_to_traditional: document.getElementById('lcS2T').checked,
         },
         translation: {
           batch_size: parseInt(document.getElementById('lcBatch').value, 10),
@@ -4336,6 +4341,12 @@
               每段最長秒數
               <input id="lcMaxDur" type="range" min="1" max="60" value="8" style="flex:1;">
               <span id="lcMaxDurVal" style="min-width:30px;text-align:right;font-family:var(--font-mono);">8</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;margin:6px 0;font-size:12px;cursor:pointer;"
+                   title="開咗會將 mlx-whisper 嘅簡體輸出自動轉成香港繁體（OpenCC s2hk）。中文 profile 建議開。">
+              <input id="lcS2T" type="checkbox" style="margin:0;">
+              <span>簡體→繁體 (OpenCC s2hk)</span>
+              <span style="margin-left:auto;font-size:10px;color:var(--text-dim);">中文 ASR 建議開</span>
             </label>
           </fieldset>
           <fieldset style="border:1px solid var(--border);border-radius:6px;padding:10px 14px;">
