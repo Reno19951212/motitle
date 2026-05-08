@@ -161,6 +161,36 @@ SYSTEM_PROMPT_CANTONESE = (
 # Takes each [EN + terse ZH] pair and produces a richer ZH preserving all
 # descriptive modifiers from EN. Only factual content from EN is allowed;
 # Pass 1 translation is treated as a starting point, not a constraint.
+# Single-segment prompt (Strategy E — batch_size=1 high-fidelity mode).
+# When batch_size=1, the engine translates each ASR segment in isolation
+# without neighbour context. This guarantees 1:1 alignment (no cross-segment
+# content leak / sentence-level redistribution) at the cost of pronoun
+# resolution and slight per-call overhead. Validated to eliminate bloat,
+# misalignment, and adjacent-duplication artefacts on Qwen3.5-35B-A3B MLX.
+SINGLE_SEGMENT_SYSTEM_PROMPT = (
+    "你係廣播電視中文字幕翻譯員，將英文片段翻譯做繁體中文書面語。\n\n"
+    "【規則】\n"
+    "1. 中文字數約等於英文字符數 × 0.4–0.7，目標 6–25 字\n"
+    "2. 譯文 ONLY 反映畀你嘅英文原文，禁止加任何外部資訊（人名、地名、主語、形容詞）\n"
+    "3. 即使原文係不完整片段（缺主語/動詞/介詞），譯文亦要係可朗讀嘅完整子句\n"
+    "4. 直接輸出譯文一行，唔加引號、編號、解釋、英文原文\n"
+    "5. 廣播風格：用書面語、繁體字、適度修飾但唔過度文學化\n\n"
+    "【示範】\n"
+    "英文：Italian side Como.\n"
+    "譯文：意甲球會科莫。\n\n"
+    "英文：completed more per game since the start\n"
+    "譯文：自賽季初起，每場場次完成更多。\n\n"
+    "英文：of last season.\n"
+    "譯文：上季。\n\n"
+    "英文：On paper, the player within the squad best\n"
+    "譯文：紙面上，陣容中最佳人選為\n\n"
+    "英文：suited for such a role would be Aurelien Tchouameni.\n"
+    "譯文：勝任此角色者係奧雷利安·楚阿梅尼。\n\n"
+    "英文：it will not be an easy search.\n"
+    "譯文：物色合適人選並非易事。"
+)
+
+
 ENRICH_SYSTEM_PROMPT = (
     "你是香港電視廣播嘅資深字幕編輯。你會收到初譯字幕，任務係**大幅改寫增強**，"
     "令譯稿達到專業廣播質素。\n\n"
@@ -219,6 +249,24 @@ class OllamaTranslationEngine(TranslationEngine):
         effective_batch = batch_size if batch_size is not None else BATCH_SIZE
         effective_temp = temperature if temperature is not None else self._temperature
         total = len(segments)
+
+        # Strategy E — single-segment mode. When batch_size=1 the engine
+        # translates each segment in isolation (no neighbour context, no
+        # cross-segment redistribution). Bypasses the batch path entirely.
+        if effective_batch == 1:
+            all_translated = self._translate_single_mode(
+                segments, glossary, style, effective_temp,
+                progress_callback, parallel_batches,
+            )
+            passes = self._get_translation_passes()
+            if passes >= 2:
+                all_translated = self._enrich_pass(
+                    segments, all_translated, 1,
+                    glossary, effective_temp, progress_callback, total,
+                )
+            processor = TranslationPostProcessor(max_chars=MAX_SUBTITLE_CHARS)
+            return processor.process(all_translated)
+
         batches = [
             segments[i : i + effective_batch]
             for i in range(0, len(segments), effective_batch)
@@ -418,6 +466,104 @@ class OllamaTranslationEngine(TranslationEngine):
                 if 1 <= idx <= expected_count:
                     results[idx] = m.group(2).strip()
         return results
+
+    def _translate_single_mode(
+        self,
+        segments: List[dict],
+        glossary: List[dict],
+        style: str,
+        temperature: float,
+        progress_callback,
+        parallel_batches: int,
+    ) -> List[TranslatedSegment]:
+        """Strategy E — translate each segment individually (no neighbours).
+
+        Sequential when parallel_batches<=1, otherwise dispatches up to N
+        single-segment requests in parallel via ThreadPoolExecutor.
+        """
+        total = len(segments)
+        results: List[Optional[TranslatedSegment]] = [None] * total
+
+        def _run_one(idx: int) -> TranslatedSegment:
+            seg = segments[idx]
+            return self._translate_single(seg, glossary, style, temperature)
+
+        if parallel_batches <= 1:
+            for i in range(total):
+                results[i] = _run_one(i)
+                if progress_callback is not None:
+                    try:
+                        progress_callback(i + 1, total)
+                    except Exception:
+                        pass
+        else:
+            lock = threading.Lock()
+            completed = [0]
+
+            def _wrapped(idx: int) -> None:
+                results[idx] = _run_one(idx)
+                with lock:
+                    completed[0] += 1
+                    if progress_callback is not None:
+                        try:
+                            progress_callback(completed[0], total)
+                        except Exception:
+                            pass
+
+            with ThreadPoolExecutor(max_workers=parallel_batches) as executor:
+                futures = [executor.submit(_wrapped, i) for i in range(total)]
+                for f in futures:
+                    f.result()
+
+        return [r for r in results if r is not None]
+
+    def _translate_single(
+        self,
+        segment: dict,
+        glossary: List[dict],
+        style: str,
+        temperature: float,
+    ) -> TranslatedSegment:
+        """Translate one ASR segment in isolation using the single-segment
+        prompt. Returns a TranslatedSegment with start/end preserved."""
+        en_text = (segment.get("text") or "").strip()
+        if not en_text:
+            return TranslatedSegment(
+                start=segment.get("start", 0),
+                end=segment.get("end", 0),
+                en_text="", zh_text="", flags=[],
+            )
+
+        relevant_glossary = self._filter_glossary_for_batch(glossary, [segment])
+        system_prompt = SINGLE_SEGMENT_SYSTEM_PROMPT
+        if relevant_glossary:
+            terms = "\n".join(
+                f'- {entry["en"]} → {entry["zh"]}' for entry in relevant_glossary
+            )
+            system_prompt = system_prompt + (
+                f"\n\n【指定譯名表】（必須採用以下譯名，不得自行發揮）:\n{terms}"
+            )
+        user_message = f"英文：{en_text}\n譯文："
+
+        response_text = self._call_ollama(system_prompt, user_message, temperature)
+        zh = self._parse_single_response(response_text)
+        return TranslatedSegment(
+            start=segment.get("start", 0),
+            end=segment.get("end", 0),
+            en_text=en_text, zh_text=zh, flags=[],
+        )
+
+    @staticmethod
+    def _parse_single_response(response_text: str) -> str:
+        """Extract the first non-empty line, strip common label prefixes."""
+        for raw_line in response_text.split("\n"):
+            line = raw_line.strip()
+            if not line:
+                continue
+            line = re.sub(r"^(譯文|中文|繁體中文|Translation)[:：]\s*", "", line)
+            if line:
+                return line
+        return response_text.strip()
 
     def _translate_batch(
         self,

@@ -340,6 +340,24 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### v3.8 — MT Single-Segment Mode (Strategy E, `batch_size=1`)
+- **問題**：Batched translation（default `batch_size=10`）將相鄰 EN segments 一齊餵畀 LLM，LLM 做 sentence-level 翻譯然後 redistribute 落各行，引致：(a) **錯位**（極端例子：`Italian side Como.` 段嘅 ZH 變咗 `沃爾夫斯堡的穆罕默德·阿莫拉速度如閃電般迅捷。`，係下一段嘅內容），(b) **Bloat**（`it will not be an easy search.` 變 `因此，車路士要物色到合適的中場人選，將是一項艱鉅任務。` — 加咗主語、連接詞、文學形容詞），(c) **相鄰段重複**（兩段都重複介紹同一個球員）
+- **`OllamaTranslationEngine` 新增 single-segment 路徑**：當 `batch_size=1` 時，bypass 既有 batched flow，每段獨立發送 LLM 請求，無 neighbour context、無 cross-segment redistribution，guarantee 1:1 對齊
+- **新 `SINGLE_SEGMENT_SYSTEM_PROMPT`**：精簡規則 — 中文字數 0.4–0.7× EN、禁止加任何外部資訊、即使原文片段譯文亦要係可朗讀子句、單行直接輸出。內含 6 個 in-context example 包括 problematic case (`Italian side Como.`、`it will not be an easy search.`)
+- **`_translate_single()` 同 `_translate_single_mode()` helper**：sequential 或 parallel（透過 `parallel_batches`）派送單段請求；空 EN 直接返回空譯文，唔 call LLM；glossary 按 per-segment EN 過濾（唔再對成個 batch）
+- **`_parse_single_response()`**：strip `譯文：` / `中文：` / `Translation:` 前綴，取第一行非空輸出
+- **`Pass 2 enrichment` 仍然兼容**：`translation_passes: 2` 喺 single-mode 之後一樣可以行，逐段 enrich
+- **Empirical validation**（22 段問題段，Real Madrid clip）：
+  - 平均 ZH/EN ratio 由 0.61 → 0.31（達標 0.4–0.7 區間）
+  - Bloat (>0.85) 由 3/22 → **0/22**
+  - 嚴重錯位（#102 Como）：完全解決，`Italian side Como.` 譯做 `意甲球會科莫。`（perfect 1:1）
+  - 相鄰重複（#50/#51 Tchouameni）：完全解決，名只出現一次
+  - 速度：22 段 7.9s = 0.36s/seg；推算 115 段 ~41s（< 1 分鐘）
+- **EN language config default 改為 `batch_size: 1`**（廣播質量優先；用戶想快可以調返高）；ZH config 保持 `batch_size: 8`（中文翻譯 cross-segment 漂移問題冇 EN 咁明顯）
+- **5 個新 unit test**：dispatch verification、label-prefix stripping、empty-text skip、per-segment glossary filter、batch>1 path 確認唔 trigger single-mode
+- **既有 sliding-window test 更新**：原本用 `batch_size=1` 做 forcing function 來測 cross-batch context；改用 `batch_size=2` + 4 segments 改為 force 2 batches，繼續 cover sliding window 邏輯
+- **495 automated tests pass**（baseline 489 + 5 新 single-mode + 1 修改嘅 sliding-window）
+
 ### v3.8 — ASR Sentence-Fragment Cleanup (`merge_short_segments`)
 - **問題**：即使 `condition_on_previous_text=false` 解決咗 Whisper 級聯 hallucination，mlx-whisper large-v3 仍然會喺 sentence boundary / 短停頓位置產出 1–2 字嘅孤兒 fragment（例如：`'a'` / `'Tchouameni.'` / `'settle.'`），燒入字幕只顯示 0.3 秒，肉眼幾乎讀唔到，亦浪費翻譯 token
 - **`asr/segment_utils.py` 新增 `merge_short_segments()`**：句子標點啟發式 — 短 segment 以 `.!?` 結尾 → 視為句尾 → backward merge 入上一段；唔以標點結尾 → 視為句頭 → forward merge 入下一段。Iterative loop（max 3 passes）直至穩定，idempotent

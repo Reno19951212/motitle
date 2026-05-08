@@ -353,10 +353,12 @@ ollama signin
 | `max_segment_duration` | ASR 每段最大時長（秒） | 60.0 |
 | `merge_short_max_words` | 合併「短 segment」嘅字數門檻（≤ 此字數視為短，0 = 停用） | 2 |
 | `merge_short_max_gap` | 合併嘅時間 gap 容忍度（秒，超過唔合併） | 0.5 |
-| `batch_size` | 翻譯批次大小 | 10 |
+| `batch_size` | 翻譯批次大小（**1 = 單段模式**，廣播質量優先；> 1 = 批次模式，速度優先） | 1 |
 | `temperature` | 翻譯隨機度 | 0.0 |
 
 > **`merge_short_*` 用途**（v3.8 新增）：Whisper 偶爾喺句子邊界生成單字 segment（如 `'a'`、`'settle.'`），燒入字幕只顯示 0.3 秒。後處理會用句子標點啟發式合返去鄰居 — 以 `.!?` 結尾 → 合上一段尾；唔以標點結尾 → 合下一段頭。中文配置（zh.json）預設 `merge_short_max_words: 0` 停用，因為現時只支援英文標點，中文 `。！？` 支援將來加。
+
+> **`batch_size: 1` 單段模式**（v3.8 新增）：每個 ASR segment 獨立發送畀 LLM 翻譯，無 neighbour context。解決 batched mode 嘅三類問題：(1) 跨段內容錯位（一段嘅 ZH 變咗鄰段嘅內容），(2) Bloat（譯文加咗原文無嘅主語、連接詞、形容詞），(3) 相鄰段重複介紹同一人名。代價：對代詞（he / they / it）解析靠 LLM 自己估，可能影響準確性；速度比 `batch_size=10` 慢約 30%（115 段約 41 秒）。EN 預設啟用，ZH 預設用 `batch_size: 8`。
 
 ### 前端頁面
 
