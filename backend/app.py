@@ -2299,12 +2299,20 @@ def _auto_translate(fid: str, segments: list, session_id) -> None:
         translation_seconds = round(time.time() - translation_start, 1)
         with _registry_lock:
             asr_s = _file_registry.get(fid, {}).get('asr_seconds')
+        pipeline_seconds = round(translation_seconds + (asr_s or 0.0), 1)
+        # Persist timing so the right-panel "處理時間" section survives page reload.
+        # The pipeline_timing socket event below covers the live update path.
+        _update_file(
+            fid,
+            translation_seconds=translation_seconds,
+            pipeline_seconds=pipeline_seconds,
+        )
         if session_id:
             socketio.emit('pipeline_timing', {
                 'file_id': fid,
                 'asr_seconds': asr_s,
                 'translation_seconds': translation_seconds,
-                'total_seconds': round(translation_seconds + (asr_s or 0.0), 1),
+                'total_seconds': pipeline_seconds,
             }, room=session_id)
 
         if session_id:
@@ -2552,6 +2560,9 @@ def list_files():
                 'backend': entry.get('backend'),
                 'translation_status': entry.get('translation_status'),
                 'translation_engine': entry.get('translation_engine'),
+                'asr_seconds': entry.get('asr_seconds'),
+                'translation_seconds': entry.get('translation_seconds'),
+                'pipeline_seconds': entry.get('pipeline_seconds'),
             })
     # Newest first
     files.sort(key=lambda f: f['uploaded_at'], reverse=True)
