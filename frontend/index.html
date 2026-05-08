@@ -3007,7 +3007,7 @@
                 ${s._edited ? '<span class="t-ed">●</span>' : ''}
               </div>
               ${s._en_text ? `<div class="t-en">${escapeHtml(s._en_text)}</div>` : ''}
-              <div class="t-zh">${escapeHtml(s.text || s.zh_text || '')}</div>
+              ${s.zh_text ? `<div class="t-zh">${escapeHtml(s.zh_text)}</div>` : ''}
             </div>`;
         }).join('');
       }
