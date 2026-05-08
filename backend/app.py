@@ -478,6 +478,11 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
                 max_gap_sec=asr_params.get("merge_short_max_gap", 0.5),
                 max_words_cap=asr_params["max_words_per_segment"],
             )
+            # Whisper's Chinese mode emits Simplified Chinese. Convert to
+            # Traditional (HK style) when the language config enables it.
+            if asr_params.get("simplified_to_traditional"):
+                from asr.cn_convert import convert_segments_s2t
+                raw_segments = convert_segments_s2t(raw_segments, mode="s2hk")
 
             for i, seg in enumerate(raw_segments):
                 segment = {

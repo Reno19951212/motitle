@@ -2,13 +2,11 @@
   "id": "zh",
   "name": "Chinese",
   "asr": {
-    "max_words_per_segment": 30,
-    "max_segment_duration": 8,
-    "merge_short_max_words": 0,
-    "merge_short_max_gap": 0.5
+    "max_words_per_segment": 16,
+    "max_segment_duration": 15
   },
   "translation": {
     "batch_size": 8,
-    "temperature": 0.1
+    "temperature": 0
   }
 }

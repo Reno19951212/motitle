@@ -172,6 +172,10 @@ class LanguageConfigManager:
                 f"{MIN_MERGE_SHORT_GAP} and {MAX_MERGE_SHORT_GAP} seconds"
             )
 
+        s2t = asr.get("simplified_to_traditional")
+        if s2t is not None and not isinstance(s2t, bool):
+            errors.append("asr.simplified_to_traditional must be a boolean")
+
         bs = trans.get("batch_size")
         if bs is not None and (
             not isinstance(bs, int) or bs < MIN_BATCH_SIZE or bs > MAX_BATCH_SIZE

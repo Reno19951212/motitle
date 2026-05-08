@@ -10,6 +10,7 @@
 |------|------|
 | 📁 **文件上傳與管理** | 拖放或選擇影片/音頻，支援 MP4、MOV、AVI、MKV、WebM、MXF 等格式 |
 | 🤖 **英文語音轉錄** | Whisper ASR 自動將英文語音轉為英文文字（支援 faster-whisper 加速，以及 Apple Silicon 嘅 MLX-Whisper） |
+| 🇭🇰 **粵語/中文語音轉錄** | Whisper ASR 中文模式 + `initial_prompt` 防 head hallucination + OpenCC `s2hk` 自動轉繁體（HK style）。可逐 Profile 設定 `initial_prompt`（例如「香港賽馬新聞」提示主題） |
 | 🌐 **中文翻譯** | 三種選擇：本地 Ollama + Qwen2.5/3.5、Ollama Cloud、或 **OpenRouter**（Claude / GPT-4o / Gemini / DeepSeek 等 9 款 frontier models，用戶可自訂任何 OpenRouter model id） |
 | 🎯 **翻譯質素調校** | 四種模式：傳統 batch → sentence pipeline → LLM-anchored alignment → 兩次 pass enrichment。詳見「翻譯質素調校」章節 |
 | 📖 **術語表管理** | 自訂英中術語對照表，確保專業名詞翻譯一致（支援 CSV 匯入/匯出、一鍵 LLM 智能替換） |
