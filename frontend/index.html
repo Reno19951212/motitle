@@ -1804,28 +1804,6 @@
               <div class="stage-pill ${stages.asr}"><span class="lb">ASR</span><span>${asrText}</span></div>
               <div class="stage-pill ${stages.mt}"><span class="lb">MT</span><span>${mtText}</span></div>
             </div>
-            ${(() => {
-              const profileSrcLabel = (() => {
-                const p = (activeProfile?.font?.subtitle_source) || 'auto';
-                return ({auto:'Auto', en:'EN', zh:'ZH', bilingual:'雙語'})[p] || 'Auto';
-              })();
-              const fileSrc = f.subtitle_source || '';
-              const fileOrder = f.bilingual_order || 'en_top';
-              return `<div class="fc-source-row" onclick="event.stopPropagation()">
-                <select class="fc-source-mode" data-file-id="${id}" onchange="updateFileSubtitleSource(this)" title="字幕來源">
-                  <option value="">— 跟 Profile（${profileSrcLabel}）—</option>
-                  <option value="auto"      ${fileSrc==='auto'?'selected':''}>Auto</option>
-                  <option value="en"        ${fileSrc==='en'?'selected':''}>EN 原文</option>
-                  <option value="zh"        ${fileSrc==='zh'?'selected':''}>ZH 譯文</option>
-                  <option value="bilingual" ${fileSrc==='bilingual'?'selected':''}>雙語</option>
-                </select>
-                <select class="fc-bilingual-order" data-file-id="${id}" onchange="updateFileBilingualOrder(this)"
-                        style="${fileSrc==='bilingual'?'':'display:none;'}" title="雙語上下次序">
-                  <option value="en_top" ${fileOrder==='en_top'?'selected':''}>EN 上 / ZH 下</option>
-                  <option value="zh_top" ${fileOrder==='zh_top'?'selected':''}>ZH 上 / EN 下</option>
-                </select>
-              </div>`;
-            })()}
           </div>`;
       }).join('');
     }
