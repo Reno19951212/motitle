@@ -7,7 +7,7 @@
     "condition_on_previous_text": false,
     "language": "ja",
     "model_size": "large-v3",
-    "initial_prompt": "以下は日本語の音声です。"
+    "initial_prompt": ""
   },
   "translation": {
     "engine": "qwen3.5-35b-a3b",
