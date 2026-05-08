@@ -157,6 +157,107 @@ def test_add_entry_nonexistent_glossary(glossary_dir):
     mgr = GlossaryManager(glossary_dir)
     assert mgr.add_entry("nonexistent", {"en": "hi", "zh": "嗨"}) is None
 
+
+# ----------------------------------------------------------------------
+# Quote-stripping normalisation — guards against decorated paste artifacts
+# (e.g. `"烈焰悟空"`) that would otherwise survive into glossary entries
+# and break the substring-based glossary-scan in app.py.
+# ----------------------------------------------------------------------
+
+def test_add_entry_strips_ascii_double_quotes(glossary_dir):
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    created = mgr.create({"name": "Test", "entries": []})
+    updated = mgr.add_entry(created["id"], {"en": "Blazing Wukong", "zh": '"烈焰悟空"'})
+    assert updated["entries"][0]["zh"] == "烈焰悟空"
+
+
+def test_add_entry_strips_curly_quotes(glossary_dir):
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    created = mgr.create({"name": "Test", "entries": []})
+    updated = mgr.add_entry(created["id"], {"en": "Foo", "zh": "“測試”"})
+    assert updated["entries"][0]["zh"] == "測試"
+
+
+def test_add_entry_strips_chinese_book_brackets(glossary_dir):
+    """《 》 should not be stored on the term — broadcast renderers add
+    them at output time. Storing them inflates the substring needle."""
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    created = mgr.create({"name": "Test", "entries": []})
+    updated = mgr.add_entry(created["id"], {"en": "Apple Daily", "zh": "《蘋果日報》"})
+    assert updated["entries"][0]["zh"] == "蘋果日報"
+
+
+def test_add_entry_strips_corner_brackets(glossary_dir):
+    """「 」 is the most common Chinese quote; same reason as 《 》."""
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    created = mgr.create({"name": "Test", "entries": []})
+    updated = mgr.add_entry(created["id"], {"en": "Hong Kong", "zh": "「香港」"})
+    assert updated["entries"][0]["zh"] == "香港"
+
+
+def test_add_entry_preserves_inner_quotes(glossary_dir):
+    """Only WRAPPING quotes are stripped — inner quotes around a part of
+    the term must survive (e.g. a name that legitimately contains them)."""
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    created = mgr.create({"name": "Test", "entries": []})
+    updated = mgr.add_entry(created["id"], {"en": "Mr. \"Q\" Smith", "zh": "Q先生"})
+    # EN keeps the inner "Q" — they're not wrapping the whole term.
+    assert updated["entries"][0]["en"] == 'Mr. "Q" Smith'
+
+
+def test_add_entry_strips_en_field_too(glossary_dir):
+    """Same normalisation applies to the source-language field."""
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    created = mgr.create({"name": "Test", "entries": []})
+    updated = mgr.add_entry(created["id"], {"en": '"Blazing Wukong"', "zh": "烈焰悟空"})
+    assert updated["entries"][0]["en"] == "Blazing Wukong"
+
+
+def test_update_entry_strips_quotes_in_patch(glossary_dir):
+    """A partial PATCH that re-introduces wrapping quotes should also
+    be normalised — not just full add_entry."""
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    created = mgr.create({"name": "Test", "entries": []})
+    with_entry = mgr.add_entry(created["id"], {"en": "X", "zh": "原"})
+    eid = with_entry["entries"][0]["id"]
+    updated = mgr.update_entry(created["id"], eid, {"zh": '"新譯"'})
+    assert updated["entries"][0]["zh"] == "新譯"
+
+
+def test_import_csv_strips_quotes(glossary_dir):
+    """CSV import is a major paste vector — apply the same stripping."""
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    created = mgr.create({"name": "Test", "entries": []})
+    # Hand-crafted CSV with bare values (no csv-level quoting) so we
+    # exercise our _normalize_entry path directly, not csv-module quote
+    # rules.
+    csv_text = "en,zh\nDaily,《日報》\nHK,「香港」\n"
+    updated = mgr.import_csv(created["id"], csv_text)
+    by_en = {e["en"]: e for e in updated["entries"]}
+    assert by_en["Daily"]["zh"] == "日報"
+    assert by_en["HK"]["zh"] == "香港"
+
+
+def test_strip_wrapping_quotes_idempotent_on_clean_input(glossary_dir):
+    """No quotes → no change."""
+    from glossary import _strip_wrapping_quotes
+    assert _strip_wrapping_quotes("烈焰悟空") == "烈焰悟空"
+    assert _strip_wrapping_quotes("Hello World") == "Hello World"
+
+
+def test_strip_wrapping_quotes_handles_one_layer_only(glossary_dir):
+    """Nested same-pair gets only outer layer stripped per call."""
+    from glossary import _strip_wrapping_quotes
+    assert _strip_wrapping_quotes('""x""') == '"x"'
+
 def test_update_entry(glossary_dir):
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)

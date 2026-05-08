@@ -16,6 +16,57 @@ from typing import List, Optional
 
 GLOSSARIES_DIRNAME = "glossaries"
 
+# Paired quote characters that we strip from entry text. Glossary entries
+# should be the BARE term (e.g. 烈焰悟空) — wrapping with broadcast-style
+# punctuation (《...》, 「...」) or ASCII / curly quotes is a common typing
+# artifact ("烈焰悟空" pasted from a list, or `「Blazing Wukong」` from copy).
+# Stored decorated, the downstream substring scan in app.py:glossary-scan
+# fails because the LLM naturally renders Chinese punctuation that doesn't
+# include the literal wrapping characters — keeping segments as eternal
+# violations even after a successful Apply.
+_QUOTE_PAIRS = [
+    ('"', '"'),  ("'", "'"),
+    ('“', '”'),  # curly double quotes
+    ('‘', '’'),  # curly single quotes
+    ('「', '」'),  # 「 」
+    ('『', '』'),  # 『 』
+    ('《', '》'),  # 《 》
+    ('〈', '〉'),  # 〈 〉
+]
+
+
+def _strip_wrapping_quotes(text):
+    """Remove ONE layer of paired quote characters that wrap the entire
+    text. Returns the input unchanged if it isn't a string or has no
+    matching wrapping pair. Idempotent unless multiple distinct pairs
+    are nested (rare; we strip one layer per call by design)."""
+    if not isinstance(text, str):
+        return text
+    s = text.strip()
+    for open_q, close_q in _QUOTE_PAIRS:
+        if len(s) >= len(open_q) + len(close_q) + 1 \
+                and s.startswith(open_q) and s.endswith(close_q):
+            return s[len(open_q):-len(close_q)].strip()
+    return s
+
+
+def _normalize_entry(entry):
+    """Strip wrapping quotes from `en`, `zh`, and any `zh_aliases`. Pure
+    function — returns a new dict, doesn't mutate the input."""
+    if not isinstance(entry, dict):
+        return entry
+    out = dict(entry)
+    if isinstance(out.get("en"), str):
+        out["en"] = _strip_wrapping_quotes(out["en"])
+    if isinstance(out.get("zh"), str):
+        out["zh"] = _strip_wrapping_quotes(out["zh"])
+    if isinstance(out.get("zh_aliases"), list):
+        out["zh_aliases"] = [
+            _strip_wrapping_quotes(a) if isinstance(a, str) else a
+            for a in out["zh_aliases"]
+        ]
+    return out
+
 
 class GlossaryManager:
     """
@@ -214,6 +265,7 @@ class GlossaryManager:
         if glossary is None:
             return None
 
+        entry = _normalize_entry(entry)
         errors = self.validate_entry(entry)
         if errors:
             raise ValueError(f"Invalid entry: {errors}")
@@ -243,6 +295,10 @@ class GlossaryManager:
         if existing_entry is None:
             return None
 
+        # Normalise the partial patch before merging so a user PATCHing a
+        # single field with quote-wrapped text still gets stripped to the
+        # bare form.
+        entry_data = _normalize_entry(entry_data)
         merged_entry = {**existing_entry, **entry_data, "id": entry_id}
         errors = self.validate_entry(merged_entry)
         if errors:
@@ -290,7 +346,10 @@ class GlossaryManager:
         reader = csv.DictReader(io.StringIO(csv_text))
         new_entries = []
         for row in reader:
-            entry = {"en": (row.get("en") or "").strip(), "zh": (row.get("zh") or "").strip()}
+            entry = _normalize_entry({
+                "en": (row.get("en") or "").strip(),
+                "zh": (row.get("zh") or "").strip(),
+            })
             if self.validate_entry(entry):
                 continue
             new_entries.append({**entry, "id": str(uuid.uuid4())})
