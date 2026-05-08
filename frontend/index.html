@@ -209,7 +209,11 @@
 
     .b-topbar {
       display: grid;
-      grid-template-columns: 280px 1fr auto;
+      /* auto / minmax(0,1fr) / auto — search and health pills shrink to
+         content; the middle (pipeline + actions) takes all remaining
+         space. Previous 280px hard column made the search look oversized
+         on smaller laptops. */
+      grid-template-columns: auto minmax(0, 1fr) auto;
       align-items: center;
       gap: 12px;
       padding: 10px 18px;
@@ -229,8 +233,12 @@
       border-radius: 8px;
       color: var(--text-mid);
       font-size: 13px;
-      min-width: 0;
+      min-width: 200px; max-width: 280px;
     }
+    /* ⌘K hint takes meaningful space; hide on smaller laptops so the
+       search field doesn't crowd the pipeline strip. */
+    @media (max-width: 1500px) { .b-topbar .search .kbd { display: none; } }
+    @media (max-width: 1200px) { .b-topbar .search { min-width: 160px; } }
     .topbar-mid {
       display: flex; align-items: center; gap: 10px;
       min-width: 0;
@@ -347,6 +355,8 @@
     .pipeline-strip .step .caret { color: var(--text-dim); font-size: 10px; }
     .pipeline-strip .arrow { color: var(--text-dim); padding: 0 2px; }
     .pipeline-strip .sep { width: 1px; align-self: stretch; background: var(--border); margin: 4px 0; }
+
+    [data-loading="1"]::after { content: ' (載入中…)'; color: var(--text-dim); font-size: 11px; }
 
     .pipeline-preset {
       display: flex; align-items: center; gap: 8px;
@@ -508,6 +518,17 @@
     }
     .queue-item:hover .qi-del { opacity: 1; }
     .queue-item .qi-del:hover { background: rgba(239,68,68,0.22); color: var(--danger); }
+    /* Subtitle source mini-dropdowns inside file cards + file-header actions row */
+    .fc-source-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+    .fc-source-mode, .fc-bilingual-order {
+      padding: 4px 8px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      font-size: 12px;
+    }
+    .fc-source-mode:focus, .fc-bilingual-order:focus { outline: 1px solid var(--accent); }
     .queue-item .qi-del.armed {
       opacity: 1;
       background: var(--danger);
@@ -928,6 +949,70 @@
       padding: 6px 8px 4px;
     }
 
+    /* Subtitle download menu — unified language source + format picker.
+       Replaces the old "two <select> dropdowns + format menu" split UX
+       so the user picks 原文 / 譯文 / 雙語 in the same place where they
+       choose the file format. Mirrors the design's SubtitleSplitMenu. */
+    .split-btn .sub-menu { min-width: 264px; }
+    .sub-menu .sub-lang-seg {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 2px;
+      margin: 4px 4px 6px;
+      padding: 2px;
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+    }
+    .sub-menu .sub-lang-seg button {
+      padding: 6px 4px;
+      background: transparent; color: var(--text-mid);
+      border: 0; border-radius: 5px;
+      font-size: 11px; font-weight: 600;
+      transition: background 0.1s, color 0.1s;
+    }
+    .sub-menu .sub-lang-seg button:hover { color: var(--text); background: var(--surface-2); }
+    .sub-menu .sub-lang-seg button.on {
+      background: var(--accent); color: #fff;
+      box-shadow: 0 1px 2px rgba(108,99,255,0.4);
+    }
+    .sub-menu .sub-order-row {
+      display: flex; align-items: center; gap: 6px;
+      margin: 0 4px 6px;
+      padding: 5px 6px;
+      background: var(--bg-soft); border: 1px solid var(--border);
+      border-radius: 7px;
+    }
+    .sub-menu .sub-order-lab {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--text-dim);
+    }
+    .sub-menu .sub-order-btn {
+      flex: 1;
+      padding: 4px 6px;
+      background: transparent; border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--text-mid);
+    }
+    .sub-menu .sub-order-btn:hover { background: var(--surface-2); color: var(--text); }
+    .sub-menu .sub-order-btn.on {
+      background: var(--accent-soft); color: var(--accent);
+      border-color: var(--accent-ring);
+    }
+    .sub-menu .sub-order-stack {
+      display: inline-flex; flex-direction: column; align-items: center; gap: 0;
+      font-family: var(--font-mono);
+      font-size: 9.5px; line-height: 1.05; font-weight: 700;
+    }
+    .sub-menu .sub-head-fmt {
+      display: flex; align-items: baseline; justify-content: space-between;
+      gap: 8px; padding-right: 8px;
+    }
+    .sub-menu .sub-head-meta {
+      font-size: 10px; font-family: var(--font-mono);
+      color: var(--accent-2); text-transform: none; letter-spacing: 0;
+      font-weight: 600;
+    }
+
     /* OpenRouter settings modal */
     .or-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,0.6);
@@ -1091,7 +1176,7 @@
     .toast-stack {
       position: fixed; bottom: 18px; right: 18px;
       display: flex; flex-direction: column; gap: 8px;
-      z-index: 2000;
+      z-index: 4000; /* above .or-overlay (3000) so toasts stay visible while modal is open */
     }
     .toast {
       padding: 10px 14px;
@@ -1129,7 +1214,7 @@
         <button class="rail-btn" data-route="files"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 6h12M2 10h12M5 3v10M11 3v10"/></svg><span class="tt">檔案</span></button>
         <button class="rail-btn" data-route="proof" onclick="jumpToProofread()"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-8 8H3v-3z"/></svg><span class="tt">校對</span></button>
         <button class="rail-btn" data-route="pipeline"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="5" width="4" height="6" rx="1"/><rect x="11" y="5" width="4" height="6" rx="1"/><circle cx="8" cy="2" r="1.5"/><circle cx="8" cy="14" r="1.5"/><path d="M5 8h6 M8 3.5v3 M8 9.5v3"/></svg><span class="tt">Pipeline</span></button>
-        <button class="rail-btn" data-route="gloss"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h4a3 3 0 013 3v8a2 2 0 00-2-2H3z M13 3H9a3 3 0 00-3 3v8a2 2 0 012-2h5z"/></svg><span class="tt">術語表</span></button>
+        <a class="rail-btn" data-route="gloss" href="Glossary.html" title="術語表"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h4a3 3 0 013 3v8a2 2 0 00-2-2H3z M13 3H9a3 3 0 00-3 3v8a2 2 0 012-2h5z"/></svg><span class="tt">術語表</span></a>
         <button class="rail-btn" data-route="lang"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2l6 3-6 3-6-3zM2 8l6 3 6-3M2 11l6 3 6-3"/></svg><span class="tt">語言</span></button>
         <div class="flex1"></div>
         <button class="rail-btn" title="服務狀態" id="restartBtn" onclick="restartService()"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6L13 13M3 13l1.4-1.4M11.6 4.4L13 3"/></svg></button>
@@ -1345,6 +1430,25 @@
         <button class="or-close" onclick="closeRenderModal()" aria-label="關閉">&times;</button>
       </div>
       <div class="or-body">
+        <div class="rm-row" style="margin-bottom:14px;">
+          <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">字幕來源</label>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <select id="rmSubtitleSource" onchange="rmOnSourceChange()"
+                    style="padding:6px 10px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text);min-width:160px;">
+              <option value="">— 跟 file 設定 —</option>
+              <option value="auto">Auto</option>
+              <option value="en">EN 原文</option>
+              <option value="zh">ZH 譯文</option>
+              <option value="bilingual">雙語</option>
+            </select>
+            <select id="rmBilingualOrder" style="display:none;
+                      padding:6px 10px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text);">
+              <option value="en_top">EN 上 / ZH 下</option>
+              <option value="zh_top">ZH 上 / EN 下</option>
+            </select>
+          </div>
+        </div>
+
         <div class="or-field">
           <label class="or-label">輸出格式</label>
           <div class="rm-fmt-row">
@@ -1543,6 +1647,7 @@
       </div>
       <div class="or-foot">
         <button class="or-btn" type="button" onclick="closeRenderModal()">取消</button>
+        <button class="or-btn" type="button" id="rmCancelBtn" style="display:none;" onclick="cancelCurrentRender()">取消渲染</button>
         <button class="or-btn primary" type="button" id="rmConfirmBtn" onclick="onRenderPrimaryClick()">開始渲染</button>
       </div>
     </div>
@@ -1574,12 +1679,64 @@
     let fontConfig = { family: 'Noto Sans TC', size: 32, color: '#ffffff', outline_color: '#000000', outline_width: 2, margin_bottom: 40 };
 
     // ============================================================
+    // Modal focus helpers
+    // ============================================================
+    const _modalTriggers = new WeakMap();
+    function _openModalWithFocus(overlayId, triggerEl) {
+      const overlay = document.getElementById(overlayId);
+      if (!overlay) return;
+      if (triggerEl instanceof Element) _modalTriggers.set(overlay, triggerEl);
+      overlay.classList.add('open');
+    }
+    function _closeModalRestoreFocus(overlayId) {
+      const overlay = document.getElementById(overlayId);
+      if (!overlay) return;
+      overlay.classList.remove('open');
+      const trigger = _modalTriggers.get(overlay);
+      if (trigger && document.contains(trigger)) trigger.focus();
+    }
+
+    // ============================================================
     // Helpers
     // ============================================================
     function escapeHtml(s) {
       if (s == null) return '';
       return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
+
+    // Resolve segment text per subtitle source mode.
+    // Mirrors backend backend/subtitle_text.py resolve_segment_text exactly.
+    function pickSubtitleText(seg, mode = 'auto', order = 'en_top') {
+      const en = (seg.en || seg._en_text || seg.text || '').trim();
+      let zh = (seg.zh || seg.zh_text || '').trim();
+      // Strip leading [long]/[review] QA markers (legacy registry data).
+      zh = zh.replace(/^\s*(?:\[(?:NEEDS\s+REVIEW|long|review|LONG|REVIEW)\]\s*)+/, '').trim();
+      if (mode === 'en') return en;
+      if (mode === 'zh') return zh || en;
+      if (mode === 'bilingual') {
+        if (!en) return zh;
+        if (!zh) return en;
+        return order === 'en_top' ? `${en}\n${zh}` : `${zh}\n${en}`;
+      }
+      return zh || en;
+    }
+
+    // Resolve subtitle source from a file entry, falling back to the active profile.
+    function resolveSubtitleSource(fileEntry, profile) {
+      const v = (fileEntry || {}).subtitle_source;
+      if (v === 'auto' || v === 'en' || v === 'zh' || v === 'bilingual') return v;
+      const p = ((profile || {}).font || {}).subtitle_source;
+      if (p === 'auto' || p === 'en' || p === 'zh' || p === 'bilingual') return p;
+      return 'auto';
+    }
+    function resolveBilingualOrder(fileEntry, profile) {
+      const v = (fileEntry || {}).bilingual_order;
+      if (v === 'en_top' || v === 'zh_top') return v;
+      const p = ((profile || {}).font || {}).bilingual_order;
+      if (p === 'en_top' || p === 'zh_top') return p;
+      return 'en_top';
+    }
+
     function formatDuration(seconds) {
       if (!seconds || seconds < 0) return '—:—';
       const m = Math.floor(seconds / 60);
@@ -1753,25 +1910,62 @@
           ? `${segCount - approved} 段未批核 — 可直接渲染（會自動批核）`
           : '下載燒入字幕後嘅影片';
       // Translate button state: hidden if ASR not done; translating → disabled spinner;
-      // never translated → "▶ 翻譯"; already done → "🔄 重新翻譯"
+      // never translated → "▶ 翻譯" (translation only, ASR already done);
+      // already done → "🔄 重新執行" (full pipeline rerun: ASR + translation)
       const translateBtnDisabled = disabled || isTranslating;
       const translateBtnLabel = isTranslating
         ? '⏳ 翻譯中…'
         : hasTrans
-          ? '🔄 重新翻譯'
+          ? '🔄 重新執行'
           : '▶ 翻譯';
       const translateBtnTooltip = isTranslating
         ? '翻譯進行中，請等待完成'
         : hasTrans
-          ? '用當前 Profile 重新翻譯（會覆蓋現有譯文同批核狀態）'
+          ? '重新走整條 Pipeline：ASR + 翻譯（會清掉現有 segments、譯文、批核狀態）'
           : '用當前 Profile 開始翻譯';
+      const translateBtnHandler = hasTrans ? 'rerunPipeline' : 'reTranslateFile';
 
+      // Resolve effective source+order (file → profile → default) and pin them
+      // onto every download URL so the link reflects current state explicitly.
+      // Backend honours ?source= and ?order= (app.py:2540-2545); without them
+      // it would re-derive from the same chain, but explicit is safer for
+      // users who copy / share the URL.
+      const _dlSrc   = resolveSubtitleSource(f, activeProfile);
+      const _dlOrder = resolveBilingualOrder(f, activeProfile);
+      const _dlQuery = `?source=${encodeURIComponent(_dlSrc)}&order=${encodeURIComponent(_dlOrder)}`;
+      const _fileSrc = f.subtitle_source || '';   // raw override (empty = follow profile)
+      const _profSrc = (activeProfile?.font?.subtitle_source) || 'auto';
+      const _profLabel = ({auto:'Auto', en:'EN', zh:'ZH', bilingual:'雙語'})[_profSrc] || 'Auto';
+      const _srcLabel = ({en:'原文 (EN)', zh:'譯文 (ZH)', bilingual:'雙語對照', auto:'自動 (Auto)'})[_dlSrc] || '自動';
+      const _orderLabel = _dlOrder === 'en_top' ? 'EN 上 / ZH 下' : 'ZH 上 / EN 下';
+      const _on = (v) => _fileSrc === v ? 'on' : '';
       const subtitleMenu = `
-        <div class="split-menu" role="menu">
-          <div class="split-head">字幕檔格式</div>
-          <a href="${API_BASE}/api/files/${f.id}/subtitle.srt" download><span class="fmt-badge">SRT</span><span class="fmt-desc">SubRip · 通用字幕</span></a>
-          <a href="${API_BASE}/api/files/${f.id}/subtitle.vtt" download><span class="fmt-badge">VTT</span><span class="fmt-desc">WebVTT · 網頁字幕</span></a>
-          <a href="${API_BASE}/api/files/${f.id}/subtitle.txt" download><span class="fmt-badge">TXT</span><span class="fmt-desc">純文字（無時碼）</span></a>
+        <div class="split-menu sub-menu" role="menu">
+          <div class="split-head">字幕內容</div>
+          <div class="sub-lang-seg">
+            <button class="${_on('en')}" onclick="setFileSubtitleSource('${f.id}', 'en')" title="只匯出英文原文">原文 EN</button>
+            <button class="${_on('zh')}" onclick="setFileSubtitleSource('${f.id}', 'zh')" title="只匯出中文譯文">譯文 ZH</button>
+            <button class="${_on('bilingual')}" onclick="setFileSubtitleSource('${f.id}', 'bilingual')" title="雙語對照（兩行同顯）">雙語</button>
+            <button class="${_on('')}" onclick="setFileSubtitleSource('${f.id}', '')" title="跟 Profile 嘅預設">跟 Profile（${_profLabel}）</button>
+          </div>
+          ${_dlSrc === 'bilingual' ? `
+          <div class="sub-order-row">
+            <span class="sub-order-lab">次序</span>
+            <button class="sub-order-btn ${_dlOrder==='en_top'?'on':''}" onclick="setFileBilingualOrder('${f.id}','en_top')" title="EN 上 / ZH 下">
+              <span class="sub-order-stack"><span>EN</span><span>ZH</span></span>
+            </button>
+            <button class="sub-order-btn ${_dlOrder==='zh_top'?'on':''}" onclick="setFileBilingualOrder('${f.id}','zh_top')" title="ZH 上 / EN 下">
+              <span class="sub-order-stack"><span>ZH</span><span>EN</span></span>
+            </button>
+          </div>` : ''}
+          <div class="split-divider"></div>
+          <div class="split-head sub-head-fmt">
+            <span>字幕檔格式</span>
+            <span class="sub-head-meta">${_srcLabel}${_dlSrc==='bilingual' ? ` · ${_orderLabel}` : ''}</span>
+          </div>
+          <a href="${API_BASE}/api/files/${f.id}/subtitle.srt${_dlQuery}" download><span class="fmt-badge">SRT</span><span class="fmt-desc">SubRip · 通用字幕</span></a>
+          <a href="${API_BASE}/api/files/${f.id}/subtitle.vtt${_dlQuery}" download><span class="fmt-badge">VTT</span><span class="fmt-desc">WebVTT · 網頁字幕</span></a>
+          <a href="${API_BASE}/api/files/${f.id}/subtitle.txt${_dlQuery}" download><span class="fmt-badge">TXT</span><span class="fmt-desc">純文字（無時碼）</span></a>
         </div>`;
       const videoMenu = `
         <div class="split-menu" role="menu">
@@ -1800,7 +1994,7 @@
         </div>
         <div class="fh-actions">
           <div class="split-btn">
-            <a class="btn btn-secondary split-main" ${disabled ? '' : `href="${API_BASE}/api/files/${f.id}/subtitle.srt" download`} title="下載字幕檔" style="${disabled ? 'opacity:0.5;pointer-events:none;' : ''}">
+            <a class="btn btn-secondary split-main" ${disabled ? '' : `href="${API_BASE}/api/files/${f.id}/subtitle.srt${_dlQuery}" download`} title="下載字幕檔" style="${disabled ? 'opacity:0.5;pointer-events:none;' : ''}">
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M4 7l4 4 4-4M2 13h12"/></svg>
               字幕 · SRT
             </a>
@@ -1815,7 +2009,7 @@
             <button class="btn btn-secondary split-caret" title="更多影片格式" ${renderDisabled ? 'disabled' : ''}><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></button>
             ${videoMenu}
           </div>
-          <button class="btn btn-secondary" onclick="reTranslateFile('${f.id}')" ${translateBtnDisabled ? 'disabled' : ''} title="${escapeHtml(translateBtnTooltip)}">
+          <button class="btn btn-secondary" onclick="${translateBtnHandler}('${f.id}')" ${translateBtnDisabled ? 'disabled' : ''} title="${escapeHtml(translateBtnTooltip)}">
             ${translateBtnLabel}
           </button>
           <a class="btn btn-primary" href="proofread.html?file_id=${f.id}" ${disabled ? 'style="opacity:0.5;pointer-events:none;"' : ''}>
@@ -1915,6 +2109,7 @@
       { name: 'qwen2.5:7b',       badge: '本地', desc: 'Ollama · 平衡' },
       { name: 'qwen2.5:3b',       badge: '本地', desc: 'Ollama · 快速' },
       { name: 'qwen2.5:72b',      badge: '本地', desc: 'Ollama · 高品質' },
+      { name: 'qwen3.5-35b-a3b',  badge: '本地', desc: 'Ollama · MLX BF16 · Apple Silicon 加速' },
       { name: 'glm-4.6-cloud',    badge: '雲',   desc: 'Ollama Cloud · 198K ctx' },
       { name: 'qwen3.5-397b-cloud', badge: '雲', desc: 'Ollama Cloud · 粵語最佳' },
       { name: 'gpt-oss-120b-cloud', badge: '雲', desc: 'Ollama Cloud · 128K ctx' },
@@ -1964,14 +2159,16 @@
       const presetMenuHtml = `
         <div class="step-menu preset-menu" style="min-width: 260px;">
           <div class="step-menu-head">Pipeline 預設</div>
-          ${availableProfiles.map(pr => `
+          ${availableProfiles.length
+            ? availableProfiles.map(pr => `
             <button ${pr.id === p.id ? 'class="on"' : ''} onclick="activateProfile('${pr.id}')">
               <div class="smn-main">
                 <span class="smn-name">${escapeHtml(pr.name || pr.id)}</span>
                 ${pr.id === p.id ? '<span class="smn-badge">當前</span>' : ''}
               </div>
               <div class="smn-desc">${escapeHtml(pr.asr?.model_size || '—')} · ${escapeHtml((pr.translation?.engine || '—').replace(/-cloud$/,''))}</div>
-            </button>`).join('')}
+            </button>`).join('')
+            : '<div style="padding:8px 12px;color:var(--text-dim);font-size:12px;">未有 Profile，撳「+ 新增」建立第一個</div>'}
           <div class="split-divider"></div>
           <button class="smn-manage" onclick="openProfileSaveModal()"><span class="fmt-badge outline">💾</span><span class="fmt-desc">將當前設定儲存為新預設…</span></button>
           <button class="smn-manage" onclick="openProfileManageModal()"><span class="fmt-badge outline">⚙</span><span class="fmt-desc">管理預設…</span></button>
@@ -2095,6 +2292,7 @@
     let _ppsEditingId = null;
 
     function openProfileSaveModal(editingId = null) {
+      const trigger = document.activeElement;
       _ppsEditingId = editingId;
       const editing = editingId ? availableProfiles.find(p => p.id === editingId) : null;
       const src = editing || activeProfile;
@@ -2120,12 +2318,22 @@
         術語表     ${escapeHtml(gloss?.name || '無')}${gloss ? ' (' + (gloss.entry_count || gloss.entries?.length || 0) + ' 條)' : ''}<br>
         字型       ${escapeHtml(font.family || '—')}, ${font.size || '—'}pt`;
       document.getElementById('ppsSaveBtn').textContent = editing ? '儲存' : '儲存並啟用';
-      document.getElementById('ppsOverlay').classList.add('open');
+      // Subtitle source preset values
+      const sub = src.font?.subtitle_source || 'auto';
+      document.getElementById('ppsSubtitleSource').value = sub;
+      document.getElementById('ppsBilingualOrder').value = src.font?.bilingual_order || 'en_top';
+      document.getElementById('ppsBilingualOrderRow').style.display =
+        (sub === 'bilingual') ? 'flex' : 'none';
+      document.getElementById('ppsSubtitleSource').onchange = function() {
+        document.getElementById('ppsBilingualOrderRow').style.display =
+          (this.value === 'bilingual') ? 'flex' : 'none';
+      };
+      _openModalWithFocus('ppsOverlay', trigger);
       setTimeout(() => document.getElementById('ppsName').focus(), 50);
     }
 
     function closeProfileSaveModal() {
-      document.getElementById('ppsOverlay').classList.remove('open');
+      _closeModalRestoreFocus('ppsOverlay');
       _ppsEditingId = null;
     }
 
@@ -2133,13 +2341,21 @@
       const name = document.getElementById('ppsName').value.trim();
       const description = document.getElementById('ppsDesc').value.trim();
       if (!name) { showToast('預設名稱必填', 'error'); return; }
+      const subSrc = document.getElementById('ppsSubtitleSource').value;
+      const subOrder = document.getElementById('ppsBilingualOrder').value;
       try {
         if (_ppsEditingId) {
-          // Edit mode: PATCH only name + description
+          // Edit mode: PATCH name, description, and subtitle source fields
+          const editingProf = availableProfiles.find(p => p.id === _ppsEditingId);
+          const existingFont = editingProf?.font || activeProfile?.font || {};
           const r = await fetch(`${API_BASE}/api/profiles/${_ppsEditingId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, description }),
+            body: JSON.stringify({
+              name,
+              description,
+              font: { ...existingFont, subtitle_source: subSrc, bilingual_order: subOrder },
+            }),
           });
           if (!r.ok) throw new Error((await r.json()).error || '儲存失敗');
           await fetchProfiles();
@@ -2154,7 +2370,8 @@
           // Create mode: POST cloned activeProfile, then activate
           if (!activeProfile) { showToast('請先啟用一個 Profile', 'error'); return; }
           const { id: _id, created_at: _ca, updated_at: _ua, ...rest } = activeProfile;
-          const body = { ...rest, name, description };
+          const clonedFont = { ...(rest.font || {}), subtitle_source: subSrc, bilingual_order: subOrder };
+          const body = { ...rest, name, description, font: clonedFont };
           const r = await fetch(`${API_BASE}/api/profiles`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2175,16 +2392,21 @@
     }
 
     function openProfileManageModal() {
+      const trigger = document.activeElement;
       _renderProfileManageList();
-      document.getElementById('ppmOverlay').classList.add('open');
+      _openModalWithFocus('ppmOverlay', trigger);
     }
 
     function closeProfileManageModal() {
-      document.getElementById('ppmOverlay').classList.remove('open');
+      _closeModalRestoreFocus('ppmOverlay');
     }
 
     function _renderProfileManageList() {
       const body = document.getElementById('ppmBody');
+      if (!availableProfiles.length) {
+        body.innerHTML = '<div style="padding:12px;color:var(--text-dim);font-size:12px;">未有 Profile，撳「+ 新增」建立第一個</div>';
+        return;
+      }
       const activeId = activeProfile?.id;
       body.innerHTML = availableProfiles.map(p => {
         const isActive = p.id === activeId;
@@ -2223,6 +2445,7 @@
     let _lcEditingId = null;  // null = create mode; id string = edit mode
 
     function openLangConfigCreateModal(prefillId = null) {
+      const trigger = document.activeElement;
       _lcEditingId = prefillId;
       const isEdit = prefillId !== null;
       const existing = isEdit ? availableLanguageConfigs.find(lc => lc.id === prefillId) : null;
@@ -2236,7 +2459,7 @@
       document.getElementById('lcTemp').value = existing?.translation?.temperature ?? 0.1;
       _lcSyncSliderLabels();
       document.getElementById('lcIdError').style.display = 'none';
-      document.getElementById('lcOverlay').classList.add('open');
+      _openModalWithFocus('lcOverlay', trigger);
       // Wire slider labels
       ['lcMaxWords','lcMaxDur','lcBatch','lcTemp'].forEach(id => {
         document.getElementById(id).oninput = _lcSyncSliderLabels;
@@ -2252,7 +2475,7 @@
     }
 
     function closeLangConfigModal() {
-      document.getElementById('lcOverlay').classList.remove('open');
+      _closeModalRestoreFocus('lcOverlay');
       _lcEditingId = null;
     }
 
@@ -2307,12 +2530,13 @@
     }
 
     function openLangConfigManageModal() {
+      const trigger = document.activeElement;
       _renderLangConfigManageList();
-      document.getElementById('lcmOverlay').classList.add('open');
+      _openModalWithFocus('lcmOverlay', trigger);
     }
 
     function closeLangConfigManageModal() {
-      document.getElementById('lcmOverlay').classList.remove('open');
+      _closeModalRestoreFocus('lcmOverlay');
     }
 
     function _renderLangConfigManageList() {
@@ -2389,12 +2613,24 @@
       } catch (e) { showToast('套用失敗', 'error'); }
     }
 
+    let _activatingProfile = false;
     async function activateProfile(id) {
+      if (_activatingProfile) return;  // debounce: ignore overlapping clicks
+      // Block if any file is currently being transcribed or translated
+      const busy = Object.values(uploadedFiles).some(f =>
+        f.status === 'transcribing' || f.translation_status === 'translating'
+      );
+      if (busy) {
+        showToast('有檔案正在處理中，請完成後再切換 Pipeline', 'warning');
+        return;
+      }
+      _activatingProfile = true;
       try {
         await fetch(`${API_BASE}/api/profiles/${id}/activate`, { method: 'POST' });
         await fetchActiveProfile();
         showToast('已切換 Pipeline', 'success');
       } catch (e) { showToast('切換失敗', 'error'); }
+      finally { _activatingProfile = false; }
     }
 
     async function applyAsrModel(name) {
@@ -2455,6 +2691,7 @@
     ];
 
     function openOpenRouterModal() {
+      const trigger = document.activeElement;
       const existingKey = activeProfile?.translation?.api_key || '';
       const existingModel = activeProfile?.translation?.openrouter_model || '';
       const existingReasoning = !!activeProfile?.translation?.openrouter_reasoning;
@@ -2482,12 +2719,12 @@
 
       renderOrHistory();
       renderOrSuggestions();
-      document.getElementById('orOverlay').classList.add('open');
+      _openModalWithFocus('orOverlay', trigger);
       document.getElementById('orModelId').focus();
     }
 
     function closeOpenRouterModal() {
-      document.getElementById('orOverlay').classList.remove('open');
+      _closeModalRestoreFocus('orOverlay');
     }
 
     function toggleOrApiKeyVisibility() {
@@ -2826,7 +3063,7 @@
                 ${s._edited ? '<span class="t-ed">●</span>' : ''}
               </div>
               ${s._en_text ? `<div class="t-en">${escapeHtml(s._en_text)}</div>` : ''}
-              <div class="t-zh">${escapeHtml(s.text || s.zh_text || '')}</div>
+              ${s.zh_text ? `<div class="t-zh">${escapeHtml(s.zh_text)}</div>` : ''}
             </div>`;
         }).join('');
       }
@@ -3088,7 +3325,13 @@
       }
       if (activeIdx >= 0) {
         const s = segments[activeIdx];
-        FontPreview.updateText(s.text || s._en_text || '');
+        const file = uploadedFiles[activeFileId] || null;
+        const mode = resolveSubtitleSource(file, activeProfile);
+        const order = resolveBilingualOrder(file, activeProfile);
+        FontPreview.updateText(pickSubtitleText({
+          en: s._en_text || s.text,
+          zh: s.zh_text || (s._en_text ? s.text : ''),
+        }, mode, order));
       } else {
         FontPreview.updateText('');
       }
@@ -3168,7 +3411,8 @@
               const trans = tData.translations || [];
               const stripQaPrefix = (s) => (s || '').replace(/^\s*(\[LONG\]|\[NEEDS REVIEW\])\s*/g, '').replace(/^\s*(\[LONG\]|\[NEEDS REVIEW\])\s*/g, '');
               for (let i = 0; i < segments.length && i < trans.length; i++) {
-                segments[i].text = stripQaPrefix(trans[i].zh_text) || segments[i]._en_text;
+                segments[i].zh_text = trans[i].zh_text || '';
+                segments[i].text = stripQaPrefix(trans[i].zh_text) || segments[i]._en_text;  // legacy: keep for backward-compat readers
                 segments[i]._approved = trans[i].status === 'approved' || trans[i].approved;
                 segments[i]._edited = trans[i].edited === true;
               }
@@ -3309,6 +3553,86 @@
       } catch (e) { showToast('翻譯失敗', 'error'); }
     }
 
+    async function rerunPipeline(id) {
+      if (!confirm('重新走整條 Pipeline 會清掉現有 segments、譯文、批核狀態，確定？')) return;
+      try {
+        const resp = await fetch(`${API_BASE}/api/files/${encodeURIComponent(id)}/transcribe`, {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({sid: socket?.id || null}),
+        });
+        if (resp.ok) {
+          showToast('重新轉錄已開始，等 ASR + 翻譯完成', 'info');
+          await fetchFileList();
+        } else {
+          const err = await resp.json().catch(() => ({}));
+          showToast(err.error || '重走 Pipeline 失敗', 'error');
+        }
+      } catch (e) { showToast('重走 Pipeline 失敗', 'error'); }
+    }
+
+    // Parse JSON safely; if backend returned HTML (e.g. 405 from an outdated
+    // server), fall back to a meaningful error rather than choking on `<!doctype`.
+    async function _parseJsonOrThrow(r, fallbackMsg) {
+      const text = await r.text();
+      let data = null;
+      try { data = text ? JSON.parse(text) : null; } catch (_) { /* not JSON */ }
+      if (!r.ok) {
+        const apiErr = data && data.error;
+        if (apiErr) throw new Error(apiErr);
+        if (r.status === 405) throw new Error('伺服器未支援呢個操作（請重啟後端 server）');
+        throw new Error(`${fallbackMsg}（HTTP ${r.status}）`);
+      }
+      return data;
+    }
+
+    /* PATCH a file's subtitle_source override and refresh dependent UI.
+       `value` may be 'auto' / 'en' / 'zh' / 'bilingual' / '' (empty means
+       clear the override and fall back to the active profile). */
+    async function setFileSubtitleSource(fileId, value) {
+      try {
+        const r = await fetch(`${API_BASE}/api/files/${encodeURIComponent(fileId)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subtitle_source: value || null }),
+        });
+        const updated = await _parseJsonOrThrow(r, '更新失敗');
+        if (uploadedFiles[fileId]) {
+          uploadedFiles[fileId].subtitle_source = updated.subtitle_source;
+        }
+        renderFileHeader();  // rebuild menu so seg highlights + hrefs refresh
+        const _v = document.getElementById('videoPlayer');
+        if (_v && typeof updateSubtitleOverlay === 'function') {
+          updateSubtitleOverlay(_v.currentTime || 0);
+        }
+        const label = ({en:'原文 EN', zh:'譯文 ZH', bilingual:'雙語', auto:'Auto'})[value] || '跟 Profile';
+        showToast(`字幕來源：${label}`, 'success');
+      } catch (e) {
+        showToast(`更新失敗: ${e.message}`, 'error');
+      }
+    }
+
+    async function setFileBilingualOrder(fileId, value) {
+      try {
+        const r = await fetch(`${API_BASE}/api/files/${encodeURIComponent(fileId)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bilingual_order: value }),
+        });
+        await _parseJsonOrThrow(r, '更新失敗');
+        if (uploadedFiles[fileId]) {
+          uploadedFiles[fileId].bilingual_order = value;
+        }
+        renderFileHeader();
+        const _v = document.getElementById('videoPlayer');
+        if (_v && typeof updateSubtitleOverlay === 'function') {
+          updateSubtitleOverlay(_v.currentTime || 0);
+        }
+        showToast(`雙語次序：${value === 'en_top' ? 'EN 上 / ZH 下' : 'ZH 上 / EN 下'}`, 'success');
+      } catch (e) {
+        showToast(`更新失敗: ${e.message}`, 'error');
+      }
+    }
+
     function jumpToProofread() {
       if (activeFileId && !uploadedFiles[activeFileId]?._local) {
         window.location.href = `proofread.html?file_id=${activeFileId}`;
@@ -3331,6 +3655,7 @@
     }
 
     function openRenderModal(fileId, initialFormat) {
+      const trigger = document.activeElement;
       renderModalState.fileId = fileId;
       renderModalState.currentRenderId = null;
       renderModalState.pendingDownload = null;
@@ -3339,7 +3664,9 @@
       document.getElementById('rmStatus').classList.remove('visible', 'error', 'success');
       document.getElementById('rmConfirmBtn').disabled = false;
       document.getElementById('rmConfirmBtn').textContent = '開始渲染';
-      document.getElementById('renderOverlay').classList.add('open');
+      const cancelBtn = document.getElementById('rmCancelBtn');
+      if (cancelBtn) cancelBtn.style.display = 'none';
+      _openModalWithFocus('renderOverlay', trigger);
 
       // Wire up slider live labels (idempotent — addEventListener dedup via dataset flag)
       const bindSliderLabel = (sliderId, labelId, formatFn) => {
@@ -3357,11 +3684,24 @@
 
       // Reset MP4 mode to CRF every time the modal opens
       selectMp4BitrateMode('crf');
+
+      // Pre-fill subtitle source from file preference (fall back to '' = "follow file/profile")
+      const f = uploadedFiles[fileId];
+      const fileOrder = f?.bilingual_order || activeProfile?.font?.bilingual_order || 'en_top';
+      document.getElementById('rmSubtitleSource').value = '';
+      document.getElementById('rmBilingualOrder').value = fileOrder;
+      document.getElementById('rmBilingualOrder').style.display = 'none';
     }
 
     function closeRenderModal() {
       renderModalState.awaitingApprovalConfirm = false;
-      document.getElementById('renderOverlay').classList.remove('open');
+      _closeModalRestoreFocus('renderOverlay');
+    }
+
+    function rmOnSourceChange() {
+      const src = document.getElementById('rmSubtitleSource').value;
+      document.getElementById('rmBilingualOrder').style.display =
+        (src === 'bilingual') ? '' : 'none';
     }
 
     function selectRenderFormat(format) {
@@ -3457,9 +3797,17 @@
       const { fileId, format } = renderModalState;
       if (!fileId) { showToast('未選擇檔案', 'error'); return; }
 
+      // Resolve effective subtitle_source ahead of the approval gate so EN-only
+      // renders skip it (matches backend gate at app.py:2009 — approval is a ZH concept).
+      const _rmSrc = document.getElementById('rmSubtitleSource')?.value || '';
+      const _resolvedSrc = resolveSubtitleSource(
+        { subtitle_source: _rmSrc || uploadedFiles[fileId]?.subtitle_source || null },
+        activeProfile,
+      );
+
       // If unapproved segments exist, show inline confirm box instead of rendering.
       // awaitingApprovalConfirm guards against re-triggering after approve-all updates local state.
-      if (!renderModalState.awaitingApprovalConfirm) {
+      if (!renderModalState.awaitingApprovalConfirm && _resolvedSrc !== 'en') {
         const f = uploadedFiles[fileId];
         const approved = f?.approved_count ?? 0;
         const total = f?.segment_count ?? 0;
@@ -3476,10 +3824,15 @@
       setRmStatus('開始渲染，請稍候…', 'info');
 
       const render_options = buildRenderOptions(format);
+      const src = document.getElementById('rmSubtitleSource')?.value || '';
+      const order = document.getElementById('rmBilingualOrder')?.value || '';
+      const reqBody = { file_id: fileId, format, render_options };
+      if (src) reqBody.subtitle_source = src;
+      if (src === 'bilingual' && order) reqBody.bilingual_order = order;
       try {
         const r = await fetch(`${API_BASE}/api/render`, {
           method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ file_id: fileId, format, render_options }),
+          body: JSON.stringify(reqBody),
         });
         if (!r.ok) {
           let msg = `HTTP ${r.status}`;
@@ -3487,7 +3840,14 @@
           throw new Error(msg);
         }
         const data = await r.json();
+        if (data.warning_missing_zh && data.warning_missing_zh > 0) {
+          const _warnMsg = `⚠ ${data.warning_missing_zh} 段未翻譯，會用英文原文替代渲染`;
+          showToast(_warnMsg, 'warning');
+          setRmStatus(_warnMsg, 'info');
+        }
         renderModalState.currentRenderId = data.render_id;
+        const cancelBtn = document.getElementById('rmCancelBtn');
+        if (cancelBtn) cancelBtn.style.display = '';
         pollRender(data.render_id);
       } catch (e) {
         setRmStatus(`渲染失敗：${e.message}`, 'error');
@@ -3499,6 +3859,16 @@
       const poll = setInterval(async () => {
         try {
           const r = await fetch(`${API_BASE}/api/renders/${renderId}`);
+          if (!r.ok) {
+            // Backend returned non-2xx (e.g. 500) — stop polling and surface error.
+            clearInterval(poll);
+            let errMsg = `HTTP ${r.status}`;
+            try { const d = await r.json(); if (d.error) errMsg = d.error; } catch (_) {}
+            setRmStatus(`渲染狀態查詢失敗：${errMsg}`, 'error');
+            document.getElementById('rmConfirmBtn').disabled = false;
+            document.getElementById('rmConfirmBtn').textContent = '重試';
+            return;
+          }
           const d = await r.json();
           if (d.status === 'done') {
             clearInterval(poll);
@@ -3511,14 +3881,54 @@
             const btn = document.getElementById('rmConfirmBtn');
             btn.disabled = false;
             btn.textContent = '💾 儲存檔案';
+            const cb = document.getElementById('rmCancelBtn');
+            if (cb) cb.style.display = 'none';
+          } else if (d.status === 'cancelled') {
+            clearInterval(poll);
+            setRmStatus('已取消', 'info');
+            document.getElementById('rmConfirmBtn').disabled = false;
+            document.getElementById('rmConfirmBtn').textContent = '重試';
+            const cb = document.getElementById('rmCancelBtn');
+            if (cb) cb.style.display = 'none';
           } else if (d.status === 'error') {
             clearInterval(poll);
             setRmStatus(`渲染失敗：${d.error || '未知錯誤'}`, 'error');
             document.getElementById('rmConfirmBtn').disabled = false;
             document.getElementById('rmConfirmBtn').textContent = '重試';
+            const cb = document.getElementById('rmCancelBtn');
+            if (cb) cb.style.display = 'none';
           }
-        } catch (e) { clearInterval(poll); }
+        } catch (e) {
+          clearInterval(poll);
+          setRmStatus(`渲染狀態查詢失敗：${e.message || '網絡錯誤'}`, 'error');
+          document.getElementById('rmConfirmBtn').disabled = false;
+          document.getElementById('rmConfirmBtn').textContent = '重試';
+          const cb = document.getElementById('rmCancelBtn');
+          if (cb) cb.style.display = 'none';
+        }
       }, 1500);
+    }
+
+    async function cancelCurrentRender() {
+      const id = renderModalState.currentRenderId;
+      if (!id) return;
+      try {
+        const r = await fetch(`${API_BASE}/api/renders/${id}`, { method: 'DELETE' });
+        if (r.ok) {
+          showToast('已取消渲染', 'success');
+          setRmStatus('已取消', 'info');
+          const cb = document.getElementById('rmCancelBtn');
+          if (cb) cb.style.display = 'none';
+          const btn = document.getElementById('rmConfirmBtn');
+          btn.disabled = false;
+          btn.textContent = '重試';
+        } else {
+          const err = await r.json().catch(() => ({}));
+          showToast(`取消失敗：${err.error || '未知錯誤'}`, 'error');
+        }
+      } catch (e) {
+        showToast(`取消失敗：${e.message || '網絡錯誤'}`, 'error');
+      }
     }
 
     /**
@@ -3743,10 +4153,13 @@
     // ============================================================
     // API fetches
     // ============================================================
+    let _fileListErrorShown = false;
     async function fetchFileList() {
       try {
         const r = await fetch(`${API_BASE}/api/files`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
+        _fileListErrorShown = false;
         const prevActive = activeFileId ? uploadedFiles[activeFileId] : null;
         const newFiles = {};
         for (const f of data.files) newFiles[f.id] = f;
@@ -3755,18 +4168,30 @@
         if (prevActive && !newFiles[prevActive.id]) newFiles[prevActive.id] = prevActive;
         uploadedFiles = newFiles;
         renderAll();
-      } catch (e) {}
+      } catch (e) {
+        // Show toast once per outage (suppress spam from polling loops).
+        if (!_fileListErrorShown) {
+          _fileListErrorShown = true;
+          showToast(`無法連接後端伺服器：${e.message || '網絡錯誤'}`, 'error');
+        }
+      }
     }
 
     async function fetchActiveProfile() {
+      const stripEl = document.getElementById('pipelineStrip');
+      if (stripEl) stripEl.dataset.loading = '1';
       try {
         const r = await fetch(`${API_BASE}/api/profiles/active`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
         activeProfile = data.profile;
         if (activeProfile?.font) fontConfig = { ...fontConfig, ...activeProfile.font };
         renderAll();
         applySubtitleStyle();
       } catch (e) {}
+      finally {
+        if (stripEl) delete stripEl.dataset.loading;
+      }
     }
 
     async function fetchProfiles() {
@@ -3807,8 +4232,12 @@
       zone.addEventListener('drop', e => {
         e.preventDefault();
         zone.classList.remove('drag');
-        const file = e.dataTransfer.files[0];
-        if (file) setPendingFile(file);
+        const dropped = Array.from(e.dataTransfer.files || []);
+        if (!dropped.length) return;
+        if (dropped.length > 1) {
+          showToast(`目前只支援一次處理一個檔案，已揀第一個（${dropped.length - 1} 個被略過）`, 'warning');
+        }
+        setPendingFile(dropped[0]);
       });
     })();
 
@@ -3855,6 +4284,24 @@
     if (typeof FontPreview !== 'undefined') FontPreview.init(socket);
     fetchActiveProfile().then(fetchProfiles).then(fetchLanguageConfigs).then(fetchGlossaries).then(fetchFileList);
     renderAll();
+
+    // Esc closes the topmost open modal — keyboard accessibility.
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      // Don't intercept when user is typing in a textarea (multi-line edit).
+      if (e.target && e.target.tagName === 'TEXTAREA') return;
+      const closers = [
+        ['renderOverlay', closeRenderModal],
+        ['orOverlay', () => _closeModalRestoreFocus('orOverlay')],
+        ['ppsOverlay', () => closeProfileSaveModal()],
+        ['ppmOverlay', () => closeProfileManageModal()],
+        ['lcmOverlay', () => closeLangConfigManageModal()],
+        ['lcOverlay', () => closeLangConfigModal()],
+      ];
+      for (const [id, close] of closers) {
+        if (document.getElementById(id)?.classList.contains('open')) { close(); e.preventDefault(); return; }
+      }
+    });
   </script>
 
   <!-- Language Config Create / Edit Modal -->
@@ -3948,6 +4395,25 @@
                    style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--surface-2);color:var(--text);">
           </label>
           <div id="ppsSummary" style="font-size:11px;color:var(--text-dim);background:var(--surface-2);padding:10px 12px;border-radius:4px;line-height:1.6;font-family:var(--font-mono);"></div>
+          <fieldset style="border:1px solid var(--border);border-radius:6px;padding:10px 14px;">
+            <legend style="font-size:11px;color:var(--text-dim);padding:0 6px;">字幕來源預設</legend>
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;margin:6px 0;">
+              預設模式
+              <select id="ppsSubtitleSource" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface-2);color:var(--text);">
+                <option value="auto">Auto（智能切換）</option>
+                <option value="en">EN 原文</option>
+                <option value="zh">ZH 譯文</option>
+                <option value="bilingual">雙語</option>
+              </select>
+            </label>
+            <label id="ppsBilingualOrderRow" style="display:none;flex-direction:column;gap:4px;font-size:12px;margin:6px 0;">
+              雙語次序
+              <select id="ppsBilingualOrder" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface-2);color:var(--text);">
+                <option value="en_top">EN 上 / ZH 下</option>
+                <option value="zh_top">ZH 上 / EN 下</option>
+              </select>
+            </label>
+          </fieldset>
         </div>
       </div>
       <div class="or-foot" style="display:flex;justify-content:flex-end;gap:8px;padding:12px 20px;">

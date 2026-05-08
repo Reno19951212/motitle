@@ -226,7 +226,8 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | POST | `/api/transcribe` | Upload + async transcription → auto-translate |
 | GET | `/api/files` | List all uploaded files with status |
 | GET | `/api/files/<id>/media` | Serve original media file |
-| GET | `/api/files/<id>/subtitle.<fmt>` | Download subtitle (srt/vtt/txt) |
+| GET | `/api/files/<id>/subtitle.<fmt>` | Download subtitle (srt/vtt/txt)；接 `?source=` + `?order=` query params |
+| PATCH | `/api/files/<id>` | Update file-level settings (subtitle_source / bilingual_order) |
 | GET | `/api/files/<id>/segments` | Get transcription segments |
 | PATCH | `/api/files/<id>/segments/<seg_id>` | Update segment text |
 | DELETE | `/api/files/<id>` | Delete file |
@@ -261,10 +262,13 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | GET | `/api/files/<id>/translations` | Get translations with approval status |
 | PATCH | `/api/files/<id>/translations/<idx>` | Update translation text (auto-approve) |
 | POST | `/api/files/<id>/translations/<idx>/approve` | Approve single translation |
+| POST | `/api/files/<id>/translations/<idx>/unapprove` | Flip a single translation back to `pending` |
 | POST | `/api/files/<id>/translations/approve-all` | Approve all pending |
 | GET | `/api/files/<id>/translations/status` | Get approval progress |
-| POST | `/api/render` | Start subtitle burn-in render job (format: `mp4` / `mxf` / `mxf_xdcam_hd422`) |
+| POST | `/api/render` | Start subtitle burn-in render job (format: `mp4` / `mxf` / `mxf_xdcam_hd422`)；接 `subtitle_source` + `bilingual_order`；response 含 `warning_missing_zh` |
 | GET | `/api/renders/<id>` | Check render job status |
+| DELETE | `/api/renders/<id>` | Cancel an in-flight render job (sets `cancelled` flag, status flips to `'cancelled'` on completion) |
+| GET | `/api/renders/in-progress` | List active render jobs (optional `?file_id=` filter) — used by Proofread page to re-attach after reload |
 | GET | `/api/renders/<id>/download` | Download rendered file |
 
 ### Frontend
@@ -292,6 +296,28 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 - **ASREngine** 必須實現：`transcribe()`, `get_info()`, `get_params_schema()`
 - **TranslationEngine** 必須實現：`translate()`, `get_info()`, `get_params_schema()`, `get_models()`
 
+### Validation-First Mode（修改 ASR / MT 必須遵守）
+
+**任何涉及後端 ASR 引擎或翻譯引擎（MT, machine translation）嘅改動，必須先做 Validation-First 驗證，confirm empirical evidence 之後先寫 plan + 落代碼。** 唔可以憑感覺直接 ship。
+
+**範圍涵蓋：**
+- `backend/asr/*.py`（ASR engine ABC、Whisper / mlx-whisper / Qwen3-ASR / FLG / segment_utils）
+- `backend/translation/*.py`（TranslationEngine ABC、Ollama / OpenRouter / Mock / sentence_pipeline / alignment_pipeline / post_processor）
+- `backend/language_config.py` 嘅 `asr` / `translation` block
+- Profile JSON 嘅 `asr` / `translation` block schema 變動
+- 翻譯 prompt template 改動
+- Char cap / segmentation algorithm（包括 split_segments、redistribute、line wrap 嘅 cap）
+
+**Workflow（強制）：**
+1. **每個假設逐個驗證** — 寫小型 prototype script 跑出量化結果（量度 char distribution / follow rate / hallucination rate / 等）
+2. **記錄結果** — 結果寫入 `docs/superpowers/specs/YYYY-MM-DD-validation-tracker.md`，標 ✅ Validated / ❌ Rejected / ⚠️ Partial
+3. **Confirm 之後** — 通過 user review 之後先進入 brainstorming → spec → plan
+4. **Production stack 對齊** — 驗證測試使用同 production 一致嘅 model（ASR: mlx-whisper medium；MT: OpenRouter `qwen/Qwen3.5-35B-A3B`），唔可以用更細 model 推斷 production 行為（細 model 結論可作 directional reference 但唔可作為 production 決策依據）
+
+**之前累積嘅 validation evidence：**
+- v3.8 line-wrap 嘅 V0-V3 完整 11 項 empirical validation：[docs/superpowers/specs/2026-04-30-validation-tracker.md](docs/superpowers/specs/2026-04-30-validation-tracker.md)、[2026-04-30-line-wrap-design.md](docs/superpowers/specs/2026-04-30-line-wrap-design.md)
+- 已 reject 嘅方案（max_new_tokens cap、jieba 切繁體、pre-segment + per-cue translate、Direct subtitle JSON）— 任何將來方案如果踩返同樣 trap，要 cite 返已知 evidence 解釋點解仍要 retry，否則直接 reject
+
 ### Verification Gates
 
 每個功能完成後必須通過 4 個 gate（詳見 `docs/PRD.md` 第 6 節）：
@@ -314,6 +340,47 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### v3.8 — Chinese ASR Quality (initial_prompt + s2hk + cascade fix)
+- **問題**：用 mlx-whisper `language="zh"` 處理粵語廣播片時三重問題：(1) 頭幾秒嘅 training-data hallucination — 例如「中文字幕由 XXX 提供」、「粟米片」、「猫,超喜欢猫」等隨機 token 出現喺實際 audio 之前 30 秒（因為 Whisper 對非語音音訊冇處理，跌入 high-frequency training token mode）；(2) 預設輸出**簡體中文**（Whisper 中文 corpus 偏 Mandarin）；(3) **連環重複 hallucination** — 156 段入面 53 段（34%）係前段嘅原文重複，因為 ZH profile 仲開 `condition_on_previous_text=true`，decoder 將前段嘅輸出當 prompt 餵回去，唔出新內容。**呢個正係之前 EN profile 已經修咗嘅 cascade bug，但 ZH profile 一直冇 update**。Cascade 期間真實 speech content 永久遺失。
+- **`initial_prompt` 暴露入 ASR engine wrapper**：mlx-whisper（[backend/asr/mlx_whisper_engine.py](backend/asr/mlx_whisper_engine.py)）同 faster-whisper / openai-whisper（[backend/asr/whisper_engine.py](backend/asr/whisper_engine.py)）兩條路徑都加 `initial_prompt` config 欄位，配合 schema entry 喺 Profile 動態參數面板顯示。Empty string 自動 normalize 做 `None`（避免空 prompt 干擾 decoder）。Prompt 三重作用：(a) 提供 context anchor 防 head hallucination；(b) prompt 用繁體字寫 → bias decoder 偏向繁體 token；(c) 提示主題（例如「香港賽馬新聞」改善專名識別）。
+- **`asr.simplified_to_traditional` flag + OpenCC s2hk 後處理**：[backend/config/languages/zh.json](backend/config/languages/zh.json) 加 `"simplified_to_traditional": true`；[backend/language_config.py](backend/language_config.py) `_validate()` 強制 boolean 類型；[backend/asr/cn_convert.py](backend/asr/cn_convert.py) 新 module 用 `opencc-python-reimplemented`（已喺 requirements）做 simplified→Hong Kong Traditional 轉換。Module-level cache 避免每段重新 load OpenCC config dict。Pipeline 接駁位：[backend/app.py](backend/app.py) `transcribe_with_segments()` 入面，喺 `merge_short_segments()` 之後 conditional apply（flag false 時完全冇 import overhead）。Word-level timestamps 入面 `words[].word` 都會跟住轉換，DTW 對齊保持一致。
+- **驗證樣本**：`这天新10磅仔袁幸尧出席记者会` → `這天新10磅仔袁幸堯出席記者會`（袁幸尧 → 袁幸堯 係 HK style 標準轉法）；`我们为了国家` → `我們為了國家`。Immutable transformation：原 list 唔被修改、返回新 list。
+- **修復目標 Profile**：[backend/config/profiles/b877d8b5-...json](backend/config/profiles/b877d8b5-5c44-46d9-af74-bf6367eb51c0.json) — `condition_on_previous_text: true → false` + 加 `"initial_prompt": "以下係香港賽馬新聞，繁體中文。"`
+- **15 個新 tests**：7 個 [test_cn_convert.py](backend/tests/test_cn_convert.py)（基本轉換 / 不變性 / 時間欄位保留 / 空文本 pass-through / word-level 轉換 / 通用 glyphs / 緩存）+ 6 個 [test_asr.py](backend/tests/test_asr.py)（mlx schema、whisper schema、faster-whisper kwarg forwarding、None 默認、空字串 normalize、openai-whisper path）+ 2 個 [test_language_config.py](backend/tests/test_language_config.py)（s2t boolean 驗證 / true & false 持久化）；改 1 個既有 test 兼容新 `initial_prompt=None` kwarg。
+- **510 backend tests pass**（baseline 495 + 15 new；唯一失敗仍係 v3.3 已存在嘅 macOS tmpdir colon-escape test）。
+- **未做**：VAD filter（mlx-whisper 冇 built-in，需 silero-vad 或者 faster-whisper hybrid）— 預期 `initial_prompt` 已經解 80% 頭 hallucination，VAD 係 marginal improvement，留待用戶報告為準。
+
+### v3.8 — MT Single-Segment Mode (Strategy E, `batch_size=1`)
+- **問題**：Batched translation（default `batch_size=10`）將相鄰 EN segments 一齊餵畀 LLM，LLM 做 sentence-level 翻譯然後 redistribute 落各行，引致：(a) **錯位**（極端例子：`Italian side Como.` 段嘅 ZH 變咗 `沃爾夫斯堡的穆罕默德·阿莫拉速度如閃電般迅捷。`，係下一段嘅內容），(b) **Bloat**（`it will not be an easy search.` 變 `因此，車路士要物色到合適的中場人選，將是一項艱鉅任務。` — 加咗主語、連接詞、文學形容詞），(c) **相鄰段重複**（兩段都重複介紹同一個球員）
+- **`OllamaTranslationEngine` 新增 single-segment 路徑**：當 `batch_size=1` 時，bypass 既有 batched flow，每段獨立發送 LLM 請求，無 neighbour context、無 cross-segment redistribution，guarantee 1:1 對齊
+- **新 `SINGLE_SEGMENT_SYSTEM_PROMPT`**：精簡規則 — 中文字數 0.4–0.7× EN、禁止加任何外部資訊、即使原文片段譯文亦要係可朗讀子句、單行直接輸出。內含 6 個 in-context example 包括 problematic case (`Italian side Como.`、`it will not be an easy search.`)
+- **`_translate_single()` 同 `_translate_single_mode()` helper**：sequential 或 parallel（透過 `parallel_batches`）派送單段請求；空 EN 直接返回空譯文，唔 call LLM；glossary 按 per-segment EN 過濾（唔再對成個 batch）
+- **`_parse_single_response()`**：strip `譯文：` / `中文：` / `Translation:` 前綴，取第一行非空輸出
+- **`Pass 2 enrichment` 仍然兼容**：`translation_passes: 2` 喺 single-mode 之後一樣可以行，逐段 enrich
+- **Empirical validation**（22 段問題段，Real Madrid clip）：
+  - 平均 ZH/EN ratio 由 0.61 → 0.31（達標 0.4–0.7 區間）
+  - Bloat (>0.85) 由 3/22 → **0/22**
+  - 嚴重錯位（#102 Como）：完全解決，`Italian side Como.` 譯做 `意甲球會科莫。`（perfect 1:1）
+  - 相鄰重複（#50/#51 Tchouameni）：完全解決，名只出現一次
+  - 速度：22 段 7.9s = 0.36s/seg；推算 115 段 ~41s（< 1 分鐘）
+- **EN language config default 改為 `batch_size: 1`**（廣播質量優先；用戶想快可以調返高）；ZH config 保持 `batch_size: 8`（中文翻譯 cross-segment 漂移問題冇 EN 咁明顯）
+- **5 個新 unit test**：dispatch verification、label-prefix stripping、empty-text skip、per-segment glossary filter、batch>1 path 確認唔 trigger single-mode
+- **既有 sliding-window test 更新**：原本用 `batch_size=1` 做 forcing function 來測 cross-batch context；改用 `batch_size=2` + 4 segments 改為 force 2 batches，繼續 cover sliding window 邏輯
+- **495 automated tests pass**（baseline 489 + 5 新 single-mode + 1 修改嘅 sliding-window）
+
+### v3.8 — ASR Sentence-Fragment Cleanup (`merge_short_segments`)
+- **問題**：即使 `condition_on_previous_text=false` 解決咗 Whisper 級聯 hallucination，mlx-whisper large-v3 仍然會喺 sentence boundary / 短停頓位置產出 1–2 字嘅孤兒 fragment（例如：`'a'` / `'Tchouameni.'` / `'settle.'`），燒入字幕只顯示 0.3 秒，肉眼幾乎讀唔到，亦浪費翻譯 token
+- **`asr/segment_utils.py` 新增 `merge_short_segments()`**：句子標點啟發式 — 短 segment 以 `.!?` 結尾 → 視為句尾 → backward merge 入上一段；唔以標點結尾 → 視為句頭 → forward merge 入下一段。Iterative loop（max 3 passes）直至穩定，idempotent
+- **守門條件**：(a) 時間 gap > `merge_short_max_gap` 秒就跳過（預設 0.5s，避免跨越長停頓）；(b) 合併後字數會超過 `max_words_per_segment` cap 就跳過；(c) `merge_short_max_words=0` 等於停用 merge（zh.json 預設停用，因英文標點 `.!?` 唔覆蓋中文 `。！？`）
+- **Word-level timestamp preservation**：當兩邊都有 DTW alignment `words` field，merge 時 concatenate，唔遺失粒度
+- **Pipeline 接駁位**：`transcribe_with_segments()` 入面 chain 喺 `split_segments()` 之後 — `split` 拆長、`merge` 合短，互補
+- **Language config schema**：[en.json](backend/config/languages/en.json) / [zh.json](backend/config/languages/zh.json) 加兩個 knob — `merge_short_max_words`（int 0–10，0=停用）+ `merge_short_max_gap`（float 0–10s）；[language_config.py](backend/language_config.py) `_validate()` 範圍檢查
+- **EN default 啟用**（`merge_short_max_words: 2`、`merge_short_max_gap: 0.5`），ZH default **停用**（`merge_short_max_words: 0`，等中文標點支援之後再 enable）
+- **Validation evidence**：File `e5e33353fb3e`（Real Madrid clip）— ASR 輸出 118 segments / 3 個 ≤2-word fragment → merge 後 115 segments / 0 fragments，3 段全部讀通；synthetic 8 個 edge case（gap、cap、chained shorts、首尾 boundary、disable、idempotent、empty）全過
+- **11 個新 unit test**（`test_segment_utils.py::test_merge_*`）— 涵蓋雙向、跳過守門、鏈式 loop、word timestamp、disable、idempotency、empty input
+- **289+11 = 489 automated tests pass**（baseline 478，+11 new；保留 1 個 v3.3 已知 macOS tmpdir colon-escape failure）
+- 設計文件：[docs/superpowers/specs/2026-05-08-merge-short-segments-design.md](docs/superpowers/specs/2026-05-08-merge-short-segments-design.md)
+
 ### v3.0 — Modular Engine Selection (進行中)
 - **引擎模塊化**: ASR 同翻譯引擎可獨立選擇、獨立配置，唔綁定 Profile
 - **引擎參數 API**: 每個引擎提供 param schema + 可用模型列表
@@ -333,6 +400,17 @@ Whenever a new feature is completed or existing functionality is modified, you *
 - **Proofread 兩個新 Panel**: 影片預覽下方加入「詞彙表對照」+「字幕設定」兩個 panel。詞彙表 panel 支援從所有 glossary 中選擇、查看/新增/編輯條目（inline）；字幕設定 panel 直接編輯 active profile 嘅 font config（字型、大小、顏色、輪廓、邊距），500ms debounce 後自動 PATCH，透過 Socket.IO 即時更新 overlay
 - **Glossary Apply（LLM 智能替換）**: Proofread page 詞彙表 panel 新增「套用」按鈕。Two-phase 流程：(1) `POST /api/files/<id>/glossary-scan` 用純字串匹配搵出違規（EN 包含 glossary term 但 ZH 唔包含對應翻譯）；(2) 預覽 modal 俾用戶剔選 violations（未批核預設勾選，已批核預設唔勾選）；(3) `POST /api/files/<id>/glossary-apply` 逐條調用 Ollama LLM 做智能替換（保留句子其他部分），多個違規同一 segment 時序列處理。後端會驗證 `(term_en, term_zh)` 確實屬於指定 glossary，錯誤訊息經 `app.logger.exception` 記錄並返回統一 `"LLM request failed"` 俾 client
 - **304 automated tests**（+13 new: glossary-scan/apply 端到端 coverage，包含 sequential chaining、term validation、approval 狀態保留）
+
+### v3.7 — Subtitle Source Mode (per-file EN / ZH / Bilingual)
+- **`backend/subtitle_text.py`**: 新 module，shared resolver `resolve_segment_text(seg, mode, order, line_break)` + `strip_qa_prefixes` + `resolve_subtitle_source` / `resolve_bilingual_order` 三層 fallback helper（render-modal override > file > profile > `auto`）
+- **`renderer.generate_ass()`**: 加 `subtitle_source` + `bilingual_order` keyword-only kwargs，default `auto`/`en_top`，預設行為同 v3.6 一樣
+- **`POST /api/render`**: body 接 `subtitle_source` + `bilingual_order`；response 加 `warning_missing_zh`（zh-mode 缺 ZH 嘅段數，>0 時前端彈 amber toast）；`subtitle_source: "en"` 時跳過 approval gate（approval 係 ZH 概念）
+- **`GET /api/files/<id>/subtitle.{srt,vtt,txt}`**: 加 `?source=` + `?order=` query param；冇就 fall back file → profile → auto；merge segments+translations 後過 resolver；line break 用 raw `\n`（ASS 用 `\\N`）
+- **`PATCH /api/files/<id>`**: 接 `subtitle_source` + `bilingual_order`，`null` 清 override；validate enum
+- **`PATCH /api/profiles/<id>`**: `font.subtitle_source` + `font.bilingual_order` 通過 `_validate_font` 驗證；新增可選 profile font 欄位：`font.subtitle_source`（`auto`/`en`/`zh`/`bilingual`）+ `font.bilingual_order`（`en_top`/`zh_top`）
+- **Frontend**: file card mini dropdown（每個檔案獨立 override）、proofread header dropdown、render modal source override row、Profile save modal 新 fieldset（preset 字幕來源）；`pickSubtitleText` JS helper mirror backend resolver；dashboard overlay 同 proofread overlay 共用同一 resolver path
+- **22 個 backend pytest**（helper / renderer / route / export / patch）+ **6 個 Playwright scenario** 全綠
+- **469/481 backend tests pass**（12 pre-existing unrelated failures：11 Playwright E2E 需 browser、1 v3.3 macOS tmpdir colon-escape test）
 
 ### v3.6 — Live Preview / Burnt-in Output Fidelity (Phase 2 — font asset parity)
 - **Background**：v3.5 將 overlay 換成 SVG `paint-order` 解決咗描邊幾何同 scaling math 兩個 fidelity gap，但 v3.5 結尾留低嘅最大缺口係 **glyph 本身**：browser 揀字行 OS font fallback chain，libass 行 fontconfig，兩邊揀到嘅可能根本唔係同一個 cut（甚至唔同 family）。Phase 2 將同一份 TTF/OTF 同時餵畀兩邊。

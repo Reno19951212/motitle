@@ -16,6 +16,11 @@ MIN_BATCH_SIZE = 1
 MAX_BATCH_SIZE = 50
 MIN_TEMPERATURE = 0.0
 MAX_TEMPERATURE = 2.0
+# merge_short_segments — Whisper sentence-fragment cleanup
+MIN_MERGE_SHORT_WORDS = 0   # 0 disables merging entirely
+MAX_MERGE_SHORT_WORDS = 10
+MIN_MERGE_SHORT_GAP = 0.0
+MAX_MERGE_SHORT_GAP = 10.0
 
 
 class LanguageConfigManager:
@@ -144,6 +149,32 @@ class LanguageConfigManager:
                 f"asr.max_segment_duration must be a number between "
                 f"{MIN_MAX_DURATION} and {MAX_MAX_DURATION}"
             )
+
+        msw = asr.get("merge_short_max_words")
+        if msw is not None and (
+            not isinstance(msw, int) or isinstance(msw, bool)
+            or msw < MIN_MERGE_SHORT_WORDS or msw > MAX_MERGE_SHORT_WORDS
+        ):
+            errors.append(
+                f"asr.merge_short_max_words must be an integer between "
+                f"{MIN_MERGE_SHORT_WORDS} and {MAX_MERGE_SHORT_WORDS} "
+                f"(0 = disable merging)"
+            )
+
+        msg = asr.get("merge_short_max_gap")
+        if msg is not None and (
+            isinstance(msg, bool)
+            or not isinstance(msg, (int, float))
+            or msg < MIN_MERGE_SHORT_GAP or msg > MAX_MERGE_SHORT_GAP
+        ):
+            errors.append(
+                f"asr.merge_short_max_gap must be a number between "
+                f"{MIN_MERGE_SHORT_GAP} and {MAX_MERGE_SHORT_GAP} seconds"
+            )
+
+        s2t = asr.get("simplified_to_traditional")
+        if s2t is not None and not isinstance(s2t, bool):
+            errors.append("asr.simplified_to_traditional must be a boolean")
 
         bs = trans.get("batch_size")
         if bs is not None and (

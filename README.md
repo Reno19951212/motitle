@@ -10,6 +10,7 @@
 |------|------|
 | 📁 **文件上傳與管理** | 拖放或選擇影片/音頻，支援 MP4、MOV、AVI、MKV、WebM、MXF 等格式 |
 | 🤖 **英文語音轉錄** | Whisper ASR 自動將英文語音轉為英文文字（支援 faster-whisper 加速，以及 Apple Silicon 嘅 MLX-Whisper） |
+| 🇭🇰 **粵語/中文語音轉錄** | Whisper ASR 中文模式 + `initial_prompt` 防 head hallucination + OpenCC `s2hk` 自動轉繁體（HK style）。可逐 Profile 設定 `initial_prompt`（例如「香港賽馬新聞」提示主題） |
 | 🌐 **中文翻譯** | 三種選擇：本地 Ollama + Qwen2.5/3.5、Ollama Cloud、或 **OpenRouter**（Claude / GPT-4o / Gemini / DeepSeek 等 9 款 frontier models，用戶可自訂任何 OpenRouter model id） |
 | 🎯 **翻譯質素調校** | 四種模式：傳統 batch → sentence pipeline → LLM-anchored alignment → 兩次 pass enrichment。詳見「翻譯質素調校」章節 |
 | 📖 **術語表管理** | 自訂英中術語對照表，確保專業名詞翻譯一致（支援 CSV 匯入/匯出、一鍵 LLM 智能替換） |
@@ -349,10 +350,16 @@ ollama signin
 
 | 參數 | 說明 | 預設值 (EN) |
 |------|------|------------|
-| `max_words_per_segment` | ASR 每段最大字數 | 40 |
-| `max_segment_duration` | ASR 每段最大時長（秒） | 10.0 |
-| `batch_size` | 翻譯批次大小 | 10 |
-| `temperature` | 翻譯隨機度 | 0.1 |
+| `max_words_per_segment` | ASR 每段最大字數 | 12 |
+| `max_segment_duration` | ASR 每段最大時長（秒） | 60.0 |
+| `merge_short_max_words` | 合併「短 segment」嘅字數門檻（≤ 此字數視為短，0 = 停用） | 2 |
+| `merge_short_max_gap` | 合併嘅時間 gap 容忍度（秒，超過唔合併） | 0.5 |
+| `batch_size` | 翻譯批次大小（**1 = 單段模式**，廣播質量優先；> 1 = 批次模式，速度優先） | 1 |
+| `temperature` | 翻譯隨機度 | 0.0 |
+
+> **`merge_short_*` 用途**（v3.8 新增）：Whisper 偶爾喺句子邊界生成單字 segment（如 `'a'`、`'settle.'`），燒入字幕只顯示 0.3 秒。後處理會用句子標點啟發式合返去鄰居 — 以 `.!?` 結尾 → 合上一段尾；唔以標點結尾 → 合下一段頭。中文配置（zh.json）預設 `merge_short_max_words: 0` 停用，因為現時只支援英文標點，中文 `。！？` 支援將來加。
+
+> **`batch_size: 1` 單段模式**（v3.8 新增）：每個 ASR segment 獨立發送畀 LLM 翻譯，無 neighbour context。解決 batched mode 嘅三類問題：(1) 跨段內容錯位（一段嘅 ZH 變咗鄰段嘅內容），(2) Bloat（譯文加咗原文無嘅主語、連接詞、形容詞），(3) 相鄰段重複介紹同一人名。代價：對代詞（he / they / it）解析靠 LLM 自己估，可能影響準確性；速度比 `batch_size=10` 慢約 30%（115 段約 41 秒）。EN 預設啟用，ZH 預設用 `batch_size: 8`。
 
 ### 前端頁面
 

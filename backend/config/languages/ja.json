@@ -1,6 +1,6 @@
 {
-  "id": "zh",
-  "name": "Chinese",
+  "id": "ja",
+  "name": "Japanese",
   "asr": {
     "max_words_per_segment": 16,
     "max_segment_duration": 15

@@ -75,6 +75,42 @@ def test_update_invalid_temperature(config_dir):
     with pytest.raises(ValueError):
         mgr.update("en", {"asr": {"max_words_per_segment": 40, "max_segment_duration": 10.0}, "translation": {"batch_size": 10, "temperature": 3.0}})
 
+def test_update_invalid_simplified_to_traditional(config_dir):
+    """asr.simplified_to_traditional must be a boolean."""
+    from language_config import LanguageConfigManager
+    mgr = LanguageConfigManager(config_dir)
+    with pytest.raises(ValueError):
+        mgr.update("zh", {
+            "asr": {
+                "max_words_per_segment": 16, "max_segment_duration": 8,
+                "simplified_to_traditional": "yes",  # str not bool
+            },
+            "translation": {"batch_size": 8, "temperature": 0.1},
+        })
+
+def test_update_valid_simplified_to_traditional(config_dir):
+    """Boolean true / false both accepted; flag persists."""
+    from language_config import LanguageConfigManager
+    mgr = LanguageConfigManager(config_dir)
+    mgr.update("zh", {
+        "asr": {
+            "max_words_per_segment": 16, "max_segment_duration": 8,
+            "simplified_to_traditional": True,
+        },
+        "translation": {"batch_size": 8, "temperature": 0.1},
+    })
+    cfg = mgr.get("zh")
+    assert cfg["asr"]["simplified_to_traditional"] is True
+
+    mgr.update("zh", {
+        "asr": {
+            "max_words_per_segment": 16, "max_segment_duration": 8,
+            "simplified_to_traditional": False,
+        },
+        "translation": {"batch_size": 8, "temperature": 0.1},
+    })
+    assert mgr.get("zh")["asr"]["simplified_to_traditional"] is False
+
 
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))

@@ -20,7 +20,7 @@ VALID_ASR_ENGINES = {"whisper", "mlx-whisper", "qwen3-asr", "flg-asr"}
 VALID_TRANSLATION_ENGINES = {
     "mock",
     "qwen2.5-3b", "qwen2.5-7b", "qwen2.5-72b",
-    "qwen3-235b", "qwen3.5-9b",
+    "qwen3-235b", "qwen3.5-9b", "qwen3.5-35b-a3b",
     "glm-4.6-cloud", "qwen3.5-397b-cloud", "gpt-oss-120b-cloud",
     "openrouter",
 }
@@ -104,6 +104,19 @@ class ProfileManager:
                 if "margin_bottom" in font:
                     if not isinstance(font["margin_bottom"], int) or font["margin_bottom"] < 0 or font["margin_bottom"] > 200:
                         errors.append("font.margin_bottom must be an integer between 0 and 200")
+
+                # Optional subtitle source mode (added 2026-04-28)
+                src = font.get("subtitle_source")
+                if src is not None and src not in {"auto", "en", "zh", "bilingual"}:
+                    errors.append(
+                        f"font.subtitle_source must be one of auto/en/zh/bilingual; got {src!r}"
+                    )
+
+                order = font.get("bilingual_order")
+                if order is not None and order not in {"en_top", "zh_top"}:
+                    errors.append(
+                        f"font.bilingual_order must be 'en_top' or 'zh_top'; got {order!r}"
+                    )
 
         return errors
 

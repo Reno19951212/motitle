@@ -550,14 +550,14 @@ def test_ollama_engine_get_models_mocked():
          patch("urllib.request.urlopen", return_value=mock_resp):
         models = engine.get_models()
 
-    # 5 local + 3 cloud = 8 total
-    assert len(models) == 8
+    # 6 local + 3 cloud = 9 total
+    assert len(models) == 9
 
     available_models = [m for m in models if m["available"]]
     assert len(available_models) == 2  # qwen2.5:3b and qwen2.5:7b
 
     unavailable_models = [m for m in models if not m["available"]]
-    assert len(unavailable_models) == 6
+    assert len(unavailable_models) == 7
 
     # Every entry must expose is_cloud boolean
     for m in models:
@@ -573,7 +573,7 @@ def test_ollama_engine_get_models_mocked():
     }
 
     local_entries = [m for m in models if not m["is_cloud"]]
-    assert len(local_entries) == 5
+    assert len(local_entries) == 6
 
 
 def test_api_translation_engine_params_mock():
@@ -722,34 +722,42 @@ def test_sliding_window_zero_disables_context():
 
 
 def test_sliding_window_trims_to_window_size():
-    """Rolling list is trimmed to last context_window pairs."""
+    """Rolling list is trimmed to last context_window pairs across consecutive
+    BATCHES. (batch_size=1 now uses single-segment mode and bypasses sliding
+    window — use batch_size=2 with 4 segments to force 2 sequential batches.)"""
     import json as json_mod
-    from unittest.mock import patch, MagicMock, call
+    from unittest.mock import patch
     from translation.ollama_engine import OllamaTranslationEngine
 
     engine = OllamaTranslationEngine({"engine": "qwen2.5-3b", "context_window": 1})
 
-    # Mock _call_ollama to return predictable numbered response
-    with patch.object(engine, "_call_ollama", return_value="1. 測試翻譯。"):
-        captured_context = {}
-        original_build = engine._build_user_message
+    captured_contexts = []  # one per batch
+    original_build = engine._build_user_message
 
-        def capturing_build(segments, context_pairs=None):
-            captured_context["last_context"] = list(context_pairs) if context_pairs else []
-            return original_build(segments, context_pairs=context_pairs)
+    def capturing_build(segments, context_pairs=None):
+        captured_contexts.append(list(context_pairs) if context_pairs else [])
+        return original_build(segments, context_pairs=context_pairs)
 
+    # Two batches of 2 — second batch should see only 1 context pair (window=1)
+    with patch.object(engine, "_call_ollama",
+                       return_value="1. 一。\n2. 二。"):
         with patch.object(engine, "_build_user_message", side_effect=capturing_build):
             engine.translate(
                 [
                     {"text": "First.", "start": 0, "end": 1},
                     {"text": "Second.", "start": 1, "end": 2},
+                    {"text": "Third.", "start": 2, "end": 3},
+                    {"text": "Fourth.", "start": 3, "end": 4},
                 ],
-                batch_size=1,
+                batch_size=2,
             )
 
-    # The second batch call should have received only 1 context pair (window=1)
-    assert len(captured_context["last_context"]) == 1
-    assert captured_context["last_context"][0][0] == "First."
+    # First batch: empty context. Second batch: window=1 → only the LAST pair
+    # from the first batch (Second.→二。)
+    assert len(captured_contexts) == 2
+    assert captured_contexts[0] == []
+    assert len(captured_contexts[1]) == 1
+    assert captured_contexts[1][0][0] == "Second."
 
 
 def test_context_window_in_params_schema():
@@ -1675,3 +1683,131 @@ def test_pipeline_timing_event_emitted(monkeypatch):
     assert "asr_seconds" in evt
     assert isinstance(evt["translation_seconds"], float)
     assert evt.get("file_id") == "fake-id"
+
+
+# ---------------------------------------------------------------------------
+# Strategy E — single-segment mode (batch_size=1)
+# ---------------------------------------------------------------------------
+
+def test_ollama_batch_size_1_dispatches_single_mode():
+    """When batch_size=1, translate() must use single-segment path,
+    NOT the regular batched _translate_batch."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+
+    calls = []
+
+    def fake_call(system_prompt, user_message, temperature):
+        calls.append({"system": system_prompt, "user": user_message})
+        # Single-mode prompt's expected output: just the ZH translation
+        if "Good evening" in user_message:
+            return "各位晚上好。"
+        return "歡迎收看新聞。"
+
+    with patch.object(engine, "_call_ollama", side_effect=fake_call):
+        result = engine.translate(SAMPLE_SEGMENTS, glossary=[], style="formal",
+                                   batch_size=1)
+
+    # Two segments → two ollama calls (one per segment, no batching)
+    assert len(calls) == 2
+    # System prompt is the single-segment one (contains its signature lines)
+    assert "唔加引號、編號、解釋" in calls[0]["system"]
+    # User message format: 英文：... 譯文：
+    assert calls[0]["user"].startswith("英文：")
+    assert "譯文：" in calls[0]["user"]
+    # Output preserves segment timing + extracts ZH cleanly
+    assert len(result) == 2
+    assert result[0]["zh_text"] == "各位晚上好。"
+    assert result[0]["en_text"] == "Good evening everyone."
+    assert result[0]["start"] == 0.0
+    assert result[1]["zh_text"] == "歡迎收看新聞。"
+
+
+def test_ollama_batch_size_1_strips_label_prefix():
+    """Single-mode parser strips '譯文：' / 'Translation:' prefix from response."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+
+    with patch.object(engine, "_call_ollama",
+                       side_effect=["譯文：晚安。", "Translation: 你好。"]):
+        result = engine.translate(SAMPLE_SEGMENTS, glossary=[], style="formal",
+                                   batch_size=1)
+
+    assert result[0]["zh_text"] == "晚安。"
+    assert result[1]["zh_text"] == "你好。"
+
+
+def test_ollama_batch_size_1_empty_text_skipped():
+    """Empty source text → empty translation, no LLM call."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+
+    segs = [
+        {"start": 0.0, "end": 1.0, "text": ""},
+        {"start": 1.0, "end": 2.0, "text": "Hello."},
+    ]
+
+    calls = []
+    with patch.object(engine, "_call_ollama",
+                       side_effect=lambda s, u, t: calls.append(u) or "你好。"):
+        result = engine.translate(segs, glossary=[], style="formal", batch_size=1)
+
+    assert len(calls) == 1   # only the non-empty seg invokes ollama
+    assert result[0]["zh_text"] == ""
+    assert result[1]["zh_text"] == "你好。"
+
+
+def test_ollama_batch_size_1_glossary_filtered_per_segment():
+    """Glossary entries are filtered by per-segment EN text (not whole batch)."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+
+    glossary = [
+        {"en": "Madrid", "zh": "皇馬"},
+        {"en": "Chelsea", "zh": "車路士"},
+    ]
+    segs = [
+        {"start": 0.0, "end": 1.0, "text": "Madrid wins."},      # only Madrid
+        {"start": 1.0, "end": 2.0, "text": "Chelsea draws."},    # only Chelsea
+    ]
+
+    captured_prompts = []
+    with patch.object(engine, "_call_ollama",
+                       side_effect=lambda s, u, t: captured_prompts.append(s) or "x"):
+        engine.translate(segs, glossary=glossary, style="formal", batch_size=1)
+
+    # First call should mention Madrid → 皇馬, NOT Chelsea
+    assert "Madrid" in captured_prompts[0] and "皇馬" in captured_prompts[0]
+    assert "Chelsea" not in captured_prompts[0]
+    # Second call: opposite
+    assert "Chelsea" in captured_prompts[1] and "車路士" in captured_prompts[1]
+    assert "Madrid" not in captured_prompts[1]
+
+
+def test_ollama_parse_single_response_helper():
+    """_parse_single_response strips labels and takes first non-empty line."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+
+    assert engine._parse_single_response("意甲球會科莫。") == "意甲球會科莫。"
+    assert engine._parse_single_response("譯文：意甲球會科莫。") == "意甲球會科莫。"
+    assert engine._parse_single_response("譯文: 意甲球會科莫。") == "意甲球會科莫。"
+    assert engine._parse_single_response("\n\n譯文：晚安。\n後記") == "晚安。"
+    assert engine._parse_single_response("中文：你好") == "你好"
+
+
+def test_ollama_batch_size_gt_1_uses_batch_path():
+    """batch_size > 1 must NOT use single-mode dispatch — confirms branch
+    only triggers on batch_size==1."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+
+    captured = []
+    with patch.object(engine, "_call_ollama",
+                       side_effect=lambda s, u, t: captured.append(u) or "1. a\n2. b"):
+        engine.translate(SAMPLE_SEGMENTS, glossary=[], style="formal", batch_size=10)
+
+    # Batch path issues ONE call for both segments
+    assert len(captured) == 1
+    # Batch user message contains numbered list, not single-mode 英文：format
+    assert "1. " in captured[0] and "2. " in captured[0]

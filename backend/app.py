@@ -51,6 +51,13 @@ from profiles import ProfileManager
 from glossary import GlossaryManager
 from language_config import LanguageConfigManager, DEFAULT_ASR_CONFIG, DEFAULT_TRANSLATION_CONFIG
 from renderer import SubtitleRenderer, DEFAULT_FONT_CONFIG
+from subtitle_text import (
+    resolve_segment_text,
+    resolve_subtitle_source as _resolve_subtitle_source_helper,
+    resolve_bilingual_order as _resolve_bilingual_order_helper,
+    VALID_SUBTITLE_SOURCES,
+    VALID_BILINGUAL_ORDERS,
+)
 
 # Try to import faster-whisper for better performance
 try:
@@ -164,6 +171,8 @@ def _register_file(file_id, original_name, stored_name, size_bytes):
             'error': None,
             'model': None,       # whisper model used (e.g. 'small', 'tiny')
             'backend': None,     # 'openai-whisper' or 'faster-whisper'
+            'subtitle_source': None,
+            'bilingual_order': None,
         }
         _save_registry()
     return _file_registry[file_id]
@@ -452,7 +461,7 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
             raw_segments = engine.transcribe(audio_path, language=language)
 
             # Post-process segments with language config
-            from asr.segment_utils import split_segments
+            from asr.segment_utils import split_segments, merge_short_segments
             lang_config_id = profile["asr"].get("language_config_id", language)
             lang_config = _language_config_manager.get(lang_config_id)
             asr_params = lang_config["asr"] if lang_config else DEFAULT_ASR_CONFIG
@@ -461,6 +470,19 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
                 max_words=asr_params["max_words_per_segment"],
                 max_duration=asr_params["max_segment_duration"],
             )
+            # Fold ≤N-word Whisper sentence-boundary fragments back into
+            # adjacent segments (no-op when merge_short_max_words=0).
+            raw_segments = merge_short_segments(
+                raw_segments,
+                max_words_short=asr_params.get("merge_short_max_words", 0),
+                max_gap_sec=asr_params.get("merge_short_max_gap", 0.5),
+                max_words_cap=asr_params["max_words_per_segment"],
+            )
+            # Whisper's Chinese mode emits Simplified Chinese. Convert to
+            # Traditional (HK style) when the language config enables it.
+            if asr_params.get("simplified_to_traditional"):
+                from asr.cn_convert import convert_segments_s2t
+                raw_segments = convert_segments_s2t(raw_segments, mode="s2hk")
 
             for i, seg in enumerate(raw_segments):
                 segment = {
@@ -861,6 +883,7 @@ def api_list_translation_engines():
         ("qwen2.5-72b", "Qwen 2.5 72B (Ollama)"),
         ("qwen3-235b", "Qwen3 235B MoE (Ollama)"),
         ("qwen3.5-9b", "Qwen 3.5 9B (Ollama)"),
+        ("qwen3.5-35b-a3b", "Qwen 3.5 35B-A3B MLX (Ollama)"),
         ("glm-4.6-cloud", "GLM-4.6 (Ollama Cloud)"),
         ("qwen3.5-397b-cloud", "Qwen 3.5 397B MoE (Ollama Cloud)"),
         ("gpt-oss-120b-cloud", "GPT-OSS 120B (Ollama Cloud)"),
@@ -1780,6 +1803,23 @@ def api_approve_translation(file_id, idx):
     return jsonify({"translation": _normalize_translation_for_api(new_translations[idx])})
 
 
+@app.route('/api/files/<file_id>/translations/<int:idx>/unapprove', methods=['POST'])
+def api_unapprove_translation(file_id, idx):
+    """Flip a translation back to 'pending' so the user can re-edit /
+    re-approve. Mirrors POST /approve."""
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+    if not entry:
+        return jsonify({"error": "File not found"}), 404
+    translations = entry.get("translations", [])
+    if idx < 0 or idx >= len(translations):
+        return jsonify({"error": "Translation index out of range"}), 400
+    new_translations = list(translations)
+    new_translations[idx] = {**translations[idx], "status": "pending"}
+    _update_file(file_id, translations=new_translations)
+    return jsonify({"translation": _normalize_translation_for_api(new_translations[idx])})
+
+
 # ============================================================
 # Render Endpoints
 # ============================================================
@@ -1947,6 +1987,15 @@ def _validate_render_options(output_format: str, opts: dict):
     return clean, None
 
 
+def _resolve_subtitle_source(file_entry, profile, override=None):
+    """Public-named wrapper so tests can import from app."""
+    return _resolve_subtitle_source_helper(file_entry, profile, override)
+
+
+def _resolve_bilingual_order(file_entry, profile, override=None):
+    return _resolve_bilingual_order_helper(file_entry, profile, override)
+
+
 @app.route('/api/render', methods=['POST'])
 def api_start_render():
     """Start a render job: burn approved translations into video as ASS subtitles."""
@@ -1965,19 +2014,47 @@ def api_start_render():
     if opt_error:
         return jsonify({"error": opt_error}), 400
 
+    # Subtitle source resolution: render-body override > file > profile > auto
+    src_override = data.get("subtitle_source")
+    ord_override = data.get("bilingual_order")
+    if src_override is not None and src_override not in VALID_SUBTITLE_SOURCES:
+        return jsonify({"error": f"Invalid subtitle_source '{src_override}'"}), 400
+    if ord_override is not None and ord_override not in VALID_BILINGUAL_ORDERS:
+        return jsonify({"error": f"Invalid bilingual_order '{ord_override}'"}), 400
+
     with _registry_lock:
         entry = _file_registry.get(file_id)
 
     if not entry:
         return jsonify({"error": "File not found"}), 404
 
-    translations = entry.get("translations")
-    if not translations:
-        return jsonify({"error": "File has no translations to render"}), 400
+    active_profile = _profile_manager.get_active()
+    subtitle_source = _resolve_subtitle_source(entry, active_profile, src_override)
+    bilingual_order = _resolve_bilingual_order(entry, active_profile, ord_override)
 
-    unapproved = [t for t in translations if t.get("status") != "approved"]
-    if unapproved:
-        return jsonify({"error": f"{len(unapproved)} segment(s) not yet approved. All translations must be approved before rendering."}), 400
+    translations = entry.get("translations") or []
+    # EN-only renders can run from segments alone (no translation required).
+    # All other modes still need translations.
+    if subtitle_source == "en":
+        if not translations:
+            translations = list(entry.get("segments") or [])
+        if not translations:
+            return jsonify({"error": "File has no transcription segments to render"}), 400
+    else:
+        if not translations:
+            return jsonify({"error": "File has no translations to render"}), 400
+        # Approval applies to ZH only.
+        unapproved = [t for t in translations if t.get("status") != "approved"]
+        if unapproved:
+            return jsonify({"error": f"{len(unapproved)} segment(s) not yet approved. All translations must be approved before rendering."}), 400
+
+    # Count segments where ZH would be required but is empty (warn user).
+    # Bilingual mode also relies on ZH — segments missing ZH degrade to single-line EN.
+    warning_missing_zh = 0
+    if subtitle_source in ("zh", "bilingual"):
+        for t in translations:
+            if not (t.get("zh_text") or "").strip():
+                warning_missing_zh += 1
 
     render_id = uuid.uuid4().hex[:12]
     video_path = str(UPLOAD_DIR / entry["stored_name"])
@@ -1997,15 +2074,17 @@ def api_start_render():
         "file_id": file_id,
         "format": output_format,
         "render_options": render_options,
+        "subtitle_source": subtitle_source,
+        "bilingual_order": bilingual_order,
         "status": "processing",
         "output_path": output_path,
         "output_filename": download_filename,
         "error": None,
         "created_at": time.time(),
+        "cancelled": False,
     }
 
     # Load font config from active profile (fallback to DEFAULT_FONT_CONFIG)
-    active_profile = _profile_manager.get_active()
     font_config = active_profile.get("font", DEFAULT_FONT_CONFIG) if active_profile else DEFAULT_FONT_CONFIG
 
     # Snapshot translations to pass into thread (immutable)
@@ -2014,18 +2093,40 @@ def api_start_render():
 
     def do_render():
         try:
-            ass_content = _subtitle_renderer.generate_ass(translations_snapshot, font_config)
+            ass_content = _subtitle_renderer.generate_ass(
+                translations_snapshot,
+                font_config,
+                subtitle_source=subtitle_source,
+                bilingual_order=bilingual_order,
+            )
             success, ffmpeg_error = _subtitle_renderer.render(
                 video_path, ass_content, output_path, output_format, render_options_snapshot
             )
-            if success:
-                _render_jobs[render_id] = {**_render_jobs[render_id], "status": "done"}
+            job_state = _render_jobs.get(render_id) or {}
+            if job_state.get('cancelled'):
+                _render_jobs[render_id] = {**job_state, 'status': 'cancelled'}
+                try:
+                    if os.path.exists(output_path):
+                        os.remove(output_path)
+                except Exception:
+                    pass
+            elif success:
+                _render_jobs[render_id] = {**job_state, "status": "done"}
             else:
                 error_msg = f"FFmpeg render failed: {ffmpeg_error}" if ffmpeg_error else "FFmpeg render failed"
-                _render_jobs[render_id] = {**_render_jobs[render_id], "status": "error", "error": error_msg}
+                _render_jobs[render_id] = {**job_state, "status": "error", "error": error_msg}
         except Exception as exc:
             print(f"Render job {render_id} error: {exc}")
-            _render_jobs[render_id] = {**_render_jobs[render_id], "status": "error", "error": str(exc)}
+            job_state = _render_jobs.get(render_id) or {}
+            if job_state.get('cancelled'):
+                _render_jobs[render_id] = {**job_state, 'status': 'cancelled'}
+                try:
+                    if os.path.exists(output_path):
+                        os.remove(output_path)
+                except Exception:
+                    pass
+            else:
+                _render_jobs[render_id] = {**_render_jobs[render_id], "status": "error", "error": str(exc)}
 
     thread = threading.Thread(target=do_render)
     thread.daemon = True
@@ -2035,6 +2136,9 @@ def api_start_render():
         "render_id": render_id,
         "file_id": file_id,
         "format": output_format,
+        "subtitle_source": subtitle_source,
+        "bilingual_order": bilingual_order,
+        "warning_missing_zh": warning_missing_zh,
         "status": "processing",
     }), 202
 
@@ -2064,6 +2168,41 @@ def api_download_render(render_id):
 
     download_name = job.get("output_filename") or Path(output_path).name
     return send_file(output_path, as_attachment=True, download_name=download_name)
+
+
+@app.route('/api/renders/<render_id>', methods=['DELETE'])
+def api_cancel_render(render_id):
+    """Mark an in-flight render job as cancelled. Best-effort — FFmpeg
+    sub-process is not killed mid-encode (no Popen handle stored), but the
+    output file is discarded and status flips to 'cancelled' on completion."""
+    job = _render_jobs.get(render_id)
+    if not job:
+        return jsonify({"error": "Render job not found"}), 404
+    if job.get('status') in ('done', 'error', 'cancelled'):
+        return jsonify({"error": f"Cannot cancel — job already {job.get('status')}"}), 400
+    _render_jobs[render_id] = {**job, 'cancelled': True}
+    return jsonify({"render_id": render_id, "status": "cancelling"}), 202
+
+
+@app.route('/api/renders/in-progress')
+def api_renders_in_progress():
+    """Return all render jobs not in a terminal state, optionally filtered by file_id."""
+    file_id = request.args.get('file_id')
+    out = []
+    for rid, job in _render_jobs.items():
+        if job.get('status') in ('done', 'error', 'cancelled'):
+            continue
+        if file_id and job.get('file_id') != file_id:
+            continue
+        out.append({
+            'render_id': rid,
+            'file_id': job.get('file_id'),
+            'format': job.get('format'),
+            'status': job.get('status'),
+            'subtitle_source': job.get('subtitle_source'),
+            'created_at': job.get('created_at'),
+        })
+    return jsonify({'jobs': out}), 200
 
 
 def _auto_translate(fid: str, segments: list, session_id) -> None:
@@ -2160,12 +2299,20 @@ def _auto_translate(fid: str, segments: list, session_id) -> None:
         translation_seconds = round(time.time() - translation_start, 1)
         with _registry_lock:
             asr_s = _file_registry.get(fid, {}).get('asr_seconds')
+        pipeline_seconds = round(translation_seconds + (asr_s or 0.0), 1)
+        # Persist timing so the right-panel "處理時間" section survives page reload.
+        # The pipeline_timing socket event below covers the live update path.
+        _update_file(
+            fid,
+            translation_seconds=translation_seconds,
+            pipeline_seconds=pipeline_seconds,
+        )
         if session_id:
             socketio.emit('pipeline_timing', {
                 'file_id': fid,
                 'asr_seconds': asr_s,
                 'translation_seconds': translation_seconds,
-                'total_seconds': round(translation_seconds + (asr_s or 0.0), 1),
+                'total_seconds': pipeline_seconds,
             }, room=session_id)
 
         if session_id:
@@ -2272,6 +2419,97 @@ def transcribe_file():
     })
 
 
+@app.route('/api/files/<file_id>/transcribe', methods=['POST'])
+def re_transcribe_file(file_id):
+    """Re-run the full pipeline (ASR + auto-translate) on an already-uploaded file.
+    Wipes existing segments / translations / approval state. Source video must
+    still exist on disk (i.e. file was not deleted)."""
+    body = request.get_json(silent=True) or {}
+    sid = body.get('sid')
+
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+        if not entry:
+            return jsonify({'error': '文件不存在'}), 404
+        stored_name = entry.get('stored_name')
+
+    if not stored_name:
+        return jsonify({'error': '原始檔案資料缺失'}), 400
+
+    file_path = str(UPLOAD_DIR / stored_name)
+    if not os.path.exists(file_path):
+        return jsonify({'error': '原始視頻檔案已不存在於磁碟'}), 404
+
+    # Resolve model from active profile, fallback to legacy entry.model.
+    active_profile = _profile_manager.get_active() or {}
+    asr_config = active_profile.get('asr', {}) if active_profile else {}
+    model_size = asr_config.get('model_size') or entry.get('model') or 'small'
+
+    # Reset pipeline state — segments, translations, timing, errors all wiped
+    # so the file goes back through both ASR and translation cleanly.
+    _update_file(
+        file_id,
+        status='transcribing',
+        segments=[],
+        translations=[],
+        translation_status=None,
+        translation_engine=None,
+        translation_count=None,
+        text='',
+        asr_seconds=None,
+        error=None,
+    )
+    if sid:
+        socketio.emit('file_updated', {
+            'id': file_id, 'status': 'transcribing', 'model': model_size,
+        }, room=sid)
+
+    def do_re_transcribe():
+        try:
+            asr_start = time.time()
+            result = transcribe_with_segments(file_path, model_size, sid)
+            if result:
+                actual_model = result.get('model', model_size)
+                _update_file(
+                    file_id,
+                    status='done',
+                    text=result['text'],
+                    segments=result['segments'],
+                    backend=result.get('backend'),
+                    model=actual_model,
+                )
+                _update_file(file_id, asr_seconds=round(time.time() - asr_start, 1))
+                if sid:
+                    socketio.emit('file_updated', {
+                        'id': file_id, 'status': 'done',
+                        'segment_count': len(result['segments']),
+                        'model': actual_model,
+                        'backend': result.get('backend'),
+                    }, room=sid)
+                    socketio.emit('transcription_complete', {
+                        'file_id': file_id, 'text': result['text'],
+                        'language': result['language'],
+                        'segment_count': len(result['segments']),
+                    }, room=sid)
+                _auto_translate(file_id, result['segments'], sid)
+        except Exception as e:
+            _update_file(file_id, status='error', error=str(e))
+            if sid:
+                socketio.emit('file_updated', {
+                    'id': file_id, 'status': 'error', 'error': str(e),
+                }, room=sid)
+                socketio.emit('transcription_error', {'error': str(e)}, room=sid)
+
+    thread = threading.Thread(target=do_re_transcribe)
+    thread.daemon = True
+    thread.start()
+
+    return jsonify({
+        'status': 'processing', 'file_id': file_id,
+        'message': '重新轉錄已開始',
+    })
+
+
 @app.route('/api/transcribe/sync', methods=['POST'])
 def transcribe_sync():
     """Synchronous transcription - waits for result (for smaller files)"""
@@ -2322,6 +2560,9 @@ def list_files():
                 'backend': entry.get('backend'),
                 'translation_status': entry.get('translation_status'),
                 'translation_engine': entry.get('translation_engine'),
+                'asr_seconds': entry.get('asr_seconds'),
+                'translation_seconds': entry.get('translation_seconds'),
+                'pipeline_seconds': entry.get('pipeline_seconds'),
             })
     # Newest first
     files.sort(key=lambda f: f['uploaded_at'], reverse=True)
@@ -2409,9 +2650,16 @@ def get_waveform(file_id):
 
 @app.route('/api/files/<file_id>/subtitle.<fmt>')
 def download_subtitle(file_id, fmt):
-    """Download subtitles in SRT, VTT, or TXT format"""
+    """Download subtitles in SRT, VTT, or TXT format with subtitle_source resolution."""
     if fmt not in ('srt', 'vtt', 'txt'):
         return jsonify({'error': '不支持的格式'}), 400
+
+    src_q = request.args.get("source")
+    ord_q = request.args.get("order")
+    if src_q is not None and src_q not in VALID_SUBTITLE_SOURCES:
+        return jsonify({'error': f"Invalid source '{src_q}'"}), 400
+    if ord_q is not None and ord_q not in VALID_BILINGUAL_ORDERS:
+        return jsonify({'error': f"Invalid order '{ord_q}'"}), 400
 
     with _registry_lock:
         entry = _file_registry.get(file_id)
@@ -2420,27 +2668,58 @@ def download_subtitle(file_id, fmt):
     if entry['status'] != 'done':
         return jsonify({'error': '轉錄尚未完成'}), 400
 
+    active_profile = _profile_manager.get_active()
+    mode = _resolve_subtitle_source(entry, active_profile, src_q)
+    order = _resolve_bilingual_order(entry, active_profile, ord_q)
+
+    # Build a list of unified per-segment dicts with both text + zh_text.
     segs = entry.get('segments', [])
+    translations = entry.get('translations') or []
+    tr_by_idx = {t.get('seg_idx', i): t for i, t in enumerate(translations)}
+    unified = []
+    for i, s in enumerate(segs):
+        t = tr_by_idx.get(i, {})
+        unified.append({
+            'start': s.get('start', t.get('start', 0)),
+            'end':   s.get('end',   t.get('end',   0)),
+            'text':     s.get('text', '') or t.get('en_text', ''),
+            'en_text':  s.get('text', '') or t.get('en_text', ''),
+            'zh_text':  t.get('zh_text', ''),
+        })
+
     base_name = Path(entry['original_name']).stem
 
+    def _seg_text(s):
+        return resolve_segment_text(s, mode=mode, order=order, line_break='\n')
+
     if fmt == 'txt':
-        content = '\n'.join(s['text'] for s in segs)
+        content = '\n'.join(_seg_text(s) for s in unified if _seg_text(s))
         mime = 'text/plain'
     elif fmt == 'srt':
         lines = []
-        for i, s in enumerate(segs):
-            lines.append(str(i + 1))
+        cue_index = 0
+        for s in unified:
+            txt = _seg_text(s)
+            if not txt:
+                continue
+            cue_index += 1
+            lines.append(str(cue_index))
             lines.append(f"{_fmt_srt(s['start'])} --> {_fmt_srt(s['end'])}")
-            lines.append(s['text'])
+            lines.append(txt)
             lines.append('')
         content = '\n'.join(lines)
         mime = 'text/plain'
     else:  # vtt
         lines = ['WEBVTT', '']
-        for i, s in enumerate(segs):
-            lines.append(str(i + 1))
+        cue_index = 0
+        for s in unified:
+            txt = _seg_text(s)
+            if not txt:
+                continue
+            cue_index += 1
+            lines.append(str(cue_index))
             lines.append(f"{_fmt_vtt(s['start'])} --> {_fmt_vtt(s['end'])}")
-            lines.append(s['text'])
+            lines.append(txt)
             lines.append('')
         content = '\n'.join(lines)
         mime = 'text/vtt'
@@ -2501,9 +2780,47 @@ def update_segment_text(file_id, seg_id):
         matched[0]['text'] = new_text
         # Also update the full text
         entry['text'] = ' '.join(s['text'] for s in segs)
+        # Propagate edit to translations[i].en_text so EN-mode burnt-in renders
+        # surface the edit (otherwise renderer reads stale en_text while SRT
+        # download — which normalises via segment.text — would diverge).
+        seg_position = next((i for i, s in enumerate(segs) if s.get('id') == seg_id), None)
+        if seg_position is not None:
+            translations = entry.get('translations') or []
+            for i, t in enumerate(translations):
+                if t.get('seg_idx', i) == seg_position:
+                    t['en_text'] = new_text
+                    break
         _save_registry()
 
     return jsonify({'status': 'ok', 'id': seg_id, 'text': new_text})
+
+
+@app.route('/api/files/<file_id>', methods=['PATCH'])
+def patch_file(file_id):
+    """Patch file-level settings — currently subtitle_source / bilingual_order."""
+    data = request.get_json() or {}
+
+    if "subtitle_source" in data:
+        v = data["subtitle_source"]
+        if v is not None and v not in VALID_SUBTITLE_SOURCES:
+            return jsonify({"error": f"Invalid subtitle_source '{v}'"}), 400
+    if "bilingual_order" in data:
+        v = data["bilingual_order"]
+        if v is not None and v not in VALID_BILINGUAL_ORDERS:
+            return jsonify({"error": f"Invalid bilingual_order '{v}'"}), 400
+
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+        if not entry:
+            return jsonify({"error": "File not found"}), 404
+        if "subtitle_source" in data:
+            entry["subtitle_source"] = data["subtitle_source"]
+        if "bilingual_order" in data:
+            entry["bilingual_order"] = data["bilingual_order"]
+        _save_registry()
+        result = dict(entry)
+
+    return jsonify(result), 200
 
 
 @app.route('/api/files/<file_id>', methods=['DELETE'])

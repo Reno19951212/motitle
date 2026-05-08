@@ -198,6 +198,104 @@ def test_whisper_engine_params_schema_includes_layer1():
     assert params["vad_filter"]["default"] is False
 
 
+def test_whisper_engine_schema_includes_initial_prompt():
+    from asr.whisper_engine import WhisperEngine
+    engine = WhisperEngine({"engine": "whisper", "model_size": "tiny"})
+    params = engine.get_params_schema()["params"]
+    assert "initial_prompt" in params
+    assert params["initial_prompt"]["type"] == "string"
+    assert params["initial_prompt"]["default"] == ""
+
+
+def test_mlx_whisper_schema_includes_initial_prompt():
+    from asr.mlx_whisper_engine import MlxWhisperEngine
+    engine = MlxWhisperEngine({"engine": "mlx-whisper", "model_size": "large-v3"})
+    params = engine.get_params_schema()["params"]
+    assert "initial_prompt" in params
+    assert params["initial_prompt"]["type"] == "string"
+    assert params["initial_prompt"]["default"] == ""
+
+
+def test_whisper_engine_passes_initial_prompt_to_faster_whisper():
+    """When initial_prompt is set in config, it must be forwarded to model.transcribe()."""
+    from asr.whisper_engine import WhisperEngine
+    engine = WhisperEngine({
+        "engine": "whisper", "model_size": "tiny", "language": "zh", "device": "cpu",
+        "initial_prompt": "以下係香港賽馬新聞，繁體中文。",
+    })
+
+    MockSeg = namedtuple("MockSeg", ["start", "end", "text", "words"])
+    MockInfo = namedtuple("MockInfo", ["language"])
+    mock_model = MagicMock()
+    mock_model.transcribe.return_value = (iter([
+        MockSeg(start=0.0, end=2.5, text=" 你好", words=None),
+    ]), MockInfo(language="zh"))
+
+    with patch.object(engine, '_get_model', return_value=(mock_model, 'faster')):
+        engine.transcribe("/tmp/test.wav", language="zh")
+
+    call_kwargs = mock_model.transcribe.call_args.kwargs
+    assert call_kwargs.get("initial_prompt") == "以下係香港賽馬新聞，繁體中文。"
+
+
+def test_whisper_engine_passes_none_initial_prompt_when_unset():
+    """No initial_prompt key in config → kwarg is explicitly None (so faster-whisper's
+    own default kicks in, not undefined behavior)."""
+    from asr.whisper_engine import WhisperEngine
+    engine = WhisperEngine({
+        "engine": "whisper", "model_size": "tiny", "language": "en", "device": "cpu",
+    })
+
+    MockSeg = namedtuple("MockSeg", ["start", "end", "text", "words"])
+    MockInfo = namedtuple("MockInfo", ["language"])
+    mock_model = MagicMock()
+    mock_model.transcribe.return_value = (iter([]), MockInfo(language="en"))
+
+    with patch.object(engine, '_get_model', return_value=(mock_model, 'faster')):
+        engine.transcribe("/tmp/test.wav", language="en")
+
+    call_kwargs = mock_model.transcribe.call_args.kwargs
+    assert "initial_prompt" in call_kwargs
+    assert call_kwargs["initial_prompt"] is None
+
+
+def test_whisper_engine_empty_string_initial_prompt_treated_as_none():
+    """Empty string is falsy → should be normalized to None (avoids empty prompt
+    being passed to model, which can confuse decoder)."""
+    from asr.whisper_engine import WhisperEngine
+    engine = WhisperEngine({
+        "engine": "whisper", "model_size": "tiny", "language": "en", "device": "cpu",
+        "initial_prompt": "",
+    })
+
+    MockSeg = namedtuple("MockSeg", ["start", "end", "text", "words"])
+    MockInfo = namedtuple("MockInfo", ["language"])
+    mock_model = MagicMock()
+    mock_model.transcribe.return_value = (iter([]), MockInfo(language="en"))
+
+    with patch.object(engine, '_get_model', return_value=(mock_model, 'faster')):
+        engine.transcribe("/tmp/test.wav", language="en")
+
+    assert mock_model.transcribe.call_args.kwargs["initial_prompt"] is None
+
+
+def test_whisper_engine_openai_path_forwards_initial_prompt():
+    """openai-whisper path also forwards initial_prompt."""
+    from asr.whisper_engine import WhisperEngine
+    engine = WhisperEngine({
+        "engine": "whisper", "model_size": "tiny", "language": "zh", "device": "cpu",
+        "initial_prompt": "繁體中文。",
+    })
+
+    mock_model = MagicMock()
+    mock_model.transcribe.return_value = {"text": "", "language": "zh", "segments": []}
+
+    with patch.object(engine, '_get_model', return_value=(mock_model, 'openai')):
+        engine.transcribe("/tmp/test.wav", language="zh")
+
+    assert mock_model.transcribe.call_args.kwargs["initial_prompt"] == "繁體中文。"
+
+
 def test_qwen3_engine_params_schema():
     from asr import create_asr_engine
     engine = create_asr_engine({"engine": "qwen3-asr", "model_size": "large"})
@@ -289,6 +387,7 @@ def test_whisper_faster_passes_layer1_params():
         condition_on_previous_text=False,
         vad_filter=True,
         word_timestamps=False,
+        initial_prompt=None,
     )
 
 

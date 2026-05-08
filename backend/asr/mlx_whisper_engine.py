@@ -37,17 +37,24 @@ class MlxWhisperEngine(ASREngine):
 
         condition_on_previous_text = self._config.get("condition_on_previous_text", True)
         word_timestamps = bool(self._config.get("word_timestamps", False))
+        initial_prompt = self._config.get("initial_prompt") or None
+
+        kwargs = {
+            "path_or_hf_repo": self._repo,
+            "language": language,
+            "task": "transcribe",
+            "condition_on_previous_text": condition_on_previous_text,
+            "word_timestamps": word_timestamps,
+            "verbose": False,
+        }
+        # Anchors decoder away from training-data hallucinations at the head
+        # (e.g., "中文字幕由 XXX 提供") and biases toward characters present
+        # in the prompt — used for Traditional vs Simplified Chinese steering.
+        if initial_prompt:
+            kwargs["initial_prompt"] = initial_prompt
 
         with _model_lock:
-            result = mlx_whisper.transcribe(
-                audio_path,
-                path_or_hf_repo=self._repo,
-                language=language,
-                task="transcribe",
-                condition_on_previous_text=condition_on_previous_text,
-                word_timestamps=word_timestamps,
-                verbose=False,
-            )
+            result = mlx_whisper.transcribe(audio_path, **kwargs)
 
         segments = []
         for seg in result.get("segments", []):
@@ -124,6 +131,13 @@ class MlxWhisperEngine(ASREngine):
                     "description": "Emit per-word start/end timestamps",
                     "hint": "開 = 每個英文字都有時間碼，可用於對齊翻譯；略增記憶體。關 = 只有 segment 級別。",
                     "default": False,
+                },
+                "initial_prompt": {
+                    "type": "string",
+                    "label": "起始提示",
+                    "description": "Bias decoder at the start of audio",
+                    "hint": "用嚟 anchor decoder：(1) 防止頭幾秒嘅 training-data hallucination（例如「中文字幕由 XXX 提供」）；(2) 偏向繁體 token（prompt 用繁體字寫）；(3) 提示主題（例如「香港賽馬新聞」）。留空 = 唔用。",
+                    "default": "",
                 },
             },
         }

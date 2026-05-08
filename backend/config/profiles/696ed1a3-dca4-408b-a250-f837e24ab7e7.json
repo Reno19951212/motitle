@@ -1,0 +1,35 @@
+{
+  "name": "日文 -> 日文 字幕",
+  "description": "",
+  "asr": {
+    "engine": "mlx-whisper",
+    "language_config_id": "ja",
+    "condition_on_previous_text": false,
+    "language": "ja",
+    "model_size": "large-v3",
+    "initial_prompt": ""
+  },
+  "translation": {
+    "engine": "qwen3.5-35b-a3b",
+    "glossary_id": null,
+    "batch_size": 10,
+    "context_window": 3,
+    "style": "formal",
+    "temperature": 0.1,
+    "openrouter_model": "qwen/Qwen3.5-35B-A3B",
+    "openrouter_reasoning": false,
+    "api_key": ""
+  },
+  "font": {
+    "family": "Noto Sans TC",
+    "size": 35,
+    "color": "#ffffff",
+    "outline_color": "#000000",
+    "outline_width": 2,
+    "position": "bottom",
+    "margin_bottom": 200
+  },
+  "id": "696ed1a3-dca4-408b-a250-f837e24ab7e7",
+  "created_at": 1778214254.8832278,
+  "updated_at": 1778214999.1007948
+}

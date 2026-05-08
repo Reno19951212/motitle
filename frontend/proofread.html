@@ -428,6 +428,34 @@
     }
     .ga-progress { padding: 24px 18px; text-align: center; color: var(--text-mid); font-size: 13px; }
 
+    /* ============================================================
+       Find & Replace bar
+       ============================================================ */
+    .find-bar {
+      position: sticky; top: 0; z-index: 200;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 7px 14px;
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .find-bar[hidden] { display: none; }
+    .find-bar-input {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 5px; color: var(--text); font-size: 12px;
+      padding: 4px 8px; width: 160px;
+    }
+    .find-bar-input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+    .find-bar-sep { color: var(--border-strong); font-size: 11px; }
+    .find-bar-count { font-size: 11px; color: var(--text-dim); font-family: var(--font-mono); min-width: 40px; }
+    .find-bar-group { display: flex; align-items: center; gap: 4px; }
+    mark.fb-match {
+      background: rgba(108,99,255,0.3); color: var(--text);
+      border-radius: 2px; padding: 0 1px;
+    }
+    mark.fb-match.fb-cur {
+      background: rgba(245,158,11,0.5); color: #fff;
+    }
+
     .rv-b-video {
       position: relative; background: #000;
       border: 1px solid var(--border); border-radius: 8px;
@@ -602,7 +630,7 @@
     /* Toast */
     .toast-stack {
       position: fixed; bottom: 18px; right: 18px;
-      display: flex; flex-direction: column; gap: 8px; z-index: 2000;
+      display: flex; flex-direction: column; gap: 8px; z-index: 4000; /* above modals (3000) */
     }
     .toast {
       padding: 10px 14px; background: var(--surface);
@@ -621,15 +649,56 @@
 </head>
 <body>
 
+<!-- Find & Replace bar -->
+<div id="findBar" class="find-bar" hidden role="search" aria-label="尋找與取代工具列">
+  <div class="find-bar-group">
+    <input class="find-bar-input" id="fbFind" type="text" placeholder="尋找…" aria-label="尋找" oninput="fbSearch()">
+    <button class="btn btn-ghost btn-sm" onclick="fbNav(-1)" aria-label="上一個匹配">▲</button>
+    <button class="btn btn-ghost btn-sm" onclick="fbNav(1)" aria-label="下一個匹配">▼</button>
+    <span class="find-bar-count" id="fbCount">—</span>
+  </div>
+  <div class="find-bar-group">
+    <input class="find-bar-input" id="fbReplace" type="text" placeholder="取代為…" aria-label="取代為">
+  </div>
+  <div class="find-bar-group">
+    <label style="font-size:11px;color:var(--text-mid);display:flex;align-items:center;gap:4px;cursor:pointer;">
+      <input type="checkbox" id="fbOnlyPending"> 只搜未批核
+    </label>
+  </div>
+  <div class="find-bar-group">
+    <label style="font-size:11px;color:var(--text-mid);display:flex;align-items:center;gap:4px;cursor:pointer;">
+      <input type="radio" name="fbField" value="zh" checked> 搜 ZH
+    </label>
+    <label style="font-size:11px;color:var(--text-mid);display:flex;align-items:center;gap:4px;cursor:pointer;">
+      <input type="radio" name="fbField" value="en"> 搜 EN
+    </label>
+    <label style="font-size:11px;color:var(--text-mid);display:flex;align-items:center;gap:4px;cursor:pointer;">
+      <input type="radio" name="fbField" value="both"> 搜兩者
+    </label>
+  </div>
+  <div class="find-bar-group">
+    <button class="btn btn-secondary btn-sm" onclick="fbReplaceCurrent()">取代當前</button>
+    <button class="btn btn-secondary btn-sm" onclick="fbReplaceAll()">全部取代</button>
+    <button class="btn btn-ghost btn-sm" onclick="closeFindBar()" aria-label="關閉尋找工具列">關閉 ✕</button>
+  </div>
+</div>
+
 <div class="bold">
 
-  <!-- Persistent rail (same as Dashboard) -->
+  <!-- Persistent rail (mirrors Dashboard's). All non-active buttons return
+       to Dashboard since the panels they target (Pipeline / Glossary /
+       Language / service-restart) live there. The 校對 button stays "on"
+       because we are already on the proofread page. -->
   <aside class="b-rail">
     <div class="mark" title="MoTitle">M</div>
-    <button class="rail-btn" onclick="backToDashboard()"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8l6-5 6 5v6H2z M6 14V9h4v5"/></svg><span class="tt">返回主頁</span></button>
-    <button class="rail-btn" onclick="backToDashboard()"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 6h12M2 10h12M5 3v10M11 3v10"/></svg><span class="tt">檔案</span></button>
-    <button class="rail-btn on"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-8 8H3v-3z"/></svg><span class="tt">校對</span></button>
+    <button class="rail-btn" title="主頁" onclick="backToDashboard()"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8l6-5 6 5v6H2z M6 14V9h4v5"/></svg><span class="tt">主頁</span></button>
+    <button class="rail-btn" title="檔案" onclick="backToDashboard()"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 6h12M2 10h12M5 3v10M11 3v10"/></svg><span class="tt">檔案</span></button>
+    <button class="rail-btn on" title="校對"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-8 8H3v-3z"/></svg><span class="tt">校對</span></button>
+    <button class="rail-btn" title="Pipeline" onclick="backToDashboard()"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="5" width="4" height="6" rx="1"/><rect x="11" y="5" width="4" height="6" rx="1"/><circle cx="8" cy="2" r="1.5"/><circle cx="8" cy="14" r="1.5"/><path d="M5 8h6 M8 3.5v3 M8 9.5v3"/></svg><span class="tt">Pipeline</span></button>
+    <a class="rail-btn" title="術語表" href="Glossary.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h4a3 3 0 013 3v8a2 2 0 00-2-2H3z M13 3H9a3 3 0 00-3 3v8a2 2 0 012-2h5z"/></svg><span class="tt">術語表</span></a>
+    <button class="rail-btn" title="語言" onclick="backToDashboard()"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2l6 3-6 3-6-3zM2 8l6 3 6-3M2 11l6 3 6-3"/></svg><span class="tt">語言</span></button>
     <div class="flex1"></div>
+    <button class="rail-btn" title="服務狀態" onclick="backToDashboard()"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6L13 13M3 13l1.4-1.4M11.6 4.4L13 3"/></svg></button>
   </aside>
 
   <!-- Review shell -->
@@ -653,6 +722,25 @@
       <div class="rv-kbd-hint">
         <span class="kbd">J</span><span class="kbd">K</span><span>導航</span>
         <span class="kbd">⌘↵</span><span>批核</span>
+      </div>
+      <div class="rv-header-source" style="display:inline-flex;gap:6px;align-items:center;margin-left:12px;font-size:11px;">
+        <span style="color:var(--text-dim);">字幕來源</span>
+        <select id="proofreadSourceMode" onchange="updateProofreadSubtitleSource(this)"
+                aria-label="字幕來源"
+                style="padding:2px 6px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text);">
+          <option value="" id="proofreadSourceModeFollow">— 跟 Profile —</option>
+          <option value="auto">Auto</option>
+          <option value="en">EN 原文</option>
+          <option value="zh">ZH 譯文</option>
+          <option value="bilingual">雙語</option>
+        </select>
+        <select id="proofreadBilingualOrder" onchange="updateProofreadBilingualOrder(this)"
+                aria-label="雙語字幕順序"
+                style="display:none;min-width:120px;
+                padding:2px 6px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text);">
+          <option value="en_top">EN 上 / ZH 下</option>
+          <option value="zh_top">ZH 上 / EN 下</option>
+        </select>
       </div>
     </div>
 
@@ -691,7 +779,7 @@
                 <div class="rv-b-glossary" id="glossaryPanel">
                   <div class="rv-b-glossary-head">
                     <span class="rv-b-glossary-title">詞彙表</span>
-                    <select class="rv-b-glossary-select" id="glossarySelect" onchange="onGlossarySelect()">
+                    <select class="rv-b-glossary-select" id="glossarySelect" onchange="onGlossarySelect()" aria-label="選擇詞彙表">
                       <option value="">選擇詞彙表…</option>
                     </select>
                     <button class="btn btn-ghost btn-sm" id="glossaryApplyBtn" onclick="scanGlossary()" disabled>套用</button>
@@ -709,34 +797,34 @@
                   <div class="rv-b-ss-body">
                     <div class="rv-b-ss-row">
                       <span class="rv-b-ss-label">字型</span>
-                      <input class="rv-b-ss-input" id="ssFamily" type="text" oninput="onSubtitleSettingChange()">
+                      <input class="rv-b-ss-input" id="ssFamily" type="text" oninput="onSubtitleSettingChange()" aria-label="字幕字型名稱">
                     </div>
                     <div class="rv-b-ss-row">
                       <span class="rv-b-ss-label">大小</span>
-                      <input class="rv-b-ss-input" id="ssSize" type="number" min="8" max="120" oninput="onSubtitleSettingChange()" style="width:60px;">
+                      <input class="rv-b-ss-input" id="ssSize" type="number" min="8" max="120" oninput="onSubtitleSettingChange()" style="width:60px;" aria-label="字幕大小 (px)">
                       <span style="font-size:11px;color:var(--text-dim);">px</span>
                     </div>
                     <div class="rv-b-ss-row">
                       <span class="rv-b-ss-label">顏色</span>
                       <div class="rv-b-ss-color">
-                        <input type="color" id="ssColor" oninput="onColorInput('ssColor','ssColorHex');onSubtitleSettingChange()">
+                        <input type="color" id="ssColor" oninput="onColorInput('ssColor','ssColorHex');onSubtitleSettingChange()" aria-label="字幕顏色">
                         <span class="rv-b-ss-hex" id="ssColorHex">#ffffff</span>
                       </div>
                     </div>
                     <div class="rv-b-ss-row">
                       <span class="rv-b-ss-label">輪廓色</span>
                       <div class="rv-b-ss-color">
-                        <input type="color" id="ssOutlineColor" oninput="onColorInput('ssOutlineColor','ssOutlineColorHex');onSubtitleSettingChange()">
+                        <input type="color" id="ssOutlineColor" oninput="onColorInput('ssOutlineColor','ssOutlineColorHex');onSubtitleSettingChange()" aria-label="字幕輪廓顏色">
                         <span class="rv-b-ss-hex" id="ssOutlineColorHex">#000000</span>
                       </div>
                     </div>
                     <div class="rv-b-ss-row">
                       <span class="rv-b-ss-label">輪廓寬</span>
-                      <input class="rv-b-ss-input" id="ssOutlineWidth" type="number" min="0" max="10" oninput="onSubtitleSettingChange()" style="width:60px;">
+                      <input class="rv-b-ss-input" id="ssOutlineWidth" type="number" min="0" max="10" oninput="onSubtitleSettingChange()" style="width:60px;" aria-label="字幕輪廓寬度">
                     </div>
                     <div class="rv-b-ss-row">
                       <span class="rv-b-ss-label">底部邊距</span>
-                      <input class="rv-b-ss-input" id="ssMarginBottom" type="number" min="0" max="200" oninput="onSubtitleSettingChange()" style="width:60px;">
+                      <input class="rv-b-ss-input" id="ssMarginBottom" type="number" min="0" max="200" oninput="onSubtitleSettingChange()" style="width:60px;" aria-label="字幕底部邊距 (px)">
                       <span style="font-size:11px;color:var(--text-dim);">px</span>
                     </div>
                   </div>
@@ -778,8 +866,8 @@
                 <span><span id="curDur">—</span>s</span>
               </div>
               <div class="rv-b-wave-ctrl-r">
-                <button class="btn btn-ghost btn-sm" onclick="nav(-1)" title="上一段 (J)">◀</button>
-                <button class="btn btn-ghost btn-sm" onclick="nav(1)" title="下一段 (K)">▶</button>
+                <button class="btn btn-ghost btn-sm" onclick="nav(-1)" title="上一段 (J)" aria-label="上一段">◀</button>
+                <button class="btn btn-ghost btn-sm" onclick="nav(1)" title="下一段 (K)" aria-label="下一段">▶</button>
               </div>
             </div>
           </div>
@@ -810,6 +898,7 @@
   let glossaryId = null;          // selected glossary ID
   let glossaryEntries = [];       // current glossary entries
   let activeProfileId = null;     // for PATCH font settings
+  let activeProfile = null;       // full profile so resolvers see font.subtitle_source / bilingual_order
   let ssDebounceTimer = null;     // subtitle settings save debounce
 
   // Font config mirrors active profile's `font` — read-only on this page;
@@ -832,6 +921,122 @@
     if (s == null) return '';
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
+
+  // Resolve segment text per subtitle source mode.
+  // Mirrors backend backend/subtitle_text.py resolve_segment_text exactly.
+  function pickSubtitleText(seg, mode = 'auto', order = 'en_top') {
+    const en = (seg.en || seg._en_text || seg.text || '').trim();
+    let zh = (seg.zh || seg.zh_text || '').trim();
+    // Strip leading [long]/[review] QA markers (legacy registry data).
+    zh = zh.replace(/^\s*(?:\[(?:NEEDS\s+REVIEW|long|review|LONG|REVIEW)\]\s*)+/, '').trim();
+    if (mode === 'en') return en;
+    if (mode === 'zh') return zh || en;
+    if (mode === 'bilingual') {
+      if (!en) return zh;
+      if (!zh) return en;
+      return order === 'en_top' ? `${en}\n${zh}` : `${zh}\n${en}`;
+    }
+    return zh || en;
+  }
+
+  // Resolve subtitle source from a file entry, falling back to the active profile.
+  function resolveSubtitleSource(fileEntry, profile) {
+    const v = (fileEntry || {}).subtitle_source;
+    if (v === 'auto' || v === 'en' || v === 'zh' || v === 'bilingual') return v;
+    const p = ((profile || {}).font || {}).subtitle_source;
+    if (p === 'auto' || p === 'en' || p === 'zh' || p === 'bilingual') return p;
+    return 'auto';
+  }
+  function resolveBilingualOrder(fileEntry, profile) {
+    const v = (fileEntry || {}).bilingual_order;
+    if (v === 'en_top' || v === 'zh_top') return v;
+    const p = ((profile || {}).font || {}).bilingual_order;
+    if (p === 'en_top' || p === 'zh_top') return p;
+    return 'en_top';
+  }
+
+  // ============================================================
+  // Subtitle source dropdown handlers
+  // ============================================================
+  function syncSourceDropdowns() {
+    const srcSel = document.getElementById('proofreadSourceMode');
+    const ordSel = document.getElementById('proofreadBilingualOrder');
+    if (!srcSel) return;
+    srcSel.value = (fileInfo && fileInfo.subtitle_source) ? fileInfo.subtitle_source : '';
+    // Surface the effective profile-level mode in the placeholder so users see
+    // what "follow Profile" actually resolves to (matches dashboard UX).
+    const followOpt = document.getElementById('proofreadSourceModeFollow');
+    if (followOpt) {
+      const p = (activeProfile && activeProfile.font && activeProfile.font.subtitle_source) || 'auto';
+      const label = ({auto:'Auto', en:'EN', zh:'ZH', bilingual:'雙語'})[p] || 'Auto';
+      followOpt.textContent = `— 跟 Profile（${label}）—`;
+    }
+    if (ordSel) {
+      ordSel.value = (fileInfo && fileInfo.bilingual_order) ? fileInfo.bilingual_order : 'en_top';
+      ordSel.style.display = ((fileInfo && fileInfo.subtitle_source) === 'bilingual') ? '' : 'none';
+    }
+  }
+
+  // Parse JSON safely; if backend returned HTML (e.g. 405 from an outdated
+  // server), fall back to a meaningful error rather than choking on `<!doctype`.
+  async function _parseJsonOrThrow(r, fallbackMsg) {
+    const text = await r.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch (_) { /* not JSON */ }
+    if (!r.ok) {
+      const apiErr = data && data.error;
+      if (apiErr) throw new Error(apiErr);
+      if (r.status === 405) throw new Error('伺服器未支援呢個操作（請重啟後端 server）');
+      throw new Error(`${fallbackMsg}（HTTP ${r.status}）`);
+    }
+    return data;
+  }
+
+  async function updateProofreadSubtitleSource(selectEl) {
+    const value = selectEl.value || null;
+    try {
+      const r = await fetch(`${API_BASE}/api/files/${fileId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subtitle_source: value }),
+      });
+      fileInfo = await _parseJsonOrThrow(r, '更新失敗');
+      const ordSel = document.getElementById('proofreadBilingualOrder');
+      if (ordSel) ordSel.style.display = (value === 'bilingual') ? '' : 'none';
+      refreshOverlay();
+      showToast('已更新字幕來源', 'success');
+    } catch (e) {
+      showToast(`更新失敗: ${e.message}`, 'error');
+    }
+  }
+
+  async function updateProofreadBilingualOrder(selectEl) {
+    const value = selectEl.value;
+    try {
+      const r = await fetch(`${API_BASE}/api/files/${fileId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bilingual_order: value }),
+      });
+      fileInfo = await _parseJsonOrThrow(r, '更新失敗');
+      refreshOverlay();
+    } catch (e) {
+      showToast(`更新失敗: ${e.message}`, 'error');
+    }
+  }
+
+  function refreshOverlay() {
+    if (typeof FontPreview === 'undefined') return;
+    if (cursorIdx == null || !segs[cursorIdx]) {
+      FontPreview.updateText('');
+      return;
+    }
+    const s = segs[cursorIdx];
+    const mode = resolveSubtitleSource(fileInfo, activeProfile);
+    const order = resolveBilingualOrder(fileInfo, activeProfile);
+    FontPreview.updateText(pickSubtitleText({ en: s.en, zh: s.zh }, mode, order));
+  }
+
   function escapeRegex(s) {
     return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
@@ -923,6 +1128,7 @@
       if (!r.ok) return;
       const data = await r.json();
       activeProfileId = data.profile?.id || null;
+      activeProfile = data.profile || null;
       const f = data.profile?.font || {};
       fontConfig = { ...fontConfig, ...f };
       document.getElementById('ssFamily').value = fontConfig.family;
@@ -946,15 +1152,27 @@
     ssDebounceTimer = setTimeout(saveSubtitleSettings, 500);
   }
 
+  // Clamp a Number input to its [min, max] range — HTML min/max do not block
+  // typed-in values, so we enforce them at save time.
+  function _clampNumberInput(id, lo, hi, fallback) {
+    const el = document.getElementById(id);
+    let n = Number(el?.value);
+    if (!Number.isFinite(n)) n = fallback;
+    if (n < lo) n = lo;
+    if (n > hi) n = hi;
+    if (el) el.value = String(n);
+    return n;
+  }
+
   async function saveSubtitleSettings() {
     if (!activeProfileId) return;
     const font = {
       family: document.getElementById('ssFamily').value.trim(),
-      size: Number(document.getElementById('ssSize').value),
+      size: _clampNumberInput('ssSize', 8, 120, 32),
       color: document.getElementById('ssColor').value,
       outline_color: document.getElementById('ssOutlineColor').value,
-      outline_width: Number(document.getElementById('ssOutlineWidth').value),
-      margin_bottom: Number(document.getElementById('ssMarginBottom').value),
+      outline_width: _clampNumberInput('ssOutlineWidth', 0, 10, 2),
+      margin_bottom: _clampNumberInput('ssMarginBottom', 0, 200, 40),
     };
     try {
       const r = await fetch(`${API_BASE}/api/profiles/${activeProfileId}`, {
@@ -1398,6 +1616,7 @@
       if (!fileInfo) throw new Error('檔案不存在');
       document.getElementById('rvFname').textContent = fileInfo.original_name;
       document.getElementById('rvFname').title = fileInfo.original_name;
+      syncSourceDropdowns();
 
       // Load segments + translations
       await loadSegments();
@@ -1421,6 +1640,9 @@
       // Start cursor at first non-approved, fallback to 0
       const firstPending = segs.findIndex(s => !s.approved);
       setCursor(firstPending >= 0 ? firstPending : 0);
+
+      // Check for ongoing render and show resume banner
+      resumeOngoingRender();
     } catch (e) {
       showToast(`載入失敗: ${e.message}`, 'error');
     }
@@ -1497,7 +1719,7 @@
   // ============================================================
   // Rendering — segment rail list
   // ============================================================
-  function renderSegList() {
+  function _renderSegListBase() {
     document.getElementById('segCount').textContent = segs.length;
     const list = document.getElementById('segList');
     if (segs.length === 0) {
@@ -1639,7 +1861,10 @@
             <span>原文 · EN</span>
             ${confStub}
           </div>
-          <div class="rv-b-detail-en">${escapeHtml(s.en) || '<em style="color:var(--text-dim)">（空白）</em>'}</div>
+          <textarea class="rv-b-detail-input" id="enInput"
+                    oninput="onEnInput()"
+                    onblur="saveEnIfDirty()"
+                    rows="2">${escapeHtml(s.en)}</textarea>
         </div>
 
         <div class="rv-b-detail-field">
@@ -1652,6 +1877,7 @@
           <textarea class="rv-b-detail-input" id="zhInput"
                     oninput="onZhInput()"
                     onkeydown="onZhKey(event)"
+                    onblur="saveEditIfDirty()"
                     rows="2">${escapeHtml(s.zh)}</textarea>
         </div>
 
@@ -1675,18 +1901,24 @@
       </div>
 
       <div class="rv-b-detail-footer">
-        <button class="btn btn-ghost" onclick="nav(-1)">
+        <button class="btn btn-ghost" onclick="nav(-1)" aria-label="上一段">
           ◀ 上一段 <span class="kbd">J</span>
         </button>
-        <button class="btn btn-ghost" onclick="nav(1)">
+        <button class="btn btn-ghost" onclick="nav(1)" aria-label="下一段">
           下一段 ▶ <span class="kbd">K</span>
         </button>
         <div class="spacer"></div>
+        ${s.approved ? `<button class="btn btn-ghost" style="color:var(--warning)" onclick="unapproveSegment(${s.idx})" aria-label="取消批核此段">取消批核</button>` : ''}
         <button class="btn btn-ghost" onclick="approveAll()">✓ 全批核</button>
         <button class="btn btn-primary" onclick="approveAndAdvance()" ${s.approved ? 'disabled' : ''}>
           ✓ 批核並前進 <span class="kbd">⌘↵</span>
         </button>
       </div>`;
+    // Fresh DOM matches segment data — reset dirty flags so a stale flag
+    // from a failed save on the previous segment doesn't accidentally
+    // re-PATCH (and re-flip approval status of) the new segment.
+    dirty = false;
+    enDirty = false;
   }
 
   // ============================================================
@@ -1796,7 +2028,10 @@
   // ============================================================
   // Edit + approve
   // ============================================================
-  let dirty = false;
+  // Two parallel dirty flags — EN (original transcript) and ZH (translation)
+  // are saved to different endpoints (/segments/<idx> vs /translations/<idx>).
+  let dirty = false;     // ZH translation dirty
+  let enDirty = false;   // EN transcript dirty
   function onZhInput() {
     const ta = document.getElementById('zhInput');
     if (!ta) return;
@@ -1812,6 +2047,15 @@
       cpsEl.textContent = cps;
       cpsEl.parentElement.classList.toggle('over', cps > 12);
     }
+  }
+
+  function onEnInput() {
+    const ta = document.getElementById('enInput');
+    if (!ta) return;
+    const s = segs[cursorIdx];
+    if (!s) return;
+    if (ta.value !== s.en) { ta.classList.add('dirty'); enDirty = true; }
+    else { ta.classList.remove('dirty'); enDirty = false; }
   }
 
   function onZhKey(e) {
@@ -1850,12 +2094,37 @@
     }
   }
 
+  async function saveEnIfDirty() {
+    const ta = document.getElementById('enInput');
+    if (!ta || !enDirty) return true;
+    const s = segs[cursorIdx];
+    if (!s) return true;
+    const newText = ta.value.trim();
+    try {
+      const r = await fetch(`${API_BASE}/api/files/${fileId}/segments/${s.idx}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: newText }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      s.en = newText;
+      enDirty = false;
+      ta.classList.remove('dirty');
+      return true;
+    } catch (e) {
+      showToast(`儲存原文失敗: ${e.message}`, 'error');
+      return false;
+    }
+  }
+
   async function approveAndAdvance() {
     const s = segs[cursorIdx];
     if (!s) return;
-    // Save edit first if dirty (PATCH auto-approves on backend)
-    const saved = await saveEditIfDirty();
-    if (!saved) return;
+    // Save EN + ZH edits first if dirty (defensive — onblur usually fires
+    // before keyboard shortcut, but Cmd+Enter inside a textarea bypasses blur).
+    const enSaved = await saveEnIfDirty();
+    const zhSaved = await saveEditIfDirty();
+    if (!enSaved || !zhSaved) return;
     if (!s.approved) {
       try {
         const r = await fetch(`${API_BASE}/api/files/${fileId}/translations/${s.idx}/approve`, { method: 'POST' });
@@ -1919,7 +2188,9 @@
     if (typeof FontPreview !== 'undefined') {
       if (active >= 0) {
         const s = segs[active];
-        FontPreview.updateText(s.zh || s.en || '');
+        const mode = resolveSubtitleSource(fileInfo, activeProfile);
+        const order = resolveBilingualOrder(fileInfo, activeProfile);
+        FontPreview.updateText(pickSubtitleText({ en: s.en, zh: s.zh }, mode, order));
       } else {
         FontPreview.updateText('');
       }
@@ -1938,11 +2209,241 @@
   }
 
   // ============================================================
+  // Unapprove
+  // ============================================================
+  async function unapproveSegment(idx) {
+    const r = await fetch(`${API_BASE}/api/files/${fileId}/translations/${idx}/unapprove`, { method: 'POST' });
+    if (!r.ok) { showToast('取消批核失敗', 'error'); return; }
+    if (segs[idx]) segs[idx].approved = false;
+    renderProgress();
+    renderSegList();
+    renderWaveformRegions();
+    renderDetail();
+    showToast('已取消批核', 'success');
+  }
+
+  // ============================================================
+  // Render-resume on reload
+  // ============================================================
+  async function resumeOngoingRender() {
+    if (!fileId) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/renders/in-progress?file_id=${fileId}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      const job = (data.jobs || [])[0];
+      if (!job) return;
+      const banner = document.createElement('div');
+      banner.id = 'renderResumeBanner';
+      banner.style.cssText = 'position:fixed;top:8px;right:8px;background:#ff9800;color:#000;padding:8px 12px;border-radius:4px;font-size:12px;z-index:5000;';
+      banner.innerHTML = `🎬 渲染進行中 (${job.format || job.render_id}) <button onclick="cancelRender('${job.render_id}', this.parentElement)" style="margin-left:8px;background:#0004;border:none;border-radius:3px;padding:2px 8px;cursor:pointer;font-size:11px;">取消</button>`;
+      document.body.appendChild(banner);
+    } catch (_) {}
+  }
+
+  async function cancelRender(renderId, bannerEl) {
+    try {
+      const r = await fetch(`${API_BASE}/api/renders/${renderId}`, { method: 'DELETE' });
+      if (r.ok) {
+        showToast('已取消渲染', 'success');
+        bannerEl?.remove();
+      } else {
+        showToast('取消渲染失敗', 'error');
+      }
+    } catch (_) {
+      showToast('取消渲染失敗', 'error');
+    }
+  }
+
+  // ============================================================
+  // Find & Replace
+  // ============================================================
+  let fbMatches = [];    // [{idx, field}]
+  let fbCurMatch = -1;
+
+  function openFindBar() {
+    const bar = document.getElementById('findBar');
+    bar.hidden = false;
+    document.getElementById('fbFind').focus();
+    document.getElementById('fbFind').select();
+    fbSearch();
+  }
+
+  function closeFindBar() {
+    document.getElementById('findBar').hidden = true;
+    fbMatches = [];
+    fbCurMatch = -1;
+    document.getElementById('fbCount').textContent = '—';
+    // Re-render to remove highlights
+    renderSegList();
+  }
+
+  function fbGetField() {
+    const radios = document.querySelectorAll('input[name="fbField"]');
+    for (const r of radios) { if (r.checked) return r.value; }
+    return 'zh';
+  }
+
+  function fbSearch() {
+    const query = (document.getElementById('fbFind').value || '').trim();
+    const onlyPending = document.getElementById('fbOnlyPending').checked;
+    const field = fbGetField();
+    fbMatches = [];
+    if (!query) {
+      fbCurMatch = -1;
+      document.getElementById('fbCount').textContent = '—';
+      renderSegList();
+      return;
+    }
+    const lq = query.toLowerCase();
+    segs.forEach((s, i) => {
+      if (onlyPending && s.approved) return;
+      const searchZh = field === 'zh' || field === 'both';
+      const searchEn = field === 'en' || field === 'both';
+      if (searchZh && (s.zh || '').toLowerCase().includes(lq)) {
+        fbMatches.push({ idx: i, field: 'zh' });
+      } else if (searchEn && (s.en || '').toLowerCase().includes(lq)) {
+        fbMatches.push({ idx: i, field: 'en' });
+      }
+    });
+    if (fbCurMatch >= fbMatches.length) fbCurMatch = fbMatches.length - 1;
+    if (fbCurMatch < 0 && fbMatches.length > 0) fbCurMatch = 0;
+    document.getElementById('fbCount').textContent =
+      fbMatches.length > 0 ? `${fbCurMatch + 1}/${fbMatches.length}` : '0 個';
+    renderSegList();
+    if (fbMatches.length > 0) {
+      const m = fbMatches[fbCurMatch];
+      if (m) {
+        setCursor(m.idx, false);
+        scrollSegIntoView(m.idx);
+      }
+    }
+  }
+
+  function fbNav(dir) {
+    if (!fbMatches.length) return;
+    fbCurMatch = (fbCurMatch + dir + fbMatches.length) % fbMatches.length;
+    document.getElementById('fbCount').textContent = `${fbCurMatch + 1}/${fbMatches.length}`;
+    const m = fbMatches[fbCurMatch];
+    if (m) {
+      setCursor(m.idx, false);
+      scrollSegIntoView(m.idx);
+    }
+    renderSegList();
+  }
+
+  async function fbReplaceCurrent() {
+    if (!fbMatches.length || fbCurMatch < 0) return;
+    const m = fbMatches[fbCurMatch];
+    if (!m) return;
+    if (m.field !== 'zh') { showToast('取代僅支援 ZH 欄位', 'warning'); return; }
+    const query = document.getElementById('fbFind').value;
+    const replacement = document.getElementById('fbReplace').value;
+    const s = segs[m.idx];
+    if (!s) return;
+    const newZh = (s.zh || '').replaceAll(query, replacement);
+    if (newZh === s.zh) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/files/${fileId}/translations/${s.idx}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ zh_text: newZh }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      segs = segs.map((seg, i) => i === s.idx ? { ...seg, zh: newZh, approved: true, edited: true } : seg);
+      fbSearch();
+      showToast('已取代', 'success');
+    } catch (e) {
+      showToast(`取代失敗: ${e.message}`, 'error');
+    }
+  }
+
+  async function fbReplaceAll() {
+    if (!fbMatches.length) return;
+    const query = document.getElementById('fbFind').value;
+    const replacement = document.getElementById('fbReplace').value;
+    const zhMatches = fbMatches.filter(m => m.field === 'zh');
+    if (!zhMatches.length) { showToast('無可取代的 ZH 匹配', 'warning'); return; }
+    let count = 0;
+    for (const m of zhMatches) {
+      const s = segs[m.idx];
+      if (!s) continue;
+      const newZh = (s.zh || '').replaceAll(query, replacement);
+      if (newZh === s.zh) continue;
+      try {
+        const r = await fetch(`${API_BASE}/api/files/${fileId}/translations/${s.idx}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ zh_text: newZh }),
+        });
+        if (!r.ok) continue;
+        segs = segs.map((seg, i) => i === s.idx ? { ...seg, zh: newZh, approved: true, edited: true } : seg);
+        count++;
+      } catch (_) {}
+    }
+    showToast(`已取代 ${count} 處`, 'success');
+    fbSearch();
+  }
+
+  // renderSegList — wraps _renderSegListBase to add find-bar match highlights
+  function renderSegList() {
+    _renderSegListBase();
+    const query = (document.getElementById('fbFind')?.value || '').trim();
+    if (!query || document.getElementById('findBar')?.hidden) return;
+    // Add highlight marks to matched rail items
+    fbMatches.forEach((m, mi) => {
+      const row = document.querySelector(`.rv-b-rail-item[data-idx="${m.idx}"]`);
+      if (!row) return;
+      const textEl = row.querySelector('.rv-b-rail-text');
+      if (!textEl) return;
+      const isCur = mi === fbCurMatch;
+      const s = segs[m.idx];
+      if (!s) return;
+      const raw = m.field === 'zh' ? (s.zh || '(未翻譯)') : (s.en || '');
+      const cls = isCur ? 'fb-match fb-cur' : 'fb-match';
+      const lq = query.toLowerCase();
+      let out = '';
+      let last = 0;
+      let idx = raw.toLowerCase().indexOf(lq, last);
+      while (idx !== -1) {
+        out += escapeHtml(raw.slice(last, idx));
+        out += `<mark class="${cls}">${escapeHtml(raw.slice(idx, idx + query.length))}</mark>`;
+        last = idx + query.length;
+        idx = raw.toLowerCase().indexOf(lq, last);
+      }
+      out += escapeHtml(raw.slice(last));
+      textEl.innerHTML = out;
+    });
+  }
+
+  // ============================================================
   // Keyboard navigation
   // ============================================================
   document.addEventListener('keydown', (e) => {
     const tag = e.target.tagName;
     const inInput = tag === 'TEXTAREA' || tag === 'INPUT';
+
+    // Cmd+F / Ctrl+F → open find bar (intercept even in inputs)
+    if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+      e.preventDefault();
+      openFindBar();
+      return;
+    }
+    // Escape → close find bar first; if not open, let the GA modal listener handle it
+    if (e.key === 'Escape') {
+      const bar = document.getElementById('findBar');
+      if (!bar.hidden) { closeFindBar(); e.preventDefault(); return; }
+    }
+    // Cmd+F / Ctrl+F handled above — skip everything else
+    // Enter / Shift+Enter in find input → navigate
+    if (inInput && e.target.id === 'fbFind') {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        fbNav(e.shiftKey ? -1 : 1);
+        return;
+      }
+    }
+
     // Cmd+Enter works even in textarea (handled by onZhKey) — skip here
     if (inInput) return;
     if (e.key === 'j' || e.key === 'J') { e.preventDefault(); nav(-1); }
@@ -1962,6 +2463,17 @@
   // Init
   // ============================================================
   init();
+
+  // Esc closes the open Glossary Apply modal — keyboard accessibility.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (e.target && e.target.tagName === 'TEXTAREA') return;
+    const ga = document.getElementById('gaOverlay');
+    if (ga?.classList.contains('open')) {
+      ga.classList.remove('open');
+      e.preventDefault();
+    }
+  });
 </script>
 
 <!-- Glossary Apply Modal -->
@@ -1969,7 +2481,7 @@
   <div class="ga-modal">
     <div class="ga-header">
       <span id="gaTitle">詞彙表套用</span>
-      <button class="ga-close" onclick="closeGlossaryApplyModal()">&times;</button>
+      <button class="ga-close" onclick="closeGlossaryApplyModal()" aria-label="關閉詞彙表套用">&times;</button>
     </div>
     <div class="ga-body" id="gaBody"></div>
     <div class="ga-footer" id="gaFooter">
