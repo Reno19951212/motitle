@@ -2237,7 +2237,7 @@ git commit -m "feat(r5): login page (vanilla HTML/JS)"
 **Teammate:** ralph-backend
 **Files:** Modify `backend/app.py`
 
-- [ ] **Step 1: Add route**
+- [x] **Step 1: Add route** ✅ Done iteration 17 — added `redirect` import, `serve_login_page()` (public), `serve_index()` (302 to /login.html if unauth, else send index.html)
 
 ```python
 # In backend/app.py, near other static-serving routes:
@@ -2255,7 +2255,7 @@ def serve_index():
     return send_from_directory("../frontend", "index.html")
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit** ✅ Done iteration 17 (commit 9981aad)
 
 ```bash
 git add backend/app.py
