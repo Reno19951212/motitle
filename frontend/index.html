@@ -324,6 +324,12 @@
     .fmt-badge.outline { background: transparent; }
     .fmt-desc { font-size: 12px; color: var(--text-mid); }
     .step-menu .split-divider { height: 1px; background: var(--surface-2); margin: 3px 2px; }
+    .step-menu-section-label {
+      font-size: 9.5px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.1em; color: var(--text-dim);
+      padding: 6px 10px 2px;
+      opacity: 0.7;
+    }
     .pipeline-strip .step {
       display: flex; align-items: center; gap: 6px;
       padding: 6px 10px;
@@ -2182,19 +2188,40 @@
       const glossCount = currentGloss ? (currentGloss.entry_count || (currentGloss.entries?.length ?? 0)) : 0;
       const outputFmt = 'H.264 · MP4';
 
-      const presetMenuHtml = `
-        <div class="step-menu preset-menu" style="min-width: 260px;">
-          <div class="step-menu-head">Pipeline 預設</div>
-          ${availableProfiles.length
-            ? availableProfiles.map(pr => `
+      // Group profiles by ownership: user_id===null → shared; user_id===currentUser.id → mine
+      const _currentUserId = window.authState?.user?.id ?? null;
+      const _sharedProfiles = availableProfiles.filter(pr => pr.user_id === null || pr.user_id === undefined);
+      const _myProfiles = _currentUserId !== null
+        ? availableProfiles.filter(pr => pr.user_id === _currentUserId)
+        : [];
+      const _renderProfileButton = pr => `
             <button ${pr.id === p.id ? 'class="on"' : ''} onclick="activateProfile('${pr.id}')">
               <div class="smn-main">
                 <span class="smn-name">${escapeHtml(pr.name || pr.id)}</span>
                 ${pr.id === p.id ? '<span class="smn-badge">當前</span>' : ''}
               </div>
               <div class="smn-desc">${escapeHtml(pr.asr?.model_size || '—')} · ${escapeHtml((pr.translation?.engine || '—').replace(/-cloud$/,''))}</div>
-            </button>`).join('')
-            : '<div style="padding:8px 12px;color:var(--text-dim);font-size:12px;">未有 Profile，撳「+ 新增」建立第一個</div>'}
+            </button>`;
+      const _profileGroupsHtml = (() => {
+        if (!availableProfiles.length) {
+          return '<div style="padding:8px 12px;color:var(--text-dim);font-size:12px;">未有 Profile，撳「+ 新增」建立第一個</div>';
+        }
+        let html = '';
+        if (_myProfiles.length) {
+          html += '<div class="step-menu-section-label">我嘅</div>';
+          html += _myProfiles.map(_renderProfileButton).join('');
+        }
+        if (_sharedProfiles.length) {
+          if (_myProfiles.length) html += '<div class="split-divider"></div>';
+          html += '<div class="step-menu-section-label">共享</div>';
+          html += _sharedProfiles.map(_renderProfileButton).join('');
+        }
+        return html;
+      })();
+      const presetMenuHtml = `
+        <div class="step-menu preset-menu" style="min-width: 260px;">
+          <div class="step-menu-head">Pipeline 預設</div>
+          ${_profileGroupsHtml}
           <div class="split-divider"></div>
           <button class="smn-manage" onclick="openProfileSaveModal()"><span class="fmt-badge outline">💾</span><span class="fmt-desc">將當前設定儲存為新預設…</span></button>
           <button class="smn-manage" onclick="openProfileManageModal()"><span class="fmt-badge outline">⚙</span><span class="fmt-desc">管理預設…</span></button>
@@ -2242,21 +2269,43 @@
       const mtMenuHtml  = renderStepMenu('MT · 選擇', MT_OPTIONS, mtEngine, 'applyMtEngine').replace('<div class="step-menu">', '<div class="step-menu" data-kind="mt" style="min-width:220px;">');
       const outMenuHtml = renderStepMenu('輸出 · 選擇', OUTPUT_OPTIONS, outputFmt, 'applyOutputFormat').replace('<div class="step-menu">', '<div class="step-menu" data-kind="output">');
 
-      const glossOptions = glossaries.map(g => ({
-        name: g.name, badge: `${(g.entry_count || g.entries?.length || 0)} 條`, desc: '', id: g.id,
-      }));
-      glossOptions.push({ name: '— 不使用 —', desc: '跳過術語校正', id: null });
-      const glossMenuHtml = `
-        <div class="step-menu" data-kind="gloss" style="min-width:240px;right:0;left:auto;">
-          <div class="step-menu-head">術語表 · 選擇</div>
-          ${glossOptions.map(o => `
-            <button ${o.id === glossId ? 'class="on"' : ''} onclick="applyGlossary(${o.id === null ? 'null' : `'${o.id}'`})">
+      // Group glossaries by ownership: user_id===null → shared; user_id===currentUser.id → mine
+      const _sharedGloss = glossaries.filter(g => g.user_id === null || g.user_id === undefined);
+      const _myGloss = _currentUserId !== null
+        ? glossaries.filter(g => g.user_id === _currentUserId)
+        : [];
+      const _renderGlossButton = g => {
+        const o = { name: g.name, badge: `${(g.entry_count || g.entries?.length || 0)} 條`, id: g.id };
+        return `<button ${o.id === glossId ? 'class="on"' : ''} onclick="applyGlossary('${o.id}')">
               <div class="smn-main">
                 <span class="smn-name">${escapeHtml(o.name)}</span>
                 ${o.badge ? `<span class="smn-badge">${escapeHtml(o.badge)}</span>` : ''}
               </div>
-              ${o.desc ? `<div class="smn-desc">${escapeHtml(o.desc)}</div>` : ''}
-            </button>`).join('')}
+            </button>`;
+      };
+      const _glossGroupsHtml = (() => {
+        let html = '';
+        if (_myGloss.length) {
+          html += '<div class="step-menu-section-label">我嘅</div>';
+          html += _myGloss.map(_renderGlossButton).join('');
+        }
+        if (_sharedGloss.length) {
+          if (_myGloss.length) html += '<div class="split-divider"></div>';
+          html += '<div class="step-menu-section-label">共享</div>';
+          html += _sharedGloss.map(_renderGlossButton).join('');
+        }
+        return html;
+      })();
+      const glossMenuHtml = `
+        <div class="step-menu" data-kind="gloss" style="min-width:240px;right:0;left:auto;">
+          <div class="step-menu-head">術語表 · 選擇</div>
+          ${_glossGroupsHtml}
+          <button ${null === glossId ? 'class="on"' : ''} onclick="applyGlossary(null)">
+              <div class="smn-main">
+                <span class="smn-name">— 不使用 —</span>
+              </div>
+              <div class="smn-desc">跳過術語校正</div>
+            </button>
           <div class="split-divider"></div>
           <button class="smn-manage"><span class="fmt-badge outline">+</span><span class="fmt-desc">新增 / 管理術語表…</span></button>
         </div>`;
