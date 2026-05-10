@@ -55,3 +55,25 @@ def cancel_job(job_id):
         return jsonify({"error": "can only cancel queued jobs"}), 409
     update_job_status(db_path, job_id, "cancelled")
     return jsonify({"ok": True}), 200
+
+
+@bp.post("/api/queue/<job_id>/retry")
+@login_required
+def retry_job(job_id):
+    db_path = _db_path or current_app.config["AUTH_DB_PATH"]
+    job = get_job(db_path, job_id)
+    if job is None:
+        return jsonify({"error": "not found"}), 404
+    if job["user_id"] != current_user.id and not current_user.is_admin:
+        return jsonify({"error": "forbidden"}), 403
+    if job["status"] != "failed":
+        return jsonify({"error": "can only retry failed jobs"}), 409
+    # Need access to _job_queue from app to call enqueue. Lazy-import to avoid
+    # boot-time circular dependency.
+    from app import _job_queue
+    new_job_id = _job_queue.enqueue(
+        user_id=job["user_id"],
+        file_id=job["file_id"],
+        job_type=job["type"],
+    )
+    return jsonify({"ok": True, "new_job_id": new_job_id}), 200
