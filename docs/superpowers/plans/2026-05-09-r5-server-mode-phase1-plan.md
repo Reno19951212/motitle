@@ -2489,7 +2489,7 @@ git commit -m "test(r5): Playwright login flow E2E test"
 **Teammate:** ralph-tester
 **Files:** Create `backend/tests/test_lan_cors.py`
 
-- [ ] **Step 1: Write test**
+- [x] **Step 1: Write test** ✅ Done iteration 22
 
 ```python
 # backend/tests/test_lan_cors.py
@@ -2505,7 +2505,7 @@ def test_cors_allows_lan_origin():
     assert _is_lan_origin("https://attacker.net") is False
 ```
 
-- [ ] **Step 2: Run test**
+- [x] **Step 2: Run test** ✅ Done iteration 22 — 1 fail with ImportError on _is_lan_origin
 
 ```bash
 pytest tests/test_lan_cors.py -v
@@ -2517,7 +2517,7 @@ Expected: FAIL — `_is_lan_origin` not found.
 **Teammate:** ralph-backend
 **Files:** Modify `backend/app.py`
 
-- [ ] **Step 1: Add helper + CORS handler**
+- [x] **Step 1: Add helper + CORS handler** ✅ Done iteration 22 — `_is_lan_origin` + `_LAN_NETS` helpers; CORS uses regex string `_LAN_ORIGIN_REGEX` instead of plan's `lambda` because flask-cors 6.0.2 silently accepts callable at init then iterates per-request → TypeError. Regex covers the same RFC 1918 + loopback ranges as `_is_lan_origin`.
 
 ```python
 # backend/app.py — add helpers
@@ -2552,14 +2552,14 @@ CORS(app, supports_credentials=True,
      origins=lambda origin: _is_lan_origin(origin))
 ```
 
-- [ ] **Step 2: Run test**
+- [x] **Step 2: Run test** ✅ Done iteration 22 — 1/1 pass; full pytest 561 pass + 1 baseline
 
 ```bash
 pytest tests/test_lan_cors.py -v
 ```
 Expected: 1 passed.
 
-- [ ] **Step 3: Bind 0.0.0.0**
+- [x] **Step 3: Bind 0.0.0.0** ✅ Done iteration 22 — `BIND_HOST` env override, default 0.0.0.0; FLASK_HOST kept as backwards-compatible alias
 
 In `if __name__ == "__main__":` block at bottom of `app.py`, ensure `host="0.0.0.0"`:
 
@@ -2569,7 +2569,7 @@ if __name__ == "__main__":
     socketio.run(app, host=host, port=5001, debug=False)
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit** ✅ Done iteration 22 (commit 876211d)
 
 ```bash
 git add backend/app.py backend/tests/test_lan_cors.py
