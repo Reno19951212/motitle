@@ -2654,7 +2654,7 @@ git commit -m "feat(r5): macOS Apple Silicon setup script with admin bootstrap"
 **Teammate:** ralph-architect
 **Files:** Create `setup-win.ps1`
 
-- [ ] **Step 1: Write script**
+- [x] **Step 1: Write script** ✅ Done iteration 24 — same env-driven hardening as G1 (admin user/pw via `$env:` not string interpolation; env vars cleared after use)
 
 ```powershell
 # setup-win.ps1 — Windows + NVIDIA installer
@@ -2706,7 +2706,7 @@ Write-Host "`nSetup complete. Source .env then run python app.py."
 Pop-Location
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit** ✅ Done iteration 24 (commit d163a81)
 
 ```bash
 git add setup-win.ps1
