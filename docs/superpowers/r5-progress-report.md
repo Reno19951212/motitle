@@ -322,3 +322,51 @@ grep over backend/auth, backend/jobqueue, backend/scripts, setup-mac.sh, setup-w
   - B2: `socketio.handlers` is a queue list (empty after init), not a dict — real handlers live at `socketio.server.handlers['/']`. Test rewritten to use `socketio.test_client` which routes through the actual connect path.
   - B3: `del sys.modules["app"]` in reload tests poisoned 18 downstream tests; added `_restore_app_module` fixture that snapshots+restores `app` and child auth/jobqueue modules.
   - B4+B5: AUTH_DB_PATH monkeypatch didn't update the user_loader closure (captures module-level constant at boot). Fixture now writes test users into the existing app DB and cleans up via `delete_user`, matching Phase 3 admin-test pattern.
+
+
+---
+
+## Phase 5C validation (mid-phase checkpoint)
+
+**Date:** 2026-05-10
+**Verdict:** ✅ PASS — all 8 Tier 2 hardening items closed
+
+- pytest: 673 + 1 baseline (Phase 5B ended 636; +37 new from C1+C2+C3+C4+C5+C6+C7+C8 = 4+3+3+3+5+6+5+8)
+- Phase 5C commits: 5c1d8ff (C1) + fce3b73 (C2) + cddb2fd (C3) + f8ddbc4 (C4) + 9dcfeff (C5) + c5d6a12 (C6) + 7df6aec (C7) + d056ae3 (C8)
+- 8 hardening items closed:
+  - T2.1 (C1): WhisperEngine cache key now includes (model_size, device, compute_type) so two profiles with different device/compute_type don't collide on the same cached model.
+  - T2.2 (C2): JobQueue.__init__ accepts optional `app=` kwarg; _run_one wraps handler in `app.app_context()` when set. Backward-compat: app=None preserves Phase 1-4 callers.
+  - T2.3 (C3): All 3 SQLite DBs (jobs, users, audit) now use WAL + synchronous=NORMAL + temp_store=memory.
+  - T2.4 (C4): SESSION_COOKIE_SAMESITE='Lax' always; SECURE bound to (R5_HTTPS != '0'); HTTPONLY explicit. Mitigates CSRF on cross-origin POST/PATCH/DELETE.
+  - T2.5 (C5): Render GET / DELETE / download enforce file-owner check via `_can_access_render` helper. Admin can access any. Returns 403 for non-owners.
+  - T2.6 (C6): TranslationEngine.translate() ABC + mock + ollama (single-segment + sequential batched paths) accept `cancel_event` and raise JobCancelled at checkpoints. OpenRouter inherits via OllamaTranslationEngine. _auto_translate threads cancel_event through.
+  - T2.7 (C7): `_atomic_set_admin` + `_atomic_delete_user` use BEGIN IMMEDIATE so concurrent demote/delete of the last 2 admins serializes; one fails with "cannot demote/delete the last admin", DB stays at ≥1 admin.
+  - T2.8 (C8): ProfileManager + GlossaryManager grow `update_if_owned` + `delete_if_owned`. Per-resource lock dict (lazy via master_lock) ensures can_edit + write happen atomically.
+
+---
+
+## Phase 5 complete (Task D1)
+
+**Date:** 2026-05-10
+**Verdict:** ✅ PASS — all 19 plan tasks done (A1 + B1-B7 + C1-C8 + D1)
+
+- pytest: 673 + 1 known baseline (Phase 4 had 615; +58 from B + C; baseline failure = test_ass_filter_escapes_colon_in_path, v3.3 macOS tmpdir issue, accepted throughout R5).
+- Live curl smoke at FLASK_PORT=5002:
+  - T1.1: `POST /login {"username":null,"password":null}` → 400 ✓
+  - T1.1: `POST /login {}` → 400 (regression preserved) ✓
+  - T1.3: import app without FLASK_SECRET_KEY → RuntimeError raised ✓
+  - T1.4: admin GET `/api/profiles/active` → 200 ✓
+  - T2.4: real `Set-Cookie` header includes `HttpOnly; SameSite=Lax` ✓
+- All 5 BLOCKING bugs (Tier 1) and 8 hardening items (Tier 2) shipped
+- Branch is now safe to merge to main and deploy on real LAN
+- Phase 6 hand-off backlog (Tier 3 / future):
+  - Rate limiting on /login + /api/queue (e.g. flask-limiter, 10/min)
+  - Password policy (min length, common-password blocklist)
+  - /api/files O(N) optimization (per-request job_id lookup is O(jobs × files))
+  - Frontend addEventListener leaks (queue-panel.js setInterval never clears)
+  - app.py / index.html refactor (3000+ / 5000+ lines respectively)
+  - /api/ready endpoint for health checks (separate from /api/health)
+  - systemd hardening (NoNewPrivileges, PrivateTmp, etc.)
+  - faster-whisper BatchedInferencePipeline (newer API for higher throughput)
+  - pytest real_auth marker (replace _REAL_AUTH_MODULES tuple)
+  - Failed-login audit log entry (currently only successful actions audit)
