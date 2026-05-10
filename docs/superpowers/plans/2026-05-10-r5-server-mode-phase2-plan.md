@@ -102,7 +102,7 @@ git commit -m "docs(r5): Phase 2 contracts — /api/translate enqueue + HTTPS de
 **Teammate:** ralph-tester
 **Files:** Create `backend/tests/test_asr_handler_pipeline.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test** ✅ Done — file uncommitted, awaiting B2 combined commit. Code-quality review caught + fixed: dropped unused `unittest.mock.patch` import, switched fake audio path to `tmp_path` for auto-cleanup. Fixture signature: `def fake_file_in_registry(monkeypatch, tmp_path):`.
 
 ```python
 # backend/tests/test_asr_handler_pipeline.py
@@ -196,7 +196,7 @@ def test_asr_handler_marks_status_error_on_exception(fake_file_in_registry, monk
     assert "whisper boom" in (entry.get("error") or "")
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails** ✅ Done — 3 failed for the expected reasons (status='uploaded' vs 'done'; _auto_translate called=None; status='uploaded' vs 'error')
 
 ```bash
 cd backend && source venv/bin/activate && pytest tests/test_asr_handler_pipeline.py -v
@@ -208,7 +208,7 @@ Expected: 3 failed — current `_asr_handler` only writes `user_id`, doesn't upd
 **Teammate:** ralph-backend
 **Files:** Modify `backend/app.py`
 
-- [ ] **Step 1: Replace `_asr_handler` body**
+- [x] **Step 1: Replace `_asr_handler` body** ✅ Done (commit e4ca202; spec compliant + code quality approved)
 
 Replace the current stub body (around app.py:167–183) with:
 
@@ -267,7 +267,7 @@ def _asr_handler(job):
     _auto_translate(file_id)
 ```
 
-- [ ] **Step 2: Run RED test**
+- [x] **Step 2: Run RED test** ✅ Done — 3/3 GREEN (all monkeypatched, signature mismatch never surfaced); full suite 564 pass + 1 baseline (no regression)
 
 ```bash
 pytest tests/test_asr_handler_pipeline.py -v
@@ -276,7 +276,7 @@ Expected: 2 of 3 pass. The `_auto_translate` test passes (we now call it). The s
 
 If any test fails because _auto_translate signature mismatch surfaces here: blocker for Phase 2C; defer the _auto_translate trigger line in B2 step 1 with a `# TODO Phase 2C` comment and re-run B1 tests with the trigger line stubbed.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit** ✅ Done (commit e4ca202)
 
 ```bash
 git add backend/app.py backend/tests/test_asr_handler_pipeline.py
