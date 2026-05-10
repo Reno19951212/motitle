@@ -86,3 +86,57 @@ def test_asr_handler_marks_status_error_on_exception(fake_file_in_registry, monk
         entry = app._file_registry[fake_file_in_registry]
     assert entry["status"] == "error"
     assert "whisper boom" in (entry.get("error") or "")
+
+
+@pytest.fixture
+def client_with_admin():
+    """Real logged-in admin client against the global app.
+
+    R5 Phase 2 — needed for tests that hit routes which read `current_user.id`
+    inside the handler body. The conftest LOGIN_DISABLED + R5_AUTH_BYPASS
+    flags bypass auth decorators but don't inject a logged-in user; we need
+    a real session so `current_user` resolves to our test admin.
+    """
+    import app as app_module
+    from auth.users import init_db, create_user
+
+    db_path = app_module.app.config['AUTH_DB_PATH']
+    init_db(db_path)
+    try:
+        create_user(db_path, "alice_phase2", "secret", is_admin=True)
+    except ValueError:
+        pass  # user already exists from a prior test run — fine
+
+    client = app_module.app.test_client()
+    r = client.post("/login", json={"username": "alice_phase2", "password": "secret"})
+    assert r.status_code == 200, f"login fixture failed: {r.status_code} {r.data!r}"
+    yield client
+
+
+def test_re_transcribe_enqueues_job_returns_202(client_with_admin, tmp_path):
+    """Re-transcribe endpoint matches /api/transcribe contract (202 + job_id).
+
+    Currently returns 200 with status='processing' (legacy do_transcribe
+    inline thread). After B4 this returns 202 with job_id from the queue.
+    """
+    import app
+    fake_id = "rt-test-1"
+    fake_path = str(tmp_path / "rt_fake.wav")
+    open(fake_path, "wb").close()
+    with app._registry_lock:
+        app._file_registry[fake_id] = {
+            "id": fake_id, "user_id": 1, "stored_name": "rt_fake.wav",
+            "file_path": fake_path, "status": "done",
+            "original_name": "rt_fake.wav", "size": 0, "uploaded_at": 0.0,
+            "segments": [{"start": 0, "end": 1, "text": "old"}],
+            "text": "old",
+        }
+    try:
+        r = client_with_admin.post(f"/api/files/{fake_id}/transcribe", json={})
+        assert r.status_code == 202, f"got {r.status_code}: {r.data!r}"
+        body = r.get_json()
+        assert "job_id" in body
+        assert body["status"] == "queued"
+    finally:
+        with app._registry_lock:
+            app._file_registry.pop(fake_id, None)

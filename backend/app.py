@@ -2710,11 +2710,8 @@ def transcribe_file():
 @require_file_owner
 def re_transcribe_file(file_id):
     """Re-run the full pipeline (ASR + auto-translate) on an already-uploaded file.
-    Wipes existing segments / translations / approval state. Source video must
-    still exist on disk (i.e. file was not deleted)."""
-    body = request.get_json(silent=True) or {}
-    sid = body.get('sid')
-
+    R5 Phase 2: enqueues into the same JobQueue as /api/transcribe — drops the
+    legacy inline do_transcribe thread."""
     with _registry_lock:
         entry = _file_registry.get(file_id)
         if not entry:
@@ -2728,74 +2725,31 @@ def re_transcribe_file(file_id):
     if not os.path.exists(file_path):
         return jsonify({'error': '原始視頻檔案已不存在於磁碟'}), 404
 
-    # Resolve model from active profile, fallback to legacy entry.model.
-    active_profile = _profile_manager.get_active() or {}
-    asr_config = active_profile.get('asr', {}) if active_profile else {}
-    model_size = asr_config.get('model_size') or entry.get('model') or 'small'
-
-    # Reset pipeline state — segments, translations, timing, errors all wiped
-    # so the file goes back through both ASR and translation cleanly.
+    # Reset pipeline state so the worker treats this as a fresh run.
     _update_file(
         file_id,
         status='transcribing',
+        text='',
         segments=[],
         translations=[],
         translation_status=None,
-        translation_engine=None,
-        translation_count=None,
-        text='',
-        asr_seconds=None,
         error=None,
+        asr_seconds=None,
+        translation_seconds=None,
+        pipeline_seconds=None,
     )
-    if sid:
-        socketio.emit('file_updated', {
-            'id': file_id, 'status': 'transcribing', 'model': model_size,
-        }, room=sid)
 
-    def do_re_transcribe():
-        try:
-            asr_start = time.time()
-            result = transcribe_with_segments(file_path, model_size, sid)
-            if result:
-                actual_model = result.get('model', model_size)
-                _update_file(
-                    file_id,
-                    status='done',
-                    text=result['text'],
-                    segments=result['segments'],
-                    backend=result.get('backend'),
-                    model=actual_model,
-                )
-                _update_file(file_id, asr_seconds=round(time.time() - asr_start, 1))
-                if sid:
-                    socketio.emit('file_updated', {
-                        'id': file_id, 'status': 'done',
-                        'segment_count': len(result['segments']),
-                        'model': actual_model,
-                        'backend': result.get('backend'),
-                    }, room=sid)
-                    socketio.emit('transcription_complete', {
-                        'file_id': file_id, 'text': result['text'],
-                        'language': result['language'],
-                        'segment_count': len(result['segments']),
-                    }, room=sid)
-                _auto_translate(file_id, result['segments'], sid)
-        except Exception as e:
-            _update_file(file_id, status='error', error=str(e))
-            if sid:
-                socketio.emit('file_updated', {
-                    'id': file_id, 'status': 'error', 'error': str(e),
-                }, room=sid)
-                socketio.emit('transcription_error', {'error': str(e)}, room=sid)
-
-    thread = threading.Thread(target=do_re_transcribe)
-    thread.daemon = True
-    thread.start()
-
+    job_id = _job_queue.enqueue(
+        user_id=current_user.id,
+        file_id=file_id,
+        job_type='asr',
+    )
     return jsonify({
-        'status': 'processing', 'file_id': file_id,
-        'message': '重新轉錄已開始',
-    })
+        'file_id': file_id,
+        'job_id': job_id,
+        'status': 'queued',
+        'queue_position': _job_queue.position(job_id),
+    }), 202
 
 
 @app.route('/api/transcribe/sync', methods=['POST'])
