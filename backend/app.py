@@ -2726,6 +2726,7 @@ def _auto_translate(fid: str, sid=None, cancel_event=None) -> None:
                 temperature=trans_params["temperature"],
                 progress_callback=_emit_auto_progress,
                 parallel_batches=parallel_batches,
+                cancel_event=cancel_event,  # R5 Phase 5 T2.6
             )
         for t in translated:
             t["status"] = "pending"

@@ -16,11 +16,23 @@ class MockTranslationEngine(TranslationEngine):
         temperature: Optional[float] = None,
         progress_callback=None,
         parallel_batches: int = 1,
+        cancel_event=None,
     ) -> List[TranslatedSegment]:
-        result = [
-            TranslatedSegment(start=seg["start"], end=seg["end"], en_text=seg["text"], zh_text=f"[EN\u2192ZH] {seg['text']}")
-            for seg in segments
-        ]
+        # R5 Phase 5 T2.6: cooperative cancel checkpoint. Mock processes
+        # the whole batch in one synchronous loop, so check once at the top.
+        if cancel_event is not None and cancel_event.is_set():
+            from jobqueue.queue import JobCancelled
+            raise JobCancelled("translation cancelled before start")
+        result = []
+        for seg in segments:
+            if cancel_event is not None and cancel_event.is_set():
+                from jobqueue.queue import JobCancelled
+                raise JobCancelled("translation cancelled mid-segment")
+            result.append(
+                TranslatedSegment(start=seg["start"], end=seg["end"],
+                                  en_text=seg["text"],
+                                  zh_text=f"[EN\u2192ZH] {seg['text']}")
+            )
         if progress_callback is not None:
             try:
                 progress_callback(len(result), len(result))

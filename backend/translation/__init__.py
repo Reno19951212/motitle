@@ -31,6 +31,7 @@ class TranslationEngine(ABC):
         temperature: Optional[float] = None,
         progress_callback: Optional[ProgressCallback] = None,
         parallel_batches: int = 1,
+        cancel_event=None,
     ) -> List[TranslatedSegment]:
         """Translate English segments to Chinese.
 
@@ -41,6 +42,11 @@ class TranslationEngine(ABC):
 
         parallel_batches (optional): number of batches to process in parallel.
         Defaults to 1 (sequential processing).
+
+        cancel_event (optional, R5 Phase 5 T2.6): a threading.Event polled
+        between batches. If set, the engine raises ``jobqueue.queue.JobCancelled``
+        instead of finishing the remaining batches. Default ``None`` keeps
+        existing callers (Phase 1-4) unaffected.
         """
 
     @abstractmethod

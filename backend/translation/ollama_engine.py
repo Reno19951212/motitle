@@ -241,6 +241,7 @@ class OllamaTranslationEngine(TranslationEngine):
         temperature: Optional[float] = None,
         progress_callback=None,
         parallel_batches: int = 1,
+        cancel_event=None,
     ) -> List[TranslatedSegment]:
         if not segments:
             return []
@@ -250,6 +251,14 @@ class OllamaTranslationEngine(TranslationEngine):
         effective_temp = temperature if temperature is not None else self._temperature
         total = len(segments)
 
+        def _check_cancel():
+            """R5 Phase 5 T2.6 — cooperative cancel checkpoint."""
+            if cancel_event is not None and cancel_event.is_set():
+                from jobqueue.queue import JobCancelled
+                raise JobCancelled("translation cancelled mid-batch")
+
+        _check_cancel()
+
         # Strategy E — single-segment mode. When batch_size=1 the engine
         # translates each segment in isolation (no neighbour context, no
         # cross-segment redistribution). Bypasses the batch path entirely.
@@ -257,9 +266,11 @@ class OllamaTranslationEngine(TranslationEngine):
             all_translated = self._translate_single_mode(
                 segments, glossary, style, effective_temp,
                 progress_callback, parallel_batches,
+                cancel_event=cancel_event,
             )
             passes = self._get_translation_passes()
             if passes >= 2:
+                _check_cancel()
                 all_translated = self._enrich_pass(
                     segments, all_translated, 1,
                     glossary, effective_temp, progress_callback, total,
@@ -277,6 +288,7 @@ class OllamaTranslationEngine(TranslationEngine):
             all_translated = []
             context_pairs: list = []
             for batch in batches:
+                _check_cancel()
                 translated_batch = self._translate_batch(
                     batch, glossary, style, effective_temp, context_pairs
                 )
@@ -475,11 +487,16 @@ class OllamaTranslationEngine(TranslationEngine):
         temperature: float,
         progress_callback,
         parallel_batches: int,
+        cancel_event=None,
     ) -> List[TranslatedSegment]:
         """Strategy E — translate each segment individually (no neighbours).
 
         Sequential when parallel_batches<=1, otherwise dispatches up to N
         single-segment requests in parallel via ThreadPoolExecutor.
+
+        R5 Phase 5 T2.6: cancel_event polled before each segment so a
+        DELETE /api/queue/<id> stops translation within ~1 segment of LLM
+        latency rather than running the rest to completion.
         """
         total = len(segments)
         results: List[Optional[TranslatedSegment]] = [None] * total
@@ -490,6 +507,9 @@ class OllamaTranslationEngine(TranslationEngine):
 
         if parallel_batches <= 1:
             for i in range(total):
+                if cancel_event is not None and cancel_event.is_set():
+                    from jobqueue.queue import JobCancelled
+                    raise JobCancelled("translation cancelled mid-segment")
                 results[i] = _run_one(i)
                 if progress_callback is not None:
                     try:
