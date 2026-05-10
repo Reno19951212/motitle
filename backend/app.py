@@ -101,6 +101,17 @@ if not _secret_key or _secret_key == _PLACEHOLDER_SECRET:
         f"Placeholder '{_PLACEHOLDER_SECRET}' is rejected for safety."
     )
 app.config['SECRET_KEY'] = _secret_key
+
+# R5 Phase 5 T2.4: CSRF mitigation. SameSite=Lax tells the browser not to
+# send the session cookie on cross-site POST/PATCH/DELETE — without it, a
+# malicious page on http://attacker.example could submit a form to our
+# /api/files/<id> DELETE endpoint and the browser would happily attach
+# the user's auth cookie. Secure flag is added when HTTPS is active.
+# HttpOnly is Flask's default but pinned explicitly for defense-in-depth.
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = (os.environ.get('R5_HTTPS') != '0')
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+
 app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024 * 1024  # 5GB max upload (broadcast MXF masters)
 
 _LAN_NETS = [
