@@ -240,6 +240,23 @@ class GlossaryManager:
             return False  # shared — admins only
         return owner == user_id
 
+    def can_view(self, glossary_id: str, user_id: int, is_admin: bool) -> bool:
+        """R5 Phase 5 T1.4 — True if this user can READ the given glossary.
+
+        Shared glossaries (user_id=None) are viewable by every authenticated
+        user but editable only by admins. Private glossaries remain
+        owner+admin only.
+        """
+        if is_admin:
+            return True
+        g = self.get(glossary_id)
+        if not g:
+            return False
+        owner = g.get("user_id")
+        if owner is None:
+            return True
+        return owner == user_id
+
     def update(self, glossary_id: str, data: dict) -> Optional[dict]:
         """
         Update name and/or description of an existing glossary.

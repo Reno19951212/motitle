@@ -1133,6 +1133,19 @@ def api_get_active_profile():
 @app.route('/api/profiles/<profile_id>', methods=['GET'])
 @login_required
 def api_get_profile(profile_id):
+    # R5 Phase 5 T1.4: LIST endpoint already filters via list_visible, but
+    # single-resource GET previously had no ownership check (Phase 3 D4
+    # only added can_edit for PATCH/DELETE), so a non-owner could read any
+    # private profile by guessing/seeing the id.
+    if not app.config.get("R5_AUTH_BYPASS") and not _profile_manager.can_view(
+        profile_id, current_user.id, current_user.is_admin
+    ):
+        # If the profile doesn't exist at all, leak that as 404 — only
+        # return 403 when the caller is unprivileged for a profile that
+        # does exist (don't expose whether private ids exist to admins).
+        if _profile_manager.get(profile_id) is None:
+            return jsonify({"error": "Profile not found"}), 404
+        return jsonify({"error": "forbidden"}), 403
     profile = _profile_manager.get(profile_id)
     if not profile:
         return jsonify({"error": "Profile not found"}), 404
@@ -1477,6 +1490,13 @@ def api_create_glossary():
 @login_required
 def api_get_glossary(glossary_id):
     """Get a single glossary with all entries."""
+    # R5 Phase 5 T1.4: see api_get_profile.
+    if not app.config.get("R5_AUTH_BYPASS") and not _glossary_manager.can_view(
+        glossary_id, current_user.id, current_user.is_admin
+    ):
+        if _glossary_manager.get(glossary_id) is None:
+            return jsonify({"error": "Glossary not found"}), 404
+        return jsonify({"error": "forbidden"}), 403
     glossary = _glossary_manager.get(glossary_id)
     if glossary is None:
         return jsonify({"error": "Glossary not found"}), 404

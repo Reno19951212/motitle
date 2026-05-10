@@ -196,6 +196,23 @@ class ProfileManager:
             return False  # shared — admins only
         return owner == user_id
 
+    def can_view(self, profile_id: str, user_id: int, is_admin: bool) -> bool:
+        """R5 Phase 5 T1.4 — True if this user can READ the given profile.
+
+        Stricter only at the edges than ``can_edit``: shared profiles
+        (user_id=None) are viewable by every authenticated user but editable
+        only by admins. Private profiles remain owner+admin only.
+        """
+        if is_admin:
+            return True
+        p = self.get(profile_id)
+        if not p:
+            return False
+        owner = p.get("user_id")
+        if owner is None:
+            return True
+        return owner == user_id
+
     def update(self, profile_id: str, data: dict) -> Optional[dict]:
         """
         Merge `data` into an existing profile, validate, then persist.
