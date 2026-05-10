@@ -1324,127 +1324,34 @@ def api_ollama_status():
 @app.route('/api/translate', methods=['POST'])
 @login_required
 def api_translate_file():
-    """Translate a file's transcription segments using the active profile's translation engine."""
-    data = request.get_json()
-    if not data or not data.get('file_id'):
+    """R5 Phase 2: enqueue a translate job, return 202 with job_id."""
+    data = request.get_json() or {}
+    file_id = data.get('file_id')
+    if not file_id:
         return jsonify({"error": "file_id is required"}), 400
-
-    file_id = data['file_id']
-    style_override = data.get('style')
 
     with _registry_lock:
         entry = _file_registry.get(file_id)
     if not entry:
         return jsonify({"error": "File not found"}), 404
-
-    segments = entry.get('segments', [])
-    if not segments:
+    # Owner check (route uses @login_required not @require_file_owner because
+    # file_id is in body not URL — enforce manually).
+    if entry.get('user_id') != current_user.id and not current_user.is_admin:
+        return jsonify({"error": "forbidden"}), 403
+    if not entry.get('segments'):
         return jsonify({"error": "No segments to translate. Transcribe the file first."}), 400
 
-    profile = _profile_manager.get_active()
-    if not profile:
-        return jsonify({"error": "No active profile. Set a profile first."}), 400
-
-    translation_config = profile.get("translation", {})
-    style = style_override or translation_config.get("style", "formal")
-
-    _update_file(file_id, translation_status='translating')
-    socketio.emit('translation_progress', {
+    job_id = _job_queue.enqueue(
+        user_id=current_user.id,
+        file_id=file_id,
+        job_type='translate',
+    )
+    return jsonify({
         'file_id': file_id,
-        'completed': 0,
-        'total': len(segments),
-        'percent': 0,
-    })
-
-    try:
-        from translation import create_translation_engine
-        engine = create_translation_engine(translation_config)
-
-        asr_segments = [
-            {"start": s["start"], "end": s["end"], "text": s["text"]}
-            for s in segments
-        ]
-
-        glossary_entries = []
-        glossary_id = translation_config.get("glossary_id")
-        if glossary_id:
-            glossary_data = _glossary_manager.get(glossary_id)
-            if glossary_data:
-                glossary_entries = glossary_data.get("entries", [])
-
-        lang_config_id = profile.get("asr", {}).get("language_config_id", profile.get("asr", {}).get("language", "en"))
-        lang_config = _language_config_manager.get(lang_config_id)
-        trans_params = lang_config["translation"] if lang_config else DEFAULT_TRANSLATION_CONFIG
-
-        translation_start = time.time()
-
-        def _emit_progress(completed: int, total: int) -> None:
-            socketio.emit('translation_progress', {
-                'file_id': file_id,
-                'completed': completed,
-                'total': total,
-                'percent': int((completed / total) * 100) if total else 0,
-                'elapsed_seconds': round(time.time() - translation_start, 1),
-            })
-
-        parallel_batches = int(translation_config.get("parallel_batches") or 1)
-        # alignment_mode takes precedence over use_sentence_pipeline when set:
-        #   "llm-markers"   → Phase 6 Step 2 LLM-anchored alignment
-        #   "sentence"      → Phase 2 sentence pipeline (merge+translate+redistribute by word count)
-        #   "off" / absent  → Phase 4 1-to-1 translation (default)
-        alignment_mode = str(translation_config.get("alignment_mode", "")).lower()
-        use_sentence_pipeline = bool(translation_config.get("use_sentence_pipeline", False))
-
-        if alignment_mode == "llm-markers":
-            from translation.alignment_pipeline import translate_with_alignment
-            translated = translate_with_alignment(
-                engine, asr_segments, glossary=glossary_entries, style=style,
-                batch_size=trans_params["batch_size"],
-                temperature=trans_params["temperature"],
-                progress_callback=_emit_progress,
-                parallel_batches=parallel_batches,
-            )
-        elif use_sentence_pipeline or alignment_mode == "sentence":
-            from translation.sentence_pipeline import translate_with_sentences
-            translated = translate_with_sentences(
-                engine, asr_segments, glossary=glossary_entries, style=style,
-                batch_size=trans_params["batch_size"],
-                temperature=trans_params["temperature"],
-                progress_callback=_emit_progress,
-                parallel_batches=parallel_batches,
-            )
-        else:
-            translated = engine.translate(
-                asr_segments, glossary=glossary_entries, style=style,
-                batch_size=trans_params["batch_size"],
-                temperature=trans_params["temperature"],
-                progress_callback=_emit_progress,
-                parallel_batches=parallel_batches,
-            )
-
-        for t in translated:
-            t["status"] = "pending"
-            t["baseline_zh"] = t.get("zh_text", "")
-            t["applied_terms"] = []
-        _update_file(file_id, translations=translated, translation_status='done')
-
-        return jsonify({
-            "file_id": file_id,
-            "segment_count": len(translated),
-            "style": style,
-            "engine": engine.get_info().get("engine"),
-            "translations": translated,
-        })
-
-    except NotImplementedError as e:
-        _update_file(file_id, translation_status=None)
-        return jsonify({"error": str(e)}), 501
-    except ConnectionError as e:
-        _update_file(file_id, translation_status=None)
-        return jsonify({"error": str(e)}), 503
-    except Exception as e:
-        _update_file(file_id, translation_status=None)
-        return jsonify({"error": f"Translation failed: {str(e)}"}), 500
+        'job_id': job_id,
+        'status': 'queued',
+        'queue_position': _job_queue.position(job_id),
+    }), 202
 
 
 # ============================================================

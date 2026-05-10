@@ -61,3 +61,31 @@ def test_mt_handler_bridges_to_auto_translate(file_with_segments, monkeypatch):
     job = {"file_id": file_with_segments, "user_id": 1, "type": "translate"}
     app._mt_handler(job)
     assert called.get("fid") == file_with_segments
+
+
+@pytest.fixture
+def client_with_admin():
+    """Per-test logged-in admin client against the global app — same pattern as
+    test_asr_handler_pipeline.py to test routes registered on the global app."""
+    import app as app_module
+    from auth.users import init_db, create_user
+
+    db_path = app_module.app.config['AUTH_DB_PATH']
+    init_db(db_path)
+    try:
+        create_user(db_path, "alice_phase2c", "secret", is_admin=True)
+    except ValueError:
+        pass
+
+    client = app_module.app.test_client()
+    r = client.post("/login", json={"username": "alice_phase2c", "password": "secret"})
+    assert r.status_code == 200, f"login fixture failed: {r.status_code} {r.data!r}"
+    yield client
+
+
+def test_api_translate_enqueues_returns_202(client_with_admin, file_with_segments):
+    r = client_with_admin.post("/api/translate", json={"file_id": file_with_segments})
+    assert r.status_code == 202, f"got {r.status_code}: {r.data!r}"
+    body = r.get_json()
+    assert body["status"] == "queued"
+    assert "job_id" in body and "queue_position" in body
