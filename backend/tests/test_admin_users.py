@@ -48,3 +48,122 @@ def test_count_admins(db_path):
     assert count_admins(db_path) == 1
     set_admin(db_path, "alice", True)
     assert count_admins(db_path) == 2
+
+
+@pytest.fixture
+def admin_client():
+    """Real logged-in admin client against the global app — same pattern as
+    test_asr_handler_pipeline.py.
+
+    Creates `admin_p3` user (idempotent for re-runs) and returns a logged-in
+    test_client. Conftest's R5_AUTH_BYPASS is irrelevant here because we want
+    real session for current_user.id resolution downstream of @admin_required.
+    """
+    import app as app_module
+    from auth.users import init_db, create_user
+    db = app_module.app.config["AUTH_DB_PATH"]
+    init_db(db)
+    try:
+        create_user(db, "admin_p3", "secret", is_admin=True)
+    except ValueError:
+        pass
+    c = app_module.app.test_client()
+    r = c.post("/login", json={"username": "admin_p3", "password": "secret"})
+    assert r.status_code == 200
+    yield c
+
+
+def test_admin_users_list_requires_admin(admin_client):
+    """Non-admin user gets 403 from admin route."""
+    import app as app_module
+    from auth.users import init_db, create_user
+    db = app_module.app.config["AUTH_DB_PATH"]
+    init_db(db)
+    try:
+        create_user(db, "non_admin_p3", "secret", is_admin=False)
+    except ValueError:
+        pass
+    c = app_module.app.test_client()
+    c.post("/login", json={"username": "non_admin_p3", "password": "secret"})
+    r = c.get("/api/admin/users")
+    assert r.status_code == 403
+
+
+def test_admin_users_create_returns_201(admin_client):
+    r = admin_client.post("/api/admin/users",
+                          json={"username": "bob_p3", "password": "pw"})
+    assert r.status_code == 201
+    body = r.get_json()
+    assert body["username"] == "bob_p3" and body["is_admin"] is False
+    # Cleanup
+    import app as app_module
+    from auth.users import delete_user
+    delete_user(app_module.app.config["AUTH_DB_PATH"], "bob_p3")
+
+
+def test_admin_users_create_duplicate_returns_409(admin_client):
+    admin_client.post("/api/admin/users",
+                      json={"username": "dupe_p3", "password": "pw"})
+    r = admin_client.post("/api/admin/users",
+                          json={"username": "dupe_p3", "password": "pw"})
+    assert r.status_code == 409
+    import app as app_module
+    from auth.users import delete_user
+    delete_user(app_module.app.config["AUTH_DB_PATH"], "dupe_p3")
+
+
+def test_admin_users_delete_self_returns_403(admin_client):
+    """Admin can't delete the user they're currently logged in as."""
+    import app as app_module
+    from auth.users import get_user_by_username
+    me = get_user_by_username(app_module.app.config["AUTH_DB_PATH"], "admin_p3")
+    r = admin_client.delete(f"/api/admin/users/{me['id']}")
+    assert r.status_code == 403
+
+
+def test_admin_users_delete_last_admin_returns_403(admin_client):
+    """Cannot delete the only remaining admin."""
+    import app as app_module
+    from auth.users import get_user_by_username, count_admins, list_all_users, delete_user
+    db = app_module.app.config["AUTH_DB_PATH"]
+    # Cleanup any other admins so admin_p3 is the only one
+    for u in list_all_users(db):
+        if u["is_admin"] and u["username"] != "admin_p3":
+            delete_user(db, u["username"])
+    assert count_admins(db) == 1
+    me = get_user_by_username(db, "admin_p3")
+    r = admin_client.delete(f"/api/admin/users/{me['id']}")
+    # Hits "last admin" guard before "self" guard, but either 403 is acceptable
+    assert r.status_code == 403
+
+
+def test_admin_users_reset_password_changes_hash(admin_client):
+    import app as app_module
+    from auth.users import create_user, verify_credentials, get_user_by_username, delete_user
+    db = app_module.app.config["AUTH_DB_PATH"]
+    try:
+        create_user(db, "rp_p3", "old", is_admin=False)
+    except ValueError:
+        pass
+    target = get_user_by_username(db, "rp_p3")
+    r = admin_client.post(f"/api/admin/users/{target['id']}/reset-password",
+                          json={"new_password": "fresh"})
+    assert r.status_code == 200
+    assert verify_credentials(db, "rp_p3", "fresh") is not None
+    delete_user(db, "rp_p3")
+
+
+def test_admin_users_toggle_admin_flips_flag(admin_client):
+    import app as app_module
+    from auth.users import create_user, get_user_by_username, delete_user
+    db = app_module.app.config["AUTH_DB_PATH"]
+    try:
+        create_user(db, "ta_p3", "pw", is_admin=False)
+    except ValueError:
+        pass
+    target = get_user_by_username(db, "ta_p3")
+    r = admin_client.post(f"/api/admin/users/{target['id']}/toggle-admin")
+    assert r.status_code == 200
+    assert r.get_json()["is_admin"] is True
+    assert get_user_by_username(db, "ta_p3")["is_admin"] is True
+    delete_user(db, "ta_p3")

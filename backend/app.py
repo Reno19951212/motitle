@@ -983,6 +983,16 @@ def serve_frontend_js(filename):
     return send_from_directory(str(Path(_FRONTEND_DIR) / "js"), filename)
 
 
+@app.get("/admin.html")
+def serve_admin_page():
+    """R5 Phase 3 — admin-only page. Non-admins get 403; anonymous gets 302 to login."""
+    if not current_user.is_authenticated:
+        return redirect("/login.html")
+    if not current_user.is_admin:
+        return jsonify({"error": "admin only"}), 403
+    return send_from_directory(_FRONTEND_DIR, "admin.html")
+
+
 # ============================================================
 # REST API Routes
 # ============================================================
