@@ -151,3 +151,16 @@ Items intentionally deferred per plan:
 - Phase 2D commits: 040b94d (D1 script) + 4ea34f37 (D3 README)
 - README updated with Linux quick-start block alongside Mac + Win
 - Setup script applies same env-driven admin bootstrap hardening as setup-mac.sh (no shell injection through password)
+
+---
+
+## Phase 2E validation (Task E7)
+
+**Date:** 2026-05-10
+**Verdict:** ✅ PASS
+
+- Cert generation: openssl fallback (mkcert not installed) produced `/tmp/r5_e7_certs/server.{crt,key}` ~1164 / 1704 bytes each via `scripts/generate_https_cert.py`
+- Live HTTPS round-trip: `curl -k https://localhost:5002/api/health` → 200; server log shows `Running on https://127.0.0.1:5002` — confirms HTTPS-only when cert present
+- HTTP-on-HTTPS-port: returned http_code 000 (TLS handshake error) — confirms HTTPS-only binding when `R5_HTTPS_CERT_DIR` is set and `R5_HTTPS` is unset/truthy
+- R5_HTTPS=0 opt-out: same server with `R5_HTTPS=0` → server log shows `Running on http://127.0.0.1:5002` → plain HTTP on 5002 → 200
+- Phase 2E commits: 3dbae5a (E2 cert helper) + 9ce6299 (E4 _boot_socketio) + ff71295 (E5 setup scripts) + b95ddf6 (E6 docs)
