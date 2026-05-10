@@ -51,10 +51,25 @@ def cancel_job(job_id):
         return jsonify({"error": "not found"}), 404
     if job["user_id"] != current_user.id and not current_user.is_admin:
         return jsonify({"error": "forbidden"}), 403
-    if job["status"] not in ("queued",):
-        return jsonify({"error": "can only cancel queued jobs"}), 409
-    update_job_status(db_path, job_id, "cancelled")
-    return jsonify({"ok": True}), 200
+
+    if job["status"] == "queued":
+        # Synchronous DB cancel (Phase 1 C6 behavior preserved)
+        update_job_status(db_path, job_id, "cancelled")
+        return jsonify({"ok": True}), 200
+
+    if job["status"] == "running":
+        # R5 Phase 4: cooperative interrupt — set the cancel event,
+        # worker will catch JobCancelled at next checkpoint and update status.
+        from app import _job_queue
+        found = _job_queue.cancel_job(job_id)
+        if not found:
+            # Race: job finished between our get_job check and the cancel.
+            # Return 200 — the caller's request is effectively a no-op.
+            return jsonify({"ok": True, "status": "completed"}), 200
+        return jsonify({"ok": True, "status": "cancelling"}), 202
+
+    # Other statuses (done, failed, cancelled): nothing to cancel
+    return jsonify({"error": f"cannot cancel job with status '{job['status']}'"}), 409
 
 
 @bp.post("/api/queue/<job_id>/retry")

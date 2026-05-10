@@ -90,3 +90,71 @@ def test_cancel_job_returns_false_for_unknown_id(db_path):
     q = JobQueue(db_path)
     assert q.cancel_job("nonexistent") is False
     q.shutdown()
+
+
+@pytest.fixture
+def alice_with_running_job(monkeypatch):
+    """Alice owns a slow-running ASR job."""
+    import app as app_module
+    from auth.users import init_db, create_user, get_user_by_username
+    from jobqueue.db import init_jobs_table, insert_job, update_job_status
+
+    db = app_module.app.config["AUTH_DB_PATH"]
+    init_db(db)
+    try:
+        create_user(db, "alice_d4", "secret", is_admin=False)
+    except ValueError:
+        pass
+    uid = get_user_by_username(db, "alice_d4")["id"]
+    init_jobs_table(db)
+    jid = insert_job(db, user_id=uid, file_id="f-d4", job_type="asr")
+    update_job_status(db, jid, "running", started_at=time.time())
+
+    # Pretend the job is currently in the queue's _cancel_events
+    # (mock the per-job event the worker would have created)
+    ev = threading.Event()
+    with app_module._job_queue._cancel_events_lock:
+        app_module._job_queue._cancel_events[jid] = ev
+
+    c = app_module.app.test_client()
+    c.post("/login", json={"username": "alice_d4", "password": "secret"})
+    yield c, jid, ev
+
+    # Cleanup
+    with app_module._job_queue._cancel_events_lock:
+        app_module._job_queue._cancel_events.pop(jid, None)
+
+
+def test_delete_running_job_returns_202_and_sets_cancel_event(alice_with_running_job):
+    client, jid, ev = alice_with_running_job
+    r = client.delete(f"/api/queue/{jid}")
+    assert r.status_code == 202
+    body = r.get_json()
+    assert body["ok"] is True
+    assert body["status"] == "cancelling"
+    # The cancel event should now be set
+    assert ev.is_set()
+
+
+def test_delete_queued_job_still_returns_200(db_path, monkeypatch):
+    """Queued jobs are cancelled synchronously in DB — returns 200 (Phase 1 C6 contract)."""
+    import app as app_module
+    from auth.users import init_db, create_user, get_user_by_username
+    from jobqueue.db import init_jobs_table, insert_job, get_job
+
+    db = app_module.app.config["AUTH_DB_PATH"]
+    init_db(db)
+    try:
+        create_user(db, "alice_d4q", "secret", is_admin=False)
+    except ValueError:
+        pass
+    uid = get_user_by_username(db, "alice_d4q")["id"]
+    init_jobs_table(db)
+    jid = insert_job(db, user_id=uid, file_id="f-d4q", job_type="asr")
+
+    c = app_module.app.test_client()
+    c.post("/login", json={"username": "alice_d4q", "password": "secret"})
+    r = c.delete(f"/api/queue/{jid}")
+    assert r.status_code == 200
+    assert r.get_json()["ok"] is True
+    assert get_job(db, jid)["status"] == "cancelled"
