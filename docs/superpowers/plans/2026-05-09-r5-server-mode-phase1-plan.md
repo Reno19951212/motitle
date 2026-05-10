@@ -2017,7 +2017,7 @@ git commit -m "feat(r5): file registry filter + ownership scoping for /api/files
 **Teammate:** ralph-backend
 **Files:** Modify `backend/app.py`
 
-- [ ] **Step 1: When `/api/transcribe` adds to registry, set `user_id`**
+- [x] **Step 1: When `/api/transcribe` adds to registry, set `user_id`** ✅ Done iteration 11 (Task C8) — `_register_file(..., user_id=current_user.id)` in handler
 
 In the `/api/transcribe` handler (after Phase 1C edits), find the line that adds the new file to `_file_registry` and ensure user_id is set:
 
@@ -2030,7 +2030,7 @@ _file_registry[file_id] = {
 }
 ```
 
-- [ ] **Step 2: Decorate per-file routes with @require_file_owner**
+- [x] **Step 2: Decorate per-file routes with @require_file_owner** ✅ Done iteration 6 (Task B11) — script applied @require_file_owner to all 16 routes containing `<file_id>` in path; verified coverage in iteration 13
 
 Find all routes with `<file_id>` parameter and add `@require_file_owner`:
 - `/api/files/<file_id>/segments`
@@ -2046,18 +2046,13 @@ Find all routes with `<file_id>` parameter and add `@require_file_owner`:
 
 (Pattern: replace existing `@app.route(...)` with `@require_file_owner` immediately below.)
 
-- [ ] **Step 3: Run full pytest**
+- [x] **Step 3: Run full pytest** ✅ Done iteration 12 — 560 pass + 1 baseline (no regression)
 
 ```bash
 pytest tests/ -q --ignore=tests/test_e2e_render.py 2>&1 | tail -5
 ```
 
-- [ ] **Step 4: Commit**
-
-```bash
-git add backend/app.py
-git commit -m "feat(r5): set user_id on transcribe + @require_file_owner on all file routes"
-```
+- [x] **Step 4: Commit** ✅ Done as part of B11 commit a0125f6 + C8 commit 0f45f1b — D3 had no additional code beyond what B11+C8 already shipped
 
 ### Task D4: Migrate existing registry — backfill user_id
 
