@@ -24,9 +24,9 @@
 
 ---
 
-## 多用戶 Server Mode（R5 — Phase 1）
+## 多用戶 Server Mode（R5 — Phase 1 → 5 完成）
 
-由 single-user CLI 工具升級成 self-hosted multi-client server，畀 3-5 人小團隊（廣播台同事）喺 LAN 上共用同一部 server。
+由 single-user CLI 工具升級成 self-hosted multi-client server，畀 3-5 人小團隊（廣播台同事）喺 LAN 上共用同一部 server。**已通過 Phase 5 安全 + 生產加固，可以喺真實 LAN deploy。**
 
 ### 一鍵安裝
 
@@ -63,9 +63,31 @@ source backend/.env && cd backend && source venv/bin/activate && python app.py
 - 上傳檔案落 `backend/data/users/<uid>/uploads/<file_id>.<ext>`，按 owner 隔離。
 - DB 喺 `backend/data/app.db`（SQLite，gitignore）；admin 可以用 `python backend/scripts/migrate_registry_user_id.py` 將 pre-R5 文件回填到 admin 名下。
 
-### Phase 2 已完成
+### Phase 進度（全部完成）
 
-Phase 2 加入：(1) ASR + MT pipeline 透過 JobQueue 統一（`/api/transcribe` + `/api/translate` 都返 202 + job_id）；(2) Linux/GB10 setup script；(3) self-signed HTTPS auto-enable。Phase 3 會加 admin dashboard CRUD UI、per-user Profile/Glossary override、email 通知。
+| Phase | 完成內容 |
+|---|---|
+| **Phase 1** | Auth (Flask-Login + bcrypt) / per-user file isolation / Job queue (1 ASR + 3 MT worker) / LAN-only CORS / setup-mac + setup-win scripts |
+| **Phase 2** | ASR + MT 統一 JobQueue (`/api/transcribe` + `/api/translate` 返 202 + job_id) / Linux/GB10 setup script / 自簽 HTTPS auto-enable |
+| **Phase 3** | Admin dashboard CRUD (`/admin.html`：用戶 / Profile / Glossary / Audit log 四個 tab) / per-user Profile + Glossary 隔離 (admin 可編所有共享，用戶只見自己 + 共享) / cancel queued + retry failed |
+| **Phase 4** | `/api/files` 加 `job_id` 欄 (file-card cancel 按鈕真正生效) / Mobile responsive UI (≤768px hamburger drawer + tabbed proofread；≤1024px tablet) / Cancel running jobs (worker thread `JobCancelled` exception，ASR poll between segments，MT poll between batches) |
+| **Phase 5** | **5 個 BLOCKING bug 修正**：login null 崩潰 / SocketIO 缺 auth / SECRET_KEY placeholder / 私人 Profile/Glossary 漏出 / poison-pill 重試無上限。**8 個生產加固**：Whisper cache key 完整 / worker app context / SQLite WAL / SameSite cookie / render endpoint 擁有人 check / cancel_event 入 MT engine / atomic last-admin guard / TOCTOU fix |
+
+**測試覆蓋**：673 個 backend tests pass + 1 個已知 v3.3 baseline (macOS tmpdir colon-escape，與 R5 無關)。Playwright E2E 6/6 GREEN。
+
+### Phase 5 新增環境變數 / 安全行為
+
+- **`FLASK_SECRET_KEY`**：**必須設定**。Server boot 時讀取；如果未設或等於 placeholder `change-me-on-first-deploy` 就 raise `RuntimeError` 拒絕啟動。三個 setup script 自動生成 `secrets.token_hex(32)` 寫入 `backend/.env`。
+- **`R5_MAX_JOB_RETRY`**（預設 `3`）：boot recovery 嘅重試次數上限。某個 job `attempt_count >= R5_MAX_JOB_RETRY` 之後 server 重啟唔會再 re-enqueue（避免 misconfigured handler 觸發無限重試）。Operator 要手動透過 `POST /api/queue/<id>/retry` 重試。
+- **Session cookie**：自動加 `SameSite=Lax` + `HttpOnly`；HTTPS 啟用時加 `Secure`。Mitigates cross-origin CSRF。
+- **SocketIO auth**：cross-origin 客戶端唔再可以開 socket。CORS 同 Flask 共用 `_LAN_ORIGIN_REGEX`（10/8 + 172.16/12 + 192.168/16 + 127/8 + localhost）。
+- **Render endpoint**：`GET /api/renders/<id>` + `download` + `DELETE` 全部 enforce file owner check（admin 可以 access 所有）。
+- **Database migrations**：`backend/migrations/2026-05-10-add-jobs-attempt-count.py` — idempotent，可手動跑（`python backend/migrations/2026-05-10-*.py backend/data/app.db`）；亦會喺每次 `init_jobs_table` 自動 backfill。
+
+### Cancel job 行為
+
+- **Queued job**：`DELETE /api/queue/<id>` → 200，DB 即時 cancelled。
+- **Running job**：`DELETE /api/queue/<id>` → 202 + `{ok:true, status:"cancelling"}`。Worker 喺下一個 checkpoint 自動停（ASR：每 segment 之間，~1 秒；MT：每 batch 之間，~30 秒最差情況）。最終 status flip 出現喺 next polling round。
 
 ---
 
