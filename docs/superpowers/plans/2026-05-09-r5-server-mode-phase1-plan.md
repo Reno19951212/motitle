@@ -1365,7 +1365,7 @@ git commit -m "feat(r5): jobs table CRUD with status transitions + crash recover
 **Teammate:** ralph-tester
 **Files:** Create `backend/tests/test_queue.py`
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test** ✅ Done iteration 8 (jobqueue.queue imports)
 
 ```python
 # backend/tests/test_queue.py
@@ -1446,7 +1446,7 @@ def test_handler_exception_marks_failed(db_path):
     q.shutdown()
 ```
 
-- [ ] **Step 2: Run test**
+- [x] **Step 2: Run test** ✅ Done iteration 8 — 4 fail with ModuleNotFoundError on jobqueue.queue
 
 ```bash
 pytest tests/test_queue.py -v
@@ -1456,9 +1456,9 @@ Expected: FAIL — `queue.queue` not found.
 ### Task C4: JobQueue class — GREEN
 
 **Teammate:** ralph-backend
-**Files:** Create `backend/queue/queue.py`
+**Files:** Create `backend/jobqueue/queue.py` (renamed from `queue/`)
 
-- [ ] **Step 1: Implement**
+- [x] **Step 1: Implement** ✅ Done iteration 8 — `import queue as stdqueue` resolves to stdlib correctly thanks to package rename
 
 ```python
 # backend/queue/queue.py
@@ -1581,17 +1581,17 @@ class JobQueue:
                               error_msg=f"{type(e).__name__}: {e}\n{tb[:1000]}")
 ```
 
-- [ ] **Step 2: Run test**
+- [x] **Step 2: Run test** ✅ Done iteration 8 — 4/4 pass (incl. handler-exception → status='failed' with traceback)
 
 ```bash
 pytest tests/test_queue.py -v
 ```
 Expected: 4 passed.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit** ✅ Done iteration 8 (commit 69fe739)
 
 ```bash
-git add backend/queue/queue.py backend/tests/test_queue.py
+git add backend/jobqueue/queue.py backend/tests/test_queue.py
 git commit -m "feat(r5): JobQueue class with ASR (1) + MT (3) workers"
 ```
 
