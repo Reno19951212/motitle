@@ -13,6 +13,8 @@
 | DELETE | /api/queue/<id> | session + owner | - | 200 `{ok: true}` / 403 / 404 | ralph-backend |
 | POST | /api/transcribe | session | `multipart` | existing + job_id | ralph-backend (modify) |
 | GET | /api/files | session | - | existing + filtered by owner | ralph-backend (modify) |
+| POST | /api/translate | session + owner | `{file_id, style?}` | 202 + `{file_id, job_id, status:"queued", queue_position}` | ralph-backend (modify) |
+| POST | /api/files/<file_id>/transcribe | session + owner | `{}` | 202 + `{file_id, job_id, status:"queued", queue_position}` | ralph-backend (modify) |
 
 ## Database Schema
 
@@ -75,3 +77,5 @@ CREATE INDEX idx_jobs_status_created ON jobs(status, created_at);
 - Glossary / Profile / Language config: Phase 1 globally shared (admin-managed). Per-user override is Phase 2 scope.
 - ASR GPU concurrency: 1 (one ASR job at a time)
 - HTTPS: HTTP only on LAN for Phase 1; self-signed HTTPS is Phase 2 scope.
+- HTTPS (Phase 2): self-signed cert at `backend/data/certs/server.{crt,key}`. mkcert preferred (auto-trusts CA on dev machines); openssl fallback requires manual trust. Disable with `R5_HTTPS=0` env. Default port stays 5001 but cert presence flips protocol to HTTPS.
+- Translate concurrency (Phase 2): MT worker pool stays at 3 — matches D3 spec. ASR pool stays at 1.
