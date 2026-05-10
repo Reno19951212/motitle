@@ -26,19 +26,30 @@ class WhisperEngine(ASREngine):
         self._config = config
         self._model_size = config.get("model_size", "small")
         self._device = config.get("device", "auto")
+        self._compute_type = config.get("compute_type", "int8")
 
     def _get_model(self):
-        """Load and cache the Whisper model. Returns (model, backend_name)."""
+        """Load and cache the Whisper model. Returns (model, backend_name).
+
+        R5 Phase 5 T2.1: cache key includes (model_size, device, compute_type)
+        so that two profiles with different device or compute_type don't
+        collide on the same cached model. Previously the key was model_size
+        only, meaning the second profile silently received the first
+        profile's settings.
+        """
         with _model_lock:
             if FASTER_WHISPER_AVAILABLE:
-                if self._model_size not in _faster_model_cache:
-                    print(f"Loading faster-whisper model: {self._model_size}")
-                    _faster_model_cache[self._model_size] = FasterWhisperModel(
-                        self._model_size, device=self._device, compute_type="int8"
+                key = (self._model_size, self._device, self._compute_type)
+                if key not in _faster_model_cache:
+                    print(f"Loading faster-whisper model: {key}")
+                    _faster_model_cache[key] = FasterWhisperModel(
+                        self._model_size, device=self._device, compute_type=self._compute_type
                     )
-                    print(f"faster-whisper model {self._model_size} loaded")
-                return _faster_model_cache[self._model_size], "faster"
+                    print(f"faster-whisper model {key} loaded")
+                return _faster_model_cache[key], "faster"
             elif OPENAI_WHISPER_AVAILABLE:
+                # openai-whisper doesn't expose device/compute_type at load
+                # time the same way; key by model_size only.
                 if self._model_size not in _openai_model_cache:
                     print(f"Loading openai-whisper model: {self._model_size}")
                     _openai_model_cache[self._model_size] = openai_whisper.load_model(
