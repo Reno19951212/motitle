@@ -536,7 +536,7 @@ git commit -m "feat(r5): User model + SQLite schema bootstrap"
 **Teammate:** ralph-tester
 **Files:** Create `backend/tests/test_auth_routes.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test** ✅ Done iteration 3 (cookie_jar → werkzeug 3 get_cookie API)
 
 ```python
 # backend/tests/test_auth_routes.py
@@ -630,7 +630,7 @@ def test_api_me_returns_user_info_when_logged_in(app_with_user):
     assert "password_hash" not in body  # never leak
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails** ✅ Done iteration 3 — 5 fail with ModuleNotFoundError
 
 ```bash
 pytest tests/test_auth_routes.py -v
@@ -642,7 +642,7 @@ Expected: FAIL — `auth.routes` not found.
 **Teammate:** ralph-backend
 **Files:** Create `backend/auth/routes.py`
 
-- [ ] **Step 1: Implement blueprint**
+- [x] **Step 1: Implement blueprint** ✅ Done iteration 3
 
 ```python
 # backend/auth/routes.py
@@ -709,14 +709,14 @@ def me():
     }), 200
 ```
 
-- [ ] **Step 2: Run test to verify it passes**
+- [x] **Step 2: Run test to verify it passes** ✅ Done iteration 3 — 5/5 pass
 
 ```bash
 pytest tests/test_auth_routes.py -v
 ```
 Expected: 5 passed.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit** ✅ Done iteration 3 (commit 888e9e7)
 
 ```bash
 git add backend/auth/routes.py backend/tests/test_auth_routes.py
