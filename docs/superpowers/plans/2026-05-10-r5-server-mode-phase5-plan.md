@@ -78,7 +78,7 @@
 **Teammate:** ralph-architect
 **Files:** Modify `docs/superpowers/r5-shared-contracts.md`
 
-- [ ] **Step 1: Update API rows for ownership-checked GETs**
+- [x] **Step 1: Update API rows for ownership-checked GETs**
 
 REPLACE the existing `/api/profiles/<id>` row (Phase 1 / Phase 3) with:
 
@@ -89,7 +89,7 @@ REPLACE the existing `/api/profiles/<id>` row (Phase 1 / Phase 3) with:
 | GET | /api/renders/<id>/download | session + file-owner | - | 200 video stream / 403 / 404 | ralph-backend (modify Phase 5 T2.5) |
 ```
 
-- [ ] **Step 2: Update jobs schema for attempt_count**
+- [x] **Step 2: Update jobs schema for attempt_count**
 
 REPLACE the existing `jobs` CREATE TABLE block in the Database Schema section with:
 
@@ -108,7 +108,7 @@ CREATE TABLE jobs (
 );
 ```
 
-- [ ] **Step 3: Append Default values bullets**
+- [x] **Step 3: Append Default values bullets**
 
 ```markdown
 - SECRET_KEY (Phase 5 T1.3): `FLASK_SECRET_KEY` env var is REQUIRED at boot. Server raises `RuntimeError` and refuses to start if absent or equal to placeholder `'change-me-on-first-deploy'`. Setup scripts (Phase 1G + Phase 2D) auto-generate via `secrets.token_hex(32)` to backend/.env.
@@ -118,7 +118,7 @@ CREATE TABLE jobs (
 - Cancel latency (Phase 5 T2.6): cancel_event is polled between Whisper segments (~1s for ASR) and between MT batches (~30s worst case for slow LLM). DELETE returns 202 immediately; final status flip happens at next checkpoint.
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 cd "/Users/renocheung/Documents/GitHub - Remote Repo/whisper-subtitle-ai"
@@ -135,7 +135,7 @@ git commit -m "docs(r5): Phase 5 contracts — ownership GETs + attempt_count + 
 **Teammate:** ralph-tester + ralph-backend (combined)
 **Files:** Create `backend/tests/test_phase5_security.py`; modify `backend/auth/routes.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # backend/tests/test_phase5_security.py
@@ -181,14 +181,14 @@ def client_with_admin_db():
 
 Add `"test_phase5_security"` to `_REAL_AUTH_MODULES` tuple in `backend/tests/conftest.py`.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 cd backend && source venv/bin/activate && pytest tests/test_phase5_security.py -v
 ```
 Expected: 2 of 3 fail with 500 (test 3 with `{}` already passes via Phase 1 B7 handling); the 2 null tests fail with `AttributeError: 'NoneType' object has no attribute 'strip'`.
 
-- [ ] **Step 3: Implement the fix in `backend/auth/routes.py`**
+- [x] **Step 3: Implement the fix in `backend/auth/routes.py`**
 
 Find the existing `login` handler (around line 27). Replace the username/password extraction with null-coalesce:
 
@@ -206,14 +206,14 @@ def login():
 
 The change is: `data.get("username", "").strip()` → `(data.get("username") or "").strip()`. Same for password (`data.get("password", "")` → `data.get("password") or ""`).
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 ```bash
 pytest tests/test_phase5_security.py -v
 ```
 Expected: 3 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/auth/routes.py backend/tests/test_phase5_security.py backend/tests/conftest.py
@@ -225,7 +225,7 @@ git commit -m "fix(r5): /login null username/password returns 400 not 500 (T1.1)
 **Teammate:** ralph-tester + ralph-backend (combined)
 **Files:** Modify `backend/tests/test_phase5_security.py`; modify `backend/app.py`
 
-- [ ] **Step 1: Append failing tests to test_phase5_security.py**
+- [x] **Step 1: Append failing tests to test_phase5_security.py**
 
 ```python
 def test_socketio_cors_origins_uses_lan_regex():
@@ -253,14 +253,14 @@ def test_socketio_connect_rejects_unauthenticated(monkeypatch):
             f"T1.2 — anonymous connect must return False, got {result!r}"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 pytest tests/test_phase5_security.py::test_socketio_cors_origins_uses_lan_regex tests/test_phase5_security.py::test_socketio_connect_rejects_unauthenticated -v
 ```
 Expected: both fail — first asserts on `'*'`, second finds no connect handler.
 
-- [ ] **Step 3: Implement fix in `backend/app.py`**
+- [x] **Step 3: Implement fix in `backend/app.py`**
 
 Find the existing `socketio = SocketIO(...)` line (around line 93). Replace with:
 
@@ -288,21 +288,21 @@ def _socketio_connect_auth():
     return True
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 ```bash
 pytest tests/test_phase5_security.py::test_socketio_cors_origins_uses_lan_regex tests/test_phase5_security.py::test_socketio_connect_rejects_unauthenticated -v
 ```
 Expected: 2 passed.
 
-- [ ] **Step 5: Run full pytest — no regression**
+- [x] **Step 5: Run full pytest — no regression**
 
 ```bash
 pytest tests/ --ignore=tests/test_e2e_render.py -q 2>&1 | tail -5
 ```
 Expected: 615+ pass + 1 baseline (Phase 4 ended at 615; +5 new from B1+B2 = 620).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/app.py backend/tests/test_phase5_security.py
@@ -314,7 +314,7 @@ git commit -m "fix(r5): SocketIO LAN-only CORS + connect auth handler (T1.2)"
 **Teammate:** ralph-tester + ralph-backend (combined)
 **Files:** Modify `backend/tests/test_phase5_security.py`; modify `backend/app.py`
 
-- [ ] **Step 1: Append failing test**
+- [x] **Step 1: Append failing test**
 
 ```python
 def test_app_refuses_to_boot_without_flask_secret_key(monkeypatch):
@@ -340,14 +340,14 @@ def test_app_refuses_placeholder_secret(monkeypatch):
         importlib.import_module("app")
 ```
 
-- [ ] **Step 2: Run test — verify FAIL**
+- [x] **Step 2: Run test — verify FAIL**
 
 ```bash
 pytest tests/test_phase5_security.py::test_app_refuses_to_boot_without_flask_secret_key tests/test_phase5_security.py::test_app_refuses_placeholder_secret -v
 ```
 Expected: both fail because `app.py` currently uses fallback string silently.
 
-- [ ] **Step 3: Implement fix in `backend/app.py`**
+- [x] **Step 3: Implement fix in `backend/app.py`**
 
 Find the existing SECRET_KEY block (around line 91-93):
 
@@ -370,7 +370,7 @@ if not _secret_key or _secret_key == _PLACEHOLDER_SECRET:
 app.config['SECRET_KEY'] = _secret_key
 ```
 
-- [ ] **Step 4: Update conftest.py to set `FLASK_SECRET_KEY` for all tests**
+- [x] **Step 4: Update conftest.py to set `FLASK_SECRET_KEY` for all tests**
 
 In `backend/tests/conftest.py`, add at module top (above any imports of `app`):
 
@@ -381,7 +381,7 @@ os.environ.setdefault("FLASK_SECRET_KEY", "test-secret-key-only-for-pytest-do-no
 
 This ensures every test session has a non-placeholder secret. Each test that needs a different value can monkeypatch.
 
-- [ ] **Step 5: Run pytest**
+- [x] **Step 5: Run pytest**
 
 ```bash
 pytest tests/test_phase5_security.py -v
@@ -389,7 +389,7 @@ pytest tests/ --ignore=tests/test_e2e_render.py -q 2>&1 | tail -5
 ```
 Expected: 7 phase5_security tests pass; full suite 622+ pass + 1 baseline.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/app.py backend/tests/test_phase5_security.py backend/tests/conftest.py
@@ -401,7 +401,7 @@ git commit -m "fix(r5): SECRET_KEY required at boot, placeholder rejected (T1.3)
 **Teammate:** ralph-tester
 **Files:** Modify `backend/tests/test_phase5_security.py`
 
-- [ ] **Step 1: Append failing tests**
+- [x] **Step 1: Append failing tests**
 
 ```python
 def test_get_single_profile_403_for_non_owner(monkeypatch, tmp_path):
@@ -484,7 +484,7 @@ def test_get_single_glossary_403_for_non_owner(monkeypatch, tmp_path):
     assert r.status_code == 403
 ```
 
-- [ ] **Step 2: Run test — verify FAIL**
+- [x] **Step 2: Run test — verify FAIL**
 
 ```bash
 pytest tests/test_phase5_security.py -v -k "single_profile or single_glossary or shared_profile"
@@ -496,7 +496,7 @@ Expected: 2 of 3 FAIL (the 403 tests); shared profile test passes (existing beha
 **Teammate:** ralph-backend
 **Files:** Modify `backend/profiles.py`, `backend/glossary.py`, `backend/app.py`
 
-- [ ] **Step 1: Add `can_view` to ProfileManager**
+- [x] **Step 1: Add `can_view` to ProfileManager**
 
 In `backend/profiles.py`, add method alongside the existing `can_edit` (Phase 3 D2 commit `0019e42`):
 
@@ -519,11 +519,11 @@ def can_view(self, profile_id: str, user_id: int, is_admin: bool) -> bool:
     return owner == user_id
 ```
 
-- [ ] **Step 2: Same for GlossaryManager**
+- [x] **Step 2: Same for GlossaryManager**
 
 In `backend/glossary.py`, add identical `can_view` method (s/profile/glossary/).
 
-- [ ] **Step 3: Add 403 check on GET /api/profiles/<id> + /api/glossaries/<id>**
+- [x] **Step 3: Add 403 check on GET /api/profiles/<id> + /api/glossaries/<id>**
 
 In `backend/app.py`, find `def api_get_profile(profile_id):` (around line 1067) and add at top of function:
 
@@ -547,21 +547,21 @@ def api_get_profile(profile_id):
 
 Same change for `def api_get_glossary(glossary_id):` (around line 1383).
 
-- [ ] **Step 4: Run B4 tests**
+- [x] **Step 4: Run B4 tests**
 
 ```bash
 pytest tests/test_phase5_security.py -v -k "single_profile or single_glossary or shared_profile"
 ```
 Expected: 3 passed.
 
-- [ ] **Step 5: Run full pytest**
+- [x] **Step 5: Run full pytest**
 
 ```bash
 pytest tests/ --ignore=tests/test_e2e_render.py -q 2>&1 | tail -5
 ```
 Expected: 625 + 1 baseline (was 622 + 3 new = 625).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/profiles.py backend/glossary.py backend/app.py backend/tests/test_phase5_security.py
@@ -573,7 +573,7 @@ git commit -m "fix(r5): GET /api/{profiles,glossaries}/<id> enforces ownership (
 **Teammate:** ralph-tester
 **Files:** Create `backend/tests/test_poison_pill_retry.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # backend/tests/test_poison_pill_retry.py
@@ -668,7 +668,7 @@ def test_max_retry_env_override(db_path, monkeypatch):
     assert len(orphans) == 0, "T1.5 — env cap of 1 must block re-enqueue"
 ```
 
-- [ ] **Step 2: Run test — verify FAIL**
+- [x] **Step 2: Run test — verify FAIL**
 
 ```bash
 pytest tests/test_poison_pill_retry.py -v
@@ -680,7 +680,7 @@ Expected: 6 failed — schema doesn't have attempt_count, insert_job doesn't acc
 **Teammate:** ralph-backend
 **Files:** Create `backend/migrations/2026-05-10-add-jobs-attempt-count.py`; modify `backend/jobqueue/db.py`, `backend/jobqueue/queue.py`
 
-- [ ] **Step 1: Schema migration script**
+- [x] **Step 1: Schema migration script**
 
 Create `backend/migrations/2026-05-10-add-jobs-attempt-count.py`:
 
@@ -716,7 +716,7 @@ if __name__ == "__main__":
     print(f"{'Added' if added else 'Already present'}: jobs.attempt_count in {p}")
 ```
 
-- [ ] **Step 2: Update `_SCHEMA` in `jobqueue/db.py` for fresh databases**
+- [x] **Step 2: Update `_SCHEMA` in `jobqueue/db.py` for fresh databases**
 
 Find `_SCHEMA = """..."""` block in `backend/jobqueue/db.py:8`. Add column to CREATE TABLE:
 
@@ -753,7 +753,7 @@ def init_jobs_table(db_path: str) -> None:
     conn.close()
 ```
 
-- [ ] **Step 3: Update `insert_job` to accept `parent_job_id` kwarg**
+- [x] **Step 3: Update `insert_job` to accept `parent_job_id` kwarg**
 
 ```python
 def insert_job(db_path: str, user_id: int, file_id: str, job_type: str,
@@ -798,7 +798,7 @@ def _row_to_job(row: sqlite3.Row) -> dict:
     }
 ```
 
-- [ ] **Step 4: Update `recover_orphaned_running` to honor cap**
+- [x] **Step 4: Update `recover_orphaned_running` to honor cap**
 
 Replace existing function:
 
@@ -838,7 +838,7 @@ def recover_orphaned_running(db_path: str, auto_retry: bool = False):
         conn.close()
 ```
 
-- [ ] **Step 5: Update `JobQueue.__init__` to pass parent_job_id when re-enqueueing**
+- [x] **Step 5: Update `JobQueue.__init__` to pass parent_job_id when re-enqueueing**
 
 In `backend/jobqueue/queue.py:42` (Phase 4 D3 boot recovery block), update the re-enqueue call to thread parent through:
 
@@ -857,7 +857,7 @@ In `backend/jobqueue/queue.py:42` (Phase 4 D3 boot recovery block), update the r
                     self._mt_q.put(new_jid)
 ```
 
-- [ ] **Step 6: Run pytest**
+- [x] **Step 6: Run pytest**
 
 ```bash
 pytest tests/test_poison_pill_retry.py -v
@@ -865,7 +865,7 @@ pytest tests/ --ignore=tests/test_e2e_render.py -q 2>&1 | tail -5
 ```
 Expected: 6 phase5 tests pass; full suite 631 + 1 baseline.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add backend/jobqueue/db.py backend/jobqueue/queue.py backend/migrations/2026-05-10-add-jobs-attempt-count.py backend/tests/test_poison_pill_retry.py
@@ -877,14 +877,14 @@ git commit -m "fix(r5): poison-pill retry cap (T1.5) — jobs.attempt_count + R5
 **Teammate:** ralph-validator
 **Files:** None (read-only)
 
-- [ ] **Step 1: Full pytest**
+- [x] **Step 1: Full pytest**
 
 ```bash
 cd backend && source venv/bin/activate && pytest tests/ --ignore=tests/test_e2e_render.py -q 2>&1 | tail -5
 ```
 Expected: 631 + 1 baseline (Phase 4 ended at 615; +16 from B1 (3) + B2 (2) + B3 (2) + B4/B5 (3) + B6/B7 (6)).
 
-- [ ] **Step 2: Live curl smoke for each Tier 1 fix**
+- [x] **Step 2: Live curl smoke for each Tier 1 fix**
 
 Boot server (FLASK_PORT=5002, ADMIN_BOOTSTRAP_PASSWORD=admin), then exercise:
 
@@ -922,7 +922,7 @@ print('original status:', get_job(db, jid)['status'], '(expect failed)')
 "
 ```
 
-- [ ] **Step 3: Append validation note to r5-progress-report.md**
+- [x] **Step 3: Append validation note to r5-progress-report.md**
 
 ```markdown
 
@@ -957,7 +957,7 @@ git commit -m "docs(r5): Phase 5B validation report — 5 BLOCKING fixes shipped
 **Teammate:** ralph-tester + ralph-backend (combined)
 **Files:** Create `backend/tests/test_whisper_singleton.py`; modify `backend/app.py`
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 ```python
 # backend/tests/test_whisper_singleton.py
@@ -1001,9 +1001,9 @@ def test_get_whisper_model_different_args_different_instances(monkeypatch):
     assert m1 is not m2
 ```
 
-- [ ] **Step 2: Run test — verify FAIL** (`AttributeError` on `_get_whisper_model`)
+- [x] **Step 2: Run test — verify FAIL** (`AttributeError` on `_get_whisper_model`)
 
-- [ ] **Step 3: Implement singleton in `backend/app.py`**
+- [x] **Step 3: Implement singleton in `backend/app.py`**
 
 Find the existing `def get_model(...)` (around line 320 — Phase 1 legacy direct path). Add NEW module-level cache + helper near it:
 
@@ -1026,7 +1026,7 @@ def _get_whisper_model(model_size: str, device: str = "cpu", compute_type: str =
 
 Then update existing `transcribe_with_segments` and any direct `WhisperModel(...)` instantiation to call `_get_whisper_model(...)` instead.
 
-- [ ] **Step 4: Run pytest**
+- [x] **Step 4: Run pytest**
 
 ```bash
 pytest tests/test_whisper_singleton.py -v
@@ -1034,7 +1034,7 @@ pytest tests/ --ignore=tests/test_e2e_render.py -q 2>&1 | tail -5
 ```
 Expected: 2 phase5 tests pass; full suite 633 + 1 baseline.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app.py backend/tests/test_whisper_singleton.py
@@ -1046,7 +1046,7 @@ git commit -m "fix(r5): Whisper model singleton cache (T2.1 — GPU memory leak)
 **Teammate:** ralph-tester + ralph-backend (combined)
 **Files:** Create `backend/tests/test_worker_app_context.py`; modify `backend/jobqueue/queue.py` + `backend/app.py`
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 ```python
 # backend/tests/test_worker_app_context.py
@@ -1125,9 +1125,9 @@ def test_jobqueue_no_app_works_without_context(tmp_path):
     assert ran.get("yes") is True
 ```
 
-- [ ] **Step 2: Run test — verify FAIL** (TypeError on `app=` kwarg).
+- [x] **Step 2: Run test — verify FAIL** (TypeError on `app=` kwarg).
 
-- [ ] **Step 3: Update `JobQueue.__init__` to accept app**
+- [x] **Step 3: Update `JobQueue.__init__` to accept app**
 
 In `backend/jobqueue/queue.py`, change signature:
 
@@ -1146,7 +1146,7 @@ def __init__(
     # ... rest of init unchanged
 ```
 
-- [ ] **Step 4: Wrap `_run_one` with app_context if app provided**
+- [x] **Step 4: Wrap `_run_one` with app_context if app provided**
 
 Replace the handler invocation block in `_run_one`:
 
@@ -1190,7 +1190,7 @@ def _run_one(self, jid: str, handler):
             self._cancel_events.pop(jid, None)
 ```
 
-- [ ] **Step 5: Pass app into the global JobQueue init in `backend/app.py`**
+- [x] **Step 5: Pass app into the global JobQueue init in `backend/app.py`**
 
 Find `_job_queue = JobQueue(AUTH_DB_PATH, asr_handler=_asr_handler, mt_handler=_mt_handler)` (Phase 2 commit `9face64`). Update to:
 
@@ -1201,7 +1201,7 @@ _job_queue = JobQueue(AUTH_DB_PATH,
                       app=app)
 ```
 
-- [ ] **Step 6: Run pytest**
+- [x] **Step 6: Run pytest**
 
 ```bash
 pytest tests/test_worker_app_context.py tests/test_queue.py tests/test_cancel_running.py -v
@@ -1209,7 +1209,7 @@ pytest tests/ --ignore=tests/test_e2e_render.py -q 2>&1 | tail -5
 ```
 Expected: all pass. Full suite 636 + 1 baseline.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add backend/jobqueue/queue.py backend/app.py backend/tests/test_worker_app_context.py
@@ -1221,7 +1221,7 @@ git commit -m "fix(r5): JobQueue worker threads run with Flask app context (T2.2
 **Teammate:** ralph-tester + ralph-backend (combined)
 **Files:** Create `backend/tests/test_sqlite_wal.py`; modify `backend/jobqueue/db.py`, `backend/auth/users.py`, `backend/auth/audit.py`
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 ```python
 # backend/tests/test_sqlite_wal.py
@@ -1258,9 +1258,9 @@ def test_audit_db_uses_wal(tmp_path):
     conn.close()
 ```
 
-- [ ] **Step 2: Run test — verify FAIL** (default journal_mode is `delete`).
+- [x] **Step 2: Run test — verify FAIL** (default journal_mode is `delete`).
 
-- [ ] **Step 3: Add WAL pragma to all 3 init functions**
+- [x] **Step 3: Add WAL pragma to all 3 init functions**
 
 In `backend/jobqueue/db.py` `init_jobs_table`:
 
@@ -1307,7 +1307,7 @@ def init_audit_log(db_path: str) -> None:
     conn.close()
 ```
 
-- [ ] **Step 4: Run pytest**
+- [x] **Step 4: Run pytest**
 
 ```bash
 pytest tests/test_sqlite_wal.py -v
@@ -1315,7 +1315,7 @@ pytest tests/ --ignore=tests/test_e2e_render.py -q 2>&1 | tail -5
 ```
 Expected: 3 pass; full suite 639 + 1 baseline.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/jobqueue/db.py backend/auth/users.py backend/auth/audit.py backend/tests/test_sqlite_wal.py
@@ -1327,7 +1327,7 @@ git commit -m "fix(r5): SQLite WAL mode + synchronous=NORMAL on all 3 DBs (T2.3)
 **Teammate:** ralph-tester + ralph-backend (combined)
 **Files:** Create `backend/tests/test_csrf_cookie.py`; modify `backend/app.py`
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 ```python
 # backend/tests/test_csrf_cookie.py
@@ -1365,9 +1365,9 @@ def test_session_cookie_secure_false_when_http_only(monkeypatch):
     assert app_mod.app.config.get("SESSION_COOKIE_SECURE", False) is False
 ```
 
-- [ ] **Step 2: Run test — verify FAIL** (no SAMESITE config).
+- [x] **Step 2: Run test — verify FAIL** (no SAMESITE config).
 
-- [ ] **Step 3: Set cookie attrs in `backend/app.py`**
+- [x] **Step 3: Set cookie attrs in `backend/app.py`**
 
 Near where SECRET_KEY is set (after Task B3 changes):
 
@@ -1381,7 +1381,7 @@ app.config['SESSION_COOKIE_SECURE'] = (os.environ.get('R5_HTTPS') != '0')
 app.config['SESSION_COOKIE_HTTPONLY'] = True  # Already default, but explicit
 ```
 
-- [ ] **Step 4: Run pytest**
+- [x] **Step 4: Run pytest**
 
 ```bash
 pytest tests/test_csrf_cookie.py -v
@@ -1389,7 +1389,7 @@ pytest tests/ --ignore=tests/test_e2e_render.py -q 2>&1 | tail -5
 ```
 Expected: 3 pass; full suite 642 + 1 baseline.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app.py backend/tests/test_csrf_cookie.py
@@ -1401,7 +1401,7 @@ git commit -m "fix(r5): SESSION_COOKIE_SAMESITE=Lax + Secure (when HTTPS) (T2.4)
 **Teammate:** ralph-tester + ralph-backend (combined)
 **Files:** Create `backend/tests/test_render_ownership.py`; modify `backend/app.py`
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 ```python
 # backend/tests/test_render_ownership.py
@@ -1478,9 +1478,9 @@ def test_get_render_200_for_owner(two_users_one_render):
 
 Add `"test_render_ownership"` to `_REAL_AUTH_MODULES` in conftest.py.
 
-- [ ] **Step 2: Run test — verify FAIL** (current handlers use only @login_required).
+- [x] **Step 2: Run test — verify FAIL** (current handlers use only @login_required).
 
-- [ ] **Step 3: Add ownership check to render endpoints**
+- [x] **Step 3: Add ownership check to render endpoints**
 
 Define a helper in `backend/app.py`:
 
@@ -1522,7 +1522,7 @@ def get_render(render_id):
 
 Same pattern for `download_render` and `delete_render` (around lines 2200, 2218).
 
-- [ ] **Step 4: Run pytest**
+- [x] **Step 4: Run pytest**
 
 ```bash
 pytest tests/test_render_ownership.py -v
@@ -1530,7 +1530,7 @@ pytest tests/ --ignore=tests/test_e2e_render.py -q 2>&1 | tail -5
 ```
 Expected: 4 pass; full suite 646 + 1 baseline.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app.py backend/tests/test_render_ownership.py backend/tests/conftest.py
@@ -1542,7 +1542,7 @@ git commit -m "fix(r5): render GET/DELETE/download enforce file-owner check (T2.
 **Teammate:** ralph-tester + ralph-backend (combined)
 **Files:** Modify `backend/translation/__init__.py` (ABC), `backend/translation/ollama_engine.py`, `backend/translation/openrouter_engine.py`, `backend/translation/mock_engine.py`, `backend/app.py`; append to `backend/tests/test_cancel_running.py`
 
-- [ ] **Step 1: Append failing test to `tests/test_cancel_running.py`**
+- [x] **Step 1: Append failing test to `tests/test_cancel_running.py`**
 
 ```python
 def test_translation_engine_translate_accepts_cancel_event_kwarg(tmp_path):
@@ -1572,9 +1572,9 @@ def test_mock_engine_raises_jobcancelled_when_event_set(tmp_path):
         engine.translate(segments, cancel_event=ev)
 ```
 
-- [ ] **Step 2: Run test — verify FAIL** (`cancel_event` not in signatures).
+- [x] **Step 2: Run test — verify FAIL** (`cancel_event` not in signatures).
 
-- [ ] **Step 3: Update `TranslationEngine` ABC**
+- [x] **Step 3: Update `TranslationEngine` ABC**
 
 In `backend/translation/__init__.py`, find the `translate` abstract method (around line 25). Add `cancel_event=None` to signature:
 
@@ -1594,7 +1594,7 @@ def translate(
     ...
 ```
 
-- [ ] **Step 4: Update each concrete engine**
+- [x] **Step 4: Update each concrete engine**
 
 For each of `ollama_engine.py`, `openrouter_engine.py`, `mock_engine.py`: add `cancel_event=None` to `translate()` signature. Inside the batch loop (each engine has its own batching logic), at the TOP of each iteration:
 
@@ -1606,7 +1606,7 @@ if cancel_event is not None and cancel_event.is_set():
 
 For MockTranslationEngine specifically, add the check at the top of the segments loop (it doesn't batch).
 
-- [ ] **Step 5: Update `_auto_translate` in `backend/app.py` to pass cancel_event into engine.translate**
+- [x] **Step 5: Update `_auto_translate` in `backend/app.py` to pass cancel_event into engine.translate**
 
 Find the existing `engine.translate(...)` call inside `_auto_translate` (Phase 4 D3 added cancel_event to function signature; this step pipes it into the engine call):
 
@@ -1622,7 +1622,7 @@ translations = engine.translate(
 
 Same for `translate_with_alignment` and `translate_with_sentences` if they call engine.translate internally — pass cancel_event through.
 
-- [ ] **Step 6: Run pytest**
+- [x] **Step 6: Run pytest**
 
 ```bash
 pytest tests/test_cancel_running.py -v
@@ -1630,7 +1630,7 @@ pytest tests/ --ignore=tests/test_e2e_render.py -q 2>&1 | tail -5
 ```
 Expected: full pass; full suite 648 + 1 baseline.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add backend/translation/__init__.py backend/translation/ollama_engine.py backend/translation/openrouter_engine.py backend/translation/mock_engine.py backend/app.py backend/tests/test_cancel_running.py
@@ -1642,7 +1642,7 @@ git commit -m "fix(r5): translate() accepts cancel_event for finer-grained inter
 **Teammate:** ralph-tester + ralph-backend (combined)
 **Files:** Create `backend/tests/test_admin_atomic.py`; modify `backend/auth/admin.py`
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 ```python
 # backend/tests/test_admin_atomic.py
@@ -1690,9 +1690,9 @@ def test_concurrent_demote_does_not_leave_zero_admins(tmp_path):
 
 Add `"test_admin_atomic"` to `_REAL_AUTH_MODULES` if needed (this test doesn't hit the API — direct module call, so probably not needed).
 
-- [ ] **Step 2: Run test — verify FAIL** (`_atomic_set_admin` doesn't exist).
+- [x] **Step 2: Run test — verify FAIL** (`_atomic_set_admin` doesn't exist).
 
-- [ ] **Step 3: Implement atomic helper in `backend/auth/admin.py`**
+- [x] **Step 3: Implement atomic helper in `backend/auth/admin.py`**
 
 Add helper at module top:
 
@@ -1737,13 +1737,13 @@ def _atomic_set_admin(db_path: str, user_id: int, new_admin: bool) -> None:
         conn.close()
 ```
 
-- [ ] **Step 4: Update existing admin route handlers to use the atomic helper**
+- [x] **Step 4: Update existing admin route handlers to use the atomic helper**
 
 In `backend/auth/admin.py`, find `def toggle_admin_route(user_id):` and `def delete_user_route(user_id):` (Phase 3 B6). Replace the `count_admins(db) <= 1` check pattern with calls to `_atomic_set_admin(db, user_id, False)` (catches ValueError → returns 403).
 
 For `delete_user_route`: similar — wrap delete in a `_atomic_delete_user(db, user_id)` helper that does the same BEGIN IMMEDIATE + count check + DELETE pattern.
 
-- [ ] **Step 5: Run pytest**
+- [x] **Step 5: Run pytest**
 
 ```bash
 pytest tests/test_admin_atomic.py -v
@@ -1752,7 +1752,7 @@ pytest tests/ --ignore=tests/test_e2e_render.py -q 2>&1 | tail -5
 ```
 Expected: all pass; full suite 649 + 1 baseline.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/auth/admin.py backend/tests/test_admin_atomic.py
@@ -1764,7 +1764,7 @@ git commit -m "fix(r5): atomic last-admin guard via BEGIN IMMEDIATE (T2.7)"
 **Teammate:** ralph-tester + ralph-backend (combined)
 **Files:** Create `backend/tests/test_profile_glossary_toctou.py`; modify `backend/profiles.py`, `backend/glossary.py`, `backend/app.py`
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 ```python
 # backend/tests/test_profile_glossary_toctou.py
@@ -1825,9 +1825,9 @@ def test_glossary_update_if_owned(tmp_path):
     assert r is not None and r["name"] == "renamed"
 ```
 
-- [ ] **Step 2: Run test — verify FAIL** (`update_if_owned` doesn't exist).
+- [x] **Step 2: Run test — verify FAIL** (`update_if_owned` doesn't exist).
 
-- [ ] **Step 3: Implement `update_if_owned` in ProfileManager + GlossaryManager**
+- [x] **Step 3: Implement `update_if_owned` in ProfileManager + GlossaryManager**
 
 In `backend/profiles.py`:
 
@@ -1875,11 +1875,11 @@ def delete_if_owned(self, profile_id: str, user_id: int, is_admin: bool) -> bool
         return True
 ```
 
-- [ ] **Step 4: Update route handlers to use the atomic helpers**
+- [x] **Step 4: Update route handlers to use the atomic helpers**
 
 In `backend/app.py`, find PATCH /api/profiles/<id> and DELETE /api/profiles/<id> (Phase 3 D4). Replace the separate `can_edit` + `update`/`delete` calls with single `update_if_owned`/`delete_if_owned` call. Same for glossary routes.
 
-- [ ] **Step 5: Run pytest**
+- [x] **Step 5: Run pytest**
 
 ```bash
 pytest tests/test_profile_glossary_toctou.py tests/test_per_user_profiles.py tests/test_per_user_glossaries.py -v
@@ -1887,7 +1887,7 @@ pytest tests/ --ignore=tests/test_e2e_render.py -q 2>&1 | tail -5
 ```
 Expected: all pass; full suite 653 + 1 baseline.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/profiles.py backend/glossary.py backend/app.py backend/tests/test_profile_glossary_toctou.py
@@ -1899,14 +1899,14 @@ git commit -m "fix(r5): ProfileManager/GlossaryManager update_if_owned closes TO
 **Teammate:** ralph-validator
 **Files:** None (read-only)
 
-- [ ] **Step 1: Full pytest**
+- [x] **Step 1: Full pytest**
 
 ```bash
 cd backend && source venv/bin/activate && pytest tests/ --ignore=tests/test_e2e_render.py -q 2>&1 | tail -5
 ```
 Expected: 653 + 1 baseline.
 
-- [ ] **Step 2: Append validation note to r5-progress-report.md**
+- [x] **Step 2: Append validation note to r5-progress-report.md**
 
 ```markdown
 
@@ -1944,14 +1944,14 @@ git commit -m "docs(r5): Phase 5C validation report — 8 production hardening i
 **Teammate:** ralph-validator
 **Files:** None (read-only)
 
-- [ ] **Step 1: Full pytest**
+- [x] **Step 1: Full pytest**
 
 ```bash
 pytest tests/ --ignore=tests/test_e2e_render.py -q 2>&1 | tail -5
 ```
 Expected: 653 + 1 baseline.
 
-- [ ] **Step 2: Playwright suite (no regression on Phase 1-4 specs)**
+- [x] **Step 2: Playwright suite (no regression on Phase 1-4 specs)**
 
 Boot HTTPS server (Phase 2 E5 cert generation already in place):
 
@@ -1966,7 +1966,7 @@ cd ../frontend && BASE_URL=http://localhost:5002 npx playwright test --reporter=
 ```
 Expected: 6/6 GREEN (login + admin + 4 responsive — Phase 4 baseline).
 
-- [ ] **Step 3: Live curl regression suite**
+- [x] **Step 3: Live curl regression suite**
 
 ```bash
 # Login
@@ -1997,11 +1997,11 @@ rm -f /tmp/p5d /tmp/r5_p5.log /tmp/r5_p5.db
 rm -rf /tmp/r5_p5_certs
 ```
 
-- [ ] **Step 4: Diff against updated Shared Contracts**
+- [x] **Step 4: Diff against updated Shared Contracts**
 
 Re-read [r5-shared-contracts.md](../r5-shared-contracts.md) — confirm the 4 new ownership-checked GET rows + jobs.attempt_count column + cookie attrs note + SECRET_KEY-required default value all match the running server's behavior.
 
-- [ ] **Step 5: Secrets scan**
+- [x] **Step 5: Secrets scan**
 
 ```bash
 cd "/Users/renocheung/Documents/GitHub - Remote Repo/whisper-subtitle-ai"
@@ -2013,7 +2013,7 @@ grep -rEn '(password|secret|api[_-]?key|token)\s*=\s*["\x27][^"\x27\s]{12,}' \
 ```
 Expected: empty (the placeholder string is now gated by RuntimeError, not a default).
 
-- [ ] **Step 6: Append "Phase 5 complete" to r5-progress-report.md**
+- [x] **Step 6: Append "Phase 5 complete" to r5-progress-report.md**
 
 ```markdown
 
@@ -2033,7 +2033,7 @@ Expected: empty (the placeholder string is now gated by RuntimeError, not a defa
 - Phase 6 hand-off backlog: rate limiting, password policy, /api/files O(N) optimization, frontend addEventListener leak, app.py/index.html refactor, /api/ready endpoint, systemd hardening, BatchedInferencePipeline, pytest real_auth marker, failed-login audit
 ```
 
-- [ ] **Step 7: Final commits**
+- [x] **Step 7: Final commits**
 
 ```bash
 cd "/Users/renocheung/Documents/GitHub - Remote Repo/whisper-subtitle-ai"
