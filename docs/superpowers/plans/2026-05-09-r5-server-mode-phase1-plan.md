@@ -2155,7 +2155,7 @@ git commit -m "feat(r5): per-user uploads dir at data/users/<uid>/uploads/"
 **Teammate:** ralph-frontend
 **Files:** Create `frontend/login.html`
 
-- [ ] **Step 1: Write file**
+- [x] **Step 1: Write file** ✅ Done iteration 16 (selectors match Shared Contracts: loginForm/loginUsername/loginPassword/loginError/loginSubmit + login-form/login-submit testids)
 
 ```html
 <!doctype html>
@@ -2225,7 +2225,7 @@ git commit -m "feat(r5): per-user uploads dir at data/users/<uid>/uploads/"
 </html>
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit** ✅ Done iteration 16 (commit bd63ad7)
 
 ```bash
 git add frontend/login.html
