@@ -262,17 +262,16 @@ def _asr_handler(job):
 
 
 def _mt_handler(job):
-    """Bridge for translate jobs — Phase 2 stub.
+    """Bridge for translate jobs — Phase 2 stub (C3 scope).
 
-    Current _auto_translate(fid, segments, session_id) needs context the
-    job payload doesn't carry. Phase 2 will refactor _auto_translate to
-    pull segments from the registry on its own. For now, mark such jobs
-    failed so the queue doesn't loop on them.
+    _auto_translate(fid, sid=None) now reads segments from the registry
+    on its own (C2). C3 will wire this handler to call _auto_translate(fid)
+    so translate jobs can be dispatched from the queue. Until then, raise
+    so the queue doesn't loop on them.
     """
     raise NotImplementedError(
-        "MT job bridge is Phase 2 scope — _auto_translate needs segments + "
-        "session_id refactor. Phase 1 routes still call _auto_translate "
-        "synchronously after ASR completes."
+        "MT job bridge is Phase 2 C3 scope — call _auto_translate(fid) "
+        "once queue dispatch is wired."
     )
 
 
@@ -2529,8 +2528,15 @@ def api_renders_in_progress():
     return jsonify({'jobs': out}), 200
 
 
-def _auto_translate(fid: str, segments: list, session_id) -> None:
-    """Auto-translate segments after transcription using the active profile."""
+def _auto_translate(fid: str, sid=None) -> None:
+    """Auto-translate a file's segments using the active profile.
+
+    R5 Phase 2: signature simplified — pulls segments from the registry
+    so it can run from a worker thread without request context. Set sid
+    only when called from a request handler that wants per-room socketio
+    emits (legacy compatibility — worker callers leave sid=None and
+    frontend polls instead).
+    """
     try:
         translation_start = time.time()
         profile = _profile_manager.get_active()
@@ -2541,12 +2547,20 @@ def _auto_translate(fid: str, segments: list, session_id) -> None:
         if not engine_name:
             return
 
+        with _registry_lock:
+            entry = _file_registry.get(fid)
+        if not entry:
+            return
+        segments = entry.get("segments") or []
+        if not segments:
+            return
+
         _update_file(fid, translation_status='translating')
-        if session_id:
+        if sid:
             socketio.emit('file_updated', {
                 'id': fid,
                 'translation_status': 'translating',
-            }, room=session_id)
+            }, room=sid)
         socketio.emit('translation_progress', {
             'file_id': fid,
             'completed': 0,
@@ -2631,30 +2645,30 @@ def _auto_translate(fid: str, segments: list, session_id) -> None:
             translation_seconds=translation_seconds,
             pipeline_seconds=pipeline_seconds,
         )
-        if session_id:
+        if sid:
             socketio.emit('pipeline_timing', {
                 'file_id': fid,
                 'asr_seconds': asr_s,
                 'translation_seconds': translation_seconds,
                 'total_seconds': pipeline_seconds,
-            }, room=session_id)
+            }, room=sid)
 
-        if session_id:
+        if sid:
             socketio.emit('file_updated', {
                 'id': fid,
                 'translation_status': 'done',
                 'translation_count': len(translated),
                 'translation_engine': translation_config.get('engine', ''),
-            }, room=session_id)
+            }, room=sid)
     except Exception as e:
         print(f"Auto-translate failed for {fid}: {e}")
         _update_file(fid, translation_status=None)
-        if session_id:
+        if sid:
             socketio.emit('file_updated', {
                 'id': fid,
                 'translation_status': None,
                 'translation_error': str(e),
-            }, room=session_id)
+            }, room=sid)
 
 
 @app.route('/api/transcribe', methods=['POST'])

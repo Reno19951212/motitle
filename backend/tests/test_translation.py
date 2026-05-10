@@ -1628,12 +1628,13 @@ def test_translation_progress_includes_elapsed_seconds(monkeypatch):
     monkeypatch.setattr(_app, "_language_config_manager", FakeLanguageConfigManager())
     monkeypatch.setattr(_app, "_glossary_manager", FakeGlossaryManager())
     monkeypatch.setattr(_app, "_update_file", lambda *a, **kw: None)
+    segments = [{"start": 0.0, "end": 1.0, "text": "hello"}]
+    monkeypatch.setattr(_app, "_file_registry", {"fake-id": {"segments": segments}})
 
     emitted = []
     monkeypatch.setattr(_app.socketio, "emit", lambda event, data=None, **kw: emitted.append((event, data)))
 
-    segments = [{"start": 0.0, "end": 1.0, "text": "hello"}]
-    _app._auto_translate("fake-id", segments, None)
+    _app._auto_translate("fake-id")
 
     progress_events = [d for e, d in emitted if e == "translation_progress"]
     assert len(progress_events) > 0, "translation_progress must be emitted"
@@ -1667,13 +1668,13 @@ def test_pipeline_timing_event_emitted(monkeypatch):
     monkeypatch.setattr(_app, "_language_config_manager", FakeLanguageConfigManager())
     monkeypatch.setattr(_app, "_glossary_manager", FakeGlossaryManager())
     monkeypatch.setattr(_app, "_update_file", lambda *a, **kw: None)
-    monkeypatch.setattr(_app, "_file_registry", {"fake-id": {}})
+    segments = [{"start": 0.0, "end": 1.0, "text": "hello"}]
+    monkeypatch.setattr(_app, "_file_registry", {"fake-id": {"segments": segments}})
 
     emitted = []
     monkeypatch.setattr(_app.socketio, "emit", lambda event, data=None, **kw: emitted.append((event, data)))
 
-    segments = [{"start": 0.0, "end": 1.0, "text": "hello"}]
-    _app._auto_translate("fake-id", segments, "fake-sid")
+    _app._auto_translate("fake-id", sid="fake-sid")
 
     timing_events = [d for e, d in emitted if e == "pipeline_timing"]
     assert len(timing_events) == 1, "pipeline_timing must be emitted exactly once"
