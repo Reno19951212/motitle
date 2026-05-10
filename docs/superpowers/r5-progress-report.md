@@ -235,6 +235,20 @@ grep over backend/auth, backend/jobqueue, backend/scripts, setup-mac.sh, setup-w
 
 ---
 
+## Phase 4C validation (responsive UI)
+
+**Date:** 2026-05-10
+**Verdict:** ✅ PASS
+
+- pytest: 609 + 1 baseline (no new backend tests in 4C — Phase 4B added 2 already)
+- Playwright: 6/6 GREEN (login + admin + 4 responsive viewport tests)
+- Phase 4C commits: b5b4988 (C1 responsive.css scaffold + serve route) + bbca3b2 (C2 hamburger drawer) + 95f4728 (C3 file-card stack) + 59e8d90 (C4 proofread mobile tabs) + 16ab58d (C5 Playwright spec) + ccdbf92 (C6 inline CSS cascade fixes)
+- Mobile breakpoints active: ≤768px stacks file-cards + collapses sidebar to off-canvas drawer + tabs proofread editor; ≤1024px narrows sidebar + hides search bar
+- Desktop layout (>1024px) unchanged; existing Phase 1+2+3 layout preserved
+- C6 caught 3 real CSS bugs in C1's scaffold: cascade order (desktop defaults after @media), drawer hide via transform vs display, overlay z-index intercepting clicks. Fixed inline + committed (ccdbf92).
+
+---
+
 ## Phase 3B validation (Task B7)
 
 **Date:** 2026-05-10
