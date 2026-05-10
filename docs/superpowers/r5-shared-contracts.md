@@ -22,6 +22,11 @@
 | POST | /api/admin/users/<id>/toggle-admin | session + admin | - | 200 `{is_admin: bool}` / 403 if last admin demoting self | ralph-backend |
 | GET | /api/admin/audit | session + admin | `?limit=100&actor_id=<int>` | 200 `[{id, ts, actor_user_id, action, target_kind, target_id, details_json}]` | ralph-backend |
 | POST | /api/queue/<id>/retry | session + owner | - | 200 `{ok: true, new_job_id}` / 404 / 409 if not failed | ralph-backend |
+| GET | /api/profiles/<id> | session + owner-or-shared | - | 200 profile / 403 if private+not owner / 404 | ralph-backend (modify Phase 5 T1.4) |
+| GET | /api/glossaries/<id> | session + owner-or-shared | - | 200 glossary / 403 if private+not owner / 404 | ralph-backend (modify Phase 5 T1.4) |
+| GET | /api/renders/<id> | session + file-owner | - | 200 render meta / 403 / 404 | ralph-backend (modify Phase 5 T2.5) |
+| GET | /api/renders/<id>/download | session + file-owner | - | 200 video stream / 403 / 404 | ralph-backend (modify Phase 5 T2.5) |
+| DELETE | /api/renders/<id> | session + file-owner | - | 200 / 403 / 404 | ralph-backend (modify Phase 5 T2.5) |
 
 ## Database Schema
 
@@ -44,7 +49,8 @@ CREATE TABLE jobs (
   created_at REAL NOT NULL,
   started_at REAL,
   finished_at REAL,
-  error_msg TEXT
+  error_msg TEXT,
+  attempt_count INTEGER NOT NULL DEFAULT 1  -- R5 Phase 5 T1.5: poison-pill cap
 );
 
 CREATE INDEX idx_jobs_user_status ON jobs(user_id, status);
@@ -129,3 +135,8 @@ CREATE INDEX idx_audit_actor ON audit_log(actor_user_id);
 - Cancel running jobs (Phase 4): worker thread polls a per-job `threading.Event` cancel flag at progress checkpoints (between Whisper segments, between MT batches). When set, the handler raises `JobCancelled` which `JobQueue._run_one` catches → `status='cancelled'`. Returning 202 acknowledges the request; final status appears asynchronously when the worker reaches the next checkpoint (typically <1s for ASR, <30s for long MT batches).
 - `/api/files` `job_id` field (Phase 4): joined from `jobqueue.db.list_jobs_for_user` with status IN ('queued', 'running'); only one job_id surfaced per file (most recent active). Frontend uses this to activate the file-card cancel button (Phase 3 commit `71348cc`).
 - Mobile UI (Phase 4): breakpoints at ≤768px (mobile, hamburger drawer + stacked file-cards + tabbed proofread) and ≤1024px (tablet, narrower sidebar). Vanilla `@media` query — no framework. Selectors below.
+- SECRET_KEY (Phase 5 T1.3): `FLASK_SECRET_KEY` env var is REQUIRED at boot. Server raises `RuntimeError` and refuses to start if absent or equal to placeholder `'change-me-on-first-deploy'`. Setup scripts (Phase 1G + Phase 2D) auto-generate via `secrets.token_hex(32)` to backend/.env.
+- Job retry cap (Phase 5 T1.5): each job has `attempt_count` (1-N). Boot-time recovery skips re-enqueue if `attempt_count >= R5_MAX_JOB_RETRY` (env, default 3). Marks original as failed; no new job created. Operator must manually retry via `POST /api/queue/<id>/retry`.
+- SocketIO auth (Phase 5 T1.2): connection handler rejects unauthenticated clients (returns False from `@socketio.on('connect')`). CORS now uses `_LAN_ORIGIN_REGEX` (same as Flask CORS, Phase 1 F2).
+- Cookie attributes (Phase 5 T2.4): session cookie has `SameSite=Lax` always; `Secure` flag added when `R5_HTTPS != '0'` and certs present. Mitigates cross-site CSRF on POST/PATCH/DELETE.
+- Cancel latency (Phase 5 T2.6): cancel_event is polled between Whisper segments (~1s for ASR) and between MT batches (~30s worst case for slow LLM). DELETE returns 202 immediately; final status flip happens at next checkpoint.
