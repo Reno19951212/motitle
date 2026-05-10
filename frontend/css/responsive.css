@@ -49,6 +49,16 @@
   .b-col {
     display: block !important;
   }
+
+  /* Queue items (file cards) stack vertically + full-width on mobile */
+  .queue-list, .file-list {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .queue-item {
+    width: 100% !important;
+    margin-bottom: 8px !important;
+  }
 }
 
 /* Desktop default — hide mobile-only chrome */
