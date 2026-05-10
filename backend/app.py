@@ -153,7 +153,7 @@ _render_jobs = {}
 # wire auth blueprint, optionally bootstrap an admin user from env on first run.
 from auth.users import init_db as _auth_init_db, get_user_by_id as _auth_get_user_by_id, create_user as _auth_create_user
 from auth.routes import bp as auth_bp, _LoginUser
-from auth.decorators import login_required, require_file_owner
+from auth.decorators import login_required, require_file_owner, admin_required
 from flask_login import LoginManager, current_user
 
 AUTH_DB_PATH = os.environ.get(
@@ -2753,7 +2753,7 @@ def re_transcribe_file(file_id):
 
 
 @app.route('/api/transcribe/sync', methods=['POST'])
-@login_required
+@admin_required
 def transcribe_sync():
     """Synchronous transcription - waits for result (for smaller files)"""
     if 'file' not in request.files:
