@@ -1754,7 +1754,7 @@ git commit -m "feat(r5): /api/queue list + DELETE /api/queue/<id> cancel"
 **Teammate:** ralph-backend
 **Files:** Modify `backend/app.py`
 
-- [ ] **Step 1: Add JobQueue init after auth init**
+- [x] **Step 1: Add JobQueue init after auth init** ✅ Done iteration 10 (jobqueue/* imports; ASR handler matches post-C8 signature; MT handler is explicit Phase 2 stub since current `_auto_translate(fid, segments, session_id)` needs context not in job payload — no Phase 1 entry point enqueues MT jobs)
 
 ```python
 # In backend/app.py, after the auth section added in B10:
@@ -1798,14 +1798,14 @@ _job_queue.start_workers()
 app.register_blueprint(queue_bp)
 ```
 
-- [ ] **Step 2: Run full pytest**
+- [x] **Step 2: Run full pytest** ✅ Done iteration 10 — 558 pass + 1 baseline (no regression; smoke confirmed: /api/queue + /api/queue/<id> registered, 4 worker threads boot + shutdown cleanly)
 
 ```bash
 pytest tests/ -q --ignore=tests/test_e2e_render.py 2>&1 | tail -5
 ```
 Expected: existing tests + new queue tests pass.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit** ✅ Done iteration 10 (commit 9face64)
 
 ```bash
 git add backend/app.py
