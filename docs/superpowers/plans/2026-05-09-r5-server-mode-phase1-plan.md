@@ -2376,7 +2376,7 @@ Boot server, log in as admin, verify chip shows username + clickable logout.
 **Teammate:** ralph-frontend
 **Files:** Create `frontend/js/queue-panel.js`, modify `frontend/index.html`
 
-- [ ] **Step 1: Write queue-panel.js**
+- [x] **Step 1: Write queue-panel.js** ✅ Done iteration 20
 
 ```javascript
 // frontend/js/queue-panel.js
@@ -2426,7 +2426,7 @@ setInterval(refreshQueue, 3000);
 refreshQueue();
 ```
 
-- [ ] **Step 2: Add panel container to index.html sidebar**
+- [x] **Step 2: Add panel container to index.html sidebar** ✅ Done iteration 20 — added as a sibling `.panel.queue-panel` after the existing file-queue panel inside `.b-col` (no `step-menu-section` class exists in this codebase; existing panels are dynamically rendered, so the static job-queue panel reuses `.panel` styling for visual consistency)
 
 Find sidebar section in `frontend/index.html` and add:
 
@@ -2438,7 +2438,7 @@ Find sidebar section in `frontend/index.html` and add:
 <script src="js/queue-panel.js"></script>
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit** ✅ Done iteration 20 (commit b2e12e5)
 
 ```bash
 git add frontend/js/queue-panel.js frontend/index.html
