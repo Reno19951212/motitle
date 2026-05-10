@@ -25,8 +25,10 @@ class _LoginUser:
 @bp.post("/login")
 def login():
     data = request.get_json(silent=True) or {}
-    username = data.get("username", "").strip()
-    password = data.get("password", "")
+    # R5 Phase 5 T1.1: explicit `null` in JSON returns None from .get(),
+    # bypassing the default. Coerce with `or` to avoid NoneType.strip().
+    username = (data.get("username") or "").strip()
+    password = data.get("password") or ""
 
     if not username or not password:
         return jsonify({"error": "username and password required"}), 400
