@@ -55,16 +55,17 @@ source backend/.env && cd backend && source venv/bin/activate && python app.py
 
 ### Server 行為
 
-- Server 預設綁 `0.0.0.0:5001`，LAN 內其他 client 用 `http://<server-ip>:5001/` 存取（用 `BIND_HOST=127.0.0.1` 縮返 localhost-only）。
+- Server 預設綁 `0.0.0.0:5001`，**自動啟用 HTTPS**（如 `backend/data/certs/server.{crt,key}` 存在；setup script 預設用 mkcert（fallback 用 openssl）生成）。LAN 內 client 用 `https://<server-ip>:5001/` 存取。`R5_HTTPS=0` 可強制 HTTP；`BIND_HOST=127.0.0.1` 縮返 localhost-only。
+- 第一次連入時瀏覽器會警告 "Not Secure" — 用 `mkcert -install` 喺每部 client 機加入信任，或者手動匯入 `server.crt`。
 - CORS 自動限制喺 LAN 私有 IP 段（10/8、172.16/12、192.168/16、loopback）— 公網 origin 一律拒絕，唔需要再喺 firewall 額外設防。
 - Auth 用 Flask-Login session cookie。所有 `/api/*` endpoint 要登入；`/api/files/<id>/*` 系列要 owner 或 admin 先 access 到。
 - Job queue：ASR 1 個並發（GPU bound）、translate/render 3 個並發；server 重啟後自動將 stuck `running` job 標 `failed` 重排。
 - 上傳檔案落 `backend/data/users/<uid>/uploads/<file_id>.<ext>`，按 owner 隔離。
 - DB 喺 `backend/data/app.db`（SQLite，gitignore）；admin 可以用 `python backend/scripts/migrate_registry_user_id.py` 將 pre-R5 文件回填到 admin 名下。
 
-### Phase 2 預告
+### Phase 2 已完成
 
-Phase 2 將會加：Linux/GB10 setup script、self-signed HTTPS、admin dashboard CRUD。Phase 1 嘅 LAN HTTP 部署足夠內網試用。
+Phase 2 加入：(1) ASR + MT pipeline 透過 JobQueue 統一（`/api/transcribe` + `/api/translate` 都返 202 + job_id）；(2) Linux/GB10 setup script；(3) self-signed HTTPS auto-enable。Phase 3 會加 admin dashboard CRUD UI、per-user Profile/Glossary override、email 通知。
 
 ---
 
