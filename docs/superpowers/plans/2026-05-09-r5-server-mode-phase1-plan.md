@@ -2267,7 +2267,7 @@ git commit -m "feat(r5): serve login.html + redirect / to /login when unauth"
 **Teammate:** ralph-tester
 **Files:** Create `frontend/tests/test_login_flow.spec.js`
 
-- [ ] **Step 1: Write Playwright spec**
+- [x] **Step 1: Write Playwright spec** ✅ Done iteration 18 — selectors match Shared Contracts (login-form/login-submit/user-chip/logout testids); deferred actual run to E6 per plan
 
 ```javascript
 // frontend/tests/test_login_flow.spec.js
@@ -2294,7 +2294,7 @@ test("login then dashboard shows user chip", async ({ page }) => {
 });
 ```
 
-- [ ] **Step 2: Run (server not started yet — expect fail or skip)**
+- [x] **Step 2: Run (server not started yet — expect fail or skip)** ✅ Done iteration 18 — committed as RED spec only (commit e9139aa); actual Playwright run deferred to E6 (after E4 user-chip ships and E6 boot the server with bootstrapped admin user)
 
 ```bash
 cd frontend && npx playwright test test_login_flow.spec.js
