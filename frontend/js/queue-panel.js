@@ -36,8 +36,25 @@ function renderQueueRows(jobs) {
 
 async function cancelJob(jobId) {
   if (!confirm("取消呢個工作？")) return;
-  await fetch(`/api/queue/${jobId}`, {method: "DELETE", credentials: "same-origin"});
+  const r = await fetch(`/api/queue/${jobId}`, {
+    method: "DELETE", credentials: "same-origin"
+  });
+  if (!r.ok) {
+    alert("取消失敗：" + r.status);
+    return;
+  }
+  if (r.status === 202) {
+    // Running cancel — worker will stop at next checkpoint
+    const body = await r.json().catch(() => ({}));
+    if (window.toast) {
+      window.toast("取消中...");
+    } else {
+      // Minimal fallback if no toast helper exists
+      console.info("取消中...");
+    }
+  }
   refreshQueue();
+  if (window.refreshFiles) refreshFiles();
 }
 
 async function retryFile(fileId) {
