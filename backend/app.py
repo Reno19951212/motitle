@@ -262,17 +262,14 @@ def _asr_handler(job):
 
 
 def _mt_handler(job):
-    """Bridge for translate jobs — Phase 2 stub (C3 scope).
+    """R5 Phase 2 — bridge: job dict → _auto_translate(fid).
 
-    _auto_translate(fid, sid=None) now reads segments from the registry
-    on its own (C2). C3 will wire this handler to call _auto_translate(fid)
-    so translate jobs can be dispatched from the queue. Until then, raise
-    so the queue doesn't loop on them.
+    Pulls segments from registry inside _auto_translate, so worker thread
+    runs without request context. Status transitions handled by JobQueue
+    (running before, done after; raise → failed).
     """
-    raise NotImplementedError(
-        "MT job bridge is Phase 2 C3 scope — call _auto_translate(fid) "
-        "once queue dispatch is wired."
-    )
+    file_id = job["file_id"]
+    _auto_translate(file_id)
 
 
 _job_queue = JobQueue(AUTH_DB_PATH,
