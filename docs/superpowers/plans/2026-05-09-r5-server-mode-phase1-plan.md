@@ -1871,7 +1871,7 @@ git commit -m "feat(r5): /api/transcribe enqueues job, returns 202 + queue_posit
 **Teammate:** ralph-tester
 **Files:** Create `backend/tests/test_user_isolation.py`
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test** ✅ Done iteration 12
 
 ```python
 # backend/tests/test_user_isolation.py
@@ -1956,7 +1956,7 @@ def test_admin_sees_all_files(two_users, monkeypatch):
     assert len(out) == 2
 ```
 
-- [ ] **Step 2: Run test**
+- [x] **Step 2: Run test** ✅ Done iteration 12 — 2 fail (TypeError + ImportError on _filter_files_by_owner)
 
 ```bash
 pytest tests/test_user_isolation.py -v
@@ -1968,7 +1968,7 @@ Expected: FAIL — `_filter_files_by_owner` not found.
 **Teammate:** ralph-backend
 **Files:** Modify `backend/app.py`
 
-- [ ] **Step 1: Add helper**
+- [x] **Step 1: Add helper** ✅ Done iteration 12
 
 ```python
 # Add to backend/app.py near _file_registry definition
@@ -1988,7 +1988,7 @@ def _filter_files_by_owner(registry: dict, user) -> dict:
     }
 ```
 
-- [ ] **Step 2: Modify GET /api/files handler to use the filter**
+- [x] **Step 2: Modify GET /api/files handler to use the filter** ✅ Done iteration 12 (preserved existing `{'files': [...]}` envelope)
 
 ```python
 @app.route("/api/files")
@@ -1998,14 +1998,14 @@ def list_files():
     return jsonify(list(files.values()))
 ```
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests** ✅ Done iteration 12 — 2/2 pass
 
 ```bash
 pytest tests/test_user_isolation.py -v
 ```
 Expected: 2 passed.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit** ✅ Done iteration 12 (commit e0ff0c1)
 
 ```bash
 git add backend/app.py backend/tests/test_user_isolation.py
