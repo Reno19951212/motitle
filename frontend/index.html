@@ -1248,6 +1248,9 @@
           <span id="userChip" data-testid="user-chip" style="display:inline-flex;align-items:center;gap:6px;
                  padding:4px 10px;border:1px solid var(--border);border-radius:14px;font-size:12px;color:var(--text-mid);">
             <span id="userChipName">…</span>
+            <a id="adminLink" data-testid="admin-link" href="/admin.html"
+               style="display:none;color:var(--accent);text-decoration:none;font-size:11px;margin-right:6px;"
+               title="管理">⚙</a>
             <button id="userChipLogout" data-testid="logout"
                     style="background:none;border:0;color:var(--text-dim);cursor:pointer;font-size:11px;padding:0;"
                     title="登出">⏻</button>
@@ -4479,6 +4482,9 @@
       if (u) {
         document.getElementById("userChipName").textContent =
           u.username + (u.is_admin ? " (admin)" : "");
+        if (u.is_admin) {
+          document.getElementById("adminLink").style.display = "inline";
+        }
       }
     });
     document.getElementById("userChipLogout").addEventListener("click", logout);
