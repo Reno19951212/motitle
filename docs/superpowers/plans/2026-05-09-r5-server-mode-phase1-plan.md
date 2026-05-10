@@ -1009,7 +1009,7 @@ git commit -m "feat(r5): wire auth blueprint + LoginManager + admin bootstrap in
 **Teammate:** ralph-backend
 **Files:** Modify `backend/app.py` (existing route handlers)
 
-- [ ] **Step 1: Decorate existing endpoints**
+- [x] **Step 1: Decorate existing endpoints** ✅ Done iteration 6 — 58 routes decorated (16 @require_file_owner + 42 @login_required); /api/health and /fonts/<path> remain public
 
 In `backend/app.py`, add `@login_required` to ALL existing API routes EXCEPT `/login`, `/api/health`, and static asset routes. Specifically (use grep to find each):
 
@@ -1052,7 +1052,7 @@ def get_segments(file_id):
     ...
 ```
 
-- [ ] **Step 2: Smoke test — unauth gets 401**
+- [x] **Step 2: Smoke test — unauth gets 401** ✅ Done iteration 6 — files/profiles/files-segments all 401; /api/health 200
 
 ```bash
 cd backend && source venv/bin/activate && python app.py &
@@ -1064,12 +1064,20 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:5001/api/health
 kill %1
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit** ✅ Done iteration 6 (commits 5f264dc + a0125f6)
 
 ```bash
 git add backend/app.py
 git commit -m "feat(r5): require login on all data endpoints"
 ```
+
+**Note:** Existing tests called routes without authentication. To avoid 525-test
+regression, iteration 6 also added an `R5_AUTH_BYPASS` config knob to
+`require_file_owner` / `admin_required` (commit 5f264dc) and set both
+`LOGIN_DISABLED=True` + `R5_AUTH_BYPASS=True` in the conftest autouse fixture.
+Distinct from `LOGIN_DISABLED` so `test_decorators.py` can still exercise
+ownership logic against its own Flask app. Pytest 545 pass (+2 new bypass
+tests, no regression).
 
 ---
 
