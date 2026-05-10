@@ -211,7 +211,7 @@ git commit -m "chore(r5): add Flask-Login + bcrypt dependencies"
 **Teammate:** ralph-tester
 **Files:** Create `backend/tests/test_passwords.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test** ✅ Done iteration 1
 
 ```python
 # backend/tests/test_passwords.py
@@ -252,7 +252,7 @@ def test_empty_password_rejected():
         hash_password("")
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails** ✅ Done iteration 1 — 5 fail with ModuleNotFoundError
 
 ```bash
 cd backend && source venv/bin/activate && pytest tests/test_passwords.py -v
@@ -264,14 +264,14 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'auth'`
 **Teammate:** ralph-backend
 **Files:** Create `backend/auth/__init__.py` (empty), `backend/auth/passwords.py`
 
-- [ ] **Step 1: Create package init**
+- [x] **Step 1: Create package init** ✅ Done iteration 1
 
 ```python
 # backend/auth/__init__.py
 """Authentication package — users, passwords, sessions, decorators."""
 ```
 
-- [ ] **Step 2: Implement passwords module**
+- [x] **Step 2: Implement passwords module** ✅ Done iteration 1
 
 ```python
 # backend/auth/passwords.py
@@ -302,14 +302,14 @@ def verify_password(plaintext: str, stored_hash: str) -> bool:
         return False
 ```
 
-- [ ] **Step 3: Run test to verify it passes**
+- [x] **Step 3: Run test to verify it passes** ✅ Done iteration 1 — 5/5 pass
 
 ```bash
 pytest tests/test_passwords.py -v
 ```
 Expected: 5 passed.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit** ✅ Done iteration 1 (commit 1a132a5)
 
 ```bash
 git add backend/auth/__init__.py backend/auth/passwords.py backend/tests/test_passwords.py
