@@ -281,3 +281,23 @@ grep over backend/auth, backend/jobqueue, backend/scripts, setup-mac.sh, setup-w
   - Per-user Profile/Glossary override (list_visible + can_edit + envelope-preserving API filter + grouping in selectors)
   - Cancel queued + job retry (/api/queue/<id>/retry endpoint + boot-time auto-re-enqueue + frontend retry button)
 - Phase 4 hand-off backlog: cancel running jobs (worker thread interrupt), email notification on job done, mobile UI, public internet exposure (deferred per design D6)
+
+---
+
+## Phase 4 complete (Task E1)
+
+**Date:** 2026-05-10
+**Verdict:** ✅ PASS — all 18 tasks done
+
+- pytest: 615 + 1 baseline (Phase 3 had 607; +8 from B1 + D1 + D4)
+- Playwright: 6/6 GREEN (login + admin + 4 responsive)
+- Live curl smoke: /api/files exposes job_id; /css/responsive.css → 200; DELETE bogus → 404
+- Phase 4 commits: 22eb7ef (A1) + 8d72a5c (B2) + b91a732 (B3) + b5b4988 (C1) + bbca3b2 (C2) + 95f4728 (C3) + 59e8d90 (C4) + 16ab58d (C5) + ccdbf92 (C6 fix) + ac24dcf (C7 report) + 6f9cc6f (D2) + dab26f1 (D3) + 756a97c (D5) + 7ac3089 (D6)
+- 3 sub-systems delivered:
+  - /api/files job_id exposure (closes Phase 3 dormant cancel button)
+  - Mobile responsive UI (≤768px hamburger drawer + stacked cards + tabbed proofread; ≤1024px narrower sidebar)
+  - Cancel running jobs (JobCancelled exception + per-job cancel_event + DELETE 202 for running)
+- Notable inline catches during Phase 4:
+  - C6: 3 CSS bugs in responsive.css scaffold (cascade order, drawer hide via transform, overlay z-index intercepting clicks) — fixed inline (ccdbf92) before suite went GREEN
+  - D3: `_auto_translate` had broad `except Exception` that would silently swallow JobCancelled — added re-raise guard so cancel propagates to JobQueue._run_one
+- Phase 5 hand-off backlog: email notification on job done; admin user-settings page (per-user notification opt-in); job retry exponential backoff; public internet exposure (out of scope per design D6)
