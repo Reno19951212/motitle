@@ -112,7 +112,7 @@ _render_jobs = {}
 from auth.users import init_db as _auth_init_db, get_user_by_id as _auth_get_user_by_id, create_user as _auth_create_user
 from auth.routes import bp as auth_bp, _LoginUser
 from auth.decorators import login_required, require_file_owner
-from flask_login import LoginManager
+from flask_login import LoginManager, current_user
 
 AUTH_DB_PATH = os.environ.get(
     'AUTH_DB_PATH', str(DATA_DIR / 'app.db')
@@ -257,11 +257,14 @@ def _save_registry():
         json.dump(_file_registry, f, ensure_ascii=False, indent=2)
 
 
-def _register_file(file_id, original_name, stored_name, size_bytes):
-    """Register an uploaded file"""
+def _register_file(file_id, original_name, stored_name, size_bytes, user_id=None):
+    """Register an uploaded file. user_id is the owner (R5 Phase 1 — required
+    once auth lands; defaults to None for backward compatibility with any
+    pre-R5 path that may still upload anonymously)."""
     with _registry_lock:
         _file_registry[file_id] = {
             'id': file_id,
+            'user_id': user_id,
             'original_name': original_name,
             'stored_name': stored_name,
             'size': size_bytes,
@@ -481,12 +484,27 @@ def extract_audio(video_path: str, output_path: str) -> bool:
         return False
 
 
-def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str = None):
+def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str = None,
+                              file_id: str = None, job_user_id: int = None):
     """
     Transcribe audio/video file and emit segments with timestamps.
     If an active profile exists with whisper engine, uses the profile's ASR engine.
     Otherwise falls back to legacy direct Whisper path.
+
+    R5 Phase 1: when called via the JobQueue worker (`file_id` + `job_user_id`
+    both set), stamp the registry entry with the owner so later ownership
+    checks (`@require_file_owner`) succeed. The full result-merge into the
+    registry is still done by the legacy do_transcribe wrapper for callers
+    that go through it; queue-worker callers get partial integration in
+    Phase 1 (registry status / segments update is Phase 2 scope per the
+    _asr_handler annotation in app.py boot).
     """
+    if file_id is not None and job_user_id is not None:
+        with _registry_lock:
+            entry = _file_registry.get(file_id)
+            if entry is not None:
+                entry['user_id'] = job_user_id
+                _save_registry()
     profile = _profile_manager.get_active()
     use_profile_engine = (
         profile is not None
@@ -2494,7 +2512,6 @@ def transcribe_file():
     if suffix not in ALLOWED_EXTENSIONS:
         return jsonify({'error': f'不支持的文件格式: {suffix}'}), 400
 
-    model_size = request.form.get('model', 'small')
     sid = request.form.get('sid', None)
 
     # Generate a unique file id and save
@@ -2504,66 +2521,29 @@ def transcribe_file():
     file.save(file_path)
 
     file_size = os.path.getsize(file_path)
-    entry = _register_file(file_id, file.filename, stored_name, file_size)
+    entry = _register_file(file_id, file.filename, stored_name, file_size,
+                           user_id=current_user.id)
 
     # Notify client about the new file
     if sid:
         socketio.emit('file_added', entry, room=sid)
 
-    # Auto-translate is now a module-level function; call it below
-
-    # Start transcription in background thread
-    def do_transcribe():
-        _update_file(file_id, status='transcribing', model=model_size)
-        if sid:
-            socketio.emit('file_updated', {'id': file_id, 'status': 'transcribing', 'model': model_size}, room=sid)
-        try:
-            asr_start_time = time.time()
-            result = transcribe_with_segments(file_path, model_size, sid)
-            if result:
-                actual_model = result.get('model', model_size)
-                _update_file(
-                    file_id,
-                    status='done',
-                    text=result['text'],
-                    segments=result['segments'],
-                    backend=result.get('backend'),
-                    model=actual_model,
-                )
-                _update_file(file_id, asr_seconds=round(time.time() - asr_start_time, 1))
-                if sid:
-                    socketio.emit('file_updated', {
-                        'id': file_id,
-                        'status': 'done',
-                        'segment_count': len(result['segments']),
-                        'model': actual_model,
-                        'backend': result.get('backend'),
-                    }, room=sid)
-                    socketio.emit('transcription_complete', {
-                        'file_id': file_id,
-                        'text': result['text'],
-                        'language': result['language'],
-                        'segment_count': len(result['segments'])
-                    }, room=sid)
-
-                # Auto-translate if profile has a translation engine configured
-                _auto_translate(file_id, result['segments'], sid)
-        except Exception as e:
-            _update_file(file_id, status='error', error=str(e))
-            if sid:
-                socketio.emit('file_updated', {'id': file_id, 'status': 'error', 'error': str(e)}, room=sid)
-                socketio.emit('transcription_error', {'error': str(e)}, room=sid)
-
-    thread = threading.Thread(target=do_transcribe)
-    thread.daemon = True
-    thread.start()
-
+    # R5 Phase 1: enqueue the ASR job instead of running transcription in
+    # the request thread. Worker thread picks it up and calls _asr_handler →
+    # transcribe_with_segments. Full registry result-merge + auto-translate
+    # bridging is Phase 2 scope (see _asr_handler annotation in boot block).
+    job_id = _job_queue.enqueue(
+        user_id=current_user.id,
+        file_id=file_id,
+        job_type='asr',
+    )
     return jsonify({
-        'status': 'processing',
         'file_id': file_id,
-        'message': '轉錄已開始',
+        'job_id': job_id,
+        'status': 'queued',
+        'queue_position': _job_queue.position(job_id),
         'filename': stored_name,
-    })
+    }), 202
 
 
 @app.route('/api/files/<file_id>/transcribe', methods=['POST'])
