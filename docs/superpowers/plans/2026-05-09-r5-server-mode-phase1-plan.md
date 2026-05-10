@@ -2718,7 +2718,7 @@ git commit -m "feat(r5): Windows + NVIDIA setup script with admin bootstrap"
 **Teammate:** ralph-architect
 **Files:** Modify `README.md`, `CLAUDE.md`
 
-- [ ] **Step 1: Add deployment section to README.md**
+- [x] **Step 1: Add deployment section to README.md** ✅ Done iteration 25 — Traditional Chinese section between 功能特點 and 系統需求 covering setup-mac.sh / setup-win.ps1 quick-start, server bind/CORS/auth/queue behavior, Phase 2 roadmap
 
 Add a new section near the top:
 
@@ -2749,7 +2749,7 @@ CORS is restricted to private IP ranges (10/8, 172.16/12, 192.168/16, localhost)
 Auth: Flask-Login session cookies. Admin user created on first setup.
 ```
 
-- [ ] **Step 2: Add v3.9 section to CLAUDE.md**
+- [x] **Step 2: Add v3.9 section to CLAUDE.md** ✅ Done iteration 25 — comprehensive v3.9 entry above v3.8 covering all 7 phases (1B–1H) + every plan deviation documented (cookie_jar / @login_required / jobqueue rename / flask-cors callable / setup script hardening) + explicit Phase 2 boundaries (asr/mt handler stubs)
 
 Add under `## Completed Features`:
 
@@ -2765,7 +2765,7 @@ Add under `## Completed Features`:
 - Setup scripts: setup-mac.sh, setup-win.ps1
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit** ✅ Done iteration 25 (commit cce05bd)
 
 ```bash
 git add README.md CLAUDE.md
