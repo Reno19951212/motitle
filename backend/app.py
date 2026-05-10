@@ -111,6 +111,7 @@ _render_jobs = {}
 # wire auth blueprint, optionally bootstrap an admin user from env on first run.
 from auth.users import init_db as _auth_init_db, get_user_by_id as _auth_get_user_by_id, create_user as _auth_create_user
 from auth.routes import bp as auth_bp, _LoginUser
+from auth.decorators import login_required, require_file_owner
 from flask_login import LoginManager
 
 AUTH_DB_PATH = os.environ.get(
@@ -714,6 +715,7 @@ def _font_family_name(font_path: Path) -> str:
 
 
 @app.route('/api/fonts', methods=['GET'])
+@login_required
 def api_list_fonts():
     """List subtitle font files available in backend/assets/fonts/.
 
@@ -760,6 +762,7 @@ def health_check():
 
 
 @app.route('/api/models', methods=['GET'])
+@login_required
 def list_models():
     """List available Whisper models with download/loaded status"""
     # Check which models are downloaded on disk
@@ -801,11 +804,13 @@ def list_models():
 # ============================================================
 
 @app.route('/api/profiles', methods=['GET'])
+@login_required
 def api_list_profiles():
     return jsonify({"profiles": _profile_manager.list_all()})
 
 
 @app.route('/api/profiles', methods=['POST'])
+@login_required
 def api_create_profile():
     data = request.get_json()
     if not data:
@@ -818,12 +823,14 @@ def api_create_profile():
 
 
 @app.route('/api/profiles/active', methods=['GET'])
+@login_required
 def api_get_active_profile():
     profile = _profile_manager.get_active()
     return jsonify({"profile": profile})
 
 
 @app.route('/api/profiles/<profile_id>', methods=['GET'])
+@login_required
 def api_get_profile(profile_id):
     profile = _profile_manager.get(profile_id)
     if not profile:
@@ -832,6 +839,7 @@ def api_get_profile(profile_id):
 
 
 @app.route('/api/profiles/<profile_id>', methods=['PATCH'])
+@login_required
 def api_update_profile(profile_id):
     data = request.get_json()
     if not data:
@@ -850,6 +858,7 @@ def api_update_profile(profile_id):
 
 
 @app.route('/api/profiles/<profile_id>', methods=['DELETE'])
+@login_required
 def api_delete_profile(profile_id):
     if _profile_manager.delete(profile_id):
         return jsonify({"message": "Profile deleted"})
@@ -857,6 +866,7 @@ def api_delete_profile(profile_id):
 
 
 @app.route('/api/profiles/<profile_id>/activate', methods=['POST'])
+@login_required
 def api_activate_profile(profile_id):
     profile = _profile_manager.set_active(profile_id)
     if not profile:
@@ -872,6 +882,7 @@ def api_activate_profile(profile_id):
 # ============================================================
 
 @app.route('/api/asr/engines', methods=['GET'])
+@login_required
 def api_list_asr_engines():
     """List available ASR engines with status."""
     from asr import create_asr_engine
@@ -900,6 +911,7 @@ def api_list_asr_engines():
 
 
 @app.route('/api/asr/engines/<name>/params', methods=['GET'])
+@login_required
 def api_asr_engine_params(name):
     """Get configurable parameter schema for a specific ASR engine."""
     from asr import create_asr_engine
@@ -915,6 +927,7 @@ def api_asr_engine_params(name):
 # ============================================================
 
 @app.route('/api/translation/engines', methods=['GET'])
+@login_required
 def api_list_translation_engines():
     """List available translation engines with status."""
     from translation import create_translation_engine
@@ -956,6 +969,7 @@ def api_list_translation_engines():
 
 
 @app.route('/api/translation/engines/<name>/params', methods=['GET'])
+@login_required
 def api_translation_engine_params(name):
     """Get configurable parameter schema for a specific translation engine."""
     from translation import create_translation_engine
@@ -967,6 +981,7 @@ def api_translation_engine_params(name):
 
 
 @app.route('/api/translation/engines/<name>/models', methods=['GET'])
+@login_required
 def api_translation_engine_models(name):
     """Return the model info for the specified translation engine.
 
@@ -1005,6 +1020,7 @@ def _require_localhost():
 
 
 @app.route('/api/ollama/signin', methods=['POST'])
+@login_required
 def api_ollama_signin():
     """Check signin status; spawn interactive flow if not already signed in.
 
@@ -1053,6 +1069,7 @@ def api_ollama_signin():
 
 
 @app.route('/api/ollama/status', methods=['GET'])
+@login_required
 def api_ollama_status():
     """Return cached Ollama Cloud signin status.
 
@@ -1072,6 +1089,7 @@ def api_ollama_status():
 
 
 @app.route('/api/translate', methods=['POST'])
+@login_required
 def api_translate_file():
     """Translate a file's transcription segments using the active profile's translation engine."""
     data = request.get_json()
@@ -1201,6 +1219,7 @@ def api_translate_file():
 # ============================================================
 
 @app.route('/api/glossaries', methods=['GET'])
+@login_required
 def api_list_glossaries():
     """List all glossaries (summaries, no entries)."""
     summaries = _glossary_manager.list_all()
@@ -1208,6 +1227,7 @@ def api_list_glossaries():
 
 
 @app.route('/api/glossaries', methods=['POST'])
+@login_required
 def api_create_glossary():
     """Create a new glossary."""
     data = request.get_json(silent=True)
@@ -1221,6 +1241,7 @@ def api_create_glossary():
 
 
 @app.route('/api/glossaries/<glossary_id>', methods=['GET'])
+@login_required
 def api_get_glossary(glossary_id):
     """Get a single glossary with all entries."""
     glossary = _glossary_manager.get(glossary_id)
@@ -1230,6 +1251,7 @@ def api_get_glossary(glossary_id):
 
 
 @app.route('/api/glossaries/<glossary_id>', methods=['PATCH'])
+@login_required
 def api_update_glossary(glossary_id):
     """Update glossary name and/or description."""
     data = request.get_json(silent=True)
@@ -1245,6 +1267,7 @@ def api_update_glossary(glossary_id):
 
 
 @app.route('/api/glossaries/<glossary_id>', methods=['DELETE'])
+@login_required
 def api_delete_glossary(glossary_id):
     """Delete a glossary."""
     deleted = _glossary_manager.delete(glossary_id)
@@ -1254,6 +1277,7 @@ def api_delete_glossary(glossary_id):
 
 
 @app.route('/api/glossaries/<glossary_id>/entries', methods=['POST'])
+@login_required
 def api_add_entry(glossary_id):
     """Add an entry to a glossary."""
     data = request.get_json(silent=True)
@@ -1269,6 +1293,7 @@ def api_add_entry(glossary_id):
 
 
 @app.route('/api/glossaries/<glossary_id>/entries/<entry_id>', methods=['PATCH'])
+@login_required
 def api_update_entry(glossary_id, entry_id):
     """Update a single entry within a glossary."""
     data = request.get_json(silent=True)
@@ -1284,6 +1309,7 @@ def api_update_entry(glossary_id, entry_id):
 
 
 @app.route('/api/glossaries/<glossary_id>/entries/<entry_id>', methods=['DELETE'])
+@login_required
 def api_delete_entry(glossary_id, entry_id):
     """Delete a single entry from a glossary."""
     updated = _glossary_manager.delete_entry(glossary_id, entry_id)
@@ -1293,6 +1319,7 @@ def api_delete_entry(glossary_id, entry_id):
 
 
 @app.route('/api/glossaries/<glossary_id>/import', methods=['POST'])
+@login_required
 def api_import_glossary_csv(glossary_id):
     """Import entries from CSV text (JSON body with csv_content field)."""
     data = request.get_json(silent=True)
@@ -1305,6 +1332,7 @@ def api_import_glossary_csv(glossary_id):
 
 
 @app.route('/api/glossaries/<glossary_id>/export', methods=['GET'])
+@login_required
 def api_export_glossary_csv(glossary_id):
     """Export glossary entries as CSV text."""
     csv_text = _glossary_manager.export_csv(glossary_id)
@@ -1317,6 +1345,7 @@ def api_export_glossary_csv(glossary_id):
 
 
 @app.route('/api/files/<file_id>/glossary-scan', methods=['POST'])
+@require_file_owner
 def api_glossary_scan(file_id):
     """Scan translations for glossary violations (string matching, no LLM)."""
     with _registry_lock:
@@ -1474,6 +1503,7 @@ GLOSSARY_APPLY_SYSTEM_PROMPT = (
 
 
 @app.route('/api/files/<file_id>/glossary-apply', methods=['POST'])
+@require_file_owner
 def api_glossary_apply(file_id):
     """Apply glossary corrections using LLM smart replacement."""
     with _registry_lock:
@@ -1663,11 +1693,13 @@ def api_glossary_apply(file_id):
 # ============================================================
 
 @app.route('/api/languages', methods=['GET'])
+@login_required
 def api_list_languages():
     return jsonify({"languages": _language_config_manager.list_all()})
 
 
 @app.route('/api/languages/<lang_id>', methods=['GET'])
+@login_required
 def api_get_language(lang_id):
     config = _language_config_manager.get(lang_id)
     if not config:
@@ -1676,6 +1708,7 @@ def api_get_language(lang_id):
 
 
 @app.route('/api/languages/<lang_id>', methods=['PATCH'])
+@login_required
 def api_update_language(lang_id):
     data = request.get_json()
     if not data:
@@ -1690,6 +1723,7 @@ def api_update_language(lang_id):
 
 
 @app.route('/api/languages', methods=['POST'])
+@login_required
 def api_create_language():
     """Create a new language config."""
     data = request.get_json(silent=True) or {}
@@ -1705,6 +1739,7 @@ def api_create_language():
 
 
 @app.route('/api/languages/<lang_id>', methods=['DELETE'])
+@login_required
 def api_delete_language(lang_id):
     """Delete a language config. Built-ins (en/zh) and in-use configs are blocked."""
     if lang_id in ('en', 'zh'):
@@ -1762,6 +1797,7 @@ def _normalize_translation_for_api(t: dict) -> dict:
 
 
 @app.route('/api/files/<file_id>/translations', methods=['GET'])
+@require_file_owner
 def api_get_translations(file_id):
     with _registry_lock:
         entry = _file_registry.get(file_id)
@@ -1772,6 +1808,7 @@ def api_get_translations(file_id):
 
 
 @app.route('/api/files/<file_id>/translations/approve-all', methods=['POST'])
+@require_file_owner
 def api_approve_all_translations(file_id):
     with _registry_lock:
         entry = _file_registry.get(file_id)
@@ -1791,6 +1828,7 @@ def api_approve_all_translations(file_id):
 
 
 @app.route('/api/files/<file_id>/translations/status', methods=['GET'])
+@require_file_owner
 def api_translation_status(file_id):
     with _registry_lock:
         entry = _file_registry.get(file_id)
@@ -1803,6 +1841,7 @@ def api_translation_status(file_id):
 
 
 @app.route('/api/files/<file_id>/translations/<int:idx>', methods=['PATCH'])
+@require_file_owner
 def api_update_translation(file_id, idx):
     with _registry_lock:
         entry = _file_registry.get(file_id)
@@ -1833,6 +1872,7 @@ def api_update_translation(file_id, idx):
 
 
 @app.route('/api/files/<file_id>/translations/<int:idx>/approve', methods=['POST'])
+@require_file_owner
 def api_approve_translation(file_id, idx):
     with _registry_lock:
         entry = _file_registry.get(file_id)
@@ -1849,6 +1889,7 @@ def api_approve_translation(file_id, idx):
 
 
 @app.route('/api/files/<file_id>/translations/<int:idx>/unapprove', methods=['POST'])
+@require_file_owner
 def api_unapprove_translation(file_id, idx):
     """Flip a translation back to 'pending' so the user can re-edit /
     re-approve. Mirrors POST /approve."""
@@ -2042,6 +2083,7 @@ def _resolve_bilingual_order(file_entry, profile, override=None):
 
 
 @app.route('/api/render', methods=['POST'])
+@login_required
 def api_start_render():
     """Start a render job: burn approved translations into video as ASS subtitles."""
     data = request.get_json() or {}
@@ -2189,6 +2231,7 @@ def api_start_render():
 
 
 @app.route('/api/renders/<render_id>', methods=['GET'])
+@login_required
 def api_get_render_status(render_id):
     """Return the status of a render job."""
     job = _render_jobs.get(render_id)
@@ -2198,6 +2241,7 @@ def api_get_render_status(render_id):
 
 
 @app.route('/api/renders/<render_id>/download', methods=['GET'])
+@login_required
 def api_download_render(render_id):
     """Download the rendered video file when the job is done."""
     job = _render_jobs.get(render_id)
@@ -2216,6 +2260,7 @@ def api_download_render(render_id):
 
 
 @app.route('/api/renders/<render_id>', methods=['DELETE'])
+@login_required
 def api_cancel_render(render_id):
     """Mark an in-flight render job as cancelled. Best-effort — FFmpeg
     sub-process is not killed mid-encode (no Popen handle stored), but the
@@ -2230,6 +2275,7 @@ def api_cancel_render(render_id):
 
 
 @app.route('/api/renders/in-progress')
+@login_required
 def api_renders_in_progress():
     """Return all render jobs not in a terminal state, optionally filtered by file_id."""
     file_id = request.args.get('file_id')
@@ -2379,6 +2425,7 @@ def _auto_translate(fid: str, segments: list, session_id) -> None:
 
 
 @app.route('/api/transcribe', methods=['POST'])
+@login_required
 def transcribe_file():
     """Upload and transcribe a video/audio file. File is kept until explicitly deleted."""
     if 'file' not in request.files:
@@ -2465,6 +2512,7 @@ def transcribe_file():
 
 
 @app.route('/api/files/<file_id>/transcribe', methods=['POST'])
+@require_file_owner
 def re_transcribe_file(file_id):
     """Re-run the full pipeline (ASR + auto-translate) on an already-uploaded file.
     Wipes existing segments / translations / approval state. Source video must
@@ -2556,6 +2604,7 @@ def re_transcribe_file(file_id):
 
 
 @app.route('/api/transcribe/sync', methods=['POST'])
+@login_required
 def transcribe_sync():
     """Synchronous transcription - waits for result (for smaller files)"""
     if 'file' not in request.files:
@@ -2584,6 +2633,7 @@ def transcribe_sync():
 
 
 @app.route('/api/files', methods=['GET'])
+@login_required
 def list_files():
     """List all uploaded files with their status"""
     files = []
@@ -2615,6 +2665,7 @@ def list_files():
 
 
 @app.route('/api/files/<file_id>/media')
+@require_file_owner
 def serve_media(file_id):
     """Serve the original uploaded media file"""
     with _registry_lock:
@@ -2630,6 +2681,7 @@ def serve_media(file_id):
 
 
 @app.route('/api/files/<file_id>/waveform')
+@require_file_owner
 def get_waveform(file_id):
     """
     Return downsampled audio waveform peaks for timeline-strip rendering.
@@ -2694,6 +2746,7 @@ def get_waveform(file_id):
 
 
 @app.route('/api/files/<file_id>/subtitle.<fmt>')
+@require_file_owner
 def download_subtitle(file_id, fmt):
     """Download subtitles in SRT, VTT, or TXT format with subtitle_source resolution."""
     if fmt not in ('srt', 'vtt', 'txt'):
@@ -2792,6 +2845,7 @@ def _fmt_vtt(seconds):
 
 
 @app.route('/api/files/<file_id>/segments')
+@require_file_owner
 def get_file_segments(file_id):
     """Return transcription segments for a file (used to load subtitles in player)"""
     with _registry_lock:
@@ -2807,6 +2861,7 @@ def get_file_segments(file_id):
 
 
 @app.route('/api/files/<file_id>/segments/<int:seg_id>', methods=['PATCH'])
+@require_file_owner
 def update_segment_text(file_id, seg_id):
     """Update the text of a single segment (inline editing)"""
     data = request.get_json()
@@ -2841,6 +2896,7 @@ def update_segment_text(file_id, seg_id):
 
 
 @app.route('/api/files/<file_id>', methods=['PATCH'])
+@require_file_owner
 def patch_file(file_id):
     """Patch file-level settings — currently subtitle_source / bilingual_order."""
     data = request.get_json() or {}
@@ -2869,6 +2925,7 @@ def patch_file(file_id):
 
 
 @app.route('/api/files/<file_id>', methods=['DELETE'])
+@require_file_owner
 def delete_file(file_id):
     """Delete an uploaded file and its transcription data"""
     if _delete_file_entry(file_id):
@@ -2877,6 +2934,7 @@ def delete_file(file_id):
 
 
 @app.route('/api/restart', methods=['POST'])
+@login_required
 def restart_server():
     """Restart the server process"""
     _save_registry()  # persist state before restart
@@ -3078,6 +3136,7 @@ def handle_stop_streaming():
 
 
 @app.route('/api/streaming/available')
+@login_required
 def streaming_available():
     """Check if streaming mode is available."""
     return jsonify({
