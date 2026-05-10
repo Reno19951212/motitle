@@ -38,12 +38,18 @@ class JobQueue:
         self._workers = []
         self._shutdown = threading.Event()
 
-        # Boot recovery
-        recovered = recover_orphaned_running(db_path)
-        if recovered:
+        # Boot recovery — re-enqueue orphaned running jobs
+        orphans = recover_orphaned_running(db_path, auto_retry=True)
+        if orphans:
             import logging
             logging.getLogger(__name__).warning(
-                "Recovered %d orphaned 'running' jobs to 'failed'", recovered)
+                "Recovered %d orphaned 'running' jobs; re-enqueuing", len(orphans))
+            for o in orphans:
+                new_jid = insert_job(db_path, o["user_id"], o["file_id"], o["type"])
+                if o["type"] == "asr":
+                    self._asr_q.put(new_jid)
+                elif o["type"] in ("translate", "render"):
+                    self._mt_q.put(new_jid)
 
     def enqueue(self, user_id: int, file_id: str, job_type: str) -> str:
         jid = insert_job(self._db_path, user_id, file_id, job_type)

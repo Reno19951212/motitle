@@ -48,3 +48,46 @@ def test_retry_404_for_unknown_id(alice_client_with_failed_job):
     client, _ = alice_client_with_failed_job
     r = client.post("/api/queue/nonexistent-job-id/retry")
     assert r.status_code == 404
+
+
+def test_recover_orphaned_running_with_auto_retry_returns_orphan_ids(tmp_path):
+    """When auto_retry=True, recover_orphaned_running returns a list of
+    (job_id, user_id, file_id, type) tuples so caller can re-enqueue."""
+    import time
+    from jobqueue.db import (init_jobs_table, insert_job, update_job_status,
+                             recover_orphaned_running)
+    p = str(tmp_path / "q.db")
+    init_jobs_table(p)
+    j1 = insert_job(p, user_id=1, file_id="f1", job_type="asr")
+    update_job_status(p, j1, "running", started_at=time.time())
+    j2 = insert_job(p, user_id=2, file_id="f2", job_type="translate")
+    update_job_status(p, j2, "running", started_at=time.time())
+    orphans = recover_orphaned_running(p, auto_retry=True)
+    assert isinstance(orphans, list)
+    assert len(orphans) == 2
+    ids = {o["id"] for o in orphans}
+    assert {j1, j2} == ids
+    # Each entry has the fields needed to re-enqueue
+    for o in orphans:
+        assert "user_id" in o and "file_id" in o and "type" in o
+
+
+def test_jobqueue_init_re_enqueues_orphans_when_recovered(tmp_path, monkeypatch):
+    """After server restart with stuck running jobs, JobQueue boot
+    re-enqueues them automatically."""
+    import time
+    from jobqueue.db import init_jobs_table, insert_job, update_job_status, get_job
+    from jobqueue.queue import JobQueue
+    p = str(tmp_path / "q.db")
+    init_jobs_table(p)
+    orphan = insert_job(p, user_id=1, file_id="f1", job_type="asr")
+    update_job_status(p, orphan, "running", started_at=time.time())
+    # Boot a fresh JobQueue — should recover + re-enqueue
+    q = JobQueue(p)
+    # Old orphan is now status='failed'
+    assert get_job(p, orphan)["status"] == "failed"
+    # A NEW job exists with the same file_id + type
+    from jobqueue.db import list_active_jobs
+    active = list_active_jobs(p)
+    assert any(j["file_id"] == "f1" and j["type"] == "asr" for j in active)
+    q.shutdown()

@@ -124,20 +124,32 @@ def list_active_jobs(db_path: str) -> list:
         conn.close()
 
 
-def recover_orphaned_running(db_path: str) -> int:
+def recover_orphaned_running(db_path: str, auto_retry: bool = False):
     """Boot-time recovery: any 'running' job left from previous server
     process is failed (treated as crashed mid-execution).
-    Returns number of jobs recovered."""
+
+    If auto_retry=False (default): returns int count (backward-compatible).
+    If auto_retry=True: returns list of dicts {id, user_id, file_id, type}
+    so caller can re-enqueue new jobs for each orphan.
+    """
     conn = get_connection(db_path)
     try:
-        cur = conn.execute(
-            "UPDATE jobs SET status = 'failed', "
-            "error_msg = 'orphaned by server restart', "
-            "finished_at = ? "
-            "WHERE status = 'running'",
-            (time.time(),),
-        )
-        conn.commit()
-        return cur.rowcount
+        # Capture orphans BEFORE update so we can return their details
+        orphans = conn.execute(
+            "SELECT id, user_id, file_id, type FROM jobs WHERE status = 'running'"
+        ).fetchall()
+        result = [dict(o) for o in orphans]
+        if result:
+            conn.execute(
+                "UPDATE jobs SET status = 'failed', "
+                "error_msg = 'orphaned by server restart', "
+                "finished_at = ? "
+                "WHERE status = 'running'",
+                (time.time(),),
+            )
+            conn.commit()
+        if auto_retry:
+            return result
+        return len(result)
     finally:
         conn.close()
