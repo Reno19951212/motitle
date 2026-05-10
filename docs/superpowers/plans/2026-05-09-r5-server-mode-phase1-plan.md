@@ -2585,7 +2585,7 @@ git commit -m "feat(r5): LAN-only CORS allowlist + bind 0.0.0.0"
 **Teammate:** ralph-architect
 **Files:** Create `setup-mac.sh`
 
-- [ ] **Step 1: Write script**
+- [x] **Step 1: Write script** ✅ Done iteration 23 — hardened admin-create call: passes username + password via `os.environ` (NOT shell string interpolation) so values containing quotes / shell metacharacters cannot break out of the python heredoc
 
 ```bash
 #!/usr/bin/env bash
@@ -2641,7 +2641,7 @@ echo ""
 echo "Setup complete."
 ```
 
-- [ ] **Step 2: Make executable + commit**
+- [x] **Step 2: Make executable + commit** ✅ Done iteration 23 (commit e37c3c9; mode 100755; .gitignore extended for backend/.env)
 
 ```bash
 chmod +x setup-mac.sh
