@@ -10,9 +10,9 @@
 | POST | /logout | session | - | 200 `{ok: true}` | ralph-backend |
 | GET | /api/me | session | - | `{id: int, username: str, is_admin: bool}` | ralph-backend |
 | GET | /api/queue | session | - | `[{id, file_id, type, status, position, eta_seconds, owner_username}]` | ralph-backend |
-| DELETE | /api/queue/<id> | session + owner | - | 200 `{ok: true}` / 403 / 404 | ralph-backend |
+| DELETE | /api/queue/<id> | session + owner | - | 200 `{ok: true}` (queued — cancelled in DB synchronously) / 202 `{ok: true, status: "cancelling"}` (running — cancel_event set, worker stops at next checkpoint) / 403 / 404 | ralph-backend (modify) |
 | POST | /api/transcribe | session | `multipart` | existing + job_id | ralph-backend (modify) |
-| GET | /api/files | session | - | existing + filtered by owner | ralph-backend (modify) |
+| GET | /api/files | session | - | existing fields + per-file `job_id: <str>|null` (active queued/running job for this file's owner; null if none) | ralph-backend (modify) |
 | POST | /api/translate | session + owner | `{file_id, style?}` | 202 + `{file_id, job_id, status:"queued", queue_position}` | ralph-backend (modify) |
 | POST | /api/files/<file_id>/transcribe | session + owner | `{}` | 202 + `{file_id, job_id, status:"queued", queue_position}` | ralph-backend (modify) |
 | GET | /api/admin/users | session + admin | - | 200 `[{id, username, is_admin, created_at}]` | ralph-backend |
@@ -88,6 +88,11 @@ CREATE INDEX idx_audit_actor ON audit_log(actor_user_id);
 | `adminLink` | Top-bar admin entry (only visible when is_admin) | ralph-frontend |
 | `queueCancelBtn-<file_id>` | Cancel button on file-card | ralph-frontend |
 | `queueRetryBtn-<file_id>` | Retry button on failed file-card | ralph-frontend |
+| `mobileHamburgerBtn` | Mobile sidebar trigger | ralph-frontend |
+| `mobileSidebarDrawer` | Off-canvas sidebar drawer (mobile) | ralph-frontend |
+| `mobileSidebarOverlay` | Tap-to-close overlay behind drawer | ralph-frontend |
+| `proofreadMobileTabVideo` | Video tab button (proofread mobile) | ralph-frontend |
+| `proofreadMobileTabSegments` | Segments tab button (proofread mobile) | ralph-frontend |
 
 ## Test IDs (for Playwright)
 
@@ -105,6 +110,11 @@ CREATE INDEX idx_audit_actor ON audit_log(actor_user_id);
 | `[data-testid="admin-user-row"]` | Each user row in admin table |
 | `[data-testid="admin-user-delete"]` | Per-row delete button |
 | `[data-testid="queue-retry"]` | Retry button on failed file-card |
+| `[data-testid="mobile-hamburger"]` | Mobile hamburger button |
+| `[data-testid="mobile-sidebar-drawer"]` | Sidebar drawer container |
+| `[data-testid="mobile-sidebar-overlay"]` | Drawer overlay backdrop |
+| `[data-testid="proofread-mobile-tab-video"]` | Proofread video tab |
+| `[data-testid="proofread-mobile-tab-segments"]` | Proofread segments tab |
 
 ## Default values (open questions defaults)
 
@@ -116,4 +126,6 @@ CREATE INDEX idx_audit_actor ON audit_log(actor_user_id);
 - Translate concurrency (Phase 2): MT worker pool stays at 3 — matches D3 spec. ASR pool stays at 1.
 - Per-user Profile / Glossary override (Phase 3): each profile + glossary JSON entry gains a top-level `user_id` field. `null` = shared/admin-managed (visible + writable to all admins, read-only to non-admins). Non-null = owned by that user (visible + writable only to owner + admins). Migration script seeds `user_id: null` for all pre-Phase-3 entries (admin scope).
 - Job retry (Phase 3): `POST /api/queue/<id>/retry` only valid for `status='failed'` jobs; creates a NEW job entry (new id) with same file_id + type, leaves failed entry in DB for audit.
-- Cancel running jobs (Phase 4 scope): `DELETE /api/queue/<id>` currently only cancels `queued` jobs (returns 409 for running). Worker thread interrupt is Phase 4 scope.
+- Cancel running jobs (Phase 4): worker thread polls a per-job `threading.Event` cancel flag at progress checkpoints (between Whisper segments, between MT batches). When set, the handler raises `JobCancelled` which `JobQueue._run_one` catches → `status='cancelled'`. Returning 202 acknowledges the request; final status appears asynchronously when the worker reaches the next checkpoint (typically <1s for ASR, <30s for long MT batches).
+- `/api/files` `job_id` field (Phase 4): joined from `jobqueue.db.list_jobs_for_user` with status IN ('queued', 'running'); only one job_id surfaced per file (most recent active). Frontend uses this to activate the file-card cancel button (Phase 3 commit `71348cc`).
+- Mobile UI (Phase 4): breakpoints at ≤768px (mobile, hamburger drawer + stacked file-cards + tabbed proofread) and ≤1024px (tablet, narrower sidebar). Vanilla `@media` query — no framework. Selectors below.
