@@ -1915,9 +1915,8 @@
                         onclick="retryFile('${id}')">🔄 重試</button>
               </div>
             ` : ''}
-            ${f.status === 'uploaded' && f.job_id ? `
+            ${(f.status === 'uploaded' || f.status === 'transcribing' || f.status === 'translating') && f.job_id ? `
               <div class="q-actions" onclick="event.stopPropagation()">
-                <!-- TODO Phase 4: job_id surfaced in /api/files response; cancel renders when present -->
                 <button class="btn-secondary" id="queueCancelBtn-${f.job_id}"
                         data-testid="queue-cancel"
                         onclick="cancelJob('${f.job_id}')">取消</button>
