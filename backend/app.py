@@ -208,21 +208,57 @@ _jq_set_db_path(AUTH_DB_PATH)
 
 
 def _asr_handler(job):
-    """Bridge: job dict → existing transcribe_with_segments() flow.
+    """R5 Phase 2 — full ASR pipeline driven by JobQueue worker.
 
-    Matches the post-C8 signature `transcribe_with_segments(file_path,
-    file_id=..., job_user_id=...)`. Until C8 lands, this raises if invoked.
-    No Phase 1 caller enqueues ASR jobs through here yet.
+    1. Stamp registry status='transcribing' + user_id (carried from job).
+    2. Call transcribe_with_segments() — same engine path as legacy
+       do_transcribe used.
+    3. On success: persist segments / text / model / backend / asr_seconds
+       to the registry, then trigger _auto_translate (registry-only
+       signature — see Phase 2C).
+    4. On exception: mark status='error', error=<msg>, then re-raise
+       so JobQueue marks the job 'failed' with traceback.
     """
     file_id = job["file_id"]
     with _registry_lock:
         f = _file_registry.get(file_id)
     if not f:
         raise RuntimeError(f"file not found in registry: {file_id}")
-    audio_path = f.get("audio_path") or f.get("file_path")
+    audio_path = _resolve_file_path(f)
     if not audio_path:
         raise RuntimeError(f"no audio path for file {file_id}")
-    transcribe_with_segments(audio_path, file_id=file_id, job_user_id=job["user_id"])
+
+    # Status update + ownership stamp under one lock block.
+    _update_file(file_id, status='transcribing', user_id=job["user_id"])
+
+    asr_start = time.time()
+    try:
+        result = transcribe_with_segments(audio_path,
+                                          file_id=file_id,
+                                          job_user_id=job["user_id"])
+    except Exception as e:
+        _update_file(file_id, status='error', error=str(e))
+        raise
+
+    if not result:
+        _update_file(file_id, status='error', error='transcribe returned empty')
+        raise RuntimeError('transcribe returned empty')
+
+    actual_model = result.get('model', 'small')
+    _update_file(
+        file_id,
+        status='done',
+        text=result['text'],
+        segments=result['segments'],
+        backend=result.get('backend'),
+        model=actual_model,
+        asr_seconds=round(time.time() - asr_start, 1),
+    )
+
+    # Phase 2C: _auto_translate refactored to (fid, sid=None) reading segments
+    # from registry. Worker context has no socketio room (sid=None) — frontend
+    # gets updates via polling /api/queue + /api/files.
+    _auto_translate(file_id)
 
 
 def _mt_handler(job):
