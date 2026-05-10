@@ -301,3 +301,24 @@ grep over backend/auth, backend/jobqueue, backend/scripts, setup-mac.sh, setup-w
   - C6: 3 CSS bugs in responsive.css scaffold (cascade order, drawer hide via transform, overlay z-index intercepting clicks) — fixed inline (ccdbf92) before suite went GREEN
   - D3: `_auto_translate` had broad `except Exception` that would silently swallow JobCancelled — added re-raise guard so cancel propagates to JobQueue._run_one
 - Phase 5 hand-off backlog: email notification on job done; admin user-settings page (per-user notification opt-in); job retry exponential backoff; public internet exposure (out of scope per design D6)
+
+
+---
+
+## Phase 5B validation (mid-phase checkpoint)
+
+**Date:** 2026-05-10
+**Verdict:** ✅ PASS — all 5 Tier 1 BLOCKING bugs closed
+
+- pytest: 636 + 1 baseline (Phase 4 ended 615; +21 new from B1+B2+B3+B4/B5+B6/B7)
+- Phase 5B commits: 7e31243 (B1) + d8cbd48 (B2) + bb1d608 (B3) + 6c111fc (B4+B5) + a599b36 (B6+B7)
+- 5 BLOCKING bugs closed:
+  - T1.1 (B1): `/login` with `null` JSON username → 400 not 500. Fix: `(data.get(k) or "").strip()`.
+  - T1.2 (B2): SocketIO no longer wildcard CORS — reuses `_LAN_ORIGIN_REGEX`; `@socketio.on('connect')` rejects unauthenticated clients.
+  - T1.3 (B3): `FLASK_SECRET_KEY` is required at boot; placeholder `change-me-on-first-deploy` raises `RuntimeError`. conftest sets `test-secret-only-for-pytest-do-not-deploy` for the suite.
+  - T1.4 (B4+B5): `GET /api/profiles/<id>` + `GET /api/glossaries/<id>` 403 for non-owner of private; 200 for owner / shared / admin. New `can_view` method on both managers.
+  - T1.5 (B6+B7): `jobs.attempt_count` column with idempotent ALTER (safe on existing DBs); `insert_job(parent_job_id=...)` increments; `recover_orphaned_running` honors `R5_MAX_JOB_RETRY` (default 3) — orphans at-or-past cap are still failed but NOT re-enqueued. Standalone migration script under `backend/migrations/`.
+- Notable inline catches during Phase 5B:
+  - B2: `socketio.handlers` is a queue list (empty after init), not a dict — real handlers live at `socketio.server.handlers['/']`. Test rewritten to use `socketio.test_client` which routes through the actual connect path.
+  - B3: `del sys.modules["app"]` in reload tests poisoned 18 downstream tests; added `_restore_app_module` fixture that snapshots+restores `app` and child auth/jobqueue modules.
+  - B4+B5: AUTH_DB_PATH monkeypatch didn't update the user_loader closure (captures module-level constant at boot). Fixture now writes test users into the existing app DB and cleans up via `delete_user`, matching Phase 3 admin-test pattern.
