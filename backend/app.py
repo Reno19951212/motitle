@@ -257,6 +257,22 @@ def _save_registry():
         json.dump(_file_registry, f, ensure_ascii=False, indent=2)
 
 
+def _filter_files_by_owner(registry: dict, user) -> dict:
+    """Return registry subset visible to current user (R5 Phase 1).
+
+    - Admin sees all
+    - Other users see only files where `user_id == user.id`
+    - Files with no `user_id` (pre-R5 era / orphan) are NOT shown to non-admin
+      users; admin can re-assign via DB or migration script.
+    """
+    if getattr(user, "is_admin", False):
+        return dict(registry)
+    return {
+        fid: f for fid, f in registry.items()
+        if f.get("user_id") == user.id
+    }
+
+
 def _register_file(file_id, original_name, stored_name, size_bytes, user_id=None):
     """Register an uploaded file. user_id is the owner (R5 Phase 1 — required
     once auth lands; defaults to None for backward compatibility with any
@@ -2670,10 +2686,16 @@ def transcribe_sync():
 @app.route('/api/files', methods=['GET'])
 @login_required
 def list_files():
-    """List all uploaded files with their status"""
+    """List all uploaded files with their status (filtered by owner — R5 Phase 1).
+
+    Admin sees all files. Other users see only files where `user_id` matches
+    `current_user.id`. Pre-R5 orphan files (user_id=None) are hidden from
+    non-admin users.
+    """
     files = []
     with _registry_lock:
-        for fid, entry in _file_registry.items():
+        visible = _filter_files_by_owner(_file_registry, current_user)
+        for fid, entry in visible.items():
             translations = entry.get('translations') or []
             seg_count = len(entry.get('segments', []))
             approved_count = sum(1 for t in translations if t.get('status') == 'approved')
