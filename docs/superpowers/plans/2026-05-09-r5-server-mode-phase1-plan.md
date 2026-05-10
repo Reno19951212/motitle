@@ -1088,7 +1088,7 @@ tests, no regression).
 **Teammate:** ralph-tester
 **Files:** Create `backend/tests/test_queue_db.py`
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test** ✅ Done iteration 7 (package renamed `queue/ → jobqueue/` to avoid stdlib `queue` shadow that would break C4 worker's `queue.Queue` import)
 
 ```python
 # backend/tests/test_queue_db.py
@@ -1178,7 +1178,7 @@ def test_recover_orphaned_running_on_boot(db_path):
     assert "server restart" in (j["error_msg"] or "").lower()
 ```
 
-- [ ] **Step 2: Run test**
+- [x] **Step 2: Run test** ✅ Done iteration 7 — 7 fail with ModuleNotFoundError on `jobqueue`
 
 ```bash
 pytest tests/test_queue_db.py -v
@@ -1188,16 +1188,16 @@ Expected: FAIL — `queue.db` not found.
 ### Task C2: Jobs table CRUD — GREEN
 
 **Teammate:** ralph-backend
-**Files:** Create `backend/queue/__init__.py`, `backend/queue/db.py`
+**Files:** Create `backend/jobqueue/__init__.py`, `backend/jobqueue/db.py` (renamed from `queue/`)
 
-- [ ] **Step 1: Package init**
+- [x] **Step 1: Package init** ✅ Done iteration 7
 
 ```python
 # backend/queue/__init__.py
 """Job queue package — DB persistence + threaded workers + REST routes."""
 ```
 
-- [ ] **Step 2: Implement db.py**
+- [x] **Step 2: Implement db.py** ✅ Done iteration 7
 
 ```python
 # backend/queue/db.py
@@ -1346,17 +1346,17 @@ def recover_orphaned_running(db_path: str) -> int:
         conn.close()
 ```
 
-- [ ] **Step 3: Run test**
+- [x] **Step 3: Run test** ✅ Done iteration 7 — 7/7 pass
 
 ```bash
 pytest tests/test_queue_db.py -v
 ```
 Expected: 7 passed.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit** ✅ Done iteration 7 (commit 8b4e58c)
 
 ```bash
-git add backend/queue/__init__.py backend/queue/db.py backend/tests/test_queue_db.py
+git add backend/jobqueue/__init__.py backend/jobqueue/db.py backend/tests/test_queue_db.py
 git commit -m "feat(r5): jobs table CRUD with status transitions + crash recovery"
 ```
 
