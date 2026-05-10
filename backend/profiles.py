@@ -166,6 +166,36 @@ class ProfileManager:
                 continue
         return sorted(profiles, key=lambda p: (p.get("name") or "").lower())
 
+    def list_visible(self, user_id: int, is_admin: bool) -> list:
+        """Return profiles visible to this user.
+
+        - Admin sees everything.
+        - Non-admin sees shared (user_id=None) + their own (user_id matches).
+        """
+        all_profiles = self.list_all()
+        if is_admin:
+            return all_profiles
+        return [
+            p for p in all_profiles
+            if p.get("user_id") is None or p.get("user_id") == user_id
+        ]
+
+    def can_edit(self, profile_id: str, user_id: int, is_admin: bool) -> bool:
+        """True if this user can edit the given profile.
+
+        - Admin can edit any (including shared).
+        - Non-admin can edit own profiles only (not shared, not others').
+        """
+        if is_admin:
+            return True
+        p = self.get(profile_id)
+        if not p:
+            return False
+        owner = p.get("user_id")
+        if owner is None:
+            return False  # shared — admins only
+        return owner == user_id
+
     def update(self, profile_id: str, data: dict) -> Optional[dict]:
         """
         Merge `data` into an existing profile, validate, then persist.
