@@ -19,6 +19,14 @@ from jobqueue.db import (
 )
 
 
+class JobCancelled(Exception):
+    """Raised by handlers to signal user-initiated cancellation.
+
+    Distinct from arbitrary exceptions (which mark jobs 'failed') —
+    JobCancelled is caught by JobQueue._run_one and marks status='cancelled'.
+    """
+
+
 _ASR_CONCURRENCY = 1
 _MT_CONCURRENCY = 3
 
@@ -37,6 +45,8 @@ class JobQueue:
         self._mt_q = stdqueue.Queue()
         self._workers = []
         self._shutdown = threading.Event()
+        self._cancel_events: dict = {}
+        self._cancel_events_lock = threading.Lock()
 
         # Boot recovery — re-enqueue orphaned running jobs
         orphans = recover_orphaned_running(db_path, auto_retry=True)
@@ -93,6 +103,16 @@ class JobQueue:
         for t in self._workers:
             t.join(timeout=timeout)
 
+    def cancel_job(self, job_id: str) -> bool:
+        """Set the cancel event for a running job. Returns True if the
+        job was found in the active set; False if not currently running."""
+        with self._cancel_events_lock:
+            ev = self._cancel_events.get(job_id)
+        if ev is None:
+            return False
+        ev.set()
+        return True
+
     def _worker_loop(self, q: "stdqueue.Queue", handler):
         while not self._shutdown.is_set():
             try:
@@ -109,15 +129,28 @@ class JobQueue:
             update_job_status(self._db_path, jid, "failed",
                               error_msg="no handler registered for job type")
             return
+
+        # R5 Phase 4: per-job cancel event for cooperative interrupt
+        cancel_event = threading.Event()
+        with self._cancel_events_lock:
+            self._cancel_events[jid] = cancel_event
+
         update_job_status(self._db_path, jid, "running",
                           started_at=time.time())
         try:
             job = get_job(self._db_path, jid)
-            handler(job)
+            handler(job, cancel_event=cancel_event)
             update_job_status(self._db_path, jid, "done",
                               finished_at=time.time())
+        except JobCancelled as e:
+            update_job_status(self._db_path, jid, "cancelled",
+                              finished_at=time.time(),
+                              error_msg=f"cancelled: {e}")
         except Exception as e:
             tb = traceback.format_exc()
             update_job_status(self._db_path, jid, "failed",
                               finished_at=time.time(),
                               error_msg=f"{type(e).__name__}: {e}\n{tb[:1000]}")
+        finally:
+            with self._cancel_events_lock:
+                self._cancel_events.pop(jid, None)

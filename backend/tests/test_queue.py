@@ -40,7 +40,7 @@ def test_register_handler_then_run_one(db_path):
     from jobqueue.queue import JobQueue
     completed = []
 
-    def fake_asr(job):
+    def fake_asr(job, cancel_event=None):
         completed.append(job["id"])
 
     q = JobQueue(db_path, asr_handler=fake_asr)
@@ -63,7 +63,7 @@ def test_handler_exception_marks_failed(db_path):
     from jobqueue.queue import JobQueue
     from jobqueue.db import get_job
 
-    def bad_handler(job):
+    def bad_handler(job, cancel_event=None):
         raise RuntimeError("boom")
 
     q = JobQueue(db_path, asr_handler=bad_handler)
