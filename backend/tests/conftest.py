@@ -52,7 +52,7 @@ def _sync_imported_manager_refs(request, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def _isolate_app_data(tmp_path, monkeypatch):
+def _isolate_app_data(request, tmp_path, monkeypatch):
     """Auto-isolate every test from the real DATA_DIR.
 
     Prevents tests from overwriting backend/data/registry.json when they
@@ -84,8 +84,15 @@ def _isolate_app_data(tmp_path, monkeypatch):
     # LOGIN_DISABLED makes flask_login.@login_required pass through.
     # R5_AUTH_BYPASS makes our @require_file_owner / @admin_required wrappers
     # short-circuit (otherwise they'd hit AnonymousUserMixin.is_admin AttributeError).
-    monkeypatch.setitem(app.app.config, "LOGIN_DISABLED", True)
-    monkeypatch.setitem(app.app.config, "R5_AUTH_BYPASS", True)
+    #
+    # R5 Phase 3: admin route tests (test_admin_users.py) use real sessions and
+    # real auth checks — bypass must NOT be active so @admin_required enforces
+    # is_admin. Detect by checking the test module name.
+    _REAL_AUTH_MODULES = ("test_admin_users",)
+    _use_real_auth = any(m in str(request.fspath) for m in _REAL_AUTH_MODULES)
+    if not _use_real_auth:
+        monkeypatch.setitem(app.app.config, "LOGIN_DISABLED", True)
+        monkeypatch.setitem(app.app.config, "R5_AUTH_BYPASS", True)
 
     # Also replace the module-level _subtitle_renderer instance, which was
     # constructed at import time with the real RENDERS_DIR.

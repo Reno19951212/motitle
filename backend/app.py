@@ -175,6 +175,11 @@ def _load_user(uid: str):
 
 app.register_blueprint(auth_bp)
 
+from auth.admin import bp as admin_bp
+from auth.audit import init_audit_log
+init_audit_log(AUTH_DB_PATH)
+app.register_blueprint(admin_bp)
+
 
 def _bootstrap_admin_if_needed():
     """Create admin user from ADMIN_BOOTSTRAP_PASSWORD env var if absent.
