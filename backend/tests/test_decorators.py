@@ -115,3 +115,35 @@ def test_admin_required_allows_admin(monkeypatch, app_ctx):
 
     monkeypatch.setattr("auth.decorators.current_user", _CU())
     assert handler() == ("ok", 200)
+
+
+def test_r5_auth_bypass_short_circuits_require_file_owner():
+    """R5_AUTH_BYPASS=True in app.config skips ownership check entirely (test mode)."""
+    from auth.decorators import require_file_owner
+    from flask import Flask
+    app = Flask(__name__)
+    app.config["LOGIN_DISABLED"] = True
+    app.config["R5_AUTH_BYPASS"] = True
+
+    @require_file_owner
+    def handler(file_id):
+        return ("bypassed", 200)
+
+    with app.test_request_context("/"):
+        assert handler("any-file-id") == ("bypassed", 200)
+
+
+def test_r5_auth_bypass_short_circuits_admin_required():
+    """R5_AUTH_BYPASS=True in app.config skips admin check entirely (test mode)."""
+    from auth.decorators import admin_required
+    from flask import Flask
+    app = Flask(__name__)
+    app.config["LOGIN_DISABLED"] = True
+    app.config["R5_AUTH_BYPASS"] = True
+
+    @admin_required
+    def handler():
+        return ("bypassed", 200)
+
+    with app.test_request_context("/"):
+        assert handler() == ("bypassed", 200)

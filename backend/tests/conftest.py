@@ -80,6 +80,13 @@ def _isolate_app_data(tmp_path, monkeypatch):
     monkeypatch.setattr(app, "RENDERS_DIR", test_data_dir / "renders")
     monkeypatch.setattr(app, "RESULTS_DIR", test_data_dir / "results")
 
+    # R5 Phase 1: existing tests don't authenticate, so bypass auth gates.
+    # LOGIN_DISABLED makes flask_login.@login_required pass through.
+    # R5_AUTH_BYPASS makes our @require_file_owner / @admin_required wrappers
+    # short-circuit (otherwise they'd hit AnonymousUserMixin.is_admin AttributeError).
+    monkeypatch.setitem(app.app.config, "LOGIN_DISABLED", True)
+    monkeypatch.setitem(app.app.config, "R5_AUTH_BYPASS", True)
+
     # Also replace the module-level _subtitle_renderer instance, which was
     # constructed at import time with the real RENDERS_DIR.
     monkeypatch.setattr(
