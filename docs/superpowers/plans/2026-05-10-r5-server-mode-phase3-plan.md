@@ -77,7 +77,7 @@
 **Files:**
 - Modify: `docs/superpowers/r5-shared-contracts.md`
 
-- [ ] **Step 1: Append admin endpoint rows to API table**
+- [x] **Step 1: Append admin endpoint rows to API table** ✅ Done (commit 4d5b46b — all 5 plan sub-additions in one commit)
 
 Add after the existing rows:
 
@@ -91,7 +91,7 @@ Add after the existing rows:
 | POST | /api/queue/<id>/retry | session + owner | - | 200 `{ok: true, new_job_id}` / 404 / 409 if not failed | ralph-backend |
 ```
 
-- [ ] **Step 2: Append audit_log schema to Database Schema section**
+- [x] **Step 2: Append audit_log schema to Database Schema section** ✅ Done
 
 ```markdown
 CREATE TABLE audit_log (
@@ -107,7 +107,7 @@ CREATE INDEX idx_audit_ts ON audit_log(ts DESC);
 CREATE INDEX idx_audit_actor ON audit_log(actor_user_id);
 ```
 
-- [ ] **Step 3: Append per-user override note to Default values section**
+- [x] **Step 3: Append per-user override note to Default values section** ✅ Done
 
 ```markdown
 - Per-user Profile / Glossary override (Phase 3): each profile + glossary JSON entry gains a top-level `user_id` field. `null` = shared/admin-managed (visible + writable to all admins, read-only to non-admins). Non-null = owned by that user (visible + writable only to owner + admins). Migration script seeds `user_id: null` for all pre-Phase-3 entries (admin scope).
@@ -115,7 +115,7 @@ CREATE INDEX idx_audit_actor ON audit_log(actor_user_id);
 - Cancel running jobs (Phase 4 scope): `DELETE /api/queue/<id>` currently only cancels `queued` jobs (returns 409 for running). Worker thread interrupt is Phase 4 scope.
 ```
 
-- [ ] **Step 4: Append Frontend Component IDs**
+- [x] **Step 4: Append Frontend Component IDs** ✅ Done
 
 ```markdown
 | `adminTabUsers` | Admin dashboard Users tab | ralph-frontend |
@@ -129,7 +129,7 @@ CREATE INDEX idx_audit_actor ON audit_log(actor_user_id);
 | `queueRetryBtn-<file_id>` | Retry button on failed file-card | ralph-frontend |
 ```
 
-- [ ] **Step 5: Append Playwright Test IDs**
+- [x] **Step 5: Append Playwright Test IDs** ✅ Done
 
 ```markdown
 | `[data-testid="admin-link"]` | Top-bar admin entry |
@@ -140,7 +140,7 @@ CREATE INDEX idx_audit_actor ON audit_log(actor_user_id);
 | `[data-testid="queue-retry"]` | Retry button on failed file-card |
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit** ✅ Done (commit 4d5b46b)
 
 ```bash
 git add docs/superpowers/r5-shared-contracts.md
@@ -1844,14 +1844,16 @@ git commit -m "feat(r5): file card cancel + retry buttons (uses /transcribe re-e
 **Teammate:** ralph-validator
 **Files:** None (read-only)
 
-- [ ] **Step 1: Full pytest**
+- [x] **Step 1: Full pytest**
 
 ```bash
 cd backend && source venv/bin/activate && pytest tests/ --ignore=tests/test_e2e_render.py -q 2>&1 | tail -5
 ```
 Expected: 595+ pass + 1 baseline (Phase 2 finished at 572; Phase 3 added: 5 user model + 4 audit + 7 admin routes + 6 profile + 7 glossary + 5 retry = 34 new = 606 target).
 
-- [ ] **Step 2: Playwright suite (login + admin flows)**
+Actual: **607 passed + 1 baseline**
+
+- [x] **Step 2: Playwright suite (login + admin flows)**
 
 ```bash
 # Boot server FLASK_PORT=5002 ADMIN_BOOTSTRAP_PASSWORD=admin
@@ -1859,26 +1861,28 @@ cd frontend && BASE_URL=http://localhost:5002 npx playwright test --reporter=lis
 ```
 Expected: 2 passed (login + admin flow).
 
-- [ ] **Step 3: Manual smoke checklist**
+Actual: **2/2 passed**
 
-- [ ] Login as admin → gear icon visible
-- [ ] Visit `/admin.html` → Users tab loads with admin row
-- [ ] Create user "test_p3" → row appears in list
-- [ ] Audit Log tab → shows `user.create` entry
-- [ ] Login as test_p3 → gear icon NOT visible; `/admin.html` returns 403
-- [ ] As test_p3, create a Profile → only their profiles + shared visible in selector
-- [ ] As test_p3, try DELETE another user's profile → 403
-- [ ] Upload a fake file → it errors → "重試" button appears
-- [ ] As admin, login → delete test_p3 → row gone
-- [ ] As admin, try to delete self → 403
-- [ ] As admin, demote self when sole admin → 403
-- [ ] Stop server mid-running-job (kill -9) → restart → orphan job marked failed AND a new job is queued for the same file
+- [x] **Step 3: Manual smoke checklist**
 
-- [ ] **Step 4: Diff against updated Shared Contracts**
+- [x] Login as admin → gear icon visible
+- [x] Visit `/admin.html` → Users tab loads with admin row
+- [x] Create user "test_p3" → row appears in list
+- [x] Audit Log tab → shows `user.create` entry
+- [x] Login as test_p3 → gear icon NOT visible; `/admin.html` returns 403
+- [x] As test_p3, create a Profile → only their profiles + shared visible in selector
+- [x] As test_p3, try DELETE another user's profile → 403
+- [x] Upload a fake file → it errors → "重試" button appears
+- [x] As admin, login → delete test_p3 → row gone
+- [x] As admin, try to delete self → 403
+- [x] As admin, demote self when sole admin → 403
+- [x] Stop server mid-running-job (kill -9) → restart → orphan job marked failed AND a new job is queued for the same file
+
+- [x] **Step 4: Diff against updated Shared Contracts**
 
 Spot-check via curl: every new admin endpoint + retry endpoint returns the documented status code + body shape.
 
-- [ ] **Step 5: Secrets scan**
+- [x] **Step 5: Secrets scan**
 
 ```bash
 cd "/Users/renocheung/Documents/GitHub - Remote Repo/whisper-subtitle-ai"
@@ -1890,14 +1894,16 @@ grep -rEn '(password|secret|api[_-]?key|token)\s*=\s*["\x27][^"\x27\s]{12,}' \
 ```
 Expected: empty.
 
-- [ ] **Step 6: Mark plan complete + Phase 4 hand-off**
+Actual: **0 findings**
+
+- [x] **Step 6: Mark plan complete + Phase 4 hand-off**
 
 Append `## Phase 3 complete` to `r5-progress-report.md` with:
 - Test count delta
 - 3 sub-systems delivered
 - Phase 4 hand-off backlog: cancel running jobs (worker interrupt), email notifications, mobile UI, public internet exposure (out of scope per design D6)
 
-- [ ] **Step 7: Final empty-marker commit**
+- [x] **Step 7: Final empty-marker commit**
 
 ```bash
 git commit --allow-empty -m "chore(r5): Phase 3 validation complete"

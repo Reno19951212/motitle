@@ -250,3 +250,20 @@ grep over backend/auth, backend/jobqueue, backend/scripts, setup-mac.sh, setup-w
 - Phase 3B commits: 4d5b46b (A1) + e92c2d8 (B2) + c1a305d (B4) + 3c1643e (B6)
 - conftest.py extended to skip LOGIN_DISABLED+R5_AUTH_BYPASS for test_admin_users (real-auth tests)
 - Last-admin guard + delete-self guard verified via test suite
+
+---
+
+## Phase 3 complete (Task F1)
+
+**Date:** 2026-05-10
+**Verdict:** ✅ PASS — all 24 tasks done
+
+- pytest: 607 + 1 baseline
+- Playwright: 2/2 GREEN (login + admin flow)
+- Live curl smoke: admin routes 200, non-admin 403, retry 404 on bogus
+- Phase 3 commits: 4d5b46b (A1) + e92c2d8 (B2) + c1a305d (B4) + 3c1643e (B6) + b47840f (B7) + d34cc79 (C1) + 2e1e406 (C2) + 7d95119 (C3) + b6cd9d9 (C4) + 5f17209 (C5) + 0019e42 (D2) + 57bb6f9 (D4) + 037acb0 (D5) + 3d82433 (D6) + b6f1f25 (E2) + aedebd2 (E3) + 71348cc (E4)
+- 3 sub-systems delivered:
+  - Admin dashboard CRUD UI (users CRUD + audit log + admin guard on /admin.html + top-bar gear link)
+  - Per-user Profile/Glossary override (list_visible + can_edit + envelope-preserving API filter + grouping in selectors)
+  - Cancel queued + job retry (/api/queue/<id>/retry endpoint + boot-time auto-re-enqueue + frontend retry button)
+- Phase 4 hand-off backlog: cancel running jobs (worker thread interrupt), email notification on job done, mobile UI, public internet exposure (deferred per design D6)
