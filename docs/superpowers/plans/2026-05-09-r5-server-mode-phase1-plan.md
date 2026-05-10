@@ -2306,7 +2306,7 @@ Expected: FAIL — selector not found OR server not running.
 **Teammate:** ralph-frontend
 **Files:** Modify `frontend/index.html`, create `frontend/js/auth.js`
 
-- [ ] **Step 1: Add JS module**
+- [x] **Step 1: Add JS module** ✅ Done iteration 19 — `frontend/js/auth.js` with `fetchMe()` + `logout()`
 
 ```javascript
 // frontend/js/auth.js
@@ -2337,7 +2337,7 @@ window.fetchMe = fetchMe;
 window.logout = logout;
 ```
 
-- [ ] **Step 2: Add chip to index.html top bar**
+- [x] **Step 2: Add chip to index.html top bar** ✅ Done iteration 19 — extended `.b-topbar` grid to 4 cols (auto/1fr/auto/auto); chip uses Shared Contracts IDs userChip/userChipName/userChipLogout + data-testids user-chip/logout
 
 In `frontend/index.html`, find the `.b-topbar` element and add inside (rightmost area):
 
@@ -2365,16 +2365,11 @@ In the bottom of `<body>` add:
 </script>
 ```
 
-- [ ] **Step 3: Smoke test in browser**
+- [x] **Step 3: Smoke test in browser** ✅ Done iteration 19 — test_client smoke: login → /js/auth.js 200, /js/font-preview.js 200, /proofread.html 200, / contains user-chip+userChip+auth.js script tag, /js/../app.py traversal blocked (404)
 
 Boot server, log in as admin, verify chip shows username + clickable logout.
 
-- [ ] **Step 4: Commit**
-
-```bash
-git add frontend/index.html frontend/js/auth.js
-git commit -m "feat(r5): user chip + logout in dashboard top bar"
-```
+- [x] **Step 4: Commit** ✅ Done iteration 19 (commit 3fef221) — combined with backend `/js/<path>` + `/proofread.html` static routes since E2's server-served `/` would 404 every existing `<script src="js/...">` tag without them
 
 ### Task E5: Queue panel UI — frontend module
 
