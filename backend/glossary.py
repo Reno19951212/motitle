@@ -9,10 +9,26 @@ import csv
 import io
 import json
 import os
+import threading
 import time
 import uuid
 from pathlib import Path
 from typing import List, Optional
+
+
+# R5 Phase 5 T2.8 — per-glossary locks close the TOCTOU window between
+# can_edit() and update()/delete(). Lazy-initialized via _master_lock.
+_GM_LOCKS: dict = {}
+_GM_MASTER_LOCK = threading.Lock()
+
+
+def _get_gm_lock(glossary_id: str) -> threading.Lock:
+    with _GM_MASTER_LOCK:
+        lock = _GM_LOCKS.get(glossary_id)
+        if lock is None:
+            lock = threading.Lock()
+            _GM_LOCKS[glossary_id] = lock
+        return lock
 
 GLOSSARIES_DIRNAME = "glossaries"
 
@@ -297,6 +313,26 @@ class GlossaryManager:
             return False
         path.unlink()
         return True
+
+    def update_if_owned(self, glossary_id: str, user_id: int, is_admin: bool,
+                        patch: dict) -> Optional[dict]:
+        """R5 Phase 5 T2.8 — atomic check-and-update under per-glossary lock.
+
+        Returns the updated glossary on success, ``None`` if not allowed.
+        """
+        lock = _get_gm_lock(glossary_id)
+        with lock:
+            if not self.can_edit(glossary_id, user_id, is_admin):
+                return None
+            return self.update(glossary_id, patch)
+
+    def delete_if_owned(self, glossary_id: str, user_id: int, is_admin: bool) -> bool:
+        """Returns True on success, False if not allowed or not found."""
+        lock = _get_gm_lock(glossary_id)
+        with lock:
+            if not self.can_edit(glossary_id, user_id, is_admin):
+                return False
+            return self.delete(glossary_id)
 
     # ------------------------------------------------------------------
     # Entry management

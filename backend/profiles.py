@@ -7,10 +7,26 @@ switch between model combinations without reconfiguring manually.
 
 import json
 import os
+import threading
 import time
 import uuid
 from pathlib import Path
 from typing import Optional
+
+
+# R5 Phase 5 T2.8 — per-profile locks close the TOCTOU window between
+# can_edit() and update()/delete(). Lazy-initialized via _master_lock.
+_PM_LOCKS: dict = {}
+_PM_MASTER_LOCK = threading.Lock()
+
+
+def _get_pm_lock(profile_id: str) -> threading.Lock:
+    with _PM_MASTER_LOCK:
+        lock = _PM_LOCKS.get(profile_id)
+        if lock is None:
+            lock = threading.Lock()
+            _PM_LOCKS[profile_id] = lock
+        return lock
 
 # ---------------------------------------------------------------------------
 # Valid option sets
@@ -264,6 +280,31 @@ class ProfileManager:
             self._write_settings({**settings, "active_profile": None})
 
         return True
+
+    def update_if_owned(self, profile_id: str, user_id: int, is_admin: bool,
+                        patch: dict) -> Optional[dict]:
+        """R5 Phase 5 T2.8 — atomic check-and-update under per-profile lock.
+
+        Returns the updated profile on success, ``None`` if not allowed
+        (forbidden). Returns ``False`` if the profile vanished between
+        check and update. Closes the TOCTOU window between can_edit() and
+        update() — without this, two concurrent requests can race so that
+        a non-owner observes can_edit==True against a stale snapshot and
+        then writes after the owner deletes.
+        """
+        lock = _get_pm_lock(profile_id)
+        with lock:
+            if not self.can_edit(profile_id, user_id, is_admin):
+                return None
+            return self.update(profile_id, patch)
+
+    def delete_if_owned(self, profile_id: str, user_id: int, is_admin: bool) -> bool:
+        """Returns True on success, False if not allowed or not found."""
+        lock = _get_pm_lock(profile_id)
+        with lock:
+            if not self.can_edit(profile_id, user_id, is_admin):
+                return False
+            return self.delete(profile_id)
 
     # ------------------------------------------------------------------
     # Active profile
