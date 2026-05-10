@@ -321,7 +321,7 @@ git commit -m "feat(r5): bcrypt password hash + verify utility"
 **Teammate:** ralph-tester
 **Files:** Create `backend/tests/test_users.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test** ✅ Done iteration 2
 
 ```python
 # backend/tests/test_users.py
@@ -401,7 +401,7 @@ def test_verify_credentials_unknown_user(db_path):
     assert verify_credentials(db_path, "ghost", "any") is None
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails** ✅ Done iteration 2 — 8 fail with ModuleNotFoundError
 
 ```bash
 pytest tests/test_users.py -v
@@ -413,7 +413,7 @@ Expected: FAIL — module not found.
 **Teammate:** ralph-backend
 **Files:** Create `backend/auth/users.py`
 
-- [ ] **Step 1: Implement module**
+- [x] **Step 1: Implement module** ✅ Done iteration 2
 
 ```python
 # backend/auth/users.py
@@ -517,14 +517,14 @@ def verify_credentials(db_path: str, username: str, password: str) -> Optional[d
     return None
 ```
 
-- [ ] **Step 2: Run test to verify it passes**
+- [x] **Step 2: Run test to verify it passes** ✅ Done iteration 2 — 8/8 pass
 
 ```bash
 pytest tests/test_users.py -v
 ```
 Expected: 8 passed.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit** ✅ Done iteration 2 (commit d6d6c9f)
 
 ```bash
 git add backend/auth/users.py backend/tests/test_users.py
