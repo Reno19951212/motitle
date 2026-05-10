@@ -56,6 +56,9 @@ backend/config/profiles/*.local.json
 backend/.env
 .env
 
+# R5 Phase 2 — self-signed HTTPS certs (per-deployment, never committed)
+backend/data/certs/
+
 # Private / commercially sensitive docs (client assessments, internal notes).
 # Kept local only — MUST NOT be pushed to public repo.
 docs/private/

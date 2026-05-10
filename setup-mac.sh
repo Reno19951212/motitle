@@ -57,4 +57,9 @@ echo "Saved backend/.env (gitignored). Source it before running app.py:"
 echo ""
 echo "  source backend/.env && cd backend && source venv/bin/activate && python app.py"
 echo ""
+echo "=== Generate self-signed HTTPS cert ==="
+python scripts/generate_https_cert.py data/certs && \
+  echo "Cert: backend/data/certs/server.crt" || \
+  echo "Cert generation failed (HTTPS will be disabled; install mkcert or openssl to enable)"
+echo ""
 echo "Setup complete."

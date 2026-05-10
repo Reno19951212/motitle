@@ -55,5 +55,14 @@ Remove-Item Env:ADMIN_PW
 $secret = python -c "import secrets; print(secrets.token_hex(32))"
 "FLASK_SECRET_KEY=$secret" | Out-File -FilePath .env -Encoding utf8
 
+# Generate self-signed HTTPS cert
+Write-Host "`n=== Generate self-signed HTTPS cert ==="
+try {
+    python scripts\generate_https_cert.py data\certs
+    Write-Host "Cert: backend\data\certs\server.crt"
+} catch {
+    Write-Warning "Cert generation failed (HTTPS will be disabled; install mkcert or openssl)"
+}
+
 Write-Host "`nSetup complete. Source backend\.env then run python app.py."
 Pop-Location
