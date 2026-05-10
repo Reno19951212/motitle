@@ -2059,7 +2059,7 @@ pytest tests/ -q --ignore=tests/test_e2e_render.py 2>&1 | tail -5
 **Teammate:** ralph-backend
 **Files:** Create `backend/scripts/migrate_registry_user_id.py`
 
-- [ ] **Step 1: Write migration script**
+- [x] **Step 1: Write migration script** ✅ Done iteration 14
 
 ```python
 # backend/scripts/migrate_registry_user_id.py
@@ -2096,7 +2096,7 @@ if __name__ == "__main__":
     print(f"Migrated {n} entries to admin (user_id=1) in {path}")
 ```
 
-- [ ] **Step 2: Run dry-run on a copy**
+- [x] **Step 2: Run dry-run on a copy** ✅ Done iteration 14 — script verified on 3 synthetic cases (empty, mixed-with-orphans, idempotent re-run); real registry copy reported `Migrated 0 entries` (only contained C8-smoke-test entry which already has user_id=1)
 
 ```bash
 cp backend/data/registry.json /tmp/registry-backup.json
@@ -2104,7 +2104,7 @@ python backend/scripts/migrate_registry_user_id.py /tmp/registry-backup.json
 ```
 Expected: prints `Migrated N entries`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit** ✅ Done iteration 14 (commit 2caff30)
 
 ```bash
 git add backend/scripts/migrate_registry_user_id.py
