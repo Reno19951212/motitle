@@ -40,6 +40,23 @@ async function cancelJob(jobId) {
   refreshQueue();
 }
 
+async function retryFile(fileId) {
+  // Re-enqueue via /api/files/<id>/transcribe (Phase 2 commit c126381) —
+  // works whether the file was failed by an old worker or stuck somehow.
+  const r = await fetch(`/api/files/${fileId}/transcribe`, {
+    method: "POST", credentials: "same-origin",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({}),
+  });
+  if (!r.ok) {
+    alert("重試失敗：" + r.status);
+    return;
+  }
+  refreshQueue();
+  if (window.refreshFiles) refreshFiles();
+}
+
+window.retryFile = retryFile;
 window.refreshQueue = refreshQueue;
 window.cancelJob = cancelJob;
 
