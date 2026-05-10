@@ -1282,6 +1282,17 @@
                 <div class="queue-empty">尚未上傳檔案<br>拖放影片或撳頂部按鈕開始</div>
               </div>
             </div>
+
+            <!-- R5 Phase 1 — job queue panel (ASR / translate / render jobs) -->
+            <div class="panel queue-panel">
+              <div class="panel-head">
+                <div class="title">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l3 2"/></svg>
+                  工作隊列
+                </div>
+              </div>
+              <div class="panel-body" id="queuePanel" style="max-height:200px;overflow-y:auto;"></div>
+            </div>
           </div>
 
           <!-- Workbench -->
@@ -4468,6 +4479,9 @@
     });
     document.getElementById("userChipLogout").addEventListener("click", logout);
   </script>
+
+  <!-- R5 Phase 1 — job queue panel auto-refresh -->
+  <script src="js/queue-panel.js"></script>
 
 </body>
 </html>
