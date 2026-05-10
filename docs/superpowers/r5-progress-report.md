@@ -232,3 +232,21 @@ grep over backend/auth, backend/jobqueue, backend/scripts, setup-mac.sh, setup-w
 | 4 Contracts | ✅ | Phase 2 endpoint rows 202 + HTTPS note all match live behavior |
 
 **Verdict:** Phase 2 complete. R5 Server Mode Phase 1 + Phase 2 are production-ready.
+
+---
+
+## Phase 3B validation (Task B7)
+
+**Date:** 2026-05-10
+**Verdict:** ✅ PASS
+
+- pytest: 588 pass + 1 baseline (Phase 2 had 572; +16 from B1/B3/B5 = 588)
+- Live curl smoke against http://localhost:5002:
+  - GET /api/admin/users (admin session) → 200, returns admin row
+  - POST /api/admin/users {smoke_p3b} → 201
+  - POST same again → 409 username exists
+  - GET /api/admin/audit → 200 with user.create entry visible
+  - DELETE /api/admin/users/<id> → 200 ok
+- Phase 3B commits: 4d5b46b (A1) + e92c2d8 (B2) + c1a305d (B4) + 3c1643e (B6)
+- conftest.py extended to skip LOGIN_DISABLED+R5_AUTH_BYPASS for test_admin_users (real-auth tests)
+- Last-admin guard + delete-self guard verified via test suite
