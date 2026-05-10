@@ -120,3 +120,20 @@ Items intentionally deferred per plan:
 - Known intermediate state: _asr_handler's last line `_auto_translate(file_id)` has wrong signature in production until C4 lands. Tests pass via monkeypatch. Not user-visible until ASR job actually runs.
 - /api/transcribe/sync now @admin_required to prevent GPU-concurrency bypass.
 - Frontend: file-card shows "排隊中" badge for newly-uploaded files briefly before worker picks up.
+
+---
+
+## Phase 2C validation (Task C7)
+
+**Date:** 2026-05-10
+**Verdict:** ✅ PASS
+
+- pytest: 568 pass + 1 baseline (no regression; +3 from C1 tests + C5 test going GREEN through C2/C3/C4/C6)
+- Live curl smoke against http://localhost:5002:
+  - POST /api/translate {} → 400 file_id required
+  - POST /api/translate with bogus file_id → 404 File not found
+  - POST /api/translate with real file_id but no segments → 400 "No segments to translate. Transcribe the file first."
+- Phase 2C commits: 26b4016 (C2) + 923fd9f (C3) + 4910d70 (C4) + 6e3b52f (C5+C6)
+- MT pipeline now unified: ASR completion enqueues translate job; /api/translate also enqueues; _auto_translate(fid) reads segments from registry; _mt_handler bridges to it.
+- /api/translate body now does owner check explicitly (file_id is in body not URL, so @require_file_owner doesn't apply).
+- Known intermediate boundaries: none from Phase 2C — pipeline now end-to-end functional through the queue (transcribe + translate both async, both 202).
