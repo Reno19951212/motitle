@@ -46,6 +46,8 @@ import whisper
 import numpy as np
 from flask import Flask, request, jsonify, send_file, send_from_directory, redirect
 from flask_cors import CORS
+import ipaddress
+from urllib.parse import urlparse
 from flask_socketio import SocketIO, emit
 from profiles import ProfileManager
 from glossary import GlossaryManager
@@ -91,7 +93,47 @@ app.config['SECRET_KEY'] = os.environ.get(
 )
 app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024 * 1024  # 5GB max upload (broadcast MXF masters)
 
-CORS(app, origins="*")
+_LAN_NETS = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+]
+
+
+def _is_lan_origin(origin: str) -> bool:
+    """R5 Phase 1 — allow CORS for LAN origins only.
+
+    True if the origin's hostname is `localhost` or resolves to an IP in
+    a private LAN range (RFC 1918 + loopback). Public IPs and unresolvable
+    hostnames return False.
+    """
+    try:
+        host = urlparse(origin).hostname
+        if not host:
+            return False
+        if host == "localhost":
+            return True
+        ip = ipaddress.ip_address(host)
+        return any(ip in net for net in _LAN_NETS)
+    except (ValueError, TypeError):
+        return False
+
+
+# LAN-only CORS allowlist as a regex (flask-cors 6.x doesn't accept
+# callables — `origins` must be a string, list, or regex). The pattern
+# mirrors `_is_lan_origin`'s coverage: localhost + 127/8 + 10/8 +
+# 192.168/16 + 172.16/12, with optional port.
+_LAN_ORIGIN_REGEX = (
+    r"^https?://("
+    r"localhost"
+    r"|127\.\d+\.\d+\.\d+"
+    r"|10\.\d+\.\d+\.\d+"
+    r"|192\.168\.\d+\.\d+"
+    r"|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+"
+    r")(:\d+)?$"
+)
+CORS(app, supports_credentials=True, origins=_LAN_ORIGIN_REGEX)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading',
                     max_http_buffer_size=100 * 1024 * 1024)
 
@@ -3295,8 +3337,10 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"模型預加載失敗: {e}")
 
-    # Default bind to localhost only. Set FLASK_HOST=0.0.0.0 to expose on LAN.
-    # FLASK_PORT lets tests / multiple instances avoid the default 5001 collision.
-    host = os.environ.get('FLASK_HOST', '127.0.0.1')
+    # R5 Phase 1: bind to all interfaces by default for LAN exposure.
+    # CORS is locked down to LAN-only origins via _is_lan_origin (see top of
+    # this module). BIND_HOST=127.0.0.1 to scope to localhost; FLASK_HOST kept
+    # as a backwards-compatible alias for any pre-R5 launcher.
+    host = os.environ.get('BIND_HOST') or os.environ.get('FLASK_HOST') or '0.0.0.0'
     port = int(os.environ.get('FLASK_PORT', '5001'))
     socketio.run(app, host=host, port=port, debug=False, allow_unsafe_werkzeug=True)
