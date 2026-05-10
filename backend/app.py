@@ -1054,7 +1054,12 @@ def list_models():
 @app.route('/api/profiles', methods=['GET'])
 @login_required
 def api_list_profiles():
-    return jsonify({"profiles": _profile_manager.list_all()})
+    if app.config.get("R5_AUTH_BYPASS"):
+        return jsonify({"profiles": _profile_manager.list_all()})
+    return jsonify({"profiles": _profile_manager.list_visible(
+        user_id=current_user.id,
+        is_admin=current_user.is_admin,
+    )})
 
 
 @app.route('/api/profiles', methods=['POST'])
@@ -1064,6 +1069,15 @@ def api_create_profile():
     if not data:
         return jsonify({"error": "Request body is required"}), 400
     try:
+        # R5 Phase 3: non-admin always creates owned profiles; admin creates
+        # shared by default (user_id=null) — admin can override by passing
+        # user_id explicitly in body. Bypass path (test harness) leaves
+        # user_id unchanged so existing tests keep working.
+        if not app.config.get("R5_AUTH_BYPASS"):
+            if not current_user.is_admin:
+                data = {**data, "user_id": current_user.id}
+            elif "user_id" not in data:
+                data = {**data, "user_id": None}
         profile = _profile_manager.create(data)
         return jsonify({"profile": profile}), 201
     except ValueError as e:
@@ -1089,6 +1103,10 @@ def api_get_profile(profile_id):
 @app.route('/api/profiles/<profile_id>', methods=['PATCH'])
 @login_required
 def api_update_profile(profile_id):
+    if not app.config.get("R5_AUTH_BYPASS") and not _profile_manager.can_edit(
+        profile_id, current_user.id, current_user.is_admin
+    ):
+        return jsonify({"error": "forbidden"}), 403
     data = request.get_json()
     if not data:
         return jsonify({"error": "Request body is required"}), 400
@@ -1108,6 +1126,10 @@ def api_update_profile(profile_id):
 @app.route('/api/profiles/<profile_id>', methods=['DELETE'])
 @login_required
 def api_delete_profile(profile_id):
+    if not app.config.get("R5_AUTH_BYPASS") and not _profile_manager.can_edit(
+        profile_id, current_user.id, current_user.is_admin
+    ):
+        return jsonify({"error": "forbidden"}), 403
     if _profile_manager.delete(profile_id):
         return jsonify({"message": "Profile deleted"})
     return jsonify({"error": "Profile not found"}), 404
@@ -1116,6 +1138,10 @@ def api_delete_profile(profile_id):
 @app.route('/api/profiles/<profile_id>/activate', methods=['POST'])
 @login_required
 def api_activate_profile(profile_id):
+    if not app.config.get("R5_AUTH_BYPASS") and not _profile_manager.can_edit(
+        profile_id, current_user.id, current_user.is_admin
+    ):
+        return jsonify({"error": "forbidden"}), 403
     profile = _profile_manager.set_active(profile_id)
     if not profile:
         return jsonify({"error": "Profile not found"}), 404

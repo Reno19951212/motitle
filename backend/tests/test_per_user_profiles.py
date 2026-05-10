@@ -52,3 +52,45 @@ def test_can_edit_shared_only_by_admin(pm):
     manager, sid, aid, bid = pm
     assert manager.can_edit(sid, user_id=1, is_admin=False) is False
     assert manager.can_edit(sid, user_id=999, is_admin=True) is True
+
+
+@pytest.fixture
+def alice_client(monkeypatch, tmp_path):
+    """Logged-in non-admin alice with a fresh ProfileManager."""
+    import app as app_module
+    from auth.users import init_db, create_user
+    from profiles import ProfileManager
+
+    # Replace global profile manager with a per-test instance
+    pm = ProfileManager(tmp_path)
+    monkeypatch.setattr(app_module, "_profile_manager", pm)
+
+    db = app_module.app.config["AUTH_DB_PATH"]
+    init_db(db)
+    try:
+        create_user(db, "alice_d3", "secret", is_admin=False)
+    except ValueError:
+        pass
+    c = app_module.app.test_client()
+    r = c.post("/login", json={"username": "alice_d3", "password": "secret"})
+    assert r.status_code == 200
+    yield c, pm
+
+
+def test_api_profiles_get_filters_by_owner(alice_client):
+    client, pm = alice_client
+    pm.create({"name": "S", "asr": {"engine": "whisper"},
+               "translation": {"engine": "mock"}, "user_id": None})
+    # Alice's user_id depends on insertion order; resolve via /api/me
+    me = client.get("/api/me").get_json()
+    pm.create({"name": "A", "asr": {"engine": "whisper"},
+               "translation": {"engine": "mock"}, "user_id": me["id"]})
+    pm.create({"name": "B", "asr": {"engine": "whisper"},
+               "translation": {"engine": "mock"}, "user_id": me["id"] + 999})  # someone else
+
+    r = client.get("/api/profiles")
+    assert r.status_code == 200
+    # Existing response shape: {"profiles": [...]} — Phase 1 envelope kept for
+    # backward-compat with frontend (index.html line ~4232 reads data.profiles).
+    names = {p["name"] for p in r.get_json()["profiles"]}
+    assert names == {"S", "A"}  # bob's profile NOT visible
