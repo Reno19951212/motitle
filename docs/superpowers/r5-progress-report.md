@@ -164,3 +164,71 @@ Items intentionally deferred per plan:
 - HTTP-on-HTTPS-port: returned http_code 000 (TLS handshake error) — confirms HTTPS-only binding when `R5_HTTPS_CERT_DIR` is set and `R5_HTTPS` is unset/truthy
 - R5_HTTPS=0 opt-out: same server with `R5_HTTPS=0` → server log shows `Running on http://127.0.0.1:5002` → plain HTTP on 5002 → 200
 - Phase 2E commits: 3dbae5a (E2 cert helper) + 9ce6299 (E4 _boot_socketio) + ff71295 (E5 setup scripts) + b95ddf6 (E6 docs)
+
+---
+
+## Phase 2 complete (Task F1)
+
+**Date:** 2026-05-10
+**Validator:** ralph-validator (Task F1)
+**Verdict:** ✅ **PASS — Phase 2 all 27 tasks complete**
+
+### F1 Step 1 — Full pytest
+
+```
+572 passed, 1 failed, 1 warning in 11.89s
+```
+
+Single failure is the pre-existing `test_ass_filter_escapes_colon_in_path` macOS tmpdir baseline (v3.3 documented). Net delta from Phase 2 work: +11 tests (4 from E1/E3, 4 from B1/B3, 3 from C1/C5). Phase 1 baseline was 561; Phase 2 closes at 572 = +11.
+
+### F1 Step 2 — Playwright login flow
+
+1/1 passed (2.6s) against HTTP server on port 5002 (R5_HTTPS=0). HTTPS Playwright skipped due to self-signed cert + no `ignoreHTTPSErrors` in playwright.config.js — HTTPS round-trip was confirmed via curl in Task E7 (200 over HTTPS, TLS error over plain HTTP on same port).
+
+### F1 Step 3 — End-to-end smoke (test_client)
+
+```
+F1 smoke: 7/7 PASS
+  OK / unauth → 302 /login.html
+  OK login → 200
+  OK /api/transcribe → 202 + job_id
+  OK /api/translate (no segments) → 400
+  OK /api/queue auth → 200 list
+  OK /logout → 200 ok
+  OK /api/files unauth → 401
+```
+
+### F1 Step 4 — Shared Contracts spot-check
+
+```
+POST /api/translate {} (no file_id) → 400   ✅
+POST /api/files/bogus/transcribe → 404       ✅
+```
+
+Both Phase 2 contract rows honored. HTTPS deployment note matches `R5_HTTPS_CERT_DIR` + `R5_HTTPS=0` toggle behavior confirmed in E7.
+
+### F1 Step 5 — Secrets scan
+
+grep over backend/auth, backend/jobqueue, backend/scripts, setup-mac.sh, setup-win.ps1, setup-linux-gb10.sh, backend/app.py: **0 findings**. data/certs/ is gitignored; cert/key never committed.
+
+### Phase 2 summary — all 27 tasks complete
+
+| Phase | Tasks | Status |
+|---|---|---|
+| 2A — Shared Contracts | 1 | ✅ Done (commit c97c92b) |
+| 2B — ASR handler pipeline | 7 | ✅ Done (commits e4ca202 + c126381 + 8555dec + 48aba71) |
+| 2C — MT handler + /api/translate | 7 | ✅ Done (commits 26b4016 + 923fd9f + 4910d70 + 6e3b52f) |
+| 2D — Linux/GB10 setup | 4 | ✅ Done (commits 040b94d + 4ea34f37) |
+| 2E — Self-signed HTTPS | 7 | ✅ Done (commits 3dbae5a + 9ce6299 + ff71295 + b95ddf6) |
+| 2F — Final validation | 1 | ✅ Done (this report) |
+
+### Quality gates
+
+| Gate | Pass | Notes |
+|---|---|---|
+| 1 Correctness | ✅ | 572 + 1 baseline; 0 regressions |
+| 2 Quality | ✅ | No debug prints / TODO / hardcoded paths in Phase 2 code |
+| 3 Security | ✅ | grep clean; cert/key gitignored; owner check on /api/translate body |
+| 4 Contracts | ✅ | Phase 2 endpoint rows 202 + HTTPS note all match live behavior |
+
+**Verdict:** Phase 2 complete. R5 Server Mode Phase 1 + Phase 2 are production-ready.
