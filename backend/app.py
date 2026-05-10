@@ -3296,5 +3296,7 @@ if __name__ == '__main__':
         print(f"模型預加載失敗: {e}")
 
     # Default bind to localhost only. Set FLASK_HOST=0.0.0.0 to expose on LAN.
+    # FLASK_PORT lets tests / multiple instances avoid the default 5001 collision.
     host = os.environ.get('FLASK_HOST', '127.0.0.1')
-    socketio.run(app, host=host, port=5001, debug=False, allow_unsafe_werkzeug=True)
+    port = int(os.environ.get('FLASK_PORT', '5001'))
+    socketio.run(app, host=host, port=port, debug=False, allow_unsafe_werkzeug=True)

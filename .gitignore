@@ -39,6 +39,11 @@ backend/data/
 # Playwright / pytest output
 test-results/
 
+# Frontend npm artifacts (R5 Phase 1 added Playwright deps via npm)
+frontend/node_modules/
+frontend/playwright-report/
+frontend/.playwright/
+
 # Git worktrees
 .worktrees/
 
