@@ -728,7 +728,7 @@ git commit -m "feat(r5): /login + /logout + /api/me routes"
 **Teammate:** ralph-tester
 **Files:** Create `backend/tests/test_decorators.py`
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test** ✅ Done iteration 4 (added Flask test_request_context + LOGIN_DISABLED to bypass flask_login.login_required's request.method access; impl unchanged from plan)
 
 ```python
 # backend/tests/test_decorators.py
@@ -835,7 +835,7 @@ def test_admin_required_allows_admin(monkeypatch):
     assert handler() == ("ok", 200)
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails** ✅ Done iteration 4 — 5 fail with ModuleNotFoundError
 
 ```bash
 pytest tests/test_decorators.py -v
@@ -847,7 +847,7 @@ Expected: FAIL — `auth.decorators` not found.
 **Teammate:** ralph-backend
 **Files:** Create `backend/auth/decorators.py`
 
-- [ ] **Step 1: Implement decorators**
+- [x] **Step 1: Implement decorators** ✅ Done iteration 4
 
 ```python
 # backend/auth/decorators.py
@@ -911,14 +911,14 @@ def admin_required(fn):
     return wrapper
 ```
 
-- [ ] **Step 2: Run test**
+- [x] **Step 2: Run test** ✅ Done iteration 4 — 5/5 pass
 
 ```bash
 pytest tests/test_decorators.py -v
 ```
 Expected: 5 passed.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit** ✅ Done iteration 4 (commit 8216c81)
 
 ```bash
 git add backend/auth/decorators.py backend/tests/test_decorators.py
