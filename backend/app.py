@@ -134,7 +134,10 @@ _LAN_ORIGIN_REGEX = (
     r")(:\d+)?$"
 )
 CORS(app, supports_credentials=True, origins=_LAN_ORIGIN_REGEX)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading',
+# R5 Phase 5 T1.2: SocketIO must use the same LAN-only regex as Flask CORS.
+# Wildcard '*' allowed any origin to open a SocketIO connection bypassing
+# the Flask-side allowlist.
+socketio = SocketIO(app, cors_allowed_origins=_LAN_ORIGIN_REGEX, async_mode='threading',
                     max_http_buffer_size=100 * 1024 * 1024)
 
 # Persistent storage directory (inside project, survives restarts)
@@ -3174,6 +3177,14 @@ def restart_server():
 
 @socketio.on('connect')
 def handle_connect():
+    # R5 Phase 5 T1.2: SocketIO @on handlers don't pass through Flask's
+    # @login_required decorator chain. Without this guard, any cross-origin
+    # browser that gets past CORS could open a socket and emit privileged
+    # events (load_model, live_audio_chunk, etc.).
+    if not (app.config.get("LOGIN_DISABLED")
+            or app.config.get("R5_AUTH_BYPASS")
+            or current_user.is_authenticated):
+        return False
     sid = request.sid
     print(f"Client connected: {sid}")
     emit('connected', {'sid': sid, 'message': '已連接到 Whisper 服務器'})

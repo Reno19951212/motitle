@@ -38,3 +38,50 @@ def test_login_with_missing_keys_still_returns_400(client_with_admin_db):
     client = client_with_admin_db
     r = client.post("/login", json={})
     assert r.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# T1.2 — SocketIO LAN-only CORS + connect-time auth
+# ---------------------------------------------------------------------------
+
+
+def test_socketio_cors_origins_uses_lan_regex():
+    """T1.2 — SocketIO CORS must NOT be wildcard (was '*' pre-Phase-5)."""
+    import app as app_module
+    cors_cfg = app_module.socketio.server.eio.cors_allowed_origins
+    assert cors_cfg != "*", "SocketIO must use LAN-only CORS (T1.2)"
+    # Should be the same regex string the Flask CORS layer uses
+    assert cors_cfg == app_module._LAN_ORIGIN_REGEX, \
+        f"T1.2 — SocketIO CORS must reuse _LAN_ORIGIN_REGEX, got {cors_cfg!r}"
+
+
+def test_socketio_connect_handler_registered():
+    """T1.2 — a @socketio.on('connect') handler must exist."""
+    import app as app_module
+    handlers = app_module.socketio.server.handlers.get('/', {})
+    assert 'connect' in handlers, \
+        "T1.2 — must register @socketio.on('connect') for auth gate"
+
+
+def test_socketio_connect_rejects_unauthenticated(monkeypatch):
+    """T1.2 — anonymous SocketIO client must be rejected at connect time.
+
+    Uses flask_socketio's test_client which routes through the actual
+    connect handler. With no logged-in user, the handler must abort the
+    connection (test_client.is_connected() returns False).
+    """
+    import app as app_module
+
+    monkeypatch.setitem(app_module.app.config, "LOGIN_DISABLED", False)
+    monkeypatch.setitem(app_module.app.config, "R5_AUTH_BYPASS", False)
+
+    flask_test_client = app_module.app.test_client()
+    sio_client = app_module.socketio.test_client(
+        app_module.app, flask_test_client=flask_test_client,
+    )
+    try:
+        assert sio_client.is_connected() is False, \
+            "T1.2 — anonymous SocketIO connect must be rejected"
+    finally:
+        if sio_client.is_connected():
+            sio_client.disconnect()
