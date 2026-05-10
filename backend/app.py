@@ -2523,6 +2523,27 @@ def api_start_render():
     }), 202
 
 
+def _can_access_render(render_id: str, user) -> bool:
+    """R5 Phase 5 T2.5 — render owner == file owner.
+
+    Admin can access any. Returns False if either render or file is unknown
+    or if user_id doesn't match.
+    """
+    if app.config.get("R5_AUTH_BYPASS"):
+        return True
+    if getattr(user, "is_admin", False):
+        return True
+    job = _render_jobs.get(render_id)
+    if not job:
+        return False
+    file_id = job.get("file_id")
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+    if not entry:
+        return False
+    return entry.get("user_id") == getattr(user, "id", None)
+
+
 @app.route('/api/renders/<render_id>', methods=['GET'])
 @login_required
 def api_get_render_status(render_id):
@@ -2530,6 +2551,8 @@ def api_get_render_status(render_id):
     job = _render_jobs.get(render_id)
     if not job:
         return jsonify({"error": "Render job not found"}), 404
+    if not _can_access_render(render_id, current_user):
+        return jsonify({"error": "forbidden"}), 403
     return jsonify(job)
 
 
@@ -2540,6 +2563,8 @@ def api_download_render(render_id):
     job = _render_jobs.get(render_id)
     if not job:
         return jsonify({"error": "Render job not found"}), 404
+    if not _can_access_render(render_id, current_user):
+        return jsonify({"error": "forbidden"}), 403
 
     if job["status"] != "done":
         return jsonify({"error": f"Render job is not done yet (status: {job['status']})"}), 400
@@ -2561,6 +2586,8 @@ def api_cancel_render(render_id):
     job = _render_jobs.get(render_id)
     if not job:
         return jsonify({"error": "Render job not found"}), 404
+    if not _can_access_render(render_id, current_user):
+        return jsonify({"error": "forbidden"}), 403
     if job.get('status') in ('done', 'error', 'cancelled'):
         return jsonify({"error": f"Cannot cancel — job already {job.get('status')}"}), 400
     _render_jobs[render_id] = {**job, 'cancelled': True}
