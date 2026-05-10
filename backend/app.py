@@ -212,8 +212,8 @@ _jq_init_db(AUTH_DB_PATH)
 _jq_set_db_path(AUTH_DB_PATH)
 
 
-def _asr_handler(job):
-    """R5 Phase 2 — full ASR pipeline driven by JobQueue worker.
+def _asr_handler(job, cancel_event=None):
+    """R5 Phase 2 + 4 — full ASR pipeline with cooperative cancel.
 
     1. Stamp registry status='transcribing' + user_id (carried from job).
     2. Call transcribe_with_segments() — same engine path as legacy
@@ -223,6 +223,10 @@ def _asr_handler(job):
        signature — see Phase 2C).
     4. On exception: mark status='error', error=<msg>, then re-raise
        so JobQueue marks the job 'failed' with traceback.
+
+    cancel_event (Phase 4): threading.Event passed down to
+    transcribe_with_segments so that it can raise JobCancelled between
+    segments when the event is set.
     """
     file_id = job["file_id"]
     with _registry_lock:
@@ -240,7 +244,8 @@ def _asr_handler(job):
     try:
         result = transcribe_with_segments(audio_path,
                                           file_id=file_id,
-                                          job_user_id=job["user_id"])
+                                          job_user_id=job["user_id"],
+                                          cancel_event=cancel_event)
     except Exception as e:
         _update_file(file_id, status='error', error=str(e))
         raise
@@ -270,15 +275,18 @@ def _asr_handler(job):
     )
 
 
-def _mt_handler(job):
-    """R5 Phase 2 — bridge: job dict → _auto_translate(fid).
+def _mt_handler(job, cancel_event=None):
+    """R5 Phase 2 + 4 — bridge to _auto_translate with cancel_event passed through.
 
     Pulls segments from registry inside _auto_translate, so worker thread
     runs without request context. Status transitions handled by JobQueue
     (running before, done after; raise → failed).
+
+    cancel_event (Phase 4): threading.Event forwarded to _auto_translate so
+    that it can raise JobCancelled between translation engine calls when set.
     """
     file_id = job["file_id"]
-    _auto_translate(file_id)
+    _auto_translate(file_id, cancel_event=cancel_event)
 
 
 _job_queue = JobQueue(AUTH_DB_PATH,
@@ -613,7 +621,8 @@ def extract_audio(video_path: str, output_path: str) -> bool:
 
 
 def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str = None,
-                              file_id: str = None, job_user_id: int = None):
+                              file_id: str = None, job_user_id: int = None,
+                              cancel_event=None):
     """
     Transcribe audio/video file and emit segments with timestamps.
     If an active profile exists with whisper engine, uses the profile's ASR engine.
@@ -732,6 +741,10 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
                 raw_segments = convert_segments_s2t(raw_segments, mode="s2hk")
 
             for i, seg in enumerate(raw_segments):
+                # Phase 4: cooperative cancel — check between segments.
+                if cancel_event is not None and cancel_event.is_set():
+                    from jobqueue.queue import JobCancelled
+                    raise JobCancelled("cancelled mid-transcribe")
                 segment = {
                     'id': i,
                     'start': seg['start'],
@@ -767,6 +780,10 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
             )
             full_text_parts = []
             for i, seg in enumerate(seg_iter):
+                # Phase 4: cooperative cancel — check between segments.
+                if cancel_event is not None and cancel_event.is_set():
+                    from jobqueue.queue import JobCancelled
+                    raise JobCancelled("cancelled mid-transcribe")
                 segment = {
                     'id': i,
                     'start': seg.start,
@@ -837,6 +854,10 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
             heartbeat_stop.set()
 
             for seg in result.get('segments', []):
+                # Phase 4: cooperative cancel — check between segments.
+                if cancel_event is not None and cancel_event.is_set():
+                    from jobqueue.queue import JobCancelled
+                    raise JobCancelled("cancelled mid-transcribe")
                 segment = {
                     'id': seg['id'],
                     'start': seg['start'],
@@ -2523,7 +2544,7 @@ def api_renders_in_progress():
     return jsonify({'jobs': out}), 200
 
 
-def _auto_translate(fid: str, sid=None) -> None:
+def _auto_translate(fid: str, sid=None, cancel_event=None) -> None:
     """Auto-translate a file's segments using the active profile.
 
     R5 Phase 2: signature simplified — pulls segments from the registry
@@ -2531,6 +2552,10 @@ def _auto_translate(fid: str, sid=None) -> None:
     only when called from a request handler that wants per-room socketio
     emits (legacy compatibility — worker callers leave sid=None and
     frontend polls instead).
+
+    cancel_event (Phase 4): threading.Event polled before each engine
+    translate call. Raises JobCancelled when set so JobQueue can mark the
+    job 'cancelled' rather than 'failed'.
     """
     try:
         translation_start = time.time()
@@ -2596,6 +2621,14 @@ def _auto_translate(fid: str, sid=None) -> None:
         parallel_batches = int(translation_config.get("parallel_batches") or 1)
         alignment_mode = str(translation_config.get("alignment_mode", "")).lower()
         use_sentence_pipeline = bool(translation_config.get("use_sentence_pipeline", False))
+        # Phase 4: cooperative cancel — check before kicking off the
+        # (potentially long) translation engine call.  Granularity here is
+        # "between pipeline entry points"; batch-level polling lives inside
+        # the engine implementations.
+        if cancel_event is not None and cancel_event.is_set():
+            from jobqueue.queue import JobCancelled
+            raise JobCancelled("cancelled mid-translate")
+
         if alignment_mode == "llm-markers":
             from translation.alignment_pipeline import translate_with_alignment
             translated = translate_with_alignment(
@@ -2656,6 +2689,15 @@ def _auto_translate(fid: str, sid=None) -> None:
                 'translation_engine': translation_config.get('engine', ''),
             }, room=sid)
     except Exception as e:
+        # Phase 4: JobCancelled must propagate to JobQueue._run_one so that
+        # it can set status='cancelled' (not 'failed').  Re-raise before the
+        # generic error handler clobbers the exception type.
+        try:
+            from jobqueue.queue import JobCancelled as _JobCancelled
+            if isinstance(e, _JobCancelled):
+                raise
+        except ImportError:
+            pass
         print(f"Auto-translate failed for {fid}: {e}")
         _update_file(fid, translation_status=None)
         if sid:
