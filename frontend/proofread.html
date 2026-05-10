@@ -748,7 +748,16 @@
     <div class="rv-body">
       <div class="rv-b">
 
+        <!-- R5 Phase 4 — mobile-only tab switcher -->
+        <div class="proofread-mobile-tabs">
+          <button id="proofreadMobileTabVideo" data-testid="proofread-mobile-tab-video"
+                  class="active" onclick="switchProofreadMobileTab('video')">🎬 影片</button>
+          <button id="proofreadMobileTabSegments" data-testid="proofread-mobile-tab-segments"
+                  onclick="switchProofreadMobileTab('segments')">📝 字幕</button>
+        </div>
+
         <!-- Left: segment rail only (full height) -->
+        <div class="proofread-segments-pane">
         <div class="rv-b-left">
           <div class="rv-b-rail">
             <div class="rv-b-rail-head">
@@ -759,8 +768,10 @@
             </div>
           </div>
         </div>
+        </div><!-- /proofread-segments-pane -->
 
         <!-- Right: top row (video + detail) + timeline at bottom -->
+        <div class="proofread-video-pane active">
         <div class="rv-b-right">
           <div class="rv-b-top-row">
             <div class="rv-b-video-col">
@@ -873,6 +884,7 @@
             </div>
           </div>
         </div>
+        </div><!-- /proofread-video-pane -->
 
       </div>
     </div>
@@ -2475,6 +2487,26 @@
       e.preventDefault();
     }
   });
+
+  // R5 Phase 4 — mobile tab switcher
+  function switchProofreadMobileTab(tab) {
+    const videoBtn = document.getElementById("proofreadMobileTabVideo");
+    const segBtn = document.getElementById("proofreadMobileTabSegments");
+    const videoPane = document.querySelector(".proofread-video-pane");
+    const segPane = document.querySelector(".proofread-segments-pane");
+    if (tab === "video") {
+      videoBtn.classList.add("active");
+      segBtn.classList.remove("active");
+      videoPane.classList.add("active");
+      segPane.classList.remove("active");
+    } else {
+      segBtn.classList.add("active");
+      videoBtn.classList.remove("active");
+      segPane.classList.add("active");
+      videoPane.classList.remove("active");
+    }
+  }
+  window.switchProofreadMobileTab = switchProofreadMobileTab;
 </script>
 
 <!-- Glossary Apply Modal -->
