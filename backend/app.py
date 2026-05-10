@@ -3222,6 +3222,28 @@ def streaming_available():
     })
 
 
+def _boot_socketio() -> None:
+    """R5 Phase 2 — boot wrapper extracted so tests can verify the
+    ssl_context wiring without spawning a real server."""
+    host = os.environ.get('BIND_HOST') or os.environ.get('FLASK_HOST') or '0.0.0.0'
+    port = int(os.environ.get('FLASK_PORT', '5001'))
+
+    kwargs = dict(host=host, port=port, debug=False, allow_unsafe_werkzeug=True)
+
+    # HTTPS opt-out via R5_HTTPS=0; otherwise auto-enable when cert pair
+    # present in R5_HTTPS_CERT_DIR (defaults to backend/data/certs).
+    if os.environ.get('R5_HTTPS') != '0':
+        cert_dir = Path(os.environ.get('R5_HTTPS_CERT_DIR',
+                                        str(DATA_DIR / 'certs')))
+        crt = cert_dir / 'server.crt'
+        key = cert_dir / 'server.key'
+        if crt.is_file() and key.is_file():
+            kwargs['ssl_context'] = (str(crt), str(key))
+            app.logger.info("HTTPS enabled with cert at %s", crt)
+
+    socketio.run(app, **kwargs)
+
+
 if __name__ == '__main__':
     print("=" * 60)
     print("MoTitle - Backend Server")
@@ -3253,6 +3275,4 @@ if __name__ == '__main__':
     # CORS is locked down to LAN-only origins via _is_lan_origin (see top of
     # this module). BIND_HOST=127.0.0.1 to scope to localhost; FLASK_HOST kept
     # as a backwards-compatible alias for any pre-R5 launcher.
-    host = os.environ.get('BIND_HOST') or os.environ.get('FLASK_HOST') or '0.0.0.0'
-    port = int(os.environ.get('FLASK_PORT', '5001'))
-    socketio.run(app, host=host, port=port, debug=False, allow_unsafe_werkzeug=True)
+    _boot_socketio()

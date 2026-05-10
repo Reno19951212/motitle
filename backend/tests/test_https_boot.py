@@ -22,3 +22,39 @@ def test_generate_cert_idempotent_skips_if_exists(tmp_path):
     crt2, key2 = generate_self_signed_cert(out_dir, common_name="x")
     assert crt1 == crt2 and key1 == key2
     assert crt2.stat().st_mtime == mtime1  # not re-generated
+
+
+def test_app_main_builds_ssl_context_when_certs_present(tmp_path, monkeypatch):
+    """When backend/data/certs/server.{crt,key} exist + R5_HTTPS != '0',
+    socketio.run is called with ssl_context=(crt, key)."""
+    from scripts.generate_https_cert import generate_self_signed_cert
+    crt, key = generate_self_signed_cert(tmp_path / "certs")
+
+    monkeypatch.setenv("AUTH_DB_PATH", str(tmp_path / "app.db"))
+    monkeypatch.setenv("FLASK_SECRET_KEY", "test")
+    # Point cert resolution at our tmp_path
+    monkeypatch.setenv("R5_HTTPS_CERT_DIR", str(tmp_path / "certs"))
+
+    captured = {}
+    import app
+    monkeypatch.setattr(app.socketio, "run",
+                        lambda *a, **kw: captured.setdefault("kw", kw))
+    # Re-execute the boot-time block via a small helper that the
+    # implementation will expose.
+    app._boot_socketio()  # NEW helper (Task E4)
+    assert "ssl_context" in captured["kw"]
+    ctx = captured["kw"]["ssl_context"]
+    assert (str(ctx[0]), str(ctx[1])) == (str(crt), str(key))
+
+
+def test_r5_https_disabled_skips_ssl_even_if_certs_present(tmp_path, monkeypatch):
+    from scripts.generate_https_cert import generate_self_signed_cert
+    generate_self_signed_cert(tmp_path / "certs")
+    monkeypatch.setenv("R5_HTTPS_CERT_DIR", str(tmp_path / "certs"))
+    monkeypatch.setenv("R5_HTTPS", "0")  # explicit opt-out
+    captured = {}
+    import app
+    monkeypatch.setattr(app.socketio, "run",
+                        lambda *a, **kw: captured.setdefault("kw", kw))
+    app._boot_socketio()
+    assert "ssl_context" not in captured["kw"]
