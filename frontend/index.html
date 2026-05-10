@@ -1212,6 +1212,22 @@
   <link rel="stylesheet" href="css/responsive.css">
 </head>
 <body>
+<!-- R5 Phase 4 — mobile sidebar drawer (off-canvas) -->
+<div id="mobileSidebarOverlay" data-testid="mobile-sidebar-overlay"
+     onclick="closeMobileDrawer()"></div>
+<div id="mobileSidebarDrawer" data-testid="mobile-sidebar-drawer">
+  <!-- Mobile drawer content: pipeline preset selector + profile menu + queue panel -->
+  <!-- For Phase 4 we keep this minimal — link to admin / settings / logout -->
+  <div style="padding:16px;">
+    <h2 style="margin:0 0 12px;font-size:14px;color:var(--text-mid);">選單</h2>
+    <a href="/" style="display:block;padding:8px 0;color:var(--text);text-decoration:none;">📁 檔案管理</a>
+    <a href="/proofread.html" style="display:block;padding:8px 0;color:var(--text);text-decoration:none;">✏️ 校對</a>
+    <a id="mobileDrawerAdminLink" href="/admin.html" style="display:none;padding:8px 0;color:var(--text);text-decoration:none;">⚙ 管理</a>
+    <hr style="border:0;border-top:1px solid var(--border);margin:12px 0;">
+    <button onclick="logout()" style="background:none;border:0;color:var(--text-mid);cursor:pointer;padding:8px 0;font:inherit;">登出</button>
+  </div>
+</div>
+
   <div class="app" id="app">
     <div class="bold">
 
@@ -1233,6 +1249,9 @@
 
         <!-- Topbar -->
         <div class="b-topbar">
+          <button id="mobileHamburgerBtn" data-testid="mobile-hamburger"
+                  style="background:none;border:0;color:var(--text-mid);cursor:pointer;font-size:20px;padding:0 8px;align-items:center;"
+                  title="選單" onclick="toggleMobileDrawer()">☰</button>
           <div class="search">
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="4"/><path d="M10 10l3 3"/></svg>
             <span>搜尋檔案、術語、Profile…</span>
@@ -4548,10 +4567,24 @@
           u.username + (u.is_admin ? " (admin)" : "");
         if (u.is_admin) {
           document.getElementById("adminLink").style.display = "inline";
+          document.getElementById("mobileDrawerAdminLink").style.display = "block";
         }
       }
     });
     document.getElementById("userChipLogout").addEventListener("click", logout);
+
+    function toggleMobileDrawer() {
+      const drawer = document.getElementById("mobileSidebarDrawer");
+      const overlay = document.getElementById("mobileSidebarOverlay");
+      drawer.classList.toggle("open");
+      overlay.classList.toggle("open");
+    }
+    function closeMobileDrawer() {
+      document.getElementById("mobileSidebarDrawer").classList.remove("open");
+      document.getElementById("mobileSidebarOverlay").classList.remove("open");
+    }
+    window.toggleMobileDrawer = toggleMobileDrawer;
+    window.closeMobileDrawer = closeMobileDrawer;
   </script>
 
   <!-- R5 Phase 1 — job queue panel auto-refresh -->
