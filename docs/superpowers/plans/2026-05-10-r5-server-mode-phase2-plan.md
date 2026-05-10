@@ -70,7 +70,7 @@
 **Files:**
 - Modify: `docs/superpowers/r5-shared-contracts.md`
 
-- [ ] **Step 1: Append Phase 2 rows to API table**
+- [x] **Step 1: Append Phase 2 rows to API table** ✅ Done (commit c97c92b — 4 lines added: 2 endpoint rows + 2 default-value bullets)
 
 Add after the existing `/api/files` row:
 
@@ -86,7 +86,7 @@ Also append to "Default values" section:
 - Translate concurrency (Phase 2): MT worker pool stays at 3 — matches D3 spec. ASR pool stays at 1.
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit** ✅ Done (commit c97c92b)
 
 ```bash
 git add docs/superpowers/r5-shared-contracts.md
