@@ -1,7 +1,14 @@
+import os
 import sys
 from pathlib import Path
 
 import pytest
+
+# R5 Phase 5 T1.3 — app.py raises RuntimeError on import if FLASK_SECRET_KEY
+# is unset or is the placeholder. Set a non-placeholder test value before any
+# `import app` happens. Tests that need to verify the boot-time check can
+# still monkeypatch.delenv() and force a reload (see test_phase5_security).
+os.environ.setdefault("FLASK_SECRET_KEY", "test-secret-only-for-pytest-do-not-deploy")
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 

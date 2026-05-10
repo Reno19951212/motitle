@@ -63,6 +63,50 @@ def test_socketio_connect_handler_registered():
         "T1.2 — must register @socketio.on('connect') for auth gate"
 
 
+# ---------------------------------------------------------------------------
+# T1.3 — FLASK_SECRET_KEY required at boot
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def _restore_app_module():
+    """Snapshot sys.modules['app'] (and a couple of related modules) so that
+    tests which `del sys.modules['app']` to force re-import don't poison
+    every downstream test that uses ``from app import ...``."""
+    import sys
+    snapshot = {}
+    for name in ("app", "auth.routes", "auth.admin", "auth.audit",
+                 "jobqueue.routes"):
+        if name in sys.modules:
+            snapshot[name] = sys.modules[name]
+    yield
+    # Restore originals; drop any new entries the test may have created.
+    for name in list(sys.modules.keys()):
+        if name == "app" or name.startswith("auth.") or name.startswith("jobqueue."):
+            sys.modules.pop(name, None)
+    sys.modules.update(snapshot)
+
+
+def test_app_refuses_to_boot_without_flask_secret_key(monkeypatch, _restore_app_module):
+    """T1.3 — must raise RuntimeError if FLASK_SECRET_KEY env not set."""
+    monkeypatch.delenv("FLASK_SECRET_KEY", raising=False)
+    import sys
+    sys.modules.pop("app", None)
+    with pytest.raises(RuntimeError, match="FLASK_SECRET_KEY"):
+        import importlib
+        importlib.import_module("app")
+
+
+def test_app_refuses_placeholder_secret(monkeypatch, _restore_app_module):
+    """T1.3 — placeholder string is treated as missing."""
+    monkeypatch.setenv("FLASK_SECRET_KEY", "change-me-on-first-deploy")
+    import sys
+    sys.modules.pop("app", None)
+    with pytest.raises(RuntimeError, match="change-me"):
+        import importlib
+        importlib.import_module("app")
+
+
 def test_socketio_connect_rejects_unauthenticated(monkeypatch):
     """T1.2 — anonymous SocketIO client must be rejected at connect time.
 

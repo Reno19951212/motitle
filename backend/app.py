@@ -88,9 +88,19 @@ except ImportError:
 
 # Initialize Flask app
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get(
-    'FLASK_SECRET_KEY', 'change-me-on-first-deploy'
-)
+# R5 Phase 5 T1.3: FLASK_SECRET_KEY is required. A weak or absent secret
+# means session cookies can be forged, so we refuse to boot rather than
+# silently using the placeholder.
+_PLACEHOLDER_SECRET = "change-me-on-first-deploy"
+_secret_key = os.environ.get("FLASK_SECRET_KEY")
+if not _secret_key or _secret_key == _PLACEHOLDER_SECRET:
+    raise RuntimeError(
+        "R5 Phase 5 T1.3: FLASK_SECRET_KEY env var is REQUIRED. "
+        "Run ./setup-mac.sh / setup-win.ps1 / setup-linux-gb10.sh to generate one, "
+        "or export FLASK_SECRET_KEY=$(python -c 'import secrets; print(secrets.token_hex(32))'). "
+        f"Placeholder '{_PLACEHOLDER_SECRET}' is rejected for safety."
+    )
+app.config['SECRET_KEY'] = _secret_key
 app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024 * 1024  # 5GB max upload (broadcast MXF masters)
 
 _LAN_NETS = [
