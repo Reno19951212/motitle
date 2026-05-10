@@ -983,6 +983,11 @@ def serve_frontend_js(filename):
     return send_from_directory(str(Path(_FRONTEND_DIR) / "js"), filename)
 
 
+@app.get("/css/<path:filename>")
+def serve_frontend_css(filename):
+    return send_from_directory(str(Path(_FRONTEND_DIR) / "css"), filename)
+
+
 @app.get("/admin.html")
 def serve_admin_page():
     """R5 Phase 3 — admin-only page. Non-admins get 403; anonymous gets 302 to login."""

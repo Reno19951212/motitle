@@ -1,0 +1,96 @@
+/* frontend/css/responsive.css — R5 Phase 4 mobile/tablet breakpoints. */
+
+/* === Tablet (≤1024px) === */
+@media (max-width: 1024px) {
+  .b-topbar {
+    grid-template-columns: 1fr auto auto !important;
+  }
+  .b-topbar .search { display: none; }  /* search collapses to icon-only on tablet */
+  .b-body {
+    grid-template-columns: 280px 1fr !important;  /* narrower sidebar */
+  }
+}
+
+/* === Mobile (≤768px) === */
+@media (max-width: 768px) {
+  .b-topbar {
+    grid-template-columns: auto 1fr auto !important;
+    padding: 8px 12px !important;
+  }
+  .b-topbar .topbar-mid { display: none; }  /* hide pipeline strip + run button on mobile */
+
+  /* Sidebar collapses to off-canvas drawer */
+  .b-body {
+    display: block !important;
+  }
+  #mobileSidebarDrawer {
+    display: block;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 280px; max-width: 80vw;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    z-index: 100;
+    overflow-y: auto;
+  }
+  #mobileSidebarDrawer.open { transform: translateX(0); }
+  #mobileSidebarOverlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 99;
+  }
+  #mobileSidebarOverlay.open { display: block; }
+  #mobileHamburgerBtn { display: inline-flex; }
+
+  /* File-cards stack instead of side-by-side */
+  .b-col {
+    display: block !important;
+  }
+}
+
+/* Desktop default — hide mobile-only chrome */
+#mobileSidebarDrawer,
+#mobileSidebarOverlay { display: none; }
+#mobileHamburgerBtn { display: none; }
+
+
+/* === Proofread mobile (≤768px) === */
+@media (max-width: 768px) {
+  .proofread-layout {
+    display: block !important;  /* drop the side-by-side grid */
+  }
+  .proofread-mobile-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+  }
+  .proofread-mobile-tabs button {
+    flex: 1;
+    padding: 12px;
+    background: none;
+    border: 0;
+    color: var(--text-mid);
+    font: inherit;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+  }
+  .proofread-mobile-tabs button.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .proofread-video-pane,
+  .proofread-segments-pane {
+    display: none;
+  }
+  .proofread-video-pane.active,
+  .proofread-segments-pane.active {
+    display: block;
+  }
+}
+
+/* Default (>768px): hide mobile-only proofread chrome */
+.proofread-mobile-tabs { display: none; }
+.proofread-video-pane,
+.proofread-segments-pane { display: block; }
