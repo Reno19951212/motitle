@@ -18,3 +18,6 @@ opencc-python-reimplemented>=0.1.7
 whisper-streaming>=0.1.0
 librosa>=0.10.0
 soundfile>=0.12.0
+# R5 Phase 1: server mode auth + password hashing
+Flask-Login==0.6.3
+bcrypt==4.1.2

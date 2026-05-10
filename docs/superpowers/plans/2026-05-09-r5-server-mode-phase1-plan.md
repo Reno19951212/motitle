@@ -184,7 +184,7 @@ git commit -m "feat(r5): initial shared contracts for Phase 1 MVP"
 **Teammate:** ralph-backend
 **Files:** Modify `backend/requirements.txt`
 
-- [ ] **Step 1: Append dependencies**
+- [x] **Step 1: Append dependencies** ✅ Done iteration 2
 
 Add these lines to `backend/requirements.txt`:
 ```
@@ -192,14 +192,14 @@ Flask-Login==0.6.3
 bcrypt==4.1.2
 ```
 
-- [ ] **Step 2: Install in venv**
+- [x] **Step 2: Install in venv** ✅ Done iteration 2
 
 ```bash
 cd backend && source venv/bin/activate && pip install Flask-Login==0.6.3 bcrypt==4.1.2
 ```
 Expected: both packages install cleanly.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit** ✅ Done iteration 2
 
 ```bash
 git add backend/requirements.txt
