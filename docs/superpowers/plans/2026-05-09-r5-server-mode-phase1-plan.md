@@ -930,7 +930,7 @@ git commit -m "feat(r5): @login_required / @require_file_owner / @admin_required
 **Teammate:** ralph-backend
 **Files:** Modify `backend/app.py`
 
-- [ ] **Step 1: Add init at module level**
+- [x] **Step 1: Add init at module level** ✅ Done iteration 5 (also replaced existing hardcoded `'whisper-secret-key'` with `FLASK_SECRET_KEY` env binding; AUTH_DB_PATH default uses absolute path under `DATA_DIR` to avoid CWD issues)
 
 In `backend/app.py`, near where Flask app is created, add:
 
@@ -975,7 +975,7 @@ def _bootstrap_admin_if_needed():
 _bootstrap_admin_if_needed()
 ```
 
-- [ ] **Step 2: Run a smoke test**
+- [x] **Step 2: Run a smoke test** ✅ Done iteration 5 — login bogus → 401 invalid_credentials, /api/me unauth → 401 unauthorized, /api/health → 200 (no crash)
 
 ```bash
 cd backend && source venv/bin/activate && python -c "
@@ -990,14 +990,14 @@ print('login response:', r.status_code, r.data[:80])
 ```
 Expected: `login response: 401 b'{"error":"invalid credentials"}'` (no crash, route registered).
 
-- [ ] **Step 3: Run full pytest**
+- [x] **Step 3: Run full pytest** ✅ Done iteration 5 — 543 pass + 1 baseline (no regression)
 
 ```bash
 pytest tests/ -q --ignore=tests/test_e2e_render.py 2>&1 | tail -5
 ```
 Expected: existing 521 tests still pass + 18 new auth tests = 539+ pass.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit** ✅ Done iteration 5 (commit 3a9c36f)
 
 ```bash
 git add backend/app.py
