@@ -2450,7 +2450,7 @@ git commit -m "feat(r5): queue panel in dashboard sidebar with auto-refresh"
 **Teammate:** ralph-tester
 **Files:** Existing `frontend/tests/test_login_flow.spec.js`
 
-- [ ] **Step 1: Bootstrap admin user**
+- [x] **Step 1: Bootstrap admin user** ✅ Done iteration 21 — `ADMIN_BOOTSTRAP_PASSWORD=admin` env triggers `_bootstrap_admin_if_needed()` at app import; verified admin id=1 is_admin=True
 
 ```bash
 cd backend && source venv/bin/activate && \
@@ -2458,21 +2458,21 @@ cd backend && source venv/bin/activate && \
   echo "Admin bootstrapped"
 ```
 
-- [ ] **Step 2: Start server**
+- [x] **Step 2: Start server** ✅ Done iteration 21 — port 5001 was held by user's existing dev instance, so added `FLASK_PORT` env override to app.py and ran on 5002
 
 ```bash
 cd backend && source venv/bin/activate && python app.py &
 sleep 3
 ```
 
-- [ ] **Step 3: Run Playwright**
+- [x] **Step 3: Run Playwright** ✅ Done iteration 21 — `BASE_URL=http://localhost:5002 npx playwright test test_login_flow.spec.js` → **1 passed (2.5s)** against Chromium
 
 ```bash
 cd frontend && npx playwright test test_login_flow.spec.js
 ```
 Expected: 1 passed.
 
-- [ ] **Step 4: Stop server + commit**
+- [x] **Step 4: Stop server + commit** ✅ Done iteration 21 (commit 90437aa) — server killed via lsof+kill (clean exit 143)
 
 ```bash
 kill %1
