@@ -1,5 +1,6 @@
 # backend/auth/admin.py
 """Admin-only user management routes (R5 Phase 3)."""
+import sqlite3
 from flask import Blueprint, jsonify, request, current_app
 from flask_login import current_user
 
@@ -12,6 +13,78 @@ from auth.audit import log_audit
 
 
 bp = Blueprint("admin", __name__)
+
+
+# R5 Phase 5 T2.7 — atomic guards.
+#
+# The check-then-write pattern (count_admins → UPDATE/DELETE) was vulnerable
+# to a race where two admins concurrently demote / delete each other and both
+# observe count_admins == 2 at check time. BEGIN IMMEDIATE acquires a write
+# lock at transaction start so the second demote serializes after the first
+# and observes count_admins == 1.
+
+def _atomic_set_admin(db_path: str, user_id: int, new_admin: bool) -> None:
+    """Atomic check-and-flip of is_admin.
+
+    Raises ``ValueError`` if the operation would leave zero admins or the
+    target user does not exist. Otherwise commits the change.
+    """
+    conn = sqlite3.connect(db_path, isolation_level=None)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        target_row = conn.execute(
+            "SELECT is_admin FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+        if target_row is None:
+            conn.execute("ROLLBACK")
+            raise ValueError(f"user {user_id} not found")
+        currently_admin = bool(target_row[0])
+
+        if not new_admin and currently_admin:
+            n = conn.execute(
+                "SELECT COUNT(*) FROM users WHERE is_admin = 1"
+            ).fetchone()[0]
+            if n <= 1:
+                conn.execute("ROLLBACK")
+                raise ValueError("cannot demote the last admin")
+
+        conn.execute(
+            "UPDATE users SET is_admin = ? WHERE id = ?",
+            (1 if new_admin else 0, user_id),
+        )
+        conn.execute("COMMIT")
+    finally:
+        conn.close()
+
+
+def _atomic_delete_user(db_path: str, user_id: int) -> str:
+    """Atomic delete with last-admin guard. Returns the deleted username
+    on success, or raises ``ValueError`` (user not found / would leave
+    zero admins)."""
+    conn = sqlite3.connect(db_path, isolation_level=None)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute(
+            "SELECT username, is_admin FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+        if row is None:
+            conn.execute("ROLLBACK")
+            raise ValueError(f"user {user_id} not found")
+        username, was_admin = row[0], bool(row[1])
+
+        if was_admin:
+            n = conn.execute(
+                "SELECT COUNT(*) FROM users WHERE is_admin = 1"
+            ).fetchone()[0]
+            if n <= 1:
+                conn.execute("ROLLBACK")
+                raise ValueError("cannot delete the last admin")
+
+        conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.execute("COMMIT")
+        return username
+    finally:
+        conn.close()
 
 
 @bp.get("/api/admin/users")
@@ -51,12 +124,17 @@ def delete_user_route(user_id):
         return jsonify({"error": "not found"}), 404
     if target["id"] == current_user.id:
         return jsonify({"error": "cannot delete yourself"}), 403
-    if target["is_admin"] and count_admins(db) <= 1:
-        return jsonify({"error": "cannot delete the last admin"}), 403
-    delete_user(db, target["username"])
+    # R5 Phase 5 T2.7: atomic last-admin guard via BEGIN IMMEDIATE.
+    try:
+        username = _atomic_delete_user(db, user_id)
+    except ValueError as e:
+        msg = str(e)
+        if "not found" in msg:
+            return jsonify({"error": "not found"}), 404
+        return jsonify({"error": msg}), 403
     log_audit(db, actor_id=current_user.id, action="user.delete",
               target_kind="user", target_id=str(user_id),
-              details={"username": target["username"]})
+              details={"username": username})
     return jsonify({"ok": True}), 200
 
 
@@ -85,10 +163,16 @@ def toggle_admin_route(user_id):
     if not target:
         return jsonify({"error": "not found"}), 404
     new_state = not target["is_admin"]
-    # Guard: demoting the last admin (whether self or not)
-    if not new_state and target["is_admin"] and count_admins(db) <= 1:
-        return jsonify({"error": "cannot demote the last admin"}), 403
-    set_admin(db, target["username"], new_state)
+    # R5 Phase 5 T2.7: atomic last-admin guard. Concurrent demote attempts
+    # serialize on BEGIN IMMEDIATE so the second one observes count=1 and
+    # rolls back instead of leaving zero admins.
+    try:
+        _atomic_set_admin(db, user_id, new_state)
+    except ValueError as e:
+        msg = str(e)
+        if "not found" in msg:
+            return jsonify({"error": "not found"}), 404
+        return jsonify({"error": msg}), 403
     log_audit(db, actor_id=current_user.id, action="user.toggle_admin",
               target_kind="user", target_id=str(user_id),
               details={"new_state": new_state})
