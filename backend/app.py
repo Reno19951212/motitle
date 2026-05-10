@@ -86,7 +86,9 @@ except ImportError:
 
 # Initialize Flask app
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'whisper-secret-key'
+app.config['SECRET_KEY'] = os.environ.get(
+    'FLASK_SECRET_KEY', 'change-me-on-first-deploy'
+)
 app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024 * 1024  # 5GB max upload (broadcast MXF masters)
 
 CORS(app, origins="*")
@@ -104,6 +106,49 @@ RENDERS_DIR = DATA_DIR / "renders"
 RENDERS_DIR.mkdir(parents=True, exist_ok=True)
 _subtitle_renderer = SubtitleRenderer(RENDERS_DIR)
 _render_jobs = {}
+
+# Auth setup (R5 Phase 1) — bootstrap SQLite users table, register Flask-Login,
+# wire auth blueprint, optionally bootstrap an admin user from env on first run.
+from auth.users import init_db as _auth_init_db, get_user_by_id as _auth_get_user_by_id, create_user as _auth_create_user
+from auth.routes import bp as auth_bp, _LoginUser
+from flask_login import LoginManager
+
+AUTH_DB_PATH = os.environ.get(
+    'AUTH_DB_PATH', str(DATA_DIR / 'app.db')
+)
+app.config['AUTH_DB_PATH'] = AUTH_DB_PATH
+_auth_init_db(AUTH_DB_PATH)
+
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.unauthorized_handler(lambda: ({'error': 'unauthorized'}, 401))
+
+
+@login_manager.user_loader
+def _load_user(uid: str):
+    u = _auth_get_user_by_id(AUTH_DB_PATH, int(uid))
+    return _LoginUser(u) if u else None
+
+
+app.register_blueprint(auth_bp)
+
+
+def _bootstrap_admin_if_needed():
+    """Create admin user from ADMIN_BOOTSTRAP_PASSWORD env var if absent.
+
+    Phase 1 helper. Phase 2 will replace this with an explicit setup script
+    that prompts interactively.
+    """
+    from auth.users import get_user_by_username
+    if get_user_by_username(AUTH_DB_PATH, 'admin') is None:
+        admin_pw = os.environ.get('ADMIN_BOOTSTRAP_PASSWORD')
+        if admin_pw:
+            _auth_create_user(AUTH_DB_PATH, 'admin', admin_pw, is_admin=True)
+            app.logger.info('Bootstrapped admin user from ADMIN_BOOTSTRAP_PASSWORD env')
+
+
+_bootstrap_admin_if_needed()
+
 
 # Profile management
 CONFIG_DIR = Path(__file__).parent / "config"
