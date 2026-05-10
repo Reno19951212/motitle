@@ -1403,8 +1403,12 @@ def api_translate_file():
 @login_required
 def api_list_glossaries():
     """List all glossaries (summaries, no entries)."""
-    summaries = _glossary_manager.list_all()
-    return jsonify({"glossaries": summaries})
+    if app.config.get("R5_AUTH_BYPASS"):
+        return jsonify({"glossaries": _glossary_manager.list_all()})
+    return jsonify({"glossaries": _glossary_manager.list_visible(
+        user_id=current_user.id,
+        is_admin=current_user.is_admin,
+    )})
 
 
 @app.route('/api/glossaries', methods=['POST'])
@@ -1415,6 +1419,15 @@ def api_create_glossary():
     if not data:
         return jsonify({"error": "Request body must be JSON"}), 400
     try:
+        # R5 Phase 3: non-admin always creates owned glossaries; admin creates
+        # shared by default (user_id=null) — admin can override by passing
+        # user_id explicitly in body. Bypass path (test harness) leaves
+        # user_id unchanged so existing tests keep working.
+        if not app.config.get("R5_AUTH_BYPASS"):
+            if not current_user.is_admin:
+                data = {**data, "user_id": current_user.id}
+            elif "user_id" not in data:
+                data = {**data, "user_id": None}
         glossary = _glossary_manager.create(data)
         return jsonify(glossary), 201
     except ValueError as e:
@@ -1435,6 +1448,10 @@ def api_get_glossary(glossary_id):
 @login_required
 def api_update_glossary(glossary_id):
     """Update glossary name and/or description."""
+    if not app.config.get("R5_AUTH_BYPASS") and not _glossary_manager.can_edit(
+        glossary_id, current_user.id, current_user.is_admin
+    ):
+        return jsonify({"error": "forbidden"}), 403
     data = request.get_json(silent=True)
     if not data:
         return jsonify({"error": "Request body must be JSON"}), 400
@@ -1451,6 +1468,10 @@ def api_update_glossary(glossary_id):
 @login_required
 def api_delete_glossary(glossary_id):
     """Delete a glossary."""
+    if not app.config.get("R5_AUTH_BYPASS") and not _glossary_manager.can_edit(
+        glossary_id, current_user.id, current_user.is_admin
+    ):
+        return jsonify({"error": "forbidden"}), 403
     deleted = _glossary_manager.delete(glossary_id)
     if not deleted:
         return jsonify({"error": "Glossary not found"}), 404
@@ -1461,6 +1482,10 @@ def api_delete_glossary(glossary_id):
 @login_required
 def api_add_entry(glossary_id):
     """Add an entry to a glossary."""
+    if not app.config.get("R5_AUTH_BYPASS") and not _glossary_manager.can_edit(
+        glossary_id, current_user.id, current_user.is_admin
+    ):
+        return jsonify({"error": "forbidden"}), 403
     data = request.get_json(silent=True)
     if not data:
         return jsonify({"error": "Request body must be JSON"}), 400
@@ -1477,6 +1502,10 @@ def api_add_entry(glossary_id):
 @login_required
 def api_update_entry(glossary_id, entry_id):
     """Update a single entry within a glossary."""
+    if not app.config.get("R5_AUTH_BYPASS") and not _glossary_manager.can_edit(
+        glossary_id, current_user.id, current_user.is_admin
+    ):
+        return jsonify({"error": "forbidden"}), 403
     data = request.get_json(silent=True)
     if not data:
         return jsonify({"error": "Request body must be JSON"}), 400
@@ -1493,6 +1522,10 @@ def api_update_entry(glossary_id, entry_id):
 @login_required
 def api_delete_entry(glossary_id, entry_id):
     """Delete a single entry from a glossary."""
+    if not app.config.get("R5_AUTH_BYPASS") and not _glossary_manager.can_edit(
+        glossary_id, current_user.id, current_user.is_admin
+    ):
+        return jsonify({"error": "forbidden"}), 403
     updated = _glossary_manager.delete_entry(glossary_id, entry_id)
     if updated is None:
         return jsonify({"error": "Glossary not found"}), 404
@@ -1503,6 +1536,10 @@ def api_delete_entry(glossary_id, entry_id):
 @login_required
 def api_import_glossary_csv(glossary_id):
     """Import entries from CSV text (JSON body with csv_content field)."""
+    if not app.config.get("R5_AUTH_BYPASS") and not _glossary_manager.can_edit(
+        glossary_id, current_user.id, current_user.is_admin
+    ):
+        return jsonify({"error": "forbidden"}), 403
     data = request.get_json(silent=True)
     if not data or "csv_content" not in data:
         return jsonify({"error": "Request body must include csv_content"}), 400
@@ -1516,6 +1553,10 @@ def api_import_glossary_csv(glossary_id):
 @login_required
 def api_export_glossary_csv(glossary_id):
     """Export glossary entries as CSV text."""
+    if not app.config.get("R5_AUTH_BYPASS") and not _glossary_manager.can_edit(
+        glossary_id, current_user.id, current_user.is_admin
+    ):
+        return jsonify({"error": "forbidden"}), 403
     csv_text = _glossary_manager.export_csv(glossary_id)
     if csv_text is None:
         return jsonify({"error": "Glossary not found"}), 404

@@ -176,6 +176,7 @@ class GlossaryManager:
             "description": data.get("description", ""),
             "entries": list(data.get("entries") or []),
             "created_at": time.time(),
+            "user_id": data.get("user_id"),
         }
         self._write_glossary(glossary_id, glossary)
         return glossary
@@ -208,6 +209,36 @@ class GlossaryManager:
             except (json.JSONDecodeError, OSError):
                 continue
         return sorted(summaries, key=lambda g: (g.get("name") or "").lower())
+
+    def list_visible(self, user_id: int, is_admin: bool) -> list:
+        """Return glossaries visible to this user.
+
+        - Admin sees everything.
+        - Non-admin sees shared (user_id=None) + their own (user_id matches).
+        """
+        all_glossaries = self.list_all()
+        if is_admin:
+            return all_glossaries
+        return [
+            g for g in all_glossaries
+            if g.get("user_id") is None or g.get("user_id") == user_id
+        ]
+
+    def can_edit(self, glossary_id: str, user_id: int, is_admin: bool) -> bool:
+        """True if this user can edit the given glossary.
+
+        - Admin can edit any (including shared).
+        - Non-admin can edit own glossaries only (not shared, not others').
+        """
+        if is_admin:
+            return True
+        g = self.get(glossary_id)
+        if not g:
+            return False
+        owner = g.get("user_id")
+        if owner is None:
+            return False  # shared — admins only
+        return owner == user_id
 
     def update(self, glossary_id: str, data: dict) -> Optional[dict]:
         """
