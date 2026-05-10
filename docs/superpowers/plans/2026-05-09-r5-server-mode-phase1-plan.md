@@ -1817,7 +1817,7 @@ git commit -m "feat(r5): wire JobQueue boot + handlers into app.py"
 **Teammate:** ralph-backend
 **Files:** Modify `backend/app.py`
 
-- [ ] **Step 1: Locate `/api/transcribe` handler, change to enqueue path**
+- [x] **Step 1: Locate `/api/transcribe` handler, change to enqueue path** ✅ Done iteration 11 — `_register_file` accepts `user_id` kwarg, /api/transcribe stamps `current_user.id`, drops `do_transcribe` thread, enqueues + returns 202 with `{file_id, job_id, status:queued, queue_position, filename}`
 
 ```python
 # Existing /api/transcribe handler — modify the body
@@ -1845,17 +1845,17 @@ def api_transcribe():
     }), 202  # Accepted
 ```
 
-- [ ] **Step 2: Update transcribe_with_segments() signature to accept user_id**
+- [x] **Step 2: Update transcribe_with_segments() signature to accept user_id** ✅ Done iteration 11 — added `file_id=None, job_user_id=None` kwargs; when both set, writes user_id under `_registry_lock`. Note: full registry result-merge from queue path remains Phase 2 (legacy do_transcribe still wraps re-transcribe / sync routes)
 
 Find `def transcribe_with_segments(...)` and add `job_user_id` kwarg. Use it to set `_file_registry[file_id]["user_id"] = job_user_id` so subsequent ownership lookups work.
 
-- [ ] **Step 3: Run smoke test**
+- [x] **Step 3: Run smoke test** ✅ Done iteration 11 — login → POST /api/transcribe → 202 + body `{"file_id":"...","filename":"...","job_id":"...","queue_position":0,"status":"queued"}`
 
 ```bash
 pytest tests/ -q --ignore=tests/test_e2e_render.py 2>&1 | tail -5
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit** ✅ Done iteration 11 (commit 0f45f1b)
 
 ```bash
 git add backend/app.py
