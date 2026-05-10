@@ -257,6 +257,31 @@ def _save_registry():
         json.dump(_file_registry, f, ensure_ascii=False, indent=2)
 
 
+def _user_upload_dir(user_id: int) -> Path:
+    """Per-user uploads directory (R5 Phase 1).
+
+    Creates `data/users/<uid>/uploads/` lazily. New uploads land here so
+    storage layout is owner-scoped. Legacy files at UPLOAD_DIR root are
+    still readable — see _resolve_file_path() for the lookup chain.
+    """
+    p = DATA_DIR / "users" / str(user_id) / "uploads"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def _resolve_file_path(entry: dict) -> str:
+    """Return the on-disk path for a registry entry.
+
+    Prefers the per-user `file_path` recorded at save time (R5+); falls
+    back to the legacy UPLOAD_DIR root layout for entries created before
+    Phase 1 (which only stored `stored_name`).
+    """
+    fp = entry.get('file_path')
+    if fp and os.path.exists(fp):
+        return fp
+    return str(UPLOAD_DIR / entry['stored_name'])
+
+
 def _filter_files_by_owner(registry: dict, user) -> dict:
     """Return registry subset visible to current user (R5 Phase 1).
 
@@ -273,16 +298,20 @@ def _filter_files_by_owner(registry: dict, user) -> dict:
     }
 
 
-def _register_file(file_id, original_name, stored_name, size_bytes, user_id=None):
+def _register_file(file_id, original_name, stored_name, size_bytes, user_id=None,
+                   file_path=None):
     """Register an uploaded file. user_id is the owner (R5 Phase 1 — required
     once auth lands; defaults to None for backward compatibility with any
-    pre-R5 path that may still upload anonymously)."""
+    pre-R5 path that may still upload anonymously). file_path is the
+    absolute on-disk path (R5 Phase 1 — set when files land under
+    per-user dirs; legacy entries without it fall back to UPLOAD_DIR root)."""
     with _registry_lock:
         _file_registry[file_id] = {
             'id': file_id,
             'user_id': user_id,
             'original_name': original_name,
             'stored_name': stored_name,
+            'file_path': file_path,
             'size': size_bytes,
             'status': 'uploaded',  # uploaded | transcribing | done | error
             'uploaded_at': time.time(),
@@ -312,7 +341,7 @@ def _delete_file_entry(file_id):
         entry = _file_registry.pop(file_id, None)
         _save_registry()
     if entry:
-        media_path = UPLOAD_DIR / entry['stored_name']
+        media_path = Path(_resolve_file_path(entry))
         if media_path.exists():
             media_path.unlink()
     return entry is not None
@@ -2233,7 +2262,7 @@ def api_start_render():
                 warning_missing_zh += 1
 
     render_id = uuid.uuid4().hex[:12]
-    video_path = str(UPLOAD_DIR / entry["stored_name"])
+    video_path = _resolve_file_path(entry)
     # Map each logical render format to its container file extension so
     # MXF variants (xdcam_hd422, future imx, etc.) all produce plain .mxf
     # filenames instead of awkward '.mxf_xdcam_hd422' endings.
@@ -2530,15 +2559,15 @@ def transcribe_file():
 
     sid = request.form.get('sid', None)
 
-    # Generate a unique file id and save
+    # Generate a unique file id and save (R5 Phase 1: per-user dir layout)
     file_id = uuid.uuid4().hex[:12]
     stored_name = f"{file_id}{suffix}"
-    file_path = str(UPLOAD_DIR / stored_name)
+    file_path = str(_user_upload_dir(current_user.id) / stored_name)
     file.save(file_path)
 
     file_size = os.path.getsize(file_path)
     entry = _register_file(file_id, file.filename, stored_name, file_size,
-                           user_id=current_user.id)
+                           user_id=current_user.id, file_path=file_path)
 
     # Notify client about the new file
     if sid:
@@ -2580,7 +2609,7 @@ def re_transcribe_file(file_id):
     if not stored_name:
         return jsonify({'error': '原始檔案資料缺失'}), 400
 
-    file_path = str(UPLOAD_DIR / stored_name)
+    file_path = _resolve_file_path(entry)
     if not os.path.exists(file_path):
         return jsonify({'error': '原始視頻檔案已不存在於磁碟'}), 404
 
@@ -2730,7 +2759,7 @@ def serve_media(file_id):
     if not entry:
         return jsonify({'error': '文件不存在'}), 404
 
-    media_path = UPLOAD_DIR / entry['stored_name']
+    media_path = Path(_resolve_file_path(entry))
     if not media_path.exists():
         return jsonify({'error': '文件已丟失'}), 404
 
@@ -2764,7 +2793,7 @@ def get_waveform(file_id):
     if not entry:
         return jsonify({'error': '文件不存在'}), 404
 
-    media_path = UPLOAD_DIR / entry['stored_name']
+    media_path = Path(_resolve_file_path(entry))
     if not media_path.exists():
         return jsonify({'error': '文件已丟失'}), 404
 
