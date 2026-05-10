@@ -44,7 +44,7 @@ if sys.platform == "win32":
 
 import whisper
 import numpy as np
-from flask import Flask, request, jsonify, send_file, send_from_directory
+from flask import Flask, request, jsonify, send_file, send_from_directory, redirect
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 from profiles import ProfileManager
@@ -861,6 +861,29 @@ def serve_font(filename):
     if not (FONTS_DIR / filename).is_file():
         return jsonify({"error": "Font not found"}), 404
     return send_from_directory(str(FONTS_DIR), filename)
+
+
+# ============================================================
+# Frontend serving (R5 Phase 1)
+# ============================================================
+
+_FRONTEND_DIR = str(Path(__file__).parent.parent / "frontend")
+
+
+@app.get("/login.html")
+def serve_login_page():
+    """Public route — login page itself must be reachable without auth."""
+    return send_from_directory(_FRONTEND_DIR, "login.html")
+
+
+@app.get("/")
+def serve_index():
+    """Dashboard root. Redirect to /login.html when no session, otherwise
+    serve frontend/index.html. NOT decorated with @login_required because we
+    want a 302 to the login page rather than a 401."""
+    if not current_user.is_authenticated:
+        return redirect("/login.html")
+    return send_from_directory(_FRONTEND_DIR, "index.html")
 
 
 # ============================================================
