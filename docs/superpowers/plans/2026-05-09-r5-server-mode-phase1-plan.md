@@ -2116,7 +2116,7 @@ git commit -m "feat(r5): one-off migration script — backfill registry user_id 
 **Teammate:** ralph-backend
 **Files:** Modify `backend/app.py`
 
-- [ ] **Step 1: Change UPLOAD_DIR usage to per-user dirs**
+- [x] **Step 1: Change UPLOAD_DIR usage to per-user dirs** ✅ Done iteration 15 — added `_user_upload_dir(user_id)` + `_resolve_file_path(entry)` helpers; /api/transcribe saves under `data/users/<uid>/uploads/` and records absolute `file_path` in registry
 
 In `backend/app.py`, find UPLOAD_DIR usage and add a helper:
 
@@ -2131,15 +2131,15 @@ In `/api/transcribe` handler, save to `_user_upload_dir(current_user.id)` instea
 
 For backward compat: existing files at UPLOAD_DIR root remain accessible (don't move them — registry stores absolute path).
 
-- [ ] **Step 2: Update path lookups**
+- [x] **Step 2: Update path lookups** ✅ Done iteration 15 — registry now stores `file_path` (absolute) on new uploads; `_resolve_file_path(entry)` prefers it, falls back to `UPLOAD_DIR / stored_name` for legacy entries. Replaced 5 lookup sites: file deletion (DELETE /api/files/<id>), render input, re-transcribe, `/api/files/<id>/media`, `/api/files/<id>/waveform`. Left untouched: temp audio path (transient), /api/transcribe/sync (legacy dev endpoint).
 
 When reading `_file_registry[fid]["audio_path"]`, the path remains valid (absolute). No registry mutation needed.
 
-- [ ] **Step 3: Smoke test**
+- [x] **Step 3: Smoke test** ✅ Done iteration 15 — POST /api/transcribe → 202, file saved to `/Users/.../backend/data/users/1/uploads/<file_id>.mp4` confirmed on disk
 
 Upload a file via `/api/transcribe` (manual), verify it lands in `backend/data/users/<uid>/uploads/`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit** ✅ Done iteration 15 (commit 633b21a)
 
 ```bash
 git add backend/app.py
