@@ -24,6 +24,42 @@
 
 ---
 
+## 多用戶 Server Mode（R5 — Phase 1）
+
+由 single-user CLI 工具升級成 self-hosted multi-client server，畀 3-5 人小團隊（廣播台同事）喺 LAN 上共用同一部 server。
+
+### 一鍵安裝
+
+**macOS（Apple Silicon）**：
+```bash
+./setup-mac.sh
+source backend/.env && cd backend && source venv/bin/activate && python app.py
+```
+
+**Windows + NVIDIA**：
+```powershell
+.\setup-win.ps1
+.\backend\venv\Scripts\Activate.ps1
+python backend\app.py
+```
+
+兩個 script 都會：(1) 建 venv + 裝 ASR/翻譯依賴；(2) 互動 prompt 起 admin 用戶；(3) 生成 `FLASK_SECRET_KEY` 寫入 `backend/.env`（已 gitignore）。
+
+### Server 行為
+
+- Server 預設綁 `0.0.0.0:5001`，LAN 內其他 client 用 `http://<server-ip>:5001/` 存取（用 `BIND_HOST=127.0.0.1` 縮返 localhost-only）。
+- CORS 自動限制喺 LAN 私有 IP 段（10/8、172.16/12、192.168/16、loopback）— 公網 origin 一律拒絕，唔需要再喺 firewall 額外設防。
+- Auth 用 Flask-Login session cookie。所有 `/api/*` endpoint 要登入；`/api/files/<id>/*` 系列要 owner 或 admin 先 access 到。
+- Job queue：ASR 1 個並發（GPU bound）、translate/render 3 個並發；server 重啟後自動將 stuck `running` job 標 `failed` 重排。
+- 上傳檔案落 `backend/data/users/<uid>/uploads/<file_id>.<ext>`，按 owner 隔離。
+- DB 喺 `backend/data/app.db`（SQLite，gitignore）；admin 可以用 `python backend/scripts/migrate_registry_user_id.py` 將 pre-R5 文件回填到 admin 名下。
+
+### Phase 2 預告
+
+Phase 2 將會加：Linux/GB10 setup script、self-signed HTTPS、admin dashboard CRUD。Phase 1 嘅 LAN HTTP 部署足夠內網試用。
+
+---
+
 ## 系統需求
 
 - **Python** 3.8 或以上（推薦 3.11）
