@@ -48,14 +48,19 @@ class JobQueue:
         self._cancel_events: dict = {}
         self._cancel_events_lock = threading.Lock()
 
-        # Boot recovery — re-enqueue orphaned running jobs
+        # Boot recovery — re-enqueue orphaned running jobs.
+        # R5 Phase 5 T1.5: recover_orphaned_running already filters out any
+        # orphan whose attempt_count is at-or-past R5_MAX_JOB_RETRY, so the
+        # poison-pill cap is honored without further checks here. Pass
+        # parent_job_id so the new entry's attempt_count = parent + 1.
         orphans = recover_orphaned_running(db_path, auto_retry=True)
         if orphans:
             import logging
             logging.getLogger(__name__).warning(
                 "Recovered %d orphaned 'running' jobs; re-enqueuing", len(orphans))
             for o in orphans:
-                new_jid = insert_job(db_path, o["user_id"], o["file_id"], o["type"])
+                new_jid = insert_job(db_path, o["user_id"], o["file_id"], o["type"],
+                                     parent_job_id=o["id"])
                 if o["type"] == "asr":
                     self._asr_q.put(new_jid)
                 elif o["type"] in ("translate", "render"):
