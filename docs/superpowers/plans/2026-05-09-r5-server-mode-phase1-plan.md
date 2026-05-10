@@ -1600,7 +1600,7 @@ git commit -m "feat(r5): JobQueue class with ASR (1) + MT (3) workers"
 **Teammate:** ralph-tester
 **Files:** Create `backend/tests/test_queue_routes.py`
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test** ✅ Done iteration 9 (jobqueue.routes imports)
 
 ```python
 # backend/tests/test_queue_routes.py
@@ -1660,7 +1660,7 @@ def test_queue_returns_only_own_jobs_for_user(app_with_queue):
     assert len(body) == 1
 ```
 
-- [ ] **Step 2: Run test**
+- [x] **Step 2: Run test** ✅ Done iteration 9 — 2 errors with ModuleNotFoundError on jobqueue.routes
 
 ```bash
 pytest tests/test_queue_routes.py -v
@@ -1670,9 +1670,9 @@ Expected: FAIL — `queue.routes` not found.
 ### Task C6: Queue REST routes — GREEN
 
 **Teammate:** ralph-backend
-**Files:** Create `backend/queue/routes.py`
+**Files:** Create `backend/jobqueue/routes.py` (renamed from `queue/`)
 
-- [ ] **Step 1: Implement**
+- [x] **Step 1: Implement** ✅ Done iteration 9
 
 ```python
 # backend/queue/routes.py
@@ -1735,17 +1735,17 @@ def cancel_job(job_id):
     return jsonify({"ok": True}), 200
 ```
 
-- [ ] **Step 2: Run test**
+- [x] **Step 2: Run test** ✅ Done iteration 9 — 2/2 pass
 
 ```bash
 pytest tests/test_queue_routes.py -v
 ```
 Expected: 2 passed.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit** ✅ Done iteration 9 (commit 26618bc)
 
 ```bash
-git add backend/queue/routes.py backend/tests/test_queue_routes.py
+git add backend/jobqueue/routes.py backend/tests/test_queue_routes.py
 git commit -m "feat(r5): /api/queue list + DELETE /api/queue/<id> cancel"
 ```
 
