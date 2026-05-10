@@ -86,7 +86,7 @@
 **Files:**
 - Create: `docs/superpowers/r5-shared-contracts.md`
 
-- [ ] **Step 1: Write the file**
+- [x] **Step 1: Write the file** ✅ Done iteration 1
 
 ```markdown
 # R5 Shared Contracts (Phase 1)
@@ -168,7 +168,7 @@ CREATE INDEX idx_jobs_status_created ON jobs(status, created_at);
 - HTTPS: HTTP only on LAN for Phase 1; self-signed HTTPS is Phase 2 scope.
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit** ✅ Done iteration 1
 
 ```bash
 git add docs/superpowers/r5-shared-contracts.md
