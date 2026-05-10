@@ -2788,36 +2788,51 @@ def transcribe_sync():
 @app.route('/api/files', methods=['GET'])
 @login_required
 def list_files():
-    """List all uploaded files with their status (filtered by owner — R5 Phase 1).
+    """List uploaded files (R5 Phase 1 D2 owner filter; R5 Phase 4 active job_id join)."""
+    from jobqueue.db import list_jobs_for_user
+    from flask_login import current_user as cu
 
-    Admin sees all files. Other users see only files where `user_id` matches
-    `current_user.id`. Pre-R5 orphan files (user_id=None) are hidden from
-    non-admin users.
-    """
     files = []
     with _registry_lock:
-        visible = _filter_files_by_owner(_file_registry, current_user)
-        for fid, entry in visible.items():
-            translations = entry.get('translations') or []
-            seg_count = len(entry.get('segments', []))
-            approved_count = sum(1 for t in translations if t.get('status') == 'approved')
-            files.append({
-                'id': entry['id'],
-                'original_name': entry['original_name'],
-                'size': entry['size'],
-                'status': entry['status'],
-                'uploaded_at': entry['uploaded_at'],
-                'segment_count': seg_count,
-                'approved_count': approved_count,
-                'error': entry.get('error'),
-                'model': entry.get('model'),
-                'backend': entry.get('backend'),
-                'translation_status': entry.get('translation_status'),
-                'translation_engine': entry.get('translation_engine'),
-                'asr_seconds': entry.get('asr_seconds'),
-                'translation_seconds': entry.get('translation_seconds'),
-                'pipeline_seconds': entry.get('pipeline_seconds'),
-            })
+        visible = _filter_files_by_owner(_file_registry, cu)
+
+    # Build {file_id: job_id} map for active jobs (queued/running) of this user.
+    # Skip the lookup entirely under R5_AUTH_BYPASS (test mode) since cu has no .id.
+    job_id_by_file = {}
+    if not app.config.get("R5_AUTH_BYPASS"):
+        try:
+            db = app.config["AUTH_DB_PATH"]
+            for j in list_jobs_for_user(db, cu.id):
+                if j["status"] in ("queued", "running"):
+                    # Most recent wins — list_jobs_for_user returns DESC by created_at,
+                    # so the FIRST occurrence per file_id is the newest active job.
+                    job_id_by_file.setdefault(j["file_id"], j["id"])
+        except Exception:
+            # Don't break /api/files if jobs DB has trouble; just skip the join.
+            pass
+
+    for fid, entry in visible.items():
+        translations = entry.get('translations') or []
+        seg_count = len(entry.get('segments', []))
+        approved_count = sum(1 for t in translations if t.get('status') == 'approved')
+        files.append({
+            'id': entry['id'],
+            'original_name': entry['original_name'],
+            'size': entry['size'],
+            'status': entry['status'],
+            'uploaded_at': entry['uploaded_at'],
+            'segment_count': seg_count,
+            'approved_count': approved_count,
+            'error': entry.get('error'),
+            'model': entry.get('model'),
+            'backend': entry.get('backend'),
+            'translation_status': entry.get('translation_status'),
+            'translation_engine': entry.get('translation_engine'),
+            'asr_seconds': entry.get('asr_seconds'),
+            'translation_seconds': entry.get('translation_seconds'),
+            'pipeline_seconds': entry.get('pipeline_seconds'),
+            'job_id': job_id_by_file.get(fid),  # R5 Phase 4
+        })
     # Newest first
     files.sort(key=lambda f: f['uploaded_at'], reverse=True)
     return jsonify({'files': files})

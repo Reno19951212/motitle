@@ -88,7 +88,7 @@ def _isolate_app_data(request, tmp_path, monkeypatch):
     # R5 Phase 3: admin route tests (test_admin_users.py) use real sessions and
     # real auth checks — bypass must NOT be active so @admin_required enforces
     # is_admin. Detect by checking the test module name.
-    _REAL_AUTH_MODULES = ("test_admin_users", "test_per_user_profiles", "test_per_user_glossaries")
+    _REAL_AUTH_MODULES = ("test_admin_users", "test_per_user_profiles", "test_per_user_glossaries", "test_queue_retry", "test_files_job_id")
     _use_real_auth = any(m in str(request.fspath) for m in _REAL_AUTH_MODULES)
     if not _use_real_auth:
         monkeypatch.setitem(app.app.config, "LOGIN_DISABLED", True)
