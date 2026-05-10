@@ -43,7 +43,15 @@ source backend/.env && cd backend && source venv/bin/activate && python app.py
 python backend\app.py
 ```
 
-兩個 script 都會：(1) 建 venv + 裝 ASR/翻譯依賴；(2) 互動 prompt 起 admin 用戶；(3) 生成 `FLASK_SECRET_KEY` 寫入 `backend/.env`（已 gitignore）。
+**Linux (Ubuntu/Debian, NVIDIA GB10 或任何 CUDA GPU)**：
+```bash
+./setup-linux-gb10.sh
+source backend/.env && cd backend && source venv/bin/activate && python app.py
+```
+
+`nvidia-cublas-cu12` + `nvidia-cudnn-cu12` 嘅 aarch64 wheel 已 PyPI 上架，GB10 直接 `pip install` 就得。
+
+三個 script 都會：(1) 建 venv + 裝 ASR/翻譯依賴；(2) 互動 prompt 起 admin 用戶；(3) 生成 `FLASK_SECRET_KEY` 寫入 `backend/.env`（已 gitignore）。
 
 ### Server 行為
 
