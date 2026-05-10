@@ -255,10 +255,14 @@ def _asr_handler(job):
         asr_seconds=round(time.time() - asr_start, 1),
     )
 
-    # Phase 2C: _auto_translate refactored to (fid, sid=None) reading segments
-    # from registry. Worker context has no socketio room (sid=None) — frontend
-    # gets updates via polling /api/queue + /api/files.
-    _auto_translate(file_id)
+    # Enqueue MT job instead of running inline. The MT worker pool (3
+    # concurrent) handles parallelism better than a single ASR worker
+    # blocking on translation.
+    _job_queue.enqueue(
+        user_id=job["user_id"],
+        file_id=file_id,
+        job_type='translate',
+    )
 
 
 def _mt_handler(job):

@@ -56,22 +56,23 @@ def test_asr_handler_marks_status_done_on_success(fake_file_in_registry, monkeyp
     assert entry["asr_seconds"] is not None and entry["asr_seconds"] >= 0
 
 
-def test_asr_handler_triggers_auto_translate_after_done(fake_file_in_registry, monkeypatch):
+def test_asr_handler_enqueues_translate_job_after_done(fake_file_in_registry, monkeypatch):
     import app
-    fake_result = {
-        "text": "x", "segments": [{"start": 0, "end": 1, "text": "x"}],
-        "language": "en", "model": "small", "backend": "faster-whisper",
-    }
-    monkeypatch.setattr(app, "transcribe_with_segments",
-                        lambda *a, **kw: fake_result)
-    called = {}
-    monkeypatch.setattr(app, "_auto_translate",
-                        lambda fid, sid=None, **kw: called.setdefault("fid", fid))
+    fake_result = {"text": "x", "segments": [{"start": 0, "end": 1, "text": "x"}],
+                   "language": "en", "model": "small", "backend": "faster-whisper"}
+    monkeypatch.setattr(app, "transcribe_with_segments", lambda *a, **kw: fake_result)
+
+    enqueued = []
+    real_enqueue = app._job_queue.enqueue
+    def spy_enqueue(**kw):
+        enqueued.append(kw)
+        return real_enqueue(**kw)
+    monkeypatch.setattr(app._job_queue, "enqueue", spy_enqueue)
 
     job = {"file_id": fake_file_in_registry, "user_id": 1, "type": "asr"}
     app._asr_handler(job)
-
-    assert called.get("fid") == fake_file_in_registry
+    assert any(e["job_type"] == "translate" and e["file_id"] == fake_file_in_registry
+               for e in enqueued)
 
 
 def test_asr_handler_marks_status_error_on_exception(fake_file_in_registry, monkeypatch):
