@@ -137,3 +137,17 @@ Items intentionally deferred per plan:
 - MT pipeline now unified: ASR completion enqueues translate job; /api/translate also enqueues; _auto_translate(fid) reads segments from registry; _mt_handler bridges to it.
 - /api/translate body now does owner check explicitly (file_id is in body not URL, so @require_file_owner doesn't apply).
 - Known intermediate boundaries: none from Phase 2C — pipeline now end-to-end functional through the queue (transcribe + translate both async, both 202).
+
+---
+
+## Phase 2D validation (Task D4)
+
+**Date:** 2026-05-10
+**Verdict:** ✅ PASS
+
+- `setup-linux-gb10.sh` syntax check (`bash -n`): clean
+- shellcheck: not installed locally (advisory only)
+- aarch64 wheel availability research (D2): both `nvidia-cublas-cu12==12.4.5.8` (manylinux2014_aarch64) and `nvidia-cudnn-cu12-9.22.0.52` (manylinux_2_27_aarch64) present on PyPI — no APT repo fallback amendment needed
+- Phase 2D commits: 040b94d (D1 script) + 4ea34f37 (D3 README)
+- README updated with Linux quick-start block alongside Mac + Win
+- Setup script applies same env-driven admin bootstrap hardening as setup-mac.sh (no shell injection through password)
