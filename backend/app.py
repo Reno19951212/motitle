@@ -304,7 +304,8 @@ def _mt_handler(job, cancel_event=None):
 
 _job_queue = JobQueue(AUTH_DB_PATH,
                       asr_handler=_asr_handler,
-                      mt_handler=_mt_handler)
+                      mt_handler=_mt_handler,
+                      app=app)  # R5 Phase 5 T2.2: workers run with app context
 _job_queue.start_workers()
 
 app.register_blueprint(queue_bp)

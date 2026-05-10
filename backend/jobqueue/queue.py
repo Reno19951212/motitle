@@ -37,10 +37,17 @@ class JobQueue:
         db_path: str,
         asr_handler: Optional[Callable[[dict], None]] = None,
         mt_handler: Optional[Callable[[dict], None]] = None,
+        app=None,
     ):
+        # R5 Phase 5 T2.2: optional Flask app reference. When set, _run_one
+        # wraps each handler invocation in app.app_context() so the handler
+        # can use current_app, current_app.logger, etc. without raising
+        # RuntimeError("Working outside of application context"). app=None
+        # (default) preserves Phase 1-4 callers that didn't pass an app.
         self._db_path = db_path
         self._asr_handler = asr_handler
         self._mt_handler = mt_handler
+        self._app = app
         self._asr_q = stdqueue.Queue()
         self._mt_q = stdqueue.Queue()
         self._workers = []
@@ -142,9 +149,21 @@ class JobQueue:
 
         update_job_status(self._db_path, jid, "running",
                           started_at=time.time())
-        try:
+
+        def _invoke():
             job = get_job(self._db_path, jid)
             handler(job, cancel_event=cancel_event)
+
+        try:
+            # R5 Phase 5 T2.2: push Flask app context so handler can use
+            # current_app, current_app.logger, app.config, etc. Without
+            # this, anything that touches current_app raises RuntimeError
+            # in the worker thread.
+            if self._app is not None:
+                with self._app.app_context():
+                    _invoke()
+            else:
+                _invoke()
             update_job_status(self._db_path, jid, "done",
                               finished_at=time.time())
         except JobCancelled as e:
