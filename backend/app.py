@@ -151,6 +151,61 @@ def _bootstrap_admin_if_needed():
 _bootstrap_admin_if_needed()
 
 
+# Job queue (R5 Phase 1) — persistent SQLite-backed queue with ASR + MT
+# worker threads. Handlers are bridges to the existing transcribe / translate
+# pipeline. ASR handler signature matches transcribe_with_segments after C8;
+# MT handler is a Phase 2 stub (current _auto_translate needs segments +
+# session_id which aren't carried in the job payload yet — no Phase 1 entry
+# point enqueues MT jobs).
+from jobqueue.db import init_jobs_table as _jq_init_db
+from jobqueue.queue import JobQueue
+from jobqueue.routes import bp as queue_bp, set_db_path as _jq_set_db_path
+
+_jq_init_db(AUTH_DB_PATH)
+_jq_set_db_path(AUTH_DB_PATH)
+
+
+def _asr_handler(job):
+    """Bridge: job dict → existing transcribe_with_segments() flow.
+
+    Matches the post-C8 signature `transcribe_with_segments(file_path,
+    file_id=..., job_user_id=...)`. Until C8 lands, this raises if invoked.
+    No Phase 1 caller enqueues ASR jobs through here yet.
+    """
+    file_id = job["file_id"]
+    with _registry_lock:
+        f = _file_registry.get(file_id)
+    if not f:
+        raise RuntimeError(f"file not found in registry: {file_id}")
+    audio_path = f.get("audio_path") or f.get("file_path")
+    if not audio_path:
+        raise RuntimeError(f"no audio path for file {file_id}")
+    transcribe_with_segments(audio_path, file_id=file_id, job_user_id=job["user_id"])
+
+
+def _mt_handler(job):
+    """Bridge for translate jobs — Phase 2 stub.
+
+    Current _auto_translate(fid, segments, session_id) needs context the
+    job payload doesn't carry. Phase 2 will refactor _auto_translate to
+    pull segments from the registry on its own. For now, mark such jobs
+    failed so the queue doesn't loop on them.
+    """
+    raise NotImplementedError(
+        "MT job bridge is Phase 2 scope — _auto_translate needs segments + "
+        "session_id refactor. Phase 1 routes still call _auto_translate "
+        "synchronously after ASR completes."
+    )
+
+
+_job_queue = JobQueue(AUTH_DB_PATH,
+                      asr_handler=_asr_handler,
+                      mt_handler=_mt_handler)
+_job_queue.start_workers()
+
+app.register_blueprint(queue_bp)
+
+
 # Profile management
 CONFIG_DIR = Path(__file__).parent / "config"
 _profile_manager = ProfileManager(CONFIG_DIR)
