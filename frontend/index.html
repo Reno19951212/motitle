@@ -213,7 +213,7 @@
          content; the middle (pipeline + actions) takes all remaining
          space. Previous 280px hard column made the search look oversized
          on smaller laptops. */
-      grid-template-columns: auto minmax(0, 1fr) auto;
+      grid-template-columns: auto minmax(0, 1fr) auto auto;
       align-items: center;
       gap: 12px;
       padding: 10px 18px;
@@ -1243,6 +1243,14 @@
           </div>
 
           <div class="health-cluster" id="healthCluster"></div>
+
+          <span id="userChip" data-testid="user-chip" style="display:inline-flex;align-items:center;gap:6px;
+                 padding:4px 10px;border:1px solid var(--border);border-radius:14px;font-size:12px;color:var(--text-mid);">
+            <span id="userChipName">…</span>
+            <button id="userChipLogout" data-testid="logout"
+                    style="background:none;border:0;color:var(--text-dim);cursor:pointer;font-size:11px;padding:0;"
+                    title="登出">⏻</button>
+          </span>
         </div>
 
         <!-- Body -->
@@ -4448,6 +4456,18 @@
       </div>
     </div>
   </div>
+
+  <!-- R5 Phase 1 — auth chip bootstrap -->
+  <script src="js/auth.js"></script>
+  <script>
+    fetchMe().then(u => {
+      if (u) {
+        document.getElementById("userChipName").textContent =
+          u.username + (u.is_admin ? " (admin)" : "");
+      }
+    });
+    document.getElementById("userChipLogout").addEventListener("click", logout);
+  </script>
 
 </body>
 </html>

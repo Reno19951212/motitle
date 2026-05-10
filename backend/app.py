@@ -886,6 +886,20 @@ def serve_index():
     return send_from_directory(_FRONTEND_DIR, "index.html")
 
 
+# Serve auxiliary frontend pages and static assets (R5 Phase 1).
+# These are public — they hold no secrets and the dashboard needs them
+# loaded before /api/me resolves the session. Path traversal is rejected
+# by send_from_directory.
+@app.get("/proofread.html")
+def serve_proofread():
+    return send_from_directory(_FRONTEND_DIR, "proofread.html")
+
+
+@app.get("/js/<path:filename>")
+def serve_frontend_js(filename):
+    return send_from_directory(str(Path(_FRONTEND_DIR) / "js"), filename)
+
+
 # ============================================================
 # REST API Routes
 # ============================================================
