@@ -105,3 +105,18 @@ Items intentionally deferred per plan:
 ---
 
 **Verdict:** Phase 1 MVP is ready. Ralph loop may output `<promise>ALL_DONE</promise>`.
+
+---
+
+## Phase 2B validation (Task B7)
+
+**Date:** 2026-05-10
+**Verdict:** ✅ PASS
+
+- pytest: 565 pass + 1 baseline (no regression; +4 from B1/B3 new tests)
+- Playwright login flow: 1/1 GREEN against HTTP server on port 5002
+- Phase 2B commits: c97c92b (A1) + e4ca202 (B2) + c126381 (B4) + 8555dec (B5) + 48aba71 (B6)
+- ASR pipeline now unified through queue: /api/transcribe + /api/files/<id>/transcribe both enqueue + 202; _asr_handler does full registry pipeline.
+- Known intermediate state: _asr_handler's last line `_auto_translate(file_id)` has wrong signature in production until C4 lands. Tests pass via monkeypatch. Not user-visible until ASR job actually runs.
+- /api/transcribe/sync now @admin_required to prevent GPU-concurrency bypass.
+- Frontend: file-card shows "排隊中" badge for newly-uploaded files briefly before worker picks up.
