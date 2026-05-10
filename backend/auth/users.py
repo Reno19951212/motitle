@@ -96,3 +96,71 @@ def verify_credentials(db_path: str, username: str, password: str) -> Optional[d
     if user and verify_password(password, user["password_hash"]):
         return user
     return None
+
+
+def list_all_users(db_path: str) -> list:
+    """Return all users sorted by id ASC. Excludes password_hash from each row."""
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT id, username, created_at, is_admin, settings_json "
+            "FROM users ORDER BY id ASC"
+        ).fetchall()
+        return [
+            {
+                "id": r["id"],
+                "username": r["username"],
+                "created_at": r["created_at"],
+                "is_admin": bool(r["is_admin"]),
+                "settings_json": r["settings_json"],
+            }
+            for r in rows
+        ]
+    finally:
+        conn.close()
+
+
+def update_password(db_path: str, username: str, new_password: str) -> None:
+    if not new_password:
+        raise ValueError("new password cannot be empty")
+    conn = get_connection(db_path)
+    try:
+        conn.execute(
+            "UPDATE users SET password_hash = ? WHERE username = ?",
+            (hash_password(new_password), username),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def set_admin(db_path: str, username: str, is_admin: bool) -> None:
+    conn = get_connection(db_path)
+    try:
+        conn.execute(
+            "UPDATE users SET is_admin = ? WHERE username = ?",
+            (1 if is_admin else 0, username),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def delete_user(db_path: str, username: str) -> None:
+    conn = get_connection(db_path)
+    try:
+        conn.execute("DELETE FROM users WHERE username = ?", (username,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def count_admins(db_path: str) -> int:
+    conn = get_connection(db_path)
+    try:
+        row = conn.execute(
+            "SELECT COUNT(*) AS n FROM users WHERE is_admin = 1"
+        ).fetchone()
+        return int(row["n"])
+    finally:
+        conn.close()
