@@ -23,6 +23,10 @@ CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_log(actor_user_id);
 def init_audit_log(db_path: str) -> None:
     conn = sqlite3.connect(db_path)
     conn.executescript(_SCHEMA)
+    # R5 Phase 5 T2.3: WAL + synchronous=NORMAL.
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA temp_store=memory")
     conn.commit()
     conn.close()
 

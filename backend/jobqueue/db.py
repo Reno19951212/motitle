@@ -32,6 +32,12 @@ def get_connection(db_path: str) -> sqlite3.Connection:
 def init_jobs_table(db_path: str) -> None:
     conn = sqlite3.connect(db_path)
     conn.executescript(_SCHEMA)
+    # R5 Phase 5 T2.3: WAL allows concurrent reads while a worker writes.
+    # synchronous=NORMAL trades a tiny crash-recovery window for ~2x write
+    # throughput, which is fine for our queue / audit workload.
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA temp_store=memory")
     # R5 Phase 5 T1.5: backfill attempt_count column on databases created
     # before Phase 5 (CREATE TABLE IF NOT EXISTS skips the new column).
     cols = {r[1] for r in conn.execute("PRAGMA table_info(jobs)").fetchall()}
