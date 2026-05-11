@@ -1731,18 +1731,39 @@
     // Modal focus helpers
     // ============================================================
     const _modalTriggers = new WeakMap();
+    // Modal stack — each open() pushes the overlay onto _modalStack and
+    // assigns z-index = base + depth so child modals always paint above
+    // their parents. Base is 3000 (the CSS default) so dialogs without
+    // explicit stacking still work.
+    const _modalStack = [];
+    const _MODAL_BASE_Z = 3000;
     function _openModalWithFocus(overlayId, triggerEl) {
       const overlay = document.getElementById(overlayId);
       if (!overlay) return;
       if (triggerEl instanceof Element) _modalTriggers.set(overlay, triggerEl);
+      // Move to top of stack (remove first if already there, then push)
+      const existing = _modalStack.indexOf(overlayId);
+      if (existing !== -1) _modalStack.splice(existing, 1);
+      _modalStack.push(overlayId);
+      _restackModals();
       overlay.classList.add('open');
     }
     function _closeModalRestoreFocus(overlayId) {
       const overlay = document.getElementById(overlayId);
       if (!overlay) return;
       overlay.classList.remove('open');
+      overlay.style.zIndex = '';  // revert to CSS default
+      const idx = _modalStack.indexOf(overlayId);
+      if (idx !== -1) _modalStack.splice(idx, 1);
+      _restackModals();
       const trigger = _modalTriggers.get(overlay);
       if (trigger && document.contains(trigger)) trigger.focus();
+    }
+    function _restackModals() {
+      _modalStack.forEach((id, i) => {
+        const o = document.getElementById(id);
+        if (o) o.style.zIndex = String(_MODAL_BASE_Z + i * 10);
+      });
     }
 
     // ============================================================
@@ -3371,6 +3392,18 @@
       updateRunButton();
     }
 
+    // Lightweight refresh for progress events (translation_progress,
+    // subtitle_segment, pipeline_timing). These fire many times per
+    // second during MT/ASR — rebuilding the transcript tab on each one
+    // resets _lastActiveTranscriptIdx, triggers smooth-scroll, and looks
+    // like the subtitle overlay is "jumping". The progress payload only
+    // affects file-list badges + status; nothing in segments[] changes.
+    function renderProgressOnly() {
+      renderQueue();
+      renderFileHeader();
+      renderStatusCard();
+    }
+
     function updateRunButton() {
       const btn = document.getElementById('runBtn');
       const f = activeFileId ? uploadedFiles[activeFileId] : null;
@@ -4216,7 +4249,7 @@
           totalDuration: seg.total_duration,
           eta: seg.eta_seconds,
         };
-        renderAll();
+        renderProgressOnly();  // skip transcript DOM rebuild — see renderProgressOnly()
       });
       socket.on('transcription_complete', d => {
         if (d.file_id && uploadedFiles[d.file_id]) {
@@ -4243,7 +4276,7 @@
           const f = uploadedFiles[d.file_id];
           f.translation_progress = { completed: d.completed, total: d.total, percent: d.percent };
           if (d.percent < 100) f.translation_status = 'translating';
-          renderAll();
+          renderProgressOnly();  // skip transcript DOM rebuild — see renderProgressOnly()
         }
       });
       socket.on('pipeline_timing', d => {
@@ -4252,7 +4285,12 @@
           uploadedFiles[d.file_id].translation_seconds = d.translation_seconds;
           uploadedFiles[d.file_id].pipeline_seconds = d.total_seconds;
           uploadedFiles[d.file_id].translation_status = 'done';
+          // Translation just finished — segments[] in DOM may now contain
+          // stale zh_text. If this is the active file, refetch segments so
+          // the transcript + overlay show the final translations. Full
+          // renderAll is OK here because it only fires once per pipeline.
           renderAll();
+          if (d.file_id === activeFileId) loadFileSegments(d.file_id);
         }
       });
       socket.on('profile_updated', d => {
