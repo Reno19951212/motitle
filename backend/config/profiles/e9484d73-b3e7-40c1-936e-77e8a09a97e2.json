@@ -1,0 +1,14 @@
+{
+  "name": "Profile To Rename",
+  "asr": {
+    "engine": "whisper",
+    "model_size": "tiny"
+  },
+  "translation": {
+    "engine": "mock"
+  },
+  "user_id": null,
+  "id": "e9484d73-b3e7-40c1-936e-77e8a09a97e2",
+  "created_at": 1778469417.779435,
+  "updated_at": 1778469417.779435
+}

@@ -155,10 +155,11 @@ _LAN_ORIGIN_REGEX = (
     r")(:\d+)?$"
 )
 CORS(app, supports_credentials=True, origins=_LAN_ORIGIN_REGEX)
-# R5 Phase 5 T1.2: SocketIO must use the same LAN-only regex as Flask CORS.
-# Wildcard '*' allowed any origin to open a SocketIO connection bypassing
-# the Flask-side allowlist.
-socketio = SocketIO(app, cors_allowed_origins=_LAN_ORIGIN_REGEX, async_mode='threading',
+# R5 Phase 5 T1.2: SocketIO must use the same LAN-only allowlist as Flask CORS.
+# Note: engineio treats a str as a *literal* allowed-origin (not a regex), so
+# _LAN_ORIGIN_REGEX must be passed as a *callable* to get pattern matching.
+# _is_lan_origin(origin) → bool handles the same LAN ranges.
+socketio = SocketIO(app, cors_allowed_origins=_is_lan_origin, async_mode='threading',
                     max_http_buffer_size=100 * 1024 * 1024)
 
 # Persistent storage directory (inside project, survives restarts)

@@ -1,14 +1,13 @@
-// frontend/tests/test_admin_flow.spec.js
+// Admin flow: create + delete a user via dashboard
+// Uses storageState (pre-logged in as admin)
 const { test, expect } = require("@playwright/test");
 
 const BASE = process.env.BASE_URL || "http://localhost:5001";
 
 test("admin can create + delete a user via dashboard", async ({ page }) => {
-  // Login as admin
-  await page.goto(BASE + "/login.html");
-  await page.fill('[data-testid="login-form"] input[name="username"]', "admin");
-  await page.fill('[data-testid="login-form"] input[name="password"]', "admin");
-  await page.click('[data-testid="login-submit"]');
+  // Already logged in as admin via storageState
+  await page.goto(BASE + "/");
+  await expect(page).toHaveURL(BASE + "/");
 
   // Admin link visible
   await expect(page.locator('[data-testid="admin-link"]')).toBeVisible();
@@ -17,7 +16,7 @@ test("admin can create + delete a user via dashboard", async ({ page }) => {
 
   // Create user
   await page.fill('[data-testid="admin-user-create-form"] input[name="username"]', "playwright_user");
-  await page.fill('[data-testid="admin-user-create-form"] input[name="password"]', "pw");
+  await page.fill('[data-testid="admin-user-create-form"] input[name="password"]', "PlaywrightPass1!");
   await page.click('[data-testid="admin-user-create-submit"]');
 
   // Wait for the new row to appear

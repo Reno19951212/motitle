@@ -10,7 +10,7 @@
     "model_size": "large-v3"
   },
   "translation": {
-    "engine": "qwen2.5-3b",
+    "engine": "qwen3.5-35b-a3b",
     "glossary_id": "broadcast-news",
     "batch_size": 10,
     "style": "formal",
@@ -26,5 +26,6 @@
     "margin_bottom": 40
   },
   "created_at": 1712534400,
-  "updated_at": 1712534400
+  "updated_at": 1778283844.4978719,
+  "user_id": null
 }

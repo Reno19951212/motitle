@@ -1,0 +1,14 @@
+{
+  "id": "85eaf277-2fa3-4ad7-952c-7b5f235b0c3c",
+  "name": "E2E Test Glossary",
+  "description": "Playwright test",
+  "entries": [
+    {
+      "en": "Arsenal",
+      "zh": "阿仙奴",
+      "id": "7b6b0069-386d-4830-a670-a1ab7362f046"
+    }
+  ],
+  "created_at": 1778469412.748862,
+  "user_id": null
+}

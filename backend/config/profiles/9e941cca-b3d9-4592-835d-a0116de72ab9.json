@@ -1,0 +1,14 @@
+{
+  "name": "E2E Activate Test",
+  "asr": {
+    "engine": "whisper",
+    "model_size": "tiny"
+  },
+  "translation": {
+    "engine": "mock"
+  },
+  "user_id": null,
+  "id": "9e941cca-b3d9-4592-835d-a0116de72ab9",
+  "created_at": 1778469418.628117,
+  "updated_at": 1778469418.628117
+}

@@ -1706,7 +1706,7 @@
     // ============================================================
     // State
     // ============================================================
-    const API_BASE = 'http://127.0.0.1:5001';
+    const API_BASE = '';
     let socket = null;
     let currentSid = null;
     let uploadedFiles = {};
@@ -4196,7 +4196,7 @@
     // Socket
     // ============================================================
     function connectSocket() {
-      socket = io(API_BASE, { transports: ['websocket', 'polling'] });
+      socket = io(API_BASE || location.origin, { transports: ['polling', 'websocket'], withCredentials: true });
       socket.on('connected', d => { currentSid = d.sid; renderHealthCluster(); });
       socket.on('connect', () => renderHealthCluster());
       socket.on('disconnect', () => renderHealthCluster());

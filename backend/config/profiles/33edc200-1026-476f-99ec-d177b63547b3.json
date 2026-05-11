@@ -1,0 +1,14 @@
+{
+  "name": "E2E Test Profile",
+  "asr": {
+    "engine": "whisper",
+    "model_size": "tiny"
+  },
+  "translation": {
+    "engine": "mock"
+  },
+  "user_id": null,
+  "id": "33edc200-1026-476f-99ec-d177b63547b3",
+  "created_at": 1778469416.912426,
+  "updated_at": 1778469416.912426
+}
