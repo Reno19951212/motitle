@@ -121,9 +121,18 @@ async function retryFile(fileId) {
     body: JSON.stringify({}),
   });
   if (!r.ok) {
-    alert("重試失敗：" + r.status);
+    // R6 audit E batch — surface body.error so retry failures aren't opaque.
+    let detail = `HTTP ${r.status}`;
+    try {
+      const body = await r.json();
+      if (body && body.error) detail = body.error;
+    } catch (_) {}
+    const msg = `重試失敗：${detail}`;
+    if (window.showToast) window.showToast(msg, "error");
+    else alert(msg);
     return;
   }
+  if (window.showToast) window.showToast("已重新提交", "success");
   refreshQueue();
   if (window.refreshFiles) refreshFiles();
 }

@@ -50,7 +50,13 @@ async function resetPassword(id, username) {
     credentials: "same-origin",
     body: JSON.stringify({new_password: pw}),
   });
-  if (!r.ok) { alert("失敗：" + r.status); return; }
+  if (!r.ok) {
+    // R6 audit E8 — surface backend's password policy error (e.g.
+    // "at least 8 chars" / "too common") instead of just "失敗：400".
+    const err = await r.json().catch(() => ({}));
+    alert("失敗：" + (err.error || `HTTP ${r.status}`));
+    return;
+  }
   alert("密碼已重設");
 }
 

@@ -1,6 +1,8 @@
 """Whisper ASR engine — full implementation using faster-whisper or openai-whisper."""
 
+import os
 import threading
+from collections import OrderedDict
 
 from . import ASREngine, Segment, Word
 
@@ -16,9 +18,32 @@ try:
 except ImportError:
     OPENAI_WHISPER_AVAILABLE = False
 
-_faster_model_cache: dict = {}
-_openai_model_cache: dict = {}
+# R6 audit M4 — bound the model cache.
+#
+# Each faster-whisper model entry is ~1.5 GB (large-v3) / 3 GB (MLX). A user
+# switching between two profiles with different model_size / device /
+# compute_type rapidly accumulates entries until the box OOMs. OrderedDict
+# + move_to_end on hit gives us classic LRU semantics with no extra deps.
+# The default cap (1) is conservative — operators can raise it via
+# R6_WHISPER_CACHE_SIZE env when they really do want hot-swap warm models.
+_WHISPER_CACHE_MAX = max(1, int(os.environ.get("R6_WHISPER_CACHE_SIZE", "1")))
+_faster_model_cache: "OrderedDict[tuple, object]" = OrderedDict()
+_openai_model_cache: "OrderedDict[str, object]" = OrderedDict()
 _model_lock = threading.Lock()
+
+
+def _lru_get(cache: OrderedDict, key, loader):
+    """Look up `key` in `cache`. On miss, evict oldest if at cap, then load.
+    On hit, mark as most-recently-used. Caller must already hold _model_lock.
+    """
+    if key in cache:
+        cache.move_to_end(key)
+        return cache[key]
+    while len(cache) >= _WHISPER_CACHE_MAX:
+        evicted_key, _evicted_model = cache.popitem(last=False)
+        print(f"Evicting Whisper model from cache: {evicted_key}")
+    cache[key] = loader()
+    return cache[key]
 
 
 class WhisperEngine(ASREngine):
@@ -33,30 +58,31 @@ class WhisperEngine(ASREngine):
 
         R5 Phase 5 T2.1: cache key includes (model_size, device, compute_type)
         so that two profiles with different device or compute_type don't
-        collide on the same cached model. Previously the key was model_size
-        only, meaning the second profile silently received the first
-        profile's settings.
+        collide on the same cached model.
+
+        R6 audit M4: cache is now LRU-bounded by _WHISPER_CACHE_MAX
+        (default 1) so profile-swap can't accumulate stale 1.5–3 GB models.
         """
         with _model_lock:
             if FASTER_WHISPER_AVAILABLE:
                 key = (self._model_size, self._device, self._compute_type)
-                if key not in _faster_model_cache:
+                def _load():
                     print(f"Loading faster-whisper model: {key}")
-                    _faster_model_cache[key] = FasterWhisperModel(
+                    m = FasterWhisperModel(
                         self._model_size, device=self._device, compute_type=self._compute_type
                     )
                     print(f"faster-whisper model {key} loaded")
-                return _faster_model_cache[key], "faster"
+                    return m
+                return _lru_get(_faster_model_cache, key, _load), "faster"
             elif OPENAI_WHISPER_AVAILABLE:
                 # openai-whisper doesn't expose device/compute_type at load
                 # time the same way; key by model_size only.
-                if self._model_size not in _openai_model_cache:
+                def _load():
                     print(f"Loading openai-whisper model: {self._model_size}")
-                    _openai_model_cache[self._model_size] = openai_whisper.load_model(
-                        self._model_size
-                    )
+                    m = openai_whisper.load_model(self._model_size)
                     print(f"openai-whisper model {self._model_size} loaded")
-                return _openai_model_cache[self._model_size], "openai"
+                    return m
+                return _lru_get(_openai_model_cache, self._model_size, _load), "openai"
             else:
                 raise RuntimeError("Neither faster-whisper nor openai-whisper is installed")
 

@@ -1,6 +1,7 @@
 """Language configuration manager for per-language ASR and translation parameters."""
 import json
 import os
+import threading
 from pathlib import Path
 from typing import List, Optional
 
@@ -30,6 +31,19 @@ class LanguageConfigManager:
         self._config_dir = Path(config_dir)
         self._languages_dir = self._config_dir / LANGUAGES_DIRNAME
         self._languages_dir.mkdir(parents=True, exist_ok=True)
+        # R6 audit R6 — per-lang_id locks for read-modify-write paths.
+        # Two concurrent PATCHes on the same language id previously could
+        # both read existing → merge → write, losing one update.
+        self._lock_master = threading.Lock()
+        self._per_id_locks: dict = {}
+
+    def _get_lock(self, lang_id: str) -> threading.Lock:
+        with self._lock_master:
+            lock = self._per_id_locks.get(lang_id)
+            if lock is None:
+                lock = threading.Lock()
+                self._per_id_locks[lang_id] = lock
+            return lock
 
     def _lang_path(self, lang_id: str) -> Path:
         return self._languages_dir / f"{lang_id}.json"
@@ -57,38 +71,41 @@ class LanguageConfigManager:
         Returns None if the language does not exist.
         Raises ValueError if any field fails validation.
         """
-        existing = self.get(lang_id)
-        if existing is None:
-            return None
-
         errors = self._validate(data)
         if errors:
             raise ValueError("; ".join(errors))
 
-        # Deep-merge asr + translation blocks instead of replacing them. The
-        # dashboard's save modal only exposes a subset of fields (e.g. EN
-        # config has `merge_short_max_words` / `merge_short_max_gap` from
-        # v3.8 that the modal doesn't render); a wholesale replace silently
-        # wipes any unrendered fields every time the user clicks 儲存.
-        merged_asr = {**existing.get("asr", DEFAULT_ASR_CONFIG)}
-        if "asr" in data and isinstance(data["asr"], dict):
-            merged_asr.update(data["asr"])
-        merged_translation = {**existing.get("translation", DEFAULT_TRANSLATION_CONFIG)}
-        if "translation" in data and isinstance(data["translation"], dict):
-            merged_translation.update(data["translation"])
-        updated = {
-            **existing,
-            "asr": merged_asr,
-            "translation": merged_translation,
-        }
+        # R6 audit R6 — serialize the read-merge-write per lang_id so two
+        # concurrent PATCHes don't lose updates.
+        with self._get_lock(lang_id):
+            existing = self.get(lang_id)
+            if existing is None:
+                return None
 
-        path = self._lang_path(lang_id)
-        tmp_path = path.with_suffix(".tmp")
-        tmp_path.write_text(
-            json.dumps(updated, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
-        os.replace(tmp_path, path)
-        return updated
+            # Deep-merge asr + translation blocks instead of replacing them. The
+            # dashboard's save modal only exposes a subset of fields (e.g. EN
+            # config has `merge_short_max_words` / `merge_short_max_gap` from
+            # v3.8 that the modal doesn't render); a wholesale replace silently
+            # wipes any unrendered fields every time the user clicks 儲存.
+            merged_asr = {**existing.get("asr", DEFAULT_ASR_CONFIG)}
+            if "asr" in data and isinstance(data["asr"], dict):
+                merged_asr.update(data["asr"])
+            merged_translation = {**existing.get("translation", DEFAULT_TRANSLATION_CONFIG)}
+            if "translation" in data and isinstance(data["translation"], dict):
+                merged_translation.update(data["translation"])
+            updated = {
+                **existing,
+                "asr": merged_asr,
+                "translation": merged_translation,
+            }
+
+            path = self._lang_path(lang_id)
+            tmp_path = path.with_suffix(".tmp")
+            tmp_path.write_text(
+                json.dumps(updated, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+            os.replace(tmp_path, path)
+            return updated
 
     def create(self, data: dict) -> dict:
         """Create a new language config. Raises ValueError on validation error.

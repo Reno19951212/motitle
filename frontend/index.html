@@ -3640,6 +3640,10 @@
           const mb = (selectedFile.size / 1024 / 1024).toFixed(1);
           throw new Error(`檔案太大（${mb} MB），超出後端 5GB 上限`);
         }
+        // R6 audit E9 — surface 415 (wrong type) as a clear message
+        if (resp.status === 415) {
+          throw new Error('檔案類型不支援，請使用 MP4 / MOV / MKV / MXF / WAV / MP3 等格式');
+        }
         if (!resp.ok) {
           let msg = `HTTP ${resp.status}`;
           try { const err = await resp.json(); if (err.error) msg = err.error; } catch {}
@@ -3664,6 +3668,10 @@
         loadMediaPreview(data.file_id);
         showToast('文件上傳成功，開始轉錄...', 'success');
       } catch (err) {
+        // R6 audit E10 — clean up the pending placeholder card on upload
+        // failure. Otherwise the queueList shows a phantom "pending" row
+        // forever and the user has to manually delete it.
+        clearPending();
         showToast(`上傳失敗: ${err.message}`, 'error');
         isProcessing = false;
       }
@@ -3671,14 +3679,21 @@
 
     async function deleteFile(id) {
       try {
-        await fetch(`${API_BASE}/api/files/${id}`, { method: 'DELETE' });
+        const r = await fetch(`${API_BASE}/api/files/${id}`, { method: 'DELETE' });
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          showToast(err.error || `刪除失敗 (HTTP ${r.status})`, 'error');
+          return;
+        }
         delete uploadedFiles[id];
         if (activeFileId === id) { activeFileId = null; segments = []; }
         deleteArmedId = null;
         if (deleteArmedTimer) { clearTimeout(deleteArmedTimer); deleteArmedTimer = null; }
         renderAll();
         showToast('已刪除', 'success');
-      } catch (e) { showToast('刪除失敗', 'error'); }
+      } catch (e) {
+        showToast(`刪除失敗: ${e.message || '網絡錯誤'}`, 'error');
+      }
     }
 
     // 2-step delete: first click arms (red pulse), second click within 3s confirms.
@@ -3707,8 +3722,13 @@
           body: JSON.stringify({file_id: id}),
         });
         if (resp.ok) { showToast('翻譯完成', 'success'); await fetchFileList(); }
-        else { const err = await resp.json(); showToast(err.error || '翻譯失敗', 'error'); }
-      } catch (e) { showToast('翻譯失敗', 'error'); }
+        else {
+          const err = await resp.json().catch(() => ({}));
+          showToast(err.error || `翻譯失敗 (HTTP ${resp.status})`, 'error');
+        }
+      } catch (e) {
+        showToast(`翻譯失敗: ${e.message || '網絡錯誤'}`, 'error');
+      }
     }
 
     async function rerunPipeline(id) {
@@ -3723,9 +3743,11 @@
           await fetchFileList();
         } else {
           const err = await resp.json().catch(() => ({}));
-          showToast(err.error || '重走 Pipeline 失敗', 'error');
+          showToast(err.error || `重走 Pipeline 失敗 (HTTP ${resp.status})`, 'error');
         }
-      } catch (e) { showToast('重走 Pipeline 失敗', 'error'); }
+      } catch (e) {
+        showToast(`重走 Pipeline 失敗: ${e.message || '網絡錯誤'}`, 'error');
+      }
     }
 
     // Parse JSON safely; if backend returned HTML (e.g. 405 from an outdated

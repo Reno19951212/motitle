@@ -344,20 +344,24 @@ class GlossaryManager:
 
         Returns the updated glossary, or None if glossary_id is not found.
         Raises ValueError if the entry is invalid.
-        """
-        glossary = self.get(glossary_id)
-        if glossary is None:
-            return None
 
+        R6 audit R5 — read-modify-write under the per-id lock so two
+        concurrent POST /entries don't both read the same entries[] and
+        clobber one of the inserts.
+        """
         entry = _normalize_entry(entry)
         errors = self.validate_entry(entry)
         if errors:
             raise ValueError(f"Invalid entry: {errors}")
 
-        new_entry = {**entry, "id": str(uuid.uuid4())}
-        updated = {**glossary, "entries": [*glossary["entries"], new_entry]}
-        self._write_glossary(glossary_id, updated)
-        return updated
+        with _get_gm_lock(glossary_id):
+            glossary = self.get(glossary_id)
+            if glossary is None:
+                return None
+            new_entry = {**entry, "id": str(uuid.uuid4())}
+            updated = {**glossary, "entries": [*glossary["entries"], new_entry]}
+            self._write_glossary(glossary_id, updated)
+            return updated
 
     def update_entry(
         self, glossary_id: str, entry_id: str, entry_data: dict
@@ -368,33 +372,36 @@ class GlossaryManager:
         Returns the updated glossary, or None if glossary_id or entry_id
         is not found.
         Raises ValueError if the entry data is invalid.
+
+        R6 audit R5 — RMW under per-id lock.
         """
-        glossary = self.get(glossary_id)
-        if glossary is None:
-            return None
-
-        existing_entry = next(
-            (e for e in glossary["entries"] if e.get("id") == entry_id), None
-        )
-        if existing_entry is None:
-            return None
-
         # Normalise the partial patch before merging so a user PATCHing a
         # single field with quote-wrapped text still gets stripped to the
         # bare form.
         entry_data = _normalize_entry(entry_data)
-        merged_entry = {**existing_entry, **entry_data, "id": entry_id}
-        errors = self.validate_entry(merged_entry)
-        if errors:
-            raise ValueError(f"Invalid entry: {errors}")
+        with _get_gm_lock(glossary_id):
+            glossary = self.get(glossary_id)
+            if glossary is None:
+                return None
 
-        new_entries = [
-            merged_entry if e.get("id") == entry_id else e
-            for e in glossary["entries"]
-        ]
-        updated = {**glossary, "entries": new_entries}
-        self._write_glossary(glossary_id, updated)
-        return updated
+            existing_entry = next(
+                (e for e in glossary["entries"] if e.get("id") == entry_id), None
+            )
+            if existing_entry is None:
+                return None
+
+            merged_entry = {**existing_entry, **entry_data, "id": entry_id}
+            errors = self.validate_entry(merged_entry)
+            if errors:
+                raise ValueError(f"Invalid entry: {errors}")
+
+            new_entries = [
+                merged_entry if e.get("id") == entry_id else e
+                for e in glossary["entries"]
+            ]
+            updated = {**glossary, "entries": new_entries}
+            self._write_glossary(glossary_id, updated)
+            return updated
 
     def delete_entry(self, glossary_id: str, entry_id: str) -> Optional[dict]:
         """
@@ -402,15 +409,18 @@ class GlossaryManager:
 
         Returns the updated glossary, or None if glossary_id is not found.
         If entry_id is not found the glossary is returned unchanged.
-        """
-        glossary = self.get(glossary_id)
-        if glossary is None:
-            return None
 
-        new_entries = [e for e in glossary["entries"] if e.get("id") != entry_id]
-        updated = {**glossary, "entries": new_entries}
-        self._write_glossary(glossary_id, updated)
-        return updated
+        R6 audit R5 — RMW under per-id lock.
+        """
+        with _get_gm_lock(glossary_id):
+            glossary = self.get(glossary_id)
+            if glossary is None:
+                return None
+
+            new_entries = [e for e in glossary["entries"] if e.get("id") != entry_id]
+            updated = {**glossary, "entries": new_entries}
+            self._write_glossary(glossary_id, updated)
+            return updated
 
     # ------------------------------------------------------------------
     # CSV import / export
@@ -422,13 +432,12 @@ class GlossaryManager:
 
         Rows with validation errors are skipped.
         Returns the updated glossary, or None if glossary_id is not found.
-        """
-        glossary = self.get(glossary_id)
-        if glossary is None:
-            return None
 
+        R6 audit R5 — RMW under per-id lock. Parsing the CSV happens
+        outside the lock since it's pure work.
+        """
         reader = csv.DictReader(io.StringIO(csv_text))
-        new_entries = []
+        parsed = []
         for row in reader:
             entry = _normalize_entry({
                 "en": (row.get("en") or "").strip(),
@@ -436,11 +445,15 @@ class GlossaryManager:
             })
             if self.validate_entry(entry):
                 continue
-            new_entries.append({**entry, "id": str(uuid.uuid4())})
+            parsed.append({**entry, "id": str(uuid.uuid4())})
 
-        updated = {**glossary, "entries": [*glossary["entries"], *new_entries]}
-        self._write_glossary(glossary_id, updated)
-        return updated
+        with _get_gm_lock(glossary_id):
+            glossary = self.get(glossary_id)
+            if glossary is None:
+                return None
+            updated = {**glossary, "entries": [*glossary["entries"], *parsed]}
+            self._write_glossary(glossary_id, updated)
+            return updated
 
     def export_csv(self, glossary_id: str) -> Optional[str]:
         """
