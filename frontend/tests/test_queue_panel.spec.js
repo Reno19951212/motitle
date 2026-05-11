@@ -39,16 +39,13 @@ test("admin and editor both receive the global /api/queue payload", async () => 
   await editorCtx.dispose();
 });
 
-test("/api/queue rows have file_name, owner_username, valid type+status", async ({ request }) => {
+test("/api/queue returns only active jobs (queued/running), annotated", async ({ request }) => {
   const r = await request.get(BASE + "/api/queue");
   expect(r.status()).toBe(200);
   const jobs = await r.json();
-  if (jobs.length === 0) {
-    // Nothing to assert about row shape — payload is at least a valid array
-    expect(Array.isArray(jobs)).toBe(true);
-    return;
-  }
-  const validStatuses = new Set(["queued", "running", "done", "failed", "cancelled"]);
+  expect(Array.isArray(jobs)).toBe(true);
+  // Active-only: every row must be queued or running. Completed jobs
+  // (done/failed/cancelled) should never appear here.
   for (const j of jobs) {
     expect(j).toHaveProperty("id");
     expect(j).toHaveProperty("type");
@@ -56,7 +53,8 @@ test("/api/queue rows have file_name, owner_username, valid type+status", async 
     expect(j).toHaveProperty("owner_username");
     expect(j).toHaveProperty("file_name"); // may be null if file deleted, key still present
     expect(["asr", "translate", "render"]).toContain(j.type);
-    expect(validStatuses.has(j.status), `bad status: ${j.status}`).toBe(true);
+    expect(["queued", "running"], `unexpected status in /api/queue: ${j.status}`)
+      .toContain(j.status);
   }
 });
 

@@ -1,13 +1,10 @@
 """REST routes: GET /api/queue, DELETE /api/queue/<id>."""
-import time
-
 from flask import Blueprint, jsonify, current_app
 from flask_login import login_required, current_user
 
 from jobqueue.db import (
     list_jobs_for_user,
     list_active_jobs,
-    list_recent_finished_jobs,
     get_job,
     update_job_status,
 )
@@ -16,9 +13,6 @@ from auth.limiter import limiter
 
 bp = Blueprint("queue", __name__)
 _db_path = None
-
-# Recent-finished jobs older than this drop off the shared panel.
-RECENT_FINISHED_WINDOW_SEC = 300  # 5 minutes
 
 
 def set_db_path(p: str) -> None:
@@ -52,22 +46,17 @@ def _annotate(jobs: list, db_path: str) -> list:
 # also calls refreshQueue so bursty spikes are real.
 @limiter.limit("240 per minute")
 def list_queue():
-    """Global queue view shared across all logged-in users.
+    """Global active-queue view shared across all logged-in users.
 
-    Includes every active (queued/running) job plus jobs that finished within
-    the last RECENT_FINISHED_WINDOW_SEC seconds so clients see "just finished"
-    state without polling for /api/files separately. Each row is annotated
-    with file_name + owner_username.
+    Returns only jobs in 'queued' or 'running' status. Completed jobs
+    (done/failed/cancelled) drop off the panel as soon as the worker
+    transitions out of 'running' — the file card status badges carry the
+    post-completion state instead. Each row is annotated with file_name
+    + owner_username.
     """
     db_path = _db_path or current_app.config["AUTH_DB_PATH"]
     active = list_active_jobs(db_path)
-    recent_done = list_recent_finished_jobs(
-        db_path, since_ts=time.time() - RECENT_FINISHED_WINDOW_SEC
-    )
-    # Active first (position 0..), then recent done — frontend renders them
-    # in this order with distinct styling.
-    combined = list(active) + list(recent_done)
-    return jsonify(_annotate(combined, db_path)), 200
+    return jsonify(_annotate(active, db_path)), 200
 
 
 def _get_job_queue():
