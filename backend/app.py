@@ -359,6 +359,10 @@ def _init_language_config_manager(config_dir):
 # In-memory file registry: file_id -> metadata dict
 _file_registry = {}
 _registry_lock = threading.Lock()
+# Bind the registry to the Flask app instance so auth.decorators (which
+# would otherwise import app.py a second time as the 'app' module and get
+# an empty copy) can read the running process's registry via current_app.
+app.config['FILE_REGISTRY'] = _file_registry
 
 
 def _load_registry():

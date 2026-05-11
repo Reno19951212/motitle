@@ -30,11 +30,12 @@ def _auth_bypassed() -> bool:
 def _lookup_file_owner(file_id: str) -> Optional[int]:
     """Return user_id who owns this file_id, or None if not found.
 
-    Pulls from the file registry. Imported lazily to avoid circular import
-    with backend/app.py during startup.
+    Reads from current_app.config['FILE_REGISTRY']. The registry is attached
+    to the Flask app object in app.py, so we get the running process's
+    registry regardless of whether app.py is loaded as __main__ or 'app'.
     """
-    from app import _file_registry
-    f = _file_registry.get(file_id)
+    reg = current_app.config.get("FILE_REGISTRY", {})
+    f = reg.get(file_id)
     return f.get("user_id") if f else None
 
 
