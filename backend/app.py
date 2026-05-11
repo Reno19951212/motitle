@@ -173,6 +173,44 @@ RENDERS_DIR = DATA_DIR / "renders"
 RENDERS_DIR.mkdir(parents=True, exist_ok=True)
 _subtitle_renderer = SubtitleRenderer(RENDERS_DIR)
 _render_jobs = {}
+# R6 audit R4 — _render_jobs is mutated from the do_render worker thread
+# AND from the cancel route. Without this lock, do_render's
+# `{**job_state, status:'done'}` write could land AFTER the cancel route's
+# `{**job, cancelled:True}` write, clobbering the cancel flag — the render
+# thread would think the job is still active and finish naturally.
+_render_jobs_lock = threading.Lock()
+# R6 audit M1 — sweep terminal-state entries older than this. The download
+# endpoint still works for fresh renders; older jobs become 404 (along with
+# their output files on disk being cleaned).
+_RENDER_JOB_TTL_SEC = 24 * 60 * 60  # 24 h
+
+
+def _evict_old_render_jobs():
+    """Drop completed render jobs older than _RENDER_JOB_TTL_SEC.
+
+    Called opportunistically — start, status, list. The render-job dict
+    previously grew unbounded with every render's payload + on-disk MP4/MXF
+    output file, eventually OOM'ing the box on a long-uptime server. Now
+    bounded by TTL; per-job memory is small (~300 bytes) and output files
+    are unlinked at the same time.
+    """
+    now = time.time()
+    to_drop = []
+    with _render_jobs_lock:
+        for rid, job in list(_render_jobs.items()):
+            if job.get("status") not in ("done", "error", "cancelled"):
+                continue
+            if (now - (job.get("created_at") or 0)) < _RENDER_JOB_TTL_SEC:
+                continue
+            to_drop.append((rid, job.get("output_path")))
+        for rid, _path in to_drop:
+            _render_jobs.pop(rid, None)
+    for _rid, path in to_drop:
+        try:
+            if path and os.path.exists(path):
+                os.remove(path)
+        except Exception:
+            pass
 
 # Auth setup (R5 Phase 1) — bootstrap SQLite users table, register Flask-Login,
 # wire auth blueprint, optionally bootstrap an admin user from env on first run.
@@ -380,10 +418,18 @@ def _load_registry():
 
 
 def _save_registry():
-    """Persist file registry to disk"""
+    """Persist file registry to disk atomically (R6 audit R10).
+
+    Previous version wrote in-place; an interrupted write left the JSON
+    half-flushed and the next boot crashed with json.JSONDecodeError. Now
+    we write to a `.tmp` sibling and `os.replace` (atomic on POSIX + NTFS)
+    so the file is either fully old or fully new — never partially written.
+    """
     registry_path = DATA_DIR / "registry.json"
-    with open(registry_path, 'w') as f:
+    tmp_path = registry_path.with_suffix(".json.tmp")
+    with open(tmp_path, 'w', encoding='utf-8') as f:
         json.dump(_file_registry, f, ensure_ascii=False, indent=2)
+    os.replace(tmp_path, registry_path)
 
 
 def _user_upload_dir(user_id: int) -> Path:
@@ -1136,15 +1182,38 @@ def list_models():
 # Profile Management API
 # ============================================================
 
+def _redact_profile_for(profile, viewer_is_admin, viewer_user_id):
+    """Strip translation.api_key from profile JSON unless caller is admin or
+    owner. Prevents shared profile (user_id=null) from leaking an org-wide
+    OpenRouter / API key to every authed team member (R6 audit S4).
+
+    Returns a NEW dict (never mutates the caller's reference).
+    """
+    if not profile:
+        return profile
+    owner = profile.get("user_id")
+    if viewer_is_admin or (owner is not None and owner == viewer_user_id):
+        return profile
+    tx = profile.get("translation") or {}
+    if "api_key" not in tx:
+        return profile
+    redacted_tx = {k: v for k, v in tx.items() if k != "api_key"}
+    return {**profile, "translation": redacted_tx}
+
+
 @app.route('/api/profiles', methods=['GET'])
 @login_required
 def api_list_profiles():
     if app.config.get("R5_AUTH_BYPASS"):
         return jsonify({"profiles": _profile_manager.list_all()})
-    return jsonify({"profiles": _profile_manager.list_visible(
+    visible = _profile_manager.list_visible(
         user_id=current_user.id,
         is_admin=current_user.is_admin,
-    )})
+    )
+    return jsonify({"profiles": [
+        _redact_profile_for(p, current_user.is_admin, current_user.id)
+        for p in visible
+    ]})
 
 
 @app.route('/api/profiles', methods=['POST'])
@@ -1173,6 +1242,8 @@ def api_create_profile():
 @login_required
 def api_get_active_profile():
     profile = _profile_manager.get_active()
+    if profile and not app.config.get("R5_AUTH_BYPASS"):
+        profile = _redact_profile_for(profile, current_user.is_admin, current_user.id)
     return jsonify({"profile": profile})
 
 
@@ -1195,6 +1266,8 @@ def api_get_profile(profile_id):
     profile = _profile_manager.get(profile_id)
     if not profile:
         return jsonify({"error": "Profile not found"}), 404
+    if not app.config.get("R5_AUTH_BYPASS"):
+        profile = _redact_profile_for(profile, current_user.is_admin, current_user.id)
     return jsonify({"profile": profile})
 
 
@@ -2137,20 +2210,25 @@ def api_get_translations(file_id):
 @app.route('/api/files/<file_id>/translations/approve-all', methods=['POST'])
 @require_file_owner
 def api_approve_all_translations(file_id):
+    # R6 audit R1 — hold the registry lock for the whole read-modify-write
+    # so a concurrent _auto_translate worker thread or another PATCH can't
+    # land its translations[] in between (lost update would clobber MT
+    # output with a stale snapshot).
     with _registry_lock:
         entry = _file_registry.get(file_id)
-    if not entry:
-        return jsonify({"error": "File not found"}), 404
-    translations = entry.get("translations", [])
-    count = 0
-    new_translations = []
-    for t in translations:
-        if t.get("status") == "pending":
-            new_translations.append({**t, "status": "approved"})
-            count += 1
-        else:
-            new_translations.append(t)
-    _update_file(file_id, translations=new_translations)
+        if not entry:
+            return jsonify({"error": "File not found"}), 404
+        translations = entry.get("translations", [])
+        count = 0
+        new_translations = []
+        for t in translations:
+            if t.get("status") == "pending":
+                new_translations.append({**t, "status": "approved"})
+                count += 1
+            else:
+                new_translations.append(t)
+        entry["translations"] = new_translations
+        _save_registry()
     return jsonify({"approved_count": count, "total": len(new_translations)})
 
 
@@ -2170,49 +2248,53 @@ def api_translation_status(file_id):
 @app.route('/api/files/<file_id>/translations/<int:idx>', methods=['PATCH'])
 @require_file_owner
 def api_update_translation(file_id, idx):
-    with _registry_lock:
-        entry = _file_registry.get(file_id)
-    if not entry:
-        return jsonify({"error": "File not found"}), 404
-    translations = entry.get("translations", [])
-    if idx < 0 or idx >= len(translations):
-        return jsonify({"error": "Translation index out of range"}), 404
     data = request.get_json()
     if not data or "zh_text" not in data:
         return jsonify({"error": "zh_text is required"}), 400
-    new_translations = list(translations)
-    # Editing implies the user has reviewed the segment, so clear QA flags.
-    # Length warnings will reappear on the next translation pass if still applicable.
-    new_translations[idx] = {
-        **translations[idx],
-        "zh_text": data["zh_text"],
-        "status": "approved",
-        "flags": [],
-        # Manual edit becomes the new baseline; any prior glossary-apply
-        # history is wiped so future glossary deletions don't revert past
-        # the user's explicit edit.
-        "baseline_zh": data["zh_text"],
-        "applied_terms": [],
-    }
-    _update_file(file_id, translations=new_translations)
-    return jsonify({"translation": _normalize_translation_for_api(new_translations[idx])})
+    # R6 audit R1 — read-modify-write under the registry lock.
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+        if not entry:
+            return jsonify({"error": "File not found"}), 404
+        translations = entry.get("translations", [])
+        if idx < 0 or idx >= len(translations):
+            return jsonify({"error": "Translation index out of range"}), 404
+        new_translations = list(translations)
+        # Editing implies the user has reviewed the segment, so clear QA flags.
+        # Length warnings will reappear on the next translation pass if still applicable.
+        new_translations[idx] = {
+            **translations[idx],
+            "zh_text": data["zh_text"],
+            "status": "approved",
+            "flags": [],
+            # Manual edit becomes the new baseline; any prior glossary-apply
+            # history is wiped so future glossary deletions don't revert past
+            # the user's explicit edit.
+            "baseline_zh": data["zh_text"],
+            "applied_terms": [],
+        }
+        entry["translations"] = new_translations
+        _save_registry()
+        return jsonify({"translation": _normalize_translation_for_api(new_translations[idx])})
 
 
 @app.route('/api/files/<file_id>/translations/<int:idx>/approve', methods=['POST'])
 @require_file_owner
 def api_approve_translation(file_id, idx):
+    # R6 audit R1 — RMW under registry lock.
     with _registry_lock:
         entry = _file_registry.get(file_id)
-    if not entry:
-        return jsonify({"error": "File not found"}), 404
-    translations = entry.get("translations", [])
-    if idx < 0 or idx >= len(translations):
-        return jsonify({"error": "Translation index out of range"}), 404
-    new_translations = list(translations)
-    # Approving without editing keeps flags so they remain visible until corrected.
-    new_translations[idx] = {**translations[idx], "status": "approved"}
-    _update_file(file_id, translations=new_translations)
-    return jsonify({"translation": _normalize_translation_for_api(new_translations[idx])})
+        if not entry:
+            return jsonify({"error": "File not found"}), 404
+        translations = entry.get("translations", [])
+        if idx < 0 or idx >= len(translations):
+            return jsonify({"error": "Translation index out of range"}), 404
+        new_translations = list(translations)
+        # Approving without editing keeps flags so they remain visible until corrected.
+        new_translations[idx] = {**translations[idx], "status": "approved"}
+        entry["translations"] = new_translations
+        _save_registry()
+        return jsonify({"translation": _normalize_translation_for_api(new_translations[idx])})
 
 
 @app.route('/api/files/<file_id>/translations/<int:idx>/unapprove', methods=['POST'])
@@ -2220,17 +2302,19 @@ def api_approve_translation(file_id, idx):
 def api_unapprove_translation(file_id, idx):
     """Flip a translation back to 'pending' so the user can re-edit /
     re-approve. Mirrors POST /approve."""
+    # R6 audit R1 — RMW under registry lock.
     with _registry_lock:
         entry = _file_registry.get(file_id)
-    if not entry:
-        return jsonify({"error": "File not found"}), 404
-    translations = entry.get("translations", [])
-    if idx < 0 or idx >= len(translations):
-        return jsonify({"error": "Translation index out of range"}), 400
-    new_translations = list(translations)
-    new_translations[idx] = {**translations[idx], "status": "pending"}
-    _update_file(file_id, translations=new_translations)
-    return jsonify({"translation": _normalize_translation_for_api(new_translations[idx])})
+        if not entry:
+            return jsonify({"error": "File not found"}), 404
+        translations = entry.get("translations", [])
+        if idx < 0 or idx >= len(translations):
+            return jsonify({"error": "Translation index out of range"}), 400
+        new_translations = list(translations)
+        new_translations[idx] = {**translations[idx], "status": "pending"}
+        entry["translations"] = new_translations
+        _save_registry()
+        return jsonify({"translation": _normalize_translation_for_api(new_translations[idx])})
 
 
 # ============================================================
@@ -2442,6 +2526,17 @@ def api_start_render():
     if not entry:
         return jsonify({"error": "File not found"}), 404
 
+    # R6 owner check — file_id lives in the body so @require_file_owner can't
+    # cover this route. Without this an authed non-owner could spawn an
+    # FFmpeg render against another user's video (cost + DoS + side-channel
+    # via 4xx error shape). Admin bypass mirrors /api/translate (app.py:1478).
+    if (
+        not app.config.get("R5_AUTH_BYPASS")
+        and entry.get("user_id") != current_user.id
+        and not current_user.is_admin
+    ):
+        return jsonify({"error": "forbidden"}), 403
+
     active_profile = _profile_manager.get_active()
     subtitle_source = _resolve_subtitle_source(entry, active_profile, src_override)
     bilingual_order = _resolve_bilingual_order(entry, active_profile, ord_override)
@@ -2483,20 +2578,23 @@ def api_start_render():
     original_stem = Path(entry["original_name"]).stem
     download_filename = f"{original_stem}_subtitled.{file_ext}"
 
-    _render_jobs[render_id] = {
-        "render_id": render_id,
-        "file_id": file_id,
-        "format": output_format,
-        "render_options": render_options,
-        "subtitle_source": subtitle_source,
-        "bilingual_order": bilingual_order,
-        "status": "processing",
-        "output_path": output_path,
-        "output_filename": download_filename,
-        "error": None,
-        "created_at": time.time(),
-        "cancelled": False,
-    }
+    # Opportunistic janitor pass — keep the dict bounded.
+    _evict_old_render_jobs()
+    with _render_jobs_lock:
+        _render_jobs[render_id] = {
+            "render_id": render_id,
+            "file_id": file_id,
+            "format": output_format,
+            "render_options": render_options,
+            "subtitle_source": subtitle_source,
+            "bilingual_order": bilingual_order,
+            "status": "processing",
+            "output_path": output_path,
+            "output_filename": download_filename,
+            "error": None,
+            "created_at": time.time(),
+            "cancelled": False,
+        }
 
     # Load font config from active profile (fallback to DEFAULT_FONT_CONFIG)
     font_config = active_profile.get("font", DEFAULT_FONT_CONFIG) if active_profile else DEFAULT_FONT_CONFIG
@@ -2516,31 +2614,40 @@ def api_start_render():
             success, ffmpeg_error = _subtitle_renderer.render(
                 video_path, ass_content, output_path, output_format, render_options_snapshot
             )
-            job_state = _render_jobs.get(render_id) or {}
-            if job_state.get('cancelled'):
-                _render_jobs[render_id] = {**job_state, 'status': 'cancelled'}
+            with _render_jobs_lock:
+                job_state = _render_jobs.get(render_id) or {}
+                if job_state.get('cancelled'):
+                    _render_jobs[render_id] = {**job_state, 'status': 'cancelled'}
+                    cleanup = True
+                elif success:
+                    _render_jobs[render_id] = {**job_state, "status": "done"}
+                    cleanup = False
+                else:
+                    error_msg = f"FFmpeg render failed: {ffmpeg_error}" if ffmpeg_error else "FFmpeg render failed"
+                    _render_jobs[render_id] = {**job_state, "status": "error", "error": error_msg}
+                    cleanup = False
+            if cleanup:
                 try:
                     if os.path.exists(output_path):
                         os.remove(output_path)
                 except Exception:
                     pass
-            elif success:
-                _render_jobs[render_id] = {**job_state, "status": "done"}
-            else:
-                error_msg = f"FFmpeg render failed: {ffmpeg_error}" if ffmpeg_error else "FFmpeg render failed"
-                _render_jobs[render_id] = {**job_state, "status": "error", "error": error_msg}
         except Exception as exc:
             print(f"Render job {render_id} error: {exc}")
-            job_state = _render_jobs.get(render_id) or {}
-            if job_state.get('cancelled'):
-                _render_jobs[render_id] = {**job_state, 'status': 'cancelled'}
+            with _render_jobs_lock:
+                job_state = _render_jobs.get(render_id) or {}
+                if job_state.get('cancelled'):
+                    _render_jobs[render_id] = {**job_state, 'status': 'cancelled'}
+                    cleanup = True
+                else:
+                    _render_jobs[render_id] = {**job_state, "status": "error", "error": str(exc)}
+                    cleanup = False
+            if cleanup:
                 try:
                     if os.path.exists(output_path):
                         os.remove(output_path)
                 except Exception:
                     pass
-            else:
-                _render_jobs[render_id] = {**_render_jobs[render_id], "status": "error", "error": str(exc)}
 
     thread = threading.Thread(target=do_render)
     thread.daemon = True
@@ -2617,14 +2724,15 @@ def api_cancel_render(render_id):
     """Mark an in-flight render job as cancelled. Best-effort — FFmpeg
     sub-process is not killed mid-encode (no Popen handle stored), but the
     output file is discarded and status flips to 'cancelled' on completion."""
-    job = _render_jobs.get(render_id)
-    if not job:
-        return jsonify({"error": "Render job not found"}), 404
-    if not _can_access_render(render_id, current_user):
-        return jsonify({"error": "forbidden"}), 403
-    if job.get('status') in ('done', 'error', 'cancelled'):
-        return jsonify({"error": f"Cannot cancel — job already {job.get('status')}"}), 400
-    _render_jobs[render_id] = {**job, 'cancelled': True}
+    with _render_jobs_lock:
+        job = _render_jobs.get(render_id)
+        if not job:
+            return jsonify({"error": "Render job not found"}), 404
+        if not _can_access_render(render_id, current_user):
+            return jsonify({"error": "forbidden"}), 403
+        if job.get('status') in ('done', 'error', 'cancelled'):
+            return jsonify({"error": f"Cannot cancel — job already {job.get('status')}"}), 400
+        _render_jobs[render_id] = {**job, 'cancelled': True}
     return jsonify({"render_id": render_id, "status": "cancelling"}), 202
 
 
@@ -3264,9 +3372,10 @@ def delete_file(file_id):
 
 
 @app.route('/api/restart', methods=['POST'])
-@login_required
+@admin_required
 def restart_server():
-    """Restart the server process"""
+    """Restart the server process. Admin-only — any authed user could
+    otherwise trigger os.execv() and disconnect every client (R6 audit)."""
     _save_registry()  # persist state before restart
 
     def do_restart():

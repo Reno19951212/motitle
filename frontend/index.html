@@ -3804,7 +3804,7 @@
     // the user's click on 儲存檔案 carries the user gesture that showSaveFilePicker()
     // requires. Calling the picker from inside the poll callback (no gesture in
     // scope) throws "Must be handling a user gesture to show a file picker".
-    const renderModalState = { fileId: null, format: 'mp4', currentRenderId: null, pendingDownload: null, awaitingApprovalConfirm: false };
+    const renderModalState = { fileId: null, format: 'mp4', currentRenderId: null, pendingDownload: null, awaitingApprovalConfirm: false, pollTimerId: null };
 
     async function requestRender(id, format) {
       if (format === 'custom') format = 'mp4';  // default when user clicks ⚙
@@ -3853,6 +3853,14 @@
 
     function closeRenderModal() {
       renderModalState.awaitingApprovalConfirm = false;
+      // R6 audit M7 — clear the render-status poll. Previously the poll
+      // setInterval was held in a local closure inside pollRender, so
+      // closing the modal mid-render left it firing forever (one fetch
+      // every 1.5 s for each abandoned render).
+      if (renderModalState.pollTimerId !== null) {
+        clearInterval(renderModalState.pollTimerId);
+        renderModalState.pollTimerId = null;
+      }
       _closeModalRestoreFocus('renderOverlay');
     }
 
@@ -4014,12 +4022,18 @@
     }
 
     function pollRender(renderId) {
+      // R6 audit M7 — clear any prior poll before starting a fresh one (e.g.
+      // retry without closing modal) so timers don't multiply.
+      if (renderModalState.pollTimerId !== null) {
+        clearInterval(renderModalState.pollTimerId);
+        renderModalState.pollTimerId = null;
+      }
       const poll = setInterval(async () => {
         try {
           const r = await fetch(`${API_BASE}/api/renders/${renderId}`);
           if (!r.ok) {
             // Backend returned non-2xx (e.g. 500) — stop polling and surface error.
-            clearInterval(poll);
+            clearInterval(poll); renderModalState.pollTimerId = null;
             let errMsg = `HTTP ${r.status}`;
             try { const d = await r.json(); if (d.error) errMsg = d.error; } catch (_) {}
             setRmStatus(`渲染狀態查詢失敗：${errMsg}`, 'error');
@@ -4029,7 +4043,7 @@
           }
           const d = await r.json();
           if (d.status === 'done') {
-            clearInterval(poll);
+            clearInterval(poll); renderModalState.pollTimerId = null;
             const suggestedName = d.output_filename || `subtitled.${(d.format || 'mp4').replace('mxf_xdcam_hd422', 'mxf')}`;
             // Stash the completed render and repurpose the primary button to
             // trigger the download on click — only then can showSaveFilePicker
@@ -4042,14 +4056,14 @@
             const cb = document.getElementById('rmCancelBtn');
             if (cb) cb.style.display = 'none';
           } else if (d.status === 'cancelled') {
-            clearInterval(poll);
+            clearInterval(poll); renderModalState.pollTimerId = null;
             setRmStatus('已取消', 'info');
             document.getElementById('rmConfirmBtn').disabled = false;
             document.getElementById('rmConfirmBtn').textContent = '重試';
             const cb = document.getElementById('rmCancelBtn');
             if (cb) cb.style.display = 'none';
           } else if (d.status === 'error') {
-            clearInterval(poll);
+            clearInterval(poll); renderModalState.pollTimerId = null;
             setRmStatus(`渲染失敗：${d.error || '未知錯誤'}`, 'error');
             document.getElementById('rmConfirmBtn').disabled = false;
             document.getElementById('rmConfirmBtn').textContent = '重試';
@@ -4065,6 +4079,7 @@
           if (cb) cb.style.display = 'none';
         }
       }, 1500);
+      renderModalState.pollTimerId = poll;
     }
 
     async function cancelCurrentRender() {
@@ -4226,7 +4241,7 @@
         try {
           const r = await fetch(`${API_BASE}/api/health`, { signal: AbortSignal.timeout(2000) });
           if (r.ok) {
-            clearInterval(poll);
+            clearInterval(poll); renderModalState.pollTimerId = null;
             showToast('服務器已重啟', 'success');
             if (socket) socket.disconnect();
             connectSocket();
@@ -4243,8 +4258,28 @@
       socket = io(API_BASE || location.origin, { transports: ['polling', 'websocket'], withCredentials: true });
       window.socket = socket;  // queue-panel.js subscribes to 'queue_changed' on this instance
       socket.on('connected', d => { currentSid = d.sid; renderHealthCluster(); });
-      socket.on('connect', () => renderHealthCluster());
-      socket.on('disconnect', () => renderHealthCluster());
+      // R6 audit E1 — surface WebSocket disconnect/reconnect to the user so
+      // they know real-time updates (progress bars, queue, file status)
+      // have paused, and so they get told when state has been re-synced.
+      // Without this the entire dashboard freezes silently.
+      let _wasDisconnected = false;
+      socket.on('connect', () => {
+        renderHealthCluster();
+        if (_wasDisconnected) {
+          showToast('已重新連線', 'success');
+          _wasDisconnected = false;
+          // Reconcile state we may have missed while the WS was down.
+          try { fetchFileList(); } catch (_) {}
+          if (typeof window.refreshQueue === 'function') window.refreshQueue();
+        }
+      });
+      socket.on('disconnect', () => {
+        renderHealthCluster();
+        if (!_wasDisconnected) {
+          _wasDisconnected = true;
+          showToast('WebSocket 連線斷開，正在嘗試重連…', 'warning');
+        }
+      });
       socket.on('file_added', d => { uploadedFiles[d.id] = d; renderAll(); });
       socket.on('file_updated', d => {
         if (uploadedFiles[d.id]) Object.assign(uploadedFiles[d.id], d);

@@ -125,6 +125,30 @@ def update_job_status(
         conn.close()
 
 
+def cancel_if_queued(db_path: str, job_id: str) -> bool:
+    """Atomically cancel a job IFF its current DB status is 'queued'.
+
+    Returns True if the row was actually flipped (status was 'queued'),
+    False if the worker had already picked it up (status='running' by the
+    time we got here). Caller should fall back to the running-cancel path
+    when False. Closes the cancel-queued worker race (R6 audit R2) — the
+    naive two-step `get_job` → `update_job_status` left a window where the
+    worker could pop the jid and transition to 'running' between the read
+    and the write, and the write would clobber that transition.
+    """
+    conn = get_connection(db_path)
+    try:
+        cur = conn.execute(
+            "UPDATE jobs SET status = 'cancelled', finished_at = ? "
+            "WHERE id = ? AND status = 'queued'",
+            (__import__('time').time(), job_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
 def list_jobs_for_user(db_path: str, user_id: int) -> list:
     conn = get_connection(db_path)
     try:

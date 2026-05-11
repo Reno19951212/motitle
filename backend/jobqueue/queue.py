@@ -66,6 +66,12 @@ class JobQueue:
         # poison-pill cap is honored without further checks here. Pass
         # parent_job_id so the new entry's attempt_count = parent + 1.
         orphans = recover_orphaned_running(db_path, auto_retry=True)
+        # R6 race fix R3 — track the freshly-inserted jids from orphan retry
+        # so the queued-recovery pass below doesn't enqueue them a second
+        # time. The new rows are status='queued' so list_active_jobs would
+        # otherwise return them and we'd push the same jid into _asr_q / _mt_q
+        # twice → handler runs twice on the same file.
+        retry_jids = set()
         if orphans:
             import logging
             logging.getLogger(__name__).warning(
@@ -73,6 +79,7 @@ class JobQueue:
             for o in orphans:
                 new_jid = insert_job(db_path, o["user_id"], o["file_id"], o["type"],
                                      parent_job_id=o["id"])
+                retry_jids.add(new_jid)
                 if o["type"] == "asr":
                     self._asr_q.put(new_jid)
                 elif o["type"] in ("translate", "render"):
@@ -84,7 +91,8 @@ class JobQueue:
         # in-memory worker queue was rebuilt empty at boot. We load them in
         # creation order so FIFO is preserved across restarts.
         stale_queued = list_active_jobs(db_path)
-        stale_queued = [j for j in stale_queued if j["status"] == "queued"]
+        stale_queued = [j for j in stale_queued
+                        if j["status"] == "queued" and j["id"] not in retry_jids]
         if stale_queued:
             import logging
             logging.getLogger(__name__).warning(

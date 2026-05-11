@@ -252,6 +252,13 @@ class ProfileManager:
         if existing is None:
             return None
 
+        # R6 mass-assignment guard — `user_id` and `id` are server-controlled
+        # ownership fields. Without this guard, a non-admin who owns a private
+        # profile could PATCH `user_id: null` (re-publish it as a shared
+        # profile that the rest of the team can read but only admins edit) or
+        # PATCH it to another user's id (give the profile away).
+        data = {k: v for k, v in data.items() if k not in ("user_id", "id")}
+
         # Shallow merge at the top level first, then deep-merge nested blocks.
         # The isinstance guard ensures that non-dict values (e.g. None) are not
         # spread here — they will be caught and rejected by validate() instead.

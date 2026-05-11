@@ -7,6 +7,7 @@ from jobqueue.db import (
     list_active_jobs,
     get_job,
     update_job_status,
+    cancel_if_queued,
 )
 from auth.users import get_user_by_id
 from auth.limiter import limiter
@@ -96,10 +97,18 @@ def cancel_job(job_id):
         return jsonify({"error": "forbidden"}), 403
 
     if job["status"] == "queued":
-        # Synchronous DB cancel (Phase 1 C6 behavior preserved)
-        update_job_status(db_path, job_id, "cancelled")
-        _broadcast_queue_changed()
-        return jsonify({"ok": True}), 200
+        # R6 audit R2 — atomic UPDATE-WHERE-status='queued' closes the
+        # cancel-worker race: if the worker picked up the jid between our
+        # get_job() snapshot and the UPDATE, rowcount=0 and we fall through
+        # to the running-cancel path so the worker actually gets the cancel
+        # event. Without this, the naive UPDATE could clobber the worker's
+        # status='running' transition and the job would run to completion
+        # despite returning 200 to the caller.
+        if cancel_if_queued(db_path, job_id):
+            _broadcast_queue_changed()
+            return jsonify({"ok": True}), 200
+        # Fall through — the worker has just transitioned to running.
+        job = {**job, "status": "running"}
 
     if job["status"] == "running":
         # R5 Phase 4: cooperative interrupt — set the cancel event,
