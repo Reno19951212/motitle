@@ -340,6 +340,17 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### v3.14 — R6 Phase 6 security hardening (rate limiting, password policy, audit, readiness probe)
+- **Rate limiting** (`backend/auth/limiter.py` — new shared singleton): Flask-Limiter 3.11 with `memory://` storage. `POST /login` — 10 req/min per IP; `GET /api/queue` — 60 req/min per IP. `RATELIMIT_ENABLED=False` config key disables limits globally (set in `conftest.py` for the test suite). Limiter registered on main app via `limiter.init_app(app)` in `app.py`.
+- **Password policy** (`auth/passwords.py`): `validate_password_strength(plaintext)` — rejects passwords shorter than 8 characters (`ValueError: "at least 8"`) or matching any of 24 common passwords (`ValueError: "too common"`). Enforced at every write path in `auth/users.py`: `create_user()` and `update_password()`.
+- **Failed-login audit log** (`auth/routes.py`): `POST /login` on 401 now calls `log_audit(actor_id=0, action="login_failed", target_kind="username", target_id=username)`. `actor_id=0` is the unauthenticated sentinel. 400 (missing fields) returns before credentials check — no audit entry created.
+- **`/api/ready` readiness probe** (`app.py`): `GET /api/ready` — no authentication required (for load-balancer / container orchestration). Pings auth SQLite (`SELECT 1`) and checks all JobQueue worker threads alive. Returns `{"ready": true}` 200 on healthy, `{"ready": false, "error": "..."}` 503 on DB failure or dead workers. Separate from `/api/health` (liveness probe).
+- **Frontend `setInterval` leak fix** (`frontend/js/queue-panel.js`): Replaced bare `setInterval` with `startQueueRefresh()` / `stopQueueRefresh()` guarded by `_queueTimerId !== null`. Prevents accumulating timers on repeated init calls. Both functions exported as `window.*` for external teardown.
+- **Test suite** (`tests/test_phase6.py` — 14 new tests): `TestPasswordPolicy` × 5 (short reject, common reject, strong accept, update enforcement, direct validate); `TestFailedLoginAudit` × 3 (failed creates entry, success creates none, 400 creates none); `TestRateLimiting` × 3 (limiter registered on main app, 429 after threshold with `pytest.skip` guard for shared-singleton isolation, disabled in tests); `TestApiReady` × 3 (200 healthy, JSON content-type, no auth required).
+- **Bulk test password migration**: All short test passwords (`"pw"`, `"secret"`, `"pw1"`, etc.) across 17 test files replaced with strong passwords (`"TestPass1!"`, `"NewPass1!"`, etc.) to comply with password policy enforcement at the DB layer.
+- **Tests**: 686 backend pass + 1 skipped (rate limit isolation, passes in isolated run) + 12 pre-existing failures (11 Playwright E2E need browser, 1 macOS tmpdir colon-escape baseline). No regressions.
+- **Remaining Phase 6 deferred items**: `/api/files` O(N) job_id lookup optimization; pytest `real_auth` marker refactor; systemd hardening (`NoNewPrivileges`, `PrivateTmp`); faster-whisper `BatchedInferencePipeline`; `app.py` / `index.html` refactor.
+
 ### v3.13 — R5 Server Mode Phase 5 (security + production hardening)
 - **目標**：closes 13 issues found by Phase 5 prep investigation (5 BLOCKING bugs + 8 production-hardening items). After this phase the branch is safe to merge to main and deploy on real LAN. Plan: [docs/superpowers/plans/2026-05-10-r5-server-mode-phase5-plan.md](docs/superpowers/plans/2026-05-10-r5-server-mode-phase5-plan.md).
 - **Tier 1 BLOCKING bugs (5/5 closed)**：
