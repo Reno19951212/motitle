@@ -2378,7 +2378,14 @@
     const replacement = document.getElementById('fbReplace').value;
     const zhMatches = fbMatches.filter(m => m.field === 'zh');
     if (!zhMatches.length) { showToast('無可取代的 ZH 匹配', 'warning'); return; }
+    // R6 audit E3 — track failure count + first error message so the user
+    // knows when some PATCHes silently failed (e.g. backend 403 / 500).
+    // Pre-fix the loop did `if (!r.ok) continue;` with no count, leaving
+    // the user to think "已取代 N 處" was the full picture when it might
+    // have been partial.
     let count = 0;
+    let failCount = 0;
+    let firstErr = '';
     for (const m of zhMatches) {
       const s = segs[m.idx];
       if (!s) continue;
@@ -2390,12 +2397,26 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ zh_text: newZh }),
         });
-        if (!r.ok) continue;
+        if (!r.ok) {
+          failCount++;
+          if (!firstErr) {
+            const body = await r.json().catch(() => ({}));
+            firstErr = body.error || `HTTP ${r.status}`;
+          }
+          continue;
+        }
         segs = segs.map((seg, i) => i === s.idx ? { ...seg, zh: newZh, approved: true, edited: true } : seg);
         count++;
-      } catch (_) {}
+      } catch (e) {
+        failCount++;
+        if (!firstErr) firstErr = e.message || '網絡錯誤';
+      }
     }
-    showToast(`已取代 ${count} 處`, 'success');
+    if (failCount > 0) {
+      showToast(`已取代 ${count} 處，${failCount} 處失敗（${firstErr}）`, count > 0 ? 'warning' : 'error');
+    } else {
+      showToast(`已取代 ${count} 處`, 'success');
+    }
     fbSearch();
   }
 

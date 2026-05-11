@@ -138,10 +138,14 @@ async function retryFile(fileId) {
 }
 
 let _queueTimerId = null;
-let _socketBound = false;
+// R6 audit M5/M6 — track the socket instance we last bound to. When the
+// dashboard's restartService swaps window.socket for a new instance, we
+// need to re-attach the 'queue_changed' listener; pre-fix a boolean flag
+// blocked the rebind and the new socket's events were silently dropped.
+let _boundSocket = null;
+let _bindRetryTimer = null;
 
 function _bindSocket() {
-  if (_socketBound) return;
   // Use the page's existing socket if main app already created one
   // (dashboard sets window.socket). Otherwise create our own connection
   // (e.g. on /proofread.html where no global socket exists).
@@ -151,10 +155,20 @@ function _bindSocket() {
       transports: ["polling", "websocket"],
       withCredentials: true,
     });
+    if (typeof window !== "undefined") window.__queuePanelSocket = s;
   }
   if (!s) return; // no Socket.IO client loaded on this page
+  if (s === _boundSocket) return; // already attached to this exact instance
+  // Detach from any previous socket so we don't accumulate stale handlers
+  // when restartService swaps the connection.
+  if (_boundSocket && typeof _boundSocket.off === "function") {
+    try { _boundSocket.off("queue_changed", refreshQueue); } catch (_) {}
+  }
   s.on("queue_changed", refreshQueue);
-  _socketBound = true;
+  _boundSocket = s;
+  // Force a fresh poll right after rebind to reconcile any events missed
+  // while the socket was reconnecting.
+  refreshQueue();
 }
 
 function startQueueRefresh() {
@@ -162,19 +176,21 @@ function startQueueRefresh() {
   refreshQueue();
   _queueTimerId = setInterval(refreshQueue, 3000);
   _bindSocket();
-  // window.socket may be created AFTER queue-panel.js runs (dashboard
-  // builds it later). Retry binding for ~5s.
-  let tries = 0;
-  const bindRetry = setInterval(() => {
-    _bindSocket();
-    if (_socketBound || ++tries > 20) clearInterval(bindRetry);
-  }, 250);
+  // window.socket may be created (or swapped) AFTER queue-panel.js runs;
+  // poll for changes for the lifetime of the page (every 1s, cheap).
+  if (_bindRetryTimer === null) {
+    _bindRetryTimer = setInterval(_bindSocket, 1000);
+  }
 }
 
 function stopQueueRefresh() {
   if (_queueTimerId !== null) {
     clearInterval(_queueTimerId);
     _queueTimerId = null;
+  }
+  if (_bindRetryTimer !== null) {
+    clearInterval(_bindRetryTimer);
+    _bindRetryTimer = null;
   }
 }
 

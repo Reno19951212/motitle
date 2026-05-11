@@ -114,8 +114,12 @@ class JobQueue:
         except Exception:
             pass
 
-    def enqueue(self, user_id: int, file_id: str, job_type: str) -> str:
-        jid = insert_job(self._db_path, user_id, file_id, job_type)
+    def enqueue(self, user_id: int, file_id: str, job_type: str,
+                parent_job_id=None) -> str:
+        # parent_job_id propagates attempt_count = parent + 1 (used by manual
+        # retry + boot-recovery orphan retry, both bound by R5_MAX_JOB_RETRY).
+        jid = insert_job(self._db_path, user_id, file_id, job_type,
+                         parent_job_id=parent_job_id)
         if job_type == "asr":
             self._asr_q.put(jid)
         elif job_type in ("translate", "render"):

@@ -417,19 +417,70 @@ def _load_registry():
     return {}
 
 
-def _save_registry():
-    """Persist file registry to disk atomically (R6 audit R10).
-
-    Previous version wrote in-place; an interrupted write left the JSON
-    half-flushed and the next boot crashed with json.JSONDecodeError. Now
-    we write to a `.tmp` sibling and `os.replace` (atomic on POSIX + NTFS)
-    so the file is either fully old or fully new — never partially written.
-    """
+def _save_registry_to_disk():
+    """Atomic write of the registry JSON. Internal helper — public API is
+    `_save_registry()` which goes through the debouncer."""
     registry_path = DATA_DIR / "registry.json"
     tmp_path = registry_path.with_suffix(".json.tmp")
     with open(tmp_path, 'w', encoding='utf-8') as f:
         json.dump(_file_registry, f, ensure_ascii=False, indent=2)
     os.replace(tmp_path, registry_path)
+
+
+# R6 audit M2 — debounced registry persistence.
+#
+# Every translation PATCH / approve / unapprove previously triggered a full
+# JSON serialization of the entire in-memory _file_registry under the
+# registry lock — multi-MB of segments + word-timestamps + translations
+# even for a one-cell change. During heavy proofreading or MT progress
+# this dominated CPU. Now writes mark a dirty flag; a background thread
+# coalesces them, flushing at most once every _REGISTRY_FLUSH_INTERVAL.
+# Boot recovery + shutdown still flush synchronously.
+_REGISTRY_FLUSH_INTERVAL = 0.5  # seconds
+_registry_dirty = threading.Event()
+_registry_flush_thread = None
+_registry_flush_stop = threading.Event()
+
+
+def _registry_flusher_loop():
+    """Background thread — wake when dirty, sleep min interval, flush."""
+    while not _registry_flush_stop.is_set():
+        # Wait until something marks the registry dirty (or shutdown)
+        triggered = _registry_dirty.wait(timeout=5.0)
+        if _registry_flush_stop.is_set():
+            break
+        if not triggered:
+            continue
+        # Hold the dirty signal briefly so bursty writes (e.g. approve-all
+        # touching 50 segments serially) collapse into one disk write.
+        time.sleep(_REGISTRY_FLUSH_INTERVAL)
+        _registry_dirty.clear()
+        try:
+            with _registry_lock:
+                _save_registry_to_disk()
+        except Exception as e:
+            print(f"[registry-flusher] save failed: {e}")
+
+
+def _start_registry_flusher():
+    """Spawn the background flusher thread (idempotent)."""
+    global _registry_flush_thread
+    if _registry_flush_thread is not None and _registry_flush_thread.is_alive():
+        return
+    _registry_flush_thread = threading.Thread(
+        target=_registry_flusher_loop,
+        name="registry-flusher",
+        daemon=True,
+    )
+    _registry_flush_thread.start()
+
+
+def _save_registry():
+    """Mark the registry dirty. The background flusher coalesces writes
+    and persists at most once per _REGISTRY_FLUSH_INTERVAL. Callers that
+    need an immediate flush (shutdown, /api/restart) should call
+    _save_registry_to_disk() directly."""
+    _registry_dirty.set()
 
 
 def _user_upload_dir(user_id: int) -> Path:
@@ -2537,6 +2588,29 @@ def api_start_render():
     ):
         return jsonify({"error": "forbidden"}), 403
 
+    # R6 audit S5 — per-user concurrent-render cap. Render bypasses the
+    # JobQueue's 3-MT-worker bottleneck (each call spawns its own
+    # threading.Thread + FFmpeg subprocess), so without this cap an authed
+    # user could spam thousands of renders, exhausting CPU + disk. Admin
+    # exempt for batch use. Cap is intentionally generous (8 concurrent
+    # per user) — typical broadcast workflow renders one clip at a time.
+    if (
+        not app.config.get("R5_AUTH_BYPASS")
+        and not current_user.is_admin
+    ):
+        active_for_user = 0
+        with _render_jobs_lock:
+            for _rid, _job in _render_jobs.items():
+                if _job.get("status") == "processing" and not _job.get("cancelled"):
+                    file_id_for_job = _job.get("file_id")
+                    f = _file_registry.get(file_id_for_job) or {}
+                    if f.get("user_id") == current_user.id:
+                        active_for_user += 1
+        if active_for_user >= 8:
+            return jsonify({
+                "error": "你已有 8 個渲染進行中。請等其中一個完成或取消後再試。",
+            }), 429
+
     active_profile = _profile_manager.get_active()
     subtitle_source = _resolve_subtitle_source(entry, active_profile, src_override)
     bilingual_order = _resolve_bilingual_order(entry, active_profile, ord_override)
@@ -3376,7 +3450,10 @@ def delete_file(file_id):
 def restart_server():
     """Restart the server process. Admin-only — any authed user could
     otherwise trigger os.execv() and disconnect every client (R6 audit)."""
-    _save_registry()  # persist state before restart
+    # Synchronous flush: the debouncer would lose any unwritten state when
+    # os.execv kicks the process.
+    with _registry_lock:
+        _save_registry_to_disk()
 
     def do_restart():
         time.sleep(1)  # let the response reach the client
@@ -3629,9 +3706,14 @@ if __name__ == '__main__':
     for fid in stuck:
         _file_registry[fid]["translation_status"] = None
     if stuck:
-        _save_registry()
+        # Synchronous flush — flusher thread isn't running yet at boot time.
+        _save_registry_to_disk()
         print(f"已重置 {len(stuck)} 個中斷的翻譯狀態")
     print(f"已載入 {len(_file_registry)} 個已上傳文件")
+    # Start the background registry flusher (R6 audit M2). Debounces writes
+    # so heavy proofreading / MT progress doesn't pay full-JSON serialization
+    # cost per PATCH.
+    _start_registry_flusher()
 
     # Pre-load small model
     print("預加載模型 (small)...")

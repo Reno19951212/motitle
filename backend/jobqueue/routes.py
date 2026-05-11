@@ -140,10 +140,21 @@ def retry_job(job_id):
         return jsonify({"error": "forbidden"}), 403
     if job["status"] != "failed":
         return jsonify({"error": "can only retry failed jobs"}), 409
+    # R6 audit S6 — honor the same poison-pill cap (R5_MAX_JOB_RETRY) the
+    # boot-recovery path already enforces. Without this, a user could
+    # manually re-spam a permanently-failing job past the cap, defeating
+    # the protection added in Phase 5 T1.5.
+    import os as _os
+    max_retry = int(_os.environ.get("R5_MAX_JOB_RETRY", "3"))
+    if (job.get("attempt_count") or 0) >= max_retry:
+        return jsonify({
+            "error": f"retry cap reached ({max_retry}). Investigate the failure before re-running.",
+        }), 409
     q = _get_job_queue()
     new_job_id = q.enqueue(
         user_id=job["user_id"],
         file_id=job["file_id"],
         job_type=job["type"],
+        parent_job_id=job["id"],  # increments attempt_count for the cap
     )
     return jsonify({"ok": True, "new_job_id": new_job_id}), 200

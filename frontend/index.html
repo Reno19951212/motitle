@@ -4398,6 +4398,19 @@
       }
     }
 
+    // R6 audit E7 — log init-fetch errors to console + console.error so a
+    // dev opening DevTools can see WHY a dropdown is empty / pipeline strip
+    // shows stale data. Pre-fix these had `catch (e) {}` and left the user
+    // staring at a blank UI with no clue.
+    let _initFetchErrorShown = false;
+    function _initFetchError(name, e) {
+      console.warn(`[init-fetch] ${name} failed:`, e);
+      if (!_initFetchErrorShown) {
+        _initFetchErrorShown = true;
+        showToast(`部分設定載入失敗（${name}）— 詳情見 console`, 'warning');
+      }
+    }
+
     async function fetchActiveProfile() {
       const stripEl = document.getElementById('pipelineStrip');
       if (stripEl) stripEl.dataset.loading = '1';
@@ -4409,7 +4422,7 @@
         if (activeProfile?.font) fontConfig = { ...fontConfig, ...activeProfile.font };
         renderAll();
         applySubtitleStyle();
-      } catch (e) {}
+      } catch (e) { _initFetchError('active profile', e); }
       finally {
         if (stripEl) delete stripEl.dataset.loading;
       }
@@ -4418,28 +4431,30 @@
     async function fetchProfiles() {
       try {
         const r = await fetch(`${API_BASE}/api/profiles`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
         availableProfiles = data.profiles || [];
         renderPipelineStrip();
-      } catch (e) {}
+      } catch (e) { _initFetchError('profiles', e); }
     }
 
     async function fetchLanguageConfigs() {
       try {
         const r = await fetch(`${API_BASE}/api/languages`);
-        if (!r.ok) return;
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const d = await r.json();
         availableLanguageConfigs = d.languages || [];
-      } catch (e) { /* keep cache empty on error */ }
+      } catch (e) { _initFetchError('language configs', e); }
     }
 
     async function fetchGlossaries() {
       try {
         const r = await fetch(`${API_BASE}/api/glossaries`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
         glossaries = data.glossaries || [];
         renderPipelineStrip();
-      } catch (e) {}
+      } catch (e) { _initFetchError('glossaries', e); }
     }
 
     // ============================================================
