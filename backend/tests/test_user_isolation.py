@@ -7,8 +7,8 @@ def two_users(tmp_path):
     from auth.users import init_db, create_user
     db = str(tmp_path / "app.db")
     init_db(db)
-    create_user(db, "alice", "pw")  # uid 1
-    create_user(db, "bob", "pw")    # uid 2
+    create_user(db, "alice", "TestPass1!")  # uid 1
+    create_user(db, "bob", "TestPass1!")    # uid 2
     return db
 
 
@@ -49,7 +49,7 @@ def test_list_files_filters_by_owner(two_users, tmp_path, monkeypatch):
         return list(files.values())
 
     client = app.test_client()
-    client.post("/login", json={"username": "alice", "password": "pw"})
+    client.post("/login", json={"username": "alice", "password": "TestPass1!"})
     rv = client.get("/api/files")
     files = rv.get_json()
     assert len(files) == 1

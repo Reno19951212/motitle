@@ -3,6 +3,8 @@ from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 
 from auth.users import verify_credentials, get_user_by_id
+from auth.audit import log_audit
+from auth.limiter import limiter
 
 
 bp = Blueprint("auth", __name__)
@@ -23,6 +25,7 @@ class _LoginUser:
 
 
 @bp.post("/login")
+@limiter.limit("10 per minute")
 def login():
     data = request.get_json(silent=True) or {}
     # R5 Phase 5 T1.1: explicit `null` in JSON returns None from .get(),
@@ -36,6 +39,8 @@ def login():
     db_path = current_app.config["AUTH_DB_PATH"]
     user = verify_credentials(db_path, username, password)
     if not user:
+        log_audit(db_path, actor_id=0, action="login_failed",
+                  target_kind="username", target_id=username)
         return jsonify({"error": "invalid credentials"}), 401
 
     login_user(_LoginUser(user))

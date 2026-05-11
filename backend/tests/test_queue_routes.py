@@ -19,8 +19,8 @@ def app_with_queue(tmp_path):
     db = str(tmp_path / "app.db")
     init_db(db)
     init_jobs_table(db)
-    create_user(db, "alice", "secret")
-    create_user(db, "bob", "secret")
+    create_user(db, "alice", "TestPass1!")
+    create_user(db, "bob", "TestPass1!")
 
     # Pre-seed jobs
     insert_job(db, user_id=1, file_id="f-alice-1", job_type="asr")
@@ -49,7 +49,7 @@ def test_queue_requires_login(app_with_queue):
 
 def test_queue_returns_only_own_jobs_for_user(app_with_queue):
     c = app_with_queue.test_client()
-    c.post("/login", json={"username": "alice", "password": "secret"})
+    c.post("/login", json={"username": "alice", "password": "TestPass1!"})
     r = c.get("/api/queue")
     assert r.status_code == 200
     body = json.loads(r.data)

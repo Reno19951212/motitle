@@ -11,15 +11,16 @@ def alice_client_with_failed_job(monkeypatch, tmp_path):
     db = app_module.app.config["AUTH_DB_PATH"]
     init_db(db)
     try:
-        uid = create_user(db, "alice_e1", "secret", is_admin=False)
+        uid = create_user(db, "alice_e1", "TestPass1!", is_admin=False)
     except ValueError:
-        from auth.users import get_user_by_username
+        from auth.users import get_user_by_username, update_password
+        update_password(db, "alice_e1", "TestPass1!")
         uid = get_user_by_username(db, "alice_e1")["id"]
     init_jobs_table(db)
     jid = insert_job(db, user_id=uid, file_id="f-e1", job_type="asr")
     update_job_status(db, jid, "failed", error_msg="prior failure")
     c = app_module.app.test_client()
-    c.post("/login", json={"username": "alice_e1", "password": "secret"})
+    c.post("/login", json={"username": "alice_e1", "password": "TestPass1!"})
     yield c, jid
 
 

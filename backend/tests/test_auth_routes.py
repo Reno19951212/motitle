@@ -10,9 +10,11 @@ def app_with_user(tmp_path):
     # Ensure backend dir on path; pytest conftest should set this
     from auth.users import init_db, create_user
 
+    from auth.audit import init_audit_log
     db_path = str(tmp_path / "test.db")
     init_db(db_path)
-    create_user(db_path, username="alice", password="secret")
+    init_audit_log(db_path)
+    create_user(db_path, username="alice", password="TestPass1!")
 
     from flask import Flask
     app = Flask(__name__)
@@ -22,6 +24,10 @@ def app_with_user(tmp_path):
     from auth.routes import bp as auth_bp
     from flask_login import LoginManager
     from auth.users import get_user_by_id
+    from auth.limiter import limiter
+
+    app.config["RATELIMIT_ENABLED"] = False
+    limiter.init_app(app)
 
     lm = LoginManager()
     lm.init_app(app)
@@ -47,7 +53,7 @@ def app_with_user(tmp_path):
 def test_login_with_valid_credentials_sets_session(app_with_user):
     client = app_with_user.test_client()
     r = client.post("/login",
-                    json={"username": "alice", "password": "secret"})
+                    json={"username": "alice", "password": "TestPass1!"})
     assert r.status_code == 200
     # session cookie set (werkzeug 3 API: get_cookie returns Cookie | None)
     assert client.get_cookie("session") is not None
@@ -70,7 +76,7 @@ def test_login_with_missing_fields_returns_400(app_with_user):
 
 def test_logout_clears_session(app_with_user):
     client = app_with_user.test_client()
-    client.post("/login", json={"username": "alice", "password": "secret"})
+    client.post("/login", json={"username": "alice", "password": "TestPass1!"})
     r = client.post("/logout")
     assert r.status_code == 200
     # /api/me now returns 401
@@ -80,7 +86,7 @@ def test_logout_clears_session(app_with_user):
 
 def test_api_me_returns_user_info_when_logged_in(app_with_user):
     client = app_with_user.test_client()
-    client.post("/login", json={"username": "alice", "password": "secret"})
+    client.post("/login", json={"username": "alice", "password": "TestPass1!"})
     r = client.get("/api/me")
     assert r.status_code == 200
     body = json.loads(r.data)

@@ -190,6 +190,9 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.unauthorized_handler(lambda: ({'error': 'unauthorized'}, 401))
 
+from auth.limiter import limiter as _limiter
+_limiter.init_app(app)
+
 
 @login_manager.user_loader
 def _load_user(uid: str):
@@ -1058,6 +1061,27 @@ def health_check():
         'faster_models_loaded': list(_faster_model_cache.keys()),
         'upload_dir': str(UPLOAD_DIR)
     })
+
+
+@app.route('/api/ready')
+def ready_check():
+    """Readiness probe (liveness = /api/health, readiness = this).
+
+    Returns 200 when the server can accept work: auth DB reachable and all
+    job-queue worker threads alive. Returns 503 otherwise so that systemd
+    or a load-balancer can hold traffic until the process is ready.
+    No auth required — monitoring agents call this without a session.
+    """
+    try:
+        from auth.users import get_connection as _get_auth_conn
+        conn = _get_auth_conn(AUTH_DB_PATH)
+        conn.execute("SELECT 1").fetchone()
+        conn.close()
+    except Exception:
+        return jsonify({"ready": False, "error": "db unavailable"}), 503
+    if not all(t.is_alive() for t in _job_queue._workers):
+        return jsonify({"ready": False, "error": "job workers not running"}), 503
+    return jsonify({"ready": True}), 200
 
 
 @app.route('/api/models', methods=['GET'])

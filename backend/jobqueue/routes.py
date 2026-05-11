@@ -4,6 +4,7 @@ from flask_login import login_required, current_user
 
 from jobqueue.db import list_jobs_for_user, list_active_jobs, get_job, update_job_status
 from auth.users import get_user_by_id
+from auth.limiter import limiter
 
 bp = Blueprint("queue", __name__)
 _db_path = None
@@ -32,6 +33,7 @@ def _annotate(jobs: list, db_path: str) -> list:
 
 @bp.get("/api/queue")
 @login_required
+@limiter.limit("60 per minute")
 def list_queue():
     db_path = _db_path or current_app.config["AUTH_DB_PATH"]
     if current_user.is_admin:

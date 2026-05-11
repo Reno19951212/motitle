@@ -102,9 +102,10 @@ def alice_with_running_job(monkeypatch):
     db = app_module.app.config["AUTH_DB_PATH"]
     init_db(db)
     try:
-        create_user(db, "alice_d4", "secret", is_admin=False)
+        create_user(db, "alice_d4", "TestPass1!", is_admin=False)
     except ValueError:
-        pass
+        from auth.users import update_password as _upw
+        _upw(db, "alice_d4", "TestPass1!")
     uid = get_user_by_username(db, "alice_d4")["id"]
     init_jobs_table(db)
     jid = insert_job(db, user_id=uid, file_id="f-d4", job_type="asr")
@@ -117,7 +118,7 @@ def alice_with_running_job(monkeypatch):
         app_module._job_queue._cancel_events[jid] = ev
 
     c = app_module.app.test_client()
-    c.post("/login", json={"username": "alice_d4", "password": "secret"})
+    c.post("/login", json={"username": "alice_d4", "password": "TestPass1!"})
     yield c, jid, ev
 
     # Cleanup
@@ -145,15 +146,16 @@ def test_delete_queued_job_still_returns_200(db_path, monkeypatch):
     db = app_module.app.config["AUTH_DB_PATH"]
     init_db(db)
     try:
-        create_user(db, "alice_d4q", "secret", is_admin=False)
+        create_user(db, "alice_d4q", "TestPass1!", is_admin=False)
     except ValueError:
-        pass
+        from auth.users import update_password as _upw
+        _upw(db, "alice_d4q", "TestPass1!")
     uid = get_user_by_username(db, "alice_d4q")["id"]
     init_jobs_table(db)
     jid = insert_job(db, user_id=uid, file_id="f-d4q", job_type="asr")
 
     c = app_module.app.test_client()
-    c.post("/login", json={"username": "alice_d4q", "password": "secret"})
+    c.post("/login", json={"username": "alice_d4q", "password": "TestPass1!"})
     r = c.delete(f"/api/queue/{jid}")
     assert r.status_code == 200
     assert r.get_json()["ok"] is True

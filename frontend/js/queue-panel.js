@@ -73,10 +73,25 @@ async function retryFile(fileId) {
   if (window.refreshFiles) refreshFiles();
 }
 
+let _queueTimerId = null;
+
+function startQueueRefresh() {
+  if (_queueTimerId !== null) return;
+  refreshQueue();
+  _queueTimerId = setInterval(refreshQueue, 3000);
+}
+
+function stopQueueRefresh() {
+  if (_queueTimerId !== null) {
+    clearInterval(_queueTimerId);
+    _queueTimerId = null;
+  }
+}
+
 window.retryFile = retryFile;
 window.refreshQueue = refreshQueue;
 window.cancelJob = cancelJob;
+window.startQueueRefresh = startQueueRefresh;
+window.stopQueueRefresh = stopQueueRefresh;
 
-// Auto-refresh every 3s
-setInterval(refreshQueue, 3000);
-refreshQueue();
+startQueueRefresh();

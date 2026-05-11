@@ -73,12 +73,13 @@ def client_with_admin():
     db_path = app_module.app.config['AUTH_DB_PATH']
     init_db(db_path)
     try:
-        create_user(db_path, "alice_phase2c", "secret", is_admin=True)
+        create_user(db_path, "alice_phase2c", "TestPass1!", is_admin=True)
     except ValueError:
-        pass
+        from auth.users import update_password as _upw
+        _upw(db_path, "alice_phase2c", "TestPass1!")
 
     client = app_module.app.test_client()
-    r = client.post("/login", json={"username": "alice_phase2c", "password": "secret"})
+    r = client.post("/login", json={"username": "alice_phase2c", "password": "TestPass1!"})
     assert r.status_code == 200, f"login fixture failed: {r.status_code} {r.data!r}"
     yield client
 

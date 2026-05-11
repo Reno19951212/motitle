@@ -65,11 +65,12 @@ def alice_client(monkeypatch, tmp_path):
     db = app_module.app.config["AUTH_DB_PATH"]
     init_db(db)
     try:
-        create_user(db, "alice_d5", "secret", is_admin=False)
+        create_user(db, "alice_d5", "TestPass1!", is_admin=False)
     except ValueError:
-        pass
+        from auth.users import update_password as _upw
+        _upw(db, "alice_d5", "TestPass1!")
     c = app_module.app.test_client()
-    r = c.post("/login", json={"username": "alice_d5", "password": "secret"})
+    r = c.post("/login", json={"username": "alice_d5", "password": "TestPass1!"})
     assert r.status_code == 200
     yield c, gm
 

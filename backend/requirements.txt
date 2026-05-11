@@ -21,3 +21,5 @@ soundfile>=0.12.0
 # R5 Phase 1: server mode auth + password hashing
 Flask-Login==0.6.3
 bcrypt==4.1.2
+# Phase 6: rate limiting
+Flask-Limiter>=3.5.0

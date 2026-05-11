@@ -12,9 +12,10 @@ def client_with_admin_db(tmp_path, monkeypatch):
     monkeypatch.setitem(app_module.app.config, "AUTH_DB_PATH", db)
     init_db(db)
     try:
-        create_user(db, "admin_p5_b1", "secret", is_admin=True)
+        create_user(db, "admin_p5_b1", "TestPass1!", is_admin=True)
     except ValueError:
-        pass
+        from auth.users import update_password as _upw
+        _upw(db, "admin_p5_b1", "TestPass1!")
     yield app_module.app.test_client()
 
 

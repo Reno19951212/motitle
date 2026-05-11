@@ -12,9 +12,10 @@ def two_users_one_render(monkeypatch):
     init_db(db)
     for u in ("alice_c5", "bob_c5"):
         try:
-            create_user(db, u, "pw", is_admin=False)
+            create_user(db, u, "TestPass1!", is_admin=False)
         except ValueError:
-            pass
+            from auth.users import update_password
+            update_password(db, u, "TestPass1!")
     alice_id = get_user_by_username(db, "alice_c5")["id"]
 
     fid = "file-c5"
@@ -44,7 +45,7 @@ def two_users_one_render(monkeypatch):
 
 def _login(app_module, username):
     c = app_module.app.test_client()
-    r = c.post("/login", json={"username": username, "password": "pw"})
+    r = c.post("/login", json={"username": username, "password": "TestPass1!"})
     assert r.status_code == 200, r.data
     return c
 
@@ -84,9 +85,10 @@ def test_get_unknown_render_404(monkeypatch):
     db = app_module.app.config["AUTH_DB_PATH"]
     init_db(db)
     try:
-        create_user(db, "carol_c5", "pw", is_admin=False)
+        create_user(db, "carol_c5", "TestPass1!", is_admin=False)
     except ValueError:
-        pass
+        from auth.users import update_password as _upw
+        _upw(db, "carol_c5", "TestPass1!")
     try:
         c = _login(app_module, "carol_c5")
         r = c.get("/api/renders/does-not-exist")

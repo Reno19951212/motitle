@@ -6,7 +6,7 @@ import sqlite3
 import time
 from typing import Optional
 
-from auth.passwords import hash_password, verify_password
+from auth.passwords import hash_password, verify_password, validate_password_strength
 
 
 _SCHEMA = """
@@ -48,6 +48,7 @@ def create_user(
 ) -> int:
     if not username or not password:
         raise ValueError("username and password required")
+    validate_password_strength(password)
     conn = get_connection(db_path)
     try:
         cur = conn.execute(
@@ -128,6 +129,7 @@ def list_all_users(db_path: str) -> list:
 def update_password(db_path: str, username: str, new_password: str) -> None:
     if not new_password:
         raise ValueError("new password cannot be empty")
+    validate_password_strength(new_password)
     conn = get_connection(db_path)
     try:
         conn.execute(

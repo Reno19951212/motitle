@@ -9,8 +9,8 @@ def two_admin_db(tmp_path):
     from auth.users import init_db, create_user, count_admins, get_user_by_username
     db = str(tmp_path / "u.db")
     init_db(db)
-    create_user(db, "admin1", "pw", is_admin=True)
-    create_user(db, "admin2", "pw", is_admin=True)
+    create_user(db, "admin1", "TestPass1!", is_admin=True)
+    create_user(db, "admin2", "TestPass1!", is_admin=True)
     assert count_admins(db) == 2
     a1 = get_user_by_username(db, "admin1")["id"]
     a2 = get_user_by_username(db, "admin2")["id"]
@@ -24,7 +24,7 @@ def test_atomic_set_admin_demoting_last_admin_raises(tmp_path):
 
     db = str(tmp_path / "u.db")
     init_db(db)
-    create_user(db, "solo", "pw", is_admin=True)
+    create_user(db, "solo", "TestPass1!", is_admin=True)
     uid = get_user_by_username(db, "solo")["id"]
     with pytest.raises(ValueError, match="last admin"):
         _atomic_set_admin(db, uid, False)
@@ -90,8 +90,8 @@ def test_atomic_set_admin_promote_non_admin_works(tmp_path):
 
     db = str(tmp_path / "u.db")
     init_db(db)
-    create_user(db, "admin1", "pw", is_admin=True)
-    create_user(db, "regular", "pw", is_admin=False)
+    create_user(db, "admin1", "TestPass1!", is_admin=True)
+    create_user(db, "regular", "TestPass1!", is_admin=False)
     rid = get_user_by_username(db, "regular")["id"]
     _atomic_set_admin(db, rid, True)
     assert count_admins(db) == 2

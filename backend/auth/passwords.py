@@ -8,6 +8,28 @@ import bcrypt
 
 _ROUNDS = 12  # ~250ms per hash on modern hardware — acceptable for login flow
 
+_MIN_LENGTH = 8
+
+_COMMON_PASSWORDS = frozenset({
+    "password", "password1", "password123",
+    "123456", "12345678", "1234567890",
+    "qwerty", "qwerty123",
+    "abc123", "abcdef",
+    "letmein", "welcome", "iloveyou",
+    "admin", "admin123",
+    "monkey", "dragon", "shadow",
+    "sunshine", "princess", "baseball",
+    "superman", "trustno1", "master",
+})
+
+
+def validate_password_strength(plaintext: str) -> None:
+    """Raise ValueError if password fails strength requirements."""
+    if len(plaintext) < _MIN_LENGTH:
+        raise ValueError(f"password must be at least {_MIN_LENGTH} characters")
+    if plaintext.lower() in _COMMON_PASSWORDS:
+        raise ValueError("password is too common; choose a stronger password")
+
 
 def hash_password(plaintext: str) -> str:
     if not plaintext:

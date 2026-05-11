@@ -12,9 +12,10 @@ def alice_with_queued_file(monkeypatch):
     db = app_module.app.config["AUTH_DB_PATH"]
     init_db(db)
     try:
-        create_user(db, "alice_b1", "secret", is_admin=False)
+        create_user(db, "alice_b1", "TestPass1!", is_admin=False)
     except ValueError:
-        pass
+        from auth.users import update_password as _upw
+        _upw(db, "alice_b1", "TestPass1!")
     uid = get_user_by_username(db, "alice_b1")["id"]
     init_jobs_table(db)
 
@@ -33,7 +34,7 @@ def alice_with_queued_file(monkeypatch):
     jid = insert_job(db, user_id=uid, file_id=fake_id, job_type="asr")
 
     c = app_module.app.test_client()
-    r = c.post("/login", json={"username": "alice_b1", "password": "secret"})
+    r = c.post("/login", json={"username": "alice_b1", "password": "TestPass1!"})
     assert r.status_code == 200
     yield c, fake_id, jid
 

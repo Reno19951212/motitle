@@ -7,8 +7,8 @@ def db_path(tmp_path):
     from auth.users import init_db, create_user
     p = str(tmp_path / "u.db")
     init_db(p)
-    create_user(p, "admin0", "pw", is_admin=True)
-    create_user(p, "alice", "pw", is_admin=False)
+    create_user(p, "admin0", "TestPass1!", is_admin=True)
+    create_user(p, "alice", "TestPass1!", is_admin=False)
     return p
 
 
@@ -24,9 +24,9 @@ def test_list_all_users_returns_all_in_id_order(db_path):
 
 def test_update_password_changes_hash(db_path):
     from auth.users import update_password, verify_credentials
-    update_password(db_path, "alice", "new-pw")
-    assert verify_credentials(db_path, "alice", "new-pw") is not None
-    assert verify_credentials(db_path, "alice", "pw") is None
+    update_password(db_path, "alice", "NewPass1!")
+    assert verify_credentials(db_path, "alice", "NewPass1!") is not None
+    assert verify_credentials(db_path, "alice", "TestPass1!") is None
 
 
 def test_set_admin_flips_flag(db_path):
@@ -64,11 +64,12 @@ def admin_client():
     db = app_module.app.config["AUTH_DB_PATH"]
     init_db(db)
     try:
-        create_user(db, "admin_p3", "secret", is_admin=True)
+        create_user(db, "admin_p3", "TestPass1!", is_admin=True)
     except ValueError:
-        pass
+        from auth.users import update_password as _upw
+        _upw(db, "admin_p3", "TestPass1!")
     c = app_module.app.test_client()
-    r = c.post("/login", json={"username": "admin_p3", "password": "secret"})
+    r = c.post("/login", json={"username": "admin_p3", "password": "TestPass1!"})
     assert r.status_code == 200
     yield c
 
@@ -80,18 +81,19 @@ def test_admin_users_list_requires_admin(admin_client):
     db = app_module.app.config["AUTH_DB_PATH"]
     init_db(db)
     try:
-        create_user(db, "non_admin_p3", "secret", is_admin=False)
+        create_user(db, "non_admin_p3", "TestPass1!", is_admin=False)
     except ValueError:
-        pass
+        from auth.users import update_password as _upw
+        _upw(db, "non_admin_p3", "TestPass1!")
     c = app_module.app.test_client()
-    c.post("/login", json={"username": "non_admin_p3", "password": "secret"})
+    c.post("/login", json={"username": "non_admin_p3", "password": "TestPass1!"})
     r = c.get("/api/admin/users")
     assert r.status_code == 403
 
 
 def test_admin_users_create_returns_201(admin_client):
     r = admin_client.post("/api/admin/users",
-                          json={"username": "bob_p3", "password": "pw"})
+                          json={"username": "bob_p3", "password": "TestPass1!"})
     assert r.status_code == 201
     body = r.get_json()
     assert body["username"] == "bob_p3" and body["is_admin"] is False
@@ -103,9 +105,9 @@ def test_admin_users_create_returns_201(admin_client):
 
 def test_admin_users_create_duplicate_returns_409(admin_client):
     admin_client.post("/api/admin/users",
-                      json={"username": "dupe_p3", "password": "pw"})
+                      json={"username": "dupe_p3", "password": "TestPass1!"})
     r = admin_client.post("/api/admin/users",
-                          json={"username": "dupe_p3", "password": "pw"})
+                          json={"username": "dupe_p3", "password": "TestPass1!"})
     assert r.status_code == 409
     import app as app_module
     from auth.users import delete_user
@@ -142,14 +144,15 @@ def test_admin_users_reset_password_changes_hash(admin_client):
     from auth.users import create_user, verify_credentials, get_user_by_username, delete_user
     db = app_module.app.config["AUTH_DB_PATH"]
     try:
-        create_user(db, "rp_p3", "old", is_admin=False)
+        create_user(db, "rp_p3", "OldPass1!", is_admin=False)
     except ValueError:
-        pass
+        from auth.users import update_password as _upw
+        _upw(db, "rp_p3", "OldPass1!")
     target = get_user_by_username(db, "rp_p3")
     r = admin_client.post(f"/api/admin/users/{target['id']}/reset-password",
-                          json={"new_password": "fresh"})
+                          json={"new_password": "FreshPass1!"})
     assert r.status_code == 200
-    assert verify_credentials(db, "rp_p3", "fresh") is not None
+    assert verify_credentials(db, "rp_p3", "FreshPass1!") is not None
     delete_user(db, "rp_p3")
 
 
@@ -158,9 +161,10 @@ def test_admin_users_toggle_admin_flips_flag(admin_client):
     from auth.users import create_user, get_user_by_username, delete_user
     db = app_module.app.config["AUTH_DB_PATH"]
     try:
-        create_user(db, "ta_p3", "pw", is_admin=False)
+        create_user(db, "ta_p3", "TestPass1!", is_admin=False)
     except ValueError:
-        pass
+        from auth.users import update_password as _upw
+        _upw(db, "ta_p3", "TestPass1!")
     target = get_user_by_username(db, "ta_p3")
     r = admin_client.post(f"/api/admin/users/{target['id']}/toggle-admin")
     assert r.status_code == 200

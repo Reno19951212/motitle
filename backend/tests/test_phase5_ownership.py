@@ -18,9 +18,10 @@ def two_users():
     init_db(db)
     for u in ("alice_b4", "bob_b4"):
         try:
-            create_user(db, u, "pw", is_admin=False)
+            create_user(db, u, "TestPass1!", is_admin=False)
         except ValueError:
-            pass
+            from auth.users import update_password
+            update_password(db, u, "TestPass1!")
     alice_id = get_user_by_username(db, "alice_b4")["id"]
     bob_id = get_user_by_username(db, "bob_b4")["id"]
     yield app_module, alice_id, bob_id
@@ -51,7 +52,7 @@ def fresh_glossary_manager(tmp_path, monkeypatch):
 
 def _login(app_module, username):
     c = app_module.app.test_client()
-    r = c.post("/login", json={"username": username, "password": "pw"})
+    r = c.post("/login", json={"username": username, "password": "TestPass1!"})
     assert r.status_code == 200, r.data
     return c
 

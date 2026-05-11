@@ -104,12 +104,12 @@ def client_with_admin():
     db_path = app_module.app.config['AUTH_DB_PATH']
     init_db(db_path)
     try:
-        create_user(db_path, "alice_phase2", "secret", is_admin=True)
+        create_user(db_path, "alice_phase2", "TestPass1!", is_admin=True)
     except ValueError:
         pass  # user already exists from a prior test run — fine
 
     client = app_module.app.test_client()
-    r = client.post("/login", json={"username": "alice_phase2", "password": "secret"})
+    r = client.post("/login", json={"username": "alice_phase2", "password": "TestPass1!"})
     assert r.status_code == 200, f"login fixture failed: {r.status_code} {r.data!r}"
     yield client
 
