@@ -3196,7 +3196,9 @@ def update_segment_text(file_id, seg_id):
     if not data or 'text' not in data:
         return jsonify({'error': '缺少 text 參數'}), 400
 
-    new_text = data['text'].strip()
+    # Null-safe: a client posting {"text": null} previously crashed with
+    # AttributeError → 500 (same pattern as the R5 Phase 5 T1.1 login fix).
+    new_text = (data['text'] or '').strip()
     with _registry_lock:
         entry = _file_registry.get(file_id)
         if not entry:

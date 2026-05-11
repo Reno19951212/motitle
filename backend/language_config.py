@@ -65,12 +65,21 @@ class LanguageConfigManager:
         if errors:
             raise ValueError("; ".join(errors))
 
+        # Deep-merge asr + translation blocks instead of replacing them. The
+        # dashboard's save modal only exposes a subset of fields (e.g. EN
+        # config has `merge_short_max_words` / `merge_short_max_gap` from
+        # v3.8 that the modal doesn't render); a wholesale replace silently
+        # wipes any unrendered fields every time the user clicks 儲存.
+        merged_asr = {**existing.get("asr", DEFAULT_ASR_CONFIG)}
+        if "asr" in data and isinstance(data["asr"], dict):
+            merged_asr.update(data["asr"])
+        merged_translation = {**existing.get("translation", DEFAULT_TRANSLATION_CONFIG)}
+        if "translation" in data and isinstance(data["translation"], dict):
+            merged_translation.update(data["translation"])
         updated = {
             **existing,
-            "asr": data.get("asr", existing.get("asr", DEFAULT_ASR_CONFIG)),
-            "translation": data.get(
-                "translation", existing.get("translation", DEFAULT_TRANSLATION_CONFIG)
-            ),
+            "asr": merged_asr,
+            "translation": merged_translation,
         }
 
         path = self._lang_path(lang_id)
@@ -132,7 +141,9 @@ class LanguageConfigManager:
 
         mw = asr.get("max_words_per_segment")
         if mw is not None and (
-            not isinstance(mw, int) or mw < MIN_MAX_WORDS or mw > MAX_MAX_WORDS
+            isinstance(mw, bool)
+            or not isinstance(mw, int)
+            or mw < MIN_MAX_WORDS or mw > MAX_MAX_WORDS
         ):
             errors.append(
                 f"asr.max_words_per_segment must be an integer between "
@@ -178,7 +189,9 @@ class LanguageConfigManager:
 
         bs = trans.get("batch_size")
         if bs is not None and (
-            not isinstance(bs, int) or bs < MIN_BATCH_SIZE or bs > MAX_BATCH_SIZE
+            isinstance(bs, bool)
+            or not isinstance(bs, int)
+            or bs < MIN_BATCH_SIZE or bs > MAX_BATCH_SIZE
         ):
             errors.append(
                 f"translation.batch_size must be an integer between "
@@ -187,7 +200,8 @@ class LanguageConfigManager:
 
         temp = trans.get("temperature")
         if temp is not None and (
-            not isinstance(temp, (int, float))
+            isinstance(temp, bool)
+            or not isinstance(temp, (int, float))
             or temp < MIN_TEMPERATURE
             or temp > MAX_TEMPERATURE
         ):

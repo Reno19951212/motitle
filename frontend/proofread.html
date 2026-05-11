@@ -813,7 +813,7 @@
                     </div>
                     <div class="rv-b-ss-row">
                       <span class="rv-b-ss-label">大小</span>
-                      <input class="rv-b-ss-input" id="ssSize" type="number" min="8" max="120" oninput="onSubtitleSettingChange()" style="width:60px;" aria-label="字幕大小 (px)">
+                      <input class="rv-b-ss-input" id="ssSize" type="number" min="12" max="120" oninput="onSubtitleSettingChange()" style="width:60px;" aria-label="字幕大小 (px)">
                       <span style="font-size:11px;color:var(--text-dim);">px</span>
                     </div>
                     <div class="rv-b-ss-row">
@@ -1181,7 +1181,7 @@
     if (!activeProfileId) return;
     const font = {
       family: document.getElementById('ssFamily').value.trim(),
-      size: _clampNumberInput('ssSize', 8, 120, 32),
+      size: _clampNumberInput('ssSize', 12, 120, 32),
       color: document.getElementById('ssColor').value,
       outline_color: document.getElementById('ssOutlineColor').value,
       outline_width: _clampNumberInput('ssOutlineWidth', 0, 10, 2),
