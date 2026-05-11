@@ -2730,14 +2730,9 @@
     let _activatingProfile = false;
     async function activateProfile(id) {
       if (_activatingProfile) return;  // debounce: ignore overlapping clicks
-      // Block if any file is currently being transcribed or translated
-      const busy = Object.values(uploadedFiles).some(f =>
-        f.status === 'transcribing' || f.translation_status === 'translating'
-      );
-      if (busy) {
-        showToast('有檔案正在處理中，請完成後再切換 Pipeline', 'warning');
-        return;
-      }
+      // Profile change applies to FUTURE jobs immediately. In-flight jobs
+      // keep using the engine they were initialized with — so it's safe to
+      // switch at any time, even while another file is transcribing/translating.
       _activatingProfile = true;
       try {
         await fetch(`${API_BASE}/api/profiles/${id}/activate`, { method: 'POST' });

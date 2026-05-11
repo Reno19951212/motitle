@@ -78,6 +78,23 @@ class JobQueue:
                 elif o["type"] in ("translate", "render"):
                     self._mt_q.put(new_jid)
 
+        # Also reload any rows that were left in status='queued' when the
+        # previous server process died. Without this, those jobs sit in the
+        # DB forever — visible in /api/queue but never picked up because the
+        # in-memory worker queue was rebuilt empty at boot. We load them in
+        # creation order so FIFO is preserved across restarts.
+        stale_queued = list_active_jobs(db_path)
+        stale_queued = [j for j in stale_queued if j["status"] == "queued"]
+        if stale_queued:
+            import logging
+            logging.getLogger(__name__).warning(
+                "Reloading %d 'queued' jobs from DB into worker queue", len(stale_queued))
+            for j in stale_queued:
+                if j["type"] == "asr":
+                    self._asr_q.put(j["id"])
+                elif j["type"] in ("translate", "render"):
+                    self._mt_q.put(j["id"])
+
     def _emit_changed(self) -> None:
         """Broadcast 'queue_changed' to all SocketIO clients. Best-effort —
         swallows any error so worker threads stay alive even if the SocketIO
