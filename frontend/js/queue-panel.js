@@ -89,21 +89,25 @@ function renderQueueRows(jobs) {
 }
 
 async function cancelJob(jobId) {
-  if (!confirm("取消呢個工作？")) return;
+  // No native confirm() — the dialog's own "Cancel" button is labeled 取消,
+  // identical to the verb the user just clicked, which trapped users into
+  // dismissing the action they actually wanted. Cancelling a queued/running
+  // job is reversible (just re-enqueue), so a one-shot click is safe.
   const r = await fetch(`/api/queue/${jobId}`, {
     method: "DELETE",
     credentials: "same-origin",
   });
   if (!r.ok) {
-    alert("取消失敗：" + r.status);
+    const msg = "取消失敗：" + r.status;
+    if (window.showToast) window.showToast(msg, "error");
+    else alert(msg);
     return;
   }
   if (r.status === 202) {
-    if (window.toast) {
-      window.toast("取消中...");
-    } else {
-      console.info("取消中...");
-    }
+    if (window.showToast) window.showToast("取消中…", "info");
+    else if (window.toast) window.toast("取消中...");
+  } else {
+    if (window.showToast) window.showToast("已取消", "success");
   }
   refreshQueue();
   if (window.refreshFiles) refreshFiles();
