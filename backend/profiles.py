@@ -103,7 +103,11 @@ class ProfileManager:
             translation_errors = _validate_translation(translation)
             errors.extend(translation_errors)
 
-        # font (optional — absent means "no change"; present must be a dict)
+        # font (optional — absent means "no change"; present must be a dict).
+        # Numeric fields accept int or float — the frontend sliders use
+        # step="0.5" (outline_width) which posts a float; ASS supports
+        # fractional outline widths and libass/FFmpeg render them correctly.
+        # Booleans are rejected (isinstance(True, int) is True in Python).
         font = data.get("font")
         if "font" in data:
             if not isinstance(font, dict):
@@ -111,15 +115,17 @@ class ProfileManager:
             else:
                 if "family" in font and not isinstance(font["family"], str):
                     errors.append("font.family must be a string")
+                def _is_num(v):
+                    return isinstance(v, (int, float)) and not isinstance(v, bool)
                 if "size" in font:
-                    if not isinstance(font["size"], int) or font["size"] < 12 or font["size"] > 120:
-                        errors.append("font.size must be an integer between 12 and 120")
+                    if not _is_num(font["size"]) or font["size"] < 12 or font["size"] > 120:
+                        errors.append("font.size must be a number between 12 and 120")
                 if "outline_width" in font:
-                    if not isinstance(font["outline_width"], int) or font["outline_width"] < 0 or font["outline_width"] > 10:
-                        errors.append("font.outline_width must be an integer between 0 and 10")
+                    if not _is_num(font["outline_width"]) or font["outline_width"] < 0 or font["outline_width"] > 10:
+                        errors.append("font.outline_width must be a number between 0 and 10")
                 if "margin_bottom" in font:
-                    if not isinstance(font["margin_bottom"], int) or font["margin_bottom"] < 0 or font["margin_bottom"] > 200:
-                        errors.append("font.margin_bottom must be an integer between 0 and 200")
+                    if not _is_num(font["margin_bottom"]) or font["margin_bottom"] < 0 or font["margin_bottom"] > 200:
+                        errors.append("font.margin_bottom must be a number between 0 and 200")
 
                 # Optional subtitle source mode (added 2026-04-28)
                 src = font.get("subtitle_source")

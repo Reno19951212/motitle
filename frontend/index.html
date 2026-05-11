@@ -3329,13 +3329,29 @@
       document.getElementById('durLbl').textContent = subtitleDuration.toFixed(1) + ' 秒';
     }
 
-    function saveFontAsProfile() {
+    async function saveFontAsProfile() {
       if (!activeProfile) { showToast('未有當前 Profile', 'warning'); return; }
-      fetch(`${API_BASE}/api/profiles/${activeProfile.id}`, {
-        method: 'PATCH',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ font: fontConfig }),
-      }).then(r => r.ok ? showToast('已儲存為 Profile 字體', 'success') : showToast('儲存失敗', 'error'));
+      try {
+        const r = await fetch(`${API_BASE}/api/profiles/${activeProfile.id}`, {
+          method: 'PATCH',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ font: fontConfig }),
+        });
+        if (r.ok) {
+          showToast('已儲存為 Profile 字體', 'success');
+          return;
+        }
+        // Surface the underlying error so users (and we) can tell what's wrong.
+        let detail = `HTTP ${r.status}`;
+        try {
+          const body = await r.json();
+          if (body.error) detail = body.error;
+          else if (Array.isArray(body.errors)) detail = body.errors.join('; ');
+        } catch (_) { /* not JSON */ }
+        showToast(`儲存失敗：${detail}`, 'error');
+      } catch (e) {
+        showToast(`儲存失敗：${e.message}`, 'error');
+      }
     }
 
     function renderInfoTab(body, f) {
