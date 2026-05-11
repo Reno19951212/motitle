@@ -4197,6 +4197,7 @@
     // ============================================================
     function connectSocket() {
       socket = io(API_BASE || location.origin, { transports: ['polling', 'websocket'], withCredentials: true });
+      window.socket = socket;  // queue-panel.js subscribes to 'queue_changed' on this instance
       socket.on('connected', d => { currentSid = d.sid; renderHealthCluster(); });
       socket.on('connect', () => renderHealthCluster());
       socket.on('disconnect', () => renderHealthCluster());

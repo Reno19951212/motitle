@@ -320,8 +320,13 @@ def _mt_handler(job, cancel_event=None):
 _job_queue = JobQueue(AUTH_DB_PATH,
                       asr_handler=_asr_handler,
                       mt_handler=_mt_handler,
-                      app=app)  # R5 Phase 5 T2.2: workers run with app context
+                      app=app,  # R5 Phase 5 T2.2: workers run with app context
+                      socketio=socketio)  # broadcast 'queue_changed' on state changes
 _job_queue.start_workers()
+# Make the live instances reachable from routes via current_app — avoids
+# 'from app import' which creates a separate (broken) module copy.
+app.config["JOB_QUEUE"] = _job_queue
+app.config["SOCKETIO"] = socketio
 
 app.register_blueprint(queue_bp)
 

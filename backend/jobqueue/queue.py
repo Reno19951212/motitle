@@ -38,16 +38,21 @@ class JobQueue:
         asr_handler: Optional[Callable[[dict], None]] = None,
         mt_handler: Optional[Callable[[dict], None]] = None,
         app=None,
+        socketio=None,
     ):
         # R5 Phase 5 T2.2: optional Flask app reference. When set, _run_one
         # wraps each handler invocation in app.app_context() so the handler
         # can use current_app, current_app.logger, etc. without raising
         # RuntimeError("Working outside of application context"). app=None
         # (default) preserves Phase 1-4 callers that didn't pass an app.
+        # socketio (optional): if provided, emit 'queue_changed' broadcast on
+        # every job state transition so all connected clients refresh in real
+        # time instead of waiting for the next 3s poll.
         self._db_path = db_path
         self._asr_handler = asr_handler
         self._mt_handler = mt_handler
         self._app = app
+        self._socketio = socketio
         self._asr_q = stdqueue.Queue()
         self._mt_q = stdqueue.Queue()
         self._workers = []
@@ -73,12 +78,24 @@ class JobQueue:
                 elif o["type"] in ("translate", "render"):
                     self._mt_q.put(new_jid)
 
+    def _emit_changed(self) -> None:
+        """Broadcast 'queue_changed' to all SocketIO clients. Best-effort —
+        swallows any error so worker threads stay alive even if the SocketIO
+        layer has issues."""
+        if self._socketio is None:
+            return
+        try:
+            self._socketio.emit("queue_changed", {})
+        except Exception:
+            pass
+
     def enqueue(self, user_id: int, file_id: str, job_type: str) -> str:
         jid = insert_job(self._db_path, user_id, file_id, job_type)
         if job_type == "asr":
             self._asr_q.put(jid)
         elif job_type in ("translate", "render"):
             self._mt_q.put(jid)
+        self._emit_changed()
         return jid
 
     def position(self, job_id: str) -> int:
@@ -149,6 +166,7 @@ class JobQueue:
 
         update_job_status(self._db_path, jid, "running",
                           started_at=time.time())
+        self._emit_changed()
 
         def _invoke():
             job = get_job(self._db_path, jid)
@@ -178,3 +196,4 @@ class JobQueue:
         finally:
             with self._cancel_events_lock:
                 self._cancel_events.pop(jid, None)
+            self._emit_changed()

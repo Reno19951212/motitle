@@ -150,6 +150,25 @@ def list_active_jobs(db_path: str) -> list:
         conn.close()
 
 
+def list_recent_finished_jobs(db_path: str, since_ts: float) -> list:
+    """Jobs finished after `since_ts` (done / failed / cancelled), newest first.
+
+    Used by the shared queue panel so all clients can see what just completed
+    in the past few minutes, not only what's currently active.
+    """
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT * FROM jobs WHERE status IN ('done', 'failed', 'cancelled') "
+            "AND finished_at IS NOT NULL AND finished_at >= ? "
+            "ORDER BY finished_at DESC",
+            (since_ts,),
+        ).fetchall()
+        return [_row_to_job(r) for r in rows]
+    finally:
+        conn.close()
+
+
 def recover_orphaned_running(db_path: str, auto_retry: bool = False):
     """Boot-time recovery: any 'running' job left from previous server
     process is failed (treated as crashed mid-execution).

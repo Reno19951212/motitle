@@ -1,13 +1,24 @@
 """REST routes: GET /api/queue, DELETE /api/queue/<id>."""
+import time
+
 from flask import Blueprint, jsonify, current_app
 from flask_login import login_required, current_user
 
-from jobqueue.db import list_jobs_for_user, list_active_jobs, get_job, update_job_status
+from jobqueue.db import (
+    list_jobs_for_user,
+    list_active_jobs,
+    list_recent_finished_jobs,
+    get_job,
+    update_job_status,
+)
 from auth.users import get_user_by_id
 from auth.limiter import limiter
 
 bp = Blueprint("queue", __name__)
 _db_path = None
+
+# Recent-finished jobs older than this drop off the shared panel.
+RECENT_FINISHED_WINDOW_SEC = 300  # 5 minutes
 
 
 def set_db_path(p: str) -> None:
@@ -16,16 +27,19 @@ def set_db_path(p: str) -> None:
 
 
 def _annotate(jobs: list, db_path: str) -> list:
-    """Add owner_username + position + eta_seconds (None for now)."""
+    """Add owner_username + file_name + position + eta_seconds (None for now)."""
     user_cache = {}
+    registry = current_app.config.get("FILE_REGISTRY", {})
     out = []
     for i, j in enumerate(jobs):
         uid = j["user_id"]
         if uid not in user_cache:
             u = get_user_by_id(db_path, uid)
             user_cache[uid] = u["username"] if u else "?"
+        file_entry = registry.get(j["file_id"]) or {}
         out.append({**j,
                     "owner_username": user_cache[uid],
+                    "file_name": file_entry.get("original_name"),
                     "position": i,
                     "eta_seconds": None})
     return out
@@ -33,15 +47,53 @@ def _annotate(jobs: list, db_path: str) -> list:
 
 @bp.get("/api/queue")
 @login_required
-@limiter.limit("60 per minute")
+# Polled every 3s by every connected client (~20/min/client), shared across
+# the team — 60/min was too tight for 3-5 concurrent users. SocketIO push
+# also calls refreshQueue so bursty spikes are real.
+@limiter.limit("240 per minute")
 def list_queue():
+    """Global queue view shared across all logged-in users.
+
+    Includes every active (queued/running) job plus jobs that finished within
+    the last RECENT_FINISHED_WINDOW_SEC seconds so clients see "just finished"
+    state without polling for /api/files separately. Each row is annotated
+    with file_name + owner_username.
+    """
     db_path = _db_path or current_app.config["AUTH_DB_PATH"]
-    if current_user.is_admin:
-        jobs = list_active_jobs(db_path)
-    else:
-        all_user_jobs = list_jobs_for_user(db_path, current_user.id)
-        jobs = [j for j in all_user_jobs if j["status"] in ("queued", "running")]
-    return jsonify(_annotate(jobs, db_path)), 200
+    active = list_active_jobs(db_path)
+    recent_done = list_recent_finished_jobs(
+        db_path, since_ts=time.time() - RECENT_FINISHED_WINDOW_SEC
+    )
+    # Active first (position 0..), then recent done — frontend renders them
+    # in this order with distinct styling.
+    combined = list(active) + list(recent_done)
+    return jsonify(_annotate(combined, db_path)), 200
+
+
+def _get_job_queue():
+    """Resolve the live JobQueue instance from the running Flask app.
+
+    `from app import _job_queue` re-imports app.py as the 'app' module, which
+    creates a SECOND, separate JobQueue whose workers are NOT running. Reading
+    from current_app.config keeps us on the __main__ module's instance.
+    """
+    q = current_app.config.get("JOB_QUEUE")
+    if q is None:
+        # Fall back to the legacy import path so older callers + tests that
+        # set up the queue via direct attribute assignment still work.
+        from app import _job_queue as q
+    return q
+
+
+def _broadcast_queue_changed():
+    """Tell every SocketIO client to refresh /api/queue immediately."""
+    sio = current_app.config.get("SOCKETIO")
+    if sio is None:
+        return
+    try:
+        sio.emit("queue_changed", {})
+    except Exception:
+        pass
 
 
 @bp.delete("/api/queue/<job_id>")
@@ -57,17 +109,22 @@ def cancel_job(job_id):
     if job["status"] == "queued":
         # Synchronous DB cancel (Phase 1 C6 behavior preserved)
         update_job_status(db_path, job_id, "cancelled")
+        _broadcast_queue_changed()
         return jsonify({"ok": True}), 200
 
     if job["status"] == "running":
         # R5 Phase 4: cooperative interrupt — set the cancel event,
         # worker will catch JobCancelled at next checkpoint and update status.
-        from app import _job_queue
-        found = _job_queue.cancel_job(job_id)
+        q = _get_job_queue()
+        found = q.cancel_job(job_id)
         if not found:
             # Race: job finished between our get_job check and the cancel.
             # Return 200 — the caller's request is effectively a no-op.
             return jsonify({"ok": True, "status": "completed"}), 200
+        # Worker emits queue_changed on its own when it transitions to
+        # 'cancelled', but emit now too so the UI flips to "cancelling"
+        # without waiting for the next worker checkpoint.
+        _broadcast_queue_changed()
         return jsonify({"ok": True, "status": "cancelling"}), 202
 
     # Other statuses (done, failed, cancelled): nothing to cancel
@@ -85,10 +142,8 @@ def retry_job(job_id):
         return jsonify({"error": "forbidden"}), 403
     if job["status"] != "failed":
         return jsonify({"error": "can only retry failed jobs"}), 409
-    # Need access to _job_queue from app to call enqueue. Lazy-import to avoid
-    # boot-time circular dependency.
-    from app import _job_queue
-    new_job_id = _job_queue.enqueue(
+    q = _get_job_queue()
+    new_job_id = q.enqueue(
         user_id=job["user_id"],
         file_id=job["file_id"],
         job_type=job["type"],
