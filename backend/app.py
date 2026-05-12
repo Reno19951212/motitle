@@ -1852,7 +1852,11 @@ def _make_glossary_term_pattern(term: str, source_lang: str) -> "re.Pattern":
 @app.route('/api/files/<file_id>/glossary-scan', methods=['POST'])
 @require_file_owner
 def api_glossary_scan(file_id):
-    """Scan translations for glossary violations (string matching, no LLM)."""
+    """Scan translations for glossary violations.
+
+    v3.x multilingual: returns separate strict_violations + loose_violations
+    arrays. Strict uses per-script word-boundary regex; loose uses raw
+    substring (only populated for boundary-less scripts: zh/ja/ko/th)."""
     with _registry_lock:
         entry = _file_registry.get(file_id)
     if not entry:
@@ -1866,16 +1870,20 @@ def api_glossary_scan(file_id):
     if glossary is None:
         return jsonify({"error": "Glossary not found"}), 404
 
+    source_lang = glossary["source_lang"]
+    target_lang = glossary["target_lang"]
+    loose_eligible = source_lang in ("zh", "ja", "ko", "th")
+
     translations = entry.get("translations", [])
     segments = entry.get("segments", [])
     gl_entries = glossary.get("entries", [])
 
-    # ── Lazy revert: any segment whose applied_terms contains a (term_en, term_zh)
-    # pair that is no longer in the current glossary is reverted to baseline_zh.
-    # This handles "user deleted entry" and "user changed entry's zh".
+    # Lazy revert: any segment whose applied_terms contains a (term_source,
+    # term_target) pair no longer in the current glossary reverts to
+    # baseline_target.
     current_pairs = {
-        (e.get("en"), e.get("zh")) for e in gl_entries
-        if e.get("en") and e.get("zh")
+        (e.get("source"), e.get("target")) for e in gl_entries
+        if e.get("source") and e.get("target")
     }
     reverted_count = 0
     new_translations = list(translations)
@@ -1884,70 +1892,80 @@ def api_glossary_scan(file_id):
         if not applied:
             continue
         stale = any(
-            (term.get("term_en"), term.get("term_zh")) not in current_pairs
+            (term.get("term_source"), term.get("term_target")) not in current_pairs
             for term in applied
         )
         if stale:
             new_translations[i] = {
                 **t,
-                "zh_text": t.get("baseline_zh", t.get("zh_text", "")),
+                "zh_text": t.get("baseline_target", t.get("zh_text", "")),
                 "applied_terms": [],
             }
             reverted_count += 1
     if reverted_count > 0:
         _update_file(file_id, translations=new_translations)
-        translations = new_translations  # use post-revert state for the scan
+        translations = new_translations
 
-    # Compile word-boundary patterns once per scan. Using alphanumeric-only
-    # lookarounds (rather than \b) keeps multi-word terms ("Real Madrid") and
-    # terms with punctuation working correctly. Prevents "US" from matching
-    # inside "must" / "trust" / "discuss".
-    #
-    # Smart case-sensitivity: if the term contains any uppercase letter, treat
-    # it as case-significant (acronym/proper noun). Acronyms like "US" should
-    # NOT match the pronoun "us"; proper nouns like "Harris" should match
-    # "Harris" but not the english word "harris" if it ever appeared lowercase.
-    # Lowercase-only terms like "broadcast" stay case-insensitive.
-    def _make_term_pattern(term: str) -> "re.Pattern":
-        flags = 0 if any(c.isupper() for c in term) else re.IGNORECASE
-        return re.compile(
-            r"(?<![a-zA-Z0-9])" + re.escape(term) + r"(?![a-zA-Z0-9])",
-            flags,
-        )
-    gl_term_patterns = [
-        (ge, _make_term_pattern(ge["en"]))
+    # Compile patterns once per scan.
+    term_patterns = [
+        (ge, _make_glossary_term_pattern(ge["source"], source_lang))
         for ge in gl_entries
-        if ge.get("en") and ge.get("zh")
+        if ge.get("source") and ge.get("target")
     ]
 
-    violations = []
+    strict_violations = []
+    loose_violations = []
     matches = []
+
     for i, t in enumerate(translations):
-        en_text = segments[i]["text"] if i < len(segments) else ""
-        zh_text = t.get("zh_text", "")
+        src_text = segments[i]["text"] if i < len(segments) else ""
+        tgt_text = t.get("zh_text", "")
         status = t.get("status", "pending")
-        for ge, term_pattern in gl_term_patterns:
-            if term_pattern.search(en_text):
-                row = {
-                    "seg_idx": i,
-                    "en_text": en_text,
-                    "zh_text": zh_text,
-                    "term_en": ge["en"],
-                    "term_zh": ge["zh"],
-                    "approved": status == "approved",
-                }
-                if ge["zh"] not in zh_text:
-                    violations.append(row)
-                else:
+        for ge, pattern in term_patterns:
+            term_source = ge["source"]
+            term_target = ge["target"]
+            target_aliases = ge.get("target_aliases") or []
+            row = {
+                "seg_idx": i,
+                "en_text": src_text,           # legacy key for frontend compat
+                "source_text": src_text,       # new key
+                "zh_text": tgt_text,            # legacy
+                "target_text": tgt_text,        # new
+                "term_en": term_source,         # legacy
+                "term_source": term_source,
+                "term_zh": term_target,         # legacy
+                "term_target": term_target,
+                "approved": status == "approved",
+            }
+
+            # Match check: target_text contains the target term OR any alias
+            target_present = (term_target in tgt_text) or any(
+                a in tgt_text for a in target_aliases
+            )
+
+            if pattern.search(src_text):
+                if target_present:
                     matches.append(row)
+                else:
+                    strict_violations.append(row)
+            elif loose_eligible and (term_source in src_text):
+                # Loose: substring hit that strict regex didn't already cover
+                if target_present:
+                    matches.append(row)
+                else:
+                    loose_violations.append(row)
 
     return jsonify({
-        "violations": violations,
+        "strict_violations": strict_violations,
+        "loose_violations": loose_violations,
         "matches": matches,
         "scanned_count": len(translations),
-        "violation_count": len(violations),
+        "strict_violation_count": len(strict_violations),
+        "loose_violation_count": len(loose_violations),
         "match_count": len(matches),
         "reverted_count": reverted_count,
+        "glossary_source_lang": source_lang,
+        "glossary_target_lang": target_lang,
     })
 
 

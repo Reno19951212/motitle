@@ -359,3 +359,62 @@ def test_boundary_regex_th_strict():
     p = _make_glossary_term_pattern("ข่าว", "th")
     assert p.search("(ข่าว)") is not None
     assert p.search("ฟังข่าวเช้า") is None
+
+
+def test_glossary_scan_zh_source_loose_section_separates(client_with_admin, monkeypatch):
+    """ZH-source glossary scanning ZH-text segments: strict misses
+    `廣播` inside `他做廣播` (CJK before), but loose substring catches it."""
+    client, _ = client_with_admin
+    g = client.post("/api/glossaries", json={
+        "name": "ZH-ZH style", "source_lang": "zh", "target_lang": "zh",
+    }).get_json()
+    client.post(f"/api/glossaries/{g['id']}/entries", json={
+        "source": "廣播", "target": "廣播電台",
+    })
+
+    from app import _file_registry, _register_file
+    fid = "test_scan_loose"
+    _register_file(fid, "x.mp4", "x.mp4", 0, user_id=1)
+    _file_registry[fid]["segments"] = [{"text": "他做廣播"}]
+    _file_registry[fid]["translations"] = [{
+        "zh_text": "(empty)", "status": "pending",
+    }]
+    try:
+        r = client.post(f"/api/files/{fid}/glossary-scan", json={
+            "glossary_id": g["id"],
+        })
+        assert r.status_code == 200
+        body = r.get_json()
+        # Strict misses; loose catches.
+        assert body["strict_violation_count"] == 0
+        assert body["loose_violation_count"] == 1
+        assert body["glossary_source_lang"] == "zh"
+    finally:
+        _file_registry.pop(fid, None)
+
+
+def test_glossary_scan_en_source_no_loose_section(client_with_admin):
+    """English-source glossary scanning English segments: strict regex
+    is already permissive enough; loose section stays empty."""
+    client, _ = client_with_admin
+    g = client.post("/api/glossaries", json={
+        "name": "EN-ZH", "source_lang": "en", "target_lang": "zh",
+    }).get_json()
+    client.post(f"/api/glossaries/{g['id']}/entries", json={
+        "source": "broadcast", "target": "廣播",
+    })
+
+    from app import _file_registry, _register_file
+    fid = "test_scan_en"
+    _register_file(fid, "x.mp4", "x.mp4", 0, user_id=1)
+    _file_registry[fid]["segments"] = [{"text": "he made a broadcast"}]
+    _file_registry[fid]["translations"] = [{"zh_text": "他做了東西", "status": "pending"}]
+    try:
+        r = client.post(f"/api/files/{fid}/glossary-scan", json={
+            "glossary_id": g["id"],
+        })
+        body = r.get_json()
+        assert body["strict_violation_count"] == 1
+        assert body["loose_violation_count"] == 0
+    finally:
+        _file_registry.pop(fid, None)
