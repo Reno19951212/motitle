@@ -16,7 +16,7 @@ test("list glossaries returns glossaries array", async ({ request }) => {
 test("create, add entry, and delete glossary", async ({ request }) => {
   // POST /api/glossaries returns direct glossary object (no wrapper)
   const create = await request.post(BASE + "/api/glossaries", {
-    data: { name: "E2E Test Glossary", description: "Playwright test" },
+    data: { name: "E2E Test Glossary", description: "Playwright test", source_lang: "en", target_lang: "zh" },
   });
   expect(create.status()).toBe(201);
   const glossary = await create.json();
@@ -25,63 +25,63 @@ test("create, add entry, and delete glossary", async ({ request }) => {
 
   // POST entry returns the FULL updated glossary (not just the entry)
   const entry = await request.post(BASE + `/api/glossaries/${gid}/entries`, {
-    data: { en: "Arsenal", zh: "阿仙奴" },
+    data: { source: "Arsenal", target: "阿仙奴" },
   });
   expect(entry.status()).toBe(201);
   const updatedGlossary = await entry.json();
   // The full glossary is returned with entries array containing the new entry
-  expect(updatedGlossary.entries.some(e => e.en === "Arsenal" && e.zh === "阿仙奴")).toBe(true);
+  expect(updatedGlossary.entries.some(e => e.source === "Arsenal" && e.target === "阿仙奴")).toBe(true);
 
   // Get glossary to confirm entry exists
   const get = await request.get(BASE + `/api/glossaries/${gid}`);
   expect(get.status()).toBe(200);
   const full = await get.json();
-  expect(full.entries.some(e => e.en === "Arsenal")).toBe(true);
+  expect(full.entries.some(e => e.source === "Arsenal")).toBe(true);
 
   await request.delete(BASE + `/api/glossaries/${gid}`);
 });
 
 test("update glossary entry", async ({ request }) => {
   const create = await request.post(BASE + "/api/glossaries", {
-    data: { name: "E2E Update Glossary" },
+    data: { name: "E2E Update Glossary", source_lang: "en", target_lang: "zh" },
   });
   const glossary = await create.json();
   const gid = glossary.id;
 
   // Add entry — returns full updated glossary
   const addResp = await request.post(BASE + `/api/glossaries/${gid}/entries`, {
-    data: { en: "Chelsea", zh: "車路士" },
+    data: { source: "Chelsea", target: "車路士" },
   });
   const afterAdd = await addResp.json();
   // Find the new entry in the returned glossary
-  const addedEntry = afterAdd.entries.find(e => e.en === "Chelsea");
+  const addedEntry = afterAdd.entries.find(e => e.source === "Chelsea");
   expect(addedEntry).toBeTruthy();
   const eid = addedEntry.id;
 
   // PATCH entry — returns full updated glossary
   const patch = await request.patch(BASE + `/api/glossaries/${gid}/entries/${eid}`, {
-    data: { zh: "車爾西" },
+    data: { target: "車爾西" },
   });
   expect(patch.status()).toBe(200);
   const afterPatch = await patch.json();
   const patchedEntry = afterPatch.entries.find(e => e.id === eid);
-  expect(patchedEntry.zh).toBe("車爾西");
+  expect(patchedEntry.target).toBe("車爾西");
 
   await request.delete(BASE + `/api/glossaries/${gid}`);
 });
 
 test("delete glossary entry", async ({ request }) => {
   const create = await request.post(BASE + "/api/glossaries", {
-    data: { name: "E2E Delete Entry Glossary" },
+    data: { name: "E2E Delete Entry Glossary", source_lang: "en", target_lang: "zh" },
   });
   const glossary = await create.json();
   const gid = glossary.id;
 
   const addResp = await request.post(BASE + `/api/glossaries/${gid}/entries`, {
-    data: { en: "Tottenham", zh: "熱刺" },
+    data: { source: "Tottenham", target: "熱刺" },
   });
   const afterAdd = await addResp.json();
-  const addedEntry = afterAdd.entries.find(e => e.en === "Tottenham");
+  const addedEntry = afterAdd.entries.find(e => e.source === "Tottenham");
   const eid = addedEntry.id;
 
   const del = await request.delete(BASE + `/api/glossaries/${gid}/entries/${eid}`);

@@ -137,17 +137,17 @@ test("unapprove flips status back to pending", async ({ request }) => {
 // ---------------------------------------------------------------------------
 test("glossary create + add entry + scan + apply roundtrip", async ({ request }) => {
   const create = await request.post(BASE + "/api/glossaries", {
-    data: { name: `E2E Glossary ${Date.now()}`, description: "ralph-loop test" },
+    data: { name: `E2E Glossary ${Date.now()}`, description: "ralph-loop test", source_lang: "en", target_lang: "zh" },
   });
   expect(create.status()).toBe(201);
   const gid = (await create.json()).id;
 
   try {
     const entry = await request.post(BASE + `/api/glossaries/${gid}/entries`, {
-      data: { en: "and", zh: "和" },
+      data: { source: "and", target: "和" },
     });
     expect(entry.status()).toBe(201);
-    expect((await entry.json()).entries.some((e) => e.en === "and")).toBe(true);
+    expect((await entry.json()).entries.some((e) => e.source === "and")).toBe(true);
 
     const scan = await request.post(
       BASE + `/api/files/${TARGET_FILE.id}/glossary-scan`,
@@ -155,8 +155,11 @@ test("glossary create + add entry + scan + apply roundtrip", async ({ request })
     );
     expect(scan.status(), `scan: ${scan.status()}`).toBe(200);
     const scanBody = await scan.json();
-    expect(scanBody).toHaveProperty("violations");
-    expect(Array.isArray(scanBody.violations)).toBe(true);
+    // v3.15: violations split into strict_violations + loose_violations
+    expect(scanBody).toHaveProperty("strict_violations");
+    expect(scanBody).toHaveProperty("loose_violations");
+    expect(Array.isArray(scanBody.strict_violations)).toBe(true);
+    expect(Array.isArray(scanBody.loose_violations)).toBe(true);
   } finally {
     await request.delete(BASE + `/api/glossaries/${gid}`);
   }
@@ -166,14 +169,14 @@ test("glossary apply rewrites zh_text via LLM", async ({ request }) => {
   test.setTimeout(180_000);
 
   const create = await request.post(BASE + "/api/glossaries", {
-    data: { name: `E2E Apply ${Date.now()}` },
+    data: { name: `E2E Apply ${Date.now()}`, source_lang: "en", target_lang: "zh" },
   });
   const gid = (await create.json()).id;
 
   try {
     // 'mess' is rare in the target clip (1 occurrence) — bounds LLM cost
     await request.post(BASE + `/api/glossaries/${gid}/entries`, {
-      data: { en: "mess", zh: "搞亂" },
+      data: { source: "mess", target: "搞亂" },
     });
 
     const scan = await request.post(
@@ -181,7 +184,12 @@ test("glossary apply rewrites zh_text via LLM", async ({ request }) => {
       { data: { glossary_id: gid } }
     );
     expect(scan.status()).toBe(200);
-    const violations = (await scan.json()).violations || [];
+    const scanBody = await scan.json();
+    // v3.15: violations are split into strict_violations + loose_violations
+    const violations = [
+      ...(scanBody.strict_violations || []),
+      ...(scanBody.loose_violations || []),
+    ];
 
     if (violations.length === 0) return; // already compliant — plumbing tested via scan
 
@@ -191,14 +199,16 @@ test("glossary apply rewrites zh_text via LLM", async ({ request }) => {
       {
         data: {
           glossary_id: gid,
-          violations: [{ seg_idx: v.seg_idx, term_en: v.term_en, term_zh: v.term_zh }],
+          // v3.15: apply endpoint uses term_source/term_target; scan rows still have
+          // legacy term_en/term_zh aliases so we map them explicitly.
+          violations: [{ seg_idx: v.seg_idx, term_source: v.term_source || v.term_en, term_target: v.term_target || v.term_zh }],
         },
       }
     );
     expect(apply.status(), `apply: ${apply.status()} ${await apply.text()}`).toBe(200);
     const applyBody = await apply.json();
-    expect(applyBody).toHaveProperty("results");
-    expect(applyBody.results.length).toBeGreaterThan(0);
+    // v3.15 apply returns {applied_count, failed_count}
+    expect(applyBody).toHaveProperty("applied_count");
 
     const tr = await request.get(BASE + `/api/files/${TARGET_FILE.id}/translations`);
     const updated = ((await tr.json()).translations || [])[v.seg_idx];

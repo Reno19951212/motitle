@@ -155,14 +155,14 @@ test("glossary-scan on freshly-uploaded file returns scanned_count=0 + violation
   try {
     // Spin up a temp glossary so we don't depend on the registry having one.
     const glCreate = await ctx.post("/api/glossaries", {
-      data: { name: `_e2e_noop_${Date.now()}` },
+      data: { name: `_e2e_noop_${Date.now()}`, source_lang: "en", target_lang: "zh" },
     });
     expect(glCreate.ok(), `glossary create failed: ${glCreate.status()}`).toBeTruthy();
     glossary_id = (await glCreate.json()).id;
 
     // Add a term that won't match anything in our fresh file (no translations).
     await ctx.post(`/api/glossaries/${glossary_id}/entries`, {
-      data: { en: "zzzqqqxxx_unlikely_term", zh: "測試" },
+      data: { source: "zzzqqqxxx_unlikely_term", target: "測試" },
     });
 
     // Fresh file — has no translations + no segments yet.
@@ -179,9 +179,14 @@ test("glossary-scan on freshly-uploaded file returns scanned_count=0 + violation
     const body = await scanR.json();
 
     expect(body.scanned_count, "no translations to scan").toBe(0);
-    expect(body.violation_count, "no violations possible without translations").toBe(0);
-    expect(Array.isArray(body.violations), "violations must be an array").toBe(true);
-    expect(body.violations).toEqual([]);
+    expect(
+      (body.strict_violation_count || 0) + (body.loose_violation_count || 0),
+      "no violations possible without translations"
+    ).toBe(0);
+    expect(Array.isArray(body.strict_violations), "strict_violations must be an array").toBe(true);
+    expect(body.strict_violations).toEqual([]);
+    expect(Array.isArray(body.loose_violations), "loose_violations must be an array").toBe(true);
+    expect(body.loose_violations).toEqual([]);
     expect(Array.isArray(body.matches)).toBe(true);
     expect(body.matches).toEqual([]);
     expect(body.reverted_count).toBe(0);

@@ -12,7 +12,7 @@ const BASE = process.env.BASE_URL || "http://localhost:5001";
 // ---------------------------------------------------------------------------
 test("R5 — 10 concurrent POST /glossaries/<id>/entries all land", async ({ request }) => {
   const create = await request.post(BASE + "/api/glossaries", {
-    data: { name: `R6_R5_${Date.now()}`, description: "concurrency test" },
+    data: { name: `R6_R5_${Date.now()}`, description: "concurrency test", source_lang: "en", target_lang: "zh" },
   });
   expect(create.status()).toBe(201);
   const gid = (await create.json()).id;
@@ -22,7 +22,7 @@ test("R5 — 10 concurrent POST /glossaries/<id>/entries all land", async ({ req
     const responses = await Promise.all(
       Array.from({ length: N }, (_, i) =>
         request.post(BASE + `/api/glossaries/${gid}/entries`, {
-          data: { en: `term_${i}`, zh: `譯_${i}` },
+          data: { source: `term_${i}`, target: `譯_${i}` },
         })
       )
     );
