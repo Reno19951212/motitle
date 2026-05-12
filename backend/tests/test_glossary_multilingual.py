@@ -330,3 +330,32 @@ def test_api_glossaries_languages_returns_whitelist(client_with_admin):
     en = next(lang for lang in body["languages"] if lang["code"] == "en")
     assert en["english_name"] == "English"
     assert "display_name" in en
+
+
+def test_boundary_regex_en_word_boundary():
+    from app import _make_glossary_term_pattern
+    p = _make_glossary_term_pattern("broadcast", "en")
+    assert p.search("he made a broadcast") is not None
+    assert p.search("broadcaster") is None  # word boundary blocks
+
+
+def test_boundary_regex_zh_strict():
+    from app import _make_glossary_term_pattern
+    p = _make_glossary_term_pattern("廣播", "zh")
+    assert p.search("「廣播」") is not None  # quote boundary
+    assert p.search("他做廣播") is None       # CJK char before
+    assert p.search("廣播主導") is None       # CJK char after
+
+
+def test_boundary_regex_ja_strict():
+    from app import _make_glossary_term_pattern
+    p = _make_glossary_term_pattern("ニュース", "ja")
+    assert p.search("「ニュース」") is not None
+    assert p.search("朝のニュース") is None   # kana before
+
+
+def test_boundary_regex_th_strict():
+    from app import _make_glossary_term_pattern
+    p = _make_glossary_term_pattern("ข่าว", "th")
+    assert p.search("(ข่าว)") is not None
+    assert p.search("ฟังข่าวเช้า") is None

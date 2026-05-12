@@ -1817,6 +1817,38 @@ def api_export_glossary_csv(glossary_id):
     }
 
 
+# v3.x multilingual — per-script boundary character ranges. Source-language
+# determines which characters are considered "same-script" and block a
+# strict match if they appear immediately before or after a term.
+_GLOSSARY_BOUNDARY_CHARS = {
+    "en": r"A-Za-z0-9",
+    "es": r"A-Za-z0-9",
+    "fr": r"A-Za-z0-9",
+    "de": r"A-Za-z0-9",
+    "zh": r"一-鿿㐀-䶿",
+    "ja": r"぀-ゟ゠-ヿ一-鿿",
+    "ko": r"가-힯",
+    "th": r"฀-๿",
+}
+
+
+def _make_glossary_term_pattern(term: str, source_lang: str) -> "re.Pattern":
+    """v3.x — Build a word-boundary regex for a glossary term using the
+    character class appropriate to the glossary's source_lang. The pattern
+    matches the term only when the chars immediately before/after are NOT
+    in the same script's boundary class.
+
+    Smart case-sensitivity is preserved (uppercase in term → case-sensitive
+    match) — irrelevant for CJK/JA/KO/TH which have no case concept.
+    """
+    chars = _GLOSSARY_BOUNDARY_CHARS.get(source_lang, r"A-Za-z0-9")
+    flags = 0 if any(c.isupper() for c in term) else re.IGNORECASE
+    return re.compile(
+        r"(?<![" + chars + r"])" + re.escape(term) + r"(?![" + chars + r"])",
+        flags,
+    )
+
+
 @app.route('/api/files/<file_id>/glossary-scan', methods=['POST'])
 @require_file_owner
 def api_glossary_scan(file_id):
