@@ -51,6 +51,35 @@ _QUOTE_PAIRS = [
 ]
 
 
+# v3.x multilingual refactor — supported languages whitelist.
+# Tuple value: (English name, native/display name) — used by LLM prompt
+# templates and frontend labels respectively.
+SUPPORTED_LANGS: dict = {
+    "en": ("English", "English"),
+    "zh": ("Chinese", "中文"),
+    "ja": ("Japanese", "日本語"),
+    "ko": ("Korean", "한국어"),
+    "es": ("Spanish", "Español"),
+    "fr": ("French", "Français"),
+    "de": ("German", "Deutsch"),
+    "th": ("Thai", "ภาษาไทย"),
+}
+
+
+def is_supported_lang(code) -> bool:
+    """True if `code` is one of the supported ISO 639-1 codes."""
+    return isinstance(code, str) and code in SUPPORTED_LANGS
+
+
+def lang_english_name(code: str) -> str:
+    """English name used in LLM prompt templates ('Japanese', 'Chinese', ...).
+
+    Raises KeyError if `code` is not in SUPPORTED_LANGS. Callers should
+    validate first with `is_supported_lang`.
+    """
+    return SUPPORTED_LANGS[code][0]
+
+
 def _strip_wrapping_quotes(text):
     """Remove ONE layer of paired quote characters that wrap the entire
     text. Returns the input unchanged if it isn't a string or has no
