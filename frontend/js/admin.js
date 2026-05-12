@@ -7,6 +7,7 @@ function switchTab(name) {
   if (tabBtn) tabBtn.classList.add("active");
   if (panel) panel.classList.add("active");
   if (name === "audit") loadAudit();
+  if (name === "glossaries") loadGlossaries();
 }
 
 async function loadUsers() {
@@ -72,6 +73,25 @@ async function toggleAdmin(id) {
   loadUsers();
 }
 
+async function loadGlossaries() {
+  const r = await fetch("/api/glossaries", {credentials: "same-origin"});
+  if (!r.ok) return;
+  const data = await r.json();
+  const glossaries = data.glossaries || [];
+  const tbody = document.getElementById("adminGlossaryList");
+  if (!tbody) return;
+  tbody.innerHTML = glossaries.map(g => `
+    <tr>
+      <td>${g.id.slice(0, 8)}…</td>
+      <td>${g.name}</td>
+      <td>${(g.source_lang || '?').toUpperCase()}</td>
+      <td>${(g.target_lang || '?').toUpperCase()}</td>
+      <td>${g.entry_count || 0}</td>
+      <td>${g.user_id !== null && g.user_id !== undefined ? g.user_id : '(共享)'}</td>
+    </tr>
+  `).join("");
+}
+
 async function loadAudit() {
   const r = await fetch("/api/admin/audit?limit=100", {credentials: "same-origin"});
   if (!r.ok) return;
@@ -113,6 +133,7 @@ document.getElementById("adminUserCreateForm").addEventListener("submit", async 
 window.switchTab = switchTab;
 window.loadUsers = loadUsers;
 window.loadAudit = loadAudit;
+window.loadGlossaries = loadGlossaries;
 window.deleteUser = deleteUser;
 window.resetPassword = resetPassword;
 window.toggleAdmin = toggleAdmin;

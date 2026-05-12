@@ -2330,7 +2330,8 @@
         ? glossaries.filter(g => g.user_id === _currentUserId)
         : [];
       const _renderGlossButton = g => {
-        const o = { name: g.name, badge: `${(g.entry_count || g.entries?.length || 0)} 條`, id: g.id };
+        const pair = `${(g.source_lang || '?').toUpperCase()}→${(g.target_lang || '?').toUpperCase()}`;
+        const o = { name: g.name, badge: `${pair} · ${(g.entry_count || g.entries?.length || 0)} 條`, id: g.id };
         return `<button ${o.id === glossId ? 'class="on"' : ''} onclick="applyGlossary('${o.id}')">
               <div class="smn-main">
                 <span class="smn-name">${escapeHtml(o.name)}</span>

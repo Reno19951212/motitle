@@ -59,7 +59,11 @@
   </div>
 
   <div class="panel" id="panelGlossaries">
-    <p>使用左側 dashboard 嘅 Glossary 編輯器管理 Glossary（admin 可以編輯任何 Glossary）。</p>
+    <p style="margin-bottom:12px;color:#a8a8bf;font-size:13px;">使用左側 dashboard 嘅 Glossary 編輯器管理 Glossary（admin 可以編輯任何 Glossary）。</p>
+    <table>
+      <thead><tr><th>ID</th><th>名稱</th><th>Source</th><th>Target</th><th>條目</th><th>Owner</th></tr></thead>
+      <tbody id="adminGlossaryList"></tbody>
+    </table>
   </div>
 
   <div class="panel" id="panelAudit">
@@ -74,7 +78,7 @@
   <script>
     fetchMe().then(u => {
       if (!u || !u.is_admin) { window.location.href = "/"; return; }
-      loadUsers(); loadAudit();
+      loadUsers(); loadAudit(); loadGlossaries();
     });
   </script>
 </body>
