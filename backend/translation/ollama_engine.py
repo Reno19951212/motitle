@@ -220,6 +220,23 @@ ENRICH_SYSTEM_PROMPT = (
 )
 
 
+def _filter_glossary_for_batch(
+    glossary: Optional[dict], batch_en_texts: List[str]
+) -> List[dict]:
+    """v3.x multilingual: skip non-EN→ZH glossaries entirely (auto-translate
+    pipeline only handles EN→ZH). For EN→ZH, return entries whose `source`
+    term appears in any of the batch texts (per-batch prompt-bloat control)."""
+    if not glossary:
+        return []
+    if glossary.get("source_lang") != "en" or glossary.get("target_lang") != "zh":
+        return []
+    joined = " ".join(batch_en_texts).lower()
+    return [
+        e for e in glossary.get("entries", [])
+        if e.get("source") and e["source"].lower() in joined
+    ]
+
+
 class OllamaTranslationEngine(TranslationEngine):
     """Translation engine that calls Ollama's local HTTP API."""
 
@@ -386,7 +403,7 @@ class OllamaTranslationEngine(TranslationEngine):
         segments: List[dict],
         pass1_results: List[TranslatedSegment],
         batch_size: int,
-        glossary: List[dict],
+        glossary: Optional[List[dict]],
         temperature: float,
         progress_callback=None,
         total: int = 0,
@@ -430,7 +447,7 @@ class OllamaTranslationEngine(TranslationEngine):
         self,
         batch_segs: List[dict],
         batch_p1: List[TranslatedSegment],
-        glossary: List[dict],
+        glossary: Optional[List[dict]],
         temperature: float,
     ) -> List[TranslatedSegment]:
         """Enrich one batch via a single LLM call. Returns list same length as batch_segs."""
@@ -451,7 +468,7 @@ class OllamaTranslationEngine(TranslationEngine):
         relevant_glossary = self._filter_glossary_for_batch(glossary, batch_segs)
         if relevant_glossary:
             terms = "\n".join(
-                f'- {entry["en"]} → {entry["zh"]}' for entry in relevant_glossary
+                f'- {entry["source"]} → {entry["target"]}' for entry in relevant_glossary
             )
             system_prompt += f"\n\n【指定譯名表】（必須採用以下譯名）:\n{terms}"
 
@@ -485,7 +502,7 @@ class OllamaTranslationEngine(TranslationEngine):
     def _translate_single_mode(
         self,
         segments: List[dict],
-        glossary: List[dict],
+        glossary: Optional[List[dict]],
         style: str,
         temperature: float,
         progress_callback,
@@ -543,7 +560,7 @@ class OllamaTranslationEngine(TranslationEngine):
     def _translate_single(
         self,
         segment: dict,
-        glossary: List[dict],
+        glossary: Optional[List[dict]],
         style: str,
         temperature: float,
     ) -> TranslatedSegment:
@@ -561,7 +578,7 @@ class OllamaTranslationEngine(TranslationEngine):
         system_prompt = SINGLE_SEGMENT_SYSTEM_PROMPT
         if relevant_glossary:
             terms = "\n".join(
-                f'- {entry["en"]} → {entry["zh"]}' for entry in relevant_glossary
+                f'- {entry["source"]} → {entry["target"]}' for entry in relevant_glossary
             )
             system_prompt = system_prompt + (
                 f"\n\n【指定譯名表】（必須採用以下譯名，不得自行發揮）:\n{terms}"
@@ -591,7 +608,7 @@ class OllamaTranslationEngine(TranslationEngine):
     def _translate_batch(
         self,
         segments: List[dict],
-        glossary: List[dict],
+        glossary: Optional[List[dict]],
         style: str,
         temperature: float,
         context_pairs: Optional[list] = None,
@@ -608,22 +625,25 @@ class OllamaTranslationEngine(TranslationEngine):
 
     @staticmethod
     def _filter_glossary_for_batch(
-        glossary: List[dict], segments: List[dict]
+        glossary: Optional[List[dict]], segments: List[dict]
     ) -> List[dict]:
-        """Return only glossary entries whose EN term is case-insensitively
-        present in at least one segment's source text."""
-        if not glossary or not segments:
-            return glossary
-        batch_text = " ".join(seg.get("text", "") for seg in segments).lower()
-        return [
-            entry for entry in glossary
-            if entry.get("en") and entry["en"].lower() in batch_text
-        ]
+        """Thin instance-method shim — delegates to module-level function.
+
+        Accepts a list of entry dicts (legacy engine interface) and segment
+        dicts. Wraps the entry list as a synthetic EN→ZH glossary object so
+        the module-level function's lang-guard is satisfied (existing callers
+        are always EN→ZH; non-EN→ZH filtering is enforced at the
+        app.py / translate() call site before entries are extracted)."""
+        if not glossary:
+            return []
+        batch_en_texts = [seg.get("text", "") for seg in segments]
+        synthetic = {"source_lang": "en", "target_lang": "zh", "entries": glossary}
+        return _filter_glossary_for_batch(synthetic, batch_en_texts)
 
     def _retry_missing(
         self,
         segments: List[dict],
-        glossary: List[dict],
+        glossary: Optional[List[dict]],
         style: str,
         temperature: float,
         context_pairs: list,
@@ -641,7 +661,7 @@ class OllamaTranslationEngine(TranslationEngine):
         # Localize glossary injection into Chinese so it blends with the
         # Chinese-language base prompt instead of breaking register mid-way.
         terms = "\n".join(
-            f'- {entry["en"]} → {entry["zh"]}' for entry in glossary
+            f'- {entry["source"]} → {entry["target"]}' for entry in glossary
         )
         return base + (
             f"\n\n【指定譯名表】（必須採用以下譯名，不得自行發揮）:\n{terms}"

@@ -498,6 +498,39 @@ def test_glossary_apply_uses_glossary_languages(client_with_admin, monkeypatch):
         _file_registry.pop(fid, None)
 
 
+def test_filter_glossary_for_batch_skips_non_en_to_zh():
+    """Auto-translate prompts inject glossary terms only when the glossary
+    is EN→ZH. Any other lang pair returns an empty list (silently skip)."""
+    from translation.ollama_engine import _filter_glossary_for_batch
+
+    ja_glossary = {
+        "source_lang": "ja", "target_lang": "zh",
+        "entries": [{"source": "ニュース", "target": "新聞"}],
+    }
+    result = _filter_glossary_for_batch(
+        glossary=ja_glossary, batch_en_texts=["朝のニュース"],
+    )
+    assert result == []
+
+
+def test_filter_glossary_for_batch_keeps_en_to_zh():
+    from translation.ollama_engine import _filter_glossary_for_batch
+
+    en_glossary = {
+        "source_lang": "en", "target_lang": "zh",
+        "entries": [
+            {"source": "broadcast", "target": "廣播"},
+            {"source": "unrelated", "target": "無關"},
+        ],
+    }
+    result = _filter_glossary_for_batch(
+        glossary=en_glossary, batch_en_texts=["he made a broadcast"],
+    )
+    sources = [e["source"] for e in result]
+    assert "broadcast" in sources
+    assert "unrelated" not in sources  # batch text doesn't contain it
+
+
 def test_glossary_apply_default_model_is_qwen35_35b(client_with_admin, monkeypatch):
     """When profile has no glossary_apply_model override, apply uses the
     hardcoded default 'qwen3.5-35b-a3b'."""
