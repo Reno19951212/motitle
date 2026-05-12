@@ -518,20 +518,31 @@ motitle/
 
 ---
 
-## 術語表管理
+## 術語表（多語言）
 
-系統內建「Broadcast News」術語表，包含常用香港廣播新聞術語：
+每個術語表帶有自己嘅原文同譯文語言設定。支援 8 種語言：英文、中文、日文、韓文、西班牙文、法文、德文、泰文。
 
-| 英文 | 中文 |
-|------|------|
-| Legislative Council | 立法會 |
-| Chief Executive | 行政長官 |
-| Hong Kong | 香港 |
-| government | 政府 |
-| police | 警方 |
-| ... | ... |
+可以建立任何語言組合：
+- 英文 → 中文（傳統用法）
+- 中文 → 中文（風格統一）
+- 英文 → 英文（術語規範化）
+- 日文 → 中文（日語節目翻譯）
 
-可通過 API 新增、編輯、匯入 CSV 術語表。術語會自動注入翻譯 prompt，確保專業名詞翻譯一致。
+每條 entry 有 `原文` / `譯文` 兩個必填欄位，加可選嘅 `譯文別名` 列表。
+
+### CSV 匯入格式
+
+三欄（第三欄可選）：
+
+```csv
+source,target,target_aliases
+broadcast,廣播,
+anchor,主播,主持;新聞主播
+```
+
+別名用 `;` 分隔。
+
+⚠️ 由 v3.15 起，舊嘅 `en,zh` CSV header **唔再接受**。如要遷移舊資料，先 export 做 CSV、手動將 header 改為 `source,target`、再喺新建立嘅 glossary 度 import 返。
 
 ---
 

@@ -340,6 +340,19 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### v3.15 — Multilingual Glossary Refactor
+- **Schema**: Glossary entries renamed from `{en, zh, zh_aliases}` to `{source, target, target_aliases}`. Glossary-level metadata adds `source_lang` + `target_lang` from an 8-language whitelist (`en, zh, ja, ko, es, fr, de, th`).
+- **Validation**: Dropped per-language script rules (`en must contain letter` / `zh must contain CJK`). Now just non-empty + reject self-translation when source_lang==target_lang.
+- **Scan two-stage**: New response shape with `strict_violations` + `loose_violations`. CJK/JA/KO/TH source languages get loose section (substring match where strict per-script word boundary missed). Latin scripts only return strict.
+- **Apply prompt parameterized**: LLM prompt template reads glossary's `source_lang`/`target_lang` and substitutes language names. Default model hardcoded to `qwen3.5-35b-a3b` (overridable via `profile.translation.glossary_apply_model`).
+- **CSV**: 3-col format `source,target,target_aliases` (last column optional). Old `en,zh` header rejected with explicit error.
+- **Cutover**: All 5 pre-v3.15 glossary files deleted; users export-then-reimport via UI. Boot ignores files lacking `source_lang`/`target_lang` (no migration script). `applied_terms` field renamed `term_en/term_zh → term_source/term_target`; `baseline_zh → baseline_target`.
+- **Auto-translate unchanged**: Translation engines still output Chinese; `_filter_glossary_for_batch` silently skips glossaries whose `source_lang != "en" OR target_lang != "zh"`.
+- **Frontend**: 4 files refactored (`Glossary.html`, `proofread.html`, `index.html`, `admin.html`). Hardcoded `英文`/`中文` labels replaced with neutral `原文`/`譯文`; language pair badge `EN→ZH` shown on glossary header/dropdown.
+- **New endpoint**: `GET /api/glossaries/languages` returns whitelist for dropdown sync.
+- **Tests**: ~30 new pytest cases (`test_glossary_multilingual.py`) + 5 Playwright (`test_glossary_multilingual.spec.js`); existing `test_glossary.py` + `test_glossary_apply.py` renamed across.
+- **Implementation tasks**: T1-T19 in [docs/superpowers/plans/2026-05-12-multilingual-glossary-plan.md](docs/superpowers/plans/2026-05-12-multilingual-glossary-plan.md). Design in [docs/superpowers/specs/2026-05-12-multilingual-glossary-design.md](docs/superpowers/specs/2026-05-12-multilingual-glossary-design.md).
+
 ### v3.14 — R6 Phase 6 security hardening (rate limiting, password policy, audit, readiness probe)
 - **Rate limiting** (`backend/auth/limiter.py` — new shared singleton): Flask-Limiter 3.11 with `memory://` storage. `POST /login` — 10 req/min per IP; `GET /api/queue` — 60 req/min per IP. `RATELIMIT_ENABLED=False` config key disables limits globally (set in `conftest.py` for the test suite). Limiter registered on main app via `limiter.init_app(app)` in `app.py`.
 - **Password policy** (`auth/passwords.py`): `validate_password_strength(plaintext)` — rejects passwords shorter than 8 characters (`ValueError: "at least 8"`) or matching any of 24 common passwords (`ValueError: "too common"`). Enforced at every write path in `auth/users.py`: `create_user()` and `update_password()`.
