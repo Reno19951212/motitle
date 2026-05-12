@@ -1214,7 +1214,7 @@
       (data.glossaries || []).forEach(g => {
         const opt = document.createElement('option');
         opt.value = g.id;
-        opt.textContent = g.name;
+        opt.textContent = `${g.name} (${(g.source_lang||'?').toUpperCase()}→${(g.target_lang||'?').toUpperCase()})`;
         sel.appendChild(opt);
       });
 
@@ -1291,8 +1291,8 @@
     }
     const rows = glossaryEntries.map(e => `
       <tr id="grow-${e.id}">
-        <td>${escapeHtml(e.en)}</td>
-        <td>${escapeHtml(e.zh)}</td>
+        <td>${escapeHtml(e.source)}</td>
+        <td>${escapeHtml(e.target)}</td>
         <td style="text-align:center;white-space:nowrap;">
           <button class="btn btn-ghost btn-sm" onclick="startEditEntry('${e.id}')" title="編輯">✎</button>
           <button class="btn btn-ghost btn-sm" onclick="deleteGlossaryEntry('${e.id}')" title="刪除">🗑</button>
@@ -1300,7 +1300,7 @@
       </tr>`).join('');
     body.innerHTML = `
       <table class="rv-b-glossary-table">
-        <thead><tr><th>EN</th><th>ZH</th><th></th></tr></thead>
+        <thead><tr><th>原文</th><th>譯文</th><th></th></tr></thead>
         <tbody>${rows}</tbody>
       </table>`;
   }
@@ -1311,39 +1311,39 @@
     const row = document.getElementById(`grow-${eid}`);
     if (!row) return;
     row.innerHTML = `
-      <td><input class="rv-b-glossary-input" id="gedit-en-${eid}" value="${escapeHtml(entry.en)}"></td>
-      <td><input class="rv-b-glossary-input" id="gedit-zh-${eid}" value="${escapeHtml(entry.zh)}"></td>
+      <td><input class="rv-b-glossary-input" id="gedit-source-${eid}" value="${escapeHtml(entry.source)}"></td>
+      <td><input class="rv-b-glossary-input" id="gedit-target-${eid}" value="${escapeHtml(entry.target)}"></td>
       <td style="text-align:center;white-space:nowrap;">
         <button class="btn btn-primary btn-sm" onclick="saveEditEntry('${eid}')" title="儲存到詞彙表 (Enter)">儲存</button>
         <button class="btn btn-ghost btn-sm" onclick="renderGlossaryTable()" title="取消 (Esc)">取消</button>
       </td>`;
-    const enInput = document.getElementById(`gedit-en-${eid}`);
-    const zhInput = document.getElementById(`gedit-zh-${eid}`);
-    [enInput, zhInput].forEach(el => {
+    const sourceInput = document.getElementById(`gedit-source-${eid}`);
+    const targetInput = document.getElementById(`gedit-target-${eid}`);
+    [sourceInput, targetInput].forEach(el => {
       el.addEventListener('keydown', e => {
         if (e.key === 'Enter') saveEditEntry(eid);
         else if (e.key === 'Escape') renderGlossaryTable();
       });
     });
-    enInput.focus();
+    sourceInput.focus();
   }
 
   async function saveEditEntry(eid) {
-    const enEl = document.getElementById(`gedit-en-${eid}`);
-    const zhEl = document.getElementById(`gedit-zh-${eid}`);
-    if (!enEl || !zhEl) return;
-    const en = enEl.value.trim();
-    const zh = zhEl.value.trim();
-    if (!en || !zh) { showToast('EN 同 ZH 不能為空', 'error'); return; }
+    const sourceEl = document.getElementById(`gedit-source-${eid}`);
+    const targetEl = document.getElementById(`gedit-target-${eid}`);
+    if (!sourceEl || !targetEl) return;
+    const source = sourceEl.value.trim();
+    const target = targetEl.value.trim();
+    if (!source || !target) { showToast('原文同譯文不能為空', 'error'); return; }
     try {
       const r = await fetch(`${API_BASE}/api/glossaries/${glossaryId}/entries/${eid}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ en, zh }),
+        body: JSON.stringify({ source, target }),
       });
       if (!r.ok) throw new Error((await r.json()).error || '儲存失敗');
       const idx = glossaryEntries.findIndex(e => e.id === eid);
-      if (idx >= 0) glossaryEntries = glossaryEntries.map((e, i) => i === idx ? { ...e, en, zh } : e);
+      if (idx >= 0) glossaryEntries = glossaryEntries.map((e, i) => i === idx ? { ...e, source, target } : e);
       renderGlossaryTable();
       showToast('已儲存到詞彙表', 'success');
     } catch (e) {
@@ -1356,7 +1356,7 @@
     if (!glossaryId) return;
     const entry = glossaryEntries.find(e => e.id === eid);
     if (!entry) return;
-    if (!confirm(`確定刪除「${entry.en} → ${entry.zh}」？`)) return;
+    if (!confirm(`確定刪除「${entry.source} → ${entry.target}」？`)) return;
     try {
       const r = await fetch(`${API_BASE}/api/glossaries/${glossaryId}/entries/${eid}`, { method: 'DELETE' });
       if (!r.ok) throw new Error((await r.json()).error || `HTTP ${r.status}`);
@@ -1376,28 +1376,28 @@
       tbl = body.querySelector('tbody');
     }
     if (document.getElementById('grow-new')) {
-      document.getElementById('gnew-en').focus();
+      document.getElementById('gnew-source').focus();
       return;
     }
     const newRow = document.createElement('tr');
     newRow.id = 'grow-new';
     newRow.innerHTML = `
-      <td><input class="rv-b-glossary-input" id="gnew-en" placeholder="English"></td>
-      <td><input class="rv-b-glossary-input" id="gnew-zh" placeholder="中文"></td>
+      <td><input class="rv-b-glossary-input" id="gnew-source" placeholder="原文"></td>
+      <td><input class="rv-b-glossary-input" id="gnew-target" placeholder="譯文"></td>
       <td style="text-align:center;white-space:nowrap;">
         <button class="btn btn-primary btn-sm" onclick="saveNewEntry()" title="儲存到詞彙表 (Enter)">儲存</button>
         <button class="btn btn-ghost btn-sm" onclick="cancelNewEntry()" title="取消 (Esc)">取消</button>
       </td>`;
     tbl.appendChild(newRow);
-    const enInput = document.getElementById('gnew-en');
-    const zhInput = document.getElementById('gnew-zh');
-    [enInput, zhInput].forEach(el => {
+    const sourceInput = document.getElementById('gnew-source');
+    const targetInput = document.getElementById('gnew-target');
+    [sourceInput, targetInput].forEach(el => {
       el.addEventListener('keydown', e => {
         if (e.key === 'Enter') saveNewEntry();
         else if (e.key === 'Escape') cancelNewEntry();
       });
     });
-    enInput.focus();
+    sourceInput.focus();
   }
 
   function cancelNewEntry() {
@@ -1406,21 +1406,28 @@
   }
 
   async function saveNewEntry() {
-    const enEl = document.getElementById('gnew-en');
-    const zhEl = document.getElementById('gnew-zh');
-    if (!enEl || !zhEl) return;
-    const en = enEl.value.trim();
-    const zh = zhEl.value.trim();
-    if (!en || !zh) { showToast('EN 同 ZH 不能為空', 'error'); return; }
+    const sourceEl = document.getElementById('gnew-source');
+    const targetEl = document.getElementById('gnew-target');
+    if (!sourceEl || !targetEl) return;
+    const source = sourceEl.value.trim();
+    const target = targetEl.value.trim();
+    if (!source || !target) { showToast('需要原文同譯文', 'error'); return; }
     try {
       const r = await fetch(`${API_BASE}/api/glossaries/${glossaryId}/entries`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ en, zh }),
+        credentials: 'same-origin',
+        body: JSON.stringify({ source, target }),
       });
-      if (!r.ok) throw new Error((await r.json()).error || '新增失敗');
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        showToast(err.error || '加入失敗', 'error');
+        return;
+      }
       await loadGlossaryEntries(glossaryId);
-      showToast(`已加入詞彙表：${en} → ${zh}`, 'success');
+      sourceEl.value = '';
+      targetEl.value = '';
+      showToast(`已加入詞彙表：${source} → ${target}`, 'success');
     } catch (e) {
       showToast(`新增失敗: ${e.message}`, 'error');
     }
@@ -1439,17 +1446,25 @@
       });
       if (!r.ok) throw new Error((await r.json()).error || '掃描失敗');
       const data = await r.json();
-      const violations = data.violations || [];
+      // Support new response shape (strict_violations/loose_violations) and legacy (violations)
+      const strictViolations = data.strict_violations || data.violations || [];
+      const looseViolations = data.loose_violations || [];
       const matches = data.matches || [];
       const revertedCount = data.reverted_count || 0;
       if (revertedCount > 0) {
         showToast(`已自動回復 ${revertedCount} 段（詞彙表改動）`, 'info');
       }
-      if (violations.length === 0 && matches.length === 0) {
-        showToast('字幕中無詞彙表覆蓋嘅詞，請檢查 EN 文本或新增條目', 'info');
+      if (strictViolations.length === 0 && looseViolations.length === 0 && matches.length === 0) {
+        showToast('字幕中無詞彙表覆蓋嘅詞，請檢查原文或新增條目', 'info');
         return;
       }
-      showGlossaryApplyModal(violations, matches);
+      showGlossaryApplyModal({
+        strict_violations: strictViolations,
+        loose_violations: looseViolations,
+        matches,
+        glossary_source_lang: data.glossary_source_lang || null,
+        glossary_target_lang: data.glossary_target_lang || null,
+      });
     } catch (e) {
       showToast(`掃描失敗: ${e.message}`, 'error');
     } finally {
@@ -1458,122 +1473,153 @@
     }
   }
 
-  function showGlossaryApplyModal(violations, matches) {
-    matches = matches || [];
+  let lastScanResult = null;  // module-level: store scan response for apply phase
+
+  function showGlossaryApplyModal(scanResult) {
+    lastScanResult = scanResult;
+    const { strict_violations, loose_violations, matches,
+            glossary_source_lang, glossary_target_lang } = scanResult;
+
     const body = document.getElementById('gaBody');
     const title = document.getElementById('gaTitle');
     const footer = document.getElementById('gaFooter');
     footer.style.display = '';
-    title.textContent =
-      `詞彙表套用 — ${violations.length} 處不符 · ${matches.length} 處已符合`;
 
-    const renderRow = (row, i, isMatch) => {
-      const checked = !isMatch && !row.approved ? 'checked' : '';
-      const badge = row.approved ? '<span class="ga-row-badge">已批核</span>' : '';
-      const enText = row.en_text || '';
-      const zhText = row.zh_text || '';
-      const enHtml = highlightTerm(enText, row.term_en, 'hl-en',
-                                   { caseSensitive: hasUppercase(row.term_en) });
-      const zhHasTarget = !!(row.term_zh && zhText.indexOf(row.term_zh) !== -1);
-      const zhHtml = zhHasTarget
-        ? highlightTerm(zhText, row.term_zh, 'hl-zh', { caseSensitive: true })
-        : escapeHtml(zhText);
-      const hint = zhHasTarget
-        ? `<span class="ga-hint match"><span class="ga-hint-default">✓ 已含目標詞</span><span class="ga-hint-override">⚠ 強制重新套用</span></span>`
-        : `<span class="ga-hint warn">⚠ LLM 將判斷修改位置</span>`;
-      const rowClass = isMatch ? 'ga-row matched' : 'ga-row';
-      const dataAttrs = isMatch ? `data-type="match" data-idx="${i}"` : `data-idx="${i}"`;
-      return `<div class="${rowClass}">
-        <input type="checkbox" ${checked} ${dataAttrs} onchange="updateApplyCount()">
-        <div class="ga-row-body">
-          <div class="ga-row-term">#${row.seg_idx + 1} &nbsp;"${escapeHtml(row.term_en)}" → ${escapeHtml(row.term_zh)} ${badge}</div>
-          <div class="ga-row-en">EN: ${enHtml}</div>
-          <div class="ga-row-zh">ZH: ${zhHtml}${hint}</div>
-        </div>
-      </div>`;
-    };
+    const langPair = `${(glossary_source_lang||'?').toUpperCase()}→${(glossary_target_lang||'?').toUpperCase()}`;
+    title.textContent = `詞彙表套用 — ${langPair}`;
 
-    const violationRows = violations.map((v, i) => renderRow(v, i, false)).join('');
-    const matchRows = matches.map((m, i) => renderRow(m, i, true)).join('');
+    const showLoose = ['zh', 'ja', 'ko', 'th'].includes(glossary_source_lang);
 
-    let html = '';
-    if (violations.length > 0) {
-      html += `<div class="ga-section-head ga-section-head-row">
-        <label class="ga-select-all">
-          <input type="checkbox" id="gaSelectAllViolations" onchange="toggleSelectAllViolations(this.checked)">
-          <span>需要修正 (${violations.length}) — 全部選中</span>
-        </label>
-      </div>${violationRows}`;
+    const sections = [];
+    if (strict_violations.length > 0) {
+      sections.push(_renderApplySection('嚴格匹配', strict_violations, true, 'strict'));
+    }
+    if (showLoose && loose_violations.length > 0) {
+      sections.push(_renderApplySection('寬鬆匹配 — 需檢視', loose_violations, false, 'loose',
+        '可能因同 script 字符包夾誤中（例如「源」喺「資源」入面）。'));
     }
     if (matches.length > 0) {
-      html += `<div class="ga-section-head">已符合 (${matches.length}) — 可剔選強制重新套用</div>${matchRows}`;
+      sections.push(_renderApplySection('已符合', matches, false, 'matches'));
     }
-    body.innerHTML = html;
 
-    // Both violations and matches are submittable; matches are opt-in
-    window._gaViolations = violations;
-    window._gaMatches = matches;
+    body.innerHTML = sections.join('\n');
 
     updateApplyCount();
     document.getElementById('gaOverlay').classList.add('open');
   }
 
+  function _renderApplySection(title, rows, defaultChecked, sectionKey, hint) {
+    const items = rows.map((r, idx) => {
+      const checked = defaultChecked && !r.approved ? 'checked' : '';
+      const badge = r.approved ? '<span class="ga-row-badge">已批核</span>' : '';
+      const termSource = r.term_source || r.term_en || '';
+      const termTarget = r.term_target || r.term_zh || '';
+      const sourceText = r.source_text || r.en_text || '';
+      const targetText = r.target_text || r.zh_text || '';
+      const sourceHtml = highlightTerm(sourceText, termSource, 'hl-en',
+                                       { caseSensitive: hasUppercase(termSource) });
+      const targetHasHit = !!(termTarget && targetText.indexOf(termTarget) !== -1);
+      const targetHtml = targetHasHit
+        ? highlightTerm(targetText, termTarget, 'hl-zh', { caseSensitive: true })
+        : escapeHtml(targetText);
+      const hint2 = sectionKey === 'matches'
+        ? `<span class="ga-hint match"><span class="ga-hint-default">✓ 已含目標詞</span><span class="ga-hint-override">⚠ 強制重新套用</span></span>`
+        : `<span class="ga-hint warn">⚠ LLM 將判斷修改位置</span>`;
+      const rowClass = sectionKey === 'matches' ? 'ga-row matched' : 'ga-row';
+      return `<div class="${rowClass}">
+        <input type="checkbox" class="ga-row-check" ${checked}
+               data-section="${sectionKey}" data-idx="${idx}"
+               onchange="updateApplyCount()">
+        <div class="ga-row-body">
+          <div class="ga-row-term">#${r.seg_idx + 1} &nbsp;"${escapeHtml(termSource)}" → "${escapeHtml(termTarget)}" ${badge}</div>
+          <div class="ga-row-en">原文: ${sourceHtml}</div>
+          <div class="ga-row-zh">譯文: ${targetHtml}${hint2}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    const selectAllRow = defaultChecked ? `
+      <div class="ga-section-head ga-section-head-row">
+        <label class="ga-select-all">
+          <input type="checkbox" id="gaSelectAll-${sectionKey}" onchange="_toggleSection('${sectionKey}', this.checked)">
+          <span>${title} (${rows.length}) — 全部選中</span>
+        </label>
+      </div>` : `<div class="ga-section-head">${title} (${rows.length})</div>`;
+
+    return `<div class="ga-section" data-section="${sectionKey}">
+      ${selectAllRow}
+      ${hint ? `<div class="ga-section-hint" style="font-size:11px;color:var(--text-mid);padding:4px 12px 2px;">${escapeHtml(hint)}</div>` : ''}
+      ${items}
+    </div>`;
+  }
+
+  function _toggleSection(sectionKey, on) {
+    document.querySelectorAll(`.ga-row-check[data-section="${sectionKey}"]`)
+      .forEach(c => { c.checked = on; });
+    updateApplyCount();
+  }
+  window._toggleSection = _toggleSection;
+
   function updateApplyCount() {
-    // Master "select all" excluded from row count
-    const rowChecks = document.querySelectorAll(
-      '#gaBody .ga-row input[type="checkbox"]'
-    );
+    const rowChecks = document.querySelectorAll('#gaBody .ga-row-check');
     const count = Array.from(rowChecks).filter(c => c.checked).length;
     const btn = document.getElementById('gaApplyBtn');
     btn.textContent = `套用選中 (${count})`;
     btn.disabled = count === 0;
 
-    // Sync the master checkbox indeterminate / checked state for violations
-    const master = document.getElementById('gaSelectAllViolations');
+    // Sync the master "strict" select-all checkbox indeterminate state
+    const master = document.getElementById('gaSelectAll-strict');
     if (master) {
-      const violationChecks = document.querySelectorAll(
-        '#gaBody .ga-row:not(.matched) input[type="checkbox"]'
-      );
-      const total = violationChecks.length;
-      const checked = Array.from(violationChecks).filter(c => c.checked).length;
+      const strictChecks = document.querySelectorAll('.ga-row-check[data-section="strict"]');
+      const total = strictChecks.length;
+      const checked = Array.from(strictChecks).filter(c => c.checked).length;
       master.checked = total > 0 && checked === total;
       master.indeterminate = checked > 0 && checked < total;
     }
   }
 
+  // Legacy alias kept for any inline onclick that may still reference it
   function toggleSelectAllViolations(checked) {
-    document.querySelectorAll('#gaBody .ga-row:not(.matched) input[type="checkbox"]').forEach(c => {
-      c.checked = checked;
-    });
-    updateApplyCount();
+    _toggleSection('strict', checked);
   }
 
   async function applySelectedViolations() {
-    const checks = document.querySelectorAll('#gaBody input[type="checkbox"]');
-    const selected = [];
-    checks.forEach(c => {
-      if (!c.checked) return;
-      const idx = parseInt(c.dataset.idx);
-      const item = c.dataset.type === 'match'
-        ? (window._gaMatches || [])[idx]
-        : (window._gaViolations || [])[idx];
-      if (item) {
-        selected.push({ seg_idx: item.seg_idx, term_en: item.term_en, term_zh: item.term_zh });
+    const checked = Array.from(document.querySelectorAll('.ga-row-check:checked'));
+    const violations = [];
+    for (const c of checked) {
+      const section = c.dataset.section;
+      const idx = parseInt(c.dataset.idx, 10);
+      if (section === 'strict' && lastScanResult?.strict_violations[idx]) {
+        violations.push(lastScanResult.strict_violations[idx]);
+      } else if (section === 'loose' && lastScanResult?.loose_violations[idx]) {
+        violations.push(lastScanResult.loose_violations[idx]);
       }
-    });
-    if (!selected.length) return;
+      // 'matches' rows are not sent — they're already correct.
+    }
+    if (violations.length === 0) {
+      showToast('未揀任何條目', 'info');
+      return;
+    }
+
+    // Strip extra fields, send only what backend expects.
+    const payload = violations.map(v => ({
+      seg_idx: v.seg_idx,
+      term_source: v.term_source || v.term_en,
+      term_target: v.term_target || v.term_zh,
+    }));
 
     // Show progress
     const body = document.getElementById('gaBody');
     const footer = document.getElementById('gaFooter');
-    body.innerHTML = `<div class="ga-progress">正在套用 ${selected.length} 處…</div>`;
+    body.innerHTML = `<div class="ga-progress">正在套用 ${payload.length} 處…</div>`;
     footer.style.display = 'none';
 
     try {
       const r = await fetch(`${API_BASE}/api/files/${fileId}/glossary-apply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ glossary_id: glossaryId, violations: selected }),
+        credentials: 'same-origin',
+        body: JSON.stringify({ glossary_id: glossaryId, violations: payload }),
       });
       if (!r.ok) throw new Error((await r.json()).error || '套用失敗');
       const data = await r.json();
@@ -1600,7 +1646,7 @@
 
   function closeGlossaryApplyModal() {
     document.getElementById('gaOverlay').classList.remove('open');
-    window._gaViolations = null;
+    lastScanResult = null;
   }
 
   // ============================================================
