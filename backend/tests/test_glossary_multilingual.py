@@ -43,3 +43,63 @@ def test_lang_english_name():
 def test_lang_english_name_raises_for_unknown():
     with pytest.raises(KeyError):
         lang_english_name("xx")
+
+
+from glossary import GlossaryManager
+
+
+def _gm(tmp_path):
+    return GlossaryManager(tmp_path)
+
+
+def test_validate_glossary_requires_source_lang(tmp_path):
+    errors = _gm(tmp_path).validate({
+        "name": "Test",
+        "target_lang": "zh",
+    })
+    assert any("source_lang" in e for e in errors)
+
+
+def test_validate_glossary_requires_target_lang(tmp_path):
+    errors = _gm(tmp_path).validate({
+        "name": "Test",
+        "source_lang": "en",
+    })
+    assert any("target_lang" in e for e in errors)
+
+
+def test_validate_glossary_rejects_unknown_source_lang(tmp_path):
+    errors = _gm(tmp_path).validate({
+        "name": "Test",
+        "source_lang": "xx",
+        "target_lang": "zh",
+    })
+    assert any("source_lang must be one of" in e for e in errors)
+
+
+def test_validate_glossary_rejects_unknown_target_lang(tmp_path):
+    errors = _gm(tmp_path).validate({
+        "name": "Test",
+        "source_lang": "en",
+        "target_lang": "yy",
+    })
+    assert any("target_lang must be one of" in e for e in errors)
+
+
+def test_validate_glossary_accepts_same_source_target_lang(tmp_path):
+    # EN→EN normalization, ZH→ZH style guide etc. are valid use cases.
+    errors = _gm(tmp_path).validate({
+        "name": "Style guide",
+        "source_lang": "zh",
+        "target_lang": "zh",
+    })
+    assert errors == []
+
+
+def test_validate_glossary_accepts_valid_pair(tmp_path):
+    errors = _gm(tmp_path).validate({
+        "name": "Anime",
+        "source_lang": "ja",
+        "target_lang": "zh",
+    })
+    assert errors == []

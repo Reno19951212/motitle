@@ -135,8 +135,12 @@ class GlossaryManager:
         """
         Validate a glossary data dict against the schema.
 
-        Returns a list of human-readable error strings.
-        An empty list means the data is valid.
+        v3.x multilingual: glossary MUST declare `source_lang` and
+        `target_lang` (both in SUPPORTED_LANGS). Entries are validated
+        recursively via `validate_entry`.
+
+        Returns a list of human-readable error strings. Empty list means
+        the data is valid.
         """
         errors = []
 
@@ -144,19 +148,39 @@ class GlossaryManager:
         if not name or not isinstance(name, str) or not name.strip():
             errors.append("name is required")
 
+        src = data.get("source_lang")
+        if src is None:
+            errors.append("source_lang is required")
+        elif not is_supported_lang(src):
+            errors.append(
+                "source_lang must be one of: "
+                + ", ".join(sorted(SUPPORTED_LANGS.keys()))
+            )
+
+        tgt = data.get("target_lang")
+        if tgt is None:
+            errors.append("target_lang is required")
+        elif not is_supported_lang(tgt):
+            errors.append(
+                "target_lang must be one of: "
+                + ", ".join(sorted(SUPPORTED_LANGS.keys()))
+            )
+
+        same_lang = (src == tgt and is_supported_lang(src))
+
         entries = data.get("entries")
         if entries is not None:
             if not isinstance(entries, list):
                 errors.append("entries must be a list")
             else:
                 for i, entry in enumerate(entries):
-                    entry_errors = self.validate_entry(entry)
+                    entry_errors = self.validate_entry(entry, same_lang=same_lang)
                     for err in entry_errors:
                         errors.append(f"entries[{i}]: {err}")
 
         return errors
 
-    def validate_entry(self, entry: dict) -> List[str]:
+    def validate_entry(self, entry: dict, same_lang: bool = False) -> List[str]:
         """
         Validate a single glossary entry.
 
