@@ -103,3 +103,49 @@ def test_validate_glossary_accepts_valid_pair(tmp_path):
         "target_lang": "zh",
     })
     assert errors == []
+
+
+def test_validate_entry_requires_source(tmp_path):
+    errors = _gm(tmp_path).validate_entry({"target": "x"})
+    assert any("source" in e for e in errors)
+
+
+def test_validate_entry_requires_target(tmp_path):
+    errors = _gm(tmp_path).validate_entry({"source": "x"})
+    assert any("target" in e for e in errors)
+
+
+def test_validate_entry_accepts_pure_numbers(tmp_path):
+    # The user's reported bug: "en must contain at least one letter" rejected
+    # legitimate use cases like { source: "2024", target: "二零二四" }.
+    errors = _gm(tmp_path).validate_entry({"source": "2024", "target": "二零二四"})
+    assert errors == []
+
+
+def test_validate_entry_accepts_japanese_source(tmp_path):
+    errors = _gm(tmp_path).validate_entry({"source": "ニュース", "target": "新聞"})
+    assert errors == []
+
+
+def test_validate_entry_rejects_self_translation_when_same_lang(tmp_path):
+    errors = _gm(tmp_path).validate_entry(
+        {"source": "廣播", "target": "廣播"}, same_lang=True,
+    )
+    assert any("identical" in e for e in errors)
+
+
+def test_validate_entry_rejects_alias_equal_to_source_when_same_lang(tmp_path):
+    errors = _gm(tmp_path).validate_entry(
+        {"source": "廣播", "target": "無線電", "target_aliases": ["廣播"]},
+        same_lang=True,
+    )
+    assert any("identical" in e for e in errors)
+
+
+def test_validate_entry_accepts_identical_text_when_different_lang(tmp_path):
+    # source_lang=en, target_lang=ja, source="USA", target="USA" is meaningful
+    # (cross-language proper noun preservation).
+    errors = _gm(tmp_path).validate_entry(
+        {"source": "USA", "target": "USA"}, same_lang=False,
+    )
+    assert errors == []

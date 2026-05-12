@@ -184,42 +184,47 @@ class GlossaryManager:
         """
         Validate a single glossary entry.
 
-        Rules:
-        - `en` is required, must be a non-empty string, must contain at
-          least one ASCII letter (rejects pure numbers or punctuation).
-        - `zh` is required, must be a non-empty string, must contain at
-          least one CJK character (rejects pure ASCII / numeric so that
-          garbage like "Michael → 23468" never reaches the translation
-          prompt).
+        v3.x multilingual rules:
+        - `source` is required, must be a non-empty string (post-strip).
+        - `target` is required, must be a non-empty string (post-strip).
+        - When `same_lang=True` (caller's glossary has source_lang == target_lang),
+          reject if `source == target` or `source` equals any item in
+          `target_aliases` — these are no-op entries.
+
+        No per-language script checks (the old `letter` / `CJK` rules were
+        too restrictive; the user can put any text they want).
+
+        `same_lang` is supplied by the parent `validate()` based on glossary
+        metadata; defaults to False for direct callers.
 
         Returns a list of human-readable error strings. Empty list means
         the entry passed validation.
         """
-        import re
-
         errors = []
 
-        en = entry.get("en")
-        if en is None:
-            errors.append("en is required")
-        elif not isinstance(en, str) or not en.strip():
-            errors.append("en must be a non-empty string")
-        elif not re.search(r"[A-Za-z]", en):
-            errors.append(
-                "en must contain at least one letter "
-                "(pure numbers or punctuation are not valid source terms)"
-            )
+        src = entry.get("source")
+        if src is None:
+            errors.append("source is required")
+        elif not isinstance(src, str) or not src.strip():
+            errors.append("source must be a non-empty string")
 
-        zh = entry.get("zh")
-        if zh is None:
-            errors.append("zh is required")
-        elif not isinstance(zh, str) or not zh.strip():
-            errors.append("zh must be a non-empty string")
-        elif not re.search(r"[\u4e00-\u9fff\u3400-\u4dbf]", zh):
-            errors.append(
-                "zh must contain at least one Chinese character "
-                "(pure ASCII / digits are not valid translations)"
-            )
+        tgt = entry.get("target")
+        if tgt is None:
+            errors.append("target is required")
+        elif not isinstance(tgt, str) or not tgt.strip():
+            errors.append("target must be a non-empty string")
+
+        if errors:
+            return errors  # don't run downstream checks on missing fields
+
+        # Self-translation reject — only when both langs are the same.
+        if same_lang:
+            src_s = src.strip()
+            tgt_s = tgt.strip()
+            aliases = entry.get("target_aliases") or []
+            alias_strs = [a.strip() for a in aliases if isinstance(a, str)]
+            if src_s == tgt_s or src_s in alias_strs:
+                errors.append("source and target are identical — entry is a no-op")
 
         return errors
 
