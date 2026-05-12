@@ -574,6 +574,20 @@
             <div class="gl-list-items" id="glListItems">
               <div class="gli-list-empty">載入中…</div>
             </div>
+            <div class="gl-lang-config" style="padding: 8px 12px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <label style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); width: 52px; flex-shrink: 0;">原文語言</label>
+                <select id="glSourceLang" style="flex: 1; background: var(--bg-soft); border: 1px solid var(--border); border-radius: 5px; padding: 4px 6px; font-size: 11px; color: var(--text);">
+                  <!-- populated by JS from /api/glossaries/languages -->
+                </select>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <label style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); width: 52px; flex-shrink: 0;">譯文語言</label>
+                <select id="glTargetLang" style="flex: 1; background: var(--bg-soft); border: 1px solid var(--border); border-radius: 5px; padding: 4px 6px; font-size: 11px; color: var(--text);">
+                  <!-- populated by JS from /api/glossaries/languages -->
+                </select>
+              </div>
+            </div>
             <div class="gl-list-foot">
               <button class="btn btn-secondary" id="glImportBtn" title="從 CSV 匯入到當前術語表">
                 <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 11V3M4 7l4-4 4 4M2 13h12"/></svg>
@@ -606,8 +620,8 @@
             </div>
             <div class="gl-table">
               <div class="gl-tr gl-th">
-                <div>原文 (EN)</div>
-                <div>譯文 (ZH)</div>
+                <div>原文</div>
+                <div>譯文</div>
                 <div></div>
               </div>
               <div class="gl-table-body" id="glTableBody">
@@ -757,6 +771,8 @@
     wrap.innerHTML = visible.map(g => {
       const c = colorFor(g.id);
       const isActive = g.id === state.activeId;
+      const srcLang = (g.source_lang || '?').toUpperCase();
+      const tgtLang = (g.target_lang || '?').toUpperCase();
       return `
         <button class="gl-list-item ${isActive ? 'active' : ''}" data-id="${escapeHtml(g.id)}" style="--g-color: ${c};">
           <div class="gli-row">
@@ -764,6 +780,8 @@
             <span class="gli-name">${escapeHtml(g.name || '(未命名)')}</span>
           </div>
           <div class="gli-meta">
+            <span>${srcLang} → ${tgtLang}</span>
+            <span>·</span>
             <span>${g.entry_count != null ? g.entry_count + ' 條' : '—'}</span>
           </div>
         </button>`;
@@ -800,13 +818,13 @@
     const q = state.termFilter.trim().toLowerCase();
     if (q) {
       list = list.filter(e =>
-        (e.en || '').toLowerCase().includes(q) ||
-        (e.zh || '').includes(state.termFilter) ||
-        (Array.isArray(e.zh_aliases) && e.zh_aliases.some(a => a.includes(state.termFilter)))
+        (e.source || '').toLowerCase().includes(q) ||
+        (e.target || '').includes(state.termFilter) ||
+        (Array.isArray(e.target_aliases) && e.target_aliases.some(a => a.includes(state.termFilter)))
       );
     }
-    if (state.sort === 'alpha') list.sort((a, b) => (a.en || '').localeCompare(b.en || ''));
-    else if (state.sort === 'alpha-desc') list.sort((a, b) => (b.en || '').localeCompare(a.en || ''));
+    if (state.sort === 'alpha') list.sort((a, b) => (a.source || '').localeCompare(b.source || ''));
+    else if (state.sort === 'alpha-desc') list.sort((a, b) => (b.source || '').localeCompare(a.source || ''));
     else if (state.sort === 'recent') list.reverse();
     return list;
   }
@@ -828,9 +846,9 @@
     body.innerHTML = list.map(e => `
       <button class="gl-tr ${e.id === state.selectedEntryId ? 'active' : ''}" data-id="${escapeHtml(e.id)}">
         <div class="gl-td-source">
-          <span>${escapeHtml(e.en || '(未填)')}</span>
+          <span>${escapeHtml(e.source || '(未填)')}</span>
         </div>
-        <div class="gl-td-target">${escapeHtml(e.zh || '(未填)')}</div>
+        <div class="gl-td-target">${escapeHtml(e.target || '(未填)')}</div>
         <div class="gl-td-actions"></div>
       </button>`).join('');
     body.querySelectorAll('.gl-tr:not(.gl-th)').forEach(tr => {
@@ -855,42 +873,42 @@
       return;
     }
     delBtn.disabled = false;
-    const aliases = Array.isArray(entry.zh_aliases) ? entry.zh_aliases : [];
+    const aliases = Array.isArray(entry.target_aliases) ? entry.target_aliases : [];
     body.innerHTML = `
       <div class="gl-field">
-        <label>原文 (EN)</label>
-        <input class="gl-input" id="dEn" value="${escapeHtml(entry.en || '')}" />
+        <label>原文</label>
+        <input class="gl-input" id="dSource" value="${escapeHtml(entry.source || '')}" />
       </div>
       <div class="gl-field">
-        <label>譯文 (ZH)</label>
-        <input class="gl-input gl-input-zh" id="dZh" value="${escapeHtml(entry.zh || '')}" />
+        <label>譯文</label>
+        <input class="gl-input gl-input-zh" id="dTarget" value="${escapeHtml(entry.target || '')}" />
       </div>
       <div class="gl-field">
-        <label>替代寫法 (ZH 別名)</label>
+        <label>替代寫法 (別名)</label>
         <div class="gl-chips" id="dAliases">
           ${aliases.map((a, i) => `<span class="gl-chip">${escapeHtml(a)}<button data-idx="${i}" title="移除">×</button></span>`).join('')}
           <button class="gl-chip-add" id="dAliasAdd">+ 加入</button>
         </div>
       </div>`;
 
-    /* Auto-save EN/ZH on blur — same UX pattern we use in proofread.html. */
-    const enInput = document.getElementById('dEn');
-    const zhInput = document.getElementById('dZh');
-    enInput.addEventListener('blur', () => saveEntryField('en', enInput.value.trim()));
-    zhInput.addEventListener('blur', () => saveEntryField('zh', zhInput.value.trim()));
+    /* Auto-save source/target on blur — same UX pattern we use in proofread.html. */
+    const sourceInput = document.getElementById('dSource');
+    const targetInput = document.getElementById('dTarget');
+    sourceInput.addEventListener('blur', () => saveEntryField('source', sourceInput.value.trim()));
+    targetInput.addEventListener('blur', () => saveEntryField('target', targetInput.value.trim()));
 
     /* Alias chip × buttons */
     document.querySelectorAll('#dAliases .gl-chip button').forEach(btn => {
       btn.addEventListener('click', () => {
         const idx = parseInt(btn.dataset.idx, 10);
         const next = aliases.slice(); next.splice(idx, 1);
-        saveEntryField('zh_aliases', next);
+        saveEntryField('target_aliases', next);
       });
     });
     document.getElementById('dAliasAdd').addEventListener('click', () => {
-      const v = prompt('加入別名（中文）：');
+      const v = prompt('加入別名：');
       if (!v || !v.trim()) return;
-      saveEntryField('zh_aliases', [...aliases, v.trim()]);
+      saveEntryField('target_aliases', [...aliases, v.trim()]);
     });
   }
 
@@ -904,7 +922,7 @@
         { [field]: value });
       Object.assign(entry, updated);
       renderTable();
-      if (field === 'zh_aliases') renderDetail();
+      if (field === 'target_aliases') renderDetail();
       toast('已儲存', 'success');
     } catch (e) {
       toast(`儲存失敗: ${e.message}`, 'error');
@@ -913,14 +931,14 @@
 
   async function addEntry() {
     if (!state.activeId) return;
-    const en = prompt('原文 (EN)：');
-    if (!en || !en.trim()) return;
-    const zh = prompt(`譯文 (ZH) for "${en.trim()}"：`);
-    if (!zh || !zh.trim()) return;
+    const source = prompt('原文：');
+    if (!source || !source.trim()) return;
+    const target = prompt(`譯文 for "${source.trim()}"：`);
+    if (!target || !target.trim()) return;
     try {
       const created = await apiJson('POST',
         `/api/glossaries/${encodeURIComponent(state.activeId)}/entries`,
-        { en: en.trim(), zh: zh.trim() });
+        { source: source.trim(), target: target.trim() });
       state.entries.push(created);
       state.selectedEntryId = created.id;
       // Bump entry_count locally so the list reflects immediately.
@@ -938,7 +956,7 @@
   async function deleteEntry() {
     const entry = state.entries.find(e => e.id === state.selectedEntryId);
     if (!entry) return;
-    if (!confirm(`刪除「${entry.en} → ${entry.zh}」？`)) return;
+    if (!confirm(`刪除「${entry.source} → ${entry.target}」？`)) return;
     try {
       await apiJson('DELETE',
         `/api/glossaries/${encodeURIComponent(state.activeId)}/entries/${encodeURIComponent(entry.id)}`);
@@ -958,9 +976,11 @@
   async function addGlossary() {
     const name = prompt('新術語表名稱：');
     if (!name || !name.trim()) return;
+    const sourceLang = (document.getElementById('glSourceLang') || {}).value || 'en';
+    const targetLang = (document.getElementById('glTargetLang') || {}).value || 'zh';
     try {
       const created = await apiJson('POST', '/api/glossaries',
-        { name: name.trim(), description: '' });
+        { name: name.trim(), description: '', source_lang: sourceLang, target_lang: targetLang });
       state.glossaries.push(created);
       state.activeId = created.id;
       renderList();
@@ -1012,6 +1032,31 @@
   }
 
   /* ============================================================
+     Language selects
+     ============================================================ */
+  async function _loadLanguagesIntoSelects() {
+    try {
+      const r = await fetch(`${API_BASE}/api/glossaries/languages`, { credentials: 'same-origin' });
+      if (!r.ok) return;
+      const { languages } = await r.json();
+      for (const selId of ['glSourceLang', 'glTargetLang']) {
+        const sel = document.getElementById(selId);
+        if (!sel) continue;
+        sel.innerHTML = languages.map(l =>
+          `<option value="${escapeHtml(l.code)}">${escapeHtml(l.display_name)} (${escapeHtml(l.code)})</option>`
+        ).join('');
+      }
+      // Default selections: source=en, target=zh
+      const ssrc = document.getElementById('glSourceLang');
+      const stgt = document.getElementById('glTargetLang');
+      if (ssrc) ssrc.value = 'en';
+      if (stgt) stgt.value = 'zh';
+    } catch (e) {
+      console.error('Failed to load languages', e);
+    }
+  }
+
+  /* ============================================================
      Variant toggle
      ============================================================ */
   function setVariant(v) {
@@ -1060,6 +1105,7 @@
   });
 
   /* Boot */
+  _loadLanguagesIntoSelects();
   loadGlossaries().catch(e => {
     toast(`連線失敗: ${e.message}`, 'error');
   });
