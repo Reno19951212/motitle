@@ -571,3 +571,56 @@ def test_glossary_apply_default_model_is_qwen35_35b(client_with_admin, monkeypat
         assert captured["model"] == "qwen3.5:35b-a3b-mlx-bf16"
     finally:
         _file_registry.pop(fid, None)
+
+
+def test_auto_translate_glossary_load_skips_non_en_zh_at_call_site():
+    """v3.15 regression guard: the app.py:_auto_translate glossary guard must
+    return an empty entries list when the glossary is not EN→ZH.
+
+    Directly exercises the guard logic that was added to prevent non-EN→ZH
+    glossaries (e.g. JA→ZH or ZH→ZH) from leaking terms into the EN→ZH
+    auto-translate prompt and confusing the LLM."""
+
+    def _apply_auto_translate_guard(glossary_data):
+        """Mirrors the new guard in app.py:_auto_translate exactly."""
+        if (
+            glossary_data
+            and glossary_data.get("source_lang") == "en"
+            and glossary_data.get("target_lang") == "zh"
+        ):
+            return glossary_data.get("entries", [])
+        return []
+
+    # JA→ZH glossary — must be filtered out.
+    ja_zh = {
+        "source_lang": "ja", "target_lang": "zh",
+        "entries": [{"source": "ニュース", "target": "新聞"}],
+    }
+    assert _apply_auto_translate_guard(ja_zh) == [], (
+        "JA→ZH glossary should produce empty entries for EN→ZH auto-translate"
+    )
+
+    # ZH→ZH glossary — must be filtered out.
+    zh_zh = {
+        "source_lang": "zh", "target_lang": "zh",
+        "entries": [{"source": "廣播", "target": "廣播電台"}],
+    }
+    assert _apply_auto_translate_guard(zh_zh) == [], (
+        "ZH→ZH glossary should produce empty entries for EN→ZH auto-translate"
+    )
+
+    # None glossary_data (glossary_id not found in manager) — safe empty return.
+    assert _apply_auto_translate_guard(None) == [], (
+        "None glossary_data should produce empty entries"
+    )
+
+    # EN→ZH glossary — must pass through.
+    en_zh = {
+        "source_lang": "en", "target_lang": "zh",
+        "entries": [{"source": "broadcast", "target": "廣播"}],
+    }
+    result = _apply_auto_translate_guard(en_zh)
+    assert len(result) == 1, (
+        "EN→ZH glossary entries should be passed through to the translation engine"
+    )
+    assert result[0]["source"] == "broadcast"

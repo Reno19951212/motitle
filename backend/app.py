@@ -2877,7 +2877,16 @@ def _auto_translate(fid: str, sid=None, cancel_event=None) -> None:
         glossary_id = translation_config.get("glossary_id")
         if glossary_id:
             glossary_data = _glossary_manager.get(glossary_id)
-            if glossary_data:
+            # v3.15 — only inject glossary terms when the glossary is EN→ZH.
+            # Auto-translate is EN→ZH-only (per design D2); a JA→ZH or
+            # ZH→ZH glossary configured on a profile that auto-translates
+            # an English file would inject non-EN terms into the prompt
+            # and confuse the LLM. Skip silently.
+            if (
+                glossary_data
+                and glossary_data.get("source_lang") == "en"
+                and glossary_data.get("target_lang") == "zh"
+            ):
                 glossary_entries = glossary_data.get("entries", [])
 
         asr_segments = [

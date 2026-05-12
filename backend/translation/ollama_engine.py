@@ -627,13 +627,15 @@ class OllamaTranslationEngine(TranslationEngine):
     def _filter_glossary_for_batch(
         glossary: Optional[List[dict]], segments: List[dict]
     ) -> List[dict]:
-        """Thin instance-method shim — delegates to module-level function.
-
-        Accepts a list of entry dicts (legacy engine interface) and segment
-        dicts. Wraps the entry list as a synthetic EN→ZH glossary object so
-        the module-level function's lang-guard is satisfied (existing callers
-        are always EN→ZH; non-EN→ZH filtering is enforced at the
-        app.py / translate() call site before entries are extracted)."""
+        """v3.15 — Legacy instance shim. Callers that pre-date the
+        multilingual refactor pass a bare list of entries (no glossary
+        metadata). The auto-translate caller in app.py:_auto_translate
+        ALREADY filters out non-EN→ZH glossaries before passing entries
+        here (see the source_lang/target_lang guard at that call site),
+        so this shim wraps the list as a synthetic EN→ZH glossary for
+        per-batch substring matching. If you have a glossary dict with
+        explicit langs, call _filter_glossary_for_batch directly at
+        module scope to get the language guard."""
         if not glossary:
             return []
         batch_en_texts = [seg.get("text", "") for seg in segments]
