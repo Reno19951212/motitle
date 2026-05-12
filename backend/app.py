@@ -2313,7 +2313,7 @@ def api_update_translation(file_id, idx):
             # Manual edit becomes the new baseline; any prior glossary-apply
             # history is wiped so future glossary deletions don't revert past
             # the user's explicit edit.
-            "baseline_zh": data["zh_text"],
+            "baseline_target": data["zh_text"],
             "applied_terms": [],
         }
         entry["translations"] = new_translations
@@ -2938,7 +2938,7 @@ def _auto_translate(fid: str, sid=None, cancel_event=None) -> None:
             )
         for t in translated:
             t["status"] = "pending"
-            t["baseline_zh"] = t.get("zh_text", "")
+            t["baseline_target"] = t.get("zh_text", "")
             t["applied_terms"] = []
         _update_file(fid, translations=translated, translation_status='done',
                      translation_engine=translation_config.get('engine', ''))

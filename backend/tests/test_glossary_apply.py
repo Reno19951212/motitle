@@ -38,6 +38,19 @@ def client():
 
 
 @pytest.fixture
+def client_with_admin():
+    """Minimal Flask test client for tests that need (client, None) tuple.
+
+    Relies on the autouse _isolate_app_data fixture (conftest.py) which sets
+    LOGIN_DISABLED=True and R5_AUTH_BYPASS=True, so no real auth session is
+    needed.
+    """
+    import app as app_module
+    with app_module.app.test_client() as c:
+        yield c, None
+
+
+@pytest.fixture
 def file_with_translations(client):
     """Register a file with segments and translations for testing."""
     c, app_module = client
@@ -444,14 +457,14 @@ def test_glossary_apply_appends_to_applied_terms(file_with_translations, glossar
 
 
 def test_manual_edit_resets_baseline_and_clears_applied_terms(file_with_translations):
-    """PATCH translations/<idx> must set baseline_zh = new zh_text and clear applied_terms."""
+    """PATCH translations/<idx> must set baseline_target = new zh_text and clear applied_terms."""
     file_id, c, app_module = file_with_translations
 
     # Pre-state: segment has prior applied terms (simulating earlier glossary apply)
     app_module._file_registry[file_id]["translations"][0]["applied_terms"] = [
         {"term_source": "broadcast", "term_target": "廣播"}
     ]
-    app_module._file_registry[file_id]["translations"][0]["baseline_zh"] = "原來嘅譯文"
+    app_module._file_registry[file_id]["translations"][0]["baseline_target"] = "原來嘅譯文"
 
     resp = c.patch(f"/api/files/{file_id}/translations/0",
                    data=json.dumps({"zh_text": "用戶手動改嘅譯文"}),
@@ -459,7 +472,7 @@ def test_manual_edit_resets_baseline_and_clears_applied_terms(file_with_translat
     assert resp.status_code == 200
     seg0 = app_module._file_registry[file_id]["translations"][0]
     assert seg0["zh_text"] == "用戶手動改嘅譯文"
-    assert seg0["baseline_zh"] == "用戶手動改嘅譯文", "manual edit must become new baseline"
+    assert seg0["baseline_target"] == "用戶手動改嘅譯文", "manual edit must become new baseline"
     assert seg0["applied_terms"] == [], "applied_terms must reset on manual edit"
 
 
@@ -710,3 +723,30 @@ def test_scan_lowercase_term_is_case_insensitive(file_with_translations, client)
             app_module._glossary_manager.delete(glossary_id)
         except Exception:
             pass
+
+
+def test_patch_translation_resets_baseline_and_clears_applied_terms(client_with_admin):
+    """Manual edit of zh_text sets baseline_target = new zh_text and clears
+    applied_terms (so glossary-scan's lazy-revert doesn't undo the edit)."""
+    client, _ = client_with_admin
+    from app import _file_registry, _register_file
+    fid = "test_patch_resets"
+    _register_file(fid, "x.mp4", "x.mp4", 0, user_id=1)
+    _file_registry[fid]["segments"] = [{"text": "broadcast"}]
+    _file_registry[fid]["translations"] = [{
+        "zh_text": "old",
+        "baseline_target": "old",
+        "applied_terms": [{"term_source": "broadcast", "term_target": "old"}],
+        "status": "approved",
+    }]
+    try:
+        r = client.patch(f"/api/files/{fid}/translations/0", json={
+            "zh_text": "new_edit",
+        })
+        assert r.status_code == 200
+        t = _file_registry[fid]["translations"][0]
+        assert t["zh_text"] == "new_edit"
+        assert t["baseline_target"] == "new_edit"
+        assert t["applied_terms"] == []
+    finally:
+        _file_registry.pop(fid, None)
