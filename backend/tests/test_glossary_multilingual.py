@@ -2,6 +2,8 @@
 source_lang/target_lang schema, per-script boundary scanning, and the
 glossary-apply parameterized prompt path."""
 
+import pytest
+
 from glossary import (
     SUPPORTED_LANGS,
     is_supported_lang,
@@ -39,6 +41,5 @@ def test_lang_english_name():
 
 
 def test_lang_english_name_raises_for_unknown():
-    import pytest
     with pytest.raises(KeyError):
         lang_english_name("xx")

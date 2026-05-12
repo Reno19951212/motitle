@@ -13,7 +13,7 @@ import threading
 import time
 import uuid
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 
 
 # R5 Phase 5 T2.8 — per-glossary locks close the TOCTOU window between
@@ -54,7 +54,7 @@ _QUOTE_PAIRS = [
 # v3.x multilingual refactor — supported languages whitelist.
 # Tuple value: (English name, native/display name) — used by LLM prompt
 # templates and frontend labels respectively.
-SUPPORTED_LANGS: dict = {
+SUPPORTED_LANGS: Dict[str, Tuple[str, str]] = {
     "en": ("English", "English"),
     "zh": ("Chinese", "中文"),
     "ja": ("Japanese", "日本語"),
