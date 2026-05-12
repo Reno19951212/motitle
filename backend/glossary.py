@@ -96,19 +96,20 @@ def _strip_wrapping_quotes(text):
 
 
 def _normalize_entry(entry):
-    """Strip wrapping quotes from `en`, `zh`, and any `zh_aliases`. Pure
-    function — returns a new dict, doesn't mutate the input."""
+    """Strip wrapping quotes from `source`, `target`, and any
+    `target_aliases`. Pure function — returns a new dict, doesn't mutate
+    the input."""
     if not isinstance(entry, dict):
         return entry
     out = dict(entry)
-    if isinstance(out.get("en"), str):
-        out["en"] = _strip_wrapping_quotes(out["en"])
-    if isinstance(out.get("zh"), str):
-        out["zh"] = _strip_wrapping_quotes(out["zh"])
-    if isinstance(out.get("zh_aliases"), list):
-        out["zh_aliases"] = [
+    if isinstance(out.get("source"), str):
+        out["source"] = _strip_wrapping_quotes(out["source"])
+    if isinstance(out.get("target"), str):
+        out["target"] = _strip_wrapping_quotes(out["target"])
+    if isinstance(out.get("target_aliases"), list):
+        out["target_aliases"] = [
             _strip_wrapping_quotes(a) if isinstance(a, str) else a
-            for a in out["zh_aliases"]
+            for a in out["target_aliases"]
         ]
     return out
 

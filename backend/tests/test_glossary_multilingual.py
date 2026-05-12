@@ -149,3 +149,29 @@ def test_validate_entry_accepts_identical_text_when_different_lang(tmp_path):
         {"source": "USA", "target": "USA"}, same_lang=False,
     )
     assert errors == []
+
+
+def test_normalize_entry_strips_quotes_from_source_target_aliases(tmp_path):
+    from glossary import _normalize_entry
+    entry = {
+        "source": '"hello"',
+        "target": "「廣播」",
+        "target_aliases": ["《主播》", "no_quotes"],
+    }
+    out = _normalize_entry(entry)
+    assert out["source"] == "hello"
+    assert out["target"] == "廣播"
+    assert out["target_aliases"] == ["主播", "no_quotes"]
+
+
+def test_normalize_entry_preserves_unchanged_fields(tmp_path):
+    from glossary import _normalize_entry
+    entry = {
+        "id": "abc",
+        "source": "broadcast",
+        "target": "廣播",
+    }
+    out = _normalize_entry(entry)
+    assert out["id"] == "abc"
+    assert out["source"] == "broadcast"
+    assert out["target"] == "廣播"
