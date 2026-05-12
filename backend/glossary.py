@@ -508,51 +508,93 @@ class GlossaryManager:
     # CSV import / export
     # ------------------------------------------------------------------
 
-    def import_csv(self, glossary_id: str, csv_text: str) -> Optional[dict]:
+    def import_csv(self, glossary_id: str, csv_content: str) -> tuple:
         """
-        Append entries from a CSV string (columns: en, zh) to a glossary.
+        Import entries from CSV. Header must be either:
+            source,target
+            source,target,target_aliases
 
-        Rows with validation errors are skipped.
-        Returns the updated glossary, or None if glossary_id is not found.
+        Aliases use `;` as separator within a single cell. Per-row
+        validation failures are silently skipped. Returns
+        (updated_glossary, added_count).
 
-        R6 audit R5 — RMW under per-id lock. Parsing the CSV happens
-        outside the lock since it's pure work.
+        v3.x cutover: the old `en,zh` header is rejected with a clear
+        error pointing at the new format.
         """
-        reader = csv.DictReader(io.StringIO(csv_text))
-        parsed = []
+        glossary = self.get(glossary_id)
+        if glossary is None:
+            return None, 0
+
+        same_lang = (
+            glossary.get("source_lang") == glossary.get("target_lang")
+            and is_supported_lang(glossary.get("source_lang"))
+        )
+
+        reader = csv.reader(io.StringIO(csv_content))
+        try:
+            header = next(reader)
+        except StopIteration:
+            return glossary, 0
+
+        header_stripped = [h.strip().lower() for h in header]
+        if header_stripped == ["source", "target"]:
+            has_aliases_col = False
+        elif header_stripped == ["source", "target", "target_aliases"]:
+            has_aliases_col = True
+        else:
+            raise ValueError(
+                "CSV must use columns: source, target, target_aliases "
+                f"(got: {', '.join(header)}). "
+                "Update the header row and re-import."
+            )
+
+        added = 0
+        new_entries = list(glossary.get("entries") or [])
         for row in reader:
-            entry = _normalize_entry({
-                "en": (row.get("en") or "").strip(),
-                "zh": (row.get("zh") or "").strip(),
-            })
-            if self.validate_entry(entry):
+            if not row or all(not c.strip() for c in row):
                 continue
-            parsed.append({**entry, "id": str(uuid.uuid4())})
+            source = (row[0] if len(row) > 0 else "").strip()
+            target = (row[1] if len(row) > 1 else "").strip()
+            aliases_raw = (row[2] if has_aliases_col and len(row) > 2 else "").strip()
+            aliases = [a.strip() for a in aliases_raw.split(";") if a.strip()] if aliases_raw else []
 
-        with _get_gm_lock(glossary_id):
-            glossary = self.get(glossary_id)
-            if glossary is None:
-                return None
-            updated = {**glossary, "entries": [*glossary["entries"], *parsed]}
-            self._write_glossary(glossary_id, updated)
-            return updated
+            entry = {"source": source, "target": target}
+            if aliases:
+                entry["target_aliases"] = aliases
+
+            normalized = _normalize_entry(entry)
+            errors = self.validate_entry(normalized, same_lang=same_lang)
+            if errors:
+                # Skip silently — same behavior as the pre-cutover importer.
+                continue
+            normalized["id"] = str(uuid.uuid4())
+            new_entries.append(normalized)
+            added += 1
+
+        updated = dict(glossary)
+        updated["entries"] = new_entries
+        self._write_glossary(glossary_id, updated)
+        return updated, added
 
     def export_csv(self, glossary_id: str) -> Optional[str]:
         """
-        Export the entries of a glossary as a CSV string (columns: en, zh).
-
-        Returns the CSV text, or None if glossary_id is not found.
+        Export entries to 3-column CSV: source,target,target_aliases.
+        Aliases are joined with `;`. Returns None if glossary not found.
         """
         glossary = self.get(glossary_id)
         if glossary is None:
             return None
 
-        output = io.StringIO()
-        writer = csv.DictWriter(output, fieldnames=["en", "zh"])
-        writer.writeheader()
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow(["source", "target", "target_aliases"])
         for entry in glossary.get("entries") or []:
-            writer.writerow({"en": entry.get("en", ""), "zh": entry.get("zh", "")})
-        return output.getvalue()
+            source = entry.get("source", "")
+            target = entry.get("target", "")
+            aliases = entry.get("target_aliases") or []
+            aliases_str = ";".join(a for a in aliases if isinstance(a, str))
+            writer.writerow([source, target, aliases_str])
+        return buf.getvalue()
 
     # ------------------------------------------------------------------
     # Private helpers

@@ -246,3 +246,60 @@ def test_update_metadata_can_change_langs(tmp_path):
     })
     assert updated["source_lang"] == "ja"
     assert updated["name"] == "T2"
+
+
+def test_csv_export_new_format(tmp_path):
+    gm = _gm(tmp_path)
+    g = gm.create({"name": "T", "source_lang": "en", "target_lang": "zh"})
+    gm.add_entry(g["id"], {"source": "broadcast", "target": "廣播"})
+    gm.add_entry(g["id"], {
+        "source": "anchor", "target": "主播",
+        "target_aliases": ["主持", "新聞主播"],
+    })
+    csv_text = gm.export_csv(g["id"])
+    assert csv_text.splitlines()[0] == "source,target,target_aliases"
+    assert "broadcast,廣播," in csv_text
+    assert "anchor,主播,主持;新聞主播" in csv_text
+
+
+def test_csv_import_new_format_accepts_3col(tmp_path):
+    gm = _gm(tmp_path)
+    g = gm.create({"name": "T", "source_lang": "en", "target_lang": "zh"})
+    csv_text = (
+        "source,target,target_aliases\n"
+        "broadcast,廣播,\n"
+        "anchor,主播,主持;新聞主播\n"
+    )
+    updated, added = gm.import_csv(g["id"], csv_text)
+    assert added == 2
+    sources = [e["source"] for e in updated["entries"]]
+    assert "broadcast" in sources
+    assert "anchor" in sources
+    anchor = next(e for e in updated["entries"] if e["source"] == "anchor")
+    assert anchor["target_aliases"] == ["主持", "新聞主播"]
+
+
+def test_csv_import_2col_no_aliases_ok(tmp_path):
+    gm = _gm(tmp_path)
+    g = gm.create({"name": "T", "source_lang": "en", "target_lang": "zh"})
+    csv_text = "source,target\nbroadcast,廣播\n"
+    updated, added = gm.import_csv(g["id"], csv_text)
+    assert added == 1
+
+
+def test_csv_import_old_en_zh_header_rejected(tmp_path):
+    import pytest
+    gm = _gm(tmp_path)
+    g = gm.create({"name": "T", "source_lang": "en", "target_lang": "zh"})
+    csv_text = "en,zh\nbroadcast,廣播\n"
+    with pytest.raises(ValueError, match="source, target"):
+        gm.import_csv(g["id"], csv_text)
+
+
+def test_csv_import_unknown_header_rejected(tmp_path):
+    import pytest
+    gm = _gm(tmp_path)
+    g = gm.create({"name": "T", "source_lang": "en", "target_lang": "zh"})
+    csv_text = "foo,bar\nx,y\n"
+    with pytest.raises(ValueError, match="source, target"):
+        gm.import_csv(g["id"], csv_text)
