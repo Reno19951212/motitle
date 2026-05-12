@@ -7,9 +7,9 @@ def gm(tmp_path):
     """Per-test GlossaryManager with 3 entries: 1 shared + 1 alice + 1 bob."""
     from glossary import GlossaryManager
     gm = GlossaryManager(tmp_path)
-    shared = gm.create({"name": "Shared", "user_id": None})
-    a = gm.create({"name": "Alice", "user_id": 1})
-    b = gm.create({"name": "Bob", "user_id": 2})
+    shared = gm.create({"name": "Shared", "user_id": None, "source_lang": "en", "target_lang": "zh"})
+    a = gm.create({"name": "Alice", "user_id": 1, "source_lang": "en", "target_lang": "zh"})
+    b = gm.create({"name": "Bob", "user_id": 2, "source_lang": "en", "target_lang": "zh"})
     return gm, shared["id"], a["id"], b["id"]
 
 
@@ -77,11 +77,11 @@ def alice_client(monkeypatch, tmp_path):
 
 def test_api_glossaries_get_filters_by_owner(alice_client):
     client, gm = alice_client
-    gm.create({"name": "S", "user_id": None})
+    gm.create({"name": "S", "user_id": None, "source_lang": "en", "target_lang": "zh"})
     # Alice's user_id depends on insertion order; resolve via /api/me
     me = client.get("/api/me").get_json()
-    gm.create({"name": "A", "user_id": me["id"]})
-    gm.create({"name": "B", "user_id": me["id"] + 999})  # someone else
+    gm.create({"name": "A", "user_id": me["id"], "source_lang": "en", "target_lang": "zh"})
+    gm.create({"name": "B", "user_id": me["id"] + 999, "source_lang": "en", "target_lang": "zh"})  # someone else
 
     r = client.get("/api/glossaries")
     assert r.status_code == 200

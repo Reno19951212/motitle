@@ -65,7 +65,7 @@ def test_profile_delete_if_owned_allows_owner(pm):
 
 
 def test_glossary_update_if_owned(gm):
-    g = gm.create({"name": "terms", "description": "", "user_id": 1})
+    g = gm.create({"name": "terms", "description": "", "user_id": 1, "source_lang": "en", "target_lang": "zh"})
     assert gm.update_if_owned(g["id"], user_id=2, is_admin=False,
                               patch={"name": "hacked"}) is None
     r = gm.update_if_owned(g["id"], user_id=1, is_admin=False,
@@ -74,12 +74,12 @@ def test_glossary_update_if_owned(gm):
 
 
 def test_glossary_delete_if_owned_blocked_for_non_owner(gm):
-    g = gm.create({"name": "terms", "description": "", "user_id": 1})
+    g = gm.create({"name": "terms", "description": "", "user_id": 1, "source_lang": "en", "target_lang": "zh"})
     assert gm.delete_if_owned(g["id"], user_id=2, is_admin=False) is False
     assert gm.get(g["id"]) is not None
 
 
 def test_glossary_delete_if_owned_allows_owner(gm):
-    g = gm.create({"name": "terms", "description": "", "user_id": 1})
+    g = gm.create({"name": "terms", "description": "", "user_id": 1, "source_lang": "en", "target_lang": "zh"})
     assert gm.delete_if_owned(g["id"], user_id=1, is_admin=False) is True
     assert gm.get(g["id"]) is None

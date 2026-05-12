@@ -81,8 +81,8 @@ def test_ollama_build_system_prompt_with_glossary():
     from translation.ollama_engine import OllamaTranslationEngine
     engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
     glossary = [
-        {"en": "Legislative Council", "zh": "立法會"},
-        {"en": "Chief Executive", "zh": "行政長官"},
+        {"source": "Legislative Council", "target": "立法會"},
+        {"source": "Chief Executive", "target": "行政長官"},
     ]
     prompt = engine._build_system_prompt(style="formal", glossary=glossary)
     assert "Legislative Council" in prompt
@@ -91,12 +91,12 @@ def test_ollama_build_system_prompt_with_glossary():
 
 
 def test_filter_glossary_keeps_only_matching_terms():
-    """Glossary filter should return only entries whose EN term appears in the batch."""
+    """Glossary filter should return only entries whose source term appears in the batch."""
     from translation.ollama_engine import OllamaTranslationEngine
     glossary = [
-        {"en": "broadcast", "zh": "廣播"},
-        {"en": "anchor", "zh": "主播"},
-        {"en": "Legislative Council", "zh": "立法會"},
+        {"source": "broadcast", "target": "廣播"},
+        {"source": "anchor", "target": "主播"},
+        {"source": "Legislative Council", "target": "立法會"},
     ]
     segments = [
         {"text": "The anchor reported the broadcast live."},
@@ -104,25 +104,28 @@ def test_filter_glossary_keeps_only_matching_terms():
     ]
     filtered = OllamaTranslationEngine._filter_glossary_for_batch(glossary, segments)
     assert len(filtered) == 2
-    terms = {e["en"] for e in filtered}
+    terms = {e["source"] for e in filtered}
     assert terms == {"broadcast", "anchor"}
 
 
 def test_filter_glossary_is_case_insensitive():
-    """Matching should be case-insensitive on the EN side."""
+    """Matching should be case-insensitive on the source side."""
     from translation.ollama_engine import OllamaTranslationEngine
-    glossary = [{"en": "Real Madrid", "zh": "皇家馬德里"}]
+    glossary = [{"source": "Real Madrid", "target": "皇家馬德里"}]
     segments = [{"text": "real madrid lost last night"}]
     filtered = OllamaTranslationEngine._filter_glossary_for_batch(glossary, segments)
     assert len(filtered) == 1
 
 
 def test_filter_glossary_empty_inputs():
-    """Empty glossary or segments should return the original glossary unchanged."""
+    """Empty glossary returns []; empty segments returns [] (no text to match against)."""
     from translation.ollama_engine import OllamaTranslationEngine
     assert OllamaTranslationEngine._filter_glossary_for_batch([], [{"text": "x"}]) == []
-    glossary = [{"en": "x", "zh": "y"}]
-    assert OllamaTranslationEngine._filter_glossary_for_batch(glossary, []) == glossary
+    # v3.15: empty segments → no text to match → filter returns [] (old behaviour
+    # was to short-circuit and return the full glossary; that shortcut was dropped
+    # when the module-level filter added lang-guard + strict term matching).
+    glossary = [{"source": "x", "target": "y"}]
+    assert OllamaTranslationEngine._filter_glossary_for_batch(glossary, []) == []
 
 
 def test_detect_sentence_scopes_finds_multi_segment_sentences():
@@ -1333,8 +1336,9 @@ def test_isolate_fixture_redirects_registry_writes():
         "uploaded_at": 1700000000,
     }
 
-    # Trigger a save
-    app._save_registry()
+    # Trigger a synchronous save (R6 _save_registry() is debounced/async;
+    # use _save_registry_to_disk() for an immediate flush in tests).
+    app._save_registry_to_disk()
 
     # The test tmp registry MUST contain the sentinel
     test_registry_path = app.DATA_DIR / "registry.json"
@@ -1764,8 +1768,8 @@ def test_ollama_batch_size_1_glossary_filtered_per_segment():
     engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
 
     glossary = [
-        {"en": "Madrid", "zh": "皇馬"},
-        {"en": "Chelsea", "zh": "車路士"},
+        {"source": "Madrid", "target": "皇馬"},
+        {"source": "Chelsea", "target": "車路士"},
     ]
     segs = [
         {"start": 0.0, "end": 1.0, "text": "Madrid wins."},      # only Madrid

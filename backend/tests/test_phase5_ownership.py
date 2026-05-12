@@ -115,6 +115,8 @@ def test_get_single_glossary_403_for_non_owner(two_users, fresh_glossary_manager
         "name": "alice's terms",
         "description": "",
         "user_id": alice_id,
+        "source_lang": "en",
+        "target_lang": "zh",
     })
 
     bob = _login(app_module, "bob_b4")
@@ -130,6 +132,8 @@ def test_get_shared_glossary_200_for_anyone(two_users, fresh_glossary_manager):
         "name": "shared terms",
         "description": "",
         "user_id": None,
+        "source_lang": "en",
+        "target_lang": "zh",
     })
 
     bob = _login(app_module, "bob_b4")
