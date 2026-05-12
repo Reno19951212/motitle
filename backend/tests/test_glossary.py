@@ -19,9 +19,11 @@ def glossary_dir(tmp_path):
 VALID_GLOSSARY = {
     "name": "Test Glossary",
     "description": "For testing",
+    "source_lang": "en",
+    "target_lang": "zh",
     "entries": [
-        {"en": "Legislative Council", "zh": "立法會"},
-        {"en": "Chief Executive", "zh": "行政長官"},
+        {"source": "Legislative Council", "target": "立法會"},
+        {"source": "Chief Executive", "target": "行政長官"},
     ],
 }
 
@@ -35,25 +37,25 @@ def test_validate_valid(glossary_dir):
 def test_validate_missing_name(glossary_dir):
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
-    assert "name is required" in mgr.validate({"description": "no name"})
+    assert "name is required" in mgr.validate({"description": "no name", "source_lang": "en", "target_lang": "zh"})
 
 
 def test_validate_entry_valid(glossary_dir):
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
-    assert mgr.validate_entry({"en": "hello", "zh": "你好"}) == []
+    assert mgr.validate_entry({"source": "hello", "target": "你好"}) == []
 
 
-def test_validate_entry_missing_en(glossary_dir):
+def test_validate_entry_missing_source(glossary_dir):
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
-    assert any("en" in e for e in mgr.validate_entry({"zh": "你好"}))
+    assert any("source" in e for e in mgr.validate_entry({"target": "你好"}))
 
 
-def test_validate_entry_empty_zh(glossary_dir):
+def test_validate_entry_empty_target(glossary_dir):
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
-    assert any("zh" in e for e in mgr.validate_entry({"en": "hello", "zh": ""}))
+    assert any("target" in e for e in mgr.validate_entry({"source": "hello", "target": ""}))
 
 
 def test_create_glossary(glossary_dir):
@@ -69,7 +71,7 @@ def test_create_glossary(glossary_dir):
 def test_create_without_entries(glossary_dir):
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
-    result = mgr.create({"name": "Empty"})
+    result = mgr.create({"name": "Empty", "source_lang": "en", "target_lang": "zh"})
     assert result["entries"] == []
 
 
@@ -140,22 +142,22 @@ def test_delete_nonexistent(glossary_dir):
 def test_add_entry(glossary_dir):
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
-    created = mgr.create({"name": "Test", "entries": []})
-    updated = mgr.add_entry(created["id"], {"en": "hello", "zh": "你好"})
+    created = mgr.create({"name": "Test", "source_lang": "en", "target_lang": "zh", "entries": []})
+    updated = mgr.add_entry(created["id"], {"source": "hello", "target": "你好"})
     assert len(updated["entries"]) == 1
-    assert updated["entries"][0]["en"] == "hello"
+    assert updated["entries"][0]["source"] == "hello"
 
 def test_add_entry_invalid_raises(glossary_dir):
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
-    created = mgr.create({"name": "Test"})
+    created = mgr.create({"name": "Test", "source_lang": "en", "target_lang": "zh"})
     with pytest.raises(ValueError):
-        mgr.add_entry(created["id"], {"en": "", "zh": "你好"})
+        mgr.add_entry(created["id"], {"source": "", "target": "你好"})
 
 def test_add_entry_nonexistent_glossary(glossary_dir):
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
-    assert mgr.add_entry("nonexistent", {"en": "hi", "zh": "嗨"}) is None
+    assert mgr.add_entry("nonexistent", {"source": "hi", "target": "嗨"}) is None
 
 
 # ----------------------------------------------------------------------
@@ -167,17 +169,17 @@ def test_add_entry_nonexistent_glossary(glossary_dir):
 def test_add_entry_strips_ascii_double_quotes(glossary_dir):
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
-    created = mgr.create({"name": "Test", "entries": []})
-    updated = mgr.add_entry(created["id"], {"en": "Blazing Wukong", "zh": '"烈焰悟空"'})
-    assert updated["entries"][0]["zh"] == "烈焰悟空"
+    created = mgr.create({"name": "Test", "source_lang": "en", "target_lang": "zh", "entries": []})
+    updated = mgr.add_entry(created["id"], {"source": "Blazing Wukong", "target": '"烈焰悟空"'})
+    assert updated["entries"][0]["target"] == "烈焰悟空"
 
 
 def test_add_entry_strips_curly_quotes(glossary_dir):
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
-    created = mgr.create({"name": "Test", "entries": []})
-    updated = mgr.add_entry(created["id"], {"en": "Foo", "zh": "“測試”"})
-    assert updated["entries"][0]["zh"] == "測試"
+    created = mgr.create({"name": "Test", "source_lang": "en", "target_lang": "zh", "entries": []})
+    updated = mgr.add_entry(created["id"], {"source": "Foo", "target": "“測試”"})
+    assert updated["entries"][0]["target"] == "測試"
 
 
 def test_add_entry_strips_chinese_book_brackets(glossary_dir):
@@ -185,18 +187,18 @@ def test_add_entry_strips_chinese_book_brackets(glossary_dir):
     them at output time. Storing them inflates the substring needle."""
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
-    created = mgr.create({"name": "Test", "entries": []})
-    updated = mgr.add_entry(created["id"], {"en": "Apple Daily", "zh": "《蘋果日報》"})
-    assert updated["entries"][0]["zh"] == "蘋果日報"
+    created = mgr.create({"name": "Test", "source_lang": "en", "target_lang": "zh", "entries": []})
+    updated = mgr.add_entry(created["id"], {"source": "Apple Daily", "target": "《蘋果日報》"})
+    assert updated["entries"][0]["target"] == "蘋果日報"
 
 
 def test_add_entry_strips_corner_brackets(glossary_dir):
     """「 」 is the most common Chinese quote; same reason as 《 》."""
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
-    created = mgr.create({"name": "Test", "entries": []})
-    updated = mgr.add_entry(created["id"], {"en": "Hong Kong", "zh": "「香港」"})
-    assert updated["entries"][0]["zh"] == "香港"
+    created = mgr.create({"name": "Test", "source_lang": "en", "target_lang": "zh", "entries": []})
+    updated = mgr.add_entry(created["id"], {"source": "Hong Kong", "target": "「香港」"})
+    assert updated["entries"][0]["target"] == "香港"
 
 
 def test_add_entry_preserves_inner_quotes(glossary_dir):
@@ -204,19 +206,19 @@ def test_add_entry_preserves_inner_quotes(glossary_dir):
     the term must survive (e.g. a name that legitimately contains them)."""
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
-    created = mgr.create({"name": "Test", "entries": []})
-    updated = mgr.add_entry(created["id"], {"en": "Mr. \"Q\" Smith", "zh": "Q先生"})
-    # EN keeps the inner "Q" — they're not wrapping the whole term.
-    assert updated["entries"][0]["en"] == 'Mr. "Q" Smith'
+    created = mgr.create({"name": "Test", "source_lang": "en", "target_lang": "zh", "entries": []})
+    updated = mgr.add_entry(created["id"], {"source": 'Mr. "Q" Smith', "target": "Q先生"})
+    # source keeps the inner "Q" — they're not wrapping the whole term.
+    assert updated["entries"][0]["source"] == 'Mr. "Q" Smith'
 
 
-def test_add_entry_strips_en_field_too(glossary_dir):
+def test_add_entry_strips_source_field_too(glossary_dir):
     """Same normalisation applies to the source-language field."""
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
-    created = mgr.create({"name": "Test", "entries": []})
-    updated = mgr.add_entry(created["id"], {"en": '"Blazing Wukong"', "zh": "烈焰悟空"})
-    assert updated["entries"][0]["en"] == "Blazing Wukong"
+    created = mgr.create({"name": "Test", "source_lang": "en", "target_lang": "zh", "entries": []})
+    updated = mgr.add_entry(created["id"], {"source": '"Blazing Wukong"', "target": "烈焰悟空"})
+    assert updated["entries"][0]["source"] == "Blazing Wukong"
 
 
 def test_update_entry_strips_quotes_in_patch(glossary_dir):
@@ -224,26 +226,26 @@ def test_update_entry_strips_quotes_in_patch(glossary_dir):
     be normalised — not just full add_entry."""
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
-    created = mgr.create({"name": "Test", "entries": []})
-    with_entry = mgr.add_entry(created["id"], {"en": "X", "zh": "原"})
+    created = mgr.create({"name": "Test", "source_lang": "en", "target_lang": "zh", "entries": []})
+    with_entry = mgr.add_entry(created["id"], {"source": "X", "target": "原"})
     eid = with_entry["entries"][0]["id"]
-    updated = mgr.update_entry(created["id"], eid, {"zh": '"新譯"'})
-    assert updated["entries"][0]["zh"] == "新譯"
+    updated = mgr.update_entry(created["id"], eid, {"target": '"新譯"'})
+    assert updated["entries"][0]["target"] == "新譯"
 
 
 def test_import_csv_strips_quotes(glossary_dir):
     """CSV import is a major paste vector — apply the same stripping."""
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
-    created = mgr.create({"name": "Test", "entries": []})
+    created = mgr.create({"name": "Test", "source_lang": "en", "target_lang": "zh", "entries": []})
     # Hand-crafted CSV with bare values (no csv-level quoting) so we
     # exercise our _normalize_entry path directly, not csv-module quote
     # rules.
-    csv_text = "en,zh\nDaily,《日報》\nHK,「香港」\n"
-    updated = mgr.import_csv(created["id"], csv_text)
-    by_en = {e["en"]: e for e in updated["entries"]}
-    assert by_en["Daily"]["zh"] == "日報"
-    assert by_en["HK"]["zh"] == "香港"
+    csv_text = "source,target\nDaily,《日報》\nHK,「香港」\n"
+    updated, added = mgr.import_csv(created["id"], csv_text)
+    by_source = {e["source"]: e for e in updated["entries"]}
+    assert by_source["Daily"]["target"] == "日報"
+    assert by_source["HK"]["target"] == "香港"
 
 
 def test_strip_wrapping_quotes_idempotent_on_clean_input(glossary_dir):
@@ -262,30 +264,30 @@ def test_update_entry(glossary_dir):
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
     # Use add_entry so the entry gets a UUID id assigned
-    created = mgr.create({"name": "Test", "entries": []})
-    with_entry = mgr.add_entry(created["id"], {"en": "Legislative Council", "zh": "立法會"})
+    created = mgr.create({"name": "Test", "source_lang": "en", "target_lang": "zh", "entries": []})
+    with_entry = mgr.add_entry(created["id"], {"source": "Legislative Council", "target": "立法會"})
     first_entry_id = with_entry["entries"][0]["id"]
-    updated = mgr.update_entry(created["id"], first_entry_id, {"en": "LegCo", "zh": "立法會"})
-    assert updated["entries"][0]["en"] == "LegCo"
-    assert updated["entries"][0]["zh"] == "立法會"
+    updated = mgr.update_entry(created["id"], first_entry_id, {"source": "LegCo", "target": "立法會"})
+    assert updated["entries"][0]["source"] == "LegCo"
+    assert updated["entries"][0]["target"] == "立法會"
 
 def test_update_entry_out_of_range(glossary_dir):
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
     created = mgr.create(VALID_GLOSSARY)
-    assert mgr.update_entry(created["id"], "nonexistent-entry-id", {"en": "x", "zh": "y"}) is None
+    assert mgr.update_entry(created["id"], "nonexistent-entry-id", {"source": "x", "target": "y"}) is None
 
 def test_delete_entry(glossary_dir):
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
     # Use add_entry so entries have UUID ids assigned
-    created = mgr.create({"name": "Test", "entries": []})
-    mgr.add_entry(created["id"], {"en": "Legislative Council", "zh": "立法會"})
-    with_two = mgr.add_entry(created["id"], {"en": "Chief Executive", "zh": "行政長官"})
+    created = mgr.create({"name": "Test", "source_lang": "en", "target_lang": "zh", "entries": []})
+    mgr.add_entry(created["id"], {"source": "Legislative Council", "target": "立法會"})
+    with_two = mgr.add_entry(created["id"], {"source": "Chief Executive", "target": "行政長官"})
     first_entry_id = with_two["entries"][0]["id"]
     updated = mgr.delete_entry(created["id"], first_entry_id)
     assert len(updated["entries"]) == 1
-    assert updated["entries"][0]["en"] == "Chief Executive"
+    assert updated["entries"][0]["source"] == "Chief Executive"
 
 def test_delete_entry_out_of_range(glossary_dir):
     from glossary import GlossaryManager
@@ -299,34 +301,38 @@ def test_delete_entry_out_of_range(glossary_dir):
 def test_import_csv(glossary_dir):
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
-    created = mgr.create({"name": "CSV Test", "entries": []})
-    csv_content = "en,zh\nhello,你好\nworld,世界\n,skip_empty\n"
-    result = mgr.import_csv(created["id"], csv_content)
+    created = mgr.create({"name": "CSV Test", "source_lang": "en", "target_lang": "zh", "entries": []})
+    csv_content = "source,target\nhello,你好\nworld,世界\n,skip_empty\n"
+    result, added = mgr.import_csv(created["id"], csv_content)
     assert result is not None
     assert len(result["entries"]) == 2
-    assert result["entries"][0]["en"] == "hello"
+    assert result["entries"][0]["source"] == "hello"
+    assert added == 2
 
 def test_import_csv_appends(glossary_dir):
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
     created = mgr.create(VALID_GLOSSARY)
-    csv_content = "en,zh\nnew term,新詞\n"
-    result = mgr.import_csv(created["id"], csv_content)
+    csv_content = "source,target\nnew term,新詞\n"
+    result, added = mgr.import_csv(created["id"], csv_content)
     assert result is not None
     assert len(result["entries"]) == 3
+    assert added == 1
 
 def test_import_csv_nonexistent_raises(glossary_dir):
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
-    # import_csv returns None when glossary not found (does not raise)
-    assert mgr.import_csv("nonexistent", "en,zh\nhello,你好\n") is None
+    # import_csv returns (None, 0) when glossary not found
+    result, added = mgr.import_csv("nonexistent", "source,target\nhello,你好\n")
+    assert result is None
+    assert added == 0
 
 def test_export_csv(glossary_dir):
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
     created = mgr.create(VALID_GLOSSARY)
     csv_str = mgr.export_csv(created["id"])
-    assert "en,zh" in csv_str
+    assert "source,target" in csv_str
     assert "Legislative Council" in csv_str
     assert "立法會" in csv_str
 
@@ -351,7 +357,12 @@ def test_api_list_glossaries():
         _init_glossary_manager(tmp_path)
         app.config["TESTING"] = True
         with app.test_client() as client:
-            resp = client.post("/api/glossaries", json={"name": "Test", "entries": [{"en": "hi", "zh": "嗨"}]})
+            resp = client.post("/api/glossaries", json={
+                "name": "Test",
+                "source_lang": "en",
+                "target_lang": "zh",
+                "entries": [{"source": "hi", "target": "嗨"}],
+            })
             assert resp.status_code == 201
 
             resp = client.get("/api/glossaries")
@@ -361,35 +372,44 @@ def test_api_list_glossaries():
             assert data["glossaries"][0]["entry_count"] == 1
 
 
+# ----------------------------------------------------------------------
+# Old per-language validation rules (letter / CJK requirements) were
+# DROPPED in v3.x multilingual refactor (T3). Tests below that relied on
+# those rules are kept here for documentation but skipped.
+# ----------------------------------------------------------------------
+
+@pytest.mark.skip(reason="Old CJK-in-target rule dropped in v3.x multilingual refactor (T3)")
 def test_validate_entry_rejects_numeric_zh(glossary_dir):
     """ZH field containing only digits/ASCII should be rejected as invalid."""
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
-    errors = mgr.validate_entry({"en": "Michael", "zh": "23468"})
-    assert any("zh" in e for e in errors), f"Expected zh error, got: {errors}"
+    errors = mgr.validate_entry({"source": "Michael", "target": "23468"})
+    assert any("target" in e for e in errors), f"Expected target error, got: {errors}"
 
 
+@pytest.mark.skip(reason="Old CJK-in-target rule dropped in v3.x multilingual refactor (T3)")
 def test_validate_entry_rejects_ascii_only_zh(glossary_dir):
     """ZH field with only Latin letters should be rejected."""
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
-    errors = mgr.validate_entry({"en": "hello", "zh": "hello world"})
-    assert any("zh" in e for e in errors), f"Expected zh error, got: {errors}"
+    errors = mgr.validate_entry({"source": "hello", "target": "hello world"})
+    assert any("target" in e for e in errors), f"Expected target error, got: {errors}"
 
 
-def test_validate_entry_accepts_mixed_zh_with_cjk(glossary_dir):
-    """ZH field with at least one CJK character is allowed (mixed input is common)."""
+def test_validate_entry_accepts_mixed_target_with_cjk(glossary_dir):
+    """Target field with at least one CJK character is allowed (mixed input is common)."""
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
-    assert mgr.validate_entry({"en": "Hong Kong", "zh": "香港 HK"}) == []
-    assert mgr.validate_entry({"en": "typhoon", "zh": "颱風"}) == []
+    assert mgr.validate_entry({"source": "Hong Kong", "target": "香港 HK"}) == []
+    assert mgr.validate_entry({"source": "typhoon", "target": "颱風"}) == []
 
 
-def test_validate_entry_rejects_en_without_letters(glossary_dir):
-    """EN field must contain at least one ASCII letter (pure punctuation/numbers is invalid)."""
+@pytest.mark.skip(reason="Old ASCII-letter-in-source rule dropped in v3.x multilingual refactor (T3)")
+def test_validate_entry_rejects_source_without_letters(glossary_dir):
+    """Source field must contain at least one ASCII letter (pure punctuation/numbers is invalid)."""
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)
-    errors = mgr.validate_entry({"en": "12345", "zh": "一二三四五"})
-    assert any("en" in e for e in errors), f"Expected en error, got: {errors}"
-    errors = mgr.validate_entry({"en": "!!!", "zh": "驚嘆"})
-    assert any("en" in e for e in errors), f"Expected en error, got: {errors}"
+    errors = mgr.validate_entry({"source": "12345", "target": "一二三四五"})
+    assert any("source" in e for e in errors), f"Expected source error, got: {errors}"
+    errors = mgr.validate_entry({"source": "!!!", "target": "驚嘆"})
+    assert any("source" in e for e in errors), f"Expected source error, got: {errors}"

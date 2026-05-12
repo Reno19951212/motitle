@@ -1791,10 +1791,13 @@ def api_import_glossary_csv(glossary_id):
     data = request.get_json(silent=True)
     if not data or "csv_content" not in data:
         return jsonify({"error": "Request body must include csv_content"}), 400
-    updated = _glossary_manager.import_csv(glossary_id, data["csv_content"])
+    try:
+        updated, added = _glossary_manager.import_csv(glossary_id, data["csv_content"])
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     if updated is None:
         return jsonify({"error": "Glossary not found"}), 404
-    return jsonify(updated)
+    return jsonify({"glossary": updated, "added": added})
 
 
 @app.route('/api/glossaries/<glossary_id>/export', methods=['GET'])
