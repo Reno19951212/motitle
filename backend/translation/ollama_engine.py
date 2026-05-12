@@ -90,6 +90,9 @@ CLOUD_ENGINES = frozenset({
     "gpt-oss-120b-cloud",
 })
 
+# Re-export for cross-module use (e.g. app.py api_glossary_apply model resolution).
+OLLAMA_MODEL_MAP = ENGINE_TO_MODEL
+
 BATCH_SIZE = 10
 # Broadcast subtitle layout: Netflix TC spec allows up to 2 lines × 16 chars.
 # We use 28 as the per-segment soft cap (≈2 lines × 14 chars, leaving buffer

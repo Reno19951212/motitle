@@ -2028,184 +2028,104 @@ GLOSSARY_APPLY_SYSTEM_PROMPT = (
 @app.route('/api/files/<file_id>/glossary-apply', methods=['POST'])
 @require_file_owner
 def api_glossary_apply(file_id):
-    """Apply glossary corrections using LLM smart replacement."""
+    """v3.x multilingual — Apply selected glossary corrections via LLM.
+
+    Per-violation LLM call. Prompt parameterized on the glossary's
+    source_lang/target_lang. Model defaults to qwen3.5-35b-a3b (Ollama
+    internal id qwen3.5:35b-a3b-mlx-bf16); profile.translation.
+    glossary_apply_model may override."""
     with _registry_lock:
         entry = _file_registry.get(file_id)
     if not entry:
         return jsonify({"error": "File not found"}), 404
 
-    data = request.get_json(silent=True)
-    if not data or not data.get("glossary_id"):
-        return jsonify({"error": "glossary_id is required"}), 400
-    glossary_id = data["glossary_id"]
+    data = request.get_json(silent=True) or {}
+    glossary_id = data.get("glossary_id")
     violations = data.get("violations", [])
+    if not glossary_id:
+        return jsonify({"error": "glossary_id is required"}), 400
     if not violations:
         return jsonify({"error": "violations array is required and must not be empty"}), 400
 
     glossary = _glossary_manager.get(glossary_id)
-    if not glossary:
+    if glossary is None:
         return jsonify({"error": "Glossary not found"}), 404
 
-    # Build a set of valid (en, zh) pairs for fast lookup
-    valid_terms = {
-        (e["en"], e["zh"])
-        for e in glossary.get("entries", [])
-    }
+    source_lang = glossary["source_lang"]
+    target_lang = glossary["target_lang"]
 
-    translations = entry.get("translations", [])
-    segments = entry.get("segments", [])
-    if not translations:
-        return jsonify({"error": "No translations exist for this file"}), 422
+    # Resolve apply model: profile override > default
+    active_profile = _profile_manager.get_active()
+    profile_override = (active_profile or {}).get("translation", {}).get("glossary_apply_model")
+    # Look up the actual Ollama model map from ollama_engine. The user-facing
+    # key 'qwen3.5-35b-a3b' maps to internal id 'qwen3.5:35b-a3b-mlx-bf16'.
+    from translation import ollama_engine
+    model_map = getattr(ollama_engine, "OLLAMA_MODEL_MAP", None) or \
+                getattr(ollama_engine, "ENGINE_TO_MODEL", None) or \
+                {"qwen3.5-35b-a3b": "qwen3.5:35b-a3b-mlx-bf16"}
+    model_key = profile_override or "qwen3.5-35b-a3b"
+    if model_key not in model_map:
+        model_key = "qwen3.5-35b-a3b"
+    ollama_internal_model = model_map.get(model_key, "qwen3.5:35b-a3b-mlx-bf16")
 
-    # Determine Ollama config from active profile
-    profile = _profile_manager.get_active()
-    translation_config = profile.get("translation", {}) if profile else {}
-    engine_name = translation_config.get("engine", "qwen2.5-3b")
+    # Validate glossary pairs against violations
+    current_pairs = {(e.get("source"), e.get("target")) for e in glossary.get("entries", [])}
+    for v in violations:
+        if (v.get("term_source"), v.get("term_target")) not in current_pairs:
+            return jsonify({"error": f"Term pair not in glossary: {v.get('term_source')}"}), 400
 
-    from translation.ollama_engine import ENGINE_TO_MODEL
-    model = ENGINE_TO_MODEL.get(engine_name, "qwen2.5:3b")
-    ollama_url = translation_config.get("ollama_url", "http://localhost:11434")
-
-    import urllib.request
-
-    # OpenCC s2twp converts simplified Chinese (and idioms) to Traditional
-    # Taiwan. The initial translation pipeline runs this post-processor;
-    # glossary-apply must run it too or the LLM's simplified-leaning output
-    # produces mixed-script segments (e.g. "美国" sneaking in beside
-    # surrounding "美國" / "幾天" already-converted text).
-    try:
-        import opencc
-        _s2t = opencc.OpenCC("s2twp")
-        def _to_traditional(zh: str) -> str:
-            return _s2t.convert(zh) if zh else zh
-    except ImportError:
-        # opencc unavailable in this environment — skip conversion gracefully
-        def _to_traditional(zh: str) -> str:
-            return zh
-
-    results = []
+    translations = entry.get("translations") or []
+    segments = entry.get("segments") or []
     new_translations = list(translations)
 
-    # Group violations by seg_idx so multiple terms in one segment are applied sequentially
-    from collections import defaultdict
-    by_seg = defaultdict(list)
+    by_seg: dict = {}
     for v in violations:
-        by_seg[v["seg_idx"]].append(v)
+        by_seg.setdefault(v["seg_idx"], []).append(v)
 
+    applied_count = 0
+    failed_count = 0
     for seg_idx, seg_violations in by_seg.items():
-        if seg_idx < 0 or seg_idx >= len(translations):
-            results.append({"seg_idx": seg_idx, "success": False, "error": "Index out of range"})
+        if seg_idx >= len(new_translations):
             continue
-
-        current_zh = new_translations[seg_idx].get("zh_text", "")
-        en_text = segments[seg_idx]["text"] if seg_idx < len(segments) else ""
+        current_target = new_translations[seg_idx].get("zh_text", "")
+        source_text = segments[seg_idx]["text"] if seg_idx < len(segments) else ""
 
         for v in seg_violations:
-            term_en = v["term_en"]
-            term_zh = v["term_zh"]
-            old_zh = current_zh
-
-            if (term_en, term_zh) not in valid_terms:
-                results.append({
-                    "seg_idx": seg_idx,
-                    "old_zh": old_zh,
-                    "success": False,
-                    "error": "Term not in glossary",
-                })
-                continue
-
-            user_message = (
-                f"English subtitle: {en_text}\n"
-                f"Current Chinese subtitle: {current_zh}\n"
-                f'Correction: "{term_en}" must be translated as "{term_zh}"\n\n'
-                f"Corrected Chinese subtitle:"
-            )
-
             try:
-                body = json.dumps({
-                    "model": model,
-                    "messages": [
-                        {"role": "system", "content": GLOSSARY_APPLY_SYSTEM_PROMPT},
-                        {"role": "user", "content": user_message},
-                    ],
-                    "stream": False,
-                    # think:false suppresses qwen3.5's <think>...</think> reasoning
-                    # block, which otherwise dominates the response and drives a
-                    # single glossary edit from ~2s to >60s on a 9B model.
-                    "think": False,
-                    # Cap output length — a corrected subtitle is rarely longer
-                    # than the original; 200 tokens is generous and prevents
-                    # runaway generation on poorly-formed prompts.
-                    "options": {"temperature": 0.1, "num_predict": 200},
-                }).encode("utf-8")
-
-                req = urllib.request.Request(
-                    f"{ollama_url}/api/chat",
-                    data=body,
-                    headers={"Content-Type": "application/json"},
+                corrected = ollama_engine.apply_glossary_term(
+                    source_text=source_text,
+                    current_target=current_target,
+                    term_source=v["term_source"],
+                    term_target=v["term_target"],
+                    source_lang=source_lang,
+                    target_lang=target_lang,
+                    model=ollama_internal_model,
                 )
-                with urllib.request.urlopen(req, timeout=120) as resp:
-                    raw = resp.read().decode("utf-8").strip()
-                    resp_data = json.loads(raw)
-                    corrected_zh = resp_data.get("message", {}).get("content", "").strip()
-                    # Normalise to Traditional Chinese to match the rest of the
-                    # subtitle, which has already been opencc-converted at
-                    # initial-translation time. Without this, qwen3.5's default
-                    # simplified output leaks through (e.g. 美国 instead of 美國).
-                    corrected_zh = _to_traditional(corrected_zh)
-
-                if corrected_zh:
-                    current_zh = corrected_zh
-                    # Track this term as actively applied so a future glossary
-                    # deletion can be detected by scan and revert the segment.
-                    existing_applied = list(new_translations[seg_idx].get("applied_terms") or [])
-                    new_term = {"term_en": term_en, "term_zh": term_zh}
-                    if new_term not in existing_applied:
-                        existing_applied.append(new_term)
-                    new_translations[seg_idx] = {
-                        **new_translations[seg_idx],
-                        "applied_terms": existing_applied,
-                    }
-                    results.append({
-                        "seg_idx": seg_idx,
-                        "old_zh": old_zh,
-                        "new_zh": corrected_zh,
-                        "term_en": term_en,
-                        "term_zh": term_zh,
-                        "success": True,
-                    })
-                else:
-                    results.append({
-                        "seg_idx": seg_idx,
-                        "old_zh": old_zh,
-                        "success": False,
-                        "error": "LLM returned empty response",
-                    })
+                if corrected:
+                    current_target = corrected
+                    applied_count += 1
             except Exception:
                 app.logger.exception(
-                    "glossary-apply LLM call failed for file=%s seg=%s term_en=%s",
-                    file_id, seg_idx, term_en,
+                    "glossary-apply LLM call failed for file=%s seg=%s term_source=%s",
+                    file_id, seg_idx, v["term_source"],
                 )
-                results.append({
-                    "seg_idx": seg_idx,
-                    "old_zh": old_zh,
-                    "success": False,
-                    "error": "LLM request failed",
-                })
+                failed_count += 1
 
-        # Update translation — preserve existing status field
+        existing_applied = list(new_translations[seg_idx].get("applied_terms") or [])
+        for v in seg_violations:
+            existing_applied.append({
+                "term_source": v["term_source"],
+                "term_target": v["term_target"],
+            })
+
         new_translations[seg_idx] = {
             **new_translations[seg_idx],
-            "zh_text": current_zh,
+            "zh_text": current_target,
+            "applied_terms": existing_applied,
         }
 
     _update_file(file_id, translations=new_translations)
-
-    applied_count = sum(1 for r in results if r.get("success"))
-    failed_count = sum(1 for r in results if not r.get("success"))
-
     return jsonify({
-        "results": results,
         "applied_count": applied_count,
         "failed_count": failed_count,
     })

@@ -451,3 +451,90 @@ def test_apply_glossary_term_prompt_en_to_en():
     )
     assert "English subtitle:" in user_p
     assert "Corrected English subtitle:" in user_p
+
+
+def test_glossary_apply_uses_glossary_languages(client_with_admin, monkeypatch):
+    """Verify apply_glossary_term receives the glossary's source/target_lang,
+    not the active profile's languages."""
+    captured = {}
+
+    def fake_apply(**kwargs):
+        captured.update(kwargs)
+        return kwargs["current_target"]  # no-op corrected text
+
+    from translation import ollama_engine
+    monkeypatch.setattr(ollama_engine, "apply_glossary_term", fake_apply)
+
+    client, _ = client_with_admin
+    g = client.post("/api/glossaries", json={
+        "name": "JA-ZH", "source_lang": "ja", "target_lang": "zh",
+    }).get_json()
+    client.post(f"/api/glossaries/{g['id']}/entries", json={
+        "source": "ニュース", "target": "新聞",
+    })
+
+    from app import _file_registry, _register_file
+    fid = "test_apply_ja"
+    _register_file(fid, "x.mp4", "x.mp4", 0, user_id=1)
+    _file_registry[fid]["segments"] = [{"text": "朝のニュース"}]
+    _file_registry[fid]["translations"] = [{
+        "zh_text": "朝晨節目",
+        "baseline_target": "朝晨節目",
+        "status": "pending",
+    }]
+    try:
+        r = client.post(f"/api/files/{fid}/glossary-apply", json={
+            "glossary_id": g["id"],
+            "violations": [{
+                "seg_idx": 0,
+                "term_source": "ニュース",
+                "term_target": "新聞",
+            }],
+        })
+        assert r.status_code == 200
+        assert captured["source_lang"] == "ja"
+        assert captured["target_lang"] == "zh"
+    finally:
+        _file_registry.pop(fid, None)
+
+
+def test_glossary_apply_default_model_is_qwen35_35b(client_with_admin, monkeypatch):
+    """When profile has no glossary_apply_model override, apply uses the
+    hardcoded default 'qwen3.5-35b-a3b'."""
+    captured = {}
+
+    def fake_apply(**kwargs):
+        captured.update(kwargs)
+        return kwargs["current_target"]
+
+    from translation import ollama_engine
+    monkeypatch.setattr(ollama_engine, "apply_glossary_term", fake_apply)
+
+    client, _ = client_with_admin
+    g = client.post("/api/glossaries", json={
+        "name": "T", "source_lang": "en", "target_lang": "zh",
+    }).get_json()
+    client.post(f"/api/glossaries/{g['id']}/entries", json={
+        "source": "broadcast", "target": "廣播",
+    })
+
+    from app import _file_registry, _register_file
+    fid = "test_apply_model"
+    _register_file(fid, "x.mp4", "x.mp4", 0, user_id=1)
+    _file_registry[fid]["segments"] = [{"text": "live broadcast"}]
+    _file_registry[fid]["translations"] = [{
+        "zh_text": "現場節目",
+        "baseline_target": "現場節目",
+        "status": "pending",
+    }]
+    try:
+        client.post(f"/api/files/{fid}/glossary-apply", json={
+            "glossary_id": g["id"],
+            "violations": [{
+                "seg_idx": 0, "term_source": "broadcast", "term_target": "廣播",
+            }],
+        })
+        # Model param uses Ollama internal id form, not the friendly key.
+        assert captured["model"] == "qwen3.5:35b-a3b-mlx-bf16"
+    finally:
+        _file_registry.pop(fid, None)

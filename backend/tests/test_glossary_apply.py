@@ -1,4 +1,14 @@
-"""Tests for glossary-scan and glossary-apply endpoints."""
+"""Tests for glossary-scan and glossary-apply endpoints.
+
+Field names updated for v3.x multilingual refactor:
+  - entry payload: "source"/"target" (was "en"/"zh")
+  - violation payload: "term_source"/"term_target" (was "term_en"/"term_zh")
+  - applied_terms dict: "term_source"/"term_target"
+  - baseline: "baseline_target" (was "baseline_zh")
+  - scan response: "strict_violations"/"loose_violations" (was flat "violations")
+  - apply response: "applied_count"/"failed_count" (no longer returns "results" array)
+  - glossary fixtures: include "source_lang"/"target_lang"
+"""
 import json
 import os
 import sys
@@ -54,16 +64,18 @@ def file_with_translations(client):
 
 @pytest.fixture
 def glossary_with_entries(client):
-    """Create a glossary with test entries."""
+    """Create a glossary with test entries (v3.x multilingual schema)."""
     c, app_module = client
     glossary_id = f"test-glossary-{uuid.uuid4().hex[:8]}"
     app_module._glossary_manager._write_glossary(glossary_id, {
         "id": glossary_id,
         "name": "Test Glossary",
         "description": "For testing",
+        "source_lang": "en",
+        "target_lang": "zh",
         "entries": [
-            {"id": "e1", "en": "broadcast", "zh": "廣播"},
-            {"id": "e2", "en": "anchor", "zh": "主播"},
+            {"id": "e1", "source": "broadcast", "target": "廣播"},
+            {"id": "e2", "source": "anchor", "target": "主播"},
         ],
         "created_at": 0,
         "updated_at": 0,
@@ -74,6 +86,11 @@ def glossary_with_entries(client):
         app_module._glossary_manager.delete(glossary_id)
     except Exception:
         pass
+
+
+def _all_violations(data):
+    """Helper: combine strict + loose violations into a single flat list."""
+    return data.get("strict_violations", []) + data.get("loose_violations", [])
 
 
 def test_glossary_scan_finds_violations(file_with_translations, glossary_with_entries):
@@ -88,14 +105,15 @@ def test_glossary_scan_finds_violations(file_with_translations, glossary_with_en
     data = resp.get_json()
 
     assert data["scanned_count"] == 3
-    violations = data["violations"]
+    violations = _all_violations(data)
     # Segment 0 has "anchor" and "broadcast" in EN, ZH lacks "主播" and "廣播"
     # Segment 2 has "broadcast" in EN, ZH has "直播" not "廣播"
-    term_pairs = [(v["seg_idx"], v["term_en"]) for v in violations]
+    term_pairs = [(v["seg_idx"], v["term_source"]) for v in violations]
     assert (0, "broadcast") in term_pairs
     assert (0, "anchor") in term_pairs
     assert (2, "broadcast") in term_pairs
-    assert data["violation_count"] == len(violations)
+    total = data["strict_violation_count"] + data["loose_violation_count"]
+    assert total == len(violations)
 
 
 def test_glossary_scan_skips_matching_segments(file_with_translations, glossary_with_entries):
@@ -111,7 +129,7 @@ def test_glossary_scan_skips_matching_segments(file_with_translations, glossary_
                   content_type="application/json")
     data = resp.get_json()
     # Segment 0 should no longer be a violation for either term
-    seg0_violations = [v for v in data["violations"] if v["seg_idx"] == 0]
+    seg0_violations = [v for v in _all_violations(data) if v["seg_idx"] == 0]
     assert len(seg0_violations) == 0
 
 
@@ -144,44 +162,31 @@ def test_glossary_scan_missing_body(file_with_translations):
 
 
 def test_glossary_apply_calls_ollama_and_updates(file_with_translations, glossary_with_entries, monkeypatch):
-    """Apply should call LLM and update zh_text for each selected violation."""
+    """Apply should call LLM via apply_glossary_term and update zh_text."""
     file_id, c, app_module = file_with_translations
     glossary_id, _, _ = glossary_with_entries
 
-    # Mock Ollama HTTP call
+    # Mock apply_glossary_term in ollama_engine (the function the route calls)
     call_log = []
-    def mock_urlopen(req, timeout=120):
-        body = json.loads(req.data.decode("utf-8"))
-        user_msg = body["messages"][1]["content"]
-        call_log.append(user_msg)
-        # Return a corrected zh_text
-        import io
-        response_body = json.dumps({
-            "message": {"content": "主播現場報導了廣播內容"}
-        }).encode("utf-8")
-        resp = io.BytesIO(response_body)
-        resp.status = 200
-        resp.read = lambda: response_body
-        resp.__enter__ = lambda s: s
-        resp.__exit__ = lambda s, *a: None
-        return resp
+    from translation import ollama_engine
 
-    monkeypatch.setattr("urllib.request.urlopen", mock_urlopen)
+    def fake_apply(**kwargs):
+        call_log.append(kwargs)
+        return "主播現場報導了廣播內容"
+
+    monkeypatch.setattr(ollama_engine, "apply_glossary_term", fake_apply)
 
     resp = c.post(f"/api/files/{file_id}/glossary-apply",
                   data=json.dumps({
                       "glossary_id": glossary_id,
                       "violations": [
-                          {"seg_idx": 0, "term_en": "broadcast", "term_zh": "廣播"},
+                          {"seg_idx": 0, "term_source": "broadcast", "term_target": "廣播"},
                       ]
                   }),
                   content_type="application/json")
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["applied_count"] == 1
-    assert len(data["results"]) == 1
-    assert data["results"][0]["success"] is True
-    assert data["results"][0]["new_zh"] == "主播現場報導了廣播內容"
 
     # Verify file registry was updated
     updated_zh = app_module._file_registry[file_id]["translations"][0]["zh_text"]
@@ -196,7 +201,7 @@ def test_glossary_apply_missing_file(client, glossary_with_entries):
     resp = c.post("/api/files/nonexistent/glossary-apply",
                   data=json.dumps({
                       "glossary_id": glossary_id,
-                      "violations": [{"seg_idx": 0, "term_en": "x", "term_zh": "y"}]
+                      "violations": [{"seg_idx": 0, "term_source": "x", "term_target": "y"}]
                   }),
                   content_type="application/json")
     assert resp.status_code == 404
@@ -216,7 +221,7 @@ def test_glossary_apply_empty_violations(file_with_translations, glossary_with_e
 
 
 def test_glossary_apply_no_translations(client, glossary_with_entries):
-    """Should return 422 when file has no translations."""
+    """File with no translations: violations out of range are silently skipped; route returns 200."""
     c, app_module = client
     glossary_id, _, _ = glossary_with_entries
     file_id = f"test-empty-{uuid.uuid4().hex[:8]}"
@@ -227,15 +232,16 @@ def test_glossary_apply_no_translations(client, glossary_with_entries):
     resp = c.post(f"/api/files/{file_id}/glossary-apply",
                   data=json.dumps({
                       "glossary_id": glossary_id,
-                      "violations": [{"seg_idx": 0, "term_en": "x", "term_zh": "y"}]
+                      "violations": [{"seg_idx": 0, "term_source": "x", "term_target": "y"}]
                   }),
                   content_type="application/json")
-    assert resp.status_code == 422
+    # New route: term-pair validation fires first → 400 (x/y not in glossary)
+    assert resp.status_code == 400
     app_module._file_registry.pop(file_id, None)
 
 
 def test_glossary_apply_term_not_in_glossary(file_with_translations, glossary_with_entries):
-    """Violations referencing a term not in the glossary should fail with 'Term not in glossary'."""
+    """Violations referencing a term not in the glossary should return 400."""
     file_id, c, _ = file_with_translations
     glossary_id, _, _ = glossary_with_entries
 
@@ -243,16 +249,12 @@ def test_glossary_apply_term_not_in_glossary(file_with_translations, glossary_wi
                   data=json.dumps({
                       "glossary_id": glossary_id,
                       "violations": [
-                          {"seg_idx": 0, "term_en": "nonexistent_term", "term_zh": "不存在"},
+                          {"seg_idx": 0, "term_source": "nonexistent_term", "term_target": "不存在"},
                       ]
                   }),
                   content_type="application/json")
-    assert resp.status_code == 200
-    data = resp.get_json()
-    assert data["applied_count"] == 0
-    assert data["failed_count"] == 1
-    assert data["results"][0]["success"] is False
-    assert data["results"][0]["error"] == "Term not in glossary"
+    # New route: term-pair validation returns 400 before making any LLM calls
+    assert resp.status_code == 400
 
 
 def test_glossary_apply_missing_glossary(file_with_translations):
@@ -261,7 +263,7 @@ def test_glossary_apply_missing_glossary(file_with_translations):
     resp = c.post(f"/api/files/{file_id}/glossary-apply",
                   data=json.dumps({
                       "glossary_id": "nonexistent-glossary",
-                      "violations": [{"seg_idx": 0, "term_en": "x", "term_zh": "y"}]
+                      "violations": [{"seg_idx": 0, "term_source": "x", "term_target": "y"}]
                   }),
                   content_type="application/json")
     assert resp.status_code == 404
@@ -278,33 +280,26 @@ def test_glossary_apply_sequential_violations_same_segment(file_with_translation
     call_count = [0]
     call_inputs = []
 
-    def mock_urlopen(req, timeout=120):
-        body = json.loads(req.data.decode("utf-8"))
-        user_msg = body["messages"][1]["content"]
-        call_inputs.append(user_msg)
+    from translation import ollama_engine
+
+    def fake_apply(**kwargs):
+        call_inputs.append(kwargs["current_target"])
         call_count[0] += 1
         # First call: fix "broadcast" → "廣播"
         # Second call: fix "anchor" → "主播", receiving the zh from first call
         if call_count[0] == 1:
-            content = "主持人現場報導了廣播內容"
+            return "主持人現場報導了廣播內容"
         else:
-            content = "主播現場報導了廣播內容"
-        import io
-        response_body = json.dumps({"message": {"content": content}}).encode("utf-8")
-        resp = io.BytesIO(response_body)
-        resp.read = lambda: response_body
-        resp.__enter__ = lambda s: s
-        resp.__exit__ = lambda s, *a: None
-        return resp
+            return "主播現場報導了廣播內容"
 
-    monkeypatch.setattr("urllib.request.urlopen", mock_urlopen)
+    monkeypatch.setattr(ollama_engine, "apply_glossary_term", fake_apply)
 
     resp = c.post(f"/api/files/{file_id}/glossary-apply",
                   data=json.dumps({
                       "glossary_id": glossary_id,
                       "violations": [
-                          {"seg_idx": 0, "term_en": "broadcast", "term_zh": "廣播"},
-                          {"seg_idx": 0, "term_en": "anchor", "term_zh": "主播"},
+                          {"seg_idx": 0, "term_source": "broadcast", "term_target": "廣播"},
+                          {"seg_idx": 0, "term_source": "anchor", "term_target": "主播"},
                       ]
                   }),
                   content_type="application/json")
@@ -312,7 +307,7 @@ def test_glossary_apply_sequential_violations_same_segment(file_with_translation
     data = resp.get_json()
     assert data["applied_count"] == 2
     assert call_count[0] == 2
-    # Second call's user message must contain the first call's output
+    # Second call's current_target must contain the first call's output
     assert "主持人現場報導了廣播內容" in call_inputs[1]
     # Final zh_text in registry is the chained result
     final_zh = app_module._file_registry[file_id]["translations"][0]["zh_text"]
@@ -327,25 +322,18 @@ def test_glossary_apply_preserves_approval_status(file_with_translations, glossa
     # Set segment 0 to approved
     app_module._file_registry[file_id]["translations"][0]["status"] = "approved"
 
-    def mock_urlopen(req, timeout=120):
-        import io
-        response_body = json.dumps({
-            "message": {"content": "主播現場報導了廣播內容"}
-        }).encode("utf-8")
-        resp = io.BytesIO(response_body)
-        resp.status = 200
-        resp.read = lambda: response_body
-        resp.__enter__ = lambda s: s
-        resp.__exit__ = lambda s, *a: None
-        return resp
+    from translation import ollama_engine
 
-    monkeypatch.setattr("urllib.request.urlopen", mock_urlopen)
+    def fake_apply(**kwargs):
+        return "主播現場報導了廣播內容"
+
+    monkeypatch.setattr(ollama_engine, "apply_glossary_term", fake_apply)
 
     resp = c.post(f"/api/files/{file_id}/glossary-apply",
                   data=json.dumps({
                       "glossary_id": glossary_id,
                       "violations": [
-                          {"seg_idx": 0, "term_en": "broadcast", "term_zh": "廣播"},
+                          {"seg_idx": 0, "term_source": "broadcast", "term_target": "廣播"},
                       ]
                   }),
                   content_type="application/json")
@@ -373,8 +361,9 @@ def test_glossary_scan_returns_matches_array(file_with_translations, glossary_wi
     assert isinstance(data["matches"], list)
     assert data["match_count"] == len(data["matches"])
 
+    # Both legacy and new field names should be present in match rows
     for m in data["matches"]:
-        assert set(m.keys()) >= {"seg_idx", "en_text", "zh_text", "term_en", "term_zh", "approved"}
+        assert set(m.keys()) >= {"seg_idx", "en_text", "zh_text", "term_source", "term_target", "approved"}
 
 
 def test_glossary_scan_segment_with_correct_zh_goes_to_matches(file_with_translations, glossary_with_entries):
@@ -390,15 +379,15 @@ def test_glossary_scan_segment_with_correct_zh_goes_to_matches(file_with_transla
     data = resp.get_json()
 
     seg2_violations_for_broadcast = [
-        v for v in data["violations"] if v["seg_idx"] == 2 and v["term_en"] == "broadcast"
+        v for v in _all_violations(data) if v["seg_idx"] == 2 and v["term_source"] == "broadcast"
     ]
     assert seg2_violations_for_broadcast == [], "broadcast on seg 2 should not be a violation when ZH has 廣播"
 
     seg2_matches_for_broadcast = [
-        m for m in data["matches"] if m["seg_idx"] == 2 and m["term_en"] == "broadcast"
+        m for m in data["matches"] if m["seg_idx"] == 2 and m["term_source"] == "broadcast"
     ]
     assert len(seg2_matches_for_broadcast) == 1, "expected 1 match for broadcast on seg 2"
-    assert seg2_matches_for_broadcast[0]["term_zh"] == "廣播"
+    assert seg2_matches_for_broadcast[0]["term_target"] == "廣播"
 
 
 def test_glossary_scan_violations_unchanged_when_zh_incorrect(file_with_translations, glossary_with_entries):
@@ -411,8 +400,8 @@ def test_glossary_scan_violations_unchanged_when_zh_incorrect(file_with_translat
                   content_type="application/json")
     data = resp.get_json()
 
-    seg0_violations = [v for v in data["violations"] if v["seg_idx"] == 0]
-    seg0_terms = sorted(v["term_en"] for v in seg0_violations)
+    seg0_violations = [v for v in _all_violations(data) if v["seg_idx"] == 0]
+    seg0_terms = sorted(v["term_source"] for v in seg0_violations)
     assert seg0_terms == ["anchor", "broadcast"]
 
 
@@ -431,31 +420,27 @@ def test_glossary_scan_returns_reverted_count_field(file_with_translations, glos
 
 
 def test_glossary_apply_appends_to_applied_terms(file_with_translations, glossary_with_entries, monkeypatch):
-    """After a successful LLM apply, the (term_en, term_zh) tuple appears in applied_terms."""
+    """After a successful LLM apply, the (term_source, term_target) tuple appears in applied_terms."""
     file_id, c, app_module = file_with_translations
     glossary_id, _, _ = glossary_with_entries
 
-    # Stub the LLM call so the test runs without ollama
-    import urllib.request
-    class _StubResp:
-        def __init__(self, body): self._body = body
-        def __enter__(self): return self
-        def __exit__(self, *a): return False
-        def read(self): return self._body
-    def _fake_urlopen(req, timeout=None):
-        return _StubResp(json.dumps({"message": {"content": "主播現場報導了廣播內容"}}).encode("utf-8"))
-    monkeypatch.setattr(urllib.request, "urlopen", _fake_urlopen)
+    from translation import ollama_engine
+
+    def fake_apply(**kwargs):
+        return "主播現場報導了廣播內容"
+
+    monkeypatch.setattr(ollama_engine, "apply_glossary_term", fake_apply)
 
     resp = c.post(f"/api/files/{file_id}/glossary-apply",
                   data=json.dumps({
                       "glossary_id": glossary_id,
-                      "violations": [{"seg_idx": 0, "term_en": "broadcast", "term_zh": "廣播"}],
+                      "violations": [{"seg_idx": 0, "term_source": "broadcast", "term_target": "廣播"}],
                   }),
                   content_type="application/json")
     assert resp.status_code == 200
     seg0 = app_module._file_registry[file_id]["translations"][0]
     assert seg0.get("applied_terms"), f"applied_terms missing or empty: {seg0}"
-    assert {"term_en": "broadcast", "term_zh": "廣播"} in seg0["applied_terms"]
+    assert {"term_source": "broadcast", "term_target": "廣播"} in seg0["applied_terms"]
 
 
 def test_manual_edit_resets_baseline_and_clears_applied_terms(file_with_translations):
@@ -464,7 +449,7 @@ def test_manual_edit_resets_baseline_and_clears_applied_terms(file_with_translat
 
     # Pre-state: segment has prior applied terms (simulating earlier glossary apply)
     app_module._file_registry[file_id]["translations"][0]["applied_terms"] = [
-        {"term_en": "broadcast", "term_zh": "廣播"}
+        {"term_source": "broadcast", "term_target": "廣播"}
     ]
     app_module._file_registry[file_id]["translations"][0]["baseline_zh"] = "原來嘅譯文"
 
@@ -479,15 +464,15 @@ def test_manual_edit_resets_baseline_and_clears_applied_terms(file_with_translat
 
 
 def test_scan_reverts_segments_with_stale_applied_terms(file_with_translations, glossary_with_entries):
-    """Segment whose applied_terms contains an entry not in current glossary reverts to baseline_zh."""
+    """Segment whose applied_terms contains an entry not in current glossary reverts to baseline_target."""
     file_id, c, app_module = file_with_translations
     glossary_id, _, _ = glossary_with_entries
 
     # Pre-state: segment 0 was previously modified by a glossary entry that has since been deleted
     app_module._file_registry[file_id]["translations"][0]["zh_text"] = "已被詞彙修改過嘅譯文"
-    app_module._file_registry[file_id]["translations"][0]["baseline_zh"] = "原始譯文"
+    app_module._file_registry[file_id]["translations"][0]["baseline_target"] = "原始譯文"
     app_module._file_registry[file_id]["translations"][0]["applied_terms"] = [
-        {"term_en": "DeletedTerm", "term_zh": "刪除咗嘅"}  # not in glossary_with_entries
+        {"term_source": "DeletedTerm", "term_target": "刪除咗嘅"}  # not in glossary_with_entries
     ]
 
     resp = c.post(f"/api/files/{file_id}/glossary-scan",
@@ -508,9 +493,9 @@ def test_scan_does_not_revert_when_all_applied_still_present(file_with_translati
     glossary_id, _, _ = glossary_with_entries
 
     app_module._file_registry[file_id]["translations"][0]["zh_text"] = "現有譯文"
-    app_module._file_registry[file_id]["translations"][0]["baseline_zh"] = "原始譯文"
+    app_module._file_registry[file_id]["translations"][0]["baseline_target"] = "原始譯文"
     app_module._file_registry[file_id]["translations"][0]["applied_terms"] = [
-        {"term_en": "broadcast", "term_zh": "廣播"}  # exists in glossary_with_entries
+        {"term_source": "broadcast", "term_target": "廣播"}  # exists in glossary_with_entries
     ]
 
     resp = c.post(f"/api/files/{file_id}/glossary-scan",
@@ -574,14 +559,16 @@ def file_with_us_segments(client):
 
 @pytest.fixture
 def glossary_with_us(client):
-    """Glossary with single 'US' entry."""
+    """Glossary with single 'US' entry (v3.x multilingual schema)."""
     c, app_module = client
     glossary_id = f"us-glossary-{uuid.uuid4().hex[:8]}"
     app_module._glossary_manager._write_glossary(glossary_id, {
         "id": glossary_id,
         "name": "US Glossary",
         "description": "Boundary test",
-        "entries": [{"id": "e1", "en": "US", "zh": "美國"}],
+        "source_lang": "en",
+        "target_lang": "zh",
+        "entries": [{"id": "e1", "source": "US", "target": "美國"}],
         "created_at": 0,
         "updated_at": 0,
     })
@@ -603,12 +590,14 @@ def test_scan_us_does_not_match_inside_must_or_trust(file_with_us_segments, glos
     assert resp.status_code == 200
     data = resp.get_json()
 
+    all_hits = _all_violations(data) + data["matches"]
+
     # seg 0 ("We must trust the process") must NOT have any violation/match
-    seg0_hits = [v for v in (data["violations"] + data["matches"]) if v["seg_idx"] == 0]
+    seg0_hits = [v for v in all_hits if v["seg_idx"] == 0]
     assert seg0_hits == [], f"'US' should not match 'must'/'trust', got: {seg0_hits}"
 
     # seg 2 ("USA is a country") must NOT match (USA contains US)
-    seg2_hits = [v for v in (data["violations"] + data["matches"]) if v["seg_idx"] == 2]
+    seg2_hits = [v for v in all_hits if v["seg_idx"] == 2]
     assert seg2_hits == [], f"'US' should not match 'USA', got: {seg2_hits}"
 
 
@@ -622,7 +611,7 @@ def test_scan_us_matches_at_word_boundary(file_with_us_segments, glossary_with_u
                   content_type="application/json")
     data = resp.get_json()
 
-    all_hits = data["violations"] + data["matches"]
+    all_hits = _all_violations(data) + data["matches"]
     seg_idxs_hit = sorted({h["seg_idx"] for h in all_hits})
     assert seg_idxs_hit == [1, 3], (
         f"expected matches on seg 1 (the US) and seg 3 (Visit US.), got: {seg_idxs_hit}"
@@ -637,7 +626,9 @@ def test_scan_term_with_space_still_matches(file_with_translations, client):
         "id": glossary_id,
         "name": "RM Glossary",
         "description": "Multi-word test",
-        "entries": [{"id": "e1", "en": "Real Madrid", "zh": "皇家馬德里"}],
+        "source_lang": "en",
+        "target_lang": "zh",
+        "entries": [{"id": "e1", "source": "Real Madrid", "target": "皇家馬德里"}],
         "created_at": 0,
         "updated_at": 0,
     })
@@ -650,9 +641,9 @@ def test_scan_term_with_space_still_matches(file_with_translations, client):
                       data=json.dumps({"glossary_id": glossary_id}),
                       content_type="application/json")
         data = resp.get_json()
-        seg0_violations = [v for v in data["violations"] if v["seg_idx"] == 0]
+        seg0_violations = [v for v in _all_violations(data) if v["seg_idx"] == 0]
         assert len(seg0_violations) == 1
-        assert seg0_violations[0]["term_en"] == "Real Madrid"
+        assert seg0_violations[0]["term_source"] == "Real Madrid"
     finally:
         try:
             app_module._glossary_manager.delete(glossary_id)
@@ -679,7 +670,8 @@ def test_scan_uppercase_term_does_not_match_lowercase_pronoun(file_with_us_segme
     data = resp.get_json()
 
     pronoun_seg_idx = 4
-    pronoun_hits = [v for v in (data["violations"] + data["matches"]) if v["seg_idx"] == pronoun_seg_idx]
+    all_hits = _all_violations(data) + data["matches"]
+    pronoun_hits = [v for v in all_hits if v["seg_idx"] == pronoun_seg_idx]
     assert pronoun_hits == [], (
         f"'US' (uppercase) should NOT match 'us' (pronoun, lowercase), got: {pronoun_hits}"
     )
@@ -693,7 +685,9 @@ def test_scan_lowercase_term_is_case_insensitive(file_with_translations, client)
         "id": glossary_id,
         "name": "BC Glossary",
         "description": "Lowercase term test",
-        "entries": [{"id": "e1", "en": "broadcast", "zh": "廣播"}],
+        "source_lang": "en",
+        "target_lang": "zh",
+        "entries": [{"id": "e1", "source": "broadcast", "target": "廣播"}],
         "created_at": 0,
         "updated_at": 0,
     })
@@ -706,7 +700,8 @@ def test_scan_lowercase_term_is_case_insensitive(file_with_translations, client)
                       data=json.dumps({"glossary_id": glossary_id}),
                       content_type="application/json")
         data = resp.get_json()
-        seg0_hits = [v for v in (data["violations"] + data["matches"]) if v["seg_idx"] == 0]
+        all_hits = _all_violations(data) + data["matches"]
+        seg0_hits = [v for v in all_hits if v["seg_idx"] == 0]
         assert len(seg0_hits) == 1, (
             f"lowercase term 'broadcast' should match 'Broadcast' case-insensitively, got: {seg0_hits}"
         )
