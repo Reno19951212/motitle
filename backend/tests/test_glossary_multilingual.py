@@ -303,3 +303,30 @@ def test_csv_import_unknown_header_rejected(tmp_path):
     csv_text = "foo,bar\nx,y\n"
     with pytest.raises(ValueError, match="source, target"):
         gm.import_csv(g["id"], csv_text)
+
+
+@pytest.fixture
+def client_with_admin():
+    """Minimal Flask test client for API route tests in this module.
+
+    Relies on the autouse _isolate_app_data fixture (conftest.py) which sets
+    LOGIN_DISABLED=True and R5_AUTH_BYPASS=True, so no real auth session is
+    needed. Yields (client, None) to match the canonical tuple-fixture pattern
+    used across the test suite.
+    """
+    import app as app_module
+    with app_module.app.test_client() as c:
+        yield c, None
+
+
+def test_api_glossaries_languages_returns_whitelist(client_with_admin):
+    client, _ = client_with_admin
+    r = client.get("/api/glossaries/languages")
+    assert r.status_code == 200
+    body = r.get_json()
+    assert "languages" in body
+    codes = [lang["code"] for lang in body["languages"]]
+    assert set(codes) == {"en", "zh", "ja", "ko", "es", "fr", "de", "th"}
+    en = next(lang for lang in body["languages"] if lang["code"] == "en")
+    assert en["english_name"] == "English"
+    assert "display_name" in en

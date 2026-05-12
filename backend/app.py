@@ -1656,6 +1656,25 @@ def api_create_glossary():
         return jsonify({"error": str(e)}), 422
 
 
+@app.route('/api/glossaries/languages', methods=['GET'])
+@login_required
+def api_glossary_languages():
+    """v3.x — Return the supported language whitelist for glossary
+    source/target dropdowns. Read-only endpoint; no auth bypass needed
+    since glossary CRUD itself is gated."""
+    from glossary import SUPPORTED_LANGS
+    return jsonify({
+        "languages": [
+            {
+                "code": code,
+                "english_name": names[0],
+                "display_name": names[1],
+            }
+            for code, names in SUPPORTED_LANGS.items()
+        ],
+    })
+
+
 @app.route('/api/glossaries/<glossary_id>', methods=['GET'])
 @login_required
 def api_get_glossary(glossary_id):
