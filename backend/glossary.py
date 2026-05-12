@@ -249,6 +249,8 @@ class GlossaryManager:
             "id": glossary_id,
             "name": data["name"],
             "description": data.get("description", ""),
+            "source_lang": data["source_lang"],
+            "target_lang": data["target_lang"],
             "entries": list(data.get("entries") or []),
             "created_at": time.time(),
             "user_id": data.get("user_id"),
@@ -260,24 +262,36 @@ class GlossaryManager:
         """
         Read a glossary by id.
 
-        Returns the glossary dict, or None if not found.
+        v3.x: glossary files lacking valid source_lang/target_lang
+        (old schema) are treated as not-found.
         """
         path = self._glossary_path(glossary_id)
         if not path.exists():
             return None
-        return self._read_glossary(path)
+        glossary = self._read_glossary(path)
+        if not is_supported_lang(glossary.get("source_lang")):
+            return None
+        if not is_supported_lang(glossary.get("target_lang")):
+            return None
+        return glossary
 
     def list_all(self) -> list:
         """
         Return summaries of all glossaries sorted ascending by name.
 
-        Each summary includes `entry_count` but omits the full `entries`
-        list to keep the payload small.
+        v3.x: glossary files lacking `source_lang` or `target_lang` (old
+        schema) are silently skipped. They remain on disk for manual
+        cleanup but never appear in the API.
         """
         summaries = []
         for path in self._glossaries_dir.glob("*.json"):
             try:
                 glossary = self._read_glossary(path)
+                # Skip old schema files (cutover behavior — D3 in spec)
+                if not is_supported_lang(glossary.get("source_lang")):
+                    continue
+                if not is_supported_lang(glossary.get("target_lang")):
+                    continue
                 summary = {k: v for k, v in glossary.items() if k != "entries"}
                 summary["entry_count"] = len(glossary.get("entries") or [])
                 summaries.append(summary)
@@ -334,11 +348,11 @@ class GlossaryManager:
 
     def update(self, glossary_id: str, data: dict) -> Optional[dict]:
         """
-        Update name and/or description of an existing glossary.
+        Update name / description / source_lang / target_lang on an
+        existing glossary.
 
-        Entries are preserved from the stored glossary and cannot be
-        updated through this method — use add_entry / update_entry /
-        delete_entry for entry mutations.
+        Entries are preserved and cannot be updated through this method —
+        use add_entry / update_entry / delete_entry for entry mutations.
 
         Returns the updated glossary, or None if glossary_id is not found.
         Raises ValueError if the merged data is invalid.
@@ -351,6 +365,8 @@ class GlossaryManager:
             **existing,
             "name": data.get("name", existing["name"]),
             "description": data.get("description", existing.get("description", "")),
+            "source_lang": data.get("source_lang", existing.get("source_lang")),
+            "target_lang": data.get("target_lang", existing.get("target_lang")),
             "id": glossary_id,
         }
 
@@ -408,16 +424,19 @@ class GlossaryManager:
         concurrent POST /entries don't both read the same entries[] and
         clobber one of the inserts.
         """
-        entry = _normalize_entry(entry)
-        errors = self.validate_entry(entry)
-        if errors:
-            raise ValueError(f"Invalid entry: {errors}")
-
         with _get_gm_lock(glossary_id):
             glossary = self.get(glossary_id)
             if glossary is None:
                 return None
-            new_entry = {**entry, "id": str(uuid.uuid4())}
+            same_lang = (
+                glossary.get("source_lang") == glossary.get("target_lang")
+                and is_supported_lang(glossary.get("source_lang"))
+            )
+            normalized = _normalize_entry(entry)
+            errors = self.validate_entry(normalized, same_lang=same_lang)
+            if errors:
+                raise ValueError(f"Invalid entry: {errors}")
+            new_entry = {**normalized, "id": str(uuid.uuid4())}
             updated = {**glossary, "entries": [*glossary["entries"], new_entry]}
             self._write_glossary(glossary_id, updated)
             return updated
@@ -450,7 +469,11 @@ class GlossaryManager:
                 return None
 
             merged_entry = {**existing_entry, **entry_data, "id": entry_id}
-            errors = self.validate_entry(merged_entry)
+            same_lang = (
+                glossary.get("source_lang") == glossary.get("target_lang")
+                and is_supported_lang(glossary.get("source_lang"))
+            )
+            errors = self.validate_entry(merged_entry, same_lang=same_lang)
             if errors:
                 raise ValueError(f"Invalid entry: {errors}")
 

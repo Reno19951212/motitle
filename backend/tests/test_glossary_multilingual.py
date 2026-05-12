@@ -175,3 +175,74 @@ def test_normalize_entry_preserves_unchanged_fields(tmp_path):
     assert out["id"] == "abc"
     assert out["source"] == "broadcast"
     assert out["target"] == "廣播"
+
+
+def test_create_persists_source_target_lang(tmp_path):
+    gm = _gm(tmp_path)
+    g = gm.create({
+        "name": "Anime", "source_lang": "ja", "target_lang": "zh",
+    })
+    assert g["source_lang"] == "ja"
+    assert g["target_lang"] == "zh"
+    # Round-trip
+    g2 = gm.get(g["id"])
+    assert g2["source_lang"] == "ja"
+    assert g2["target_lang"] == "zh"
+
+
+def test_create_rejects_missing_source_lang(tmp_path):
+    import pytest
+    gm = _gm(tmp_path)
+    with pytest.raises(ValueError, match="source_lang"):
+        gm.create({"name": "X", "target_lang": "zh"})
+
+
+def test_add_entry_uses_new_field_names(tmp_path):
+    gm = _gm(tmp_path)
+    g = gm.create({
+        "name": "T", "source_lang": "en", "target_lang": "zh",
+    })
+    updated = gm.add_entry(g["id"], {"source": "broadcast", "target": "廣播"})
+    assert updated["entries"][0]["source"] == "broadcast"
+    assert updated["entries"][0]["target"] == "廣播"
+
+
+def test_add_entry_rejects_old_en_zh_keys(tmp_path):
+    import pytest
+    gm = _gm(tmp_path)
+    g = gm.create({
+        "name": "T", "source_lang": "en", "target_lang": "zh",
+    })
+    with pytest.raises(ValueError, match="source"):
+        gm.add_entry(g["id"], {"en": "broadcast", "zh": "廣播"})
+
+
+def test_list_all_ignores_old_schema_files(tmp_path):
+    """A leftover glossary file from before the cutover (no source_lang) is
+    silently skipped from list_all. The file still sits on disk; we don't
+    delete it automatically."""
+    import json
+    gm = _gm(tmp_path)
+    old_path = gm._glossaries_dir / "legacy.json"
+    old_path.write_text(json.dumps({
+        "id": "legacy",
+        "name": "Old",
+        "entries": [{"en": "x", "zh": "X"}],
+    }))
+    new = gm.create({
+        "name": "New", "source_lang": "en", "target_lang": "zh",
+    })
+    summaries = gm.list_all()
+    ids = [s["id"] for s in summaries]
+    assert "legacy" not in ids
+    assert new["id"] in ids
+
+
+def test_update_metadata_can_change_langs(tmp_path):
+    gm = _gm(tmp_path)
+    g = gm.create({"name": "T", "source_lang": "en", "target_lang": "zh"})
+    updated = gm.update(g["id"], {
+        "name": "T2", "source_lang": "ja", "target_lang": "zh",
+    })
+    assert updated["source_lang"] == "ja"
+    assert updated["name"] == "T2"
