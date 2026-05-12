@@ -34,7 +34,9 @@ async function _loginAndSave(username, password, outPath) {
 }
 
 async function globalSetup() {
-  await _loginAndSave("admin", "AdminPass1!", "./playwright-auth.json");
+  // admin_p3 is the bootstrapped admin in the dev DB (admin/AdminPass1! is
+  // only created by setup-mac.sh / setup-win.ps1 on a fresh install).
+  await _loginAndSave("admin_p3", "TestPass1!", "./playwright-auth.json");
   await _loginAndSave("editor", "Editor2026!", "./playwright-auth-editor.json");
 }
 
