@@ -952,3 +952,96 @@ class OllamaTranslationEngine(TranslationEngine):
                 return self._model in models
         except Exception:
             return False
+
+
+# v3.x multilingual glossary-apply — parameterized prompt templates.
+# Auto-translate prompts (SYSTEM_PROMPT_FORMAL etc.) remain unchanged and
+# stay Chinese-output-focused; the apply path is the only multilingual
+# entry point.
+
+def _build_glossary_apply_prompts(
+    source_text: str,
+    current_target: str,
+    term_source: str,
+    term_target: str,
+    source_lang: str,
+    target_lang: str,
+) -> tuple:
+    """Build (system_prompt, user_prompt) for a single glossary-apply LLM
+    call. Returns English-language templates parameterized on the
+    glossary's source/target languages."""
+    from glossary import lang_english_name
+    src_name = lang_english_name(source_lang)
+    tgt_name = lang_english_name(target_lang)
+
+    system_prompt = (
+        f"You are a {tgt_name} subtitle editor specializing in "
+        f"{src_name}→{tgt_name} translation.\n"
+        f"Apply the term correction below. Output ONLY the corrected "
+        f"{tgt_name} subtitle line.\n\n"
+        "Rules:\n"
+        "1. Keep the meaning, register, and length of the existing translation "
+        "as close to the original as possible.\n"
+        "2. Replace only the specified term — do not rewrite unrelated parts.\n"
+        "3. Keep the same punctuation style as the input.\n"
+        "4. Output the corrected line only, no preamble, no quotes.\n"
+        "5. If the term is already correctly translated in the existing line, "
+        "output the input unchanged."
+    )
+
+    user_prompt = (
+        f"{src_name} subtitle: {source_text}\n"
+        f"Current {tgt_name} subtitle: {current_target}\n"
+        f'Correction: "{term_source}" must be translated as "{term_target}"\n\n'
+        f"Corrected {tgt_name} subtitle:"
+    )
+
+    return system_prompt, user_prompt
+
+
+def apply_glossary_term(
+    source_text: str,
+    current_target: str,
+    term_source: str,
+    term_target: str,
+    source_lang: str,
+    target_lang: str,
+    model: str = None,
+    api_key: str = None,
+) -> str:
+    """Run a single glossary-apply LLM call. Returns the corrected target
+    text. Caller is responsible for selecting the model — pass `model=None`
+    to use the default `qwen3.5:35b-a3b-mlx-bf16`.
+
+    Raises requests.HTTPError on network failure (caller decides whether to
+    skip the segment vs. abort the whole apply batch)."""
+    import requests
+
+    system_prompt, user_prompt = _build_glossary_apply_prompts(
+        source_text=source_text,
+        current_target=current_target,
+        term_source=term_source,
+        term_target=term_target,
+        source_lang=source_lang,
+        target_lang=target_lang,
+    )
+
+    # Default model — translatable to Ollama internal id.
+    ollama_model = model or "qwen3.5:35b-a3b-mlx-bf16"
+
+    resp = requests.post(
+        "http://localhost:11434/api/chat",
+        json={
+            "model": ollama_model,
+            "stream": False,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "options": {"temperature": 0.1, "think": False},
+        },
+        timeout=60,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    return (data.get("message", {}).get("content") or "").strip()

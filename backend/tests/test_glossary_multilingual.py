@@ -418,3 +418,36 @@ def test_glossary_scan_en_source_no_loose_section(client_with_admin):
         assert body["loose_violation_count"] == 0
     finally:
         _file_registry.pop(fid, None)
+
+
+def test_apply_glossary_term_prompt_includes_source_target_language_names(monkeypatch):
+    """Prompt for ja→zh glossary should mention Japanese + Chinese explicitly."""
+    from translation.ollama_engine import _build_glossary_apply_prompts
+
+    sys_p, user_p = _build_glossary_apply_prompts(
+        source_text="朝のニュース",
+        current_target="朝晨新聞",
+        term_source="ニュース",
+        term_target="新聞",
+        source_lang="ja",
+        target_lang="zh",
+    )
+    assert "Japanese" in sys_p
+    assert "Chinese" in sys_p
+    assert "Japanese subtitle:" in user_p
+    assert "Corrected Chinese subtitle:" in user_p
+    assert "朝のニュース" in user_p
+    assert "ニュース" in user_p
+    assert "新聞" in user_p
+
+
+def test_apply_glossary_term_prompt_en_to_en():
+    from translation.ollama_engine import _build_glossary_apply_prompts
+
+    sys_p, user_p = _build_glossary_apply_prompts(
+        source_text="he is the anchor", current_target="he is the anchor man",
+        term_source="anchor", term_target="anchor person",
+        source_lang="en", target_lang="en",
+    )
+    assert "English subtitle:" in user_p
+    assert "Corrected English subtitle:" in user_p
