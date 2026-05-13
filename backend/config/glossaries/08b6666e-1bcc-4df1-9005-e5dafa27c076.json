@@ -1,0 +1,101 @@
+{
+  "id": "08b6666e-1bcc-4df1-9005-e5dafa27c076",
+  "name": "Broadcast News",
+  "description": "Common terms for Hong Kong news broadcasting",
+  "source_lang": "en",
+  "target_lang": "zh",
+  "entries": [
+    {
+      "id": "ad0822ad-34fc-4cfc-b0f5-22d20d9d4501",
+      "source": "Michael",
+      "target": "麥克高"
+    },
+    {
+      "id": "ced90f96-a561-4313-a1ec-260e08b97296",
+      "source": "broadcast",
+      "target": "廣播"
+    },
+    {
+      "id": "feb0a7db-e359-475b-9e8e-8981ebe3651b",
+      "source": "subtitle",
+      "target": "字幕"
+    },
+    {
+      "id": "52009537-6bfc-4e16-aa63-64c65bfeadf2",
+      "source": "And",
+      "target": "和"
+    },
+    {
+      "id": "3ee4fe67-0f26-4f88-b2f0-43abb6d89bbd",
+      "source": "box",
+      "target": "禁區"
+    },
+    {
+      "id": "80e573c7-93c5-4402-8bbb-1c6643b130a2",
+      "source": "Club",
+      "target": "球會"
+    },
+    {
+      "id": "e9f5e1de-d7b7-4653-80b7-f20fe9cee849",
+      "source": "Real Madrid",
+      "target": "皇家馬德里"
+    },
+    {
+      "id": "0a281cec-3a9d-4c20-b990-9118ebd11282",
+      "source": "Xabi Alonso",
+      "target": "沙比阿朗素"
+    },
+    {
+      "id": "774bcb72-bd60-4413-ae95-72c510bd35a7",
+      "source": "Ancelotti",
+      "target": "安察洛堤"
+    },
+    {
+      "id": "c7e1d782-cff9-4adf-9a04-51c46d4d9e31",
+      "source": "Vinicius",
+      "target": "雲尼素斯"
+    },
+    {
+      "id": "eccc580a-5265-41f6-b682-a79dee1fe250",
+      "source": "Bellingham",
+      "target": "貝靈咸"
+    },
+    {
+      "id": "53f9f71b-a284-4c33-bfce-1769826ab5eb",
+      "source": "Rudiger",
+      "target": "盧迪加"
+    },
+    {
+      "id": "62e44b90-d90e-4c8f-b52c-6a6f5478f2cc",
+      "source": "Alaba",
+      "target": "阿拉巴"
+    },
+    {
+      "id": "a0bfc089-3aaa-4cdf-a57e-5f3befd590fd",
+      "source": "Militao",
+      "target": "米利淘"
+    },
+    {
+      "id": "556cbe97-3242-4abe-9759-d33a01969573",
+      "source": "Huijsen",
+      "target": "候辛"
+    },
+    {
+      "id": "d6767cb9-c9ba-4e90-941d-40214ec1decd",
+      "source": "Carreras",
+      "target": "卡列拉斯"
+    },
+    {
+      "id": "0b5d9931-80ba-4d23-90a0-170bf9c57d39",
+      "source": "Schlotterbeck",
+      "target": "史洛達碧"
+    },
+    {
+      "id": "f2c55932-5f2d-432c-9c0e-bd8aa9be0f40",
+      "source": "Dortmund",
+      "target": "多蒙特"
+    }
+  ],
+  "created_at": 1778685684.350427,
+  "user_id": null
+}
