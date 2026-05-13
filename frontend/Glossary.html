@@ -992,23 +992,41 @@
     }
   }
 
-  /* CSV import — POST multipart/form-data */
+  /* CSV import — POST JSON {csv_content} matching backend api_import_glossary_csv */
   async function importCsv(file) {
     if (!state.activeId) {
       toast('請先揀一個術語表', 'error');
       return;
     }
-    const fd = new FormData();
-    fd.append('file', file);
+    // Read the file as UTF-8 text before sending; backend expects JSON {csv_content: "..."}
+    const csvText = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(file, 'utf-8');
+    }).catch((e) => {
+      toast('讀取檔案失敗: ' + e.message, 'error');
+      throw e;
+    });
     try {
       const r = await fetch(
         `${API_BASE}/api/glossaries/${encodeURIComponent(state.activeId)}/import`,
-        { method: 'POST', body: fd });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ csv_content: csvText }),
+        }
+      );
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        const msg = body.error || `HTTP ${r.status}`;
+        toast(`匯入失敗: ${msg}`, 'error');
+        return;
+      }
       const result = await r.json();
-      const n = result.imported_count != null ? result.imported_count
-              : (result.entries ? result.entries.length : null);
-      toast(n != null ? `已匯入 ${n} 條` : '匯入成功', 'success');
+      const added = result.added !== undefined ? result.added : '?';
+      toast(`已匯入 ${added} 條`, 'success');
       await loadEntries(state.activeId);
       // Refresh entry_count in left list
       await loadGlossaries();
