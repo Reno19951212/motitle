@@ -1,6 +1,10 @@
 """Phase 5 — security/correctness fixes from investigation findings."""
 import pytest
 
+# All tests in this module exercise real auth (no LOGIN_DISABLED / AUTH_BYPASS).
+# This module-level mark replaces the legacy _REAL_AUTH_MODULES tuple entry.
+pytestmark = pytest.mark.real_auth
+
 
 @pytest.fixture
 def client_with_admin_db(tmp_path, monkeypatch):

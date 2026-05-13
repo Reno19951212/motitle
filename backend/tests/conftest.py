@@ -10,6 +10,32 @@ import pytest
 # still monkeypatch.delenv() and force a reload (see test_phase5_security).
 os.environ.setdefault("FLASK_SECRET_KEY", "test-secret-only-for-pytest-do-not-deploy")
 
+
+def pytest_configure(config):
+    """Register custom pytest markers so ``-W error::pytest.PytestUnknownMarkWarning``
+    does not fire and ``--strict-markers`` mode is compatible.
+
+    real_auth:
+        Mark a test (or an entire class / module) to opt out of the global
+        AUTH_BYPASS shortcut that most tests rely on.  Tests decorated with
+        this marker run with LOGIN_DISABLED=False and R5_AUTH_BYPASS=False,
+        exercising the real session / permission layer.
+
+        Usage::
+
+            @pytest.mark.real_auth
+            def test_admin_only_endpoint(client):
+                ...
+
+        The legacy ``_REAL_AUTH_MODULES`` tuple in ``_isolate_app_data`` acts
+        as a backward-compat fallback so existing test modules don't need to
+        be annotated immediately.  New tests should prefer the marker.
+    """
+    config.addinivalue_line(
+        "markers",
+        "real_auth: disable AUTH_BYPASS so real login/permission checks run",
+    )
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
@@ -94,9 +120,17 @@ def _isolate_app_data(request, tmp_path, monkeypatch):
     #
     # R5 Phase 3: admin route tests (test_admin_users.py) use real sessions and
     # real auth checks — bypass must NOT be active so @admin_required enforces
-    # is_admin. Detect by checking the test module name.
-    _REAL_AUTH_MODULES = ("test_admin_users", "test_per_user_profiles", "test_per_user_glossaries", "test_queue_retry", "test_files_job_id", "test_cancel_running", "test_phase5_security", "test_phase5_ownership", "test_render_ownership")
-    _use_real_auth = any(m in str(request.fspath) for m in _REAL_AUTH_MODULES)
+    # is_admin.
+    #
+    # Two ways a test opts into real auth (either is sufficient):
+    #   1. Legacy: test module filename is in _REAL_AUTH_MODULES (backward compat).
+    #   2. New:    test is decorated with @pytest.mark.real_auth.
+    # "test_phase5_security" migrated to @pytest.mark.real_auth — removed from tuple.
+    _REAL_AUTH_MODULES = ("test_admin_users", "test_per_user_profiles", "test_per_user_glossaries", "test_queue_retry", "test_files_job_id", "test_cancel_running", "test_phase5_ownership", "test_render_ownership")
+    _use_real_auth = (
+        any(m in str(request.fspath) for m in _REAL_AUTH_MODULES)
+        or request.node.get_closest_marker("real_auth") is not None
+    )
     monkeypatch.setitem(app.app.config, "RATELIMIT_ENABLED", False)
     if not _use_real_auth:
         monkeypatch.setitem(app.app.config, "LOGIN_DISABLED", True)
