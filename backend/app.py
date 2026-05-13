@@ -1134,6 +1134,13 @@ def serve_proofread():
     return send_from_directory(_FRONTEND_DIR, "proofread.html")
 
 
+@app.get("/Glossary.html")
+@login_required
+def serve_glossary_page():
+    """v3.15 — Standalone glossary management page."""
+    return send_from_directory(_FRONTEND_DIR, "Glossary.html")
+
+
 @app.get("/js/<path:filename>")
 def serve_frontend_js(filename):
     return send_from_directory(str(Path(_FRONTEND_DIR) / "js"), filename)
