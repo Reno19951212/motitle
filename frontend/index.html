@@ -2625,25 +2625,25 @@
       {
         id: 'parallel-disables-context',
         severity: 'critical',
-        check: (cfg) => (cfg.translation?.parallel_batches || 1) > 1,
+        check: (cfg) => (cfg.translation?.parallel_batches ?? 1) > 1,
         msg: '⚠ parallel_batches > 1 強制 disable context window。建議只配 alignment_mode 空嘅 batched flow。',
       },
       {
         id: 'batch-large-passes-2',
         severity: 'high',
-        check: (cfg) => (cfg.translation?.batch_size || 1) > 5 && (cfg.translation?.translation_passes || 1) === 2,
+        check: (cfg) => (cfg.translation?.batch_size ?? 1) > 5 && (cfg.translation?.translation_passes ?? 1) === 2,
         msg: '⚠ batch>5 + passes=2：Pass 2 enrichment 喺 batched mode 行為唔一致。',
       },
       {
         id: 'batch-large-cross-bleed',
         severity: 'medium',
-        check: (cfg) => (cfg.translation?.batch_size || 1) > 5 && (cfg.translation?.alignment_mode || '') === '',
+        check: (cfg) => (cfg.translation?.batch_size ?? 1) > 5 && (cfg.translation?.alignment_mode || '') === '',
         msg: '⚠ batch>5 + 冇 alignment：跨 segment 易溢出（v3.8 Italian Como bug）。',
       },
       {
         id: 'parallel-and-alignment',
         severity: 'medium',
-        check: (cfg) => (cfg.translation?.parallel_batches || 1) > 1 && (cfg.translation?.alignment_mode || '') === 'llm-markers',
+        check: (cfg) => (cfg.translation?.parallel_batches ?? 1) > 1 && (cfg.translation?.alignment_mode || '') === 'llm-markers',
         msg: 'ℹ parallel disable context，但 llm-markers 需要 context。',
       },
       {
@@ -2838,19 +2838,21 @@
       if (!container) return;
       container.innerHTML = '';
       dangers.forEach(combo => {
+        if (_ppsWarningDismissed.has(combo.id)) return;
         if (!combo.check(cfg)) return;
         const chip = document.createElement('div');
-        chip.className = `pps-warning-chip pps-warning-${combo.severity}`;
+        chip.className = `pps-warning-chip ${combo.severity}`;
         chip.dataset.comboId = combo.id;
         const msgSpan = document.createElement('span');
         msgSpan.textContent = combo.msg;
         const dismiss = document.createElement('button');
         dismiss.type = 'button';
-        dismiss.className = 'pps-warning-dismiss';
+        dismiss.className = 'pps-warn-dismiss';
         dismiss.textContent = '✕';
         dismiss.title = '忽略';
         dismiss.addEventListener('click', (e) => {
           e.stopPropagation();
+          _ppsWarningDismissed.add(combo.id);
           chip.remove();
         });
         chip.appendChild(msgSpan);
