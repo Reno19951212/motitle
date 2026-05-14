@@ -3668,6 +3668,7 @@
         renderAll();
         loadMediaPreview(data.file_id);
         showToast('文件上傳成功，開始轉錄...', 'success');
+        isProcessing = false;
       } catch (err) {
         // R6 audit E10 — clean up the pending placeholder card on upload
         // failure. Otherwise the queueList shows a phantom "pending" row
