@@ -340,6 +340,19 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### v3.16 — Per-Engine Preset + Danger Warning Refactor
+- **目標**：將 Profile Save modal (`#ppsOverlay`) 由 pipeline-level bundled preset / danger warning 改為 per-engine（ASR + MT 各自獨立）。Spec: [docs/superpowers/specs/2026-05-14-per-engine-preset-design.md](docs/superpowers/specs/2026-05-14-per-engine-preset-design.md)。Plan: [docs/superpowers/plans/2026-05-14-per-engine-preset-plan.md](docs/superpowers/plans/2026-05-14-per-engine-preset-plan.md)。
+- **HTML 改動**：刪走 `#ppsPresetSection` + `#ppsWarnings`（modal 頂部 bundled 容器），加兩個新 fieldset `🎙️ ASR 預設` (`#ppsAsrPresetButtons` + `#ppsAsrDangerWarnings`) + `🌐 MT 預設` (`#ppsMtPresetButtons` + `#ppsMtDangerWarnings`)，住喺現有「字幕來源預設」fieldset 後面。
+- **JS data 拆分**：
+  - `PROFILE_PRESETS` (5 個 bundled) → `ASR_PRESETS` (4 個：accuracy / speed / debug / custom) + `MT_PRESETS` (4 個：broadcast-quality / fast-draft / literal-ref / custom)
+  - `DANGER_COMBOS` (5 個混合) → `ASR_DANGERS` (1 個：zh-cascade-risk) + `MT_DANGERS` (5 個：4 舊 MT + 1 新 cross-engine `word-timestamps-needed-for-alignment`)
+- **JS state 拆分**：`_pendingPresetConfig` → `_pendingAsrPreset` + `_pendingMtPreset`，兩個獨立 state 互不覆蓋，支援用戶混搭 ASR / MT preset。
+- **Cross-engine warning 擺位**：`word-timestamps-needed-for-alignment` 觸發 param (`alignment_mode=llm-markers`) 喺 MT 度，所以警告 chip render 喺 `#ppsMtDangerWarnings`；msg 文字明確指返用戶去 ASR section 開啟 word_timestamps。
+- **Save flow**：`saveProfileAsPreset` 嘅 deep-merge 兩處（PATCH branch + POST branch）都由讀單一 `_pendingPresetConfig` 切到分別讀 `_pendingAsrPreset.config` + `_pendingMtPreset.config`，未揀 preset 嘅 engine 唔會 emit 對應 block，等用戶可以淨係改 ASR 而保留 MT 原狀（或反過來）。
+- **CSS / dismissed-tracking 一致**：新 `_renderDangerChips()` 共用既有 `.pps-warning-chip.{critical,high,medium}` CSS rules 同既有 `_ppsWarningDismissed` Set，所以 chip 樣式 + 「忽略後唔再出現」UX 完全沿用 v3.15 行為。`MT_DANGERS` check lambda 用 `?? 1` 取代 `|| 1` 預設值，避免 `parallel_batches: 0` 等 falsy 但非 nullish 嘅值被誤判。
+- **Backend / API contract**：完全不變。Profile JSON schema 不變。無 migration。
+- **Tests**：`frontend/tests/test_profile_ui_guidance.spec.js` 由 2 個 test 變 4 個 — 2 個更新 selector（`#ppsAsrPresetButtons` + `#ppsMtDangerWarnings`），新加「mix-and-match」（ASR Accuracy + MT Fast Draft 同時 active）+「cross-engine warning fires」（Speed + Broadcast Quality 觸發 `word-timestamps-needed-for-alignment`）。`_openPpsModal` 測試 helper 用 API call `POST /api/profiles/prod-default/activate` 確保 `activeProfile` 已 load + `waitForFunction` 輪詢 overlay 開啟，避免依賴 user-facing button click（會被 videoPlaceholder 攔截）。
+
 ### v3.15 — Multilingual Glossary Refactor
 - **Schema**: Glossary entries renamed from `{en, zh, zh_aliases}` to `{source, target, target_aliases}`. Glossary-level metadata adds `source_lang` + `target_lang` from an 8-language whitelist (`en, zh, ja, ko, es, fr, de, th`).
 - **Validation**: Dropped per-language script rules (`en must contain letter` / `zh must contain CJK`). Now just non-empty + reject self-translation when source_lang==target_lang.
