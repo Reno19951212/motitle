@@ -2504,7 +2504,9 @@
 
     // ── Profile Preset Picker + Danger Warnings ──────────────────────────
 
-    let _pendingPresetConfig = null; // { asr: {...}, translation: {...} } or null
+    let _pendingPresetConfig = null; // { asr: {...}, translation: {...} } or null  -- DEPRECATED, removed Task 4
+    let _pendingAsrPreset = null;    // { config: {...} } | null
+    let _pendingMtPreset = null;     // { config: {...} } | null
     let _ppsWarningDismissed = new Set(); // dismissed combo IDs for current modal open
     let _ppsEvalTimer = null;
 
@@ -2539,6 +2541,44 @@
       },
     };
 
+    const ASR_PRESETS = {
+      accuracy: {
+        label: 'Accuracy',
+        description: 'large-v3 + word_timestamps，無 cascade',
+        config: { model_size: 'large-v3', condition_on_previous_text: false, word_timestamps: true },
+      },
+      speed: {
+        label: 'Speed',
+        description: 'small model + VAD，速度優先',
+        config: { model_size: 'small', condition_on_previous_text: false, word_timestamps: false },
+      },
+      debug: {
+        label: 'Debug',
+        description: '排查 hallucination，含 initial_prompt 樣本',
+        config: { model_size: 'large-v3', condition_on_previous_text: false, word_timestamps: true, initial_prompt: '以下係香港新聞，繁體中文。' },
+      },
+      custom: { label: 'Custom', description: '保留現有 ASR 設定' },
+    };
+
+    const MT_PRESETS = {
+      'broadcast-quality': {
+        label: 'Broadcast Quality',
+        description: '逐段對齊，慢但準',
+        config: { batch_size: 1, temperature: 0.1, parallel_batches: 1, translation_passes: 2, alignment_mode: 'llm-markers' },
+      },
+      'fast-draft': {
+        label: 'Fast Draft',
+        description: '速度優先 preview',
+        config: { batch_size: 10, temperature: 0.15, parallel_batches: 4, translation_passes: 1, alignment_mode: '' },
+      },
+      'literal-ref': {
+        label: 'Literal Reference',
+        description: '逐字翻譯，溫度 0',
+        config: { batch_size: 1, temperature: 0, parallel_batches: 1, translation_passes: 1, alignment_mode: 'llm-markers' },
+      },
+      custom: { label: 'Custom', description: '保留現有 MT 設定' },
+    };
+
     const DANGER_COMBOS = [
       {
         id: 'parallel-disables-context',
@@ -2569,6 +2609,48 @@
         severity: 'medium',
         check: (cfg) => (cfg.translation?.parallel_batches || 1) > 1 && (cfg.translation?.alignment_mode || '') === 'llm-markers',
         msg: 'ℹ parallel_batches > 1 disable context，但 llm-markers 需要 context。建議 parallel 只配 alignment_mode 空或 "sentence"。',
+      },
+    ];
+
+    const ASR_DANGERS = [
+      {
+        id: 'zh-cascade-risk',
+        severity: 'high',
+        check: (cfg) => cfg.asr?.condition_on_previous_text === true && (cfg.asr?.language === 'zh' || cfg.asr?.language_config_id === 'zh'),
+        msg: '⚠ ZH source 上開 condition_on_previous_text：v3.8 揾到 34% segments cascade 重複。建議 false。',
+      },
+    ];
+
+    const MT_DANGERS = [
+      {
+        id: 'parallel-disables-context',
+        severity: 'critical',
+        check: (cfg) => (cfg.translation?.parallel_batches || 1) > 1,
+        msg: '⚠ parallel_batches > 1 強制 disable context window。建議只配 alignment_mode 空嘅 batched flow。',
+      },
+      {
+        id: 'batch-large-passes-2',
+        severity: 'high',
+        check: (cfg) => (cfg.translation?.batch_size || 1) > 5 && (cfg.translation?.translation_passes || 1) === 2,
+        msg: '⚠ batch>5 + passes=2：Pass 2 enrichment 喺 batched mode 行為唔一致。',
+      },
+      {
+        id: 'batch-large-cross-bleed',
+        severity: 'medium',
+        check: (cfg) => (cfg.translation?.batch_size || 1) > 5 && (cfg.translation?.alignment_mode || '') === '',
+        msg: '⚠ batch>5 + 冇 alignment：跨 segment 易溢出（v3.8 Italian Como bug）。',
+      },
+      {
+        id: 'parallel-and-alignment',
+        severity: 'medium',
+        check: (cfg) => (cfg.translation?.parallel_batches || 1) > 1 && (cfg.translation?.alignment_mode || '') === 'llm-markers',
+        msg: 'ℹ parallel disable context，但 llm-markers 需要 context。',
+      },
+      {
+        id: 'word-timestamps-needed-for-alignment',
+        severity: 'high',
+        check: (cfg) => (cfg.translation?.alignment_mode || '') === 'llm-markers' && cfg.asr?.word_timestamps !== true,
+        msg: '⚠ alignment_mode=llm-markers 需要 ASR section 嘅 word_timestamps=true。請去上面 ASR section 開啟。',
       },
     ];
 
@@ -2661,8 +2743,12 @@
     }
 
     function _scheduleDangerEval() {
-      clearTimeout(_ppsEvalTimer);
-      _ppsEvalTimer = setTimeout(_evaluateDangerCombos, 200);
+      if (_ppsEvalTimer) clearTimeout(_ppsEvalTimer);
+      _ppsEvalTimer = setTimeout(() => {
+        _evaluateDangerCombos();
+        _evaluateAsrDangers();
+        _evaluateMtDangers();
+      }, 200);
     }
 
     function _evaluateDangerCombos() {
@@ -2694,11 +2780,108 @@
       });
     }
 
+    function _renderAsrPresetButtons() {
+      const container = document.getElementById('ppsAsrPresetButtons');
+      if (!container) return;
+      container.innerHTML = '';
+      Object.entries(ASR_PRESETS).forEach(([key, preset]) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'pps-preset-btn';
+        btn.dataset.presetKey = key;
+        btn.textContent = preset.label;
+        btn.title = preset.description || '';
+        btn.addEventListener('click', () => _applyAsrPreset(key));
+        container.appendChild(btn);
+      });
+    }
+
+    function _renderMtPresetButtons() {
+      const container = document.getElementById('ppsMtPresetButtons');
+      if (!container) return;
+      container.innerHTML = '';
+      Object.entries(MT_PRESETS).forEach(([key, preset]) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'pps-preset-btn';
+        btn.dataset.presetKey = key;
+        btn.textContent = preset.label;
+        btn.title = preset.description || '';
+        btn.addEventListener('click', () => _applyMtPreset(key));
+        container.appendChild(btn);
+      });
+    }
+
+    function _applyAsrPreset(key) {
+      const preset = ASR_PRESETS[key];
+      if (!preset) return;
+      document.querySelectorAll('#ppsAsrPresetButtons .pps-preset-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.presetKey === key);
+      });
+      _pendingAsrPreset = (key === 'custom') ? null : { config: { ...(preset.config || {}) } };
+      _updatePpsSummary();
+      _scheduleDangerEval();
+    }
+
+    function _applyMtPreset(key) {
+      const preset = MT_PRESETS[key];
+      if (!preset) return;
+      document.querySelectorAll('#ppsMtPresetButtons .pps-preset-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.presetKey === key);
+      });
+      _pendingMtPreset = (key === 'custom') ? null : { config: { ...(preset.config || {}) } };
+      _updatePpsSummary();
+      _scheduleDangerEval();
+    }
+
+    function _renderDangerChips(container, dangers, cfg) {
+      if (!container) return;
+      container.innerHTML = '';
+      dangers.forEach(combo => {
+        if (!combo.check(cfg)) return;
+        const chip = document.createElement('div');
+        chip.className = `pps-warning-chip pps-warning-${combo.severity}`;
+        chip.dataset.comboId = combo.id;
+        const msgSpan = document.createElement('span');
+        msgSpan.textContent = combo.msg;
+        const dismiss = document.createElement('button');
+        dismiss.type = 'button';
+        dismiss.className = 'pps-warning-dismiss';
+        dismiss.textContent = '✕';
+        dismiss.title = '忽略';
+        dismiss.addEventListener('click', (e) => {
+          e.stopPropagation();
+          chip.remove();
+        });
+        chip.appendChild(msgSpan);
+        chip.appendChild(dismiss);
+        container.appendChild(chip);
+      });
+    }
+
+    function _evaluateAsrDangers() {
+      const cfg = _ppsEffectiveConfig();
+      _renderDangerChips(document.getElementById('ppsAsrDangerWarnings'), ASR_DANGERS, cfg);
+    }
+
+    function _evaluateMtDangers() {
+      const cfg = _ppsEffectiveConfig();
+      _renderDangerChips(document.getElementById('ppsMtDangerWarnings'), MT_DANGERS, cfg);
+    }
+
     function _initPpsPresetUI() {
       // Idempotent: only render buttons once
       const container = document.getElementById('ppsPresetButtons');
       if (container && container.children.length === 0) {
         _renderPresetButtons();
+      }
+      const asrContainer = document.getElementById('ppsAsrPresetButtons');
+      if (asrContainer && asrContainer.children.length === 0) {
+        _renderAsrPresetButtons();
+      }
+      const mtContainer = document.getElementById('ppsMtPresetButtons');
+      if (mtContainer && mtContainer.children.length === 0) {
+        _renderMtPresetButtons();
       }
       // Attach change/input listeners to subtitle source select for danger eval (idempotent via flag)
       const subSel = document.getElementById('ppsSubtitleSource');
