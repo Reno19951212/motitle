@@ -6,15 +6,34 @@ const { test, expect } = require("@playwright/test");
 
 const BASE = process.env.BASE_URL || "http://localhost:5001";
 
+// ID of a known shared profile that always exists in the test environment.
+// openProfileSaveModal() clones the activeProfile, so an active profile is required.
+const _FIXTURE_PROFILE_ID = "prod-default";
+
 async function _openPpsModal(page) {
+  // Ensure a profile is active before loading the page.
+  // openProfileSaveModal() has an early-return guard `if (!src) return;` where
+  // src = activeProfile (loaded by async fetchActiveProfile()). Without an active
+  // profile the modal silently does nothing and shows a toast instead.
+  await page.request.post(`${BASE}/api/profiles/${_FIXTURE_PROFILE_ID}/activate`);
+
   await page.goto(BASE + "/");
   await page.waitForLoadState("domcontentloaded");
-  // Wait for the pipeline strip to render (indicates profiles are loaded)
-  await page.waitForSelector(".pipeline-strip", { timeout: 5000 }).catch(() => {});
-  await page.waitForTimeout(300);
-  // Use JS call to bypass videoPlaceholder pointer-event interception
-  await page.evaluate(() => window.openProfileSaveModal && window.openProfileSaveModal());
-  await page.waitForSelector("#ppsOverlay.open", { timeout: 3000 });
+
+  // Poll until fetchActiveProfile() has run and openProfileSaveModal() can actually
+  // open the overlay. openProfileSaveModal is a function declaration → lives on window.
+  await page.waitForFunction(
+    () => {
+      if (typeof window.openProfileSaveModal !== "function") return false;
+      const overlay = document.getElementById("ppsOverlay");
+      if (!overlay) return false;
+      if (overlay.classList.contains("open")) return true; // already opened
+      window.openProfileSaveModal();
+      return overlay.classList.contains("open");
+    },
+    null,
+    { timeout: 10000, polling: 300 }
+  );
 }
 
 test("ASR preset chip 'Accuracy' sets model_size=large-v3 + word_timestamps=true", async ({ page }) => {
