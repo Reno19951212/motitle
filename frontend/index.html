@@ -1208,6 +1208,29 @@
     .kbd-list { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; font-size: 12px; align-items: center; }
     .kbd-list .kl { color: var(--text-mid); }
 
+    /* Profile preset picker + danger warning chips */
+    .pps-preset-section { padding: 12px 14px 10px; border-bottom: 1px solid var(--border, #ddd); }
+    .pps-preset-label { font-size: 12px; font-weight: 600; margin-bottom: 8px; color: var(--text); }
+    .pps-preset-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+    .pps-preset-btn {
+      padding: 5px 13px; border: 1px solid var(--border, #ccc); border-radius: 999px;
+      background: var(--surface-2, #fff); cursor: pointer; font-size: 12px; color: var(--text);
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .pps-preset-btn:hover { background: var(--surface-3, #f0f0f0); }
+    .pps-preset-btn.active { background: var(--accent, #3b82f6); color: #fff; border-color: var(--accent, #3b82f6); }
+    .pps-warning-container { padding: 0 14px; }
+    .pps-warning-container:empty { display: none; }
+    .pps-warning-chip {
+      padding: 7px 11px; margin: 5px 0; border-radius: 6px; font-size: 12px;
+      display: flex; align-items: flex-start; gap: 8px; line-height: 1.5;
+    }
+    .pps-warning-chip.critical { background: #fee2e2; color: #991b1b; border-left: 3px solid #dc2626; }
+    .pps-warning-chip.high     { background: #ffedd5; color: #9a3412; border-left: 3px solid #f97316; }
+    .pps-warning-chip.medium   { background: #fef3c7; color: #92400e; border-left: 3px solid #eab308; }
+    .pps-warning-chip .pps-warn-dismiss { margin-left: auto; cursor: pointer; opacity: 0.55; font-size: 14px; flex-shrink: 0; }
+    .pps-warning-chip .pps-warn-dismiss:hover { opacity: 1; }
+
   </style>
   <link rel="stylesheet" href="css/responsive.css">
 </head>
@@ -2459,6 +2482,16 @@
         document.getElementById('ppsBilingualOrderRow').style.display =
           (this.value === 'bilingual') ? 'flex' : 'none';
       };
+      // Reset preset state for each modal open
+      _pendingPresetConfig = null;
+      _ppsWarningDismissed = new Set();
+      document.querySelectorAll('.pps-preset-btn').forEach(b => b.classList.remove('active'));
+      _initPpsPresetUI();
+      // Reset description managed flag
+      const descEl = document.getElementById('ppsDesc');
+      if (descEl) delete descEl.dataset.presetManaged;
+      // Evaluate warnings with current profile config
+      setTimeout(_evaluateDangerCombos, 0);
       _openModalWithFocus('ppsOverlay', trigger);
       setTimeout(() => document.getElementById('ppsName').focus(), 50);
     }
@@ -2466,7 +2499,216 @@
     function closeProfileSaveModal() {
       _closeModalRestoreFocus('ppsOverlay');
       _ppsEditingId = null;
+      _pendingPresetConfig = null;
     }
+
+    // ── Profile Preset Picker + Danger Warnings ──────────────────────────
+
+    let _pendingPresetConfig = null; // { asr: {...}, translation: {...} } or null
+    let _ppsWarningDismissed = new Set(); // dismissed combo IDs for current modal open
+    let _ppsEvalTimer = null;
+
+    const PROFILE_PRESETS = {
+      'broadcast-quality': {
+        label: 'Broadcast Quality',
+        description: '生產級品質，逐段對齊、無 bloat、慢但準',
+        asr: { model_size: 'large-v3', condition_on_previous_text: false, word_timestamps: true },
+        translation: { batch_size: 1, temperature: 0.1, parallel_batches: 1, translation_passes: 2, alignment_mode: 'llm-markers' },
+      },
+      'fast-draft': {
+        label: 'Fast Draft',
+        description: '快速 preview，速度優先，唔等品質',
+        asr: { model_size: 'small', condition_on_previous_text: false, word_timestamps: false },
+        translation: { batch_size: 10, temperature: 0.15, parallel_batches: 4, translation_passes: 1, alignment_mode: '' },
+      },
+      'hq-audio': {
+        label: 'HQ Audio',
+        description: '高音質 source，啟用 previous text context',
+        asr: { model_size: 'large-v3', condition_on_previous_text: true, word_timestamps: true },
+        translation: { batch_size: 5, temperature: 0.05, parallel_batches: 1, translation_passes: 2, alignment_mode: 'llm-markers' },
+      },
+      'debug-mode': {
+        label: 'Debug Mode',
+        description: '排查 alignment / hallucination，最 verbose',
+        asr: { model_size: 'large-v3', condition_on_previous_text: false, word_timestamps: true, initial_prompt: '以下係香港新聞，繁體中文。' },
+        translation: { batch_size: 1, temperature: 0, parallel_batches: 1, translation_passes: 1, alignment_mode: 'llm-markers' },
+      },
+      'custom': {
+        label: 'Custom',
+        description: '自定義（保留現有設定）',
+      },
+    };
+
+    const DANGER_COMBOS = [
+      {
+        id: 'parallel-disables-context',
+        severity: 'critical',
+        check: (cfg) => (cfg.translation?.parallel_batches || 1) > 1,
+        msg: '⚠ parallel_batches > 1 會強制 disable context window — 跨 segment 嘅代詞解析會失敗。建議只用於 alignment_mode 為空嘅 batched flow。',
+      },
+      {
+        id: 'batch-large-passes-2',
+        severity: 'high',
+        check: (cfg) => (cfg.translation?.batch_size || 1) > 5 && (cfg.translation?.translation_passes || 1) === 2,
+        msg: '⚠ batch_size > 5 + passes=2：Pass 2 enrichment 喺 batched mode 行為唔一致。建議揀 (batch=1, pass=2) OR (batch>5, pass=1)。',
+      },
+      {
+        id: 'zh-cascade-risk',
+        severity: 'high',
+        check: (cfg) => cfg.asr?.condition_on_previous_text === true && (cfg.asr?.language === 'zh' || cfg.asr?.language_config_id === 'zh'),
+        msg: '⚠ condition_on_previous_text=true 喺 ZH source 上：v3.8 揾到 34% segments 變 cascade 重複。建議 ZH 用 false。',
+      },
+      {
+        id: 'batch-large-cross-bleed',
+        severity: 'medium',
+        check: (cfg) => (cfg.translation?.batch_size || 1) > 5 && (cfg.translation?.alignment_mode || '') === '',
+        msg: '⚠ batch_size > 5 + 冇 alignment：跨 segment 內容易溢出（v3.8 Italian Como bug）。建議 batch ≤ 5 或加 alignment_mode=llm-markers。',
+      },
+      {
+        id: 'parallel-and-alignment',
+        severity: 'medium',
+        check: (cfg) => (cfg.translation?.parallel_batches || 1) > 1 && (cfg.translation?.alignment_mode || '') === 'llm-markers',
+        msg: 'ℹ parallel_batches > 1 disable context，但 llm-markers 需要 context。建議 parallel 只配 alignment_mode 空或 "sentence"。',
+      },
+    ];
+
+    function _ppsEffectiveConfig() {
+      // Merge pending preset overrides on top of activeProfile (or editing profile)
+      const base = _ppsEditingId
+        ? (availableProfiles.find(p => p.id === _ppsEditingId) || activeProfile || {})
+        : (activeProfile || {});
+      if (!_pendingPresetConfig) return base;
+      return {
+        ...base,
+        asr: { ...(base.asr || {}), ...(_pendingPresetConfig.asr || {}) },
+        translation: { ...(base.translation || {}), ...(_pendingPresetConfig.translation || {}) },
+      };
+    }
+
+    function _renderPresetButtons() {
+      const container = document.getElementById('ppsPresetButtons');
+      if (!container) return;
+      container.innerHTML = '';
+      Object.entries(PROFILE_PRESETS).forEach(([key, preset]) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'pps-preset-btn';
+        btn.dataset.presetKey = key;
+        btn.textContent = preset.label;
+        btn.title = preset.description || '';
+        btn.addEventListener('click', () => _applyPreset(key));
+        container.appendChild(btn);
+      });
+    }
+
+    function _applyPreset(key) {
+      const preset = PROFILE_PRESETS[key];
+      if (!preset) return;
+
+      // Update active button state
+      document.querySelectorAll('.pps-preset-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.presetKey === key);
+      });
+
+      if (key === 'custom') {
+        _pendingPresetConfig = null;
+        // Restore summary to original
+        _updatePpsSummary(null);
+        _scheduleDangerEval();
+        return;
+      }
+
+      _pendingPresetConfig = {
+        asr: { ...(preset.asr || {}) },
+        translation: { ...(preset.translation || {}) },
+      };
+
+      // Update description if it's empty or was set by a previous preset
+      const descEl = document.getElementById('ppsDesc');
+      if (descEl && (!descEl.value || descEl.dataset.presetManaged === '1')) {
+        descEl.value = preset.description || '';
+        descEl.dataset.presetManaged = '1';
+      }
+
+      _updatePpsSummary(_pendingPresetConfig);
+      _scheduleDangerEval();
+    }
+
+    function _updatePpsSummary(presetCfg) {
+      const summaryEl = document.getElementById('ppsSummary');
+      if (!summaryEl) return;
+      const base = _ppsEditingId
+        ? (availableProfiles.find(p => p.id === _ppsEditingId) || activeProfile || {})
+        : (activeProfile || {});
+      const asr = { ...(base.asr || {}), ...(presetCfg?.asr || {}) };
+      const tr = { ...(base.translation || {}), ...(presetCfg?.translation || {}) };
+      const gloss = glossaries.find(g => g.id === tr.glossary_id);
+      const font = base.font || {};
+      const presetLabel = presetCfg
+        ? Object.entries(PROFILE_PRESETS).find(([, p]) =>
+            JSON.stringify(p.asr) === JSON.stringify(presetCfg.asr) &&
+            JSON.stringify(p.translation) === JSON.stringify(presetCfg.translation)
+          )?.[1]?.label || '自定義預設'
+        : null;
+      summaryEl.innerHTML =
+        (presetLabel ? `<strong>預設：${escapeHtml(presetLabel)}</strong><br>` : '') +
+        `ASR        ${escapeHtml(asr.model_size || '—')} (${escapeHtml(asr.engine || base.asr?.engine || '—')})<br>` +
+        `batch      ${tr.batch_size ?? '—'} | parallel ${tr.parallel_batches ?? '—'} | passes ${tr.translation_passes ?? '—'}<br>` +
+        `alignment  ${escapeHtml(tr.alignment_mode || '—')}<br>` +
+        `MT         ${escapeHtml(tr.engine || '—')}${tr.openrouter_model ? ' / ' + escapeHtml(tr.openrouter_model) : ''}<br>` +
+        `術語表     ${escapeHtml(gloss?.name || '無')}${gloss ? ' (' + (gloss.entry_count || gloss.entries?.length || 0) + ' 條)' : ''}<br>` +
+        `字型       ${escapeHtml(font.family || '—')}, ${font.size || '—'}pt`;
+    }
+
+    function _scheduleDangerEval() {
+      clearTimeout(_ppsEvalTimer);
+      _ppsEvalTimer = setTimeout(_evaluateDangerCombos, 200);
+    }
+
+    function _evaluateDangerCombos() {
+      const container = document.getElementById('ppsWarnings');
+      if (!container) return;
+      const cfg = _ppsEffectiveConfig();
+      container.innerHTML = '';
+      DANGER_COMBOS.forEach(combo => {
+        if (_ppsWarningDismissed.has(combo.id)) return;
+        let triggered = false;
+        try { triggered = combo.check(cfg); } catch (_) { /* safe */ }
+        if (!triggered) return;
+        const chip = document.createElement('div');
+        chip.className = `pps-warning-chip ${combo.severity}`;
+        chip.dataset.comboId = combo.id;
+        const msgSpan = document.createElement('span');
+        msgSpan.textContent = combo.msg;
+        const dismiss = document.createElement('span');
+        dismiss.className = 'pps-warn-dismiss';
+        dismiss.textContent = '✕';
+        dismiss.title = '忽略此警告';
+        dismiss.addEventListener('click', () => {
+          _ppsWarningDismissed.add(combo.id);
+          chip.remove();
+        });
+        chip.appendChild(msgSpan);
+        chip.appendChild(dismiss);
+        container.appendChild(chip);
+      });
+    }
+
+    function _initPpsPresetUI() {
+      // Idempotent: only render buttons once
+      const container = document.getElementById('ppsPresetButtons');
+      if (container && container.children.length === 0) {
+        _renderPresetButtons();
+      }
+      // Attach change/input listeners to subtitle source select for danger eval (idempotent via flag)
+      const subSel = document.getElementById('ppsSubtitleSource');
+      if (subSel && !subSel.dataset.ppsListenerAttached) {
+        subSel.dataset.ppsListenerAttached = '1';
+        subSel.addEventListener('change', _scheduleDangerEval);
+      }
+    }
+
+    // ── End Preset Picker ─────────────────────────────────────────────────
 
     async function saveProfileAsPreset() {
       const name = document.getElementById('ppsName').value.trim();
@@ -2476,17 +2718,27 @@
       const subOrder = document.getElementById('ppsBilingualOrder').value;
       try {
         if (_ppsEditingId) {
-          // Edit mode: PATCH name, description, and subtitle source fields
+          // Edit mode: PATCH name, description, subtitle source, and optional preset overrides
           const editingProf = availableProfiles.find(p => p.id === _ppsEditingId);
           const existingFont = editingProf?.font || activeProfile?.font || {};
+          const patchBody = {
+            name,
+            description,
+            font: { ...existingFont, subtitle_source: subSrc, bilingual_order: subOrder },
+          };
+          // If a preset was selected, merge ASR/translation overrides
+          if (_pendingPresetConfig) {
+            if (_pendingPresetConfig.asr) {
+              patchBody.asr = { ...(editingProf?.asr || activeProfile?.asr || {}), ..._pendingPresetConfig.asr };
+            }
+            if (_pendingPresetConfig.translation) {
+              patchBody.translation = { ...(editingProf?.translation || activeProfile?.translation || {}), ..._pendingPresetConfig.translation };
+            }
+          }
           const r = await fetch(`${API_BASE}/api/profiles/${_ppsEditingId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name,
-              description,
-              font: { ...existingFont, subtitle_source: subSrc, bilingual_order: subOrder },
-            }),
+            body: JSON.stringify(patchBody),
           });
           if (!r.ok) throw new Error((await r.json()).error || '儲存失敗');
           await fetchProfiles();
@@ -2498,11 +2750,20 @@
             _renderProfileManageList();
           }
         } else {
-          // Create mode: POST cloned activeProfile, then activate
+          // Create mode: POST cloned activeProfile with optional preset overrides, then activate
           if (!activeProfile) { showToast('請先啟用一個 Profile', 'error'); return; }
           const { id: _id, created_at: _ca, updated_at: _ua, ...rest } = activeProfile;
           const clonedFont = { ...(rest.font || {}), subtitle_source: subSrc, bilingual_order: subOrder };
           const body = { ...rest, name, description, font: clonedFont };
+          // If a preset was selected, merge ASR/translation overrides
+          if (_pendingPresetConfig) {
+            if (_pendingPresetConfig.asr) {
+              body.asr = { ...(rest.asr || {}), ..._pendingPresetConfig.asr };
+            }
+            if (_pendingPresetConfig.translation) {
+              body.translation = { ...(rest.translation || {}), ..._pendingPresetConfig.translation };
+            }
+          }
           const r = await fetch(`${API_BASE}/api/profiles`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -4626,7 +4887,15 @@
         <span>儲存為新 Pipeline 預設</span>
         <button class="or-close" onclick="closeProfileSaveModal()" aria-label="關閉">&times;</button>
       </div>
-      <div class="or-body" style="padding: 16px 20px;">
+      <div class="or-body" style="padding: 0;">
+        <!-- Preset picker -->
+        <div class="pps-preset-section" id="ppsPresetSection">
+          <div class="pps-preset-label">🚀 快速預設</div>
+          <div class="pps-preset-buttons" id="ppsPresetButtons"></div>
+        </div>
+        <!-- Danger combo warning chips -->
+        <div class="pps-warning-container" id="ppsWarnings"></div>
+        <div style="padding: 16px 20px;">
         <div style="display:grid;gap:14px;">
           <label style="display:flex;flex-direction:column;gap:4px;">
             <span style="font-size:12px;font-weight:600;">預設名稱 *</span>
@@ -4659,6 +4928,7 @@
             </label>
           </fieldset>
         </div>
+        </div><!-- /inner padding wrapper -->
       </div>
       <div class="or-foot" style="display:flex;justify-content:flex-end;gap:8px;padding:12px 20px;">
         <button class="or-btn" onclick="closeProfileSaveModal()">取消</button>
