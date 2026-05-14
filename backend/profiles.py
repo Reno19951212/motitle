@@ -430,4 +430,26 @@ def _validate_translation(translation: dict) -> list:
                 "translation.parallel_batches must be an integer between 1 and 8"
             )
 
+    if "prompt_overrides" in translation:
+        po = translation["prompt_overrides"]
+        if not isinstance(po, dict):
+            errors.append("translation.prompt_overrides must be a dict")
+        else:
+            ALLOWED_KEYS = {
+                "pass1_system",
+                "single_segment_system",
+                "pass2_enrich_system",
+                "alignment_anchor_system",
+            }
+            for k, v in po.items():
+                if k not in ALLOWED_KEYS:
+                    errors.append(
+                        f"translation.prompt_overrides.{k} is not a valid override key "
+                        f"(allowed: {sorted(ALLOWED_KEYS)})"
+                    )
+                elif v is not None and (not isinstance(v, str) or not v.strip()):
+                    errors.append(
+                        f"translation.prompt_overrides.{k} must be null or non-empty string"
+                    )
+
     return errors

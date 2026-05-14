@@ -58,12 +58,17 @@ def build_anchor_prompt(
     en_words: List[str],
     boundaries: List[int],
     glossary: Optional[List[dict]] = None,
+    custom_system_prompt: Optional[str] = None,
 ) -> str:
     """Build the LLM prompt asking for translation + marker insertion.
 
     `boundaries` lists the English word indices AFTER which a segment break
     occurs. The LLM must produce exactly len(boundaries) markers of the form
     `[N]` where N is the boundary index.
+
+    `custom_system_prompt` — when provided (non-empty string), replaces the
+    hardcoded Chinese preamble while keeping the indexed words / boundary /
+    glossary lines appended after it.
     """
     indexed = " ".join(f"{i}:{w}" for i, w in enumerate(en_words))
 
@@ -79,14 +84,21 @@ def build_anchor_prompt(
     boundary_list = ", ".join(f"[{b}]" for b in boundaries)
     n = len(boundaries)
 
+    if custom_system_prompt and isinstance(custom_system_prompt, str) and custom_system_prompt.strip():
+        preamble = custom_system_prompt.rstrip()
+    else:
+        preamble = (
+            "你是香港電視廣播嘅資深字幕翻譯員。將下面英文句子翻譯成**完整、豐富、文學化**嘅繁體中文書面語。\n\n"
+            "【翻譯要求】\n"
+            "1. 保留原文所有修飾語、副詞、強調語（如 persistent → 傷病纏身、really → 真正、"
+            "radical → 大刀闊斧、light → 嚴重告急）\n"
+            "2. 使用完整主謂結構；善用四字詞與結構連接詞（在…方面、就此而言、儘管…但）\n"
+            "3. 專有名詞依照指定譯名表；人名首次出現用完整譯名\n"
+            "4. **不要為咗簡短而省略修飾語** — broadcast 允許 2 行顯示，總長約 22–35 字"
+        )
+
     return (
-        "你是香港電視廣播嘅資深字幕翻譯員。將下面英文句子翻譯成**完整、豐富、文學化**嘅繁體中文書面語。\n\n"
-        "【翻譯要求】\n"
-        "1. 保留原文所有修飾語、副詞、強調語（如 persistent → 傷病纏身、really → 真正、"
-        "radical → 大刀闊斧、light → 嚴重告急）\n"
-        "2. 使用完整主謂結構；善用四字詞與結構連接詞（在…方面、就此而言、儘管…但）\n"
-        "3. 專有名詞依照指定譯名表；人名首次出現用完整譯名\n"
-        "4. **不要為咗簡短而省略修飾語** — broadcast 允許 2 行顯示，總長約 22–35 字\n\n"
+        f"{preamble}\n\n"
         f"【標記插入】\n"
         f"翻譯完成後，必須在中文譯文中插入剛好 {n} 個標記：{boundary_list}。"
         f"每個標記 [N] 應放喺**對應英文索引 N 嘅字詞之後**嘅中文譯文位置；"
@@ -169,6 +181,7 @@ def translate_with_alignment(
     progress_callback: Optional[Callable[[int, int], None]] = None,
     parallel_batches: int = 1,
     max_gap_sec: float = MAX_MERGE_GAP_SEC,
+    custom_system_prompt: Optional[str] = None,
 ) -> List[TranslatedSegment]:
     """Translate ASR segments using sentence merge + LLM-marker alignment.
 
@@ -223,7 +236,8 @@ def translate_with_alignment(
 
     for m in multi_seg:
         parts = _align_multi_segment_sentence(
-            engine, m, segments, glossary or [], style, temperature
+            engine, m, segments, glossary or [], style, temperature,
+            custom_system_prompt=custom_system_prompt,
         )
         for seg_idx, zh in zip(m["seg_indices"], parts):
             aligned[seg_idx] = zh
@@ -255,6 +269,7 @@ def _align_multi_segment_sentence(
     glossary: List[dict],
     style: str,
     temperature: Optional[float],
+    custom_system_prompt: Optional[str] = None,
 ) -> List[str]:
     """Translate one multi-segment sentence and return ZH parts per segment.
 
@@ -272,7 +287,8 @@ def _align_multi_segment_sentence(
             boundaries.append(cumulative - 1)  # last word index of this segment
 
     en_words = merged["text"].split()
-    prompt = build_anchor_prompt(en_words, boundaries, glossary)
+    prompt = build_anchor_prompt(en_words, boundaries, glossary,
+                                 custom_system_prompt=custom_system_prompt)
 
     # Call the engine; we need a raw LLM call with a custom system prompt.
     # OllamaTranslationEngine exposes _call_ollama; for generic engines fall

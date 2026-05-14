@@ -2927,12 +2927,16 @@ def _auto_translate(fid: str, sid=None, cancel_event=None) -> None:
 
         if alignment_mode == "llm-markers":
             from translation.alignment_pipeline import translate_with_alignment
+            _anchor_override = (translation_config.get("prompt_overrides") or {}).get(
+                "alignment_anchor_system"
+            ) or None
             translated = translate_with_alignment(
                 engine, asr_segments, glossary=glossary_entries, style=style,
                 batch_size=trans_params["batch_size"],
                 temperature=trans_params["temperature"],
                 progress_callback=_emit_auto_progress,
                 parallel_batches=parallel_batches,
+                custom_system_prompt=_anchor_override,
             )
         elif use_sentence_pipeline or alignment_mode == "sentence":
             from translation.sentence_pipeline import translate_with_sentences

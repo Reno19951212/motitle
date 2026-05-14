@@ -464,7 +464,12 @@ class OllamaTranslationEngine(TranslationEngine):
         user_message = "\n".join(lines)
 
         # Include glossary in the same Chinese format as Pass 1
-        system_prompt = ENRICH_SYSTEM_PROMPT
+        overrides = (self._config.get("prompt_overrides") or {})
+        override = overrides.get("pass2_enrich_system")
+        if override and isinstance(override, str) and override.strip():
+            system_prompt = override
+        else:
+            system_prompt = ENRICH_SYSTEM_PROMPT
         relevant_glossary = self._filter_glossary_for_batch(glossary, batch_segs)
         if relevant_glossary:
             terms = "\n".join(
@@ -575,7 +580,12 @@ class OllamaTranslationEngine(TranslationEngine):
             )
 
         relevant_glossary = self._filter_glossary_for_batch(glossary, [segment])
-        system_prompt = SINGLE_SEGMENT_SYSTEM_PROMPT
+        overrides = (self._config.get("prompt_overrides") or {})
+        override = overrides.get("single_segment_system")
+        if override and isinstance(override, str) and override.strip():
+            system_prompt = override
+        else:
+            system_prompt = SINGLE_SEGMENT_SYSTEM_PROMPT
         if relevant_glossary:
             terms = "\n".join(
                 f'- {entry["source"]} → {entry["target"]}' for entry in relevant_glossary
@@ -657,7 +667,12 @@ class OllamaTranslationEngine(TranslationEngine):
         return self._translate_batch(segments, glossary, style, temperature, context_pairs)
 
     def _build_system_prompt(self, style: str, glossary: List[dict]) -> str:
-        base = SYSTEM_PROMPT_CANTONESE if style == "cantonese" else SYSTEM_PROMPT_FORMAL
+        overrides = (self._config.get("prompt_overrides") or {})
+        override = overrides.get("pass1_system")
+        if override and isinstance(override, str) and override.strip():
+            base = override
+        else:
+            base = SYSTEM_PROMPT_CANTONESE if style == "cantonese" else SYSTEM_PROMPT_FORMAL
         if not glossary:
             return base
         # Localize glossary injection into Chinese so it blends with the
