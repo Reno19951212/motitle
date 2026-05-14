@@ -122,22 +122,26 @@ let _pendingMtPreset = null;     // { config: {...} } | null
 
 ### UI 佈局改動
 
+**重要 codebase 觀察**：`#ppsOverlay` 係「儲存 Profile 預設」modal，本身**唔包含**可編輯嘅 ASR/MT param form（用戶只能透過揀 preset 嚟設值）。所以「ASR section」/「MT section」呢度指**獨立 labeled fieldset 容器**，唔係 collapsible form 區。
+
 ```
 #ppsOverlay
-├─ 基本資訊（不變）
-├─ ASR section [collapsible]
-│  ├─ <div id="ppsAsrPresetButtons">     ← 新增
-│  ├─ <div id="ppsAsrDangerWarnings">    ← 新增
-│  └─ ASR 動態參數 form（不變）
-├─ MT section [collapsible]
-│  ├─ <div id="ppsMtPresetButtons">      ← 新增
-│  ├─ <div id="ppsMtDangerWarnings">     ← 新增
-│  └─ MT 動態參數 form（不變）
-├─ Glossary section（不變）
-└─ Font section（不變）
+├─ 預設名稱 input
+├─ 描述 input
+├─ Summary read-only 顯示
+├─ 字幕來源 fieldset（不變）
+├─ 🎙️ ASR 預設 fieldset（新增）
+│  ├─ <div id="ppsAsrPresetButtons">
+│  └─ <div id="ppsAsrDangerWarnings">
+├─ 🌐 MT 預設 fieldset（新增）
+│  ├─ <div id="ppsMtPresetButtons">
+│  └─ <div id="ppsMtDangerWarnings">
+└─ Save / Cancel 按鈕
 ```
 
-**刪走**：modal 頂部 `#ppsPresetButtons` 同 `#ppsDangerWarnings` 兩個 container，連同對應 label。
+**刪走**：[frontend/index.html:4891-4897](frontend/index.html#L4891-L4897) 嘅 `<div class="pps-preset-section" id="ppsPresetSection">`（含 `#ppsPresetButtons`）同 `<div class="pps-warning-container" id="ppsWarnings">`（注：實際 id 係 `ppsWarnings`，唔係 spec 之前寫嘅 `ppsDangerWarnings`）。
+
+**位置**：兩個新 fieldset 擺喺現有「字幕來源預設」fieldset（[frontend/index.html:4911-4929](frontend/index.html#L4911-L4929)）下面，仍喺 `style="padding: 16px 20px;"` 嘅 inner padding wrapper 入面。
 
 ### Function 改動
 
