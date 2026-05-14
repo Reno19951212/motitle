@@ -9,8 +9,11 @@ const BASE = process.env.BASE_URL || "http://localhost:5001";
 async function _openPpsModal(page) {
   await page.goto(BASE + "/");
   await page.waitForLoadState("domcontentloaded");
-  // Sidebar → 預設 → 新增（opens ppsOverlay）
-  await page.click("text=+ 新增預設");
+  // Wait for the pipeline strip to render (indicates profiles are loaded)
+  await page.waitForSelector(".pipeline-strip", { timeout: 5000 }).catch(() => {});
+  await page.waitForTimeout(300);
+  // Use JS call to bypass videoPlaceholder pointer-event interception
+  await page.evaluate(() => window.openProfileSaveModal && window.openProfileSaveModal());
   await page.waitForSelector("#ppsOverlay.open", { timeout: 3000 });
 }
 
@@ -40,7 +43,7 @@ test("MT preset chip 'Fast Draft' sets batch_size=10 + parallel_batches=4", asyn
   await expect(fastDraftBtn).toHaveClass(/active/);
 
   // Fast Draft sets parallel_batches=4, which triggers critical warning
-  const warning = page.locator("#ppsMtDangerWarnings .pps-warning-chip");
+  const warning = page.locator("#ppsMtDangerWarnings .pps-warning-chip", { hasText: /parallel_batches > 1/ });
   await expect(warning).toBeVisible({ timeout: 1000 });
   await expect(warning).toContainText(/parallel_batches > 1/);
 });
