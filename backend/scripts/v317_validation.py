@@ -424,6 +424,219 @@ def approval_state(baseline_translations: List[Dict], post_translations: List[Di
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Report renderer
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _h2(text): return f"\n## {text}\n"
+def _h3(text): return f"\n### {text}\n"
+def _kv(label, val): return f"- **{label}**: {val}"
+def _table_2col(rows, headers=("Metric", "Value")):
+    out = [f"| {headers[0]} | {headers[1]} |", "|---|---|"]
+    for k, val in rows:
+        out.append(f"| {k} | {val} |")
+    return "\n".join(out)
+
+
+def render_report(diffs: List[Dict[str, Any]], verdict: str = "✅") -> str:
+    """diffs: list of per-video diff dicts. Returns markdown string."""
+    out = []
+    out.append("# v3.17 Validation Diff Report")
+    out.append("")
+    out.append("## Executive Summary")
+    out.append(f"- **Verdict**: {verdict}")
+    out.append(f"- **Date**: {time.strftime('%Y-%m-%d')}")
+    out.append(f"- **Videos tested**: {len(diffs)}")
+    out.append("")
+
+    for i, d in enumerate(diffs, 1):
+        f = d.get("file") or {}
+        out.append(f"## Video {i}: {f.get('original_name', '<unknown>')}")
+        out.append(_kv("file_id", f.get("id", "—")))
+        out.append(_kv("duration", f"{f.get('duration_seconds', '—')}s"))
+        out.append(_kv("profile_id", f.get("profile_id", "—")))
+
+        out.append(_h3("Tier 1 — Latency"))
+        lat = d["latency"]
+        out.append(_table_2col([
+            ("Baseline ASR seconds", lat.get("baseline_asr_seconds", "—")),
+            ("Post ASR seconds", lat.get("post_asr_seconds", "—")),
+            ("Baseline MT seconds", lat.get("baseline_mt_seconds", "—")),
+            ("Post MT seconds", lat.get("post_mt_seconds", "—")),
+            ("Total Δ", round((lat.get("post_total") or 0) - (lat.get("baseline_total") or 0), 1)),
+        ]))
+
+        out.append(_h3("Tier 1 — Segmentation"))
+        seg = d["segmentation"]
+        out.append(_table_2col([
+            ("Baseline count", seg["baseline"]["count"]),
+            ("Post count", seg["post"]["count"]),
+            ("Baseline avg duration", seg["baseline"]["avg_duration"]),
+            ("Post avg duration", seg["post"]["avg_duration"]),
+        ]))
+
+        out.append(_h3("Tier 1 — ASR text delta"))
+        a = d["asr_text"]
+        out.append(_kv("Identical", a["identical"]))
+        out.append(_kv("Changed", a["changed_count"]))
+        out.append(_kv("New", a["new_count"]))
+        out.append(_kv("Dropped", a["dropped_count"]))
+        if a["top_changes"]:
+            out.append("\n**Top changes:**")
+            for c in a["top_changes"]:
+                out.append(f"- `{c['start']:.2f}s` `{c['baseline']}` → `{c['post']}`")
+
+        out.append(_h3("Tier 1 — MT text delta"))
+        m = d["mt_text"]
+        out.append(_kv("Identical", m["identical"]))
+        out.append(_kv("Changed", m["changed_count"]))
+        if m["top_changes"]:
+            out.append("\n**Top changes:**")
+            for c in m["top_changes"][:10]:
+                out.append(f"- idx {c['index']}: EN `{c['en']}`")
+                out.append(f"  - baseline: `{c['baseline_zh']}`")
+                out.append(f"  - post: `{c['post_zh']}`")
+
+        out.append(_h3("Tier 1 — Glossary scan"))
+        g = d["glossary_scan"]
+        if g.get("skipped"):
+            out.append(f"- _Skipped_: {g['reason']}")
+        else:
+            out.append(_table_2col([
+                ("Baseline strict violations", g["baseline_strict_count"]),
+                ("Post strict violations", g["post_strict_count"]),
+                ("Baseline loose violations", g["baseline_loose_count"]),
+                ("Post loose violations", g["post_loose_count"]),
+            ]))
+
+        out.append(_h3("Tier 2 — Subtitle length distribution"))
+        out.append("| Bucket | Baseline | Post |")
+        out.append("|---|---|---|")
+        b_dist = d["subtitle_length"]["baseline"]
+        p_dist = d["subtitle_length"]["post"]
+        for bucket in ["0-10", "11-15", "16-20", "21-28", "29-40", ">40"]:
+            out.append(f"| {bucket} | {b_dist[bucket]} | {p_dist[bucket]} |")
+
+        out.append(_h3("Tier 2 — Reading speed CPS"))
+        cps = d["reading_speed"]
+        cps_post = cps.get("post") or {}
+        if cps_post.get("skipped"):
+            out.append(f"- _Skipped_: {cps_post['reason']}")
+        else:
+            out.append(_table_2col([
+                ("Avg CPS (baseline)", (cps.get("baseline") or {}).get("avg_cps", "—")),
+                ("Avg CPS (post)", cps_post.get("avg_cps", "—")),
+                ("In broadcast band 12-17 (post)", cps_post.get("in_broadcast_band_12_17", "—")),
+                ("Too slow (<8 CPS, post)", cps_post.get("too_slow_count", "—")),
+                ("Too fast (>20 CPS, post)", cps_post.get("too_fast_count", "—")),
+            ]))
+
+        out.append(_h3("Tier 2 — Language consistency"))
+        lc_post = (d["language_consistency"].get("post") or {})
+        out.append(_table_2col([
+            ("EN-with-CJK count (post)", lc_post.get("en_with_cjk_count", "—")),
+            ("ZH-with-Latin (excl whitelist, post)", lc_post.get("zh_with_latin_count", "—")),
+            ("Simplified leak count (post)", lc_post.get("simplified_leak_count", "—")),
+        ]))
+
+        out.append(_h3("Tier 2 — Repetition / cascade detection"))
+        rep = d["repetition"]
+        out.append(_kv("Baseline repetition pairs", len(rep.get("baseline") or [])))
+        out.append(_kv("Post repetition pairs", len(rep.get("post") or [])))
+
+        out.append(_h3("Tier 3 — Segment timing health"))
+        th_post = (d["timing_health"].get("post") or {})
+        if not th_post.get("skipped"):
+            out.append(_table_2col([
+                ("Too short (<0.3s) post", th_post.get("too_short_count", "—")),
+                ("Too long (>7s) post", th_post.get("too_long_count", "—")),
+                ("Avg gap (post)", th_post.get("avg_gap", "—")),
+            ]))
+        else:
+            out.append(f"- _Skipped_: {th_post.get('reason')}")
+
+        out.append(_h3("Tier 3 — Flag rates"))
+        fr = d["flag_rates"]
+        fr_b = fr.get("baseline") or {}
+        fr_p = fr.get("post") or {}
+        out.append(_table_2col([
+            ("[LONG] count (baseline / post)", f"{fr_b.get('long_flag_count', '—')} / {fr_p.get('long_flag_count', '—')}"),
+            ("[NEEDS REVIEW] count (baseline / post)", f"{fr_b.get('review_flag_count', '—')} / {fr_p.get('review_flag_count', '—')}"),
+            ("Hallucination % (baseline / post)", f"{fr_b.get('hallucination_pct', '—')}% / {fr_p.get('hallucination_pct', '—')}%"),
+        ]))
+
+        out.append(_h3("Tier 3 — Batch boundary check"))
+        bb_post = (d["batch_boundary"].get("post") or {})
+        if bb_post.get("skipped"):
+            out.append(f"- _Skipped_: {bb_post.get('reason')}")
+        else:
+            out.append(_kv("Edge repetitions (post)", bb_post.get("edge_repetition_count", "—")))
+
+        out.append(_h3("Tier 3 — Word-level alignment"))
+        wl_b = (d["word_level"].get("baseline") or {})
+        wl_p = (d["word_level"].get("post") or {})
+        out.append(_table_2col([
+            ("With words[] (baseline)", f"{wl_b.get('with_words_pct', '—')}%"),
+            ("With words[] (post)", f"{wl_p.get('with_words_pct', '—')}%"),
+        ]))
+
+        out.append(_h3("Tier 3 — Approval state"))
+        ap = d["approval"]
+        out.append(_kv("Baseline approved / pending", f"{ap['baseline']['approved']} / {ap['baseline']['pending']}"))
+        out.append(_kv("Post approved / pending", f"{ap['post']['approved']} / {ap['post']['pending']}"))
+        out.append(f"> _{ap['note']}_")
+
+    out.append(_h2("Conclusion"))
+    out.append("[Recommendation: merge / rollback / further investigation — to be filled by reviewer]")
+
+    return "\n".join(out)
+
+
+def compute_all_diffs(baseline: Dict, post: Dict) -> Dict[str, Any]:
+    """Run all 13 metric helpers on a baseline+post snapshot pair."""
+    batch_size = (baseline.get("profile_snapshot") or {}).get("translation", {}).get("batch_size", 1)
+    return {
+        "file": post.get("file") or baseline.get("file"),
+        "latency": latency_delta(baseline, post),
+        "segmentation": segmentation_delta(baseline, post),
+        "asr_text": asr_text_delta(baseline, post),
+        "mt_text": mt_text_delta(baseline, post),
+        "glossary_scan": glossary_scan_delta(baseline, post),
+        "subtitle_length": {
+            "baseline": subtitle_length_distribution(baseline["translations"]),
+            "post": subtitle_length_distribution(post["translations"]),
+        },
+        "reading_speed": {
+            "baseline": reading_speed_cps(baseline["translations"], baseline["segments"]),
+            "post": reading_speed_cps(post["translations"], post["segments"]),
+        },
+        "language_consistency": {
+            "baseline": language_consistency(baseline["segments"], baseline["translations"]),
+            "post": language_consistency(post["segments"], post["translations"]),
+        },
+        "repetition": {
+            "baseline": repetition_detect(baseline["translations"]),
+            "post": repetition_detect(post["translations"]),
+        },
+        "timing_health": {
+            "baseline": segment_timing_health(baseline["segments"]),
+            "post": segment_timing_health(post["segments"]),
+        },
+        "flag_rates": {
+            "baseline": flag_rates(baseline["translations"]),
+            "post": flag_rates(post["translations"]),
+        },
+        "batch_boundary": {
+            "post": batch_boundary_check(post["translations"], batch_size),
+        },
+        "word_level": {
+            "baseline": word_level_alignment(baseline["segments"]),
+            "post": word_level_alignment(post["segments"]),
+        },
+        "approval": approval_state(baseline["translations"], post["translations"]),
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # CLI
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -432,6 +645,20 @@ def cmd_snapshot(args):
     snap = capture_snapshot(s, args.file_id)
     Path(args.output).write_text(json.dumps(snap, ensure_ascii=False, indent=2))
     print(f"Wrote snapshot to {args.output}")
+
+
+def cmd_diff(args):
+    diffs = []
+    baseline_paths = sorted(Path(".").glob(args.baseline_glob))
+    post_paths = sorted(Path(".").glob(args.post_glob))
+    assert len(baseline_paths) == len(post_paths), f"baseline count ({len(baseline_paths)}) + post count ({len(post_paths)}) must match"
+    assert baseline_paths, f"no baseline files matched glob: {args.baseline_glob}"
+    for bp, pp in zip(baseline_paths, post_paths):
+        b = json.loads(bp.read_text())
+        p = json.loads(pp.read_text())
+        diffs.append(compute_all_diffs(b, p))
+    Path(args.output).write_text(render_report(diffs))
+    print(f"Wrote report to {args.output}")
 
 
 def main():
@@ -443,7 +670,13 @@ def main():
     sp.add_argument("--output", required=True)
     sp.set_defaults(func=cmd_snapshot)
 
-    # (rerun and diff subcommands added in later tasks)
+    dp = sub.add_parser("diff")
+    dp.add_argument("--baseline-glob", required=True)
+    dp.add_argument("--post-glob", required=True)
+    dp.add_argument("--output", required=True)
+    dp.set_defaults(func=cmd_diff)
+
+    # (rerun subcommand added in Task 11)
 
     args = p.parse_args()
     args.func(args)

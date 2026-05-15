@@ -169,3 +169,15 @@ def test_approval_state_note_present():
     assert out["baseline"]["approved"] == 2
     assert out["post"]["approved"] == 0
     assert "Post re-run resets" in out["note"]
+
+
+def test_render_report_smoke():
+    b = _mk_snapshot([{"start": 0, "end": 2.0, "text": "Hello"}], [{"en_text": "Hello", "zh_text": "你好", "flags": []}])
+    p = _mk_snapshot([{"start": 0, "end": 2.0, "text": "Hello"}], [{"en_text": "Hello", "zh_text": "你好", "flags": []}])
+    diffs = [v.compute_all_diffs(b, p)]
+    md = v.render_report(diffs)
+    assert "v3.17 Validation Diff Report" in md
+    assert "Videos tested" in md
+    assert "Tier 1" in md
+    assert "Tier 2" in md
+    assert "Tier 3" in md
