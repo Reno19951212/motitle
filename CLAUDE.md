@@ -340,6 +340,30 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### v3.17 — Preset Trim + ASR Cleanup + Validation
+- **Part A — preset trim**：`ASR_PRESETS` 刪 `speed`（剩 `accuracy`/`debug`/`custom`）；`MT_PRESETS` 刪 `fast-draft`（剩 `broadcast-quality`/`literal-ref`/`custom`）。Playwright Test 2/3/4 reframe — Test 2 + Test 4 改用 Custom preset + `eval()` JS direct-mutate（`_pendingMt/AsrPreset` 變量喺 script scope，`page.evaluate()` 入面 eval 訪問）；Test 3 mix-and-match 改 ASR Accuracy + MT Broadcast Quality。4/4 Playwright green。
+- **Part B — ASR engine cleanup**：
+  - [backend/asr/whisper_engine.py](backend/asr/whisper_engine.py) + [backend/asr/mlx_whisper_engine.py](backend/asr/mlx_whisper_engine.py) 嘅 `get_params_schema()` 將 `model_size` enum 收窄到 `['large-v3']`，default 同步改 `'large-v3'`；MLX-Whisper 嘅 `MODEL_REPO` dict 同步收窄。前端 dropdown 自動跟 schema 收窄。
+  - 一次性 migration script [backend/scripts/migrate_v317_asr_models.py](backend/scripts/migrate_v317_asr_models.py) 將既有 `config/profiles/*.json` 內 `asr.model_size != 'large-v3'` 嘅 normalize 做 `'large-v3'`。Idempotent。實際運行 0 個 profile 改動 — 3 個既有 profile 已經全部 large-v3。
+  - Delete `backend/asr/qwen3_engine.py` + `backend/asr/flg_engine.py`（兩個 stub 自 v2.0 起一直 `raise NotImplementedError`）；`backend/asr/__init__.py` factory 移除對應 imports + factory dict mapping。Unknown engine name 仍 raise `ValueError("Unknown ASR engine: ...")`。
+  - 跨 backend 清理 stub reference：`backend/profiles.py` 嘅 `VALID_ASR_ENGINES` 由 `{"whisper", "mlx-whisper", "qwen3-asr", "flg-asr"}` 改 `{"whisper", "mlx-whisper"}`；`backend/app.py` `/api/asr/engines` handler 移除 stub 條目；`backend/tests/test_asr.py` 7 個 stub 相關 test 刪除、1 個 engine list test 更新 expected count + negative assertions、1 個 `model_size='small'` fixture fix 做 `'large-v3'`。`pytest tests/` 757 pass / 15 pre-existing fail（11 Playwright E2E、1 v3.3 macOS tmpdir baseline、3 R5 Phase 5 已知 isolation 問題）— 無新 regression。
+- **Part C — Validation tooling + before/after diff report**：
+  - [backend/scripts/v317_validation.py](backend/scripts/v317_validation.py)（~700 行）— `capture_snapshot` 拎齊 file/segments/translations/profile/glossary-scan；13 個 metric helper（Tier 1 core 5 + Tier 2 broadcast quality 4 + Tier 3 diagnostic 5）；markdown report renderer；CLI 三個 subcommand: `snapshot` / `rerun` / `diff`。
+  - [backend/tests/test_v317_validation.py](backend/tests/test_v317_validation.py) 18 個 unit test 全綠（每個 metric helper 都有 fixture-based 測試）。
+  - Validation 流程：對 server 上嘅 2 條 video 做 baseline snapshot → 應用 Part A+B → re-run ASR/MT → post snapshot → 13-tier diff report → human review gate（合理化 verdict + Conclusion）。
+  - Report、baseline snapshot、post snapshot 全部 commit 入 [docs/superpowers/validation/](docs/superpowers/validation/) 作 PR evidence。
+- **Inline catches during validation**：
+  - **`capture_snapshot` 對 `/api/profiles/active` 響應 envelope 處理**：endpoint 返 `{"profile": {...}}` 包裝，唔同 `/api/profiles/<id>` 直接返 dict。Helper 加自動 unwrap，避免下游 glossary lookup 失效。
+  - **`prod-default` profile 嘅 `translation.glossary_id` stale**：value 係 `"broadcast-news"` 但實際 glossary 用 UUID。Update 為真實 UUID `08b6666e-1bcc-4df1-9005-e5dafa27c076`。
+  - **`backend/translation/alignment_pipeline.py` line 78+81 用 v3.14 glossary field**：仍用 `e['en']`/`e['zh']`（v3.15 已 rename 做 `source`/`target`）— 當 active profile `alignment_mode: "llm-markers"` 時所有 MT job silent KeyError。加 backward-compat fallback `.get('source', e.get('en', ''))`。
+- **Validation 結果**（詳見 [docs/superpowers/validation/v3.17-diff-report.md](docs/superpowers/validation/v3.17-diff-report.md)）：
+  - Video 1（English source / 166 segments）：ASR text 100% identical baseline ↔ post，MT latency 由 82.0s 減到 52.1s（-37%）。
+  - Video 2（Cantonese source baseline）：baseline 用咗 Cantonese-language profile 跑（registry 冇記 `profile_id`），post snapshot 跟住 active profile fallback（`asr.language=en`），ASR 出英文。Apples-to-oranges 唔可直接比較；屬於 profile linkage 問題而非 v3.17 regression。
+  - **Pre-existing alignment_pipeline.py marker-split bug surfaced**：Video 1 post MT 有 61.4% segments (102/166) 嘅 `zh_text` 係空字串。Pattern：前 82 個 segment 全空，之後零星有內容。屬於深層 `parse_markers()`/`time_proportion_fallback()` 嘅 silent fallback 問題，**pre-date v3.17，需要獨立 v3.18 branch 跟進**。
+  - **Verdict**: ⚠️ Accept v3.17 with notes — v3.17 自身範圍 zero regression，但 validation 過程 surface 咗 pre-existing 嚴重 MT alignment bug，建議 v3.18 立即跟進 + 同時建議用戶暫時 avoid `alignment_mode: "llm-markers"`。
+- **Files touched**：3 個 frontend modified（`index.html`、`tests/test_profile_ui_guidance.spec.js`、`CLAUDE.md`），8 個 backend modified（`whisper_engine.py`、`mlx_whisper_engine.py`、`asr/__init__.py`、`profiles.py`、`app.py`、`translation/alignment_pipeline.py`、`tests/test_asr.py`、`config/profiles/prod-default.json`），2 個 backend deleted（`qwen3_engine.py`、`flg_engine.py`），3 個 new script（migrate_v317_asr_models.py + v317_validation.py + test_v317_validation.py），5 個 validation artifact（2 baseline JSON + 2 post JSON + 1 markdown report）。
+- **Spec / Plan / Report**：[spec](docs/superpowers/specs/2026-05-15-preset-trim-asr-cleanup-design.md) / [plan](docs/superpowers/plans/2026-05-15-preset-trim-asr-cleanup-plan.md) / [report](docs/superpowers/validation/v3.17-diff-report.md)
+
 ### v3.16 — Per-Engine Preset + Danger Warning Refactor
 - **目標**：將 Profile Save modal (`#ppsOverlay`) 由 pipeline-level bundled preset / danger warning 改為 per-engine（ASR + MT 各自獨立）。Spec: [docs/superpowers/specs/2026-05-14-per-engine-preset-design.md](docs/superpowers/specs/2026-05-14-per-engine-preset-design.md)。Plan: [docs/superpowers/plans/2026-05-14-per-engine-preset-plan.md](docs/superpowers/plans/2026-05-14-per-engine-preset-plan.md)。
 - **HTML 改動**：刪走 `#ppsPresetSection` + `#ppsWarnings`（modal 頂部 bundled 容器），加兩個新 fieldset `🎙️ ASR 預設` (`#ppsAsrPresetButtons` + `#ppsAsrDangerWarnings`) + `🌐 MT 預設` (`#ppsMtPresetButtons` + `#ppsMtDangerWarnings`)，住喺現有「字幕來源預設」fieldset 後面。
