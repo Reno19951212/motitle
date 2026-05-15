@@ -1,0 +1,682 @@
+[
+  {
+    "idx": 0,
+    "start": 0.0,
+    "end": 0.08,
+    "duration": 0.08,
+    "en": "!",
+    "zh": "驚嘆號。"
+  },
+  {
+    "idx": 1,
+    "start": 8.400000000000002,
+    "end": 9.56,
+    "duration": 1.16,
+    "en": "The following video is sponsored by",
+    "zh": "以下影片由香港本地機構贊助，並出席記者會。"
+  },
+  {
+    "idx": 2,
+    "start": 9.56,
+    "end": 21.0,
+    "duration": 11.44,
+    "en": "The Hong Kong-based",
+    "zh": ""
+  },
+  {
+    "idx": 3,
+    "start": 21.0,
+    "end": 22.5,
+    "duration": 1.5,
+    "en": "and also attended the press conference.",
+    "zh": ""
+  },
+  {
+    "idx": 4,
+    "start": 23.46,
+    "end": 24.22,
+    "duration": 0.76,
+    "en": "Let's take a look.",
+    "zh": "讓我們一睹為快。"
+  },
+  {
+    "idx": 5,
+    "start": 25.04,
+    "end": 26.4,
+    "duration": 1.36,
+    "en": "I like coffee shops.",
+    "zh": "我鍾意咖啡館。"
+  },
+  {
+    "idx": 6,
+    "start": 26.56,
+    "end": 27.14,
+    "duration": 0.58,
+    "en": "I like everything.",
+    "zh": "我喜歡一切。"
+  },
+  {
+    "idx": 7,
+    "start": 28.62,
+    "end": 30.78,
+    "duration": 2.16,
+    "en": "Tofu flower, corn chips,",
+    "zh": "豆腐花、玉米片與貓，我真正鍾意嘅係貓"
+  },
+  {
+    "idx": 8,
+    "start": 30.94,
+    "end": 32.16,
+    "duration": 1.22,
+    "en": "cats, I love cats.",
+    "zh": "。"
+  },
+  {
+    "idx": 9,
+    "start": 32.42,
+    "end": 34.02,
+    "duration": 1.6,
+    "en": "I love watching New Year's Eve.",
+    "zh": "我鍾意睇除夕夜。"
+  },
+  {
+    "idx": 10,
+    "start": 34.28,
+    "end": 36.42,
+    "duration": 2.14,
+    "en": "So I watch New Year's Eve in South Africa.",
+    "zh": "我於南非觀看除夕夜活動。"
+  },
+  {
+    "idx": 11,
+    "start": 37.32000000000001,
+    "end": 38.28,
+    "duration": 0.96,
+    "en": "New Year's Eve.",
+    "zh": "除夕之夜。"
+  },
+  {
+    "idx": 12,
+    "start": 39.78,
+    "end": 41.14,
+    "duration": 1.36,
+    "en": "Today, the New 10-pounder,",
+    "zh": "今日，傷病纏身嘅新十磅炮袁宏堯出席記者會，並分享佢真正嘅興趣"
+  },
+  {
+    "idx": 13,
+    "start": 41.22,
+    "end": 42.9,
+    "duration": 1.68,
+    "en": "Yuen Hung-Yao, attended the press conference",
+    "zh": "，就此而言，佢同媒體分享咗"
+  },
+  {
+    "idx": 14,
+    "start": 42.9,
+    "end": 44.88,
+    "duration": 1.98,
+    "en": "and shared her interests.",
+    "zh": "佢嘅心聲。"
+  },
+  {
+    "idx": 15,
+    "start": 45.18,
+    "end": 46.68,
+    "duration": 1.5,
+    "en": "Her positive and positive answers",
+    "zh": "她正面且積極嘅答覆和她真誠嘅微笑"
+  },
+  {
+    "idx": 16,
+    "start": 46.68,
+    "end": 48.36,
+    "duration": 1.68,
+    "en": "and her genuine smile",
+    "zh": "，令佢真正充滿興奮之情"
+  },
+  {
+    "idx": 17,
+    "start": 48.36,
+    "end": 49.76,
+    "duration": 1.4,
+    "en": "She is very excited.",
+    "zh": "。"
+  },
+  {
+    "idx": 18,
+    "start": 50.08,
+    "end": 53.46,
+    "duration": 3.38,
+    "en": "Her biggest goal is to gain experience",
+    "zh": "她最大嘅目標係獲取寶貴經驗"
+  },
+  {
+    "idx": 19,
+    "start": 53.46,
+    "end": 54.62,
+    "duration": 1.16,
+    "en": "and keep improving.",
+    "zh": "並持續不斷地自我提升。"
+  },
+  {
+    "idx": 20,
+    "start": 55.74,
+    "end": 57.98,
+    "duration": 2.24,
+    "en": "My strong point is my talent.",
+    "zh": "我嘅強項係我嘅才華。"
+  },
+  {
+    "idx": 21,
+    "start": 58.52,
+    "end": 61.86,
+    "duration": 3.34,
+    "en": "I hope I can be more outstanding.",
+    "zh": "我希望能表現得更出色。"
+  },
+  {
+    "idx": 22,
+    "start": 62.720000000000006,
+    "end": 64.84,
+    "duration": 2.12,
+    "en": "I am still looking for a weak point.",
+    "zh": "我仍在尋找弱點。"
+  },
+  {
+    "idx": 23,
+    "start": 65.02,
+    "end": 67.88,
+    "duration": 2.86,
+    "en": "I hope I won't have a weak point.",
+    "zh": "希望我不會有任何弱點。"
+  },
+  {
+    "idx": 24,
+    "start": 67.94,
+    "end": 71.78,
+    "duration": 3.84,
+    "en": "I will try my best to improve myself.",
+    "zh": "我定當盡力提升自我。"
+  },
+  {
+    "idx": 25,
+    "start": 72.18,
+    "end": 75.16,
+    "duration": 2.98,
+    "en": "I always pay attention to every player",
+    "zh": "我始終會留意每一位球員，因為他們各自擁有獨特之處"
+  },
+  {
+    "idx": 26,
+    "start": 75.16,
+    "end": 77.04,
+    "duration": 1.88,
+    "en": "because they have their own special points.",
+    "zh": "。"
+  },
+  {
+    "idx": 27,
+    "start": 77.04,
+    "end": 78.66,
+    "duration": 1.62,
+    "en": "and their advantages.",
+    "zh": "及其優勢所在。"
+  },
+  {
+    "idx": 28,
+    "start": 78.96,
+    "end": 80.62,
+    "duration": 1.66,
+    "en": "And their way of playing chess is different.",
+    "zh": "他們下棋嘅方式唔同。"
+  },
+  {
+    "idx": 29,
+    "start": 80.82,
+    "end": 83.74,
+    "duration": 2.92,
+    "en": "So I hope I can take advantage of their",
+    "zh": "我希望能真正善加利用他們**"
+  },
+  {
+    "idx": 30,
+    "start": 83.74,
+    "end": 85.62,
+    "duration": 1.88,
+    "en": "and their advantages",
+    "zh": "**同埋佢哋**"
+  },
+  {
+    "idx": 31,
+    "start": 85.62,
+    "end": 88.02,
+    "duration": 2.4,
+    "en": "and put them in my own hands.",
+    "zh": "**嘅優勢，並將其牢牢掌握喺自己手心之中。"
+  },
+  {
+    "idx": 32,
+    "start": 88.6,
+    "end": 91.0,
+    "duration": 2.4,
+    "en": "On March 8,",
+    "zh": "三月八日，棋手艾小立正式成為一位父親"
+  },
+  {
+    "idx": 33,
+    "start": 91.24,
+    "end": 93.64,
+    "duration": 2.4,
+    "en": "the chess player Ai Xiaoli officially became a father.",
+    "zh": "。"
+  },
+  {
+    "idx": 34,
+    "start": 93.98,
+    "end": 95.74,
+    "duration": 1.76,
+    "en": "Her son Thomas was born in Hong Kong",
+    "zh": "她嘅兒子湯馬士出生於香港"
+  },
+  {
+    "idx": 35,
+    "start": 95.74,
+    "end": 97.44,
+    "duration": 1.7,
+    "en": "and he is very good at playing chess.",
+    "zh": "，佢同下棋方面非常擅長。"
+  },
+  {
+    "idx": 36,
+    "start": 98.19999999999999,
+    "end": 101.74,
+    "duration": 3.54,
+    "en": "Ai Xiaoli won four games of chess on the day he was born.",
+    "zh": "他出生當日，艾小麗連勝四局棋。"
+  },
+  {
+    "idx": 37,
+    "start": 101.74,
+    "end": 103.32,
+    "duration": 1.58,
+    "en": "Many children and fans",
+    "zh": "許多兒童****和粉絲們紛"
+  },
+  {
+    "idx": 38,
+    "start": 103.32,
+    "end": 105.26,
+    "duration": 1.94,
+    "en": "have joined her social media platforms",
+    "zh": "紛登上她嘅社交媒體平台，"
+  },
+  {
+    "idx": 39,
+    "start": 105.26,
+    "end": 106.52,
+    "duration": 1.26,
+    "en": "to give a blessing to the newlyweds.",
+    "zh": "為這對新婚夫婦送上真正祝福。"
+  },
+  {
+    "idx": 40,
+    "start": 108.16000000000001,
+    "end": 111.66,
+    "duration": 3.5,
+    "en": "I hope Thomas will continue to show the nature of a small fortune teller",
+    "zh": "我期望湯馬士能繼續展現一位小財源占卜師嘅本質，並引導其父投擲更多骰子"
+  },
+  {
+    "idx": 41,
+    "start": 111.66,
+    "end": 113.78,
+    "duration": 2.12,
+    "en": "and lead his father to hit more dice.",
+    "zh": "。"
+  },
+  {
+    "idx": 42,
+    "start": 113.9,
+    "end": 115.04,
+    "duration": 1.14,
+    "en": "The money is all yours.",
+    "zh": "這筆錢全歸你所有。"
+  },
+  {
+    "idx": 43,
+    "start": 118.32000000000001,
+    "end": 119.36,
+    "duration": 1.04,
+    "en": "Besides the",
+    "zh": "除咗傷病纏身之外"
+  },
+  {
+    "idx": 44,
+    "start": 120.28,
+    "end": 120.8,
+    "duration": 0.52,
+    "en": "!",
+    "zh": "，佢仲要面對真正嚴重告急嘅局勢。"
+  },
+  {
+    "idx": 45,
+    "start": 121.74000000000001,
+    "end": 122.8,
+    "duration": 1.06,
+    "en": "Another chess player",
+    "zh": "另一位棋手近日展現了真正卓越嘅表現，就此而言，這正是！"
+  },
+  {
+    "idx": 46,
+    "start": 122.8,
+    "end": 125.52,
+    "duration": 2.72,
+    "en": "recently performed a great performance",
+    "zh": "他傷病纏身仍大刀闊斧，嚴重告急下依然光輝奪目"
+  },
+  {
+    "idx": 47,
+    "start": 125.52,
+    "end": 127.18,
+    "duration": 1.66,
+    "en": "which is the !",
+    "zh": "。"
+  },
+  {
+    "idx": 48,
+    "start": 127.18,
+    "end": 128.18,
+    "duration": 1.0,
+    "en": "On March 7th,",
+    "zh": "三月七日，他於南翼賽馬日中真正贏取六場賽事"
+  },
+  {
+    "idx": 49,
+    "start": 128.18,
+    "end": 128.52,
+    "duration": 0.34,
+    "en": "he won six dice",
+    "zh": "，展現出大刀闊斧之姿"
+  },
+  {
+    "idx": 50,
+    "start": 128.52,
+    "end": 133.34,
+    "duration": 4.82,
+    "en": "in the South Wing Race Day.",
+    "zh": "。"
+  },
+  {
+    "idx": 51,
+    "start": 133.34,
+    "end": 133.9,
+    "duration": 0.56,
+    "en": "Including the first round,",
+    "zh": "包括首輪，"
+  },
+  {
+    "idx": 52,
+    "start": 163.9,
+    "end": 168.38,
+    "duration": 4.48,
+    "en": "But some netizens found out that the horse fell off. What happened?",
+    "zh": "發生咩事？"
+  },
+  {
+    "idx": 53,
+    "start": 169.8,
+    "end": 170.84,
+    "duration": 1.04,
+    "en": "It's the grass.",
+    "zh": "係草地。"
+  },
+  {
+    "idx": 54,
+    "start": 171.18,
+    "end": 174.88,
+    "duration": 3.7,
+    "en": "Everyone was worried that the horse would be hungry after falling off.",
+    "zh": "眾人都擔心馬匹墮下後會飢餓。"
+  },
+  {
+    "idx": 55,
+    "start": 174.88,
+    "end": 178.04,
+    "duration": 3.16,
+    "en": "So, a group of netizens turned crazy.",
+    "zh": "於是，一群網民變得瘋狂。"
+  },
+  {
+    "idx": 56,
+    "start": 178.14,
+    "end": 182.16,
+    "duration": 4.02,
+    "en": "Fortunately, this post successfully called the horse-drawn staff to come out.",
+    "zh": "幸而此舉成功召喚馬車侍從出動。"
+  },
+  {
+    "idx": 57,
+    "start": 182.22,
+    "end": 184.28,
+    "duration": 2.06,
+    "en": "In addition to helping the horse to recover the lunch,",
+    "zh": "除協助這匹傷病纏身嘅馬恢復元氣外，他們亦揭開咗神秘馬匹真正嘅身份"
+  },
+  {
+    "idx": 58,
+    "start": 184.82,
+    "end": 188.68,
+    "duration": 3.86,
+    "en": "they also revealed the true identity of the mysterious horse.",
+    "zh": "。"
+  },
+  {
+    "idx": 59,
+    "start": 188.68,
+    "end": 191.02,
+    "duration": 2.34,
+    "en": "This cute and hard-working character",
+    "zh": "這位可愛且勤勉嘅角色，來自於耀德榮家族中真正幸運嘅一家"
+  },
+  {
+    "idx": 60,
+    "start": 191.02,
+    "end": 192.58,
+    "duration": 1.56,
+    "en": "is from the lucky family of the Yodat Wing.",
+    "zh": "。"
+  },
+  {
+    "idx": 61,
+    "start": 194.2,
+    "end": 196.46,
+    "duration": 2.26,
+    "en": "If you pass by the horse field next time,",
+    "zh": "倘若你下次經過馬場，可向他問候"
+  },
+  {
+    "idx": 62,
+    "start": 196.48,
+    "end": 198.72,
+    "duration": 2.24,
+    "en": "you can say hello to him.",
+    "zh": "。"
+  },
+  {
+    "idx": 63,
+    "start": 199.52,
+    "end": 202.72,
+    "duration": 3.2,
+    "en": "On March 9, Australian young chess player Stenley",
+    "zh": "三月九日，傷病纏身嘅澳洲年輕棋手史丹利真正擊敗美國棋手米蘭，並和大刀闊斧嘅德國高地布林克和，最終贏得阿德萊德盃"
+  },
+  {
+    "idx": 64,
+    "start": 202.72,
+    "end": 204.56,
+    "duration": 1.84,
+    "en": "beat the American chess player Milan Wang",
+    "zh": "和"
+  },
+  {
+    "idx": 65,
+    "start": 204.56,
+    "end": 206.7,
+    "duration": 2.14,
+    "en": "to defeat the German Highland Blink",
+    "zh": "和"
+  },
+  {
+    "idx": 66,
+    "start": 206.7,
+    "end": 208.26,
+    "duration": 1.56,
+    "en": "and win the Adelaide Cup.",
+    "zh": "。"
+  },
+  {
+    "idx": 67,
+    "start": 208.56,
+    "end": 211.18,
+    "duration": 2.62,
+    "en": "Two horses had to take pictures of each other",
+    "zh": "兩匹馬匹必須在彼此拍照之前，方能正式參與競賽"
+  },
+  {
+    "idx": 68,
+    "start": 211.18,
+    "end": 211.78,
+    "duration": 0.6,
+    "en": "before they could compete.",
+    "zh": "。"
+  },
+  {
+    "idx": 69,
+    "start": 212.18,
+    "end": 213.0,
+    "duration": 0.82,
+    "en": "It was very exciting.",
+    "zh": "當時情況十分刺激。"
+  },
+  {
+    "idx": 70,
+    "start": 213.22,
+    "end": 214.8,
+    "duration": 1.58,
+    "en": "But the end was short-lived.",
+    "zh": "但結局短暫。"
+  },
+  {
+    "idx": 71,
+    "start": 214.84,
+    "end": 216.8,
+    "duration": 1.96,
+    "en": "Stenley, who won the biggest victory",
+    "zh": "儘管史丹利真正贏得最盛大勝利，但這位船長卻遭美國國王大加拋棄"
+  },
+  {
+    "idx": 72,
+    "start": 216.8,
+    "end": 218.76,
+    "duration": 1.96,
+    "en": "The captain of the ship, Stanley, was thrown off by the American king.",
+    "zh": "。"
+  },
+  {
+    "idx": 73,
+    "start": 219.62,
+    "end": 222.94,
+    "duration": 3.32,
+    "en": "The moment of the rising sun, he instantly became a return to the scene.",
+    "zh": "旭日初昇之際，他旋即重返現場。"
+  },
+  {
+    "idx": 74,
+    "start": 223.34,
+    "end": 227.22,
+    "duration": 3.88,
+    "en": "Many netizens have tried to turn the new meme into a new one.",
+    "zh": "網民嘗試將新迷因轉化為另一種新形式。"
+  },
+  {
+    "idx": 75,
+    "start": 227.64,
+    "end": 229.28,
+    "duration": 1.64,
+    "en": "Actually, everyone was very happy for him.",
+    "zh": "其實，大家為他感到高興。"
+  },
+  {
+    "idx": 76,
+    "start": 229.84,
+    "end": 231.48,
+    "duration": 1.64,
+    "en": "Like a few days ago when he took the plane,",
+    "zh": "就在數日前他乘搭飛機時，除了大力推廣客艙服務，機組人員亦為他精心籌備了一場隆重嘅歡迎儀式"
+  },
+  {
+    "idx": 77,
+    "start": 231.76,
+    "end": 234.02,
+    "duration": 2.26,
+    "en": "besides the promotion of the passenger cabin,",
+    "zh": "；就此而言，他們對這位尊貴乘客嘅重視程度可謂無微不至"
+  },
+  {
+    "idx": 78,
+    "start": 234.2,
+    "end": 237.88,
+    "duration": 3.68,
+    "en": "the crew also prepared a special welcome ceremony for him.",
+    "zh": "。"
+  },
+  {
+    "idx": 79,
+    "start": 237.9,
+    "end": 240.96,
+    "duration": 3.06,
+    "en": "All passengers were gathered to celebrate his arrival.",
+    "zh": "所有乘客聚集慶祝其抵達。"
+  },
+  {
+    "idx": 80,
+    "start": 241.22,
+    "end": 243.34,
+    "duration": 2.12,
+    "en": "Such a big toast is perfect for a drink.",
+    "zh": "如此大杯飲品正合意。"
+  },
+  {
+    "idx": 81,
+    "start": 246.8,
+    "end": 249.1,
+    "duration": 2.3,
+    "en": "Next week is the big day of the Hong Kong Cup.",
+    "zh": "下週係香港盃嘅重頭戲。"
+  },
+  {
+    "idx": 82,
+    "start": 250.5,
+    "end": 253.54,
+    "duration": 3.04,
+    "en": "The signing ceremony will be held on March 19.",
+    "zh": "簽約儀式將於三月十九日舉行。"
+  },
+  {
+    "idx": 83,
+    "start": 254.38,
+    "end": 257.7,
+    "duration": 3.32,
+    "en": "Please keep an eye on which participants can get the most votes.",
+    "zh": "請留意哪位參與者獲票最多。"
+  },
+  {
+    "idx": 84,
+    "start": 257.9,
+    "end": 261.0,
+    "duration": 3.1,
+    "en": "We'll be back next week with the latest news.",
+    "zh": "下週將帶來最新新聞。"
+  }
+]
