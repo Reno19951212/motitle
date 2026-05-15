@@ -32,7 +32,7 @@ ADMIN_PASSWORD = "AdminPass1!"
 def _login_session() -> requests.Session:
     """Login as admin and return authenticated session."""
     s = requests.Session()
-    r = s.post(f"{BASE_URL}/login", data={"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD})
+    r = s.post(f"{BASE_URL}/login", json={"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD})
     r.raise_for_status()
     return s
 

@@ -1,0 +1,7431 @@
+{
+  "captured_at": "2026-05-15T03:02:04Z",
+  "file": {
+    "approved_count": 0,
+    "asr_seconds": 14.8,
+    "backend": "mlx-whisper",
+    "error": null,
+    "id": "abdbe1873542",
+    "job_id": null,
+    "model": "large-v3",
+    "original_name": "【#賽馬娛樂新聞】25:26 #26 新見習騎師🏇袁幸堯不日登場🔥 1080p.mp4",
+    "pipeline_seconds": 90.3,
+    "segment_count": 104,
+    "size": 91222481,
+    "status": "done",
+    "translation_engine": "qwen3.5-35b-a3b",
+    "translation_seconds": 75.5,
+    "translation_status": "done",
+    "uploaded_at": 1778808413.482395
+  },
+  "segments": [
+    {
+      "end": 11.96,
+      "id": 0,
+      "start": 8.599999999999994,
+      "text": "下個月有新騎師登場, 就是澳洲好手",
+      "words": [
+        {
+          "end": 9.0,
+          "probability": 0.7880859375,
+          "start": 8.599999999999994,
+          "word": "下"
+        },
+        {
+          "end": 9.18,
+          "probability": 0.8564453125,
+          "start": 9.0,
+          "word": "個"
+        },
+        {
+          "end": 9.34,
+          "probability": 0.99951171875,
+          "start": 9.18,
+          "word": "月"
+        },
+        {
+          "end": 9.46,
+          "probability": 0.91552734375,
+          "start": 9.34,
+          "word": "有"
+        },
+        {
+          "end": 9.62,
+          "probability": 0.9384765625,
+          "start": 9.46,
+          "word": "新"
+        },
+        {
+          "end": 9.9,
+          "probability": 0.990234375,
+          "start": 9.62,
+          "word": "騎"
+        },
+        {
+          "end": 10.06,
+          "probability": 0.869140625,
+          "start": 9.9,
+          "word": "師"
+        },
+        {
+          "end": 10.24,
+          "probability": 0.98681640625,
+          "start": 10.06,
+          "word": "登"
+        },
+        {
+          "end": 10.58,
+          "probability": 0.9990234375,
+          "start": 10.24,
+          "word": "場,"
+        },
+        {
+          "end": 10.84,
+          "probability": 0.63525390625,
+          "start": 10.7,
+          "word": " 就是"
+        },
+        {
+          "end": 11.18,
+          "probability": 0.9853515625,
+          "start": 10.84,
+          "word": "澳"
+        },
+        {
+          "end": 11.4,
+          "probability": 0.99755859375,
+          "start": 11.18,
+          "word": "洲"
+        },
+        {
+          "end": 11.66,
+          "probability": 0.9892578125,
+          "start": 11.4,
+          "word": "好"
+        },
+        {
+          "end": 11.96,
+          "probability": 0.9404296875,
+          "start": 11.66,
+          "word": "手"
+        }
+      ]
+    },
+    {
+      "end": 14.66,
+      "id": 1,
+      "start": 11.96,
+      "text": "布浩穎和見習騎師袁幸堯。",
+      "words": [
+        {
+          "end": 12.18,
+          "probability": 0.3115234375,
+          "start": 11.96,
+          "word": "布"
+        },
+        {
+          "end": 12.48,
+          "probability": 0.8095703125,
+          "start": 12.18,
+          "word": "浩"
+        },
+        {
+          "end": 12.76,
+          "probability": 0.74072265625,
+          "start": 12.48,
+          "word": "穎"
+        },
+        {
+          "end": 13.04,
+          "probability": 0.67431640625,
+          "start": 12.76,
+          "word": "和"
+        },
+        {
+          "end": 13.44,
+          "probability": 0.482666015625,
+          "start": 13.04,
+          "word": "見"
+        },
+        {
+          "end": 13.66,
+          "probability": 0.99072265625,
+          "start": 13.44,
+          "word": "習"
+        },
+        {
+          "end": 13.88,
+          "probability": 0.9912109375,
+          "start": 13.66,
+          "word": "騎"
+        },
+        {
+          "end": 14.1,
+          "probability": 0.9599609375,
+          "start": 13.88,
+          "word": "師"
+        },
+        {
+          "end": 14.32,
+          "probability": 0.9375,
+          "start": 14.1,
+          "word": "袁"
+        },
+        {
+          "end": 14.48,
+          "probability": 0.59130859375,
+          "start": 14.32,
+          "word": "幸"
+        },
+        {
+          "end": 14.66,
+          "probability": 0.6962890625,
+          "start": 14.48,
+          "word": "堯。"
+        }
+      ]
+    },
+    {
+      "end": 17.72,
+      "id": 2,
+      "start": 14.98,
+      "text": "兩位是剛剛星期二都有現身試習,",
+      "words": [
+        {
+          "end": 15.38,
+          "probability": 0.927734375,
+          "start": 14.98,
+          "word": "兩"
+        },
+        {
+          "end": 15.54,
+          "probability": 0.95849609375,
+          "start": 15.38,
+          "word": "位"
+        },
+        {
+          "end": 15.68,
+          "probability": 0.28564453125,
+          "start": 15.54,
+          "word": "是"
+        },
+        {
+          "end": 15.92,
+          "probability": 0.461181640625,
+          "start": 15.68,
+          "word": "剛剛"
+        },
+        {
+          "end": 16.18,
+          "probability": 0.58740234375,
+          "start": 15.92,
+          "word": "星"
+        },
+        {
+          "end": 16.32,
+          "probability": 1.0,
+          "start": 16.18,
+          "word": "期"
+        },
+        {
+          "end": 16.46,
+          "probability": 0.88037109375,
+          "start": 16.32,
+          "word": "二"
+        },
+        {
+          "end": 16.7,
+          "probability": 0.81884765625,
+          "start": 16.46,
+          "word": "都有"
+        },
+        {
+          "end": 17.06,
+          "probability": 0.9775390625,
+          "start": 16.7,
+          "word": "現"
+        },
+        {
+          "end": 17.3,
+          "probability": 0.99072265625,
+          "start": 17.06,
+          "word": "身"
+        },
+        {
+          "end": 17.46,
+          "probability": 0.9150390625,
+          "start": 17.3,
+          "word": "試"
+        },
+        {
+          "end": 17.72,
+          "probability": 0.53369140625,
+          "start": 17.46,
+          "word": "習,"
+        }
+      ]
+    },
+    {
+      "end": 20.98,
+      "id": 3,
+      "start": 17.84,
+      "text": "其中袁幸堯幫師傅姚本輝試了三匹馬,",
+      "words": [
+        {
+          "end": 17.96,
+          "probability": 0.260009765625,
+          "start": 17.84,
+          "word": "其"
+        },
+        {
+          "end": 18.18,
+          "probability": 0.99951171875,
+          "start": 17.96,
+          "word": "中"
+        },
+        {
+          "end": 18.38,
+          "probability": 0.978515625,
+          "start": 18.18,
+          "word": "袁"
+        },
+        {
+          "end": 18.54,
+          "probability": 0.998046875,
+          "start": 18.38,
+          "word": "幸"
+        },
+        {
+          "end": 18.72,
+          "probability": 0.9990234375,
+          "start": 18.54,
+          "word": "堯"
+        },
+        {
+          "end": 18.92,
+          "probability": 0.7197265625,
+          "start": 18.72,
+          "word": "幫"
+        },
+        {
+          "end": 19.1,
+          "probability": 0.9345703125,
+          "start": 18.92,
+          "word": "師"
+        },
+        {
+          "end": 19.3,
+          "probability": 0.97900390625,
+          "start": 19.1,
+          "word": "傅"
+        },
+        {
+          "end": 19.58,
+          "probability": 0.89599609375,
+          "start": 19.3,
+          "word": "姚"
+        },
+        {
+          "end": 19.82,
+          "probability": 0.9794921875,
+          "start": 19.58,
+          "word": "本"
+        },
+        {
+          "end": 20.04,
+          "probability": 0.9892578125,
+          "start": 19.82,
+          "word": "輝"
+        },
+        {
+          "end": 20.26,
+          "probability": 0.89697265625,
+          "start": 20.04,
+          "word": "試"
+        },
+        {
+          "end": 20.36,
+          "probability": 0.94287109375,
+          "start": 20.26,
+          "word": "了"
+        },
+        {
+          "end": 20.56,
+          "probability": 0.876953125,
+          "start": 20.36,
+          "word": "三"
+        },
+        {
+          "end": 20.74,
+          "probability": 0.9892578125,
+          "start": 20.56,
+          "word": "匹"
+        },
+        {
+          "end": 20.98,
+          "probability": 0.9970703125,
+          "start": 20.74,
+          "word": "馬,"
+        }
+      ]
+    },
+    {
+      "end": 24.14,
+      "id": 4,
+      "start": 21.08,
+      "text": "還出席記者會和傳媒見面, 一起看看。",
+      "words": [
+        {
+          "end": 21.44,
+          "probability": 0.52099609375,
+          "start": 21.08,
+          "word": "還"
+        },
+        {
+          "end": 21.64,
+          "probability": 0.99609375,
+          "start": 21.44,
+          "word": "出"
+        },
+        {
+          "end": 21.8,
+          "probability": 1.0,
+          "start": 21.64,
+          "word": "席"
+        },
+        {
+          "end": 22.1,
+          "probability": 0.6083984375,
+          "start": 21.8,
+          "word": "記"
+        },
+        {
+          "end": 22.42,
+          "probability": 0.99951171875,
+          "start": 22.1,
+          "word": "者"
+        },
+        {
+          "end": 22.52,
+          "probability": 0.9990234375,
+          "start": 22.42,
+          "word": "會"
+        },
+        {
+          "end": 22.64,
+          "probability": 0.6552734375,
+          "start": 22.52,
+          "word": "和"
+        },
+        {
+          "end": 22.9,
+          "probability": 0.96728515625,
+          "start": 22.64,
+          "word": "傳"
+        },
+        {
+          "end": 23.1,
+          "probability": 0.99951171875,
+          "start": 22.9,
+          "word": "媒"
+        },
+        {
+          "end": 23.32,
+          "probability": 0.99609375,
+          "start": 23.1,
+          "word": "見"
+        },
+        {
+          "end": 23.48,
+          "probability": 0.9970703125,
+          "start": 23.32,
+          "word": "面,"
+        },
+        {
+          "end": 23.72,
+          "probability": 0.826171875,
+          "start": 23.56,
+          "word": " 一"
+        },
+        {
+          "end": 23.9,
+          "probability": 0.658203125,
+          "start": 23.72,
+          "word": "起"
+        },
+        {
+          "end": 24.14,
+          "probability": 0.84228515625,
+          "start": 23.9,
+          "word": "看看。"
+        }
+      ]
+    },
+    {
+      "end": 29.34,
+      "id": 5,
+      "start": 25.16,
+      "text": "我喜歡咖啡店, 我什麼都喜歡吃, 豆腐花。",
+      "words": [
+        {
+          "end": 25.56,
+          "probability": 0.966796875,
+          "start": 25.16,
+          "word": "我"
+        },
+        {
+          "end": 25.8,
+          "probability": 0.96435546875,
+          "start": 25.56,
+          "word": "喜歡"
+        },
+        {
+          "end": 26.02,
+          "probability": 0.9326171875,
+          "start": 25.8,
+          "word": "咖"
+        },
+        {
+          "end": 26.18,
+          "probability": 1.0,
+          "start": 26.02,
+          "word": "啡"
+        },
+        {
+          "end": 26.28,
+          "probability": 0.70703125,
+          "start": 26.18,
+          "word": "店,"
+        },
+        {
+          "end": 26.92,
+          "probability": 0.78515625,
+          "start": 26.54,
+          "word": " 我"
+        },
+        {
+          "end": 27.06,
+          "probability": 0.427001953125,
+          "start": 26.92,
+          "word": "什麼"
+        },
+        {
+          "end": 27.18,
+          "probability": 0.90673828125,
+          "start": 27.06,
+          "word": "都"
+        },
+        {
+          "end": 27.38,
+          "probability": 0.96435546875,
+          "start": 27.18,
+          "word": "喜歡"
+        },
+        {
+          "end": 27.58,
+          "probability": 0.97265625,
+          "start": 27.38,
+          "word": "吃,"
+        },
+        {
+          "end": 28.74,
+          "probability": 0.8056640625,
+          "start": 27.78,
+          "word": " 豆"
+        },
+        {
+          "end": 29.16,
+          "probability": 0.984375,
+          "start": 28.74,
+          "word": "腐"
+        },
+        {
+          "end": 29.34,
+          "probability": 0.99169921875,
+          "start": 29.16,
+          "word": "花。"
+        }
+      ]
+    },
+    {
+      "end": 30.84,
+      "id": 6,
+      "start": 30.059999999999995,
+      "text": "粟米片",
+      "words": [
+        {
+          "end": 30.5,
+          "probability": 0.499267578125,
+          "start": 30.059999999999995,
+          "word": "粟"
+        },
+        {
+          "end": 30.58,
+          "probability": 0.99609375,
+          "start": 30.5,
+          "word": "米"
+        },
+        {
+          "end": 30.84,
+          "probability": 0.9921875,
+          "start": 30.58,
+          "word": "片"
+        }
+      ]
+    },
+    {
+      "end": 32.32,
+      "id": 7,
+      "start": 30.84,
+      "text": "貓, 超喜歡貓",
+      "words": [
+        {
+          "end": 31.58,
+          "probability": 0.7568359375,
+          "start": 30.84,
+          "word": "貓,"
+        },
+        {
+          "end": 31.86,
+          "probability": 0.91796875,
+          "start": 31.76,
+          "word": " 超"
+        },
+        {
+          "end": 32.04,
+          "probability": 0.77783203125,
+          "start": 31.86,
+          "word": "喜歡"
+        },
+        {
+          "end": 32.32,
+          "probability": 0.9970703125,
+          "start": 32.04,
+          "word": "貓"
+        }
+      ]
+    },
+    {
+      "end": 34.14,
+      "id": 8,
+      "start": 32.32,
+      "text": "我很喜歡看, 連新年都看",
+      "words": [
+        {
+          "end": 32.96,
+          "probability": 0.82373046875,
+          "start": 32.32,
+          "word": "我很"
+        },
+        {
+          "end": 33.18,
+          "probability": 0.98095703125,
+          "start": 32.96,
+          "word": "喜歡"
+        },
+        {
+          "end": 33.3,
+          "probability": 0.77685546875,
+          "start": 33.18,
+          "word": "看,"
+        },
+        {
+          "end": 33.42,
+          "probability": 0.56787109375,
+          "start": 33.4,
+          "word": " 連"
+        },
+        {
+          "end": 33.7,
+          "probability": 0.7421875,
+          "start": 33.42,
+          "word": "新"
+        },
+        {
+          "end": 33.86,
+          "probability": 0.98681640625,
+          "start": 33.7,
+          "word": "年"
+        },
+        {
+          "end": 33.96,
+          "probability": 0.58984375,
+          "start": 33.86,
+          "word": "都"
+        },
+        {
+          "end": 34.14,
+          "probability": 0.7705078125,
+          "start": 33.96,
+          "word": "看"
+        }
+      ]
+    },
+    {
+      "end": 36.6,
+      "id": 9,
+      "start": 34.14,
+      "text": "所以南非自己過新年都看",
+      "words": [
+        {
+          "end": 34.78,
+          "probability": 0.72900390625,
+          "start": 34.14,
+          "word": "所以"
+        },
+        {
+          "end": 35.06,
+          "probability": 0.65380859375,
+          "start": 34.78,
+          "word": "南"
+        },
+        {
+          "end": 35.24,
+          "probability": 0.98486328125,
+          "start": 35.06,
+          "word": "非"
+        },
+        {
+          "end": 35.8,
+          "probability": 0.5029296875,
+          "start": 35.24,
+          "word": "自己"
+        },
+        {
+          "end": 36.04,
+          "probability": 0.52294921875,
+          "start": 35.8,
+          "word": "過"
+        },
+        {
+          "end": 36.16,
+          "probability": 0.85107421875,
+          "start": 36.04,
+          "word": "新"
+        },
+        {
+          "end": 36.34,
+          "probability": 0.998046875,
+          "start": 36.16,
+          "word": "年"
+        },
+        {
+          "end": 36.42,
+          "probability": 0.39599609375,
+          "start": 36.34,
+          "word": "都"
+        },
+        {
+          "end": 36.6,
+          "probability": 0.4716796875,
+          "start": 36.42,
+          "word": "看"
+        }
+      ]
+    },
+    {
+      "end": 38.28,
+      "id": 10,
+      "start": 36.6,
+      "text": "新年才",
+      "words": [
+        {
+          "end": 36.82,
+          "probability": 0.061431884765625,
+          "start": 36.6,
+          "word": "新"
+        },
+        {
+          "end": 38.1,
+          "probability": 0.96142578125,
+          "start": 36.82,
+          "word": "年"
+        },
+        {
+          "end": 38.28,
+          "probability": 0.1419677734375,
+          "start": 38.1,
+          "word": "才"
+        }
+      ]
+    },
+    {
+      "end": 43.0,
+      "id": 11,
+      "start": 39.53999999999999,
+      "text": "這天新10磅仔袁幸瑤出席記者會",
+      "words": [
+        {
+          "end": 39.98,
+          "probability": 0.1768798828125,
+          "start": 39.53999999999999,
+          "word": "這"
+        },
+        {
+          "end": 40.42,
+          "probability": 0.61083984375,
+          "start": 39.98,
+          "word": "天"
+        },
+        {
+          "end": 40.6,
+          "probability": 0.6005859375,
+          "start": 40.42,
+          "word": "新"
+        },
+        {
+          "end": 40.8,
+          "probability": 0.47314453125,
+          "start": 40.6,
+          "word": "10"
+        },
+        {
+          "end": 40.98,
+          "probability": 0.99365234375,
+          "start": 40.8,
+          "word": "磅"
+        },
+        {
+          "end": 41.22,
+          "probability": 0.916015625,
+          "start": 40.98,
+          "word": "仔"
+        },
+        {
+          "end": 41.5,
+          "probability": 0.8486328125,
+          "start": 41.22,
+          "word": "袁"
+        },
+        {
+          "end": 41.68,
+          "probability": 0.48779296875,
+          "start": 41.5,
+          "word": "幸"
+        },
+        {
+          "end": 41.94,
+          "probability": 0.61962890625,
+          "start": 41.68,
+          "word": "瑤"
+        },
+        {
+          "end": 42.14,
+          "probability": 0.9921875,
+          "start": 41.94,
+          "word": "出"
+        },
+        {
+          "end": 42.34,
+          "probability": 1.0,
+          "start": 42.14,
+          "word": "席"
+        },
+        {
+          "end": 42.54,
+          "probability": 0.99951171875,
+          "start": 42.34,
+          "word": "記"
+        },
+        {
+          "end": 42.72,
+          "probability": 0.99951171875,
+          "start": 42.54,
+          "word": "者"
+        },
+        {
+          "end": 43.0,
+          "probability": 0.99951171875,
+          "start": 42.72,
+          "word": "會"
+        }
+      ]
+    },
+    {
+      "end": 45.12,
+      "id": 12,
+      "start": 43.0,
+      "text": "大方分享自己的興趣",
+      "words": [
+        {
+          "end": 43.42,
+          "probability": 0.994140625,
+          "start": 43.0,
+          "word": "大"
+        },
+        {
+          "end": 43.7,
+          "probability": 0.99462890625,
+          "start": 43.42,
+          "word": "方"
+        },
+        {
+          "end": 43.96,
+          "probability": 0.99462890625,
+          "start": 43.7,
+          "word": "分享"
+        },
+        {
+          "end": 44.32,
+          "probability": 0.994140625,
+          "start": 43.96,
+          "word": "自己"
+        },
+        {
+          "end": 44.56,
+          "probability": 0.95751953125,
+          "start": 44.32,
+          "word": "的"
+        },
+        {
+          "end": 44.74,
+          "probability": 0.9990234375,
+          "start": 44.56,
+          "word": "興"
+        },
+        {
+          "end": 45.12,
+          "probability": 1.0,
+          "start": 44.74,
+          "word": "趣"
+        }
+      ]
+    },
+    {
+      "end": 46.9,
+      "id": 13,
+      "start": 45.12,
+      "text": "陽光自信的對答",
+      "words": [
+        {
+          "end": 45.52,
+          "probability": 0.7958984375,
+          "start": 45.12,
+          "word": "陽"
+        },
+        {
+          "end": 45.88,
+          "probability": 0.9951171875,
+          "start": 45.52,
+          "word": "光"
+        },
+        {
+          "end": 46.06,
+          "probability": 0.7158203125,
+          "start": 45.88,
+          "word": "自"
+        },
+        {
+          "end": 46.34,
+          "probability": 0.9990234375,
+          "start": 46.06,
+          "word": "信"
+        },
+        {
+          "end": 46.44,
+          "probability": 0.9677734375,
+          "start": 46.34,
+          "word": "的"
+        },
+        {
+          "end": 46.58,
+          "probability": 0.9951171875,
+          "start": 46.44,
+          "word": "對"
+        },
+        {
+          "end": 46.9,
+          "probability": 0.98046875,
+          "start": 46.58,
+          "word": "答"
+        }
+      ]
+    },
+    {
+      "end": 49.88,
+      "id": 14,
+      "start": 46.9,
+      "text": "加上真摯的笑容, 真的非常圈粉",
+      "words": [
+        {
+          "end": 47.3,
+          "probability": 0.96826171875,
+          "start": 46.9,
+          "word": "加"
+        },
+        {
+          "end": 47.54,
+          "probability": 0.9990234375,
+          "start": 47.3,
+          "word": "上"
+        },
+        {
+          "end": 47.76,
+          "probability": 0.755859375,
+          "start": 47.54,
+          "word": "真"
+        },
+        {
+          "end": 48.04,
+          "probability": 0.97705078125,
+          "start": 47.76,
+          "word": "摯"
+        },
+        {
+          "end": 48.2,
+          "probability": 0.9912109375,
+          "start": 48.04,
+          "word": "的"
+        },
+        {
+          "end": 48.36,
+          "probability": 0.9990234375,
+          "start": 48.2,
+          "word": "笑"
+        },
+        {
+          "end": 48.64,
+          "probability": 1.0,
+          "start": 48.36,
+          "word": "容,"
+        },
+        {
+          "end": 48.84,
+          "probability": 0.763671875,
+          "start": 48.66,
+          "word": " 真的"
+        },
+        {
+          "end": 49.26,
+          "probability": 0.9765625,
+          "start": 48.84,
+          "word": "非常"
+        },
+        {
+          "end": 49.68,
+          "probability": 0.67529296875,
+          "start": 49.26,
+          "word": "圈"
+        },
+        {
+          "end": 49.88,
+          "probability": 0.56689453125,
+          "start": 49.68,
+          "word": "粉"
+        }
+      ]
+    },
+    {
+      "end": 51.94,
+      "id": 15,
+      "start": 50.400000000000006,
+      "text": "目前她最大目標",
+      "words": [
+        {
+          "end": 50.66,
+          "probability": 0.94580078125,
+          "start": 50.400000000000006,
+          "word": "目前"
+        },
+        {
+          "end": 51.02,
+          "probability": 0.79638671875,
+          "start": 50.66,
+          "word": "她"
+        },
+        {
+          "end": 51.24,
+          "probability": 0.90185546875,
+          "start": 51.02,
+          "word": "最"
+        },
+        {
+          "end": 51.44,
+          "probability": 0.8134765625,
+          "start": 51.24,
+          "word": "大"
+        },
+        {
+          "end": 51.64,
+          "probability": 1.0,
+          "start": 51.44,
+          "word": "目"
+        },
+        {
+          "end": 51.94,
+          "probability": 0.99755859375,
+          "start": 51.64,
+          "word": "標"
+        }
+      ]
+    },
+    {
+      "end": 53.54,
+      "id": 16,
+      "start": 51.94,
+      "text": "就是盡量吸收經驗",
+      "words": [
+        {
+          "end": 52.16,
+          "probability": 0.8251953125,
+          "start": 51.94,
+          "word": "就是"
+        },
+        {
+          "end": 52.52,
+          "probability": 0.89111328125,
+          "start": 52.16,
+          "word": "盡"
+        },
+        {
+          "end": 52.74,
+          "probability": 0.9990234375,
+          "start": 52.52,
+          "word": "量"
+        },
+        {
+          "end": 52.88,
+          "probability": 0.98291015625,
+          "start": 52.74,
+          "word": "吸"
+        },
+        {
+          "end": 53.1,
+          "probability": 0.99365234375,
+          "start": 52.88,
+          "word": "收"
+        },
+        {
+          "end": 53.26,
+          "probability": 0.9951171875,
+          "start": 53.1,
+          "word": "經"
+        },
+        {
+          "end": 53.54,
+          "probability": 0.99951171875,
+          "start": 53.26,
+          "word": "驗"
+        }
+      ]
+    },
+    {
+      "end": 54.92,
+      "id": 17,
+      "start": 53.54,
+      "text": "令自己不斷進步",
+      "words": [
+        {
+          "end": 53.72,
+          "probability": 0.7880859375,
+          "start": 53.54,
+          "word": "令"
+        },
+        {
+          "end": 53.94,
+          "probability": 0.99951171875,
+          "start": 53.72,
+          "word": "自己"
+        },
+        {
+          "end": 54.2,
+          "probability": 0.99560546875,
+          "start": 53.94,
+          "word": "不"
+        },
+        {
+          "end": 54.48,
+          "probability": 0.9990234375,
+          "start": 54.2,
+          "word": "斷"
+        },
+        {
+          "end": 54.66,
+          "probability": 0.99560546875,
+          "start": 54.48,
+          "word": "進"
+        },
+        {
+          "end": 54.92,
+          "probability": 0.99365234375,
+          "start": 54.66,
+          "word": "步"
+        }
+      ]
+    },
+    {
+      "end": 58.28,
+      "id": 18,
+      "start": 55.959999999999994,
+      "text": "強項我覺得是自己的推期",
+      "words": [
+        {
+          "end": 56.4,
+          "probability": 0.4306640625,
+          "start": 55.959999999999994,
+          "word": "強"
+        },
+        {
+          "end": 56.66,
+          "probability": 0.6806640625,
+          "start": 56.4,
+          "word": "項"
+        },
+        {
+          "end": 56.92,
+          "probability": 0.40625,
+          "start": 56.66,
+          "word": "我覺得"
+        },
+        {
+          "end": 57.28,
+          "probability": 0.75927734375,
+          "start": 56.92,
+          "word": "是"
+        },
+        {
+          "end": 57.82,
+          "probability": 0.978515625,
+          "start": 57.28,
+          "word": "自己"
+        },
+        {
+          "end": 57.92,
+          "probability": 0.994140625,
+          "start": 57.82,
+          "word": "的"
+        },
+        {
+          "end": 58.02,
+          "probability": 0.61328125,
+          "start": 57.92,
+          "word": "推"
+        },
+        {
+          "end": 58.28,
+          "probability": 0.34716796875,
+          "start": 58.02,
+          "word": "期"
+        }
+      ]
+    },
+    {
+      "end": 61.92,
+      "id": 19,
+      "start": 58.28,
+      "text": "我希望自己比較出色",
+      "words": [
+        {
+          "end": 59.08,
+          "probability": 0.468994140625,
+          "start": 58.28,
+          "word": "我"
+        },
+        {
+          "end": 59.74,
+          "probability": 0.90673828125,
+          "start": 59.08,
+          "word": "希望"
+        },
+        {
+          "end": 60.0,
+          "probability": 0.94287109375,
+          "start": 59.74,
+          "word": "自己"
+        },
+        {
+          "end": 60.46,
+          "probability": 0.3544921875,
+          "start": 60.0,
+          "word": "比較"
+        },
+        {
+          "end": 61.72,
+          "probability": 0.958984375,
+          "start": 60.46,
+          "word": "出"
+        },
+        {
+          "end": 61.92,
+          "probability": 0.998046875,
+          "start": 61.72,
+          "word": "色"
+        }
+      ]
+    },
+    {
+      "end": 64.72,
+      "id": 20,
+      "start": 61.92,
+      "text": "若翰我還在找",
+      "words": [
+        {
+          "end": 62.68,
+          "probability": 0.64599609375,
+          "start": 61.92,
+          "word": "若"
+        },
+        {
+          "end": 63.0,
+          "probability": 0.5986328125,
+          "start": 62.68,
+          "word": "翰"
+        },
+        {
+          "end": 64.04,
+          "probability": 0.4326171875,
+          "start": 63.0,
+          "word": "我"
+        },
+        {
+          "end": 64.34,
+          "probability": 0.67431640625,
+          "start": 64.04,
+          "word": "還"
+        },
+        {
+          "end": 64.52,
+          "probability": 0.9658203125,
+          "start": 64.34,
+          "word": "在"
+        },
+        {
+          "end": 64.72,
+          "probability": 0.64453125,
+          "start": 64.52,
+          "word": "找"
+        }
+      ]
+    },
+    {
+      "end": 67.88,
+      "id": 21,
+      "start": 65.28,
+      "text": "應該盡量希望不會有若翰",
+      "words": [
+        {
+          "end": 65.52,
+          "probability": 0.265869140625,
+          "start": 65.28,
+          "word": "應該"
+        },
+        {
+          "end": 66.78,
+          "probability": 0.70703125,
+          "start": 65.52,
+          "word": "盡"
+        },
+        {
+          "end": 66.86,
+          "probability": 0.97021484375,
+          "start": 66.78,
+          "word": "量"
+        },
+        {
+          "end": 67.06,
+          "probability": 0.67236328125,
+          "start": 66.86,
+          "word": "希望"
+        },
+        {
+          "end": 67.28,
+          "probability": 0.93896484375,
+          "start": 67.06,
+          "word": "不會"
+        },
+        {
+          "end": 67.54,
+          "probability": 0.96044921875,
+          "start": 67.28,
+          "word": "有"
+        },
+        {
+          "end": 67.72,
+          "probability": 0.9853515625,
+          "start": 67.54,
+          "word": "若"
+        },
+        {
+          "end": 67.88,
+          "probability": 0.998046875,
+          "start": 67.72,
+          "word": "翰"
+        }
+      ]
+    },
+    {
+      "end": 71.66,
+      "id": 22,
+      "start": 67.88,
+      "text": "當然全方位地幫自己不停地進步",
+      "words": [
+        {
+          "end": 68.32,
+          "probability": 0.82373046875,
+          "start": 67.88,
+          "word": "當然"
+        },
+        {
+          "end": 68.76,
+          "probability": 0.71533203125,
+          "start": 68.32,
+          "word": "全"
+        },
+        {
+          "end": 69.04,
+          "probability": 0.99462890625,
+          "start": 68.76,
+          "word": "方"
+        },
+        {
+          "end": 69.18,
+          "probability": 0.9990234375,
+          "start": 69.04,
+          "word": "位"
+        },
+        {
+          "end": 69.4,
+          "probability": 0.43603515625,
+          "start": 69.18,
+          "word": "地"
+        },
+        {
+          "end": 69.82,
+          "probability": 0.91845703125,
+          "start": 69.4,
+          "word": "幫"
+        },
+        {
+          "end": 70.14,
+          "probability": 0.974609375,
+          "start": 69.82,
+          "word": "自己"
+        },
+        {
+          "end": 70.86,
+          "probability": 0.9423828125,
+          "start": 70.14,
+          "word": "不"
+        },
+        {
+          "end": 71.04,
+          "probability": 0.90771484375,
+          "start": 70.86,
+          "word": "停"
+        },
+        {
+          "end": 71.16,
+          "probability": 0.87744140625,
+          "start": 71.04,
+          "word": "地"
+        },
+        {
+          "end": 71.44,
+          "probability": 0.96630859375,
+          "start": 71.16,
+          "word": "進"
+        },
+        {
+          "end": 71.66,
+          "probability": 0.998046875,
+          "start": 71.44,
+          "word": "步"
+        }
+      ]
+    },
+    {
+      "end": 75.36,
+      "id": 23,
+      "start": 71.66,
+      "text": "始終我也很留意每一位騎師",
+      "words": [
+        {
+          "end": 72.18,
+          "probability": 0.0153961181640625,
+          "start": 71.66,
+          "word": "始"
+        },
+        {
+          "end": 72.8,
+          "probability": 0.99951171875,
+          "start": 72.18,
+          "word": "終"
+        },
+        {
+          "end": 72.96,
+          "probability": 0.451904296875,
+          "start": 72.8,
+          "word": "我也"
+        },
+        {
+          "end": 73.56,
+          "probability": 0.86962890625,
+          "start": 72.96,
+          "word": "很"
+        },
+        {
+          "end": 74.46,
+          "probability": 0.9775390625,
+          "start": 73.56,
+          "word": "留"
+        },
+        {
+          "end": 74.62,
+          "probability": 0.99951171875,
+          "start": 74.46,
+          "word": "意"
+        },
+        {
+          "end": 74.76,
+          "probability": 0.9912109375,
+          "start": 74.62,
+          "word": "每"
+        },
+        {
+          "end": 74.9,
+          "probability": 0.89013671875,
+          "start": 74.76,
+          "word": "一"
+        },
+        {
+          "end": 75.0,
+          "probability": 0.99853515625,
+          "start": 74.9,
+          "word": "位"
+        },
+        {
+          "end": 75.26,
+          "probability": 0.87060546875,
+          "start": 75.0,
+          "word": "騎"
+        },
+        {
+          "end": 75.36,
+          "probability": 0.6181640625,
+          "start": 75.26,
+          "word": "師"
+        }
+      ]
+    },
+    {
+      "end": 77.08,
+      "id": 24,
+      "start": 75.36,
+      "text": "因為每一位騎師都有他們的特別之處",
+      "words": [
+        {
+          "end": 75.5,
+          "probability": 0.953125,
+          "start": 75.36,
+          "word": "因為"
+        },
+        {
+          "end": 75.68,
+          "probability": 0.96728515625,
+          "start": 75.5,
+          "word": "每"
+        },
+        {
+          "end": 75.8,
+          "probability": 0.87548828125,
+          "start": 75.68,
+          "word": "一"
+        },
+        {
+          "end": 75.84,
+          "probability": 0.998046875,
+          "start": 75.8,
+          "word": "位"
+        },
+        {
+          "end": 76.02,
+          "probability": 0.9892578125,
+          "start": 75.84,
+          "word": "騎"
+        },
+        {
+          "end": 76.1,
+          "probability": 0.99169921875,
+          "start": 76.02,
+          "word": "師"
+        },
+        {
+          "end": 76.22,
+          "probability": 0.88525390625,
+          "start": 76.1,
+          "word": "都有"
+        },
+        {
+          "end": 76.34,
+          "probability": 0.78955078125,
+          "start": 76.22,
+          "word": "他們"
+        },
+        {
+          "end": 76.5,
+          "probability": 0.974609375,
+          "start": 76.34,
+          "word": "的"
+        },
+        {
+          "end": 76.72,
+          "probability": 0.85302734375,
+          "start": 76.5,
+          "word": "特別"
+        },
+        {
+          "end": 76.82,
+          "probability": 0.99365234375,
+          "start": 76.72,
+          "word": "之"
+        },
+        {
+          "end": 77.08,
+          "probability": 1.0,
+          "start": 76.82,
+          "word": "處"
+        }
+      ]
+    },
+    {
+      "end": 78.88,
+      "id": 25,
+      "start": 77.08,
+      "text": "還有他們的好處",
+      "words": [
+        {
+          "end": 77.42,
+          "probability": 0.5537109375,
+          "start": 77.08,
+          "word": "還有"
+        },
+        {
+          "end": 77.9,
+          "probability": 0.974609375,
+          "start": 77.42,
+          "word": "他們"
+        },
+        {
+          "end": 78.12,
+          "probability": 0.998046875,
+          "start": 77.9,
+          "word": "的"
+        },
+        {
+          "end": 78.58,
+          "probability": 0.990234375,
+          "start": 78.12,
+          "word": "好"
+        },
+        {
+          "end": 78.88,
+          "probability": 0.99951171875,
+          "start": 78.58,
+          "word": "處"
+        }
+      ]
+    },
+    {
+      "end": 80.64,
+      "id": 26,
+      "start": 78.88,
+      "text": "而且他們的拆騎方式都不同",
+      "words": [
+        {
+          "end": 79.36,
+          "probability": 0.97998046875,
+          "start": 78.88,
+          "word": "而且"
+        },
+        {
+          "end": 79.62,
+          "probability": 0.97021484375,
+          "start": 79.36,
+          "word": "他們"
+        },
+        {
+          "end": 79.8,
+          "probability": 0.98828125,
+          "start": 79.62,
+          "word": "的"
+        },
+        {
+          "end": 79.94,
+          "probability": 0.751953125,
+          "start": 79.8,
+          "word": "拆"
+        },
+        {
+          "end": 80.08,
+          "probability": 0.89306640625,
+          "start": 79.94,
+          "word": "騎"
+        },
+        {
+          "end": 80.24,
+          "probability": 0.9892578125,
+          "start": 80.08,
+          "word": "方"
+        },
+        {
+          "end": 80.36,
+          "probability": 0.99365234375,
+          "start": 80.24,
+          "word": "式"
+        },
+        {
+          "end": 80.46,
+          "probability": 0.568359375,
+          "start": 80.36,
+          "word": "都"
+        },
+        {
+          "end": 80.64,
+          "probability": 0.90869140625,
+          "start": 80.46,
+          "word": "不同"
+        }
+      ]
+    },
+    {
+      "end": 86.24,
+      "id": 27,
+      "start": 80.64,
+      "text": "所以我希望自己可以取得他們每一位騎師的好處",
+      "words": [
+        {
+          "end": 81.04,
+          "probability": 0.91650390625,
+          "start": 80.64,
+          "word": "所以"
+        },
+        {
+          "end": 81.48,
+          "probability": 0.86328125,
+          "start": 81.04,
+          "word": "我"
+        },
+        {
+          "end": 82.0,
+          "probability": 0.99755859375,
+          "start": 81.48,
+          "word": "希望"
+        },
+        {
+          "end": 82.2,
+          "probability": 0.60009765625,
+          "start": 82.0,
+          "word": "自己"
+        },
+        {
+          "end": 82.52,
+          "probability": 0.97412109375,
+          "start": 82.2,
+          "word": "可以"
+        },
+        {
+          "end": 83.24,
+          "probability": 0.1632080078125,
+          "start": 82.52,
+          "word": "取"
+        },
+        {
+          "end": 83.38,
+          "probability": 0.87890625,
+          "start": 83.24,
+          "word": "得"
+        },
+        {
+          "end": 83.7,
+          "probability": 0.89013671875,
+          "start": 83.38,
+          "word": "他們"
+        },
+        {
+          "end": 84.06,
+          "probability": 0.953125,
+          "start": 83.7,
+          "word": "每"
+        },
+        {
+          "end": 84.16,
+          "probability": 0.92626953125,
+          "start": 84.06,
+          "word": "一"
+        },
+        {
+          "end": 84.44,
+          "probability": 0.97998046875,
+          "start": 84.16,
+          "word": "位"
+        },
+        {
+          "end": 85.4,
+          "probability": 0.9970703125,
+          "start": 84.44,
+          "word": "騎"
+        },
+        {
+          "end": 85.6,
+          "probability": 0.97314453125,
+          "start": 85.4,
+          "word": "師"
+        },
+        {
+          "end": 85.72,
+          "probability": 0.99267578125,
+          "start": 85.6,
+          "word": "的"
+        },
+        {
+          "end": 85.92,
+          "probability": 0.9951171875,
+          "start": 85.72,
+          "word": "好"
+        },
+        {
+          "end": 86.24,
+          "probability": 0.99951171875,
+          "start": 85.92,
+          "word": "處"
+        }
+      ]
+    },
+    {
+      "end": 88.68,
+      "id": 28,
+      "start": 87.08,
+      "text": "放在自己身上就最好",
+      "words": [
+        {
+          "end": 87.52,
+          "probability": 0.321044921875,
+          "start": 87.08,
+          "word": "放"
+        },
+        {
+          "end": 87.74,
+          "probability": 0.9755859375,
+          "start": 87.52,
+          "word": "在"
+        },
+        {
+          "end": 87.9,
+          "probability": 0.990234375,
+          "start": 87.74,
+          "word": "自己"
+        },
+        {
+          "end": 88.08,
+          "probability": 0.7744140625,
+          "start": 87.9,
+          "word": "身"
+        },
+        {
+          "end": 88.08,
+          "probability": 0.91455078125,
+          "start": 88.08,
+          "word": "上"
+        },
+        {
+          "end": 88.24,
+          "probability": 0.273681640625,
+          "start": 88.08,
+          "word": "就"
+        },
+        {
+          "end": 88.48,
+          "probability": 0.92236328125,
+          "start": 88.24,
+          "word": "最"
+        },
+        {
+          "end": 88.68,
+          "probability": 0.57568359375,
+          "start": 88.48,
+          "word": "好"
+        }
+      ]
+    },
+    {
+      "end": 91.2,
+      "id": 29,
+      "start": 90.04,
+      "text": "3月8日",
+      "words": [
+        {
+          "end": 90.48,
+          "probability": 0.87841796875,
+          "start": 90.04,
+          "word": "3"
+        },
+        {
+          "end": 90.78,
+          "probability": 0.9853515625,
+          "start": 90.48,
+          "word": "月"
+        },
+        {
+          "end": 91.0,
+          "probability": 0.994140625,
+          "start": 90.78,
+          "word": "8"
+        },
+        {
+          "end": 91.2,
+          "probability": 0.88427734375,
+          "start": 91.0,
+          "word": "日"
+        }
+      ]
+    },
+    {
+      "end": 93.74,
+      "id": 30,
+      "start": 91.2,
+      "text": "騎士艾少麗正式升格當爸爸",
+      "words": [
+        {
+          "end": 91.46,
+          "probability": 0.82275390625,
+          "start": 91.2,
+          "word": "騎"
+        },
+        {
+          "end": 91.7,
+          "probability": 0.89892578125,
+          "start": 91.46,
+          "word": "士"
+        },
+        {
+          "end": 91.92,
+          "probability": 0.990234375,
+          "start": 91.7,
+          "word": "艾"
+        },
+        {
+          "end": 92.08,
+          "probability": 0.70751953125,
+          "start": 91.92,
+          "word": "少"
+        },
+        {
+          "end": 92.3,
+          "probability": 0.6865234375,
+          "start": 92.08,
+          "word": "麗"
+        },
+        {
+          "end": 92.56,
+          "probability": 0.970703125,
+          "start": 92.3,
+          "word": "正"
+        },
+        {
+          "end": 92.86,
+          "probability": 1.0,
+          "start": 92.56,
+          "word": "式"
+        },
+        {
+          "end": 93.1,
+          "probability": 0.99169921875,
+          "start": 92.86,
+          "word": "升"
+        },
+        {
+          "end": 93.32,
+          "probability": 0.95849609375,
+          "start": 93.1,
+          "word": "格"
+        },
+        {
+          "end": 93.44,
+          "probability": 0.37744140625,
+          "start": 93.32,
+          "word": "當"
+        },
+        {
+          "end": 93.74,
+          "probability": 0.81103515625,
+          "start": 93.44,
+          "word": "爸爸"
+        }
+      ]
+    },
+    {
+      "end": 96.1,
+      "id": 31,
+      "start": 93.74,
+      "text": "兒子Thomas在香港出生",
+      "words": [
+        {
+          "end": 94.26,
+          "probability": 0.393798828125,
+          "start": 93.74,
+          "word": "兒"
+        },
+        {
+          "end": 94.54,
+          "probability": 0.99560546875,
+          "start": 94.26,
+          "word": "子"
+        },
+        {
+          "end": 94.84,
+          "probability": 0.951171875,
+          "start": 94.54,
+          "word": "Th"
+        },
+        {
+          "end": 95.02,
+          "probability": 0.9990234375,
+          "start": 94.84,
+          "word": "omas"
+        },
+        {
+          "end": 95.2,
+          "probability": 0.8212890625,
+          "start": 95.02,
+          "word": "在"
+        },
+        {
+          "end": 95.56,
+          "probability": 0.99658203125,
+          "start": 95.2,
+          "word": "香港"
+        },
+        {
+          "end": 95.86,
+          "probability": 0.99462890625,
+          "start": 95.56,
+          "word": "出"
+        },
+        {
+          "end": 96.1,
+          "probability": 0.94873046875,
+          "start": 95.86,
+          "word": "生"
+        }
+      ]
+    },
+    {
+      "end": 97.48,
+      "id": 32,
+      "start": 96.1,
+      "text": "還非常有腳頭",
+      "words": [
+        {
+          "end": 96.34,
+          "probability": 0.525390625,
+          "start": 96.1,
+          "word": "還"
+        },
+        {
+          "end": 96.78,
+          "probability": 0.88525390625,
+          "start": 96.34,
+          "word": "非常"
+        },
+        {
+          "end": 97.06,
+          "probability": 0.362548828125,
+          "start": 96.78,
+          "word": "有"
+        },
+        {
+          "end": 97.24,
+          "probability": 0.057525634765625,
+          "start": 97.06,
+          "word": "腳"
+        },
+        {
+          "end": 97.48,
+          "probability": 0.861328125,
+          "start": 97.24,
+          "word": "頭"
+        }
+      ]
+    },
+    {
+      "end": 98.86,
+      "id": 33,
+      "start": 97.48,
+      "text": "出生當日",
+      "words": [
+        {
+          "end": 98.18,
+          "probability": 0.94189453125,
+          "start": 97.48,
+          "word": "出"
+        },
+        {
+          "end": 98.4,
+          "probability": 0.9189453125,
+          "start": 98.18,
+          "word": "生"
+        },
+        {
+          "end": 98.66,
+          "probability": 0.91259765625,
+          "start": 98.4,
+          "word": "當"
+        },
+        {
+          "end": 98.86,
+          "probability": 0.64599609375,
+          "start": 98.66,
+          "word": "日"
+        }
+      ]
+    },
+    {
+      "end": 101.74,
+      "id": 34,
+      "start": 98.86,
+      "text": "艾少麗正正一天贏出四場頭碼",
+      "words": [
+        {
+          "end": 99.16,
+          "probability": 0.9921875,
+          "start": 98.86,
+          "word": "艾"
+        },
+        {
+          "end": 99.32,
+          "probability": 1.0,
+          "start": 99.16,
+          "word": "少"
+        },
+        {
+          "end": 99.5,
+          "probability": 1.0,
+          "start": 99.32,
+          "word": "麗"
+        },
+        {
+          "end": 99.72,
+          "probability": 0.72998046875,
+          "start": 99.5,
+          "word": "正"
+        },
+        {
+          "end": 100.04,
+          "probability": 0.8603515625,
+          "start": 99.72,
+          "word": "正"
+        },
+        {
+          "end": 100.16,
+          "probability": 0.91796875,
+          "start": 100.04,
+          "word": "一"
+        },
+        {
+          "end": 100.3,
+          "probability": 0.480712890625,
+          "start": 100.16,
+          "word": "天"
+        },
+        {
+          "end": 100.52,
+          "probability": 0.8818359375,
+          "start": 100.3,
+          "word": "贏"
+        },
+        {
+          "end": 100.7,
+          "probability": 0.99365234375,
+          "start": 100.52,
+          "word": "出"
+        },
+        {
+          "end": 100.94,
+          "probability": 0.68994140625,
+          "start": 100.7,
+          "word": "四"
+        },
+        {
+          "end": 101.28,
+          "probability": 0.9833984375,
+          "start": 100.94,
+          "word": "場"
+        },
+        {
+          "end": 101.56,
+          "probability": 0.8046875,
+          "start": 101.28,
+          "word": "頭"
+        },
+        {
+          "end": 101.74,
+          "probability": 0.7763671875,
+          "start": 101.56,
+          "word": "碼"
+        }
+      ]
+    },
+    {
+      "end": 103.52,
+      "id": 35,
+      "start": 101.74,
+      "text": "不少朋友和馬迷",
+      "words": [
+        {
+          "end": 102.24,
+          "probability": 0.96630859375,
+          "start": 101.74,
+          "word": "不"
+        },
+        {
+          "end": 102.42,
+          "probability": 0.99755859375,
+          "start": 102.24,
+          "word": "少"
+        },
+        {
+          "end": 102.78,
+          "probability": 0.87841796875,
+          "start": 102.42,
+          "word": "朋友"
+        },
+        {
+          "end": 103.0,
+          "probability": 0.82470703125,
+          "start": 102.78,
+          "word": "和"
+        },
+        {
+          "end": 103.3,
+          "probability": 0.478271484375,
+          "start": 103.0,
+          "word": "馬"
+        },
+        {
+          "end": 103.52,
+          "probability": 0.98828125,
+          "start": 103.3,
+          "word": "迷"
+        }
+      ]
+    },
+    {
+      "end": 105.2,
+      "id": 36,
+      "start": 103.52,
+      "text": "都湧入她的社交平台",
+      "words": [
+        {
+          "end": 103.7,
+          "probability": 0.91796875,
+          "start": 103.52,
+          "word": "都"
+        },
+        {
+          "end": 103.88,
+          "probability": 0.8798828125,
+          "start": 103.7,
+          "word": "湧"
+        },
+        {
+          "end": 104.04,
+          "probability": 0.98974609375,
+          "start": 103.88,
+          "word": "入"
+        },
+        {
+          "end": 104.16,
+          "probability": 0.63818359375,
+          "start": 104.04,
+          "word": "她"
+        },
+        {
+          "end": 104.3,
+          "probability": 0.99462890625,
+          "start": 104.16,
+          "word": "的"
+        },
+        {
+          "end": 104.5,
+          "probability": 0.99853515625,
+          "start": 104.3,
+          "word": "社"
+        },
+        {
+          "end": 104.72,
+          "probability": 0.99951171875,
+          "start": 104.5,
+          "word": "交"
+        },
+        {
+          "end": 104.92,
+          "probability": 0.9990234375,
+          "start": 104.72,
+          "word": "平"
+        },
+        {
+          "end": 105.2,
+          "probability": 0.9619140625,
+          "start": 104.92,
+          "word": "台"
+        }
+      ]
+    },
+    {
+      "end": 108.22,
+      "id": 37,
+      "start": 105.2,
+      "text": "為這對新手父母送上滿滿的祝福",
+      "words": [
+        {
+          "end": 105.54,
+          "probability": 0.99462890625,
+          "start": 105.2,
+          "word": "為"
+        },
+        {
+          "end": 105.74,
+          "probability": 0.9580078125,
+          "start": 105.54,
+          "word": "這"
+        },
+        {
+          "end": 105.92,
+          "probability": 0.984375,
+          "start": 105.74,
+          "word": "對"
+        },
+        {
+          "end": 106.14,
+          "probability": 0.935546875,
+          "start": 105.92,
+          "word": "新"
+        },
+        {
+          "end": 106.4,
+          "probability": 0.97314453125,
+          "start": 106.14,
+          "word": "手"
+        },
+        {
+          "end": 106.66,
+          "probability": 0.99072265625,
+          "start": 106.4,
+          "word": "父"
+        },
+        {
+          "end": 106.92,
+          "probability": 1.0,
+          "start": 106.66,
+          "word": "母"
+        },
+        {
+          "end": 107.1,
+          "probability": 0.98486328125,
+          "start": 106.92,
+          "word": "送"
+        },
+        {
+          "end": 107.34,
+          "probability": 0.99853515625,
+          "start": 107.1,
+          "word": "上"
+        },
+        {
+          "end": 107.56,
+          "probability": 0.9970703125,
+          "start": 107.34,
+          "word": "滿"
+        },
+        {
+          "end": 107.8,
+          "probability": 0.99072265625,
+          "start": 107.56,
+          "word": "滿"
+        },
+        {
+          "end": 107.88,
+          "probability": 0.90283203125,
+          "start": 107.8,
+          "word": "的"
+        },
+        {
+          "end": 108.08,
+          "probability": 0.9990234375,
+          "start": 107.88,
+          "word": "祝"
+        },
+        {
+          "end": 108.22,
+          "probability": 0.99951171875,
+          "start": 108.08,
+          "word": "福"
+        }
+      ]
+    },
+    {
+      "end": 111.58,
+      "id": 38,
+      "start": 108.22,
+      "text": "希望Thomas仔繼續發揮小福星的本色",
+      "words": [
+        {
+          "end": 108.84,
+          "probability": 0.99755859375,
+          "start": 108.22,
+          "word": "希望"
+        },
+        {
+          "end": 109.08,
+          "probability": 0.96533203125,
+          "start": 108.84,
+          "word": "Th"
+        },
+        {
+          "end": 109.32,
+          "probability": 0.9990234375,
+          "start": 109.08,
+          "word": "omas"
+        },
+        {
+          "end": 109.48,
+          "probability": 0.68505859375,
+          "start": 109.32,
+          "word": "仔"
+        },
+        {
+          "end": 109.82,
+          "probability": 0.99462890625,
+          "start": 109.48,
+          "word": "繼續"
+        },
+        {
+          "end": 110.16,
+          "probability": 0.9970703125,
+          "start": 109.82,
+          "word": "發"
+        },
+        {
+          "end": 110.38,
+          "probability": 0.9990234375,
+          "start": 110.16,
+          "word": "揮"
+        },
+        {
+          "end": 110.62,
+          "probability": 0.74560546875,
+          "start": 110.38,
+          "word": "小"
+        },
+        {
+          "end": 110.86,
+          "probability": 0.81884765625,
+          "start": 110.62,
+          "word": "福"
+        },
+        {
+          "end": 111.04,
+          "probability": 0.98388671875,
+          "start": 110.86,
+          "word": "星"
+        },
+        {
+          "end": 111.18,
+          "probability": 0.98193359375,
+          "start": 111.04,
+          "word": "的"
+        },
+        {
+          "end": 111.34,
+          "probability": 0.99755859375,
+          "start": 111.18,
+          "word": "本"
+        },
+        {
+          "end": 111.58,
+          "probability": 0.97900390625,
+          "start": 111.34,
+          "word": "色"
+        }
+      ]
+    },
+    {
+      "end": 113.88,
+      "id": 39,
+      "start": 111.58,
+      "text": "帶領爸爸衝擊更多頭碼",
+      "words": [
+        {
+          "end": 112.0,
+          "probability": 0.99267578125,
+          "start": 111.58,
+          "word": "帶"
+        },
+        {
+          "end": 112.2,
+          "probability": 0.927734375,
+          "start": 112.0,
+          "word": "領"
+        },
+        {
+          "end": 112.44,
+          "probability": 0.95361328125,
+          "start": 112.2,
+          "word": "爸爸"
+        },
+        {
+          "end": 112.82,
+          "probability": 0.9765625,
+          "start": 112.44,
+          "word": "衝"
+        },
+        {
+          "end": 112.96,
+          "probability": 0.9990234375,
+          "start": 112.82,
+          "word": "擊"
+        },
+        {
+          "end": 113.1,
+          "probability": 0.9921875,
+          "start": 112.96,
+          "word": "更"
+        },
+        {
+          "end": 113.46,
+          "probability": 0.99853515625,
+          "start": 113.1,
+          "word": "多"
+        },
+        {
+          "end": 113.66,
+          "probability": 0.99462890625,
+          "start": 113.46,
+          "word": "頭"
+        },
+        {
+          "end": 113.88,
+          "probability": 0.99365234375,
+          "start": 113.66,
+          "word": "碼"
+        }
+      ]
+    },
+    {
+      "end": 116.18,
+      "id": 40,
+      "start": 113.88,
+      "text": "奶粉錢靠你繼續往下去了",
+      "words": [
+        {
+          "end": 114.14,
+          "probability": 0.473876953125,
+          "start": 113.88,
+          "word": "奶"
+        },
+        {
+          "end": 114.36,
+          "probability": 0.99853515625,
+          "start": 114.14,
+          "word": "粉"
+        },
+        {
+          "end": 114.66,
+          "probability": 0.7861328125,
+          "start": 114.36,
+          "word": "錢"
+        },
+        {
+          "end": 114.92,
+          "probability": 0.86279296875,
+          "start": 114.66,
+          "word": "靠"
+        },
+        {
+          "end": 115.12,
+          "probability": 0.96826171875,
+          "start": 114.92,
+          "word": "你"
+        },
+        {
+          "end": 115.42,
+          "probability": 0.90087890625,
+          "start": 115.12,
+          "word": "繼續"
+        },
+        {
+          "end": 115.64,
+          "probability": 0.2454833984375,
+          "start": 115.42,
+          "word": "往"
+        },
+        {
+          "end": 115.9,
+          "probability": 0.96923828125,
+          "start": 115.64,
+          "word": "下去"
+        },
+        {
+          "end": 116.18,
+          "probability": 0.6689453125,
+          "start": 115.9,
+          "word": "了"
+        }
+      ]
+    },
+    {
+      "end": 121.16,
+      "id": 41,
+      "start": 118.5,
+      "text": "除了雙喜臨門的艾少麗之外",
+      "words": [
+        {
+          "end": 118.98,
+          "probability": 0.91650390625,
+          "start": 118.5,
+          "word": "除"
+        },
+        {
+          "end": 119.24,
+          "probability": 0.9931640625,
+          "start": 118.98,
+          "word": "了"
+        },
+        {
+          "end": 119.46,
+          "probability": 0.63134765625,
+          "start": 119.24,
+          "word": "雙"
+        },
+        {
+          "end": 119.58,
+          "probability": 0.984375,
+          "start": 119.46,
+          "word": "喜"
+        },
+        {
+          "end": 119.8,
+          "probability": 0.9677734375,
+          "start": 119.58,
+          "word": "臨"
+        },
+        {
+          "end": 119.98,
+          "probability": 0.99365234375,
+          "start": 119.8,
+          "word": "門"
+        },
+        {
+          "end": 120.12,
+          "probability": 0.9423828125,
+          "start": 119.98,
+          "word": "的"
+        },
+        {
+          "end": 120.3,
+          "probability": 0.96630859375,
+          "start": 120.12,
+          "word": "艾"
+        },
+        {
+          "end": 120.48,
+          "probability": 0.87548828125,
+          "start": 120.3,
+          "word": "少"
+        },
+        {
+          "end": 120.68,
+          "probability": 0.71337890625,
+          "start": 120.48,
+          "word": "麗"
+        },
+        {
+          "end": 120.8,
+          "probability": 0.55126953125,
+          "start": 120.68,
+          "word": "之"
+        },
+        {
+          "end": 121.16,
+          "probability": 0.99951171875,
+          "start": 120.8,
+          "word": "外"
+        }
+      ]
+    },
+    {
+      "end": 122.6,
+      "id": 42,
+      "start": 121.16,
+      "text": "另外一位騎師",
+      "words": [
+        {
+          "end": 121.66,
+          "probability": 0.77490234375,
+          "start": 121.16,
+          "word": "另外"
+        },
+        {
+          "end": 121.96,
+          "probability": 0.98779296875,
+          "start": 121.66,
+          "word": "一"
+        },
+        {
+          "end": 122.14,
+          "probability": 0.99853515625,
+          "start": 121.96,
+          "word": "位"
+        },
+        {
+          "end": 122.36,
+          "probability": 0.99658203125,
+          "start": 122.14,
+          "word": "騎"
+        },
+        {
+          "end": 122.6,
+          "probability": 0.89306640625,
+          "start": 122.36,
+          "word": "師"
+        }
+      ]
+    },
+    {
+      "end": 125.44,
+      "id": 43,
+      "start": 122.6,
+      "text": "最近也上演贏到傻的神級演出",
+      "words": [
+        {
+          "end": 122.94,
+          "probability": 0.9521484375,
+          "start": 122.6,
+          "word": "最近"
+        },
+        {
+          "end": 123.22,
+          "probability": 0.39990234375,
+          "start": 122.94,
+          "word": "也"
+        },
+        {
+          "end": 123.46,
+          "probability": 0.6982421875,
+          "start": 123.22,
+          "word": "上"
+        },
+        {
+          "end": 123.64,
+          "probability": 0.97998046875,
+          "start": 123.46,
+          "word": "演"
+        },
+        {
+          "end": 123.94,
+          "probability": 0.7666015625,
+          "start": 123.64,
+          "word": "贏"
+        },
+        {
+          "end": 124.18,
+          "probability": 0.6279296875,
+          "start": 123.94,
+          "word": "到"
+        },
+        {
+          "end": 124.44,
+          "probability": 0.63134765625,
+          "start": 124.18,
+          "word": "傻"
+        },
+        {
+          "end": 124.56,
+          "probability": 0.97412109375,
+          "start": 124.44,
+          "word": "的"
+        },
+        {
+          "end": 124.74,
+          "probability": 0.97216796875,
+          "start": 124.56,
+          "word": "神"
+        },
+        {
+          "end": 124.96,
+          "probability": 0.98779296875,
+          "start": 124.74,
+          "word": "級"
+        },
+        {
+          "end": 125.18,
+          "probability": 0.9931640625,
+          "start": 124.96,
+          "word": "演"
+        },
+        {
+          "end": 125.44,
+          "probability": 1.0,
+          "start": 125.18,
+          "word": "出"
+        }
+      ]
+    },
+    {
+      "end": 126.64,
+      "id": 44,
+      "start": 125.44,
+      "text": "就是麥道朗",
+      "words": [
+        {
+          "end": 125.98,
+          "probability": 0.9453125,
+          "start": 125.44,
+          "word": "就是"
+        },
+        {
+          "end": 126.22,
+          "probability": 0.90185546875,
+          "start": 125.98,
+          "word": "麥"
+        },
+        {
+          "end": 126.36,
+          "probability": 0.84033203125,
+          "start": 126.22,
+          "word": "道"
+        },
+        {
+          "end": 126.64,
+          "probability": 0.96240234375,
+          "start": 126.36,
+          "word": "朗"
+        }
+      ]
+    },
+    {
+      "end": 127.96,
+      "id": 45,
+      "start": 126.64,
+      "text": "3月7日",
+      "words": [
+        {
+          "end": 127.28,
+          "probability": 0.470703125,
+          "start": 126.64,
+          "word": "3"
+        },
+        {
+          "end": 127.58,
+          "probability": 0.99365234375,
+          "start": 127.28,
+          "word": "月"
+        },
+        {
+          "end": 127.76,
+          "probability": 0.99853515625,
+          "start": 127.58,
+          "word": "7"
+        },
+        {
+          "end": 127.96,
+          "probability": 0.82177734375,
+          "start": 127.76,
+          "word": "日"
+        }
+      ]
+    },
+    {
+      "end": 130.46,
+      "id": 46,
+      "start": 127.96,
+      "text": "他在南域馬場舉行的賽日",
+      "words": [
+        {
+          "end": 128.24,
+          "probability": 0.66748046875,
+          "start": 127.96,
+          "word": "他"
+        },
+        {
+          "end": 128.46,
+          "probability": 0.9638671875,
+          "start": 128.24,
+          "word": "在"
+        },
+        {
+          "end": 128.68,
+          "probability": 0.6044921875,
+          "start": 128.46,
+          "word": "南"
+        },
+        {
+          "end": 128.86,
+          "probability": 0.9775390625,
+          "start": 128.68,
+          "word": "域"
+        },
+        {
+          "end": 129.04,
+          "probability": 0.99169921875,
+          "start": 128.86,
+          "word": "馬"
+        },
+        {
+          "end": 129.3,
+          "probability": 0.99755859375,
+          "start": 129.04,
+          "word": "場"
+        },
+        {
+          "end": 129.56,
+          "probability": 0.998046875,
+          "start": 129.3,
+          "word": "舉"
+        },
+        {
+          "end": 129.76,
+          "probability": 0.99755859375,
+          "start": 129.56,
+          "word": "行"
+        },
+        {
+          "end": 129.94,
+          "probability": 0.94970703125,
+          "start": 129.76,
+          "word": "的"
+        },
+        {
+          "end": 130.1,
+          "probability": 0.98974609375,
+          "start": 129.94,
+          "word": "賽"
+        },
+        {
+          "end": 130.46,
+          "probability": 0.9638671875,
+          "start": 130.1,
+          "word": "日"
+        }
+      ]
+    },
+    {
+      "end": 132.7,
+      "id": 47,
+      "start": 130.46,
+      "text": "一日贏出6場頭馬",
+      "words": [
+        {
+          "end": 130.92,
+          "probability": 0.962890625,
+          "start": 130.46,
+          "word": "一"
+        },
+        {
+          "end": 131.16,
+          "probability": 0.82080078125,
+          "start": 130.92,
+          "word": "日"
+        },
+        {
+          "end": 131.42,
+          "probability": 0.95947265625,
+          "start": 131.16,
+          "word": "贏"
+        },
+        {
+          "end": 131.64,
+          "probability": 0.998046875,
+          "start": 131.42,
+          "word": "出"
+        },
+        {
+          "end": 131.88,
+          "probability": 0.62939453125,
+          "start": 131.64,
+          "word": "6"
+        },
+        {
+          "end": 132.2,
+          "probability": 0.9951171875,
+          "start": 131.88,
+          "word": "場"
+        },
+        {
+          "end": 132.48,
+          "probability": 0.90478515625,
+          "start": 132.2,
+          "word": "頭"
+        },
+        {
+          "end": 132.7,
+          "probability": 0.77685546875,
+          "start": 132.48,
+          "word": "馬"
+        }
+      ]
+    },
+    {
+      "end": 134.14,
+      "id": 48,
+      "start": 132.7,
+      "text": "包括一級賽",
+      "words": [
+        {
+          "end": 133.32,
+          "probability": 0.9755859375,
+          "start": 132.7,
+          "word": "包括"
+        },
+        {
+          "end": 133.64,
+          "probability": 0.77490234375,
+          "start": 133.32,
+          "word": "一"
+        },
+        {
+          "end": 133.86,
+          "probability": 0.9990234375,
+          "start": 133.64,
+          "word": "級"
+        },
+        {
+          "end": 134.14,
+          "probability": 0.9990234375,
+          "start": 133.86,
+          "word": "賽"
+        }
+      ]
+    },
+    {
+      "end": 135.72,
+      "id": 49,
+      "start": 134.14,
+      "text": "肯德伯利錦標",
+      "words": [
+        {
+          "end": 134.62,
+          "probability": 0.6962890625,
+          "start": 134.14,
+          "word": "肯"
+        },
+        {
+          "end": 134.8,
+          "probability": 0.94189453125,
+          "start": 134.62,
+          "word": "德"
+        },
+        {
+          "end": 135.04,
+          "probability": 0.9384765625,
+          "start": 134.8,
+          "word": "伯"
+        },
+        {
+          "end": 135.26,
+          "probability": 0.92724609375,
+          "start": 135.04,
+          "word": "利"
+        },
+        {
+          "end": 135.42,
+          "probability": 0.9912109375,
+          "start": 135.26,
+          "word": "錦"
+        },
+        {
+          "end": 135.72,
+          "probability": 0.96337890625,
+          "start": 135.42,
+          "word": "標"
+        }
+      ]
+    },
+    {
+      "end": 138.24,
+      "id": 50,
+      "start": 135.72,
+      "text": "最平左傳奇騎師賈西迪",
+      "words": [
+        {
+          "end": 136.02,
+          "probability": 0.69970703125,
+          "start": 135.72,
+          "word": "最"
+        },
+        {
+          "end": 136.24,
+          "probability": 0.77392578125,
+          "start": 136.02,
+          "word": "平"
+        },
+        {
+          "end": 136.44,
+          "probability": 0.6708984375,
+          "start": 136.24,
+          "word": "左"
+        },
+        {
+          "end": 136.68,
+          "probability": 0.54052734375,
+          "start": 136.44,
+          "word": "傳"
+        },
+        {
+          "end": 136.94,
+          "probability": 0.9912109375,
+          "start": 136.68,
+          "word": "奇"
+        },
+        {
+          "end": 137.26,
+          "probability": 0.99609375,
+          "start": 136.94,
+          "word": "騎"
+        },
+        {
+          "end": 137.48,
+          "probability": 0.93212890625,
+          "start": 137.26,
+          "word": "師"
+        },
+        {
+          "end": 137.76,
+          "probability": 0.8896484375,
+          "start": 137.48,
+          "word": "賈"
+        },
+        {
+          "end": 137.98,
+          "probability": 0.81298828125,
+          "start": 137.76,
+          "word": "西"
+        },
+        {
+          "end": 138.24,
+          "probability": 0.99462890625,
+          "start": 137.98,
+          "word": "迪"
+        }
+      ]
+    },
+    {
+      "end": 142.46,
+      "id": 51,
+      "start": 138.24,
+      "text": "亦即潘頓外虎在1987年創下的紀錄",
+      "words": [
+        {
+          "end": 138.86,
+          "probability": 0.8291015625,
+          "start": 138.24,
+          "word": "亦"
+        },
+        {
+          "end": 139.02,
+          "probability": 0.71533203125,
+          "start": 138.86,
+          "word": "即"
+        },
+        {
+          "end": 139.44,
+          "probability": 0.81005859375,
+          "start": 139.02,
+          "word": "潘"
+        },
+        {
+          "end": 139.66,
+          "probability": 0.9814453125,
+          "start": 139.44,
+          "word": "頓"
+        },
+        {
+          "end": 139.86,
+          "probability": 0.63232421875,
+          "start": 139.66,
+          "word": "外"
+        },
+        {
+          "end": 140.12,
+          "probability": 0.7529296875,
+          "start": 139.86,
+          "word": "虎"
+        },
+        {
+          "end": 140.38,
+          "probability": 0.7236328125,
+          "start": 140.12,
+          "word": "在"
+        },
+        {
+          "end": 140.7,
+          "probability": 0.9951171875,
+          "start": 140.38,
+          "word": "19"
+        },
+        {
+          "end": 141.14,
+          "probability": 0.9990234375,
+          "start": 140.7,
+          "word": "87"
+        },
+        {
+          "end": 141.46,
+          "probability": 0.9951171875,
+          "start": 141.14,
+          "word": "年"
+        },
+        {
+          "end": 141.72,
+          "probability": 0.9970703125,
+          "start": 141.46,
+          "word": "創"
+        },
+        {
+          "end": 141.9,
+          "probability": 0.998046875,
+          "start": 141.72,
+          "word": "下"
+        },
+        {
+          "end": 142.06,
+          "probability": 0.90283203125,
+          "start": 141.9,
+          "word": "的"
+        },
+        {
+          "end": 142.2,
+          "probability": 0.9287109375,
+          "start": 142.06,
+          "word": "紀"
+        },
+        {
+          "end": 142.46,
+          "probability": 1.0,
+          "start": 142.2,
+          "word": "錄"
+        }
+      ]
+    },
+    {
+      "end": 146.98,
+      "id": 52,
+      "start": 142.46,
+      "text": "同時亦是38年來首次有人在色尼城市馬場",
+      "words": [
+        {
+          "end": 142.88,
+          "probability": 0.90087890625,
+          "start": 142.46,
+          "word": "同"
+        },
+        {
+          "end": 143.2,
+          "probability": 0.86181640625,
+          "start": 142.88,
+          "word": "時"
+        },
+        {
+          "end": 143.46,
+          "probability": 0.7099609375,
+          "start": 143.2,
+          "word": "亦"
+        },
+        {
+          "end": 143.62,
+          "probability": 0.919921875,
+          "start": 143.46,
+          "word": "是"
+        },
+        {
+          "end": 144.02,
+          "probability": 0.72412109375,
+          "start": 143.62,
+          "word": "38"
+        },
+        {
+          "end": 144.4,
+          "probability": 0.98974609375,
+          "start": 144.02,
+          "word": "年"
+        },
+        {
+          "end": 144.62,
+          "probability": 0.94091796875,
+          "start": 144.4,
+          "word": "來"
+        },
+        {
+          "end": 144.88,
+          "probability": 0.9912109375,
+          "start": 144.62,
+          "word": "首"
+        },
+        {
+          "end": 145.16,
+          "probability": 0.9951171875,
+          "start": 144.88,
+          "word": "次"
+        },
+        {
+          "end": 145.38,
+          "probability": 0.9609375,
+          "start": 145.16,
+          "word": "有人"
+        },
+        {
+          "end": 145.66,
+          "probability": 0.8740234375,
+          "start": 145.38,
+          "word": "在"
+        },
+        {
+          "end": 145.86,
+          "probability": 0.275146484375,
+          "start": 145.66,
+          "word": "色"
+        },
+        {
+          "end": 146.04,
+          "probability": 0.98486328125,
+          "start": 145.86,
+          "word": "尼"
+        },
+        {
+          "end": 146.28,
+          "probability": 0.92236328125,
+          "start": 146.04,
+          "word": "城"
+        },
+        {
+          "end": 146.54,
+          "probability": 0.994140625,
+          "start": 146.28,
+          "word": "市"
+        },
+        {
+          "end": 146.74,
+          "probability": 0.97314453125,
+          "start": 146.54,
+          "word": "馬"
+        },
+        {
+          "end": 146.98,
+          "probability": 0.998046875,
+          "start": 146.74,
+          "word": "場"
+        }
+      ]
+    },
+    {
+      "end": 149.22,
+      "id": 53,
+      "start": 146.98,
+      "text": "重現一日六邊的壯舉",
+      "words": [
+        {
+          "end": 147.44,
+          "probability": 0.98583984375,
+          "start": 146.98,
+          "word": "重"
+        },
+        {
+          "end": 147.74,
+          "probability": 0.98974609375,
+          "start": 147.44,
+          "word": "現"
+        },
+        {
+          "end": 147.92,
+          "probability": 0.79931640625,
+          "start": 147.74,
+          "word": "一"
+        },
+        {
+          "end": 148.14,
+          "probability": 0.9013671875,
+          "start": 147.92,
+          "word": "日"
+        },
+        {
+          "end": 148.34,
+          "probability": 0.71435546875,
+          "start": 148.14,
+          "word": "六"
+        },
+        {
+          "end": 148.6,
+          "probability": 0.370361328125,
+          "start": 148.34,
+          "word": "邊"
+        },
+        {
+          "end": 148.7,
+          "probability": 0.92919921875,
+          "start": 148.6,
+          "word": "的"
+        },
+        {
+          "end": 148.96,
+          "probability": 0.97265625,
+          "start": 148.7,
+          "word": "壯"
+        },
+        {
+          "end": 149.22,
+          "probability": 0.994140625,
+          "start": 148.96,
+          "word": "舉"
+        }
+      ]
+    },
+    {
+      "end": 151.92,
+      "id": 54,
+      "start": 149.22,
+      "text": "絕對震撼整個澳洲賽馬界",
+      "words": [
+        {
+          "end": 149.78,
+          "probability": 0.982421875,
+          "start": 149.22,
+          "word": "絕"
+        },
+        {
+          "end": 149.96,
+          "probability": 0.998046875,
+          "start": 149.78,
+          "word": "對"
+        },
+        {
+          "end": 150.26,
+          "probability": 0.994140625,
+          "start": 149.96,
+          "word": "震"
+        },
+        {
+          "end": 150.4,
+          "probability": 0.9990234375,
+          "start": 150.26,
+          "word": "撼"
+        },
+        {
+          "end": 150.66,
+          "probability": 0.95361328125,
+          "start": 150.4,
+          "word": "整"
+        },
+        {
+          "end": 150.84,
+          "probability": 0.99560546875,
+          "start": 150.66,
+          "word": "個"
+        },
+        {
+          "end": 151.04,
+          "probability": 0.9794921875,
+          "start": 150.84,
+          "word": "澳"
+        },
+        {
+          "end": 151.28,
+          "probability": 0.9990234375,
+          "start": 151.04,
+          "word": "洲"
+        },
+        {
+          "end": 151.46,
+          "probability": 0.98876953125,
+          "start": 151.28,
+          "word": "賽"
+        },
+        {
+          "end": 151.64,
+          "probability": 0.9990234375,
+          "start": 151.46,
+          "word": "馬"
+        },
+        {
+          "end": 151.92,
+          "probability": 0.99462890625,
+          "start": 151.64,
+          "word": "界"
+        }
+      ]
+    },
+    {
+      "end": 156.82,
+      "id": 55,
+      "start": 154.3,
+      "text": "最近有市民在沙田馬場附近",
+      "words": [
+        {
+          "end": 154.74,
+          "probability": 0.98095703125,
+          "start": 154.3,
+          "word": "最近"
+        },
+        {
+          "end": 154.96,
+          "probability": 0.939453125,
+          "start": 154.74,
+          "word": "有"
+        },
+        {
+          "end": 155.14,
+          "probability": 0.9755859375,
+          "start": 154.96,
+          "word": "市"
+        },
+        {
+          "end": 155.36,
+          "probability": 1.0,
+          "start": 155.14,
+          "word": "民"
+        },
+        {
+          "end": 155.58,
+          "probability": 0.96337890625,
+          "start": 155.36,
+          "word": "在"
+        },
+        {
+          "end": 155.82,
+          "probability": 0.98876953125,
+          "start": 155.58,
+          "word": "沙"
+        },
+        {
+          "end": 155.94,
+          "probability": 0.9951171875,
+          "start": 155.82,
+          "word": "田"
+        },
+        {
+          "end": 156.18,
+          "probability": 0.994140625,
+          "start": 155.94,
+          "word": "馬"
+        },
+        {
+          "end": 156.38,
+          "probability": 0.99951171875,
+          "start": 156.18,
+          "word": "場"
+        },
+        {
+          "end": 156.64,
+          "probability": 0.998046875,
+          "start": 156.38,
+          "word": "附"
+        },
+        {
+          "end": 156.82,
+          "probability": 1.0,
+          "start": 156.64,
+          "word": "近"
+        }
+      ]
+    },
+    {
+      "end": 158.48,
+      "id": 56,
+      "start": 156.82,
+      "text": "認到有匹得意的馬仔",
+      "words": [
+        {
+          "end": 157.06,
+          "probability": 0.95361328125,
+          "start": 156.82,
+          "word": "認"
+        },
+        {
+          "end": 157.18,
+          "probability": 0.53076171875,
+          "start": 157.06,
+          "word": "到"
+        },
+        {
+          "end": 157.34,
+          "probability": 0.73974609375,
+          "start": 157.18,
+          "word": "有"
+        },
+        {
+          "end": 157.54,
+          "probability": 0.68994140625,
+          "start": 157.34,
+          "word": "匹"
+        },
+        {
+          "end": 157.66,
+          "probability": 0.1954345703125,
+          "start": 157.54,
+          "word": "得"
+        },
+        {
+          "end": 157.94,
+          "probability": 0.79052734375,
+          "start": 157.66,
+          "word": "意"
+        },
+        {
+          "end": 158.06,
+          "probability": 0.62939453125,
+          "start": 157.94,
+          "word": "的"
+        },
+        {
+          "end": 158.22,
+          "probability": 0.53173828125,
+          "start": 158.06,
+          "word": "馬"
+        },
+        {
+          "end": 158.48,
+          "probability": 0.9892578125,
+          "start": 158.22,
+          "word": "仔"
+        }
+      ]
+    },
+    {
+      "end": 161.58,
+      "id": 57,
+      "start": 158.48,
+      "text": "在馬格裡面伸頭出窗外望風景",
+      "words": [
+        {
+          "end": 158.86,
+          "probability": 0.90087890625,
+          "start": 158.48,
+          "word": "在"
+        },
+        {
+          "end": 159.06,
+          "probability": 0.99462890625,
+          "start": 158.86,
+          "word": "馬"
+        },
+        {
+          "end": 159.22,
+          "probability": 0.6806640625,
+          "start": 159.06,
+          "word": "格"
+        },
+        {
+          "end": 159.48,
+          "probability": 0.301025390625,
+          "start": 159.22,
+          "word": "裡面"
+        },
+        {
+          "end": 159.84,
+          "probability": 0.99755859375,
+          "start": 159.48,
+          "word": "伸"
+        },
+        {
+          "end": 160.02,
+          "probability": 0.5302734375,
+          "start": 159.84,
+          "word": "頭"
+        },
+        {
+          "end": 160.36,
+          "probability": 0.8876953125,
+          "start": 160.02,
+          "word": "出"
+        },
+        {
+          "end": 160.68,
+          "probability": 0.9609375,
+          "start": 160.36,
+          "word": "窗"
+        },
+        {
+          "end": 160.96,
+          "probability": 0.9765625,
+          "start": 160.68,
+          "word": "外"
+        },
+        {
+          "end": 161.08,
+          "probability": 0.5341796875,
+          "start": 160.96,
+          "word": "望"
+        },
+        {
+          "end": 161.36,
+          "probability": 0.9931640625,
+          "start": 161.08,
+          "word": "風"
+        },
+        {
+          "end": 161.58,
+          "probability": 0.9873046875,
+          "start": 161.36,
+          "word": "景"
+        }
+      ]
+    },
+    {
+      "end": 163.56,
+      "id": 58,
+      "start": 161.58,
+      "text": "大家都説牠很可愛",
+      "words": [
+        {
+          "end": 162.22,
+          "probability": 0.8603515625,
+          "start": 161.58,
+          "word": "大家都"
+        },
+        {
+          "end": 162.74,
+          "probability": 0.9267578125,
+          "start": 162.22,
+          "word": "説"
+        },
+        {
+          "end": 162.94,
+          "probability": 0.8671875,
+          "start": 162.74,
+          "word": "牠"
+        },
+        {
+          "end": 163.1,
+          "probability": 0.72509765625,
+          "start": 162.94,
+          "word": "很"
+        },
+        {
+          "end": 163.56,
+          "probability": 0.99853515625,
+          "start": 163.1,
+          "word": "可愛"
+        }
+      ]
+    },
+    {
+      "end": 166.08,
+      "id": 59,
+      "start": 163.56,
+      "text": "不過有眼利的網民就發現",
+      "words": [
+        {
+          "end": 164.14,
+          "probability": 0.880859375,
+          "start": 163.56,
+          "word": "不過"
+        },
+        {
+          "end": 164.52,
+          "probability": 0.9443359375,
+          "start": 164.14,
+          "word": "有"
+        },
+        {
+          "end": 164.72,
+          "probability": 0.8291015625,
+          "start": 164.52,
+          "word": "眼"
+        },
+        {
+          "end": 164.94,
+          "probability": 0.290283203125,
+          "start": 164.72,
+          "word": "利"
+        },
+        {
+          "end": 165.1,
+          "probability": 0.92138671875,
+          "start": 164.94,
+          "word": "的"
+        },
+        {
+          "end": 165.28,
+          "probability": 0.99853515625,
+          "start": 165.1,
+          "word": "網"
+        },
+        {
+          "end": 165.54,
+          "probability": 0.99755859375,
+          "start": 165.28,
+          "word": "民"
+        },
+        {
+          "end": 165.7,
+          "probability": 0.274658203125,
+          "start": 165.54,
+          "word": "就"
+        },
+        {
+          "end": 166.08,
+          "probability": 0.9951171875,
+          "start": 165.7,
+          "word": "發現"
+        }
+      ]
+    },
+    {
+      "end": 167.86,
+      "id": 60,
+      "start": 166.08,
+      "text": "馬仔好像掉了些東西",
+      "words": [
+        {
+          "end": 166.54,
+          "probability": 0.98486328125,
+          "start": 166.08,
+          "word": "馬"
+        },
+        {
+          "end": 166.78,
+          "probability": 0.99951171875,
+          "start": 166.54,
+          "word": "仔"
+        },
+        {
+          "end": 166.96,
+          "probability": 0.90576171875,
+          "start": 166.78,
+          "word": "好像"
+        },
+        {
+          "end": 167.26,
+          "probability": 0.59765625,
+          "start": 166.96,
+          "word": "掉"
+        },
+        {
+          "end": 167.44,
+          "probability": 0.94677734375,
+          "start": 167.26,
+          "word": "了"
+        },
+        {
+          "end": 167.64,
+          "probability": 0.40771484375,
+          "start": 167.44,
+          "word": "些"
+        },
+        {
+          "end": 167.86,
+          "probability": 0.8193359375,
+          "start": 167.64,
+          "word": "東西"
+        }
+      ]
+    },
+    {
+      "end": 169.02,
+      "id": 61,
+      "start": 167.86,
+      "text": "究竟是什麼呢",
+      "words": [
+        {
+          "end": 168.28,
+          "probability": 0.67626953125,
+          "start": 167.86,
+          "word": "究"
+        },
+        {
+          "end": 168.48,
+          "probability": 1.0,
+          "start": 168.28,
+          "word": "竟"
+        },
+        {
+          "end": 168.68,
+          "probability": 0.55419921875,
+          "start": 168.48,
+          "word": "是什麼"
+        },
+        {
+          "end": 169.02,
+          "probability": 0.8701171875,
+          "start": 168.68,
+          "word": "呢"
+        }
+      ]
+    },
+    {
+      "end": 171.12,
+      "id": 62,
+      "start": 169.68,
+      "text": "原來是這堆草",
+      "words": [
+        {
+          "end": 170.12,
+          "probability": 0.361328125,
+          "start": 169.68,
+          "word": "原"
+        },
+        {
+          "end": 170.32,
+          "probability": 0.99853515625,
+          "start": 170.12,
+          "word": "來"
+        },
+        {
+          "end": 170.44,
+          "probability": 0.96142578125,
+          "start": 170.32,
+          "word": "是"
+        },
+        {
+          "end": 170.62,
+          "probability": 0.88427734375,
+          "start": 170.44,
+          "word": "這"
+        },
+        {
+          "end": 170.78,
+          "probability": 0.97998046875,
+          "start": 170.62,
+          "word": "堆"
+        },
+        {
+          "end": 171.12,
+          "probability": 0.98828125,
+          "start": 170.78,
+          "word": "草"
+        }
+      ]
+    },
+    {
+      "end": 174.66,
+      "id": 63,
+      "start": 171.12,
+      "text": "大家都非常擔心馬仔掉了午餐會餓",
+      "words": [
+        {
+          "end": 171.58,
+          "probability": 0.5341796875,
+          "start": 171.12,
+          "word": "大家都"
+        },
+        {
+          "end": 172.22,
+          "probability": 0.91748046875,
+          "start": 171.58,
+          "word": "非常"
+        },
+        {
+          "end": 172.64,
+          "probability": 0.89697265625,
+          "start": 172.22,
+          "word": "擔"
+        },
+        {
+          "end": 172.86,
+          "probability": 0.99951171875,
+          "start": 172.64,
+          "word": "心"
+        },
+        {
+          "end": 173.02,
+          "probability": 0.8505859375,
+          "start": 172.86,
+          "word": "馬"
+        },
+        {
+          "end": 173.16,
+          "probability": 0.98876953125,
+          "start": 173.02,
+          "word": "仔"
+        },
+        {
+          "end": 173.4,
+          "probability": 0.52734375,
+          "start": 173.16,
+          "word": "掉"
+        },
+        {
+          "end": 173.58,
+          "probability": 0.80224609375,
+          "start": 173.4,
+          "word": "了"
+        },
+        {
+          "end": 173.82,
+          "probability": 0.1650390625,
+          "start": 173.58,
+          "word": "午"
+        },
+        {
+          "end": 174.18,
+          "probability": 0.998046875,
+          "start": 173.82,
+          "word": "餐"
+        },
+        {
+          "end": 174.36,
+          "probability": 0.830078125,
+          "start": 174.18,
+          "word": "會"
+        },
+        {
+          "end": 174.66,
+          "probability": 0.9619140625,
+          "start": 174.36,
+          "word": "餓"
+        }
+      ]
+    },
+    {
+      "end": 178.12,
+      "id": 64,
+      "start": 174.66,
+      "text": "所以惹來一眾網友瘋狂轉載",
+      "words": [
+        {
+          "end": 175.06,
+          "probability": 0.0391845703125,
+          "start": 174.66,
+          "word": "所以"
+        },
+        {
+          "end": 175.86,
+          "probability": 0.904296875,
+          "start": 175.06,
+          "word": "惹"
+        },
+        {
+          "end": 175.98,
+          "probability": 0.63916015625,
+          "start": 175.86,
+          "word": "來"
+        },
+        {
+          "end": 176.28,
+          "probability": 0.94775390625,
+          "start": 175.98,
+          "word": "一"
+        },
+        {
+          "end": 176.58,
+          "probability": 0.998046875,
+          "start": 176.28,
+          "word": "眾"
+        },
+        {
+          "end": 176.82,
+          "probability": 0.9951171875,
+          "start": 176.58,
+          "word": "網"
+        },
+        {
+          "end": 177.0,
+          "probability": 0.99072265625,
+          "start": 176.82,
+          "word": "友"
+        },
+        {
+          "end": 177.3,
+          "probability": 0.98193359375,
+          "start": 177.0,
+          "word": "瘋"
+        },
+        {
+          "end": 177.6,
+          "probability": 0.99951171875,
+          "start": 177.3,
+          "word": "狂"
+        },
+        {
+          "end": 177.84,
+          "probability": 0.94775390625,
+          "start": 177.6,
+          "word": "轉"
+        },
+        {
+          "end": 178.12,
+          "probability": 0.99853515625,
+          "start": 177.84,
+          "word": "載"
+        }
+      ]
+    },
+    {
+      "end": 180.72,
+      "id": 65,
+      "start": 178.12,
+      "text": "幸好這個Pull成功召喚了",
+      "words": [
+        {
+          "end": 178.64,
+          "probability": 0.88232421875,
+          "start": 178.12,
+          "word": "幸"
+        },
+        {
+          "end": 178.84,
+          "probability": 0.9404296875,
+          "start": 178.64,
+          "word": "好"
+        },
+        {
+          "end": 179.1,
+          "probability": 0.64892578125,
+          "start": 178.84,
+          "word": "這個"
+        },
+        {
+          "end": 179.28,
+          "probability": 0.07659912109375,
+          "start": 179.1,
+          "word": "P"
+        },
+        {
+          "end": 179.46,
+          "probability": 0.1549072265625,
+          "start": 179.28,
+          "word": "ull"
+        },
+        {
+          "end": 179.66,
+          "probability": 0.9423828125,
+          "start": 179.46,
+          "word": "成"
+        },
+        {
+          "end": 180.0,
+          "probability": 0.99658203125,
+          "start": 179.66,
+          "word": "功"
+        },
+        {
+          "end": 180.24,
+          "probability": 0.9970703125,
+          "start": 180.0,
+          "word": "召"
+        },
+        {
+          "end": 180.46,
+          "probability": 0.9912109375,
+          "start": 180.24,
+          "word": "喚"
+        },
+        {
+          "end": 180.72,
+          "probability": 0.8349609375,
+          "start": 180.46,
+          "word": "了"
+        }
+      ]
+    },
+    {
+      "end": 182.14,
+      "id": 66,
+      "start": 180.72,
+      "text": "馬房工作人員出馬",
+      "words": [
+        {
+          "end": 180.86,
+          "probability": 0.7275390625,
+          "start": 180.72,
+          "word": "馬"
+        },
+        {
+          "end": 181.1,
+          "probability": 0.92822265625,
+          "start": 180.86,
+          "word": "房"
+        },
+        {
+          "end": 181.42,
+          "probability": 0.99169921875,
+          "start": 181.1,
+          "word": "工作"
+        },
+        {
+          "end": 181.62,
+          "probability": 0.99853515625,
+          "start": 181.42,
+          "word": "人"
+        },
+        {
+          "end": 181.82,
+          "probability": 0.998046875,
+          "start": 181.62,
+          "word": "員"
+        },
+        {
+          "end": 181.96,
+          "probability": 0.9912109375,
+          "start": 181.82,
+          "word": "出"
+        },
+        {
+          "end": 182.14,
+          "probability": 0.99658203125,
+          "start": 181.96,
+          "word": "馬"
+        }
+      ]
+    },
+    {
+      "end": 184.74,
+      "id": 67,
+      "start": 182.14,
+      "text": "除了幫馬仔補給午餐外",
+      "words": [
+        {
+          "end": 182.72,
+          "probability": 0.984375,
+          "start": 182.14,
+          "word": "除"
+        },
+        {
+          "end": 182.9,
+          "probability": 0.97265625,
+          "start": 182.72,
+          "word": "了"
+        },
+        {
+          "end": 183.08,
+          "probability": 0.85546875,
+          "start": 182.9,
+          "word": "幫"
+        },
+        {
+          "end": 183.28,
+          "probability": 0.97509765625,
+          "start": 183.08,
+          "word": "馬"
+        },
+        {
+          "end": 183.54,
+          "probability": 0.99951171875,
+          "start": 183.28,
+          "word": "仔"
+        },
+        {
+          "end": 183.76,
+          "probability": 0.9990234375,
+          "start": 183.54,
+          "word": "補"
+        },
+        {
+          "end": 183.96,
+          "probability": 0.98388671875,
+          "start": 183.76,
+          "word": "給"
+        },
+        {
+          "end": 184.2,
+          "probability": 0.99755859375,
+          "start": 183.96,
+          "word": "午"
+        },
+        {
+          "end": 184.44,
+          "probability": 0.99951171875,
+          "start": 184.2,
+          "word": "餐"
+        },
+        {
+          "end": 184.74,
+          "probability": 0.546875,
+          "start": 184.44,
+          "word": "外"
+        }
+      ]
+    },
+    {
+      "end": 188.68,
+      "id": 68,
+      "start": 184.74,
+      "text": "還順便和大家揭開神秘馬仔的真實身份",
+      "words": [
+        {
+          "end": 185.32,
+          "probability": 0.94482421875,
+          "start": 184.74,
+          "word": "還"
+        },
+        {
+          "end": 185.56,
+          "probability": 0.98974609375,
+          "start": 185.32,
+          "word": "順"
+        },
+        {
+          "end": 185.78,
+          "probability": 0.8876953125,
+          "start": 185.56,
+          "word": "便"
+        },
+        {
+          "end": 185.96,
+          "probability": 0.477294921875,
+          "start": 185.78,
+          "word": "和"
+        },
+        {
+          "end": 186.38,
+          "probability": 0.98095703125,
+          "start": 185.96,
+          "word": "大家"
+        },
+        {
+          "end": 186.68,
+          "probability": 0.99951171875,
+          "start": 186.38,
+          "word": "揭"
+        },
+        {
+          "end": 186.84,
+          "probability": 0.9140625,
+          "start": 186.68,
+          "word": "開"
+        },
+        {
+          "end": 187.08,
+          "probability": 0.92578125,
+          "start": 186.84,
+          "word": "神"
+        },
+        {
+          "end": 187.34,
+          "probability": 0.98291015625,
+          "start": 187.08,
+          "word": "秘"
+        },
+        {
+          "end": 187.56,
+          "probability": 0.96728515625,
+          "start": 187.34,
+          "word": "馬"
+        },
+        {
+          "end": 187.76,
+          "probability": 1.0,
+          "start": 187.56,
+          "word": "仔"
+        },
+        {
+          "end": 187.86,
+          "probability": 0.9208984375,
+          "start": 187.76,
+          "word": "的"
+        },
+        {
+          "end": 188.06,
+          "probability": 0.99853515625,
+          "start": 187.86,
+          "word": "真"
+        },
+        {
+          "end": 188.24,
+          "probability": 0.9951171875,
+          "start": 188.06,
+          "word": "實"
+        },
+        {
+          "end": 188.44,
+          "probability": 0.9912109375,
+          "start": 188.24,
+          "word": "身"
+        },
+        {
+          "end": 188.68,
+          "probability": 0.464599609375,
+          "start": 188.44,
+          "word": "份"
+        }
+      ]
+    },
+    {
+      "end": 191.38,
+      "id": 69,
+      "start": 188.68,
+      "text": "原來這匹任性又可愛的主角",
+      "words": [
+        {
+          "end": 189.16,
+          "probability": 0.982421875,
+          "start": 188.68,
+          "word": "原"
+        },
+        {
+          "end": 189.36,
+          "probability": 0.99853515625,
+          "start": 189.16,
+          "word": "來"
+        },
+        {
+          "end": 189.5,
+          "probability": 0.923828125,
+          "start": 189.36,
+          "word": "這"
+        },
+        {
+          "end": 189.64,
+          "probability": 0.9365234375,
+          "start": 189.5,
+          "word": "匹"
+        },
+        {
+          "end": 189.9,
+          "probability": 0.96484375,
+          "start": 189.64,
+          "word": "任"
+        },
+        {
+          "end": 190.24,
+          "probability": 0.998046875,
+          "start": 189.9,
+          "word": "性"
+        },
+        {
+          "end": 190.38,
+          "probability": 0.900390625,
+          "start": 190.24,
+          "word": "又"
+        },
+        {
+          "end": 190.7,
+          "probability": 0.99462890625,
+          "start": 190.38,
+          "word": "可愛"
+        },
+        {
+          "end": 190.96,
+          "probability": 0.998046875,
+          "start": 190.7,
+          "word": "的"
+        },
+        {
+          "end": 191.08,
+          "probability": 0.99365234375,
+          "start": 190.96,
+          "word": "主"
+        },
+        {
+          "end": 191.38,
+          "probability": 0.99267578125,
+          "start": 191.08,
+          "word": "角"
+        }
+      ]
+    },
+    {
+      "end": 194.12,
+      "id": 70,
+      "start": 191.38,
+      "text": "是來自遊達榮馬房的幸運風采",
+      "words": [
+        {
+          "end": 191.62,
+          "probability": 0.978515625,
+          "start": 191.38,
+          "word": "是"
+        },
+        {
+          "end": 191.74,
+          "probability": 0.9833984375,
+          "start": 191.62,
+          "word": "來"
+        },
+        {
+          "end": 192.02,
+          "probability": 0.9990234375,
+          "start": 191.74,
+          "word": "自"
+        },
+        {
+          "end": 192.24,
+          "probability": 0.6025390625,
+          "start": 192.02,
+          "word": "遊"
+        },
+        {
+          "end": 192.4,
+          "probability": 0.70654296875,
+          "start": 192.24,
+          "word": "達"
+        },
+        {
+          "end": 192.62,
+          "probability": 0.9541015625,
+          "start": 192.4,
+          "word": "榮"
+        },
+        {
+          "end": 192.8,
+          "probability": 0.97900390625,
+          "start": 192.62,
+          "word": "馬"
+        },
+        {
+          "end": 193.02,
+          "probability": 0.99609375,
+          "start": 192.8,
+          "word": "房"
+        },
+        {
+          "end": 193.18,
+          "probability": 0.994140625,
+          "start": 193.02,
+          "word": "的"
+        },
+        {
+          "end": 193.38,
+          "probability": 0.9921875,
+          "start": 193.18,
+          "word": "幸"
+        },
+        {
+          "end": 193.64,
+          "probability": 0.99951171875,
+          "start": 193.38,
+          "word": "運"
+        },
+        {
+          "end": 193.82,
+          "probability": 0.99267578125,
+          "start": 193.64,
+          "word": "風"
+        },
+        {
+          "end": 194.12,
+          "probability": 0.9873046875,
+          "start": 193.82,
+          "word": "採"
+        }
+      ]
+    },
+    {
+      "end": 196.48,
+      "id": 71,
+      "start": 194.12,
+      "text": "大家下次路過馬場附近",
+      "words": [
+        {
+          "end": 194.72,
+          "probability": 0.92138671875,
+          "start": 194.12,
+          "word": "大家"
+        },
+        {
+          "end": 195.16,
+          "probability": 0.98291015625,
+          "start": 194.72,
+          "word": "下次"
+        },
+        {
+          "end": 195.44,
+          "probability": 0.9189453125,
+          "start": 195.16,
+          "word": "路"
+        },
+        {
+          "end": 195.6,
+          "probability": 0.9990234375,
+          "start": 195.44,
+          "word": "過"
+        },
+        {
+          "end": 195.78,
+          "probability": 0.9970703125,
+          "start": 195.6,
+          "word": "馬"
+        },
+        {
+          "end": 196.06,
+          "probability": 0.99462890625,
+          "start": 195.78,
+          "word": "場"
+        },
+        {
+          "end": 196.26,
+          "probability": 0.99609375,
+          "start": 196.06,
+          "word": "附"
+        },
+        {
+          "end": 196.48,
+          "probability": 1.0,
+          "start": 196.26,
+          "word": "近"
+        }
+      ]
+    },
+    {
+      "end": 198.68,
+      "id": 72,
+      "start": 196.48,
+      "text": "都可以遠遠地和他打個招呼",
+      "words": [
+        {
+          "end": 196.8,
+          "probability": 0.6103515625,
+          "start": 196.48,
+          "word": "都"
+        },
+        {
+          "end": 197.02,
+          "probability": 0.97216796875,
+          "start": 196.8,
+          "word": "可以"
+        },
+        {
+          "end": 197.3,
+          "probability": 0.9853515625,
+          "start": 197.02,
+          "word": "遠"
+        },
+        {
+          "end": 197.54,
+          "probability": 0.9853515625,
+          "start": 197.3,
+          "word": "遠"
+        },
+        {
+          "end": 197.7,
+          "probability": 0.344482421875,
+          "start": 197.54,
+          "word": "地"
+        },
+        {
+          "end": 197.82,
+          "probability": 0.61474609375,
+          "start": 197.7,
+          "word": "和"
+        },
+        {
+          "end": 198.0,
+          "probability": 0.471435546875,
+          "start": 197.82,
+          "word": "他"
+        },
+        {
+          "end": 198.16,
+          "probability": 0.98193359375,
+          "start": 198.0,
+          "word": "打"
+        },
+        {
+          "end": 198.3,
+          "probability": 0.487548828125,
+          "start": 198.16,
+          "word": "個"
+        },
+        {
+          "end": 198.5,
+          "probability": 1.0,
+          "start": 198.3,
+          "word": "招"
+        },
+        {
+          "end": 198.68,
+          "probability": 0.9912109375,
+          "start": 198.5,
+          "word": "呼"
+        }
+      ]
+    },
+    {
+      "end": 202.72,
+      "id": 73,
+      "start": 199.58,
+      "text": "3月9日澳洲年輕騎師史騰雷",
+      "words": [
+        {
+          "end": 200.06,
+          "probability": 0.72900390625,
+          "start": 199.58,
+          "word": "3"
+        },
+        {
+          "end": 200.3,
+          "probability": 0.98486328125,
+          "start": 200.06,
+          "word": "月"
+        },
+        {
+          "end": 200.48,
+          "probability": 0.98974609375,
+          "start": 200.3,
+          "word": "9"
+        },
+        {
+          "end": 200.7,
+          "probability": 0.9228515625,
+          "start": 200.48,
+          "word": "日"
+        },
+        {
+          "end": 200.96,
+          "probability": 0.85546875,
+          "start": 200.7,
+          "word": "澳"
+        },
+        {
+          "end": 201.18,
+          "probability": 0.99658203125,
+          "start": 200.96,
+          "word": "洲"
+        },
+        {
+          "end": 201.36,
+          "probability": 0.98486328125,
+          "start": 201.18,
+          "word": "年"
+        },
+        {
+          "end": 201.56,
+          "probability": 0.63623046875,
+          "start": 201.36,
+          "word": "輕"
+        },
+        {
+          "end": 201.8,
+          "probability": 0.89306640625,
+          "start": 201.56,
+          "word": "騎"
+        },
+        {
+          "end": 201.98,
+          "probability": 0.423828125,
+          "start": 201.8,
+          "word": "師"
+        },
+        {
+          "end": 202.22,
+          "probability": 0.97314453125,
+          "start": 201.98,
+          "word": "史"
+        },
+        {
+          "end": 202.46,
+          "probability": 0.904296875,
+          "start": 202.22,
+          "word": "騰"
+        },
+        {
+          "end": 202.72,
+          "probability": 0.80322265625,
+          "start": 202.46,
+          "word": "雷"
+        }
+      ]
+    },
+    {
+      "end": 204.58,
+      "id": 74,
+      "start": 202.72,
+      "text": "噴注拆騎美朗王",
+      "words": [
+        {
+          "end": 202.92,
+          "probability": 0.5791015625,
+          "start": 202.72,
+          "word": "噴"
+        },
+        {
+          "end": 203.16,
+          "probability": 0.284912109375,
+          "start": 202.92,
+          "word": "注"
+        },
+        {
+          "end": 203.5,
+          "probability": 0.56494140625,
+          "start": 203.16,
+          "word": "拆"
+        },
+        {
+          "end": 203.76,
+          "probability": 0.9482421875,
+          "start": 203.5,
+          "word": "騎"
+        },
+        {
+          "end": 204.0,
+          "probability": 0.51513671875,
+          "start": 203.76,
+          "word": "美"
+        },
+        {
+          "end": 204.28,
+          "probability": 0.75244140625,
+          "start": 204.0,
+          "word": "朗"
+        },
+        {
+          "end": 204.58,
+          "probability": 0.732421875,
+          "start": 204.28,
+          "word": "王"
+        }
+      ]
+    },
+    {
+      "end": 206.7,
+      "id": 75,
+      "start": 204.58,
+      "text": "激快帶熱門Highland Blank",
+      "words": [
+        {
+          "end": 205.06,
+          "probability": 0.771484375,
+          "start": 204.58,
+          "word": "激"
+        },
+        {
+          "end": 205.22,
+          "probability": 0.619140625,
+          "start": 205.06,
+          "word": "快"
+        },
+        {
+          "end": 205.48,
+          "probability": 0.82177734375,
+          "start": 205.22,
+          "word": "帶"
+        },
+        {
+          "end": 205.72,
+          "probability": 0.87890625,
+          "start": 205.48,
+          "word": "熱"
+        },
+        {
+          "end": 205.9,
+          "probability": 0.921875,
+          "start": 205.72,
+          "word": "門"
+        },
+        {
+          "end": 206.12,
+          "probability": 0.177978515625,
+          "start": 205.9,
+          "word": "High"
+        },
+        {
+          "end": 206.4,
+          "probability": 0.98486328125,
+          "start": 206.12,
+          "word": "land"
+        },
+        {
+          "end": 206.56,
+          "probability": 0.69775390625,
+          "start": 206.4,
+          "word": " Bl"
+        },
+        {
+          "end": 206.7,
+          "probability": 0.46484375,
+          "start": 206.56,
+          "word": "ank"
+        }
+      ]
+    },
+    {
+      "end": 208.32,
+      "id": 76,
+      "start": 206.7,
+      "text": "贏出阿德雷德杯",
+      "words": [
+        {
+          "end": 206.96,
+          "probability": 0.95947265625,
+          "start": 206.7,
+          "word": "贏"
+        },
+        {
+          "end": 207.22,
+          "probability": 0.9658203125,
+          "start": 206.96,
+          "word": "出"
+        },
+        {
+          "end": 207.44,
+          "probability": 0.321533203125,
+          "start": 207.22,
+          "word": "阿"
+        },
+        {
+          "end": 207.68,
+          "probability": 0.9384765625,
+          "start": 207.44,
+          "word": "德"
+        },
+        {
+          "end": 207.94,
+          "probability": 0.953125,
+          "start": 207.68,
+          "word": "雷"
+        },
+        {
+          "end": 208.1,
+          "probability": 0.9453125,
+          "start": 207.94,
+          "word": "德"
+        },
+        {
+          "end": 208.32,
+          "probability": 0.98681640625,
+          "start": 208.1,
+          "word": "杯"
+        }
+      ]
+    },
+    {
+      "end": 211.12,
+      "id": 77,
+      "start": 208.32,
+      "text": "兩匹馬頂多馬頭要拍照",
+      "words": [
+        {
+          "end": 209.08,
+          "probability": 0.92822265625,
+          "start": 208.32,
+          "word": "兩"
+        },
+        {
+          "end": 209.3,
+          "probability": 0.9990234375,
+          "start": 209.08,
+          "word": "匹"
+        },
+        {
+          "end": 209.48,
+          "probability": 0.9716796875,
+          "start": 209.3,
+          "word": "馬"
+        },
+        {
+          "end": 209.74,
+          "probability": 0.9638671875,
+          "start": 209.48,
+          "word": "頂"
+        },
+        {
+          "end": 209.92,
+          "probability": 0.49658203125,
+          "start": 209.74,
+          "word": "多"
+        },
+        {
+          "end": 210.18,
+          "probability": 0.65966796875,
+          "start": 209.92,
+          "word": "馬"
+        },
+        {
+          "end": 210.42,
+          "probability": 0.99072265625,
+          "start": 210.18,
+          "word": "頭"
+        },
+        {
+          "end": 210.58,
+          "probability": 0.91455078125,
+          "start": 210.42,
+          "word": "要"
+        },
+        {
+          "end": 210.82,
+          "probability": 0.720703125,
+          "start": 210.58,
+          "word": "拍"
+        },
+        {
+          "end": 211.12,
+          "probability": 0.92822265625,
+          "start": 210.82,
+          "word": "照"
+        }
+      ]
+    },
+    {
+      "end": 212.14,
+      "id": 78,
+      "start": 211.12,
+      "text": "才分出勝負",
+      "words": [
+        {
+          "end": 211.3,
+          "probability": 0.880859375,
+          "start": 211.12,
+          "word": "才"
+        },
+        {
+          "end": 211.54,
+          "probability": 0.9326171875,
+          "start": 211.3,
+          "word": "分"
+        },
+        {
+          "end": 211.7,
+          "probability": 0.91748046875,
+          "start": 211.54,
+          "word": "出"
+        },
+        {
+          "end": 211.92,
+          "probability": 0.994140625,
+          "start": 211.7,
+          "word": "勝"
+        },
+        {
+          "end": 212.14,
+          "probability": 0.98876953125,
+          "start": 211.92,
+          "word": "負"
+        }
+      ]
+    },
+    {
+      "end": 213.14,
+      "id": 79,
+      "start": 212.14,
+      "text": "非常刺激",
+      "words": [
+        {
+          "end": 212.56,
+          "probability": 0.9150390625,
+          "start": 212.14,
+          "word": "非常"
+        },
+        {
+          "end": 212.94,
+          "probability": 0.998046875,
+          "start": 212.56,
+          "word": "刺"
+        },
+        {
+          "end": 213.14,
+          "probability": 1.0,
+          "start": 212.94,
+          "word": "激"
+        }
+      ]
+    },
+    {
+      "end": 214.76,
+      "id": 80,
+      "start": 213.14,
+      "text": "但是過終點沒來",
+      "words": [
+        {
+          "end": 213.58,
+          "probability": 0.55126953125,
+          "start": 213.14,
+          "word": "但是"
+        },
+        {
+          "end": 213.86,
+          "probability": 0.95654296875,
+          "start": 213.58,
+          "word": "過"
+        },
+        {
+          "end": 214.1,
+          "probability": 0.92724609375,
+          "start": 213.86,
+          "word": "終"
+        },
+        {
+          "end": 214.34,
+          "probability": 0.96240234375,
+          "start": 214.1,
+          "word": "點"
+        },
+        {
+          "end": 214.48,
+          "probability": 0.53564453125,
+          "start": 214.34,
+          "word": "沒"
+        },
+        {
+          "end": 214.76,
+          "probability": 0.40869140625,
+          "start": 214.48,
+          "word": "來"
+        }
+      ]
+    },
+    {
+      "end": 217.8,
+      "id": 81,
+      "start": 214.76,
+      "text": "收穫拆騎身來最大勝利的史騰雷",
+      "words": [
+        {
+          "end": 215.06,
+          "probability": 0.978515625,
+          "start": 214.76,
+          "word": "收"
+        },
+        {
+          "end": 215.28,
+          "probability": 1.0,
+          "start": 215.06,
+          "word": "獲"
+        },
+        {
+          "end": 215.52,
+          "probability": 0.9853515625,
+          "start": 215.28,
+          "word": "拆"
+        },
+        {
+          "end": 215.8,
+          "probability": 0.9970703125,
+          "start": 215.52,
+          "word": "騎"
+        },
+        {
+          "end": 215.96,
+          "probability": 0.37890625,
+          "start": 215.8,
+          "word": "身"
+        },
+        {
+          "end": 216.12,
+          "probability": 0.91748046875,
+          "start": 215.96,
+          "word": "來"
+        },
+        {
+          "end": 216.36,
+          "probability": 0.99462890625,
+          "start": 216.12,
+          "word": "最"
+        },
+        {
+          "end": 216.56,
+          "probability": 0.9892578125,
+          "start": 216.36,
+          "word": "大"
+        },
+        {
+          "end": 216.82,
+          "probability": 0.9970703125,
+          "start": 216.56,
+          "word": "勝"
+        },
+        {
+          "end": 216.92,
+          "probability": 0.99951171875,
+          "start": 216.82,
+          "word": "利"
+        },
+        {
+          "end": 217.12,
+          "probability": 0.98779296875,
+          "start": 216.92,
+          "word": "的"
+        },
+        {
+          "end": 217.34,
+          "probability": 0.99462890625,
+          "start": 217.12,
+          "word": "史"
+        },
+        {
+          "end": 217.54,
+          "probability": 0.9990234375,
+          "start": 217.34,
+          "word": "騰"
+        },
+        {
+          "end": 217.8,
+          "probability": 0.99755859375,
+          "start": 217.54,
+          "word": "雷"
+        }
+      ]
+    },
+    {
+      "end": 219.64,
+      "id": 82,
+      "start": 217.8,
+      "text": "就被美朗王拋下來",
+      "words": [
+        {
+          "end": 217.96,
+          "probability": 0.82080078125,
+          "start": 217.8,
+          "word": "就"
+        },
+        {
+          "end": 218.16,
+          "probability": 0.98828125,
+          "start": 217.96,
+          "word": "被"
+        },
+        {
+          "end": 218.36,
+          "probability": 0.99560546875,
+          "start": 218.16,
+          "word": "美"
+        },
+        {
+          "end": 218.6,
+          "probability": 0.99951171875,
+          "start": 218.36,
+          "word": "朗"
+        },
+        {
+          "end": 218.82,
+          "probability": 0.99609375,
+          "start": 218.6,
+          "word": "王"
+        },
+        {
+          "end": 219.1,
+          "probability": 0.8525390625,
+          "start": 218.82,
+          "word": "拋"
+        },
+        {
+          "end": 219.3,
+          "probability": 0.8720703125,
+          "start": 219.1,
+          "word": "下"
+        },
+        {
+          "end": 219.64,
+          "probability": 0.78564453125,
+          "start": 219.3,
+          "word": "來"
+        }
+      ]
+    },
+    {
+      "end": 221.3,
+      "id": 83,
+      "start": 219.64,
+      "text": "人生高光時刻",
+      "words": [
+        {
+          "end": 220.14,
+          "probability": 0.98046875,
+          "start": 219.64,
+          "word": "人"
+        },
+        {
+          "end": 220.36,
+          "probability": 0.80517578125,
+          "start": 220.14,
+          "word": "生"
+        },
+        {
+          "end": 220.62,
+          "probability": 0.98486328125,
+          "start": 220.36,
+          "word": "高"
+        },
+        {
+          "end": 220.88,
+          "probability": 0.78515625,
+          "start": 220.62,
+          "word": "光"
+        },
+        {
+          "end": 221.08,
+          "probability": 0.99169921875,
+          "start": 220.88,
+          "word": "時"
+        },
+        {
+          "end": 221.3,
+          "probability": 0.99951171875,
+          "start": 221.08,
+          "word": "刻"
+        }
+      ]
+    },
+    {
+      "end": 223.32,
+      "id": 84,
+      "start": 221.3,
+      "text": "瞬間變成翻車現場",
+      "words": [
+        {
+          "end": 221.6,
+          "probability": 0.9775390625,
+          "start": 221.3,
+          "word": "瞬"
+        },
+        {
+          "end": 221.84,
+          "probability": 0.998046875,
+          "start": 221.6,
+          "word": "間"
+        },
+        {
+          "end": 222.08,
+          "probability": 0.99462890625,
+          "start": 221.84,
+          "word": "變"
+        },
+        {
+          "end": 222.22,
+          "probability": 0.94873046875,
+          "start": 222.08,
+          "word": "成"
+        },
+        {
+          "end": 222.46,
+          "probability": 0.94873046875,
+          "start": 222.22,
+          "word": "翻"
+        },
+        {
+          "end": 222.76,
+          "probability": 0.99951171875,
+          "start": 222.46,
+          "word": "車"
+        },
+        {
+          "end": 222.98,
+          "probability": 0.94921875,
+          "start": 222.76,
+          "word": "現"
+        },
+        {
+          "end": 223.32,
+          "probability": 0.9921875,
+          "start": 222.98,
+          "word": "場"
+        }
+      ]
+    },
+    {
+      "end": 225.86,
+      "id": 85,
+      "start": 223.32,
+      "text": "不少網民都將事發經過CAPTAL",
+      "words": [
+        {
+          "end": 223.6,
+          "probability": 0.99267578125,
+          "start": 223.32,
+          "word": "不"
+        },
+        {
+          "end": 223.88,
+          "probability": 0.9970703125,
+          "start": 223.6,
+          "word": "少"
+        },
+        {
+          "end": 224.06,
+          "probability": 0.99951171875,
+          "start": 223.88,
+          "word": "網"
+        },
+        {
+          "end": 224.18,
+          "probability": 0.99755859375,
+          "start": 224.06,
+          "word": "民"
+        },
+        {
+          "end": 224.3,
+          "probability": 0.9521484375,
+          "start": 224.18,
+          "word": "都"
+        },
+        {
+          "end": 224.56,
+          "probability": 0.98486328125,
+          "start": 224.3,
+          "word": "將"
+        },
+        {
+          "end": 224.76,
+          "probability": 0.88623046875,
+          "start": 224.56,
+          "word": "事"
+        },
+        {
+          "end": 225.02,
+          "probability": 0.9697265625,
+          "start": 224.76,
+          "word": "發"
+        },
+        {
+          "end": 225.24,
+          "probability": 0.93115234375,
+          "start": 225.02,
+          "word": "經"
+        },
+        {
+          "end": 225.48,
+          "probability": 0.9619140625,
+          "start": 225.24,
+          "word": "過"
+        },
+        {
+          "end": 225.56,
+          "probability": 0.134033203125,
+          "start": 225.48,
+          "word": "C"
+        },
+        {
+          "end": 225.74,
+          "probability": 0.407470703125,
+          "start": 225.56,
+          "word": "AP"
+        },
+        {
+          "end": 225.78,
+          "probability": 0.381591796875,
+          "start": 225.74,
+          "word": "T"
+        },
+        {
+          "end": 225.86,
+          "probability": 0.2469482421875,
+          "start": 225.78,
+          "word": "AL"
+        }
+      ]
+    },
+    {
+      "end": 227.26,
+      "id": 86,
+      "start": 225.86,
+      "text": "變成最新的Meme",
+      "words": [
+        {
+          "end": 226.18,
+          "probability": 0.97705078125,
+          "start": 225.86,
+          "word": "變"
+        },
+        {
+          "end": 226.34,
+          "probability": 0.97802734375,
+          "start": 226.18,
+          "word": "成"
+        },
+        {
+          "end": 226.58,
+          "probability": 0.98974609375,
+          "start": 226.34,
+          "word": "最"
+        },
+        {
+          "end": 226.86,
+          "probability": 0.99951171875,
+          "start": 226.58,
+          "word": "新"
+        },
+        {
+          "end": 227.0,
+          "probability": 0.89501953125,
+          "start": 226.86,
+          "word": "的"
+        },
+        {
+          "end": 227.08,
+          "probability": 0.78076171875,
+          "start": 227.0,
+          "word": "M"
+        },
+        {
+          "end": 227.26,
+          "probability": 0.81005859375,
+          "start": 227.08,
+          "word": "eme"
+        }
+      ]
+    },
+    {
+      "end": 229.68,
+      "id": 87,
+      "start": 227.77999999999997,
+      "text": "其實大家都很替他開心",
+      "words": [
+        {
+          "end": 228.2,
+          "probability": 0.2900390625,
+          "start": 227.77999999999997,
+          "word": "其實"
+        },
+        {
+          "end": 228.62,
+          "probability": 0.8955078125,
+          "start": 228.2,
+          "word": "大家都"
+        },
+        {
+          "end": 228.92,
+          "probability": 0.86474609375,
+          "start": 228.62,
+          "word": "很"
+        },
+        {
+          "end": 229.14,
+          "probability": 0.87451171875,
+          "start": 228.92,
+          "word": "替"
+        },
+        {
+          "end": 229.26,
+          "probability": 0.62939453125,
+          "start": 229.14,
+          "word": "他"
+        },
+        {
+          "end": 229.46,
+          "probability": 0.92626953125,
+          "start": 229.26,
+          "word": "開"
+        },
+        {
+          "end": 229.68,
+          "probability": 1.0,
+          "start": 229.46,
+          "word": "心"
+        }
+      ]
+    },
+    {
+      "end": 231.82,
+      "id": 88,
+      "start": 229.68,
+      "text": "好像早幾天坐飛機一樣",
+      "words": [
+        {
+          "end": 230.22,
+          "probability": 0.323486328125,
+          "start": 229.68,
+          "word": "好像"
+        },
+        {
+          "end": 230.64,
+          "probability": 0.419189453125,
+          "start": 230.22,
+          "word": "早"
+        },
+        {
+          "end": 230.84,
+          "probability": 0.9814453125,
+          "start": 230.64,
+          "word": "幾"
+        },
+        {
+          "end": 231.0,
+          "probability": 0.9091796875,
+          "start": 230.84,
+          "word": "天"
+        },
+        {
+          "end": 231.16,
+          "probability": 0.459228515625,
+          "start": 231.0,
+          "word": "坐"
+        },
+        {
+          "end": 231.4,
+          "probability": 0.93408203125,
+          "start": 231.16,
+          "word": "飛"
+        },
+        {
+          "end": 231.6,
+          "probability": 0.9970703125,
+          "start": 231.4,
+          "word": "機"
+        },
+        {
+          "end": 231.78,
+          "probability": 0.193115234375,
+          "start": 231.6,
+          "word": "一"
+        },
+        {
+          "end": 231.82,
+          "probability": 0.994140625,
+          "start": 231.78,
+          "word": "樣"
+        }
+      ]
+    },
+    {
+      "end": 234.46,
+      "id": 89,
+      "start": 231.82,
+      "text": "史騰雷除了獲得客艙升級之外",
+      "words": [
+        {
+          "end": 232.24,
+          "probability": 0.71044921875,
+          "start": 231.82,
+          "word": "史"
+        },
+        {
+          "end": 232.36,
+          "probability": 0.880859375,
+          "start": 232.24,
+          "word": "騰"
+        },
+        {
+          "end": 232.56,
+          "probability": 0.8642578125,
+          "start": 232.36,
+          "word": "雷"
+        },
+        {
+          "end": 232.7,
+          "probability": 0.99365234375,
+          "start": 232.56,
+          "word": "除"
+        },
+        {
+          "end": 232.92,
+          "probability": 0.99755859375,
+          "start": 232.7,
+          "word": "了"
+        },
+        {
+          "end": 233.08,
+          "probability": 0.99560546875,
+          "start": 232.92,
+          "word": "獲"
+        },
+        {
+          "end": 233.22,
+          "probability": 0.99609375,
+          "start": 233.08,
+          "word": "得"
+        },
+        {
+          "end": 233.42,
+          "probability": 0.98046875,
+          "start": 233.22,
+          "word": "客"
+        },
+        {
+          "end": 233.66,
+          "probability": 0.884765625,
+          "start": 233.42,
+          "word": "艙"
+        },
+        {
+          "end": 233.88,
+          "probability": 0.88623046875,
+          "start": 233.66,
+          "word": "升"
+        },
+        {
+          "end": 234.08,
+          "probability": 0.99609375,
+          "start": 233.88,
+          "word": "級"
+        },
+        {
+          "end": 234.18,
+          "probability": 0.85888671875,
+          "start": 234.08,
+          "word": "之"
+        },
+        {
+          "end": 234.46,
+          "probability": 1.0,
+          "start": 234.18,
+          "word": "外"
+        }
+      ]
+    },
+    {
+      "end": 236.38,
+      "id": 90,
+      "start": 234.46,
+      "text": "機組人員還為他準備了",
+      "words": [
+        {
+          "end": 234.66,
+          "probability": 0.97509765625,
+          "start": 234.46,
+          "word": "機"
+        },
+        {
+          "end": 234.96,
+          "probability": 0.9990234375,
+          "start": 234.66,
+          "word": "組"
+        },
+        {
+          "end": 235.08,
+          "probability": 0.99560546875,
+          "start": 234.96,
+          "word": "人"
+        },
+        {
+          "end": 235.34,
+          "probability": 1.0,
+          "start": 235.08,
+          "word": "員"
+        },
+        {
+          "end": 235.56,
+          "probability": 0.9560546875,
+          "start": 235.34,
+          "word": "還"
+        },
+        {
+          "end": 235.74,
+          "probability": 0.99658203125,
+          "start": 235.56,
+          "word": "為"
+        },
+        {
+          "end": 235.82,
+          "probability": 0.99951171875,
+          "start": 235.74,
+          "word": "他"
+        },
+        {
+          "end": 236.06,
+          "probability": 0.9951171875,
+          "start": 235.82,
+          "word": "準"
+        },
+        {
+          "end": 236.16,
+          "probability": 1.0,
+          "start": 236.06,
+          "word": "備"
+        },
+        {
+          "end": 236.38,
+          "probability": 0.99072265625,
+          "start": 236.16,
+          "word": "了"
+        }
+      ]
+    },
+    {
+      "end": 237.82,
+      "id": 91,
+      "start": 236.38,
+      "text": "特別的歡迎儀式",
+      "words": [
+        {
+          "end": 236.62,
+          "probability": 0.986328125,
+          "start": 236.38,
+          "word": "特"
+        },
+        {
+          "end": 236.88,
+          "probability": 0.9990234375,
+          "start": 236.62,
+          "word": "別"
+        },
+        {
+          "end": 236.98,
+          "probability": 0.96875,
+          "start": 236.88,
+          "word": "的"
+        },
+        {
+          "end": 237.16,
+          "probability": 0.99853515625,
+          "start": 236.98,
+          "word": "歡"
+        },
+        {
+          "end": 237.48,
+          "probability": 1.0,
+          "start": 237.16,
+          "word": "迎"
+        },
+        {
+          "end": 237.62,
+          "probability": 0.9541015625,
+          "start": 237.48,
+          "word": "儀"
+        },
+        {
+          "end": 237.82,
+          "probability": 1.0,
+          "start": 237.62,
+          "word": "式"
+        }
+      ]
+    },
+    {
+      "end": 239.42,
+      "id": 92,
+      "start": 237.82,
+      "text": "就是全機乘客",
+      "words": [
+        {
+          "end": 238.34,
+          "probability": 0.96484375,
+          "start": 237.82,
+          "word": "就是"
+        },
+        {
+          "end": 238.64,
+          "probability": 0.9755859375,
+          "start": 238.34,
+          "word": "全"
+        },
+        {
+          "end": 238.94,
+          "probability": 0.9970703125,
+          "start": 238.64,
+          "word": "機"
+        },
+        {
+          "end": 239.22,
+          "probability": 0.9990234375,
+          "start": 238.94,
+          "word": "乘"
+        },
+        {
+          "end": 239.42,
+          "probability": 1.0,
+          "start": 239.22,
+          "word": "客"
+        }
+      ]
+    },
+    {
+      "end": 241.2,
+      "id": 93,
+      "start": 239.42,
+      "text": "一起幫他慶祝夜馬",
+      "words": [
+        {
+          "end": 239.66,
+          "probability": 0.79150390625,
+          "start": 239.42,
+          "word": "一起"
+        },
+        {
+          "end": 240.16,
+          "probability": 0.8720703125,
+          "start": 239.66,
+          "word": "幫"
+        },
+        {
+          "end": 240.32,
+          "probability": 0.99462890625,
+          "start": 240.16,
+          "word": "他"
+        },
+        {
+          "end": 240.52,
+          "probability": 0.99462890625,
+          "start": 240.32,
+          "word": "慶"
+        },
+        {
+          "end": 240.72,
+          "probability": 1.0,
+          "start": 240.52,
+          "word": "祝"
+        },
+        {
+          "end": 240.96,
+          "probability": 0.96337890625,
+          "start": 240.72,
+          "word": "夜"
+        },
+        {
+          "end": 241.2,
+          "probability": 0.8994140625,
+          "start": 240.96,
+          "word": "馬"
+        }
+      ]
+    },
+    {
+      "end": 242.5,
+      "id": 94,
+      "start": 241.2,
+      "text": "這麼大隻瓶杯",
+      "words": [
+        {
+          "end": 241.7,
+          "probability": 0.80908203125,
+          "start": 241.2,
+          "word": "這麼"
+        },
+        {
+          "end": 241.96,
+          "probability": 0.57080078125,
+          "start": 241.7,
+          "word": "大"
+        },
+        {
+          "end": 242.16,
+          "probability": 0.26953125,
+          "start": 241.96,
+          "word": "只"
+        },
+        {
+          "end": 242.32,
+          "probability": 0.72705078125,
+          "start": 242.16,
+          "word": "瓶"
+        },
+        {
+          "end": 242.5,
+          "probability": 0.359619140625,
+          "start": 242.32,
+          "word": "杯"
+        }
+      ]
+    },
+    {
+      "end": 243.76,
+      "id": 95,
+      "start": 242.5,
+      "text": "最適合用來喝香檳",
+      "words": [
+        {
+          "end": 242.72,
+          "probability": 0.95263671875,
+          "start": 242.5,
+          "word": "最"
+        },
+        {
+          "end": 242.9,
+          "probability": 0.9560546875,
+          "start": 242.72,
+          "word": "適"
+        },
+        {
+          "end": 242.94,
+          "probability": 0.95361328125,
+          "start": 242.9,
+          "word": "合"
+        },
+        {
+          "end": 243.08,
+          "probability": 0.92529296875,
+          "start": 242.94,
+          "word": "用"
+        },
+        {
+          "end": 243.16,
+          "probability": 0.99462890625,
+          "start": 243.08,
+          "word": "來"
+        },
+        {
+          "end": 243.34,
+          "probability": 0.95703125,
+          "start": 243.16,
+          "word": "喝"
+        },
+        {
+          "end": 243.62,
+          "probability": 0.98974609375,
+          "start": 243.34,
+          "word": "香"
+        },
+        {
+          "end": 243.76,
+          "probability": 0.9150390625,
+          "start": 243.62,
+          "word": "檳"
+        }
+      ]
+    },
+    {
+      "end": 248.72,
+      "id": 96,
+      "start": 246.62,
+      "text": "下星期日就是寶馬香港",
+      "words": [
+        {
+          "end": 247.04000000000002,
+          "probability": 0.79150390625,
+          "start": 246.62,
+          "word": "下"
+        },
+        {
+          "end": 247.46,
+          "probability": 0.646484375,
+          "start": 247.04000000000002,
+          "word": "星"
+        },
+        {
+          "end": 247.58,
+          "probability": 1.0,
+          "start": 247.46,
+          "word": "期"
+        },
+        {
+          "end": 247.78,
+          "probability": 0.8955078125,
+          "start": 247.58,
+          "word": "日"
+        },
+        {
+          "end": 248.0,
+          "probability": 0.93310546875,
+          "start": 247.78,
+          "word": "就是"
+        },
+        {
+          "end": 248.26,
+          "probability": 0.9716796875,
+          "start": 248.0,
+          "word": "寶"
+        },
+        {
+          "end": 248.44,
+          "probability": 0.97705078125,
+          "start": 248.26,
+          "word": "馬"
+        },
+        {
+          "end": 248.72,
+          "probability": 0.99609375,
+          "start": 248.44,
+          "word": "香港"
+        }
+      ]
+    },
+    {
+      "end": 250.86,
+      "id": 97,
+      "start": 248.72,
+      "text": "大杯大賽舉行的大日子",
+      "words": [
+        {
+          "end": 249.1,
+          "probability": 0.80712890625,
+          "start": 248.72,
+          "word": "大"
+        },
+        {
+          "end": 249.32,
+          "probability": 0.307861328125,
+          "start": 249.1,
+          "word": "杯"
+        },
+        {
+          "end": 249.52,
+          "probability": 0.998046875,
+          "start": 249.32,
+          "word": "大"
+        },
+        {
+          "end": 249.74,
+          "probability": 0.9736328125,
+          "start": 249.52,
+          "word": "賽"
+        },
+        {
+          "end": 249.94,
+          "probability": 0.9970703125,
+          "start": 249.74,
+          "word": "舉"
+        },
+        {
+          "end": 250.1,
+          "probability": 0.99853515625,
+          "start": 249.94,
+          "word": "行"
+        },
+        {
+          "end": 250.24,
+          "probability": 0.99951171875,
+          "start": 250.1,
+          "word": "的"
+        },
+        {
+          "end": 250.38,
+          "probability": 0.99853515625,
+          "start": 250.24,
+          "word": "大"
+        },
+        {
+          "end": 250.62,
+          "probability": 0.99658203125,
+          "start": 250.38,
+          "word": "日"
+        },
+        {
+          "end": 250.86,
+          "probability": 0.99853515625,
+          "start": 250.62,
+          "word": "子"
+        }
+      ]
+    },
+    {
+      "end": 252.36,
+      "id": 98,
+      "start": 250.86,
+      "text": "而排位抽籤儀式",
+      "words": [
+        {
+          "end": 251.14,
+          "probability": 0.97412109375,
+          "start": 250.86,
+          "word": "而"
+        },
+        {
+          "end": 251.36,
+          "probability": 0.951171875,
+          "start": 251.14,
+          "word": "排"
+        },
+        {
+          "end": 251.54,
+          "probability": 0.98876953125,
+          "start": 251.36,
+          "word": "位"
+        },
+        {
+          "end": 251.74,
+          "probability": 0.96533203125,
+          "start": 251.54,
+          "word": "抽"
+        },
+        {
+          "end": 252.0,
+          "probability": 0.9677734375,
+          "start": 251.74,
+          "word": "籤"
+        },
+        {
+          "end": 252.14,
+          "probability": 0.99560546875,
+          "start": 252.0,
+          "word": "儀"
+        },
+        {
+          "end": 252.36,
+          "probability": 1.0,
+          "start": 252.14,
+          "word": "式"
+        }
+      ]
+    },
+    {
+      "end": 254.22,
+      "id": 99,
+      "start": 252.36,
+      "text": "將會在3月19日進行",
+      "words": [
+        {
+          "end": 252.58,
+          "probability": 0.99755859375,
+          "start": 252.36,
+          "word": "將"
+        },
+        {
+          "end": 252.76,
+          "probability": 0.96044921875,
+          "start": 252.58,
+          "word": "會"
+        },
+        {
+          "end": 252.88,
+          "probability": 0.98388671875,
+          "start": 252.76,
+          "word": "在"
+        },
+        {
+          "end": 253.1,
+          "probability": 0.9873046875,
+          "start": 252.88,
+          "word": "3"
+        },
+        {
+          "end": 253.26,
+          "probability": 1.0,
+          "start": 253.1,
+          "word": "月"
+        },
+        {
+          "end": 253.54,
+          "probability": 0.99951171875,
+          "start": 253.26,
+          "word": "19"
+        },
+        {
+          "end": 253.76,
+          "probability": 0.89990234375,
+          "start": 253.54,
+          "word": "日"
+        },
+        {
+          "end": 253.98,
+          "probability": 0.97802734375,
+          "start": 253.76,
+          "word": "進"
+        },
+        {
+          "end": 254.22,
+          "probability": 0.998046875,
+          "start": 253.98,
+          "word": "行"
+        }
+      ]
+    },
+    {
+      "end": 255.68,
+      "id": 100,
+      "start": 254.22,
+      "text": "大家記得留意",
+      "words": [
+        {
+          "end": 254.94,
+          "probability": 0.9931640625,
+          "start": 254.22,
+          "word": "大家"
+        },
+        {
+          "end": 255.2,
+          "probability": 0.99609375,
+          "start": 254.94,
+          "word": "記"
+        },
+        {
+          "end": 255.34,
+          "probability": 0.99853515625,
+          "start": 255.2,
+          "word": "得"
+        },
+        {
+          "end": 255.5,
+          "probability": 0.99755859375,
+          "start": 255.34,
+          "word": "留"
+        },
+        {
+          "end": 255.68,
+          "probability": 1.0,
+          "start": 255.5,
+          "word": "意"
+        }
+      ]
+    },
+    {
+      "end": 257.68,
+      "id": 101,
+      "start": 255.68,
+      "text": "哪些參賽者可以抽到好多",
+      "words": [
+        {
+          "end": 255.84,
+          "probability": 0.427978515625,
+          "start": 255.68,
+          "word": "哪"
+        },
+        {
+          "end": 256.08,
+          "probability": 0.95068359375,
+          "start": 255.84,
+          "word": "些"
+        },
+        {
+          "end": 256.28,
+          "probability": 0.89013671875,
+          "start": 256.08,
+          "word": "參"
+        },
+        {
+          "end": 256.44,
+          "probability": 0.43798828125,
+          "start": 256.28,
+          "word": "賽"
+        },
+        {
+          "end": 256.58,
+          "probability": 0.84814453125,
+          "start": 256.44,
+          "word": "者"
+        },
+        {
+          "end": 256.86,
+          "probability": 0.80908203125,
+          "start": 256.58,
+          "word": "可以"
+        },
+        {
+          "end": 257.22,
+          "probability": 0.888671875,
+          "start": 256.86,
+          "word": "抽"
+        },
+        {
+          "end": 257.4,
+          "probability": 0.75,
+          "start": 257.22,
+          "word": "到"
+        },
+        {
+          "end": 257.54,
+          "probability": 0.7373046875,
+          "start": 257.4,
+          "word": "好"
+        },
+        {
+          "end": 257.68,
+          "probability": 0.71044921875,
+          "start": 257.54,
+          "word": "多"
+        }
+      ]
+    },
+    {
+      "end": 259.7,
+      "id": 102,
+      "start": 257.68,
+      "text": "下星期再跟大家跟進",
+      "words": [
+        {
+          "end": 258.02,
+          "probability": 0.11578369140625,
+          "start": 257.68,
+          "word": "下"
+        },
+        {
+          "end": 258.46,
+          "probability": 0.861328125,
+          "start": 258.02,
+          "word": "星"
+        },
+        {
+          "end": 258.66,
+          "probability": 0.99951171875,
+          "start": 258.46,
+          "word": "期"
+        },
+        {
+          "end": 258.84,
+          "probability": 0.95458984375,
+          "start": 258.66,
+          "word": "再"
+        },
+        {
+          "end": 259.12,
+          "probability": 0.6376953125,
+          "start": 258.84,
+          "word": "跟大家"
+        },
+        {
+          "end": 259.52,
+          "probability": 0.76220703125,
+          "start": 259.12,
+          "word": "跟"
+        },
+        {
+          "end": 259.7,
+          "probability": 0.97216796875,
+          "start": 259.52,
+          "word": "進"
+        }
+      ]
+    },
+    {
+      "end": 261.14,
+      "id": 103,
+      "start": 259.7,
+      "text": "大賽的最新消息",
+      "words": [
+        {
+          "end": 259.94,
+          "probability": 0.984375,
+          "start": 259.7,
+          "word": "大"
+        },
+        {
+          "end": 260.22,
+          "probability": 0.99462890625,
+          "start": 259.94,
+          "word": "賽"
+        },
+        {
+          "end": 260.3,
+          "probability": 0.8125,
+          "start": 260.22,
+          "word": "的"
+        },
+        {
+          "end": 260.46,
+          "probability": 0.994140625,
+          "start": 260.3,
+          "word": "最"
+        },
+        {
+          "end": 260.68,
+          "probability": 0.99951171875,
+          "start": 260.46,
+          "word": "新"
+        },
+        {
+          "end": 260.94,
+          "probability": 0.99365234375,
+          "start": 260.68,
+          "word": "消"
+        },
+        {
+          "end": 261.14,
+          "probability": 1.0,
+          "start": 260.94,
+          "word": "息"
+        }
+      ]
+    }
+  ],
+  "translations": [
+    {
+      "applied_terms": [],
+      "baseline_target": "下月將有澳洲新騎師亮相。",
+      "en_text": "下個月有新騎師登場, 就是澳洲好手",
+      "end": 11.96,
+      "flags": [],
+      "start": 8.599999999999994,
+      "status": "pending",
+      "zh_text": "下月將有澳洲新騎師亮相。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "布浩穎同見習騎師袁幸堯。",
+      "en_text": "布浩穎和見習騎師袁幸堯。",
+      "end": 14.66,
+      "flags": [],
+      "start": 11.96,
+      "status": "pending",
+      "zh_text": "布浩穎同見習騎師袁幸堯。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "兩人於週二均有出席訓練。",
+      "en_text": "兩位是剛剛星期二都有現身試習,",
+      "end": 17.72,
+      "flags": [],
+      "start": 14.98,
+      "status": "pending",
+      "zh_text": "兩人於週二均有出席訓練。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "袁幸堯為師姚本輝試三駒。",
+      "en_text": "其中袁幸堯幫師傅姚本輝試了三匹馬,",
+      "end": 20.98,
+      "flags": [],
+      "start": 17.84,
+      "status": "pending",
+      "zh_text": "袁幸堯為師姚本輝試三駒。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "亦出席記者會與傳媒會面，一齊睇下。",
+      "en_text": "還出席記者會和傳媒見面, 一起看看。",
+      "end": 24.14,
+      "flags": [],
+      "start": 21.08,
+      "status": "pending",
+      "zh_text": "亦出席記者會與傳媒會面，一齊睇下。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "我鍾意咖啡廳，乜嘢都食得，包括豆腐花。",
+      "en_text": "我喜歡咖啡店, 我什麼都喜歡吃, 豆腐花。",
+      "end": 29.34,
+      "flags": [],
+      "start": 25.16,
+      "status": "pending",
+      "zh_text": "我鍾意咖啡廳，乜嘢都食得，包括豆腐花。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "玉米片。",
+      "en_text": "粟米片",
+      "end": 30.84,
+      "flags": [],
+      "start": 30.059999999999995,
+      "status": "pending",
+      "zh_text": "玉米片。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "非常鍾意貓。",
+      "en_text": "貓, 超喜歡貓",
+      "end": 32.32,
+      "flags": [],
+      "start": 30.84,
+      "status": "pending",
+      "zh_text": "非常鍾意貓。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "我鍾意睇，連新年都睇。",
+      "en_text": "我很喜歡看, 連新年都看",
+      "end": 34.14,
+      "flags": [],
+      "start": 32.32,
+      "status": "pending",
+      "zh_text": "我鍾意睇，連新年都睇。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "因此南非亦會觀看自家新年慶祝。",
+      "en_text": "所以南非自己過新年都看",
+      "end": 36.6,
+      "flags": [],
+      "start": 34.14,
+      "status": "pending",
+      "zh_text": "因此南非亦會觀看自家新年慶祝。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "新年伊始。",
+      "en_text": "新年才",
+      "end": 38.28,
+      "flags": [],
+      "start": 36.6,
+      "status": "pending",
+      "zh_text": "新年伊始。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "今日，新晉十磅小將袁幸瑤出席記者會。",
+      "en_text": "這天新10磅仔袁幸瑤出席記者會",
+      "end": 43.0,
+      "flags": [],
+      "start": 39.53999999999999,
+      "status": "pending",
+      "zh_text": "今日，新晉十磅小將袁幸瑤出席記者會。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "樂於分享個人興趣。",
+      "en_text": "大方分享自己的興趣",
+      "end": 45.12,
+      "flags": [],
+      "start": 43.0,
+      "status": "pending",
+      "zh_text": "樂於分享個人興趣。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "陽光自信嘅對話。",
+      "en_text": "陽光自信的對答",
+      "end": 46.9,
+      "flags": [],
+      "start": 45.12,
+      "status": "pending",
+      "zh_text": "陽光自信嘅對話。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "真摯笑容，極具魅力。",
+      "en_text": "加上真摯的笑容, 真的非常圈粉",
+      "end": 49.88,
+      "flags": [],
+      "start": 46.9,
+      "status": "pending",
+      "zh_text": "真摯笑容，極具魅力。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "她目前最大嘅目標係",
+      "en_text": "目前她最大目標",
+      "end": 51.94,
+      "flags": [],
+      "start": 50.400000000000006,
+      "status": "pending",
+      "zh_text": "她目前最大嘅目標係"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "即係盡量吸收經驗。",
+      "en_text": "就是盡量吸收經驗",
+      "end": 53.54,
+      "flags": [],
+      "start": 51.94,
+      "status": "pending",
+      "zh_text": "即係盡量吸收經驗。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "令自己持續進步。",
+      "en_text": "令自己不斷進步",
+      "end": 54.92,
+      "flags": [],
+      "start": 53.54,
+      "status": "pending",
+      "zh_text": "令自己持續進步。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "我認為自己嘅強項係推期。",
+      "en_text": "強項我覺得是自己的推期",
+      "end": 58.28,
+      "flags": [],
+      "start": 55.959999999999994,
+      "status": "pending",
+      "zh_text": "我認為自己嘅強項係推期。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "我期望表現更為出色。",
+      "en_text": "我希望自己比較出色",
+      "end": 61.92,
+      "flags": [],
+      "start": 58.28,
+      "status": "pending",
+      "zh_text": "我期望表現更為出色。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "若翰，我仍在尋找。",
+      "en_text": "若翰我還在找",
+      "end": 64.72,
+      "flags": [],
+      "start": 61.92,
+      "status": "pending",
+      "zh_text": "若翰，我仍在尋找。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "應力避若翰之名。",
+      "en_text": "應該盡量希望不會有若翰",
+      "end": 67.88,
+      "flags": [],
+      "start": 65.28,
+      "status": "pending",
+      "zh_text": "應力避若翰之名。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "當然要全方位不斷提升自己。",
+      "en_text": "當然全方位地幫自己不停地進步",
+      "end": 71.66,
+      "flags": [],
+      "start": 67.88,
+      "status": "pending",
+      "zh_text": "當然要全方位不斷提升自己。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "我亦一直密切關注每位騎師。",
+      "en_text": "始終我也很留意每一位騎師",
+      "end": 75.36,
+      "flags": [],
+      "start": 71.66,
+      "status": "pending",
+      "zh_text": "我亦一直密切關注每位騎師。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "每位騎師皆有其獨特之處。",
+      "en_text": "因為每一位騎師都有他們的特別之處",
+      "end": 77.08,
+      "flags": [],
+      "start": 75.36,
+      "status": "pending",
+      "zh_text": "每位騎師皆有其獨特之處。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "此外，其優勢亦不容忽視。",
+      "en_text": "還有他們的好處",
+      "end": 78.88,
+      "flags": [],
+      "start": 77.08,
+      "status": "pending",
+      "zh_text": "此外，其優勢亦不容忽視。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "且其拆騎手法各異。",
+      "en_text": "而且他們的拆騎方式都不同",
+      "end": 80.64,
+      "flags": [],
+      "start": 78.88,
+      "status": "pending",
+      "zh_text": "且其拆騎手法各異。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "故願汲取每位騎師之長處。",
+      "en_text": "所以我希望自己可以取得他們每一位騎師的好處",
+      "end": 86.24,
+      "flags": [],
+      "start": 80.64,
+      "status": "pending",
+      "zh_text": "故願汲取每位騎師之長處。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "置於自身最為理想。",
+      "en_text": "放在自己身上就最好",
+      "end": 88.68,
+      "flags": [],
+      "start": 87.08,
+      "status": "pending",
+      "zh_text": "置於自身最為理想。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "三月八日。",
+      "en_text": "3月8日",
+      "end": 91.2,
+      "flags": [],
+      "start": 90.04,
+      "status": "pending",
+      "zh_text": "三月八日。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "騎士隊員艾少麗榮升父親。",
+      "en_text": "騎士艾少麗正式升格當爸爸",
+      "end": 93.74,
+      "flags": [],
+      "start": 91.2,
+      "status": "pending",
+      "zh_text": "騎士隊員艾少麗榮升父親。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "其子湯馬士於香港出世。",
+      "en_text": "兒子Thomas在香港出生",
+      "end": 96.1,
+      "flags": [],
+      "start": 93.74,
+      "status": "pending",
+      "zh_text": "其子湯馬士於香港出世。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "腳法相當出色。",
+      "en_text": "還非常有腳頭",
+      "end": 97.48,
+      "flags": [],
+      "start": 96.1,
+      "status": "pending",
+      "zh_text": "腳法相當出色。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "出生當日。",
+      "en_text": "出生當日",
+      "end": 98.86,
+      "flags": [],
+      "start": 97.48,
+      "status": "pending",
+      "zh_text": "出生當日。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "艾少麗一日內獨贏四場頭馬。",
+      "en_text": "艾少麗正正一天贏出四場頭碼",
+      "end": 101.74,
+      "flags": [],
+      "start": 98.86,
+      "status": "pending",
+      "zh_text": "艾少麗一日內獨贏四場頭馬。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "許多朋友與馬迷",
+      "en_text": "不少朋友和馬迷",
+      "end": 103.52,
+      "flags": [],
+      "start": 101.74,
+      "status": "pending",
+      "zh_text": "許多朋友與馬迷"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "紛紛湧向她嘅社交媒體平臺。",
+      "en_text": "都湧入她的社交平台",
+      "end": 105.2,
+      "flags": [],
+      "start": 103.52,
+      "status": "pending",
+      "zh_text": "紛紛湧向她嘅社交媒體平臺。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "祝這對新手父母幸福美滿。",
+      "en_text": "為這對新手父母送上滿滿的祝福",
+      "end": 108.22,
+      "flags": [],
+      "start": 105.2,
+      "status": "pending",
+      "zh_text": "祝這對新手父母幸福美滿。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "希望Thomas繼續發揮小福星本色。",
+      "en_text": "希望Thomas仔繼續發揮小福星的本色",
+      "end": 111.58,
+      "flags": [],
+      "start": 108.22,
+      "status": "pending",
+      "zh_text": "希望Thomas繼續發揮小福星本色。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "帶領父親爭取更多頭銜。",
+      "en_text": "帶領爸爸衝擊更多頭碼",
+      "end": 113.88,
+      "flags": [],
+      "start": 111.58,
+      "status": "pending",
+      "zh_text": "帶領父親爭取更多頭銜。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "奶粉錢得靠你繼續掙紮下去。",
+      "en_text": "奶粉錢靠你繼續往下去了",
+      "end": 116.18,
+      "flags": [],
+      "start": 113.88,
+      "status": "pending",
+      "zh_text": "奶粉錢得靠你繼續掙紮下去。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "除雙喜臨門嘅艾少麗外",
+      "en_text": "除了雙喜臨門的艾少麗之外",
+      "end": 121.16,
+      "flags": [],
+      "start": 118.5,
+      "status": "pending",
+      "zh_text": "除雙喜臨門嘅艾少麗外"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "另一位騎師",
+      "en_text": "另外一位騎師",
+      "end": 122.6,
+      "flags": [],
+      "start": 121.16,
+      "status": "pending",
+      "zh_text": "另一位騎師"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "近期亦上演令人驚嘆嘅神級表現。",
+      "en_text": "最近也上演贏到傻的神級演出",
+      "end": 125.44,
+      "flags": [],
+      "start": 122.6,
+      "status": "pending",
+      "zh_text": "近期亦上演令人驚嘆嘅神級表現。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "即係麥道朗。",
+      "en_text": "就是麥道朗",
+      "end": 126.64,
+      "flags": [],
+      "start": 125.44,
+      "status": "pending",
+      "zh_text": "即係麥道朗。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "三月七日。",
+      "en_text": "3月7日",
+      "end": 127.96,
+      "flags": [],
+      "start": 126.64,
+      "status": "pending",
+      "zh_text": "三月七日。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "於南區馬場舉行之日",
+      "en_text": "他在南域馬場舉行的賽日",
+      "end": 130.46,
+      "flags": [],
+      "start": 127.96,
+      "status": "pending",
+      "zh_text": "於南區馬場舉行之日"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "一日內勝出六場頭馬。",
+      "en_text": "一日贏出6場頭馬",
+      "end": 132.7,
+      "flags": [],
+      "start": 130.46,
+      "status": "pending",
+      "zh_text": "一日內勝出六場頭馬。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "包括一級賽事。",
+      "en_text": "包括一級賽",
+      "end": 134.14,
+      "flags": [],
+      "start": 132.7,
+      "status": "pending",
+      "zh_text": "包括一級賽事。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "肯德伯利盃。",
+      "en_text": "肯德伯利錦標",
+      "end": 135.72,
+      "flags": [],
+      "start": 134.14,
+      "status": "pending",
+      "zh_text": "肯德伯利盃。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "最平之傳奇騎師為賈西迪。",
+      "en_text": "最平左傳奇騎師賈西迪",
+      "end": 138.24,
+      "flags": [],
+      "start": 135.72,
+      "status": "pending",
+      "zh_text": "最平之傳奇騎師為賈西迪。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "即莫雷拉於 1987 年創下之紀錄。",
+      "en_text": "亦即潘頓外虎在1987年創下的紀錄",
+      "end": 142.46,
+      "flags": [],
+      "start": 138.24,
+      "status": "pending",
+      "zh_text": "即莫雷拉於 1987 年創下之紀錄。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "同時亦係 38 年來首見於沙田馬場。",
+      "en_text": "同時亦是38年來首次有人在色尼城市馬場",
+      "end": 146.98,
+      "flags": [],
+      "start": 142.46,
+      "status": "pending",
+      "zh_text": "同時亦係 38 年來首見於沙田馬場。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "重現一日六邊嘅壯舉",
+      "en_text": "重現一日六邊的壯舉",
+      "end": 149.22,
+      "flags": [],
+      "start": 146.98,
+      "status": "pending",
+      "zh_text": "重現一日六邊嘅壯舉"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "絕對震撼整個澳洲賽馬界",
+      "en_text": "絕對震撼整個澳洲賽馬界",
+      "end": 151.92,
+      "flags": [],
+      "start": 149.22,
+      "status": "pending",
+      "zh_text": "絕對震撼整個澳洲賽馬界"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "近期有市民於沙田馬場附近",
+      "en_text": "最近有市民在沙田馬場附近",
+      "end": 156.82,
+      "flags": [],
+      "start": 154.3,
+      "status": "pending",
+      "zh_text": "近期有市民於沙田馬場附近"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "發現一匹得意嘅馬仔",
+      "en_text": "認到有匹得意的馬仔",
+      "end": 158.48,
+      "flags": [],
+      "start": 156.82,
+      "status": "pending",
+      "zh_text": "發現一匹得意嘅馬仔"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "從車窗探頭欣賞沿途風光。",
+      "en_text": "在馬格裡面伸頭出窗外望風景",
+      "end": 161.58,
+      "flags": [],
+      "start": 158.48,
+      "status": "pending",
+      "zh_text": "從車窗探頭欣賞沿途風光。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "大家都說牠很可愛。",
+      "en_text": "大家都説牠很可愛",
+      "end": 163.56,
+      "flags": [],
+      "start": 161.58,
+      "status": "pending",
+      "zh_text": "大家都說牠很可愛。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "但機靈網民已察覺。",
+      "en_text": "不過有眼利的網民就發現",
+      "end": 166.08,
+      "flags": [],
+      "start": 163.56,
+      "status": "pending",
+      "zh_text": "但機靈網民已察覺。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "小隊員似乎遺落了某些物品。",
+      "en_text": "馬仔好像掉了些東西",
+      "end": 167.86,
+      "flags": [],
+      "start": 166.08,
+      "status": "pending",
+      "zh_text": "小隊員似乎遺落了某些物品。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "究竟係咩？",
+      "en_text": "究竟是什麼呢",
+      "end": 169.02,
+      "flags": [],
+      "start": 167.86,
+      "status": "pending",
+      "zh_text": "究竟係咩？"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "原來係呢堆草。",
+      "en_text": "原來是這堆草",
+      "end": 171.12,
+      "flags": [],
+      "start": 169.68,
+      "status": "pending",
+      "zh_text": "原來係呢堆草。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "眾人皆憂馬仔午膳無著。",
+      "en_text": "大家都非常擔心馬仔掉了午餐會餓",
+      "end": 174.66,
+      "flags": [],
+      "start": 171.12,
+      "status": "pending",
+      "zh_text": "眾人皆憂馬仔午膳無著。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "遂引致網民瘋狂轉發。",
+      "en_text": "所以惹來一眾網友瘋狂轉載",
+      "end": 178.12,
+      "flags": [],
+      "start": 174.66,
+      "status": "pending",
+      "zh_text": "遂引致網民瘋狂轉發。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "幸而此次召喚 Pull 成功。",
+      "en_text": "幸好這個Pull成功召喚了",
+      "end": 180.72,
+      "flags": [],
+      "start": 178.12,
+      "status": "pending",
+      "zh_text": "幸而此次召喚 Pull 成功。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "馬房人員策騎上陣。",
+      "en_text": "馬房工作人員出馬",
+      "end": 182.14,
+      "flags": [],
+      "start": 180.72,
+      "status": "pending",
+      "zh_text": "馬房人員策騎上陣。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "除為隊員補充午餐外",
+      "en_text": "除了幫馬仔補給午餐外",
+      "end": 184.74,
+      "flags": [],
+      "start": 182.14,
+      "status": "pending",
+      "zh_text": "除為隊員補充午餐外"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "同時揭曉神秘馬仔嘅真實身份。",
+      "en_text": "還順便和大家揭開神秘馬仔的真實身份",
+      "end": 188.68,
+      "flags": [],
+      "start": 184.74,
+      "status": "pending",
+      "zh_text": "同時揭曉神秘馬仔嘅真實身份。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "原來這匹任性又可愛嘅主角",
+      "en_text": "原來這匹任性又可愛的主角",
+      "end": 191.38,
+      "flags": [],
+      "start": 188.68,
+      "status": "pending",
+      "zh_text": "原來這匹任性又可愛嘅主角"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "係來自遊達榮馬房嘅幸運風采。",
+      "en_text": "是來自遊達榮馬房的幸運風采",
+      "end": 194.12,
+      "flags": [],
+      "start": 191.38,
+      "status": "pending",
+      "zh_text": "係來自遊達榮馬房嘅幸運風采。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "各位下次經過馬場附近時",
+      "en_text": "大家下次路過馬場附近",
+      "end": 196.48,
+      "flags": [],
+      "start": 194.12,
+      "status": "pending",
+      "zh_text": "各位下次經過馬場附近時"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "均可遠方致意。",
+      "en_text": "都可以遠遠地和他打個招呼",
+      "end": 198.68,
+      "flags": [],
+      "start": 196.48,
+      "status": "pending",
+      "zh_text": "均可遠方致意。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "三月九日，澳洲年輕騎師史騰雷。",
+      "en_text": "3月9日澳洲年輕騎師史騰雷",
+      "end": 202.72,
+      "flags": [],
+      "start": 199.58,
+      "status": "pending",
+      "zh_text": "三月九日，澳洲年輕騎師史騰雷。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "噴射機拆解美朗王。",
+      "en_text": "噴注拆騎美朗王",
+      "end": 204.58,
+      "flags": [],
+      "start": 202.72,
+      "status": "pending",
+      "zh_text": "噴射機拆解美朗王。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "熱門高地品種「布蘭克」。",
+      "en_text": "激快帶熱門Highland Blank",
+      "end": 206.7,
+      "flags": [],
+      "start": 204.58,
+      "status": "pending",
+      "zh_text": "熱門高地品種「布蘭克」。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "贏得阿德雷德盃。",
+      "en_text": "贏出阿德雷德杯",
+      "end": 208.32,
+      "flags": [],
+      "start": 206.7,
+      "status": "pending",
+      "zh_text": "贏得阿德雷德盃。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "兩匹馬僅需馬頭入鏡即可。",
+      "en_text": "兩匹馬頂多馬頭要拍照",
+      "end": 211.12,
+      "flags": [],
+      "start": 208.32,
+      "status": "pending",
+      "zh_text": "兩匹馬僅需馬頭入鏡即可。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "終於分出勝負。",
+      "en_text": "才分出勝負",
+      "end": 212.14,
+      "flags": [],
+      "start": 211.12,
+      "status": "pending",
+      "zh_text": "終於分出勝負。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "十分刺激。",
+      "en_text": "非常刺激",
+      "end": 213.14,
+      "flags": [],
+      "start": 212.14,
+      "status": "pending",
+      "zh_text": "十分刺激。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "但未能及時抵達終點。",
+      "en_text": "但是過終點沒來",
+      "end": 214.76,
+      "flags": [],
+      "start": 213.14,
+      "status": "pending",
+      "zh_text": "但未能及時抵達終點。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "取得生涯最大勝利的史騰雷",
+      "en_text": "收穫拆騎身來最大勝利的史騰雷",
+      "end": 217.8,
+      "flags": [],
+      "start": 214.76,
+      "status": "pending",
+      "zh_text": "取得生涯最大勝利的史騰雷"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "被美朗王拋下。",
+      "en_text": "就被美朗王拋下來",
+      "end": 219.64,
+      "flags": [],
+      "start": 217.8,
+      "status": "pending",
+      "zh_text": "被美朗王拋下。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "人生最輝煌嘅時刻。",
+      "en_text": "人生高光時刻",
+      "end": 221.3,
+      "flags": [],
+      "start": 219.64,
+      "status": "pending",
+      "zh_text": "人生最輝煌嘅時刻。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "瞬間變成翻車現場。",
+      "en_text": "瞬間變成翻車現場",
+      "end": 223.32,
+      "flags": [],
+      "start": 221.3,
+      "status": "pending",
+      "zh_text": "瞬間變成翻車現場。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "不少網民將事發經過大加炒作。",
+      "en_text": "不少網民都將事發經過CAPTAL",
+      "end": 225.86,
+      "flags": [],
+      "start": 223.32,
+      "status": "pending",
+      "zh_text": "不少網民將事發經過大加炒作。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "演變為最新流行梗圖。",
+      "en_text": "變成最新的Meme",
+      "end": 227.26,
+      "flags": [],
+      "start": 225.86,
+      "status": "pending",
+      "zh_text": "演變為最新流行梗圖。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "大家都為他感到高興。",
+      "en_text": "其實大家都很替他開心",
+      "end": 229.68,
+      "flags": [],
+      "start": 227.77999999999997,
+      "status": "pending",
+      "zh_text": "大家都為他感到高興。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "好似幾日前乘搭飛機咁。",
+      "en_text": "好像早幾天坐飛機一樣",
+      "end": 231.82,
+      "flags": [],
+      "start": 229.68,
+      "status": "pending",
+      "zh_text": "好似幾日前乘搭飛機咁。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "史騰雷除獲升等艙位外",
+      "en_text": "史騰雷除了獲得客艙升級之外",
+      "end": 234.46,
+      "flags": [],
+      "start": 231.82,
+      "status": "pending",
+      "zh_text": "史騰雷除獲升等艙位外"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "機組人員亦已為他準備好。",
+      "en_text": "機組人員還為他準備了",
+      "end": 236.38,
+      "flags": [],
+      "start": 234.46,
+      "status": "pending",
+      "zh_text": "機組人員亦已為他準備好。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "特別歡迎儀式",
+      "en_text": "特別的歡迎儀式",
+      "end": 237.82,
+      "flags": [],
+      "start": 236.38,
+      "status": "pending",
+      "zh_text": "特別歡迎儀式"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "即為全機乘客。",
+      "en_text": "就是全機乘客",
+      "end": 239.42,
+      "flags": [],
+      "start": 237.82,
+      "status": "pending",
+      "zh_text": "即為全機乘客。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "一同為他祝賀夜賽勝利。",
+      "en_text": "一起幫他慶祝夜馬",
+      "end": 241.2,
+      "flags": [],
+      "start": 239.42,
+      "status": "pending",
+      "zh_text": "一同為他祝賀夜賽勝利。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "如此巨大嘅玻璃杯。",
+      "en_text": "這麼大隻瓶杯",
+      "end": 242.5,
+      "flags": [],
+      "start": 241.2,
+      "status": "pending",
+      "zh_text": "如此巨大嘅玻璃杯。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "最宜飲用香檳。",
+      "en_text": "最適合用來喝香檳",
+      "end": 243.76,
+      "flags": [],
+      "start": 242.5,
+      "status": "pending",
+      "zh_text": "最宜飲用香檳。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "下週日即係寶馬香港。",
+      "en_text": "下星期日就是寶馬香港",
+      "end": 248.72,
+      "flags": [],
+      "start": 246.62,
+      "status": "pending",
+      "zh_text": "下週日即係寶馬香港。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "重要盃賽舉行之日。",
+      "en_text": "大杯大賽舉行的大日子",
+      "end": 250.86,
+      "flags": [],
+      "start": 248.72,
+      "status": "pending",
+      "zh_text": "重要盃賽舉行之日。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "而排位抽籤儀式",
+      "en_text": "而排位抽籤儀式",
+      "end": 252.36,
+      "flags": [],
+      "start": 250.86,
+      "status": "pending",
+      "zh_text": "而排位抽籤儀式"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "將於三月十九日舉行。",
+      "en_text": "將會在3月19日進行",
+      "end": 254.22,
+      "flags": [],
+      "start": 252.36,
+      "status": "pending",
+      "zh_text": "將於三月十九日舉行。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "請務必留意。",
+      "en_text": "大家記得留意",
+      "end": 255.68,
+      "flags": [],
+      "start": 254.22,
+      "status": "pending",
+      "zh_text": "請務必留意。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "哪些參賽者可獲多項獎勵？",
+      "en_text": "哪些參賽者可以抽到好多",
+      "end": 257.68,
+      "flags": [],
+      "start": 255.68,
+      "status": "pending",
+      "zh_text": "哪些參賽者可獲多項獎勵？"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "下週再與大家跟進。",
+      "en_text": "下星期再跟大家跟進",
+      "end": 259.7,
+      "flags": [],
+      "start": 257.68,
+      "status": "pending",
+      "zh_text": "下週再與大家跟進。"
+    },
+    {
+      "applied_terms": [],
+      "baseline_target": "大賽最新動態。",
+      "en_text": "大賽的最新消息",
+      "end": 261.14,
+      "flags": [],
+      "start": 259.7,
+      "status": "pending",
+      "zh_text": "大賽最新動態。"
+    }
+  ],
+  "profile_snapshot": null,
+  "glossary_scan": null
+}
