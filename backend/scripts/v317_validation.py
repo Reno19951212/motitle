@@ -67,7 +67,10 @@ def capture_snapshot(session: requests.Session, file_id: str) -> Dict[str, Any]:
         # for glossary scan + diff (the same active profile will be used by re-run in Task 11).
         active_resp = session.get(f"{BASE_URL}/api/profiles/active")
         if active_resp.ok:
-            profile_snapshot = active_resp.json()
+            active_body = active_resp.json()
+            # /api/profiles/active wraps response in {"profile": ...} unlike /api/profiles/<id>.
+            # Unwrap so downstream code (glossary_id lookup) sees the same shape regardless of path.
+            profile_snapshot = active_body.get("profile") if isinstance(active_body, dict) and "profile" in active_body else active_body
             profile_source = "active"
 
     glossary_scan = None

@@ -1,5 +1,5 @@
 {
-  "captured_at": "2026-05-15T03:05:55Z",
+  "captured_at": "2026-05-15T03:09:33Z",
   "file": {
     "approved_count": 0,
     "asr_seconds": 26.9,
@@ -13224,44 +13224,150 @@
     }
   ],
   "profile_snapshot": {
-    "profile": {
-      "asr": {
-        "condition_on_previous_text": false,
-        "engine": "mlx-whisper",
-        "language": "en",
-        "language_config_id": "en",
-        "model_size": "large-v3",
-        "word_timestamps": true
-      },
-      "created_at": 1712534400,
-      "description": "Full quality models",
-      "font": {
-        "bilingual_order": "en_top",
-        "color": "#ffffff",
-        "family": "Noto Sans TC",
-        "margin_bottom": 40,
-        "outline_color": "#000000",
-        "outline_width": 2,
-        "position": "bottom",
-        "size": 48,
-        "subtitle_source": "auto"
-      },
-      "id": "prod-default",
-      "name": "Broadcast Production",
-      "translation": {
-        "alignment_mode": "llm-markers",
-        "batch_size": 1,
-        "engine": "qwen3.5-35b-a3b",
-        "glossary_id": "broadcast-news",
-        "parallel_batches": 1,
-        "style": "formal",
-        "temperature": 0,
-        "translation_passes": 1
-      },
-      "updated_at": 1778809279.8214772,
-      "user_id": null
-    }
+    "asr": {
+      "condition_on_previous_text": false,
+      "engine": "mlx-whisper",
+      "language": "en",
+      "language_config_id": "en",
+      "model_size": "large-v3",
+      "word_timestamps": true
+    },
+    "created_at": 1712534400,
+    "description": "Full quality models",
+    "font": {
+      "bilingual_order": "en_top",
+      "color": "#ffffff",
+      "family": "Noto Sans TC",
+      "margin_bottom": 40,
+      "outline_color": "#000000",
+      "outline_width": 2,
+      "position": "bottom",
+      "size": 48,
+      "subtitle_source": "auto"
+    },
+    "id": "prod-default",
+    "name": "Broadcast Production",
+    "translation": {
+      "alignment_mode": "llm-markers",
+      "batch_size": 1,
+      "engine": "qwen3.5-35b-a3b",
+      "glossary_id": "08b6666e-1bcc-4df1-9005-e5dafa27c076",
+      "parallel_batches": 1,
+      "style": "formal",
+      "temperature": 0,
+      "translation_passes": 1
+    },
+    "updated_at": 1778809279.8214772,
+    "user_id": null
   },
   "profile_source": "active",
-  "glossary_scan": null
+  "glossary_scan": {
+    "glossary_source_lang": "en",
+    "glossary_target_lang": "zh",
+    "loose_violation_count": 0,
+    "loose_violations": [],
+    "match_count": 0,
+    "matches": [],
+    "reverted_count": 0,
+    "scanned_count": 166,
+    "strict_violation_count": 8,
+    "strict_violations": [
+      {
+        "approved": false,
+        "en_text": "And Blazing Wukong and Amazing Partners are coming off last start wins.",
+        "seg_idx": 7,
+        "source_text": "And Blazing Wukong and Amazing Partners are coming off last start wins.",
+        "target_text": "。",
+        "term_en": "And",
+        "term_source": "And",
+        "term_target": "和",
+        "term_zh": "和",
+        "zh_text": "。"
+      },
+      {
+        "approved": false,
+        "en_text": "And Family Jewel and Hymnbook both look to have chances as well.",
+        "seg_idx": 10,
+        "source_text": "And Family Jewel and Hymnbook both look to have chances as well.",
+        "target_text": "「Family Jewel」同「Hymnbook」亦似有入圍機會。",
+        "term_en": "And",
+        "term_source": "And",
+        "term_target": "和",
+        "term_zh": "和",
+        "zh_text": "「Family Jewel」同「Hymnbook」亦似有入圍機會。"
+      },
+      {
+        "approved": false,
+        "en_text": "And that could be a key thing in Saturday's race.",
+        "seg_idx": 39,
+        "source_text": "And that could be a key thing in Saturday's race.",
+        "target_text": "這或係星期六賽事嘅關鍵所在。",
+        "term_en": "And",
+        "term_source": "And",
+        "term_target": "和",
+        "term_zh": "和",
+        "zh_text": "這或係星期六賽事嘅關鍵所在。"
+      },
+      {
+        "approved": false,
+        "en_text": "And here's his latest offering.",
+        "seg_idx": 43,
+        "source_text": "And here's his latest offering.",
+        "target_text": "此乃其最新作品。",
+        "term_en": "And",
+        "term_source": "And",
+        "term_target": "和",
+        "term_zh": "和",
+        "zh_text": "此乃其最新作品。"
+      },
+      {
+        "approved": false,
+        "en_text": "And Blazing Wukong jumps OK,",
+        "seg_idx": 45,
+        "source_text": "And Blazing Wukong jumps OK,",
+        "target_text": "儘管《火燄悟空》表現出色，但騎師安德里亞·阿齊尼根本未考慮過尋求更前位，反而大刀闊斧地退回後方 ",
+        "term_en": "And",
+        "term_source": "And",
+        "term_target": "和",
+        "term_zh": "和",
+        "zh_text": "儘管《火燄悟空》表現出色，但騎師安德里亞·阿齊尼根本未考慮過尋求更前位，反而大刀闊斧地退回後方 "
+      },
+      {
+        "approved": false,
+        "en_text": "And as I said, I think that's going to",
+        "seg_idx": 60,
+        "source_text": "And as I said, I think that's going to",
+        "target_text": "正如我先前所言，我認為這對於星期六的賽事而言，確實至關重要 ",
+        "term_en": "And",
+        "term_source": "And",
+        "term_target": "和",
+        "term_zh": "和",
+        "zh_text": "正如我先前所言，我認為這對於星期六的賽事而言，確實至關重要 "
+      },
+      {
+        "approved": false,
+        "en_text": "And despite the talent in the race, I think",
+        "seg_idx": 86,
+        "source_text": "And despite the talent in the race, I think",
+        "target_text": "儘管參賽者中人才輩出 ",
+        "term_en": "And",
+        "term_source": "And",
+        "term_target": "和",
+        "term_zh": "和",
+        "zh_text": "儘管參賽者中人才輩出 "
+      },
+      {
+        "approved": false,
+        "en_text": "And I'm most interested in this race in those two lightly raced horses.",
+        "seg_idx": 93,
+        "source_text": "And I'm most interested in this race in those two lightly raced horses.",
+        "target_text": "我對這兩匹出賽較少的馬最感興趣。",
+        "term_en": "And",
+        "term_source": "And",
+        "term_target": "和",
+        "term_zh": "和",
+        "zh_text": "我對這兩匹出賽較少的馬最感興趣。"
+      }
+    ]
+  }
 }

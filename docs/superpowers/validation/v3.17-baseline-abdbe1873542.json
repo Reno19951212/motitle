@@ -1,5 +1,5 @@
 {
-  "captured_at": "2026-05-15T03:05:59Z",
+  "captured_at": "2026-05-15T03:09:33Z",
   "file": {
     "approved_count": 0,
     "asr_seconds": 14.8,
@@ -7427,44 +7427,53 @@
     }
   ],
   "profile_snapshot": {
-    "profile": {
-      "asr": {
-        "condition_on_previous_text": false,
-        "engine": "mlx-whisper",
-        "language": "en",
-        "language_config_id": "en",
-        "model_size": "large-v3",
-        "word_timestamps": true
-      },
-      "created_at": 1712534400,
-      "description": "Full quality models",
-      "font": {
-        "bilingual_order": "en_top",
-        "color": "#ffffff",
-        "family": "Noto Sans TC",
-        "margin_bottom": 40,
-        "outline_color": "#000000",
-        "outline_width": 2,
-        "position": "bottom",
-        "size": 48,
-        "subtitle_source": "auto"
-      },
-      "id": "prod-default",
-      "name": "Broadcast Production",
-      "translation": {
-        "alignment_mode": "llm-markers",
-        "batch_size": 1,
-        "engine": "qwen3.5-35b-a3b",
-        "glossary_id": "broadcast-news",
-        "parallel_batches": 1,
-        "style": "formal",
-        "temperature": 0,
-        "translation_passes": 1
-      },
-      "updated_at": 1778809279.8214772,
-      "user_id": null
-    }
+    "asr": {
+      "condition_on_previous_text": false,
+      "engine": "mlx-whisper",
+      "language": "en",
+      "language_config_id": "en",
+      "model_size": "large-v3",
+      "word_timestamps": true
+    },
+    "created_at": 1712534400,
+    "description": "Full quality models",
+    "font": {
+      "bilingual_order": "en_top",
+      "color": "#ffffff",
+      "family": "Noto Sans TC",
+      "margin_bottom": 40,
+      "outline_color": "#000000",
+      "outline_width": 2,
+      "position": "bottom",
+      "size": 48,
+      "subtitle_source": "auto"
+    },
+    "id": "prod-default",
+    "name": "Broadcast Production",
+    "translation": {
+      "alignment_mode": "llm-markers",
+      "batch_size": 1,
+      "engine": "qwen3.5-35b-a3b",
+      "glossary_id": "08b6666e-1bcc-4df1-9005-e5dafa27c076",
+      "parallel_batches": 1,
+      "style": "formal",
+      "temperature": 0,
+      "translation_passes": 1
+    },
+    "updated_at": 1778809279.8214772,
+    "user_id": null
   },
   "profile_source": "active",
-  "glossary_scan": null
+  "glossary_scan": {
+    "glossary_source_lang": "en",
+    "glossary_target_lang": "zh",
+    "loose_violation_count": 0,
+    "loose_violations": [],
+    "match_count": 0,
+    "matches": [],
+    "reverted_count": 0,
+    "scanned_count": 104,
+    "strict_violation_count": 0,
+    "strict_violations": []
+  }
 }

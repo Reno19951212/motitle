@@ -5,16 +5,20 @@
   "asr": {
     "engine": "mlx-whisper",
     "language_config_id": "en",
-    "condition_on_previous_text": true,
+    "condition_on_previous_text": false,
     "language": "en",
-    "model_size": "large-v3"
+    "model_size": "large-v3",
+    "word_timestamps": true
   },
   "translation": {
     "engine": "qwen3.5-35b-a3b",
-    "glossary_id": "broadcast-news",
-    "batch_size": 10,
+    "glossary_id": "08b6666e-1bcc-4df1-9005-e5dafa27c076",
+    "batch_size": 1,
     "style": "formal",
-    "temperature": 0.1
+    "temperature": 0,
+    "parallel_batches": 1,
+    "translation_passes": 1,
+    "alignment_mode": "llm-markers"
   },
   "font": {
     "family": "Noto Sans TC",
@@ -23,9 +27,11 @@
     "outline_color": "#000000",
     "outline_width": 2,
     "position": "bottom",
-    "margin_bottom": 40
+    "margin_bottom": 40,
+    "subtitle_source": "auto",
+    "bilingual_order": "en_top"
   },
   "created_at": 1712534400,
-  "updated_at": 1778283844.4978719,
+  "updated_at": 1778809279.8214772,
   "user_id": null
 }
