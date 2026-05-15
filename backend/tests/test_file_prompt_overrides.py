@@ -144,3 +144,110 @@ class TestPatchPromptOverrides:
                 assert _file_registry[fid]["prompt_overrides"] == {"single_segment_system": "X"}
         finally:
             self._cleanup(fid)
+
+
+class TestAutoTranslateUsesFileOverride:
+    """Integration: PATCH file with prompt_overrides → _auto_translate → engine captures override."""
+
+    def test_file_override_passed_to_engine(self, client, monkeypatch):
+        """End-to-end: PATCH file with prompt_overrides → call _auto_translate directly →
+        engine's translate() receives prompt_overrides containing the file-level sentinel.
+
+        Adaptation notes:
+        - POST /api/translate returns 202 (queued/async) so we call _auto_translate(fid)
+          directly to keep the test synchronous and deterministic.
+        - We inject a FakeEngine via monkeypatching create_translation_engine so we don't
+          need a real Ollama server or any specific engine availability.
+        - The FakeEngine.translate() captures the prompt_overrides kwarg. We assert that
+          the dict contains the sentinel string in at least one value.
+        - All 4 override keys are set to the same sentinel string to handle whichever
+          branch/key the resolver picks regardless of profile batch_size.
+        """
+        import app as app_module
+
+        captured = {"prompt_overrides": None, "call_count": 0}
+
+        class FakeEngine:
+            def translate(self, segments, glossary=None, style=None, batch_size=None,
+                          temperature=None, progress_callback=None, parallel_batches=1,
+                          cancel_event=None, prompt_overrides=None):
+                captured["prompt_overrides"] = prompt_overrides
+                captured["call_count"] += 1
+                return [
+                    {"start": s["start"], "end": s["end"],
+                     "en_text": s["text"], "zh_text": "你好",
+                     "flags": []}
+                    for s in segments
+                ]
+            def get_info(self): return {"engine": "fake"}
+
+        monkeypatch.setattr("translation.create_translation_engine", lambda cfg: FakeEngine())
+
+        # Monkeypatch active profile with batch_size=1 and no alignment_mode
+        # so _auto_translate goes through the plain engine.translate() branch.
+        monkeypatch.setattr(
+            app_module._profile_manager,
+            "get_active",
+            lambda: {
+                "asr": {"language": "en"},
+                "translation": {
+                    "engine": "mock",
+                    "batch_size": 1,
+                    "temperature": 0.1,
+                    "alignment_mode": "",
+                    "use_sentence_pipeline": False,
+                    "parallel_batches": 1,
+                },
+            },
+        )
+
+        SENTINEL = "FILE_LEVEL_OVERRIDE_FOR_TASK7_TEST"
+        fid = "po-auto-translate-test"
+        app_module._register_file(fid, "test.mp4", "test.mp4", 0, user_id=None)
+        try:
+            with app_module._registry_lock:
+                app_module._file_registry[fid]["status"] = "done"
+                app_module._file_registry[fid]["segments"] = [
+                    {"id": 0, "start": 0.0, "end": 2.0, "text": "hello world"}
+                ]
+                app_module._file_registry[fid]["text"] = "hello world"
+
+            # PATCH all 4 override keys with the same sentinel string so the
+            # resolver will find the sentinel regardless of which key is used.
+            resp = client.patch(
+                f"/api/files/{fid}",
+                json={
+                    "prompt_overrides": {
+                        "single_segment_system": SENTINEL,
+                        "pass1_system": SENTINEL,
+                        "alignment_anchor_system": SENTINEL,
+                        "pass2_enrich_system": SENTINEL,
+                    }
+                },
+            )
+            assert resp.status_code == 200
+
+            # Call _auto_translate directly (synchronous) — goes through the
+            # plain engine.translate() branch since alignment_mode == "".
+            app_module._auto_translate(fid)
+
+            assert captured["call_count"] > 0, (
+                "_auto_translate did not call engine.translate() — "
+                "check profile engine and translation path"
+            )
+            po = captured["prompt_overrides"]
+            assert po is not None, (
+                "engine.translate() was called but prompt_overrides was not passed "
+                "(or was passed as None). Task 7 wiring is missing."
+            )
+            assert any(
+                SENTINEL in v
+                for v in po.values()
+                if isinstance(v, str)
+            ), (
+                f"Expected file-level sentinel '{SENTINEL}' in prompt_overrides values. "
+                f"Got: {po}"
+            )
+        finally:
+            with app_module._registry_lock:
+                app_module._file_registry.pop(fid, None)

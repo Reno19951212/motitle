@@ -2942,6 +2942,22 @@ def _auto_translate(fid: str, sid=None, cancel_event=None) -> None:
         parallel_batches = int(translation_config.get("parallel_batches") or 1)
         alignment_mode = str(translation_config.get("alignment_mode", "")).lower()
         use_sentence_pipeline = bool(translation_config.get("use_sentence_pipeline", False))
+
+        # v3.18 Stage 2: build per-call prompt_overrides via 3-layer resolver
+        # (file > profile > None). Threaded into engine.translate() and into
+        # translate_with_alignment() for the llm-markers path.
+        with _registry_lock:
+            file_entry_snapshot = dict(_file_registry.get(fid) or {})
+        resolved_prompt_overrides = {
+            key: _resolve_prompt_override(key, file_entry_snapshot, profile)
+            for key in (
+                "pass1_system",
+                "single_segment_system",
+                "pass2_enrich_system",
+                "alignment_anchor_system",
+            )
+        }
+
         # Phase 4: cooperative cancel — check before kicking off the
         # (potentially long) translation engine call.  Granularity here is
         # "between pipeline entry points"; batch-level polling lives inside
@@ -2952,16 +2968,13 @@ def _auto_translate(fid: str, sid=None, cancel_event=None) -> None:
 
         if alignment_mode == "llm-markers":
             from translation.alignment_pipeline import translate_with_alignment
-            _anchor_override = (translation_config.get("prompt_overrides") or {}).get(
-                "alignment_anchor_system"
-            ) or None
             translated = translate_with_alignment(
                 engine, asr_segments, glossary=glossary_entries, style=style,
                 batch_size=trans_params["batch_size"],
                 temperature=trans_params["temperature"],
                 progress_callback=_emit_auto_progress,
                 parallel_batches=parallel_batches,
-                custom_system_prompt=_anchor_override,
+                custom_system_prompt=resolved_prompt_overrides["alignment_anchor_system"],
             )
         elif use_sentence_pipeline or alignment_mode == "sentence":
             from translation.sentence_pipeline import translate_with_sentences
@@ -2980,6 +2993,7 @@ def _auto_translate(fid: str, sid=None, cancel_event=None) -> None:
                 progress_callback=_emit_auto_progress,
                 parallel_batches=parallel_batches,
                 cancel_event=cancel_event,  # R5 Phase 5 T2.6
+                prompt_overrides=resolved_prompt_overrides,
             )
         for t in translated:
             t["status"] = "pending"
