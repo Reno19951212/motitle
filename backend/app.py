@@ -2830,6 +2830,32 @@ def api_renders_in_progress():
     return jsonify({'jobs': out}), 200
 
 
+def _resolve_prompt_override(key, file_entry, profile):
+    """3-layer fallthrough resolver for the 4 MT prompt override keys.
+
+    Precedence: file.prompt_overrides[key] > profile.translation.prompt_overrides[key] > None.
+    Returns None when caller should fall back to the hardcoded default constant.
+
+    Args:
+        key: One of pass1_system / single_segment_system /
+             pass2_enrich_system / alignment_anchor_system.
+        file_entry: File registry entry dict or None.
+        profile: Active profile dict or None.
+
+    Returns:
+        Non-empty string if any layer provided one, else None.
+    """
+    file_po = (file_entry or {}).get("prompt_overrides") or {}
+    val = file_po.get(key)
+    if isinstance(val, str) and val.strip():
+        return val
+    profile_po = (profile or {}).get("translation", {}).get("prompt_overrides") or {}
+    val = profile_po.get(key)
+    if isinstance(val, str) and val.strip():
+        return val
+    return None
+
+
 def _auto_translate(fid: str, sid=None, cancel_event=None) -> None:
     """Auto-translate a file's segments using the active profile.
 
