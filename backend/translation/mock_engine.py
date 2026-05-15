@@ -17,6 +17,7 @@ class MockTranslationEngine(TranslationEngine):
         progress_callback=None,
         parallel_batches: int = 1,
         cancel_event=None,
+        prompt_overrides: Optional[dict] = None,
     ) -> List[TranslatedSegment]:
         # R5 Phase 5 T2.6: cooperative cancel checkpoint. Mock processes
         # the whole batch in one synchronous loop, so check once at the top.

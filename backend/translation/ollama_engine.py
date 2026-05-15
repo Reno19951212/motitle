@@ -249,6 +249,20 @@ class OllamaTranslationEngine(TranslationEngine):
             raw_window = 3
         self._context_window = max(0, min(10, raw_window))
 
+    def _resolve_override(self, key: str, runtime_overrides: Optional[dict]) -> Optional[str]:
+        """Per-call resolver: runtime kwarg dict > self._config['prompt_overrides'] > None.
+
+        Each value must be a non-whitespace string to count as set."""
+        if runtime_overrides:
+            v = runtime_overrides.get(key)
+            if isinstance(v, str) and v.strip():
+                return v
+        cfg = self._config.get("prompt_overrides") or {}
+        v = cfg.get(key)
+        if isinstance(v, str) and v.strip():
+            return v
+        return None
+
     def translate(
         self,
         segments: List[dict],
@@ -259,6 +273,7 @@ class OllamaTranslationEngine(TranslationEngine):
         progress_callback=None,
         parallel_batches: int = 1,
         cancel_event=None,
+        prompt_overrides: Optional[dict] = None,
     ) -> List[TranslatedSegment]:
         if not segments:
             return []
@@ -284,6 +299,7 @@ class OllamaTranslationEngine(TranslationEngine):
                 segments, glossary, style, effective_temp,
                 progress_callback, parallel_batches,
                 cancel_event=cancel_event,
+                runtime_overrides=prompt_overrides,
             )
             passes = self._get_translation_passes()
             if passes >= 2:
@@ -291,6 +307,7 @@ class OllamaTranslationEngine(TranslationEngine):
                 all_translated = self._enrich_pass(
                     segments, all_translated, 1,
                     glossary, effective_temp, progress_callback, total,
+                    runtime_overrides=prompt_overrides,
                 )
             processor = TranslationPostProcessor(max_chars=MAX_SUBTITLE_CHARS)
             return processor.process(all_translated)
@@ -307,7 +324,8 @@ class OllamaTranslationEngine(TranslationEngine):
             for batch in batches:
                 _check_cancel()
                 translated_batch = self._translate_batch(
-                    batch, glossary, style, effective_temp, context_pairs
+                    batch, glossary, style, effective_temp, context_pairs,
+                    runtime_overrides=prompt_overrides,
                 )
                 missing_indices = [
                     j for j, r in enumerate(translated_batch)
@@ -316,7 +334,8 @@ class OllamaTranslationEngine(TranslationEngine):
                 if missing_indices:
                     missing_segs = [batch[j] for j in missing_indices]
                     retried = list(self._retry_missing(
-                        missing_segs, glossary, style, effective_temp, context_pairs
+                        missing_segs, glossary, style, effective_temp, context_pairs,
+                        runtime_overrides=prompt_overrides,
                     ))
                     retried_iter = iter(retried)
                     translated_batch = [
@@ -343,7 +362,8 @@ class OllamaTranslationEngine(TranslationEngine):
             def _run_batch(batch):
                 nonlocal completed_count
                 result = self._translate_batch(
-                    batch, glossary, style, effective_temp, []
+                    batch, glossary, style, effective_temp, [],
+                    runtime_overrides=prompt_overrides,
                 )
                 missing_indices = [
                     j for j, r in enumerate(result)
@@ -352,7 +372,8 @@ class OllamaTranslationEngine(TranslationEngine):
                 if missing_indices:
                     missing_segs = [batch[j] for j in missing_indices]
                     retried = list(self._retry_missing(
-                        missing_segs, glossary, style, effective_temp, []
+                        missing_segs, glossary, style, effective_temp, [],
+                        runtime_overrides=prompt_overrides,
                     ))
                     retried_iter = iter(retried)
                     result = [
@@ -382,6 +403,7 @@ class OllamaTranslationEngine(TranslationEngine):
             all_translated = self._enrich_pass(
                 segments, all_translated, effective_batch,
                 glossary, effective_temp, progress_callback, total,
+                runtime_overrides=prompt_overrides,
             )
 
         processor = TranslationPostProcessor(max_chars=MAX_SUBTITLE_CHARS)
@@ -404,6 +426,7 @@ class OllamaTranslationEngine(TranslationEngine):
         temperature: float,
         progress_callback=None,
         total: int = 0,
+        runtime_overrides: Optional[dict] = None,
     ) -> List[TranslatedSegment]:
         """Pass 2: enrich each batch's Pass 1 translation with richer language.
 
@@ -423,7 +446,8 @@ class OllamaTranslationEngine(TranslationEngine):
         for batch_start, batch_segs, batch_p1 in batches_meta:
             try:
                 enriched_batch = self._enrich_batch(
-                    batch_segs, batch_p1, glossary, temperature
+                    batch_segs, batch_p1, glossary, temperature,
+                    runtime_overrides=runtime_overrides,
                 )
                 for j, entry in enumerate(enriched_batch):
                     enriched_total[batch_start + j] = entry
@@ -446,6 +470,7 @@ class OllamaTranslationEngine(TranslationEngine):
         batch_p1: List[TranslatedSegment],
         glossary: Optional[List[dict]],
         temperature: float,
+        runtime_overrides: Optional[dict] = None,
     ) -> List[TranslatedSegment]:
         """Enrich one batch via a single LLM call. Returns list same length as batch_segs."""
         # Build interleaved user message
@@ -461,12 +486,8 @@ class OllamaTranslationEngine(TranslationEngine):
         user_message = "\n".join(lines)
 
         # Include glossary in the same Chinese format as Pass 1
-        overrides = (self._config.get("prompt_overrides") or {})
-        override = overrides.get("pass2_enrich_system")
-        if override and isinstance(override, str) and override.strip():
-            system_prompt = override
-        else:
-            system_prompt = ENRICH_SYSTEM_PROMPT
+        override = self._resolve_override("pass2_enrich_system", runtime_overrides)
+        system_prompt = override if override else ENRICH_SYSTEM_PROMPT
         relevant_glossary = self._filter_glossary_for_batch(glossary, batch_segs)
         if relevant_glossary:
             terms = "\n".join(
@@ -510,6 +531,7 @@ class OllamaTranslationEngine(TranslationEngine):
         progress_callback,
         parallel_batches: int,
         cancel_event=None,
+        runtime_overrides: Optional[dict] = None,
     ) -> List[TranslatedSegment]:
         """Strategy E — translate each segment individually (no neighbours).
 
@@ -525,7 +547,7 @@ class OllamaTranslationEngine(TranslationEngine):
 
         def _run_one(idx: int) -> TranslatedSegment:
             seg = segments[idx]
-            return self._translate_single(seg, glossary, style, temperature)
+            return self._translate_single(seg, glossary, style, temperature, runtime_overrides)
 
         if parallel_batches <= 1:
             for i in range(total):
@@ -565,6 +587,7 @@ class OllamaTranslationEngine(TranslationEngine):
         glossary: Optional[List[dict]],
         style: str,
         temperature: float,
+        runtime_overrides: Optional[dict] = None,
     ) -> TranslatedSegment:
         """Translate one ASR segment in isolation using the single-segment
         prompt. Returns a TranslatedSegment with start/end preserved."""
@@ -577,12 +600,8 @@ class OllamaTranslationEngine(TranslationEngine):
             )
 
         relevant_glossary = self._filter_glossary_for_batch(glossary, [segment])
-        overrides = (self._config.get("prompt_overrides") or {})
-        override = overrides.get("single_segment_system")
-        if override and isinstance(override, str) and override.strip():
-            system_prompt = override
-        else:
-            system_prompt = SINGLE_SEGMENT_SYSTEM_PROMPT
+        override = self._resolve_override("single_segment_system", runtime_overrides)
+        system_prompt = override if override else SINGLE_SEGMENT_SYSTEM_PROMPT
         if relevant_glossary:
             terms = "\n".join(
                 f'- {entry["source"]} → {entry["target"]}' for entry in relevant_glossary
@@ -619,13 +638,14 @@ class OllamaTranslationEngine(TranslationEngine):
         style: str,
         temperature: float,
         context_pairs: Optional[list] = None,
+        runtime_overrides: Optional[dict] = None,
     ) -> List[TranslatedSegment]:
         # Filter glossary to only entries whose EN term appears in this batch's
         # source texts. Research (WMT 2024) shows injecting the full glossary as
         # noise degrades adherence; relevant-only filtering improves term-level
         # accuracy without expanding prompt size.
         relevant_glossary = self._filter_glossary_for_batch(glossary, segments)
-        system_prompt = self._build_system_prompt(style, relevant_glossary)
+        system_prompt = self._build_system_prompt(style, relevant_glossary, runtime_overrides)
         user_message = self._build_user_message(segments, context_pairs=context_pairs)
         response_text = self._call_ollama(system_prompt, user_message, temperature)
         return self._parse_response(response_text, segments)
@@ -656,17 +676,23 @@ class OllamaTranslationEngine(TranslationEngine):
         style: str,
         temperature: float,
         context_pairs: list,
+        runtime_overrides: Optional[dict] = None,
     ) -> List[TranslatedSegment]:
         """Re-translate segments that got [TRANSLATION MISSING] placeholders.
 
         Delegates to _translate_batch — no new prompt logic. Called at most once
         per batch. Remaining missing segments are flagged by PostProcessor."""
-        return self._translate_batch(segments, glossary, style, temperature, context_pairs)
+        return self._translate_batch(segments, glossary, style, temperature, context_pairs,
+                                     runtime_overrides=runtime_overrides)
 
-    def _build_system_prompt(self, style: str, glossary: List[dict]) -> str:
-        overrides = (self._config.get("prompt_overrides") or {})
-        override = overrides.get("pass1_system")
-        if override and isinstance(override, str) and override.strip():
+    def _build_system_prompt(
+        self,
+        style: str,
+        glossary: List[dict],
+        runtime_overrides: Optional[dict] = None,
+    ) -> str:
+        override = self._resolve_override("pass1_system", runtime_overrides)
+        if override:
             base = override
         else:
             base = SYSTEM_PROMPT_CANTONESE if style == "cantonese" else SYSTEM_PROMPT_FORMAL

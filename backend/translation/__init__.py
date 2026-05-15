@@ -32,6 +32,7 @@ class TranslationEngine(ABC):
         progress_callback: Optional[ProgressCallback] = None,
         parallel_batches: int = 1,
         cancel_event=None,
+        prompt_overrides: Optional[dict] = None,
     ) -> List[TranslatedSegment]:
         """Translate English segments to Chinese.
 

@@ -1533,7 +1533,8 @@ def test_parallel_batches_disables_context_window(monkeypatch):
     ]
     captured_contexts = []
 
-    def spy_translate_batch(self, batch, glossary, style, temperature, context_pairs):
+    def spy_translate_batch(self, batch, glossary, style, temperature, context_pairs,
+                            runtime_overrides=None):
         captured_contexts.append(list(context_pairs))
         return [
             {"start": s["start"], "end": s["end"], "en_text": s["text"], "zh_text": f"譯 {s['text']}"}
@@ -1559,7 +1560,8 @@ def test_parallel_batches_progress_callback_called(monkeypatch):
         for i in range(6)
     ]
 
-    def spy_translate_batch(self, batch, glossary, style, temperature, context_pairs):
+    def spy_translate_batch(self, batch, glossary, style, temperature, context_pairs,
+                            runtime_overrides=None):
         return [
             {"start": s["start"], "end": s["end"], "en_text": s["text"], "zh_text": f"譯 {s['text']}"}
             for s in batch
@@ -1589,7 +1591,8 @@ def test_parallel_batches_one_uses_sequential_path(monkeypatch):
     ]
     captured_contexts = []
 
-    def spy_translate_batch(self, batch, glossary, style, temperature, context_pairs):
+    def spy_translate_batch(self, batch, glossary, style, temperature, context_pairs,
+                            runtime_overrides=None):
         captured_contexts.append(list(context_pairs))
         return [
             {"start": s["start"], "end": s["end"], "en_text": s["text"], "zh_text": f"譯 {s['text']}"}
