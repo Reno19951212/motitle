@@ -74,3 +74,44 @@ def test_glossary_scan_delta_counts():
     out = v.glossary_scan_delta(b, p)
     assert out["baseline_strict_count"] == 5
     assert out["post_strict_count"] == 1
+
+
+def test_subtitle_length_distribution_buckets():
+    t = [{"zh_text": "短"}, {"zh_text": "中等長度的字幕內容文字"}, {"zh_text": "x" * 35}, {"zh_text": "y" * 50}]
+    out = v.subtitle_length_distribution(t)
+    assert out["0-10"] == 1
+    assert out["11-15"] == 1
+    assert out["29-40"] == 1
+    assert out[">40"] == 1
+
+
+def test_reading_speed_cps_band():
+    # seg0: 30 chars / 1s = 30 CPS → too_fast (>20)
+    # seg1: 1 char / 2s = 0.5 CPS → too_slow (<8)
+    # seg2: 10 ascii chars / 1s = 10 CPS → in band (8-20)
+    segs = [{"start": 0, "end": 1.0}, {"start": 1.0, "end": 3.0}, {"start": 3.0, "end": 4.0}]
+    trans = [{"zh_text": "甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸"}, {"zh_text": "短"}, {"zh_text": "abcdefghij"}]
+    out = v.reading_speed_cps(trans, segs)
+    assert out["too_fast_count"] >= 1
+    assert out["too_slow_count"] >= 1
+
+
+def test_language_consistency_en_with_cjk():
+    segs = [{"start": 0, "end": 1, "text": "Hello 世界 world"}, {"start": 1, "end": 2, "text": "no cjk here"}]
+    trans = [{"zh_text": "純中文"}]
+    out = v.language_consistency(segs, trans)
+    assert out["en_with_cjk_count"] == 1
+
+
+def test_language_consistency_zh_with_latin_brand_excluded():
+    segs = []
+    trans = [{"zh_text": "佢喺 NBA 比賽中"}, {"zh_text": "佢喺 random English 比賽中"}]
+    out = v.language_consistency(segs, trans)
+    assert out["zh_with_latin_count"] == 1  # NBA excluded by whitelist, "random English" detected
+
+
+def test_repetition_detect_substring_match():
+    trans = [{"zh_text": "甲乙丙丁戊"}, {"zh_text": "甲乙丙丁戊己"}, {"zh_text": "完全不同的內容"}]
+    out = v.repetition_detect(trans, min_overlap_ratio=0.5)
+    assert len(out) >= 1
+    assert out[0]["index"] == 0

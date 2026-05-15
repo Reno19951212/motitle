@@ -216,6 +216,127 @@ def glossary_scan_delta(baseline: Dict, post: Dict) -> Dict[str, Any]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Tier 2: Broadcast Quality metrics
+# ─────────────────────────────────────────────────────────────────────────────
+
+_CJK_RE = re.compile(r"[一-鿿]")
+_LATIN_WORD_RE = re.compile(r"[a-zA-Z]{3,}")
+_BRAND_WHITELIST = {"NBA", "FIFA", "UEFA", "BBC", "CNN", "AI", "GPS", "USA", "UK"}
+
+
+def subtitle_length_distribution(translations: List[Dict]) -> Dict[str, int]:
+    """ZH char-count histogram."""
+    buckets = {"0-10": 0, "11-15": 0, "16-20": 0, "21-28": 0, "29-40": 0, ">40": 0}
+    for t in translations:
+        n = len(t.get("zh_text", "") or "")
+        if n <= 10:
+            buckets["0-10"] += 1
+        elif n <= 15:
+            buckets["11-15"] += 1
+        elif n <= 20:
+            buckets["16-20"] += 1
+        elif n <= 28:
+            buckets["21-28"] += 1
+        elif n <= 40:
+            buckets["29-40"] += 1
+        else:
+            buckets[">40"] += 1
+    return buckets
+
+
+def reading_speed_cps(translations: List[Dict], segments: List[Dict]) -> Dict[str, Any]:
+    """Chars-per-second per segment. Broadcast band 12-17 CPS."""
+    # Pair translations to segments by index
+    n = min(len(translations), len(segments))
+    cps_values = []
+    too_slow = []  # <8 CPS
+    too_fast = []  # >20 CPS
+    for i in range(n):
+        zh = translations[i].get("zh_text", "") or ""
+        dur = segments[i]["end"] - segments[i]["start"]
+        if dur <= 0 or not zh:
+            continue
+        cps = len(zh) / dur
+        cps_values.append(cps)
+        if cps < 8:
+            too_slow.append({"index": i, "zh": zh, "duration": round(dur, 2), "cps": round(cps, 1)})
+        elif cps > 20:
+            too_fast.append({"index": i, "zh": zh, "duration": round(dur, 2), "cps": round(cps, 1)})
+    if not cps_values:
+        return {"skipped": True, "reason": "no paired segments with translation"}
+    return {
+        "avg_cps": round(sum(cps_values) / len(cps_values), 1),
+        "min_cps": round(min(cps_values), 1),
+        "max_cps": round(max(cps_values), 1),
+        "in_broadcast_band_12_17": sum(1 for c in cps_values if 12 <= c <= 17),
+        "too_slow_count": len(too_slow),
+        "too_fast_count": len(too_fast),
+        "top_too_slow": too_slow[:5],
+        "top_too_fast": too_fast[:5],
+    }
+
+
+def language_consistency(segments: List[Dict], translations: List[Dict]) -> Dict[str, Any]:
+    """EN-with-CJK contamination + ZH-with-Latin words + simplified-leak."""
+    en_with_cjk = []
+    for s in segments:
+        text = s.get("text", "") or ""
+        if _CJK_RE.search(text):
+            en_with_cjk.append({"start": s.get("start"), "text": text})
+
+    zh_with_latin = []
+    for i, t in enumerate(translations):
+        zh = t.get("zh_text", "") or ""
+        latins = _LATIN_WORD_RE.findall(zh)
+        leaked = [w for w in latins if w.upper() not in _BRAND_WHITELIST]
+        if leaked:
+            zh_with_latin.append({"index": i, "zh": zh, "latin_words": leaked})
+
+    # Simplified leak: use OpenCC s2hk if available; segments where s2hk(zh) != zh contain simplified chars
+    simplified_leak = []
+    opencc_available = True
+    try:
+        from opencc import OpenCC
+        cc = OpenCC("s2hk")
+        for i, t in enumerate(translations):
+            zh = t.get("zh_text", "") or ""
+            converted = cc.convert(zh)
+            if converted != zh and zh:
+                simplified_leak.append({"index": i, "original": zh, "converted": converted})
+    except ImportError:
+        opencc_available = False
+        simplified_leak = [{"error": "OpenCC not installed"}]
+
+    return {
+        "en_with_cjk_count": len(en_with_cjk),
+        "zh_with_latin_count": len(zh_with_latin),
+        "simplified_leak_count": len(simplified_leak) if opencc_available else None,
+        "top_en_with_cjk": en_with_cjk[:5],
+        "top_zh_with_latin": zh_with_latin[:5],
+        "top_simplified_leak": simplified_leak[:5] if opencc_available else [],
+    }
+
+
+def repetition_detect(translations: List[Dict], min_overlap_ratio: float = 0.7) -> List[Dict]:
+    """Adjacent segments where ZH text overlap >= ratio (cascade signal)."""
+    pairs = []
+    for i in range(len(translations) - 1):
+        a = (translations[i].get("zh_text") or "").strip()
+        b = (translations[i + 1].get("zh_text") or "").strip()
+        if not a or not b:
+            continue
+        # Simple metric: longest common substring length / max(len)
+        # For perf, use set-of-chars Jaccard as cheap proxy
+        sa, sb = set(a), set(b)
+        if not sa or not sb:
+            continue
+        jaccard = len(sa & sb) / len(sa | sb)
+        if jaccard >= min_overlap_ratio or a == b or a in b or b in a:
+            pairs.append({"index": i, "next": i + 1, "zh_a": a, "zh_b": b, "jaccard": round(jaccard, 2)})
+    return pairs
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # CLI
 # ─────────────────────────────────────────────────────────────────────────────
 
