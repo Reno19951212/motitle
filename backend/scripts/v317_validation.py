@@ -337,6 +337,93 @@ def repetition_detect(translations: List[Dict], min_overlap_ratio: float = 0.7) 
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Tier 3: Diagnostic metrics
+# ─────────────────────────────────────────────────────────────────────────────
+
+def segment_timing_health(segments: List[Dict]) -> Dict[str, Any]:
+    """Count of too-short / too-long segments + gap distribution."""
+    if not segments:
+        return {"skipped": True, "reason": "no segments"}
+    too_short = [s for s in segments if s["end"] - s["start"] < 0.3]
+    too_long = [s for s in segments if s["end"] - s["start"] > 7.0]
+    gaps = []
+    for i in range(1, len(segments)):
+        gap = segments[i]["start"] - segments[i - 1]["end"]
+        if gap > 0:
+            gaps.append(gap)
+    return {
+        "too_short_count": len(too_short),
+        "too_long_count": len(too_long),
+        "avg_gap": round(sum(gaps) / len(gaps), 2) if gaps else None,
+        "max_gap": round(max(gaps), 2) if gaps else None,
+        "top_too_short": [{"start": s["start"], "duration": round(s["end"] - s["start"], 2), "text": s.get("text", "")} for s in too_short[:5]],
+        "top_too_long": [{"start": s["start"], "duration": round(s["end"] - s["start"], 2), "text": s.get("text", "")} for s in too_long[:5]],
+    }
+
+
+def flag_rates(translations: List[Dict]) -> Dict[str, Any]:
+    """Counts of [LONG], [NEEDS REVIEW] flags + hallucination heuristic."""
+    long_count = sum(1 for t in translations if "long" in (t.get("flags") or []))
+    review_count = sum(1 for t in translations if "review" in (t.get("flags") or []))
+    hallucinated = [t for t in translations if len(t.get("zh_text", "") or "") > 40]
+    return {
+        "total_count": len(translations),
+        "long_flag_count": long_count,
+        "long_flag_pct": round(100 * long_count / len(translations), 1) if translations else 0,
+        "review_flag_count": review_count,
+        "hallucination_count": len(hallucinated),
+        "hallucination_pct": round(100 * len(hallucinated) / len(translations), 1) if translations else 0,
+    }
+
+
+def batch_boundary_check(translations: List[Dict], batch_size: int) -> Dict[str, Any]:
+    """Check for repetition + abrupt context at batch edges (only if batch_size > 1)."""
+    if not batch_size or batch_size <= 1:
+        return {"skipped": True, "reason": f"batch_size={batch_size}, no boundaries to check"}
+    boundaries = list(range(batch_size, len(translations), batch_size))
+    edge_repetition = []
+    for b in boundaries:
+        if b == 0 or b >= len(translations):
+            continue
+        prev_zh = (translations[b - 1].get("zh_text") or "").strip()
+        curr_zh = (translations[b].get("zh_text") or "").strip()
+        if prev_zh and curr_zh and (prev_zh == curr_zh or prev_zh in curr_zh or curr_zh in prev_zh):
+            edge_repetition.append({"boundary": b, "prev_zh": prev_zh, "curr_zh": curr_zh})
+    return {
+        "boundary_count": len(boundaries),
+        "edge_repetition_count": len(edge_repetition),
+        "top_edge_repetition": edge_repetition[:5],
+    }
+
+
+def word_level_alignment(segments: List[Dict]) -> Dict[str, Any]:
+    """% segments with words[] populated + avg word count."""
+    if not segments:
+        return {"skipped": True}
+    with_words = [s for s in segments if s.get("words")]
+    word_counts = [len(s["words"]) for s in with_words]
+    return {
+        "total_segments": len(segments),
+        "with_words_count": len(with_words),
+        "with_words_pct": round(100 * len(with_words) / len(segments), 1),
+        "avg_word_count": round(sum(word_counts) / len(word_counts), 1) if word_counts else None,
+    }
+
+
+def approval_state(baseline_translations: List[Dict], post_translations: List[Dict]) -> Dict[str, Any]:
+    """Baseline approved/pending vs post (post resets to all pending)."""
+    def _count(t_list):
+        approved = sum(1 for t in t_list if t.get("status") == "approved")
+        pending = sum(1 for t in t_list if t.get("status") != "approved")
+        return {"approved": approved, "pending": pending}
+    return {
+        "baseline": _count(baseline_translations),
+        "post": _count(post_translations),
+        "note": "Post re-run resets all approvals to pending; baseline counts are ground-truth pre-v3.17 reviewer state.",
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # CLI
 # ─────────────────────────────────────────────────────────────────────────────
 

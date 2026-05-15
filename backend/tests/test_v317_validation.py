@@ -115,3 +115,57 @@ def test_repetition_detect_substring_match():
     out = v.repetition_detect(trans, min_overlap_ratio=0.5)
     assert len(out) >= 1
     assert out[0]["index"] == 0
+
+
+def test_segment_timing_health_short_and_long():
+    segs = [
+        {"start": 0, "end": 0.2, "text": "tiny"},   # too short
+        {"start": 0.2, "end": 8.5, "text": "long"}, # too long
+        {"start": 9.0, "end": 11.0, "text": "ok"},
+    ]
+    out = v.segment_timing_health(segs)
+    assert out["too_short_count"] == 1
+    assert out["too_long_count"] == 1
+
+
+def test_flag_rates_counts():
+    trans = [
+        {"zh_text": "短", "flags": []},
+        {"zh_text": "x" * 50, "flags": ["long"]},
+        {"zh_text": "y", "flags": ["review"]},
+    ]
+    out = v.flag_rates(trans)
+    assert out["long_flag_count"] == 1
+    assert out["review_flag_count"] == 1
+    assert out["hallucination_count"] == 1
+
+
+def test_batch_boundary_check_repetition():
+    trans = [
+        {"zh_text": "段一"}, {"zh_text": "段二"}, {"zh_text": "段二"},  # boundary at index 2; repetition!
+        {"zh_text": "段四"}, {"zh_text": "段五"}, {"zh_text": "段六"},
+    ]
+    out = v.batch_boundary_check(trans, batch_size=2)
+    assert out["edge_repetition_count"] >= 1
+
+
+def test_batch_boundary_check_skipped_when_batch1():
+    out = v.batch_boundary_check([{"zh_text": "x"}], batch_size=1)
+    assert out["skipped"] is True
+
+
+def test_word_level_alignment_pct():
+    segs = [{"words": [{"word": "a"}]}, {"words": []}, {"words": [{"word": "b"}, {"word": "c"}]}]
+    out = v.word_level_alignment(segs)
+    # [] is falsy so second segment filtered out; first + third counted
+    assert out["with_words_count"] == 2
+    assert out["total_segments"] == 3
+
+
+def test_approval_state_note_present():
+    b = [{"status": "approved"}, {"status": "approved"}, {"status": "pending"}]
+    p = [{"status": "pending"}, {"status": "pending"}, {"status": "pending"}]
+    out = v.approval_state(b, p)
+    assert out["baseline"]["approved"] == 2
+    assert out["post"]["approved"] == 0
+    assert "Post re-run resets" in out["note"]
