@@ -1393,8 +1393,6 @@ def api_list_asr_engines():
     for engine_name, desc in [
         ("whisper", "Whisper (faster-whisper, CPU)"),
         ("mlx-whisper", "MLX Whisper (Metal GPU, Apple Silicon)"),
-        ("qwen3-asr", "Qwen3-ASR (stub — production only)"),
-        ("flg-asr", "FLG-ASR (stub — production only)"),
     ]:
         try:
             engine = create_asr_engine({"engine": engine_name, "model_size": "unknown"})

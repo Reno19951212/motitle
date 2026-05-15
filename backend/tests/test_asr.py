@@ -10,42 +10,10 @@ def test_create_whisper_engine():
     assert info["engine"] == "whisper"
 
 
-def test_create_qwen3_engine():
-    from asr import create_asr_engine
-    config = {"engine": "qwen3-asr", "model_size": "large", "language": "en", "device": "cuda"}
-    engine = create_asr_engine(config)
-    info = engine.get_info()
-    assert info["engine"] == "qwen3-asr"
-    assert info["available"] is False
-
-
-def test_create_flg_engine():
-    from asr import create_asr_engine
-    config = {"engine": "flg-asr", "model_size": "large", "language": "en", "device": "cuda"}
-    engine = create_asr_engine(config)
-    info = engine.get_info()
-    assert info["engine"] == "flg-asr"
-    assert info["available"] is False
-
-
 def test_create_unknown_engine_raises():
     from asr import create_asr_engine
     with pytest.raises(ValueError, match="Unknown ASR engine"):
         create_asr_engine({"engine": "nonexistent"})
-
-
-def test_stub_transcribe_raises():
-    from asr import create_asr_engine
-    engine = create_asr_engine({"engine": "qwen3-asr", "model_size": "large", "language": "en"})
-    with pytest.raises(NotImplementedError):
-        engine.transcribe("/tmp/test.wav", language="en")
-
-
-def test_flg_stub_transcribe_raises():
-    from asr import create_asr_engine
-    engine = create_asr_engine({"engine": "flg-asr", "model_size": "large", "language": "en"})
-    with pytest.raises(NotImplementedError):
-        engine.transcribe("/tmp/test.wav", language="en")
 
 
 from unittest.mock import patch, MagicMock
@@ -127,13 +95,13 @@ def test_api_list_asr_engines():
         assert resp.status_code == 200
         data = resp.get_json()
         engines = data["engines"]
-        assert len(engines) == 4
+        assert len(engines) == 2
 
         engine_names = [e["engine"] for e in engines]
         assert "whisper" in engine_names
         assert "mlx-whisper" in engine_names
-        assert "qwen3-asr" in engine_names
-        assert "flg-asr" in engine_names
+        assert "qwen3-asr" not in engine_names
+        assert "flg-asr" not in engine_names
 
         whisper_info = next(e for e in engines if e["engine"] == "whisper")
         assert whisper_info["available"] is True
@@ -141,21 +109,18 @@ def test_api_list_asr_engines():
         mlx_info = next(e for e in engines if e["engine"] == "mlx-whisper")
         assert mlx_info["available"] is True
 
-        qwen_info = next(e for e in engines if e["engine"] == "qwen3-asr")
-        assert qwen_info["available"] is False
-
 
 def test_whisper_engine_params_schema():
     from asr.whisper_engine import WhisperEngine
-    engine = WhisperEngine({"engine": "whisper", "model_size": "small", "device": "auto"})
+    engine = WhisperEngine({"engine": "whisper", "model_size": "large-v3", "device": "auto"})
     schema = engine.get_params_schema()
     assert schema["engine"] == "whisper"
     assert "model_size" in schema["params"]
     assert "language" in schema["params"]
     assert "device" in schema["params"]
     assert schema["params"]["model_size"]["type"] == "string"
-    assert "small" in schema["params"]["model_size"]["enum"]
-    assert schema["params"]["model_size"]["default"] == "small"
+    assert "large-v3" in schema["params"]["model_size"]["enum"]
+    assert schema["params"]["model_size"]["default"] == "large-v3"
 
 
 def test_mlx_whisper_engine_schema_and_info():
@@ -296,24 +261,6 @@ def test_whisper_engine_openai_path_forwards_initial_prompt():
     assert mock_model.transcribe.call_args.kwargs["initial_prompt"] == "繁體中文。"
 
 
-def test_qwen3_engine_params_schema():
-    from asr import create_asr_engine
-    engine = create_asr_engine({"engine": "qwen3-asr", "model_size": "large"})
-    schema = engine.get_params_schema()
-    assert schema["engine"] == "qwen3-asr"
-    assert "model_size" in schema["params"]
-    assert "language" in schema["params"]
-
-
-def test_flg_engine_params_schema():
-    from asr import create_asr_engine
-    engine = create_asr_engine({"engine": "flg-asr", "model_size": "standard"})
-    schema = engine.get_params_schema()
-    assert schema["engine"] == "flg-asr"
-    assert "model_size" in schema["params"]
-    assert "language" in schema["params"]
-
-
 def test_api_asr_engine_params_whisper():
     import sys
     from pathlib import Path
@@ -330,20 +277,6 @@ def test_api_asr_engine_params_whisper():
         assert "model_size" in data["params"]
         assert "language" in data["params"]
         assert "device" in data["params"]
-
-
-def test_api_asr_engine_params_qwen3():
-    import sys
-    from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).parent.parent))
-
-    from app import app
-    app.config["TESTING"] = True
-    with app.test_client() as client:
-        resp = client.get("/api/asr/engines/qwen3-asr/params")
-        assert resp.status_code == 200
-        data = resp.get_json()
-        assert data["engine"] == "qwen3-asr"
 
 
 def test_api_asr_engine_params_unknown():

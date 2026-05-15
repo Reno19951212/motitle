@@ -32,7 +32,7 @@ def _get_pm_lock(profile_id: str) -> threading.Lock:
 # Valid option sets
 # ---------------------------------------------------------------------------
 
-VALID_ASR_ENGINES = {"whisper", "mlx-whisper", "qwen3-asr", "flg-asr"}
+VALID_ASR_ENGINES = {"whisper", "mlx-whisper"}
 VALID_TRANSLATION_ENGINES = {
     "mock",
     "qwen2.5-3b", "qwen2.5-7b", "qwen2.5-72b",
