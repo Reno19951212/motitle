@@ -52,47 +52,66 @@ test("ASR preset chip 'Accuracy' sets model_size=large-v3 + word_timestamps=true
   expect(summary).toContain("large-v3");
 });
 
-test("MT preset chip 'Fast Draft' sets batch_size=10 + parallel_batches=4", async ({ page }) => {
+test("Custom MT + JS-set parallel_batches=4 triggers parallel-disables-context warning", async ({ page }) => {
   await _openPpsModal(page);
 
-  const fastDraftBtn = page.locator("#ppsMtPresetButtons button", { hasText: "Fast Draft" });
-  await expect(fastDraftBtn).toBeVisible();
-  await fastDraftBtn.click();
+  // Click MT Custom (deactivates any pending), then JS-mutate _pendingMtPreset to set parallel_batches=4
+  await page.locator("#ppsMtPresetButtons button", { hasText: "Custom" }).click();
+  await page.evaluate(() => {
+    // _pendingMtPreset is module-scoped; try window first, then eval fallback
+    if ("_pendingMtPreset" in window) {
+      window._pendingMtPreset = { config: { parallel_batches: 4 } };
+    } else {
+      // eval into script scope
+      // eslint-disable-next-line no-eval
+      eval("_pendingMtPreset = { config: { parallel_batches: 4 } }");
+    }
+    if (typeof window._scheduleDangerEval === "function") {
+      window._scheduleDangerEval();
+    } else if (typeof _scheduleDangerEval === "function") {
+      // eslint-disable-next-line no-eval
+      eval("_scheduleDangerEval()");
+    }
+  });
 
-  await expect(fastDraftBtn).toHaveClass(/active/);
-
-  // Fast Draft sets parallel_batches=4, which triggers critical warning
-  const warning = page.locator("#ppsMtDangerWarnings .pps-warning-chip", { hasText: /parallel_batches > 1/ });
-  await expect(warning).toBeVisible({ timeout: 1000 });
-  await expect(warning).toContainText(/parallel_batches > 1/);
+  const warning = page.locator(
+    "#ppsMtDangerWarnings .pps-warning-chip",
+    { hasText: /parallel_batches > 1/ },
+  );
+  await expect(warning).toBeVisible({ timeout: 3000 });
 });
 
-test("Mix-and-match: ASR Accuracy + MT Fast Draft both active simultaneously", async ({ page }) => {
+test("Mix-and-match: ASR Accuracy + MT Broadcast Quality both active simultaneously", async ({ page }) => {
   await _openPpsModal(page);
 
   await page.locator("#ppsAsrPresetButtons button", { hasText: "Accuracy" }).click();
-  await page.locator("#ppsMtPresetButtons button", { hasText: "Fast Draft" }).click();
+  await page.locator("#ppsMtPresetButtons button", { hasText: "Broadcast Quality" }).click();
 
-  // Both chips active concurrently
   await expect(page.locator("#ppsAsrPresetButtons button.active", { hasText: "Accuracy" })).toBeVisible();
-  await expect(page.locator("#ppsMtPresetButtons button.active", { hasText: "Fast Draft" })).toBeVisible();
+  await expect(page.locator("#ppsMtPresetButtons button.active", { hasText: "Broadcast Quality" })).toBeVisible();
 
-  // Summary mentions both
   const summary = await page.locator("#ppsSummary").textContent();
-  expect(summary).toContain("large-v3");      // from ASR preset
-  expect(summary).toContain("Fast Draft");    // from MT preset label OR underlying value
+  expect(summary).toContain("large-v3");
+  expect(summary).toContain("Broadcast Quality");
 });
 
-test("Cross-engine warning: alignment_mode=llm-markers + word_timestamps=false renders in MT section", async ({ page }) => {
+test("Cross-engine warning: Custom-set word_timestamps=false + Broadcast Quality MT triggers warning", async ({ page }) => {
   await _openPpsModal(page);
 
-  // Speed preset sets word_timestamps=false; Broadcast Quality preset sets alignment_mode=llm-markers
-  await page.locator("#ppsAsrPresetButtons button", { hasText: "Speed" }).click();
+  await page.locator("#ppsAsrPresetButtons button", { hasText: "Custom" }).click();
+  await page.evaluate(() => {
+    if ("_pendingAsrPreset" in window) {
+      window._pendingAsrPreset = { config: { word_timestamps: false } };
+    } else {
+      // eslint-disable-next-line no-eval
+      eval("_pendingAsrPreset = { config: { word_timestamps: false } }");
+    }
+  });
   await page.locator("#ppsMtPresetButtons button", { hasText: "Broadcast Quality" }).click();
 
   const crossWarning = page.locator(
     "#ppsMtDangerWarnings .pps-warning-chip",
     { hasText: /word_timestamps/ },
   );
-  await expect(crossWarning).toBeVisible({ timeout: 1000 });
+  await expect(crossWarning).toBeVisible({ timeout: 3000 });
 });

@@ -2517,11 +2517,6 @@
         description: 'large-v3 + word_timestamps，無 cascade',
         config: { model_size: 'large-v3', condition_on_previous_text: false, word_timestamps: true },
       },
-      speed: {
-        label: 'Speed',
-        description: 'small model + VAD，速度優先',
-        config: { model_size: 'small', condition_on_previous_text: false, word_timestamps: false },
-      },
       debug: {
         label: 'Debug',
         description: '排查 hallucination，含 initial_prompt 樣本',
@@ -2535,11 +2530,6 @@
         label: 'Broadcast Quality',
         description: '逐段對齊，慢但準',
         config: { batch_size: 1, temperature: 0.1, parallel_batches: 1, translation_passes: 2, alignment_mode: 'llm-markers' },
-      },
-      'fast-draft': {
-        label: 'Fast Draft',
-        description: '速度優先 preview',
-        config: { batch_size: 10, temperature: 0.15, parallel_batches: 4, translation_passes: 1, alignment_mode: '' },
       },
       'literal-ref': {
         label: 'Literal Reference',
