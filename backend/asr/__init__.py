@@ -48,11 +48,5 @@ def create_asr_engine(asr_config: dict) -> ASREngine:
     elif engine_name == "mlx-whisper":
         from .mlx_whisper_engine import MlxWhisperEngine
         return MlxWhisperEngine(asr_config)
-    elif engine_name == "qwen3-asr":
-        from .qwen3_engine import Qwen3ASREngine
-        return Qwen3ASREngine(asr_config)
-    elif engine_name == "flg-asr":
-        from .flg_engine import FLGASREngine
-        return FLGASREngine(asr_config)
     else:
         raise ValueError(f"Unknown ASR engine: {engine_name}")
