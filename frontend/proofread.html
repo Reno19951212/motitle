@@ -352,6 +352,78 @@
     .rv-b-ss-color input[type=color] { width: 24px; height: 24px; border: 1px solid var(--border); border-radius: 3px; padding: 1px; background: var(--surface-2); cursor: pointer; }
     .rv-b-ss-hex { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); }
 
+    /* 自訂 Prompt Panel (v3.18 Stage 2) */
+    .rv-b-prompt-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 8px;
+    }
+    .rv-b-prompt-scope {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-left: 6px;
+    }
+    .rv-b-prompt-body {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .rv-b-prompt-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .rv-b-prompt-label {
+      font-size: 12px;
+      color: var(--text-dim);
+      min-width: 38px;
+    }
+    .rv-b-prompt-select {
+      flex: 1;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      padding: 4px 6px;
+      font-size: 12px;
+    }
+    .rv-b-prompt-section {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface-2);
+    }
+    .rv-b-prompt-section > summary {
+      cursor: pointer;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      user-select: none;
+    }
+    .rv-b-prompt-section[open] > summary {
+      border-bottom: 1px solid var(--border);
+    }
+    .rv-b-prompt-textarea {
+      width: 100%;
+      box-sizing: border-box;
+      background: var(--surface-3);
+      border: none;
+      border-top: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 10px;
+      font-size: 12px;
+      font-family: ui-monospace, monospace;
+      resize: vertical;
+    }
+    .rv-b-prompt-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
     /* Glossary Apply Modal */
     .ga-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,0.6);
@@ -838,6 +910,48 @@
                       <span class="rv-b-ss-label">底部邊距</span>
                       <input class="rv-b-ss-input" id="ssMarginBottom" type="number" min="0" max="200" oninput="onSubtitleSettingChange()" style="width:60px;" aria-label="字幕底部邊距 (px)">
                       <span style="font-size:11px;color:var(--text-dim);">px</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 自訂 Prompt (v3.18 Stage 2) -->
+                <div class="rv-b-prompt-panel" id="promptPanel">
+                  <div class="rv-b-ss-head">
+                    自訂 Prompt
+                    <span class="rv-b-prompt-scope">（呢個檔案專用）</span>
+                  </div>
+                  <div class="rv-b-prompt-body">
+                    <div class="rv-b-prompt-row">
+                      <label class="rv-b-prompt-label" for="promptTemplate">模板</label>
+                      <select id="promptTemplate" class="rv-b-prompt-select" aria-label="揀模板">
+                        <option value="">(揀模板…)</option>
+                      </select>
+                      <button class="btn btn-ghost btn-sm" id="promptApplyTemplateBtn" onclick="applyPromptTemplate()" disabled>套用模板</button>
+                    </div>
+
+                    <details class="rv-b-prompt-section" open>
+                      <summary>對齊 anchor (alignment_anchor_system)</summary>
+                      <textarea id="promptAnchor" class="rv-b-prompt-textarea" rows="6" placeholder="留空 = 用 Profile / 系統預設" oninput="onPromptDirty()"></textarea>
+                    </details>
+
+                    <details class="rv-b-prompt-section" open>
+                      <summary>單段翻譯 (single_segment_system)</summary>
+                      <textarea id="promptSingle" class="rv-b-prompt-textarea" rows="6" placeholder="留空 = 用 Profile / 系統預設" oninput="onPromptDirty()"></textarea>
+                    </details>
+
+                    <details class="rv-b-prompt-section" open>
+                      <summary>Pass 2 加強 (pass2_enrich_system)</summary>
+                      <textarea id="promptEnrich" class="rv-b-prompt-textarea" rows="6" placeholder="留空 = 用 Profile / 系統預設" oninput="onPromptDirty()"></textarea>
+                    </details>
+
+                    <details class="rv-b-prompt-section">
+                      <summary>批次翻譯 (pass1_system)</summary>
+                      <textarea id="promptPass1" class="rv-b-prompt-textarea" rows="6" placeholder="留空 = 用 Profile / 系統預設" oninput="onPromptDirty()"></textarea>
+                    </details>
+
+                    <div class="rv-b-prompt-actions">
+                      <button class="btn btn-ghost btn-sm" onclick="clearPromptOverrides()">清空</button>
+                      <button class="btn btn-primary btn-sm" id="promptCommitBtn" onclick="commitPromptOverrides()" disabled>重新翻譯此檔案</button>
                     </div>
                   </div>
                 </div>
