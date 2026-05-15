@@ -548,6 +548,7 @@ def _register_file(file_id, original_name, stored_name, size_bytes, user_id=None
             'backend': None,     # 'openai-whisper' or 'faster-whisper'
             'subtitle_source': None,
             'bilingual_order': None,
+            'prompt_overrides': None,   # v3.18 Stage 2: per-file MT prompt override
         }
         _save_registry()
     return _file_registry[file_id]
