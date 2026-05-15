@@ -251,3 +251,56 @@ class TestAutoTranslateUsesFileOverride:
         finally:
             with app_module._registry_lock:
                 app_module._file_registry.pop(fid, None)
+
+
+class TestListFilesIncludesPromptOverrides:
+    def test_list_files_returns_prompt_overrides_field(self, client, monkeypatch):
+        """GET /api/files must include prompt_overrides per entry so the
+        dashboard 📝 chip and proofread textarea persistence work after
+        page reload. Without this, both features go dark silently on refresh."""
+        import app as app_module
+
+        # Ensure R5_AUTH_BYPASS is enabled so @login_required passes through
+        monkeypatch.setitem(app_module.app.config, "R5_AUTH_BYPASS", True)
+
+        fid = "po-list-files-test"
+        app_module._register_file(fid, "test.mp4", "test.mp4", 0, user_id=None)
+        try:
+            # Set an override
+            client.patch(f"/api/files/{fid}", json={
+                "prompt_overrides": {"pass1_system": "override-text"}
+            })
+            # GET the list and find this file
+            resp = client.get("/api/files")
+            assert resp.status_code == 200
+            data = resp.get_json()
+            files = data if isinstance(data, list) else data.get("files", [])
+            matching = [f for f in files if f["id"] == fid]
+            assert len(matching) == 1, f"Test file {fid} not in list response"
+            assert matching[0].get("prompt_overrides") == {"pass1_system": "override-text"}
+        finally:
+            with app_module._registry_lock:
+                app_module._file_registry.pop(fid, None)
+
+    def test_list_files_returns_null_when_no_override(self, client, monkeypatch):
+        """Files without prompt_overrides should return null (not missing key
+        and not empty dict — null is the schema's 'no override at this layer')."""
+        import app as app_module
+
+        # Ensure R5_AUTH_BYPASS is enabled so @login_required passes through
+        monkeypatch.setitem(app_module.app.config, "R5_AUTH_BYPASS", True)
+
+        fid = "po-list-null-test"
+        app_module._register_file(fid, "test.mp4", "test.mp4", 0, user_id=None)
+        try:
+            resp = client.get("/api/files")
+            files = resp.get_json()
+            if isinstance(files, dict):
+                files = files.get("files", [])
+            matching = [f for f in files if f["id"] == fid]
+            assert len(matching) == 1
+            # New files default to null per Task 3's _register_file
+            assert matching[0].get("prompt_overrides") is None
+        finally:
+            with app_module._registry_lock:
+                app_module._file_registry.pop(fid, None)

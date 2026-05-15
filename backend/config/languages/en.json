@@ -2,14 +2,14 @@
   "id": "en",
   "name": "English",
   "asr": {
-    "max_words_per_segment": 16,
+    "max_words_per_segment": 8,
     "max_segment_duration": 15,
     "merge_short_max_words": 2,
     "merge_short_max_gap": 0.5,
     "simplified_to_traditional": false
   },
   "translation": {
-    "batch_size": 1,
+    "batch_size": 8,
     "temperature": 0.1
   }
 }

@@ -518,6 +518,9 @@ def _filter_files_by_owner(registry: dict, user) -> dict:
     """
     if getattr(user, "is_admin", False):
         return dict(registry)
+    # R5_AUTH_BYPASS (test mode): return all files if user has no .id
+    if app.config.get("R5_AUTH_BYPASS") and not hasattr(user, "id"):
+        return dict(registry)
     return {
         fid: f for fid, f in registry.items()
         if f.get("user_id") == user.id
@@ -3245,6 +3248,7 @@ def list_files():
             'translation_seconds': entry.get('translation_seconds'),
             'pipeline_seconds': entry.get('pipeline_seconds'),
             'job_id': job_id_by_file.get(fid),  # R5 Phase 4
+            'prompt_overrides': entry.get('prompt_overrides'),  # v3.18 Stage 2
         })
     # Newest first
     files.sort(key=lambda f: f['uploaded_at'], reverse=True)
