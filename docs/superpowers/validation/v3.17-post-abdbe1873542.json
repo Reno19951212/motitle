@@ -1,5 +1,5 @@
 {
-  "captured_at": "2026-05-15T04:43:07Z",
+  "captured_at": "2026-05-15T06:32:43Z",
   "file": {
     "approved_count": 0,
     "asr_seconds": 15.2,
@@ -9,12 +9,12 @@
     "job_id": null,
     "model": "large-v3",
     "original_name": "【#賽馬娛樂新聞】25:26 #26 新見習騎師🏇袁幸堯不日登場🔥 1080p.mp4",
-    "pipeline_seconds": 62.1,
+    "pipeline_seconds": 39.7,
     "segment_count": 85,
     "size": 91222481,
     "status": "done",
     "translation_engine": "qwen3.5-35b-a3b",
-    "translation_seconds": 46.9,
+    "translation_seconds": 24.5,
     "translation_status": "done",
     "uploaded_at": 1778808413.482395
   },
@@ -4141,33 +4141,33 @@
   "translations": [
     {
       "applied_terms": [],
-      "baseline_target": "驚呼！",
+      "baseline_target": "驚嘆號。",
       "en_text": "!",
       "end": 0.08,
       "flags": [],
       "start": 0.0,
       "status": "pending",
-      "zh_text": "驚呼！"
+      "zh_text": "驚嘆號。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "以下影片由香港本地機構贊助，並出席記者會。",
       "en_text": "The following video is sponsored by",
       "end": 9.56,
       "flags": [],
       "start": 8.400000000000002,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "以下影片由香港本地機構贊助，並出席記者會。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": " ",
       "en_text": "The Hong Kong-based",
       "end": 21.0,
       "flags": [],
       "start": 9.56,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": " "
     },
     {
       "applied_terms": [],
@@ -4181,373 +4181,373 @@
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "讓我們一睹為快。",
       "en_text": "Let's take a look.",
       "end": 24.22,
       "flags": [],
       "start": 23.46,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "讓我們一睹為快。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "我鍾意咖啡館。",
       "en_text": "I like coffee shops.",
       "end": 26.4,
       "flags": [],
       "start": 25.04,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "我鍾意咖啡館。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "我喜歡一切。",
       "en_text": "I like everything.",
       "end": 27.14,
       "flags": [],
       "start": 26.56,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "我喜歡一切。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "豆腐花、玉米片與貓，我真正鍾意嘅係貓 ",
       "en_text": "Tofu flower, corn chips,",
       "end": 30.78,
       "flags": [],
       "start": 28.62,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "豆腐花、玉米片與貓，我真正鍾意嘅係貓 "
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "。",
       "en_text": "cats, I love cats.",
       "end": 32.16,
       "flags": [],
       "start": 30.94,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "我鍾意睇除夕夜。",
       "en_text": "I love watching New Year's Eve.",
       "end": 34.02,
       "flags": [],
       "start": 32.42,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "我鍾意睇除夕夜。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "我於南非觀看除夕夜活動。",
       "en_text": "So I watch New Year's Eve in South Africa.",
       "end": 36.42,
       "flags": [],
       "start": 34.28,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "我於南非觀看除夕夜活動。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "除夕之夜。",
       "en_text": "New Year's Eve.",
       "end": 38.28,
       "flags": [],
       "start": 37.32000000000001,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "除夕之夜。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "今日，傷病纏身嘅新十磅炮袁宏堯出席記者會，並分享佢真正嘅興趣 ",
       "en_text": "Today, the New 10-pounder,",
       "end": 41.14,
       "flags": [],
       "start": 39.78,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "今日，傷病纏身嘅新十磅炮袁宏堯出席記者會，並分享佢真正嘅興趣 "
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "，就此而言，佢同媒體分享咗 ",
       "en_text": "Yuen Hung-Yao, attended the press conference",
       "end": 42.9,
       "flags": [],
       "start": 41.22,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "，就此而言，佢同媒體分享咗 "
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": " 佢嘅心聲。",
       "en_text": "and shared her interests.",
       "end": 44.88,
       "flags": [],
       "start": 42.9,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": " 佢嘅心聲。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "她正面且積極嘅答覆和她真誠嘅微笑 ",
       "en_text": "Her positive and positive answers",
       "end": 46.68,
       "flags": [],
       "start": 45.18,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "她正面且積極嘅答覆和她真誠嘅微笑 "
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "，令佢真正充滿興奮之情 ",
       "en_text": "and her genuine smile",
       "end": 48.36,
       "flags": [],
       "start": 46.68,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "，令佢真正充滿興奮之情 "
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "。",
       "en_text": "She is very excited.",
       "end": 49.76,
       "flags": [],
       "start": 48.36,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "她最大嘅目標係獲取寶貴經驗",
       "en_text": "Her biggest goal is to gain experience",
       "end": 53.46,
       "flags": [],
       "start": 50.08,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "她最大嘅目標係獲取寶貴經驗"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "並持續不斷地自我提升。",
       "en_text": "and keep improving.",
       "end": 54.62,
       "flags": [],
       "start": 53.46,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "並持續不斷地自我提升。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "我嘅強項係我嘅才華。",
       "en_text": "My strong point is my talent.",
       "end": 57.98,
       "flags": [],
       "start": 55.74,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "我嘅強項係我嘅才華。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "我希望能表現得更出色。",
       "en_text": "I hope I can be more outstanding.",
       "end": 61.86,
       "flags": [],
       "start": 58.52,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "我希望能表現得更出色。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "我仍在尋找弱點。",
       "en_text": "I am still looking for a weak point.",
       "end": 64.84,
       "flags": [],
       "start": 62.720000000000006,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "我仍在尋找弱點。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "希望我不會有任何弱點。",
       "en_text": "I hope I won't have a weak point.",
       "end": 67.88,
       "flags": [],
       "start": 65.02,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "希望我不會有任何弱點。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "我定當盡力提升自我。",
       "en_text": "I will try my best to improve myself.",
       "end": 71.78,
       "flags": [],
       "start": 67.94,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "我定當盡力提升自我。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "我始終會留意每一位球員，因為他們各自擁有獨特之處 ",
       "en_text": "I always pay attention to every player",
       "end": 75.16,
       "flags": [],
       "start": 72.18,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "我始終會留意每一位球員，因為他們各自擁有獨特之處 "
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "。",
       "en_text": "because they have their own special points.",
       "end": 77.04,
       "flags": [],
       "start": 75.16,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "及其優勢所在。",
       "en_text": "and their advantages.",
       "end": 78.66,
       "flags": [],
       "start": 77.04,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "及其優勢所在。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "他們下棋嘅方式唔同。",
       "en_text": "And their way of playing chess is different.",
       "end": 80.62,
       "flags": [],
       "start": 78.96,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "他們下棋嘅方式唔同。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "我希望能真正善加利用他們**",
       "en_text": "So I hope I can take advantage of their",
       "end": 83.74,
       "flags": [],
       "start": 80.82,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "我希望能真正善加利用他們**"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "**同埋佢哋**",
       "en_text": "and their advantages",
       "end": 85.62,
       "flags": [],
       "start": 83.74,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "**同埋佢哋**"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "**嘅優勢，並將其牢牢掌握喺自己手心之中。",
       "en_text": "and put them in my own hands.",
       "end": 88.02,
       "flags": [],
       "start": 85.62,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "**嘅優勢，並將其牢牢掌握喺自己手心之中。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "三月八日，棋手艾小立正式成為一位父親 ",
       "en_text": "On March 8,",
       "end": 91.0,
       "flags": [],
       "start": 88.6,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "三月八日，棋手艾小立正式成為一位父親 "
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "。",
       "en_text": "the chess player Ai Xiaoli officially became a father.",
       "end": 93.64,
       "flags": [],
       "start": 91.24,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "她嘅兒子湯馬士出生於香港 ",
       "en_text": "Her son Thomas was born in Hong Kong",
       "end": 95.74,
       "flags": [],
       "start": 93.98,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "她嘅兒子湯馬士出生於香港 "
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "，佢同下棋方面非常擅長。",
       "en_text": "and he is very good at playing chess.",
       "end": 97.44,
       "flags": [],
       "start": 95.74,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "，佢同下棋方面非常擅長。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "他出生當日，艾小麗連勝四局棋。",
       "en_text": "Ai Xiaoli won four games of chess on the day he was born.",
       "end": 101.74,
       "flags": [],
       "start": 98.19999999999999,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "他出生當日，艾小麗連勝四局棋。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "許多兒童****和粉絲們紛",
       "en_text": "Many children and fans",
       "end": 103.32,
       "flags": [],
       "start": 101.74,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "許多兒童****和粉絲們紛"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "紛登上她嘅社交媒體平台，",
       "en_text": "have joined her social media platforms",
       "end": 105.26,
       "flags": [],
       "start": 103.32,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "紛登上她嘅社交媒體平台，"
     },
     {
       "applied_terms": [],
-      "baseline_target": "",
+      "baseline_target": "為這對新婚夫婦送上真正祝福。",
       "en_text": "to give a blessing to the newlyweds.",
       "end": 106.52,
       "flags": [],
       "start": 105.26,
       "status": "pending",
-      "zh_text": ""
+      "zh_text": "為這對新婚夫婦送上真正祝福。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "我期望湯馬士能繼續展現一位小財神嘅本質，並引導佢父親投擲更多骰子 ",
+      "baseline_target": "我期望湯馬士能繼續展現一位小財源占卜師嘅本質，並引導其父投擲更多骰子 ",
       "en_text": "I hope Thomas will continue to show the nature of a small fortune teller",
       "end": 111.66,
       "flags": [],
       "start": 108.16000000000001,
       "status": "pending",
-      "zh_text": "我期望湯馬士能繼續展現一位小財神嘅本質，並引導佢父親投擲更多骰子 "
+      "zh_text": "我期望湯馬士能繼續展現一位小財源占卜師嘅本質，並引導其父投擲更多骰子 "
     },
     {
       "applied_terms": [],
@@ -4561,23 +4561,23 @@
     },
     {
       "applied_terms": [],
-      "baseline_target": "這筆錢全歸你。",
+      "baseline_target": "這筆錢全歸你所有。",
       "en_text": "The money is all yours.",
       "end": 115.04,
       "flags": [],
       "start": 113.9,
       "status": "pending",
-      "zh_text": "這筆錢全歸你。"
+      "zh_text": "這筆錢全歸你所有。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "除咗傷病纏身之外 ",
+      "baseline_target": "除咗傷病纏身之外",
       "en_text": "Besides the",
       "end": 119.36,
       "flags": [],
       "start": 118.32000000000001,
       "status": "pending",
-      "zh_text": "除咗傷病纏身之外 "
+      "zh_text": "除咗傷病纏身之外"
     },
     {
       "applied_terms": [],
@@ -4591,23 +4591,23 @@
     },
     {
       "applied_terms": [],
-      "baseline_target": "另一位棋手近期展現了真正精彩嘅表現，就此而言，這正是！",
+      "baseline_target": "另一位棋手近日展現了真正卓越嘅表現，就此而言，這正是！",
       "en_text": "Another chess player",
       "end": 122.8,
       "flags": [],
       "start": 121.74000000000001,
       "status": "pending",
-      "zh_text": "另一位棋手近期展現了真正精彩嘅表現，就此而言，這正是！"
+      "zh_text": "另一位棋手近日展現了真正卓越嘅表現，就此而言，這正是！"
     },
     {
       "applied_terms": [],
-      "baseline_target": " 值得讚賞嘅成就 ",
+      "baseline_target": " 他傷病纏身仍大刀闊斧，嚴重告急下依然光輝奪目 ",
       "en_text": "recently performed a great performance",
       "end": 125.52,
       "flags": [],
       "start": 122.8,
       "status": "pending",
-      "zh_text": " 值得讚賞嘅成就 "
+      "zh_text": " 他傷病纏身仍大刀闊斧，嚴重告急下依然光輝奪目 "
     },
     {
       "applied_terms": [],
@@ -4631,13 +4631,13 @@
     },
     {
       "applied_terms": [],
-      "baseline_target": "，成績顯著；就此而言，其表現堪稱卓越 ",
+      "baseline_target": "，展現出大刀闊斧之姿 ",
       "en_text": "he won six dice",
       "end": 128.52,
       "flags": [],
       "start": 128.18,
       "status": "pending",
-      "zh_text": "，成績顯著；就此而言，其表現堪稱卓越 "
+      "zh_text": "，展現出大刀闊斧之姿 "
     },
     {
       "applied_terms": [],
@@ -4701,23 +4701,23 @@
     },
     {
       "applied_terms": [],
-      "baseline_target": "幸而此舉成功喚來馬車伕出動。",
+      "baseline_target": "幸而此舉成功召喚馬車侍從出動。",
       "en_text": "Fortunately, this post successfully called the horse-drawn staff to come out.",
       "end": 182.16,
       "flags": [],
       "start": 178.14,
       "status": "pending",
-      "zh_text": "幸而此舉成功喚來馬車伕出動。"
+      "zh_text": "幸而此舉成功召喚馬車侍從出動。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "除幫助這匹傷病纏身嘅馬真正康復外，他們亦揭開咗神秘馬匹嘅真實身份 ",
+      "baseline_target": "除協助這匹傷病纏身嘅馬恢復元氣外，他們亦揭開咗神秘馬匹真正嘅身份 ",
       "en_text": "In addition to helping the horse to recover the lunch,",
       "end": 184.28,
       "flags": [],
       "start": 182.22,
       "status": "pending",
-      "zh_text": "除幫助這匹傷病纏身嘅馬真正康復外，他們亦揭開咗神秘馬匹嘅真實身份 "
+      "zh_text": "除協助這匹傷病纏身嘅馬恢復元氣外，他們亦揭開咗神秘馬匹真正嘅身份 "
     },
     {
       "applied_terms": [],
@@ -4731,13 +4731,13 @@
     },
     {
       "applied_terms": [],
-      "baseline_target": "這位可愛且勤奮嘅角色，來自於耀德榮家族中真正幸運嘅一員 ",
+      "baseline_target": "這位可愛且勤勉嘅角色，來自於耀德榮家族中真正幸運嘅一家 ",
       "en_text": "This cute and hard-working character",
       "end": 191.02,
       "flags": [],
       "start": 188.68,
       "status": "pending",
-      "zh_text": "這位可愛且勤奮嘅角色，來自於耀德榮家族中真正幸運嘅一員 "
+      "zh_text": "這位可愛且勤勉嘅角色，來自於耀德榮家族中真正幸運嘅一家 "
     },
     {
       "applied_terms": [],
@@ -4751,13 +4751,13 @@
     },
     {
       "applied_terms": [],
-      "baseline_target": "倘若你下次經過馬場，不妨向他問候一聲 ",
+      "baseline_target": "倘若你下次經過馬場，可向他問候 ",
       "en_text": "If you pass by the horse field next time,",
       "end": 196.46,
       "flags": [],
       "start": 194.2,
       "status": "pending",
-      "zh_text": "倘若你下次經過馬場，不妨向他問候一聲 "
+      "zh_text": "倘若你下次經過馬場，可向他問候 "
     },
     {
       "applied_terms": [],
@@ -4771,33 +4771,33 @@
     },
     {
       "applied_terms": [],
-      "baseline_target": "三月九日，傷病纏身嘅澳洲年輕棋手史丹利真正擊敗美國棋手米蘭，並和大刀闊斧嘅德國高地布林克和贏取阿德萊德盃 ",
+      "baseline_target": "三月九日，傷病纏身嘅澳洲年輕棋手史丹利真正擊敗美國棋手米蘭，並和大刀闊斧嘅德國高地布林克和，最終贏得阿德萊德盃 ",
       "en_text": "On March 9, Australian young chess player Stenley",
       "end": 202.72,
       "flags": [],
       "start": 199.52,
       "status": "pending",
-      "zh_text": "三月九日，傷病纏身嘅澳洲年輕棋手史丹利真正擊敗美國棋手米蘭，並和大刀闊斧嘅德國高地布林克和贏取阿德萊德盃 "
+      "zh_text": "三月九日，傷病纏身嘅澳洲年輕棋手史丹利真正擊敗美國棋手米蘭，並和大刀闊斧嘅德國高地布林克和，最終贏得阿德萊德盃 "
     },
     {
       "applied_terms": [],
-      "baseline_target": " ",
+      "baseline_target": " 和 ",
       "en_text": "beat the American chess player Milan Wang",
       "end": 204.56,
       "flags": [],
       "start": 202.72,
       "status": "pending",
-      "zh_text": " "
+      "zh_text": " 和 "
     },
     {
       "applied_terms": [],
-      "baseline_target": " ",
+      "baseline_target": " 和 ",
       "en_text": "to defeat the German Highland Blink",
       "end": 206.7,
       "flags": [],
       "start": 204.56,
       "status": "pending",
-      "zh_text": " "
+      "zh_text": " 和 "
     },
     {
       "applied_terms": [],
@@ -4811,13 +4811,13 @@
     },
     {
       "applied_terms": [],
-      "baseline_target": "兩匹賽馬必須在彼此拍照後，方能正式參賽 ",
+      "baseline_target": "兩匹馬匹必須在彼此拍照之前，方能正式參與競賽 ",
       "en_text": "Two horses had to take pictures of each other",
       "end": 211.18,
       "flags": [],
       "start": 208.56,
       "status": "pending",
-      "zh_text": "兩匹賽馬必須在彼此拍照後，方能正式參賽 "
+      "zh_text": "兩匹馬匹必須在彼此拍照之前，方能正式參與競賽 "
     },
     {
       "applied_terms": [],
@@ -4831,13 +4831,13 @@
     },
     {
       "applied_terms": [],
-      "baseline_target": "過程十分精彩。",
+      "baseline_target": "當時情況十分刺激。",
       "en_text": "It was very exciting.",
       "end": 213.0,
       "flags": [],
       "start": 212.18,
       "status": "pending",
-      "zh_text": "過程十分精彩。"
+      "zh_text": "當時情況十分刺激。"
     },
     {
       "applied_terms": [],
@@ -4851,13 +4851,13 @@
     },
     {
       "applied_terms": [],
-      "baseline_target": "儘管斯坦利真正贏得了最輝煌嘅勝利，但作為船長嘅他，卻被美國國王狠狠拋棄 ",
+      "baseline_target": "儘管史丹利真正贏得最盛大勝利，但這位船長卻遭美國國王大加拋棄 ",
       "en_text": "Stenley, who won the biggest victory",
       "end": 216.8,
       "flags": [],
       "start": 214.84,
       "status": "pending",
-      "zh_text": "儘管斯坦利真正贏得了最輝煌嘅勝利，但作為船長嘅他，卻被美國國王狠狠拋棄 "
+      "zh_text": "儘管史丹利真正贏得最盛大勝利，但這位船長卻遭美國國王大加拋棄 "
     },
     {
       "applied_terms": [],
@@ -4871,23 +4871,23 @@
     },
     {
       "applied_terms": [],
-      "baseline_target": "旭日初昇，他即刻重返現場。",
+      "baseline_target": "旭日初昇之際，他旋即重返現場。",
       "en_text": "The moment of the rising sun, he instantly became a return to the scene.",
       "end": 222.94,
       "flags": [],
       "start": 219.62,
       "status": "pending",
-      "zh_text": "旭日初昇，他即刻重返現場。"
+      "zh_text": "旭日初昇之際，他旋即重返現場。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "網民嘗試將新迷因轉化為另一新迷因。",
+      "baseline_target": "網民嘗試將新迷因轉化為另一種新形式。",
       "en_text": "Many netizens have tried to turn the new meme into a new one.",
       "end": 227.22,
       "flags": [],
       "start": 223.34,
       "status": "pending",
-      "zh_text": "網民嘗試將新迷因轉化為另一新迷因。"
+      "zh_text": "網民嘗試將新迷因轉化為另一種新形式。"
     },
     {
       "applied_terms": [],
@@ -4901,23 +4901,23 @@
     },
     {
       "applied_terms": [],
-      "baseline_target": "就在數日前他乘搭飛機時，除了大力推廣客艙服務外，機組人員亦為他精心籌備了一場隆重嘅歡迎儀式 ",
+      "baseline_target": "就在數日前他乘搭飛機時，除了大力推廣客艙服務，機組人員亦為他精心籌備了一場隆重嘅歡迎儀式 ",
       "en_text": "Like a few days ago when he took the plane,",
       "end": 231.48,
       "flags": [],
       "start": 229.84,
       "status": "pending",
-      "zh_text": "就在數日前他乘搭飛機時，除了大力推廣客艙服務外，機組人員亦為他精心籌備了一場隆重嘅歡迎儀式 "
+      "zh_text": "就在數日前他乘搭飛機時，除了大力推廣客艙服務，機組人員亦為他精心籌備了一場隆重嘅歡迎儀式 "
     },
     {
       "applied_terms": [],
-      "baseline_target": "；就此而言，他們對這位貴賓嘅重視程度可謂無微不至 ",
+      "baseline_target": "；就此而言，他們對這位尊貴乘客嘅重視程度可謂無微不至 ",
       "en_text": "besides the promotion of the passenger cabin,",
       "end": 234.02,
       "flags": [],
       "start": 231.76,
       "status": "pending",
-      "zh_text": "；就此而言，他們對這位貴賓嘅重視程度可謂無微不至 "
+      "zh_text": "；就此而言，他們對這位尊貴乘客嘅重視程度可謂無微不至 "
     },
     {
       "applied_terms": [],
@@ -4941,13 +4941,13 @@
     },
     {
       "applied_terms": [],
-      "baseline_target": "如此大杯飲品正適合暢飲。",
+      "baseline_target": "如此大杯飲品正合意。",
       "en_text": "Such a big toast is perfect for a drink.",
       "end": 243.34,
       "flags": [],
       "start": 241.22,
       "status": "pending",
-      "zh_text": "如此大杯飲品正適合暢飲。"
+      "zh_text": "如此大杯飲品正合意。"
     },
     {
       "applied_terms": [],
@@ -4971,23 +4971,23 @@
     },
     {
       "applied_terms": [],
-      "baseline_target": "請留意哪位參賽者獲票最多。",
+      "baseline_target": "請留意哪位參與者獲票最多。",
       "en_text": "Please keep an eye on which participants can get the most votes.",
       "end": 257.7,
       "flags": [],
       "start": 254.38,
       "status": "pending",
-      "zh_text": "請留意哪位參賽者獲票最多。"
+      "zh_text": "請留意哪位參與者獲票最多。"
     },
     {
       "applied_terms": [],
-      "baseline_target": "下週將帶您帶來最新新聞。",
+      "baseline_target": "下週將帶來最新新聞。",
       "en_text": "We'll be back next week with the latest news.",
       "end": 261.0,
       "flags": [],
       "start": 257.9,
       "status": "pending",
-      "zh_text": "下週將帶您帶來最新新聞。"
+      "zh_text": "下週將帶來最新新聞。"
     }
   ],
   "profile_snapshot": {
@@ -5044,12 +5044,12 @@
         "en_text": "And their way of playing chess is different.",
         "seg_idx": 28,
         "source_text": "And their way of playing chess is different.",
-        "target_text": "",
+        "target_text": "他們下棋嘅方式唔同。",
         "term_en": "And",
         "term_source": "And",
         "term_target": "和",
         "term_zh": "和",
-        "zh_text": ""
+        "zh_text": "他們下棋嘅方式唔同。"
       }
     ]
   }
