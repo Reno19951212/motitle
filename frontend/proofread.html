@@ -1026,6 +1026,8 @@
   let glossaryId = null;          // selected glossary ID
   let glossaryEntries = [];       // current glossary entries
   let activeProfileId = null;     // for PATCH font settings
+  let _promptTemplates = [];      // populated by initPromptPanel from GET /api/prompt_templates
+  let _promptDirty = false;       // textarea content differs from server state
   let activeProfile = null;       // full profile so resolvers see font.subtitle_source / bilingual_order
   let ssDebounceTimer = null;     // subtitle settings save debounce
 
@@ -1764,6 +1766,126 @@
   }
 
   // ============================================================
+  // Prompt Panel (v3.18 Stage 2)
+  // ============================================================
+  async function initPromptPanel() {
+    // Fetch templates (cached for session)
+    try {
+      const resp = await fetch(`${API_BASE}/api/prompt_templates`);
+      if (resp.ok) {
+        const body = await resp.json();
+        _promptTemplates = body.templates || [];
+        const sel = document.getElementById('promptTemplate');
+        sel.innerHTML = '<option value="">(揀模板…)</option>';
+        for (const t of _promptTemplates) {
+          const opt = document.createElement('option');
+          opt.value = t.id;
+          opt.textContent = `${t.label} — ${t.description}`;
+          sel.appendChild(opt);
+        }
+        sel.disabled = false;
+        sel.addEventListener('change', () => {
+          document.getElementById('promptApplyTemplateBtn').disabled = !sel.value;
+        });
+      }
+    } catch (e) {
+      console.warn('Failed to load prompt templates', e);
+    }
+
+    // Populate textareas from current file's prompt_overrides.
+    // fileInfo is set before initPromptPanel() is called in init().
+    const po = (fileInfo && fileInfo.prompt_overrides) || {};
+    document.getElementById('promptAnchor').value = po.alignment_anchor_system || '';
+    document.getElementById('promptSingle').value = po.single_segment_system || '';
+    document.getElementById('promptEnrich').value = po.pass2_enrich_system || '';
+    document.getElementById('promptPass1').value = po.pass1_system || '';
+    _promptDirty = false;
+    document.getElementById('promptCommitBtn').disabled = true;
+  }
+
+  function applyPromptTemplate() {
+    const sel = document.getElementById('promptTemplate');
+    const tid = sel.value;
+    if (!tid) return;
+    const tpl = _promptTemplates.find(t => t.id === tid);
+    if (!tpl) return;
+    const o = tpl.overrides || {};
+    document.getElementById('promptAnchor').value = o.alignment_anchor_system || '';
+    document.getElementById('promptSingle').value = o.single_segment_system || '';
+    document.getElementById('promptEnrich').value = o.pass2_enrich_system || '';
+    document.getElementById('promptPass1').value = o.pass1_system || '';
+    onPromptDirty();
+  }
+
+  function onPromptDirty() {
+    _promptDirty = true;
+    document.getElementById('promptCommitBtn').disabled = false;
+  }
+
+  async function clearPromptOverrides() {
+    document.getElementById('promptAnchor').value = '';
+    document.getElementById('promptSingle').value = '';
+    document.getElementById('promptEnrich').value = '';
+    document.getElementById('promptPass1').value = '';
+    try {
+      const resp = await fetch(`${API_BASE}/api/files/${fileId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ prompt_overrides: null }),
+      });
+      if (!resp.ok) throw new Error((await resp.json()).error || `HTTP ${resp.status}`);
+      if (fileInfo) fileInfo.prompt_overrides = null;
+      _promptDirty = false;
+      document.getElementById('promptCommitBtn').disabled = true;
+      showToast('已清空檔案 Prompt 覆蓋', 'success');
+    } catch (e) {
+      showToast(`清空失敗：${e.message || e}`, 'error');
+    }
+  }
+
+  async function commitPromptOverrides() {
+    const a  = document.getElementById('promptAnchor').value.trim();
+    const s  = document.getElementById('promptSingle').value.trim();
+    const e2 = document.getElementById('promptEnrich').value.trim();
+    const p1 = document.getElementById('promptPass1').value.trim();
+    const po = {
+      alignment_anchor_system: a  || null,
+      single_segment_system:   s  || null,
+      pass2_enrich_system:     e2 || null,
+      pass1_system:            p1 || null,
+    };
+    const allNull = Object.values(po).every(v => v === null);
+    const payload = allNull ? null : po;
+    try {
+      const patchResp = await fetch(`${API_BASE}/api/files/${fileId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ prompt_overrides: payload }),
+      });
+      if (!patchResp.ok) throw new Error((await patchResp.json()).error || `HTTP ${patchResp.status}`);
+      if (fileInfo) fileInfo.prompt_overrides = payload;
+      _promptDirty = false;
+      document.getElementById('promptCommitBtn').disabled = true;
+      showToast('已儲存 Prompt 覆蓋，開始重新翻譯…', 'success');
+
+      // Trigger re-translate
+      const transResp = await fetch(`${API_BASE}/api/translate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ file_id: fileId }),
+      });
+      if (!transResp.ok) {
+        showToast('重新翻譯啟動失敗，請手動觸發', 'warning');
+      }
+    } catch (err) {
+      showToast(`儲存失敗：${err.message || err}`, 'error');
+    }
+  }
+
+  // ============================================================
   // Load
   // ============================================================
   async function init() {
@@ -1791,6 +1913,7 @@
       document.getElementById('rvFname').textContent = fileInfo.original_name;
       document.getElementById('rvFname').title = fileInfo.original_name;
       syncSourceDropdowns();
+      initPromptPanel();
 
       // Load segments + translations
       await loadSegments();
