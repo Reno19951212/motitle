@@ -3421,7 +3421,7 @@ def update_segment_text(file_id, seg_id):
 @app.route('/api/files/<file_id>', methods=['PATCH'])
 @require_file_owner
 def patch_file(file_id):
-    """Patch file-level settings — currently subtitle_source / bilingual_order."""
+    """Patch file-level settings — subtitle_source / bilingual_order / prompt_overrides."""
     data = request.get_json() or {}
 
     if "subtitle_source" in data:
@@ -3432,6 +3432,14 @@ def patch_file(file_id):
         v = data["bilingual_order"]
         if v is not None and v not in VALID_BILINGUAL_ORDERS:
             return jsonify({"error": f"Invalid bilingual_order '{v}'"}), 400
+    if "prompt_overrides" in data:
+        from translation.prompt_override_validator import validate_prompt_overrides
+        errs = validate_prompt_overrides(
+            data["prompt_overrides"],
+            f"files[{file_id}].prompt_overrides",
+        )
+        if errs:
+            return jsonify({"error": "; ".join(errs)}), 400
 
     with _registry_lock:
         entry = _file_registry.get(file_id)
@@ -3441,6 +3449,8 @@ def patch_file(file_id):
             entry["subtitle_source"] = data["subtitle_source"]
         if "bilingual_order" in data:
             entry["bilingual_order"] = data["bilingual_order"]
+        if "prompt_overrides" in data:
+            entry["prompt_overrides"] = data["prompt_overrides"]
         _save_registry()
         result = dict(entry)
 
