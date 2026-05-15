@@ -19,6 +19,7 @@ class MockTranslationEngine(TranslationEngine):
         cancel_event=None,
         prompt_overrides: Optional[dict] = None,
     ) -> List[TranslatedSegment]:
+        # prompt_overrides intentionally ignored — mock returns fixed output regardless of system prompt
         # R5 Phase 5 T2.6: cooperative cancel checkpoint. Mock processes
         # the whole batch in one synchronous loop, so check once at the top.
         if cancel_event is not None and cancel_event.is_set():

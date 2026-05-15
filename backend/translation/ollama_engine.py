@@ -249,7 +249,7 @@ class OllamaTranslationEngine(TranslationEngine):
             raw_window = 3
         self._context_window = max(0, min(10, raw_window))
 
-    def _resolve_override(self, key: str, runtime_overrides: Optional[dict]) -> Optional[str]:
+    def _resolve_prompt_override(self, key: str, runtime_overrides: Optional[dict]) -> Optional[str]:
         """Per-call resolver: runtime kwarg dict > self._config['prompt_overrides'] > None.
 
         Each value must be a non-whitespace string to count as set."""
@@ -486,7 +486,7 @@ class OllamaTranslationEngine(TranslationEngine):
         user_message = "\n".join(lines)
 
         # Include glossary in the same Chinese format as Pass 1
-        override = self._resolve_override("pass2_enrich_system", runtime_overrides)
+        override = self._resolve_prompt_override("pass2_enrich_system", runtime_overrides)
         system_prompt = override if override else ENRICH_SYSTEM_PROMPT
         relevant_glossary = self._filter_glossary_for_batch(glossary, batch_segs)
         if relevant_glossary:
@@ -600,7 +600,7 @@ class OllamaTranslationEngine(TranslationEngine):
             )
 
         relevant_glossary = self._filter_glossary_for_batch(glossary, [segment])
-        override = self._resolve_override("single_segment_system", runtime_overrides)
+        override = self._resolve_prompt_override("single_segment_system", runtime_overrides)
         system_prompt = override if override else SINGLE_SEGMENT_SYSTEM_PROMPT
         if relevant_glossary:
             terms = "\n".join(
@@ -691,7 +691,7 @@ class OllamaTranslationEngine(TranslationEngine):
         glossary: List[dict],
         runtime_overrides: Optional[dict] = None,
     ) -> str:
-        override = self._resolve_override("pass1_system", runtime_overrides)
+        override = self._resolve_prompt_override("pass1_system", runtime_overrides)
         if override:
             base = override
         else:
