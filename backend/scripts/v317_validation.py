@@ -56,10 +56,19 @@ def capture_snapshot(session: requests.Session, file_id: str) -> Dict[str, Any]:
 
     profile_id = file_entry.get("profile_id")
     profile_snapshot = None
+    profile_source = None  # 'file' | 'active' | None — for diagnostic
     if profile_id:
         prof_resp = session.get(f"{BASE_URL}/api/profiles/{profile_id}")
         if prof_resp.ok:
             profile_snapshot = prof_resp.json()
+            profile_source = "file"
+    if profile_snapshot is None:
+        # Fall back to currently active profile so the snapshot has a profile context
+        # for glossary scan + diff (the same active profile will be used by re-run in Task 11).
+        active_resp = session.get(f"{BASE_URL}/api/profiles/active")
+        if active_resp.ok:
+            profile_snapshot = active_resp.json()
+            profile_source = "active"
 
     glossary_scan = None
     if profile_snapshot:
@@ -78,6 +87,7 @@ def capture_snapshot(session: requests.Session, file_id: str) -> Dict[str, Any]:
         "segments": segments,
         "translations": translations,
         "profile_snapshot": profile_snapshot,
+        "profile_source": profile_source,
         "glossary_scan": glossary_scan,
     }
 

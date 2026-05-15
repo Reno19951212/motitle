@@ -1,5 +1,5 @@
 {
-  "captured_at": "2026-05-15T03:01:59Z",
+  "captured_at": "2026-05-15T03:05:55Z",
   "file": {
     "approved_count": 0,
     "asr_seconds": 26.9,
@@ -13223,6 +13223,45 @@
       "zh_text": "祝星期六順利，下次再見。"
     }
   ],
-  "profile_snapshot": null,
+  "profile_snapshot": {
+    "profile": {
+      "asr": {
+        "condition_on_previous_text": false,
+        "engine": "mlx-whisper",
+        "language": "en",
+        "language_config_id": "en",
+        "model_size": "large-v3",
+        "word_timestamps": true
+      },
+      "created_at": 1712534400,
+      "description": "Full quality models",
+      "font": {
+        "bilingual_order": "en_top",
+        "color": "#ffffff",
+        "family": "Noto Sans TC",
+        "margin_bottom": 40,
+        "outline_color": "#000000",
+        "outline_width": 2,
+        "position": "bottom",
+        "size": 48,
+        "subtitle_source": "auto"
+      },
+      "id": "prod-default",
+      "name": "Broadcast Production",
+      "translation": {
+        "alignment_mode": "llm-markers",
+        "batch_size": 1,
+        "engine": "qwen3.5-35b-a3b",
+        "glossary_id": "broadcast-news",
+        "parallel_batches": 1,
+        "style": "formal",
+        "temperature": 0,
+        "translation_passes": 1
+      },
+      "updated_at": 1778809279.8214772,
+      "user_id": null
+    }
+  },
+  "profile_source": "active",
   "glossary_scan": null
 }
