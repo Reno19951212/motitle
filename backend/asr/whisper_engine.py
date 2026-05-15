@@ -182,9 +182,9 @@ class WhisperEngine(ASREngine):
                     "type": "string",
                     "label": "模型大小",
                     "description": "Whisper model size",
-                    "hint": "tiny → 快但準度低, large → 準但慢。MacBook 16GB 建議 small 或 medium。",
-                    "enum": ["tiny", "base", "small", "medium", "large", "large-v2", "large-v3"],
-                    "default": "small",
+                    "hint": "Whisper large-v3 only (v3.17+)",
+                    "enum": ["large-v3"],
+                    "default": "large-v3",
                 },
                 "language": {
                     "type": "string",

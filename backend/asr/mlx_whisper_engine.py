@@ -11,12 +11,8 @@ except ImportError:
     MLX_WHISPER_AVAILABLE = False
 
 # Maps model_size keys to mlx-community HuggingFace repo names
+# v3.17+: narrowed to large-v3 only for production stability
 MODEL_REPO = {
-    "tiny":     "mlx-community/whisper-tiny",
-    "base":     "mlx-community/whisper-base",
-    "small":    "mlx-community/whisper-small-mlx-q4",
-    "medium":   "mlx-community/whisper-medium-mlx-q4",
-    "large-v2": "mlx-community/whisper-large-v2-mlx",
     "large-v3": "mlx-community/whisper-large-v3-mlx",
 }
 
