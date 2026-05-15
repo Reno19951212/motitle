@@ -660,6 +660,51 @@ def cmd_snapshot(args):
     print(f"Wrote snapshot to {args.output}")
 
 
+def rerun_pipeline(session: requests.Session, file_id: str, timeout_sec: int = 1800) -> Dict[str, Any]:
+    """POST /api/files/<id>/transcribe and poll until ASR + MT both done.
+
+    Returns final file status dict.
+    """
+    # Trigger re-transcribe
+    r = session.post(f"{BASE_URL}/api/files/{file_id}/transcribe")
+    r.raise_for_status()
+    print(f"[rerun {file_id[:12]}] enqueued: {r.json()}")
+
+    # Poll status until both ASR + MT done
+    start = time.time()
+    last_status = None
+    while time.time() - start < timeout_sec:
+        time.sleep(5)
+        fr = session.get(f"{BASE_URL}/api/files")
+        if not fr.ok:
+            continue
+        entry = next((f for f in fr.json().get("files", []) if f["id"] == file_id), None)
+        if entry is None:
+            continue
+        cur_status = entry.get("status")
+        cur_mt = entry.get("translation_status")
+        elapsed = int(time.time() - start)
+        cur_summary = f"status={cur_status} mt={cur_mt}"
+        if cur_summary != last_status:
+            print(f"[rerun {file_id[:12]} t+{elapsed}s] {cur_summary}")
+            last_status = cur_summary
+        asr_done = cur_status in ("done", "transcribed", "translated", "completed")
+        mt_done = cur_mt in ("done", "completed")
+        if asr_done and mt_done:
+            return entry
+        if cur_status == "failed":
+            raise RuntimeError(f"rerun failed for {file_id}: file status={cur_status}")
+    raise TimeoutError(f"rerun for {file_id} did not complete within {timeout_sec}s")
+
+
+def cmd_rerun(args):
+    s = _login_session()
+    rerun_pipeline(s, args.file_id, timeout_sec=args.timeout)
+    snap = capture_snapshot(s, args.file_id)
+    Path(args.output).write_text(json.dumps(snap, ensure_ascii=False, indent=2))
+    print(f"Wrote post-snapshot to {args.output}")
+
+
 def cmd_diff(args):
     diffs = []
     baseline_paths = sorted(Path(".").glob(args.baseline_glob))
@@ -689,7 +734,11 @@ def main():
     dp.add_argument("--output", required=True)
     dp.set_defaults(func=cmd_diff)
 
-    # (rerun subcommand added in Task 11)
+    rp = sub.add_parser("rerun")
+    rp.add_argument("--file-id", required=True)
+    rp.add_argument("--output", required=True)
+    rp.add_argument("--timeout", type=int, default=1800)
+    rp.set_defaults(func=cmd_rerun)
 
     args = p.parse_args()
     args.func(args)

@@ -75,10 +75,11 @@ def build_anchor_prompt(
     glossary_lines = ""
     if glossary:
         rel = [e for e in glossary
-               if e.get("en", "").lower() in " ".join(en_words).lower()]
+               if e.get("source", e.get("en", "")).lower() in " ".join(en_words).lower()]
         if rel:
             glossary_lines = "\n【指定譯名】:\n" + "\n".join(
-                f"- {e['en']} → {e['zh']}" for e in rel
+                f"- {e.get('source', e.get('en', ''))} → {e.get('target', e.get('zh', ''))}"
+                for e in rel
             )
 
     boundary_list = ", ".join(f"[{b}]" for b in boundaries)
