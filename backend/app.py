@@ -2138,6 +2138,32 @@ def api_glossary_apply(file_id):
 
 
 # ============================================================
+# Prompt Templates API (v3.18 Stage 2)
+# ============================================================
+
+@app.route('/api/prompt_templates', methods=['GET'])
+@login_required
+def get_prompt_templates():
+    """v3.18 Stage 2 — list backend-managed MT prompt templates.
+
+    Templates live in backend/config/prompt_templates/*.json. Used by the
+    proofread page's '自訂 Prompt' panel as textarea seed source.
+    Returns templates in stable order with 'broadcast' first."""
+    template_dir = Path(__file__).parent / "config" / "prompt_templates"
+    # Stable order: broadcast (recommended default) → sports → literal
+    ORDER = ["broadcast", "sports", "literal"]
+    templates = []
+    for tid in ORDER:
+        path = template_dir / f"{tid}.json"
+        if path.exists():
+            try:
+                templates.append(json.loads(path.read_text(encoding="utf-8")))
+            except (json.JSONDecodeError, OSError) as e:
+                app.logger.warning("Failed to load template %s: %s", tid, e)
+    return jsonify({"templates": templates}), 200
+
+
+# ============================================================
 # Language Configuration API
 # ============================================================
 
