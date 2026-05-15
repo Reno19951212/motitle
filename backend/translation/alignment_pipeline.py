@@ -54,6 +54,9 @@ def parse_markers(annotated_text: str) -> Tuple[Dict[int, int], str]:
     return positions, "".join(clean_parts)
 
 
+# v3.18 Stage 2 默認 preamble: see ollama_engine.SINGLE_SEGMENT_SYSTEM_PROMPT
+# comment for the formulaic-over-use rationale. Custom preamble via
+# `custom_system_prompt=` kwarg bypasses this default.
 def build_anchor_prompt(
     en_words: List[str],
     boundaries: List[int],

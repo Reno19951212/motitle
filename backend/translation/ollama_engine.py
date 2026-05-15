@@ -170,6 +170,11 @@ SYSTEM_PROMPT_CANTONESE = (
 # content leak / sentence-level redistribution) at the cost of pronoun
 # resolution and slight per-call overhead. Validated to eliminate bloat,
 # misalignment, and adjacent-duplication artefacts on Qwen3.5-35B-A3B MLX.
+# v3.18 Stage 2: formulaic over-use fix — EN→ZH idiom mapping examples
+# (傷病纏身, 大刀闊斧, 嚴重告急, etc) appeared 13-15× per 166 segments because
+# the LLM treated them as hard mappings. Idiom list + name-lock examples removed;
+# anti-formulaic rule added. Do not re-add specific idiom examples without
+# re-running validation (docs/superpowers/validation/mt-quality/).
 SINGLE_SEGMENT_SYSTEM_PROMPT = (
     "你係廣播電視中文字幕翻譯員，將英文片段翻譯做繁體中文書面語。\n\n"
     "【規則】\n"
@@ -186,6 +191,11 @@ SINGLE_SEGMENT_SYSTEM_PROMPT = (
 )
 
 
+# v3.18 Stage 2: formulaic over-use fix — same rationale as
+# SINGLE_SEGMENT_SYSTEM_PROMPT above. Idiom examples and name-lock instructions
+# removed from Pass 2 enrich prompt; anti-formulaic rule added instead.
+# Do not re-add specific idiom examples without re-running validation
+# (docs/superpowers/validation/mt-quality/).
 ENRICH_SYSTEM_PROMPT = (
     "你係香港電視廣播嘅資深字幕編輯。收到初譯後改寫增強，令譯稿達到專業廣播質素。\n\n"
     "【核心心態】\n"
