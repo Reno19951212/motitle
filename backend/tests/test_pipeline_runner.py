@@ -144,3 +144,106 @@ def test_persist_stage_output_replaces_existing_index(monkeypatch):
 
     key = "0" if "0" in registry["f1"]["stage_outputs"] else 0
     assert registry["f1"]["stage_outputs"][key]["segments"][0]["text"] == "second"
+
+
+# === T7 Fail-fast ===
+
+def test_runner_fail_fast_on_stage_exception(monkeypatch):
+    pipeline = _pipeline(mt_count=2, glossary_enabled=False)
+    managers = _managers(mt_profiles=[
+        {"id": "mt-uuid-0", "engine": "qwen3.5-35b-a3b",
+         "input_lang": "zh", "output_lang": "zh",
+         "system_prompt": "p1", "user_message_template": "p: {text}",
+         "temperature": 0.1},
+        {"id": "mt-uuid-1", "engine": "qwen3.5-35b-a3b",
+         "input_lang": "zh", "output_lang": "zh",
+         "system_prompt": "p2", "user_message_template": "p: {text}",
+         "temperature": 0.1},
+    ])
+    monkeypatch.setattr("stages.asr_stage.create_asr_engine", lambda cfg: MagicMock(
+        transcribe=lambda *a, **kw: [{"start": 0, "end": 1, "text": "ok"}]))
+    # MT0 succeeds, MT1 raises
+    call_count = {"n": 0}
+    def fake_qwen(sys_p, usr_p, temp):
+        call_count["n"] += 1
+        if call_count["n"] > 1:
+            raise RuntimeError("Ollama down")
+        return "translated"
+    monkeypatch.setattr("stages.mt_stage._call_qwen", fake_qwen)
+    persisted = []
+    monkeypatch.setattr("pipeline_runner._persist_stage_output",
+                        lambda fid, out: persisted.append(out))
+    monkeypatch.setattr("pipeline_runner._socketio_emit", MagicMock())
+
+    runner = PipelineRunner(pipeline, file_id="f1", audio_path="/tmp/x.wav", managers=managers)
+    with pytest.raises(RuntimeError, match="Ollama down"):
+        runner.run(user_id=1)
+
+    statuses = [p["status"] for p in persisted]
+    assert "done" in statuses  # ASR + MT0
+    assert "failed" in statuses  # MT1 failed
+
+
+# === T8 Progress events ===
+
+def test_runner_emits_5pct_progress(monkeypatch):
+    pipeline = _pipeline(mt_count=1, glossary_enabled=False)
+    managers = _managers()
+    # 20 segments → 5% = 1 segment increment
+    monkeypatch.setattr("stages.asr_stage.create_asr_engine", lambda cfg: MagicMock(
+        transcribe=lambda *a, **kw: [{"start": i, "end": i+1, "text": f"s{i}"} for i in range(20)]))
+    monkeypatch.setattr("stages.mt_stage._call_qwen", lambda *a, **kw: "translated")
+    monkeypatch.setattr("pipeline_runner._persist_stage_output", MagicMock())
+
+    emitted = []
+    def fake_emit(event, payload):
+        emitted.append((event, payload))
+    monkeypatch.setattr("pipeline_runner._socketio_emit", fake_emit)
+
+    runner = PipelineRunner(pipeline, file_id="f1", audio_path="/tmp/x.wav", managers=managers)
+    runner.run(user_id=1)
+
+    events = [e[0] for e in emitted]
+    assert "pipeline_stage_start" in events
+    assert "pipeline_stage_done" in events
+    progress_events = [e for e in emitted if e[0] == "pipeline_stage_progress"]
+    # 20 segments at 5% interval = ~20 progress emits per MT stage
+    assert len(progress_events) >= 10
+
+
+# === T9 cancel_event ===
+
+def test_runner_cancel_during_mt_stage(monkeypatch):
+    import threading
+    from jobqueue.queue import JobCancelled
+
+    pipeline = _pipeline(mt_count=2, glossary_enabled=False)
+    managers = _managers(mt_profiles=[
+        {"id": "mt-uuid-0", "engine": "qwen3.5-35b-a3b",
+         "input_lang": "zh", "output_lang": "zh",
+         "system_prompt": "p", "user_message_template": "polish: {text}",
+         "temperature": 0.1},
+        {"id": "mt-uuid-1", "engine": "qwen3.5-35b-a3b",
+         "input_lang": "zh", "output_lang": "zh",
+         "system_prompt": "p", "user_message_template": "broadcast: {text}",
+         "temperature": 0.1},
+    ])
+    monkeypatch.setattr("stages.asr_stage.create_asr_engine", lambda cfg: MagicMock(
+        transcribe=lambda *a, **kw: [{"start": 0, "end": 1, "text": "ok"},
+                                      {"start": 1, "end": 2, "text": "ok2"}]))
+
+    cancel_event = threading.Event()
+    # MT0 sets cancel on first segment
+    call_count = {"n": 0}
+    def fake_qwen(sys_p, usr_p, temp):
+        call_count["n"] += 1
+        if call_count["n"] >= 1:
+            cancel_event.set()
+        return "translated"
+    monkeypatch.setattr("stages.mt_stage._call_qwen", fake_qwen)
+    monkeypatch.setattr("pipeline_runner._persist_stage_output", MagicMock())
+    monkeypatch.setattr("pipeline_runner._socketio_emit", MagicMock())
+
+    runner = PipelineRunner(pipeline, file_id="f1", audio_path="/tmp/x.wav", managers=managers)
+    with pytest.raises(JobCancelled):
+        runner.run(user_id=1, cancel_event=cancel_event)

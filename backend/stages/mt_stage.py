@@ -35,20 +35,29 @@ class MTStage(PipelineStage):
         temperature = float(self._profile.get("temperature", 0.1))
 
         out: List[dict] = []
-        for seg in segments_in:
+        total = len(segments_in)
+        for i, seg in enumerate(segments_in):
+            # T9: cancel check per segment
+            if context.cancel_event is not None and context.cancel_event.is_set():
+                from jobqueue.queue import JobCancelled
+                raise JobCancelled("Cancelled mid-stage")
+
             text_in = seg.get("text", "").strip()
             if not text_in:
                 # Skip LLM call for empty input
                 out.append({"start": seg["start"], "end": seg["end"], "text": ""})
-                continue
+            else:
+                user_msg = template.replace("{text}", text_in)
+                text_out = _call_qwen(system_prompt, user_msg, temperature)
+                out.append({
+                    "start": seg["start"],
+                    "end": seg["end"],
+                    "text": text_out.strip(),
+                })
 
-            user_msg = template.replace("{text}", text_in)
-            text_out = _call_qwen(system_prompt, user_msg, temperature)
-            out.append({
-                "start": seg["start"],
-                "end": seg["end"],
-                "text": text_out.strip(),
-            })
+            # T8: progress callback per segment
+            if context.progress_callback:
+                context.progress_callback(i + 1, total)
 
         return out
 

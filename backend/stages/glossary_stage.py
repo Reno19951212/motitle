@@ -47,10 +47,20 @@ class GlossaryStage(PipelineStage):
         glossaries = [g for g in glossaries if g is not None]
 
         out: List[dict] = []
-        for seg in segments_in:
+        total = len(segments_in)
+        for i, seg in enumerate(segments_in):
+            # T9: cancel check per segment
+            if context.cancel_event is not None and context.cancel_event.is_set():
+                from jobqueue.queue import JobCancelled
+                raise JobCancelled("Cancelled mid-stage")
+
             text = seg.get("text", "")
             for glossary in glossaries:
                 text = _apply_glossary_to_segment(text, glossary, method=method)
             out.append({"start": seg["start"], "end": seg["end"], "text": text})
+
+            # T8: progress callback per segment
+            if context.progress_callback:
+                context.progress_callback(i + 1, total)
 
         return out
