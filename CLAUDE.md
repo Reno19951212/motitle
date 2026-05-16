@@ -285,6 +285,10 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | GET | `/api/pipelines/<id>` | Get single pipeline + broken_refs |
 | PATCH | `/api/pipelines/<id>` | Update pipeline (owner only, re-validates cascade refs) |
 | DELETE | `/api/pipelines/<id>` | Delete pipeline (owner only) |
+| POST | `/api/pipelines/<id>/run` | Enqueue pipeline run on a file (v4.0 A1) |
+| POST | `/api/files/<fid>/stages/<idx>/rerun` | Re-run individual stage |
+| PATCH | `/api/files/<fid>/stages/<idx>/segments/<seg_idx>` | Edit per-stage segment text |
+| POST | `/api/files/<fid>/pipeline_overrides` | Set file+pipeline-level prompt overrides |
 
 ### Frontend
 
@@ -296,7 +300,7 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 
 ## Development Guidelines
 
-- Do not add a build system unless the frontend grows to multiple files requiring it
+- Frontend will adopt Vite + React + TypeScript stack in v4.0 A3-A4 sub-phases (per design doc §14)
 - All new backend routes must handle errors and return JSON `{error: "..."}` with appropriate HTTP status
 - The `get_model()` function is the legacy model loading path; new code should use `asr/` engines via profiles
 - Test both faster-whisper and openai-whisper code paths when modifying transcription logic
@@ -354,6 +358,16 @@ Whenever a new feature is completed or existing functionality is modified, you *
 ---
 
 ## Completed Features
+
+### v4.0 A1 — Stage executor + pipeline_runner (in progress on `chore/asr-mt-rearchitecture-research`)
+- 3 new stage classes ([backend/stages/asr_stage.py](backend/stages/asr_stage.py) / [backend/stages/mt_stage.py](backend/stages/mt_stage.py) / [backend/stages/glossary_stage.py](backend/stages/glossary_stage.py)) sharing `PipelineStage` ABC, per-segment-1:1 contract per design doc §4
+- `PipelineRunner` ([backend/pipeline_runner.py](backend/pipeline_runner.py)) linear stage executor + Socket.IO progress at 5% granularity + fail-fast + cancel_event integration with JobQueue
+- 4 new REST endpoints (run / rerun / edit / pipeline_overrides) — async via existing JobQueue `pipeline_run` handler
+- `word_timestamps` field removed from ASR profile schema + Whisper engines (Q7-b)
+- Per-file per-pipeline prompt override resolution (Q6-a scope)
+- Emergent quality flag heuristic — Whisper avg_logprob < -1.0 → `quality_flags: ["low_logprob"]` on ASR stage output
+- ~50 new backend tests (3 stage classes + runner + endpoints + integration); 935 backend tests pass + 14 pre-existing failures unchanged
+- **Legacy code path zero-touch** — `transcribe_with_segments` / `_auto_translate` / `alignment_pipeline.py` 全部唔郁，A5 sub-phase 砍走
 
 ### v4.0 Phase 1 — Entity Foundation (in progress on `chore/asr-mt-rearchitecture-research`)
 - 3 new manager modules ([backend/asr_profiles.py](backend/asr_profiles.py) / [backend/mt_profiles.py](backend/mt_profiles.py) / [backend/pipelines.py](backend/pipelines.py)), mirror v3.13 `ProfileManager` Phase 5 T2.8 TOCTOU lock pattern + per-resource ownership (`user_id` field per entity, admin OR owner OR shared visibility, admin OR owner edit)
