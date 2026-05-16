@@ -247,3 +247,73 @@ def test_runner_cancel_during_mt_stage(monkeypatch):
     runner = PipelineRunner(pipeline, file_id="f1", audio_path="/tmp/x.wav", managers=managers)
     with pytest.raises(JobCancelled):
         runner.run(user_id=1, cancel_event=cancel_event)
+
+
+# === T10 Resume path ===
+
+def test_runner_resumes_from_start_from_stage(monkeypatch):
+    """run(start_from_stage=1) skips ASR + reads segments from stage_outputs[0]."""
+    import app as app_mod
+
+    pipeline = _pipeline(mt_count=1, glossary_enabled=False)
+    managers = _managers()
+
+    # Inject stage_outputs[0] (simulating ASR already done from prior run)
+    prior_segments = [
+        {"start": 0, "end": 1, "text": "prior_asr_1"},
+        {"start": 1, "end": 2, "text": "prior_asr_2"},
+    ]
+    registry = {
+        "f-resume": {
+            "id": "f-resume",
+            "file_path": "/tmp/x.wav",
+            "user_id": 1,
+            "stage_outputs": {
+                "0": {
+                    "stage_index": 0,
+                    "stage_type": "asr",
+                    "stage_ref": "asr-uuid",
+                    "status": "done",
+                    "ran_at": 1.0,
+                    "duration_seconds": 0.5,
+                    "segments": prior_segments,
+                    "quality_flags": [],
+                },
+            },
+        },
+    }
+    monkeypatch.setattr(app_mod, "_file_registry", registry)
+    monkeypatch.setattr(app_mod, "_save_registry", lambda: None)
+
+    # Mock ASR engine — should NOT be called when start_from_stage > 0
+    asr_engine_mock = MagicMock()
+    asr_engine_mock.transcribe = MagicMock(return_value=[])
+    monkeypatch.setattr("stages.asr_stage.create_asr_engine",
+                        lambda cfg: asr_engine_mock)
+
+    # Mock MT — should receive prior ASR segments
+    received_mt_inputs = []
+    def fake_qwen(sys_p, usr_p, temp):
+        received_mt_inputs.append(usr_p)
+        return f"MT({usr_p})"
+    monkeypatch.setattr("stages.mt_stage._call_qwen", fake_qwen)
+    monkeypatch.setattr("pipeline_runner._socketio_emit", MagicMock())
+    monkeypatch.setattr("pipeline_runner._persist_stage_output", MagicMock())
+
+    runner = PipelineRunner(pipeline, file_id="f-resume", audio_path="/tmp/x.wav", managers=managers)
+    outputs = runner.run(user_id=1, start_from_stage=1)
+
+    # ASR engine should NOT have been called
+    asr_engine_mock.transcribe.assert_not_called()
+
+    # MT should have received prior_asr_1 + prior_asr_2 via user_message
+    assert len(received_mt_inputs) == 2
+    assert "prior_asr_1" in received_mt_inputs[0]
+    assert "prior_asr_2" in received_mt_inputs[1]
+
+    # Only MT stage should appear in outputs (ASR skipped)
+    assert len(outputs) == 1
+    assert outputs[0]["stage_type"] == "mt"
+    assert outputs[0]["stage_index"] == 1
+    # Verify MT received the prior segments and produced output
+    assert len(outputs[0]["segments"]) == 2
