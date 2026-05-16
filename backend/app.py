@@ -399,6 +399,24 @@ def _init_language_config_manager(config_dir):
     _language_config_manager = LanguageConfigManager(config_dir)
 
 
+# v4.0 Phase 1 — new entity managers (P1: CRUD only; P2 will add stage executor)
+from asr_profiles import ASRProfileManager
+from mt_profiles import MTProfileManager
+from pipelines import PipelineManager
+
+_asr_profile_manager = ASRProfileManager(CONFIG_DIR)
+_mt_profile_manager = MTProfileManager(CONFIG_DIR)
+_pipeline_manager = PipelineManager(
+    CONFIG_DIR,
+    asr_manager=_asr_profile_manager,
+    mt_manager=_mt_profile_manager,
+    glossary_manager=_glossary_manager,
+)
+
+# Wire decorators
+from auth.decorators import set_v4_managers
+set_v4_managers(_asr_profile_manager, _mt_profile_manager, _pipeline_manager)
+
 # In-memory file registry: file_id -> metadata dict
 _file_registry = {}
 _registry_lock = threading.Lock()
