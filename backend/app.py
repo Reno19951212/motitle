@@ -1477,6 +1477,75 @@ def delete_asr_profile(profile_id):
 
 
 # ============================================================
+# v4.0 Phase 1 — MT profile REST endpoints
+# ============================================================
+
+@app.route('/api/mt_profiles', methods=['GET'])
+@login_required
+def list_mt_profiles():
+    user_id = getattr(current_user, "id", None)
+    is_admin = bool(getattr(current_user, "is_admin", False)) or bool(
+        app.config.get("R5_AUTH_BYPASS")
+    )
+    profiles = _mt_profile_manager.list_visible(user_id, is_admin)
+    return jsonify({"mt_profiles": profiles}), 200
+
+
+@app.route('/api/mt_profiles', methods=['POST'])
+@login_required
+def create_mt_profile():
+    data = request.get_json(silent=True) or {}
+    user_id = getattr(current_user, "id", None)
+    try:
+        profile = _mt_profile_manager.create(data, user_id=user_id)
+    except ValueError as exc:
+        return jsonify({"errors": str(exc).split("; ")}), 400
+    return jsonify(profile), 201
+
+
+@app.route('/api/mt_profiles/<profile_id>', methods=['GET'])
+@login_required
+@require_mt_profile_owner
+def get_mt_profile(profile_id):
+    profile = _mt_profile_manager.get(profile_id)
+    if profile is None:
+        return jsonify({"error": "not found"}), 404
+    return jsonify(profile), 200
+
+
+@app.route('/api/mt_profiles/<profile_id>', methods=['PATCH'])
+@login_required
+@require_mt_profile_owner
+def patch_mt_profile(profile_id):
+    patch = request.get_json(silent=True) or {}
+    user_id = getattr(current_user, "id", None)
+    is_admin = bool(getattr(current_user, "is_admin", False)) or bool(
+        app.config.get("R5_AUTH_BYPASS")
+    )
+    ok, errors = _mt_profile_manager.update_if_owned(
+        profile_id, user_id, is_admin, patch
+    )
+    if not ok:
+        if "permission denied" in errors:
+            return jsonify({"errors": errors}), 403
+        return jsonify({"errors": errors}), 400
+    return jsonify(_mt_profile_manager.get(profile_id)), 200
+
+
+@app.route('/api/mt_profiles/<profile_id>', methods=['DELETE'])
+@login_required
+@require_mt_profile_owner
+def delete_mt_profile(profile_id):
+    user_id = getattr(current_user, "id", None)
+    is_admin = bool(getattr(current_user, "is_admin", False)) or bool(
+        app.config.get("R5_AUTH_BYPASS")
+    )
+    if not _mt_profile_manager.delete_if_owned(profile_id, user_id, is_admin):
+        return jsonify({"error": "forbidden"}), 403
+    return "", 204
+
+
+# ============================================================
 # ASR Engine Info
 # ============================================================
 
