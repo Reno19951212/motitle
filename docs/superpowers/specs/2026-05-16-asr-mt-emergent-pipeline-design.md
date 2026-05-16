@@ -642,8 +642,7 @@ Frontend 讀邊個 stage 嘅 text 喺 file metadata 揀緊嘅 `current_stage_ind
 - [x] **P1 (Entity foundation) implementation plan written + executed** ([2026-05-16-v4-phase1-entity-foundation-plan.md](../plans/2026-05-16-v4-phase1-entity-foundation-plan.md)) — 891 backend tests pass, 0 regressions
 - [x] **Big Bang restructure decided (2026-05-17)**：post-P1 phasing collapsed into 5 sub-phases A1-A5 shipping together as one merge
 - [x] **Q4-Q12 final dimensions locked**：5% progress / fail-fast / per-(file,pipeline) override / no word_timestamps / skip migration / React+Vite+TS frontend
-- [ ] **A1 plan written** ([2026-05-17-v4-A1-backend-foundation-plan.md](../plans/2026-05-17-v4-A1-backend-foundation-plan.md))
-- [ ] A1 implementation executed
+- [x] **A1 plan written + executed** ([2026-05-17-v4-A1-backend-foundation-plan.md](../plans/2026-05-17-v4-A1-backend-foundation-plan.md)) — 4 new REST endpoints, 3 stage classes, PipelineRunner, ~50 new backend tests, 935 pass
 - [ ] A3/A4/A5 plans (each written after preceding sub-phase done)
 - [ ] Final merge to dev
 
