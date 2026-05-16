@@ -216,7 +216,14 @@ def _evict_old_render_jobs():
 # wire auth blueprint, optionally bootstrap an admin user from env on first run.
 from auth.users import init_db as _auth_init_db, get_user_by_id as _auth_get_user_by_id, create_user as _auth_create_user
 from auth.routes import bp as auth_bp, _LoginUser
-from auth.decorators import login_required, require_file_owner, admin_required
+from auth.decorators import (
+    login_required,
+    require_file_owner,
+    admin_required,
+    require_asr_profile_owner,
+    require_mt_profile_owner,
+    require_pipeline_owner,
+)
 from flask_login import LoginManager, current_user
 
 AUTH_DB_PATH = os.environ.get(
@@ -1400,6 +1407,73 @@ def api_activate_profile(profile_id):
     # Broadcast to all connected clients — all tabs should reflect the active profile change
     socketio.emit("profile_updated", {"font": profile.get("font", DEFAULT_FONT_CONFIG)})
     return response
+
+
+# ============================================================
+# v4.0 Phase 1 — ASR profile REST endpoints
+# ============================================================
+
+@app.route('/api/asr_profiles', methods=['GET'])
+@login_required
+def list_asr_profiles():
+    user_id = getattr(current_user, "id", None)
+    is_admin = bool(getattr(current_user, "is_admin", False))
+    profiles = _asr_profile_manager.list_visible(user_id, is_admin)
+    return jsonify({"asr_profiles": profiles}), 200
+
+
+@app.route('/api/asr_profiles', methods=['POST'])
+@login_required
+def create_asr_profile():
+    data = request.get_json(silent=True) or {}
+    user_id = getattr(current_user, "id", None)
+    try:
+        profile = _asr_profile_manager.create(data, user_id=user_id)
+    except ValueError as exc:
+        return jsonify({"errors": str(exc).split("; ")}), 400
+    return jsonify(profile), 201
+
+
+@app.route('/api/asr_profiles/<profile_id>', methods=['GET'])
+@login_required
+@require_asr_profile_owner
+def get_asr_profile(profile_id):
+    profile = _asr_profile_manager.get(profile_id)
+    if profile is None:
+        return jsonify({"error": "not found"}), 404
+    return jsonify(profile), 200
+
+
+@app.route('/api/asr_profiles/<profile_id>', methods=['PATCH'])
+@login_required
+@require_asr_profile_owner
+def patch_asr_profile(profile_id):
+    patch = request.get_json(silent=True) or {}
+    user_id = getattr(current_user, "id", None)
+    is_admin = bool(getattr(current_user, "is_admin", False)) or bool(
+        app.config.get("R5_AUTH_BYPASS")
+    )
+    ok, errors = _asr_profile_manager.update_if_owned(
+        profile_id, user_id, is_admin, patch
+    )
+    if not ok:
+        if "permission denied" in errors:
+            return jsonify({"errors": errors}), 403
+        return jsonify({"errors": errors}), 400
+    return jsonify(_asr_profile_manager.get(profile_id)), 200
+
+
+@app.route('/api/asr_profiles/<profile_id>', methods=['DELETE'])
+@login_required
+@require_asr_profile_owner
+def delete_asr_profile(profile_id):
+    user_id = getattr(current_user, "id", None)
+    is_admin = bool(getattr(current_user, "is_admin", False)) or bool(
+        app.config.get("R5_AUTH_BYPASS")
+    )
+    if not _asr_profile_manager.delete_if_owned(profile_id, user_id, is_admin):
+        return jsonify({"error": "forbidden"}), 403
+    return "", 204
 
 
 # ============================================================
