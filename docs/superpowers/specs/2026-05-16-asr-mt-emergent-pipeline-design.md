@@ -643,6 +643,8 @@ Migration script 必須 idempotent + reversible（一個 `--dry-run` flag 預覽
 ## 13. Approval Status
 
 - [x] §1-12 vision lock，6 個 design choice + 4 個 dimension 確認
-- [ ] User review 呢份 design doc
-- [ ] (deferred) Implementation plan multi-phase split + 詳細 spec per phase
+- [x] User review 過設計 doc
+- [x] **P1 implementation plan written** ([2026-05-16-v4-phase1-entity-foundation-plan.md](../plans/2026-05-16-v4-phase1-entity-foundation-plan.md))
+- [x] **P1 implementation executed** — 891 backend tests pass, 0 regressions
+- [ ] P2-P7 plans pending P1 ship
 - [ ] (deferred) Each phase 落 implementation 前再 update vision-level doc
