@@ -408,7 +408,8 @@ def _pipeline_run_handler(job, cancel_event=None):
             "glossary_manager": _glossary_manager,
         },
     )
-    runner.run(user_id=user_id, cancel_event=cancel_event)
+    start_from_stage = int(payload.get("start_from_stage", 0)) if isinstance(payload, dict) else 0
+    runner.run(user_id=user_id, cancel_event=cancel_event, start_from_stage=start_from_stage)
 
 
 _job_queue = JobQueue(AUTH_DB_PATH,
@@ -1697,6 +1698,95 @@ def run_pipeline(pipeline_id):
         payload={"pipeline_id": pipeline_id, "file_id": file_id},
     )
     return jsonify({"job_id": job_id}), 202
+
+
+@app.route('/api/files/<fid>/stages/<int:stage_idx>/rerun', methods=['POST'])
+@login_required
+@require_file_owner
+def rerun_stage(fid, stage_idx):
+    """T14 — truncate stage_outputs[idx..] and enqueue pipeline_run with start_from_stage."""
+    with _registry_lock:
+        entry = _file_registry.get(fid)
+        if entry is None:
+            return jsonify({"error": "file not found"}), 404
+        pipeline_id = entry.get("pipeline_id")
+        if not pipeline_id:
+            return jsonify({"error": "file has no associated pipeline"}), 400
+        outputs = entry.setdefault("stage_outputs", {})
+        for key in list(outputs.keys()):
+            if int(key) >= stage_idx:
+                del outputs[key]
+        _save_registry()
+
+    user_id = getattr(current_user, "id", None) or 0
+    job_id = _job_queue.enqueue(
+        user_id=user_id,
+        file_id=fid,
+        job_type="pipeline_run",
+        payload={"pipeline_id": pipeline_id, "file_id": fid, "start_from_stage": stage_idx},
+    )
+    return jsonify({"job_id": job_id}), 202
+
+
+@app.route('/api/files/<fid>/stages/<int:stage_idx>/segments/<int:seg_idx>', methods=['PATCH'])
+@login_required
+@require_file_owner
+def edit_stage_segment(fid, stage_idx, seg_idx):
+    """T15 — edit segment text at a specific stage; mark downstream stages needs_rerun."""
+    data = request.get_json(silent=True) or {}
+    new_text = data.get("text")
+    if new_text is None:
+        return jsonify({"error": "text required"}), 400
+
+    with _registry_lock:
+        entry = _file_registry.get(fid)
+        if entry is None:
+            return jsonify({"error": "file not found"}), 404
+        outputs = entry.get("stage_outputs", {})
+        stage_out = outputs.get(str(stage_idx))
+        if stage_out is None:
+            return jsonify({"error": "stage not found"}), 404
+        segments = stage_out.get("segments", [])
+        if seg_idx >= len(segments):
+            return jsonify({"error": "segment index out of range"}), 404
+        # Immutable update: replace the segment dict with a new copy
+        updated_seg = dict(segments[seg_idx])
+        updated_seg["text"] = new_text
+        new_segments = list(segments)
+        new_segments[seg_idx] = updated_seg
+        stage_out["segments"] = new_segments
+        # Mark all downstream stages as needs_rerun
+        for key, out in outputs.items():
+            if int(key) > stage_idx:
+                out["status"] = "needs_rerun"
+        _save_registry()
+        return jsonify(stage_out), 200
+
+
+@app.route('/api/files/<fid>/pipeline_overrides', methods=['POST'])
+@login_required
+@require_file_owner
+def set_pipeline_overrides(fid):
+    """T16 — write file-level per-(pipeline_id, stage_index) overrides. overrides=null clears."""
+    data = request.get_json(silent=True) or {}
+    pipeline_id = data.get("pipeline_id")
+    stage_index = data.get("stage_index")
+    overrides = data.get("overrides")  # dict or None to clear
+    if not pipeline_id or stage_index is None:
+        return jsonify({"error": "pipeline_id + stage_index required"}), 400
+
+    with _registry_lock:
+        entry = _file_registry.get(fid)
+        if entry is None:
+            return jsonify({"error": "file not found"}), 404
+        all_ovs = entry.setdefault("pipeline_overrides", {})
+        per_pipe = all_ovs.setdefault(pipeline_id, {})
+        if overrides is None:
+            per_pipe.pop(str(stage_index), None)
+        else:
+            per_pipe[str(stage_index)] = overrides
+        _save_registry()
+        return jsonify({"pipeline_overrides": entry["pipeline_overrides"]}), 200
 
 
 # ============================================================

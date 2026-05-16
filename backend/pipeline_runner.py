@@ -83,30 +83,48 @@ class PipelineRunner:
         user_id: Optional[int],
         cancel_event: Optional[threading.Event] = None,
         progress_callback: Optional[Callable[[int, int], None]] = None,
+        start_from_stage: int = 0,
     ) -> List[StageOutput]:
-        """Execute all stages sequentially. Returns full stage_outputs list."""
+        """Execute stages sequentially. Returns full stage_outputs list.
+
+        If start_from_stage > 0, earlier stages are skipped and their segments
+        are loaded from file_registry.stage_outputs[start_from_stage - 1].
+        The /rerun endpoint truncates stage_outputs[start_from_stage..] before
+        enqueueing, so persisted outputs for prior stages remain intact.
+        """
         stage_outputs: List[StageOutput] = []
         segments: List[dict] = []
 
-        # Stage 0 — ASR
-        _check_cancel(cancel_event)
-        asr_profile = self._asr_manager.get(self._pipeline["asr_profile_id"])
-        if asr_profile is None:
-            raise ValueError(f"ASR profile {self._pipeline['asr_profile_id']} not found")
-        asr_stage = ASRStage(asr_profile, self._audio_path)
-        stage_out, segments = self._run_stage(
-            stage=asr_stage, segments_in=[], stage_index=0,
-            stage_type="asr", cancel_event=cancel_event, user_id=user_id,
-        )
-        stage_outputs.append(stage_out)
+        # If resuming mid-pipeline, load segments from the last completed stage.
+        if start_from_stage > 0:
+            import app as app_mod
+            with app_mod._registry_lock:
+                entry = app_mod._file_registry.get(self._file_id, {})
+                prior = entry.get("stage_outputs", {}).get(str(start_from_stage - 1), {})
+                segments = list(prior.get("segments", []))
 
-        # Stages 1..N — MT
+        # Stage 0 — ASR (skip if resuming from a later stage)
+        if start_from_stage <= 0:
+            _check_cancel(cancel_event)
+            asr_profile = self._asr_manager.get(self._pipeline["asr_profile_id"])
+            if asr_profile is None:
+                raise ValueError(f"ASR profile {self._pipeline['asr_profile_id']} not found")
+            asr_stage = ASRStage(asr_profile, self._audio_path)
+            stage_out, segments = self._run_stage(
+                stage=asr_stage, segments_in=[], stage_index=0,
+                stage_type="asr", cancel_event=cancel_event, user_id=user_id,
+            )
+            stage_outputs.append(stage_out)
+
+        # Stages 1..N — MT (skip stages already completed before start_from_stage)
         for i, mt_id in enumerate(self._pipeline.get("mt_stages", [])):
+            idx = i + 1
+            if idx < start_from_stage:
+                continue  # already persisted from prior run
             _check_cancel(cancel_event)
             mt_profile = self._mt_manager.get(mt_id)
             if mt_profile is None:
                 raise ValueError(f"MT profile {mt_id} not found")
-            idx = i + 1
             mt_stage = MTStage(mt_profile)
             stage_out, segments = self._run_stage(
                 stage=mt_stage, segments_in=segments, stage_index=idx,
@@ -117,14 +135,15 @@ class PipelineRunner:
         # Final stage — Glossary (if enabled)
         gloss_config = self._pipeline.get("glossary_stage", {})
         if gloss_config.get("enabled"):
-            _check_cancel(cancel_event)
             idx = 1 + len(self._pipeline.get("mt_stages", []))
-            gloss_stage = GlossaryStage(gloss_config, self._glossary_manager)
-            stage_out, segments = self._run_stage(
-                stage=gloss_stage, segments_in=segments, stage_index=idx,
-                stage_type="glossary", cancel_event=cancel_event, user_id=user_id,
-            )
-            stage_outputs.append(stage_out)
+            if idx >= start_from_stage:
+                _check_cancel(cancel_event)
+                gloss_stage = GlossaryStage(gloss_config, self._glossary_manager)
+                stage_out, segments = self._run_stage(
+                    stage=gloss_stage, segments_in=segments, stage_index=idx,
+                    stage_type="glossary", cancel_event=cancel_event, user_id=user_id,
+                )
+                stage_outputs.append(stage_out)
 
         return stage_outputs
 

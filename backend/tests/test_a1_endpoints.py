@@ -62,3 +62,96 @@ def test_run_pipeline_404_unknown_file(client):
                        data=json.dumps({"file_id": "ghost"}),
                        content_type="application/json")
     assert resp.status_code == 404
+
+
+# T14
+def test_rerun_stage_endpoint(client, monkeypatch):
+    import app as app_mod
+    monkeypatch.setitem(app_mod._file_registry, "f-rerun", {
+        "id": "f-rerun", "file_path": "/tmp/fake.wav",
+        "stage_outputs": {
+            "0": {"stage_index": 0, "stage_type": "asr", "stage_ref": "x",
+                  "status": "done", "ran_at": 1, "duration_seconds": 1,
+                  "segments": [], "quality_flags": []},
+            "1": {"stage_index": 1, "stage_type": "mt", "stage_ref": "x",
+                  "status": "done", "ran_at": 2, "duration_seconds": 1,
+                  "segments": [], "quality_flags": []},
+        },
+    })
+    _, _, pipe = _create_pipeline(client)
+    with app_mod._registry_lock:
+        app_mod._file_registry["f-rerun"]["pipeline_id"] = pipe["id"]
+
+    resp = client.post("/api/files/f-rerun/stages/1/rerun")
+    assert resp.status_code == 202
+    # After enqueue, stage_outputs[1] should be removed
+    assert "1" not in app_mod._file_registry["f-rerun"]["stage_outputs"]
+
+
+def test_rerun_stage_400_no_pipeline_id(client, monkeypatch):
+    import app as app_mod
+    monkeypatch.setitem(app_mod._file_registry, "f-no-pipe",
+                        {"id": "f-no-pipe", "file_path": "/tmp/fake.wav",
+                         "stage_outputs": {}})  # no pipeline_id
+    resp = client.post("/api/files/f-no-pipe/stages/0/rerun")
+    assert resp.status_code == 400
+
+
+# T15
+def test_edit_stage_segment(client, monkeypatch):
+    import app as app_mod
+    monkeypatch.setitem(app_mod._file_registry, "f-edit", {
+        "id": "f-edit", "stage_outputs": {
+            "0": {"stage_index": 0, "stage_type": "asr", "stage_ref": "x",
+                  "status": "done", "ran_at": 1, "duration_seconds": 1,
+                  "segments": [{"start": 0, "end": 1, "text": "original"}],
+                  "quality_flags": []},
+            "1": {"stage_index": 1, "stage_type": "mt", "stage_ref": "x",
+                  "status": "done", "ran_at": 2, "duration_seconds": 1,
+                  "segments": [{"start": 0, "end": 1, "text": "translated"}],
+                  "quality_flags": []},
+        },
+    })
+    resp = client.patch("/api/files/f-edit/stages/0/segments/0",
+                        data=json.dumps({"text": "edited"}),
+                        content_type="application/json")
+    assert resp.status_code == 200
+    assert app_mod._file_registry["f-edit"]["stage_outputs"]["0"]["segments"][0]["text"] == "edited"
+    assert app_mod._file_registry["f-edit"]["stage_outputs"]["1"]["status"] == "needs_rerun"
+
+
+def test_edit_stage_segment_400_missing_text(client, monkeypatch):
+    import app as app_mod
+    monkeypatch.setitem(app_mod._file_registry, "f-x", {
+        "id": "f-x", "stage_outputs": {"0": {"stage_index": 0, "stage_type": "asr",
+            "stage_ref": "x", "status": "done", "ran_at": 1, "duration_seconds": 1,
+            "segments": [{"start": 0, "end": 1, "text": "a"}], "quality_flags": []}},
+    })
+    resp = client.patch("/api/files/f-x/stages/0/segments/0",
+                        data=json.dumps({}), content_type="application/json")
+    assert resp.status_code == 400
+
+
+# T16
+def test_set_pipeline_overrides(client, monkeypatch):
+    import app as app_mod
+    monkeypatch.setitem(app_mod._file_registry, "f-ov", {"id": "f-ov"})
+    resp = client.post("/api/files/f-ov/pipeline_overrides",
+                       data=json.dumps({
+                           "pipeline_id": "p1", "stage_index": 1,
+                           "overrides": {"system_prompt": "CUSTOM"},
+                       }), content_type="application/json")
+    assert resp.status_code == 200
+    assert app_mod._file_registry["f-ov"]["pipeline_overrides"]["p1"]["1"]["system_prompt"] == "CUSTOM"
+
+
+def test_clear_pipeline_overrides(client, monkeypatch):
+    import app as app_mod
+    monkeypatch.setitem(app_mod._file_registry, "f-clr", {
+        "id": "f-clr", "pipeline_overrides": {"p1": {"1": {"system_prompt": "X"}}}
+    })
+    resp = client.post("/api/files/f-clr/pipeline_overrides",
+                       data=json.dumps({"pipeline_id": "p1", "stage_index": 1, "overrides": None}),
+                       content_type="application/json")
+    assert resp.status_code == 200
+    assert "1" not in app_mod._file_registry["f-clr"]["pipeline_overrides"].get("p1", {})
