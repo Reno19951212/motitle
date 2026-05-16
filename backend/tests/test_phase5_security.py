@@ -80,7 +80,7 @@ def _restore_app_module():
     every downstream test that uses ``from app import ...``."""
     import sys
     snapshot = {}
-    for name in ("app", "auth.routes", "auth.admin", "auth.audit",
+    for name in ("app", "auth.decorators", "auth.routes", "auth.admin", "auth.audit",
                  "jobqueue.routes"):
         if name in sys.modules:
             snapshot[name] = sys.modules[name]
