@@ -12,7 +12,12 @@ during P1-P2; P3 migration script will auto-split bundled profiles into
 asr_profile + mt_profile + pipeline triples.
 """
 
-from typing import Any
+import json
+import threading
+import time
+import uuid
+from pathlib import Path
+from typing import Any, Optional
 
 VALID_ENGINES = {"whisper", "mlx-whisper"}
 VALID_MODEL_SIZES = {"large-v3"}
@@ -71,3 +76,149 @@ def validate_asr_profile(data: Any) -> list:
         errors.append(f"device must be one of {sorted(VALID_DEVICES)}")
 
     return errors
+
+
+# ---------------------------------------------------------------------------
+# Per-resource lock dict (mirrors backend/profiles.py R5 Phase 5 T2.8 pattern)
+# ---------------------------------------------------------------------------
+
+_ASR_LOCKS: dict = {}
+_ASR_MASTER_LOCK = threading.Lock()
+
+
+def _get_asr_lock(profile_id: str) -> threading.Lock:
+    with _ASR_MASTER_LOCK:
+        lock = _ASR_LOCKS.get(profile_id)
+        if lock is None:
+            lock = threading.Lock()
+            _ASR_LOCKS[profile_id] = lock
+        return lock
+
+
+class ASRProfileManager:
+    """CRUD + ownership for ASR profiles.
+
+    Storage: one JSON file per profile in config_dir/asr_profiles/<uuid>.json.
+    Cache: in-memory dict loaded at __init__; mutating ops write through to
+    disk before updating cache.
+    """
+
+    DIRNAME = "asr_profiles"
+
+    def __init__(self, config_dir):
+        self._config_dir = Path(config_dir)
+        self._dir = self._config_dir / self.DIRNAME
+        self._dir.mkdir(parents=True, exist_ok=True)
+        self._cache: dict = {}
+        self._load_all()
+
+    def _load_all(self):
+        for fpath in self._dir.glob("*.json"):
+            try:
+                data = json.loads(fpath.read_text())
+                if isinstance(data, dict) and data.get("id"):
+                    self._cache[data["id"]] = data
+            except Exception as exc:
+                print(f"[asr_profiles] skip malformed file {fpath}: {exc}")
+
+    def _save(self, profile: dict):
+        (self._dir / f"{profile['id']}.json").write_text(
+            json.dumps(profile, ensure_ascii=False, indent=2)
+        )
+
+    def create(self, data: dict, user_id: Optional[int]) -> dict:
+        errors = validate_asr_profile(data)
+        if errors:
+            raise ValueError("; ".join(errors))
+        now = int(time.time())
+        profile = {
+            "id": str(uuid.uuid4()),
+            "name": data["name"].strip(),
+            "description": data.get("description", ""),
+            "engine": data["engine"],
+            "model_size": data.get("model_size", "large-v3"),
+            "mode": data["mode"],
+            "language": data["language"],
+            "word_timestamps": bool(data.get("word_timestamps", False)),
+            "initial_prompt": data.get("initial_prompt", ""),
+            "condition_on_previous_text": bool(data.get("condition_on_previous_text", False)),
+            "simplified_to_traditional": bool(data.get("simplified_to_traditional", False)),
+            "device": data.get("device", "auto"),
+            "user_id": user_id,
+            "created_at": now,
+            "updated_at": now,
+        }
+        self._save(profile)
+        self._cache[profile["id"]] = profile
+        return dict(profile)
+
+    def get(self, profile_id: str) -> Optional[dict]:
+        cached = self._cache.get(profile_id)
+        return dict(cached) if cached else None
+
+    def list_all(self) -> list:
+        return [dict(p) for p in self._cache.values()]
+
+    def list_visible(self, user_id: Optional[int], is_admin: bool) -> list:
+        if is_admin:
+            return self.list_all()
+        return [
+            dict(p) for p in self._cache.values()
+            if p.get("user_id") is None or p.get("user_id") == user_id
+        ]
+
+    def can_view(self, profile_id: str, user_id: Optional[int], is_admin: bool) -> bool:
+        p = self._cache.get(profile_id)
+        if p is None:
+            return False
+        if is_admin:
+            return True
+        owner = p.get("user_id")
+        return owner is None or owner == user_id
+
+    def can_edit(self, profile_id: str, user_id: Optional[int], is_admin: bool) -> bool:
+        p = self._cache.get(profile_id)
+        if p is None:
+            return False
+        if is_admin:
+            return True
+        owner = p.get("user_id")
+        return owner is not None and owner == user_id
+
+    def update_if_owned(
+        self,
+        profile_id: str,
+        user_id: Optional[int],
+        is_admin: bool,
+        patch: dict,
+    ):
+        with _get_asr_lock(profile_id):
+            if not self.can_edit(profile_id, user_id, is_admin):
+                return False, ["permission denied"]
+            current = self._cache.get(profile_id)
+            merged = {**current, **patch}
+            errors = validate_asr_profile(merged)
+            if errors:
+                return False, errors
+            merged["updated_at"] = int(time.time())
+            merged["id"] = current["id"]          # immutable
+            merged["user_id"] = current["user_id"]  # immutable
+            merged["created_at"] = current["created_at"]  # immutable
+            self._save(merged)
+            self._cache[profile_id] = merged
+            return True, []
+
+    def delete_if_owned(
+        self,
+        profile_id: str,
+        user_id: Optional[int],
+        is_admin: bool,
+    ) -> bool:
+        with _get_asr_lock(profile_id):
+            if not self.can_edit(profile_id, user_id, is_admin):
+                return False
+            fpath = self._dir / f"{profile_id}.json"
+            if fpath.exists():
+                fpath.unlink()
+            self._cache.pop(profile_id, None)
+            return True
