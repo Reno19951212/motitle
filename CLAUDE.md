@@ -270,6 +270,21 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | DELETE | `/api/renders/<id>` | Cancel an in-flight render job (sets `cancelled` flag, status flips to `'cancelled'` on completion) |
 | GET | `/api/renders/in-progress` | List active render jobs (optional `?file_id=` filter) — used by Proofread page to re-attach after reload |
 | GET | `/api/renders/<id>/download` | Download rendered file |
+| GET | `/api/asr_profiles` | List ASR profiles visible to user (v4.0 P1) |
+| POST | `/api/asr_profiles` | Create ASR profile |
+| GET | `/api/asr_profiles/<id>` | Get single ASR profile |
+| PATCH | `/api/asr_profiles/<id>` | Update ASR profile (owner only) |
+| DELETE | `/api/asr_profiles/<id>` | Delete ASR profile (owner only) |
+| GET | `/api/mt_profiles` | List MT profiles visible to user (v4.0 P1) |
+| POST | `/api/mt_profiles` | Create MT profile |
+| GET | `/api/mt_profiles/<id>` | Get single MT profile |
+| PATCH | `/api/mt_profiles/<id>` | Update MT profile (owner only) |
+| DELETE | `/api/mt_profiles/<id>` | Delete MT profile (owner only) |
+| GET | `/api/pipelines` | List pipelines, includes `broken_refs` annotation (v4.0 P1) |
+| POST | `/api/pipelines` | Create pipeline (cascade ref check vs ASR/MT/Glossary) |
+| GET | `/api/pipelines/<id>` | Get single pipeline + broken_refs |
+| PATCH | `/api/pipelines/<id>` | Update pipeline (owner only, re-validates cascade refs) |
+| DELETE | `/api/pipelines/<id>` | Delete pipeline (owner only) |
 
 ### Frontend
 
@@ -339,6 +354,15 @@ Whenever a new feature is completed or existing functionality is modified, you *
 ---
 
 ## Completed Features
+
+### v4.0 Phase 1 — Entity Foundation (in progress on `chore/asr-mt-rearchitecture-research`)
+- 3 new manager modules ([backend/asr_profiles.py](backend/asr_profiles.py) / [backend/mt_profiles.py](backend/mt_profiles.py) / [backend/pipelines.py](backend/pipelines.py)), mirror v3.13 `ProfileManager` Phase 5 T2.8 TOCTOU lock pattern + per-resource ownership (`user_id` field per entity, admin OR owner OR shared visibility, admin OR owner edit)
+- 15 new REST endpoints (5 per entity × 3 entities, all gated by `@login_required` + per-entity `@require_*_owner` decorator from [backend/auth/decorators.py](backend/auth/decorators.py))
+- Pipeline validator does **cascade ref check** at create/update — references to unknown ASR/MT profile or glossary → 400 with explicit error
+- Pipeline GET response includes **`broken_refs` annotation** listing sub-resources the requesting user cannot view (per design doc [§7](docs/superpowers/specs/2026-05-16-asr-mt-emergent-pipeline-design.md))
+- ~50 new backend tests (~31 validator + manager + ~18 endpoint integration + 1 cross-user cascade integration); `test_phase5_security.py::_restore_app_module` fixture also patched to snapshot `auth.decorators` so v4 manager closures survive module re-import during isolation tests
+- **Out of P1 scope** (deferred to later phases): stage executor, pipeline_runner, migration script, frontend changes — see [docs/superpowers/specs/2026-05-16-asr-mt-emergent-pipeline-design.md](docs/superpowers/specs/2026-05-16-asr-mt-emergent-pipeline-design.md) for full v4.0 plan
+- Legacy `/api/profiles` (bundled ASR + MT) **unchanged** in P1 — keeps running until P3 migration
 
 ### v3.18 — MT Prompt Override (削減 + per-file textarea + templates)
 - **Stage 2 goal**: Reduce MT formulaic phrase over-use (research found "傷病纏身" 15× / "就此而言" 14× / "儘管" 13× / "真正" 24× across 166 Video 1 segments — caused by hardcoded EN→ZH mapping examples in the 3 system prompts). Open a frontend override path so users can fine-tune per-file. Spec: [docs/superpowers/specs/2026-05-15-stage2-prompt-override-design.md](docs/superpowers/specs/2026-05-15-stage2-prompt-override-design.md). Plan: [docs/superpowers/plans/2026-05-15-stage2-prompt-override-plan.md](docs/superpowers/plans/2026-05-15-stage2-prompt-override-plan.md).
