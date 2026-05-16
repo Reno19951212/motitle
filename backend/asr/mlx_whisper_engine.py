@@ -2,7 +2,7 @@
 
 import threading
 
-from . import ASREngine, Segment, Word
+from . import ASREngine, Segment
 
 try:
     import mlx_whisper
@@ -32,7 +32,6 @@ class MlxWhisperEngine(ASREngine):
             raise RuntimeError("mlx-whisper is not installed. Run: pip install mlx-whisper")
 
         condition_on_previous_text = self._config.get("condition_on_previous_text", True)
-        word_timestamps = bool(self._config.get("word_timestamps", False))
         initial_prompt = self._config.get("initial_prompt") or None
 
         kwargs = {
@@ -40,7 +39,6 @@ class MlxWhisperEngine(ASREngine):
             "language": language,
             "task": "transcribe",
             "condition_on_previous_text": condition_on_previous_text,
-            "word_timestamps": word_timestamps,
             "verbose": False,
         }
         # Anchors decoder away from training-data hallucinations at the head
@@ -62,16 +60,6 @@ class MlxWhisperEngine(ASREngine):
                 "end": seg["end"],
                 "text": text,
             }
-            if word_timestamps and seg.get("words"):
-                entry["words"] = [
-                    Word(
-                        word=w.get("word", ""),
-                        start=float(w.get("start", 0.0)),
-                        end=float(w.get("end", 0.0)),
-                        probability=float(w.get("probability", 0.0) or 0.0),
-                    )
-                    for w in seg["words"]
-                ]
             segments.append(entry)
         return segments
 
@@ -119,14 +107,6 @@ class MlxWhisperEngine(ASREngine):
                     "description": "Use previous segment as context",
                     "hint": "開 = 更連貫但會放大錯誤；關 = 每句獨立。預設開。",
                     "default": True,
-                },
-                "word_timestamps": {
-                    "type": "boolean",
-                    "label": "詞級時間碼",
-                    "widget": "switch",
-                    "description": "Emit per-word start/end timestamps",
-                    "hint": "開 = 每個英文字都有時間碼，可用於對齊翻譯；略增記憶體。關 = 只有 segment 級別。",
-                    "default": False,
                 },
                 "initial_prompt": {
                     "type": "string",

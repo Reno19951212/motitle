@@ -16,10 +16,9 @@ class Word(TypedDict):
     probability: float
 
 
-# Segments are dicts with always-present start/end/text. Engines that run
-# with word_timestamps=True ALSO include a `words: List[Word]` key. We keep
-# the base TypedDict required-only (Python 3.9 lacks NotRequired) and treat
-# `words` as a conventionally-present optional key that consumers probe for.
+# Segments are dicts with always-present start/end/text fields.
+# v4 A1 Q7-b: word_timestamps removed from all engines; the Word TypedDict
+# is retained for backward compatibility but segments no longer carry `words`.
 class Segment(TypedDict):
     start: float
     end: float

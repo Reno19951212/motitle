@@ -4,7 +4,7 @@ import os
 import threading
 from collections import OrderedDict
 
-from . import ASREngine, Segment, Word
+from . import ASREngine, Segment
 
 try:
     from faster_whisper import WhisperModel as FasterWhisperModel
@@ -101,7 +101,6 @@ class WhisperEngine(ASREngine):
             max_new_tokens = None if (raw is None or int(raw) == 0) else int(raw)
         except (ValueError, TypeError):
             max_new_tokens = None  # Treat invalid or non-integer values as unlimited
-        word_timestamps = bool(self._config.get("word_timestamps", False))
         initial_prompt = self._config.get("initial_prompt") or None
         seg_iter, _info = model.transcribe(
             audio_path,
@@ -110,7 +109,6 @@ class WhisperEngine(ASREngine):
             max_new_tokens=max_new_tokens,
             condition_on_previous_text=self._config.get("condition_on_previous_text", True),
             vad_filter=self._config.get("vad_filter", False),
-            word_timestamps=word_timestamps,
             initial_prompt=initial_prompt,
         )
         segments = []
@@ -120,21 +118,10 @@ class WhisperEngine(ASREngine):
                 "end": seg.end,
                 "text": seg.text.strip(),
             }
-            if word_timestamps and getattr(seg, "words", None):
-                entry["words"] = [
-                    Word(
-                        word=w.word,
-                        start=float(w.start),
-                        end=float(w.end),
-                        probability=float(getattr(w, "probability", 0.0) or 0.0),
-                    )
-                    for w in seg.words
-                ]
             segments.append(entry)
         return segments
 
     def _transcribe_openai(self, model, audio_path: str, language: str) -> list[Segment]:
-        word_timestamps = bool(self._config.get("word_timestamps", False))
         initial_prompt = self._config.get("initial_prompt") or None
         result = model.transcribe(
             audio_path,
@@ -143,7 +130,6 @@ class WhisperEngine(ASREngine):
             verbose=False,
             fp16=False,
             condition_on_previous_text=self._config.get("condition_on_previous_text", True),
-            word_timestamps=word_timestamps,
             initial_prompt=initial_prompt,
         )
         segments = []
@@ -153,16 +139,6 @@ class WhisperEngine(ASREngine):
                 "end": seg["end"],
                 "text": seg["text"].strip(),
             }
-            if word_timestamps and seg.get("words"):
-                entry["words"] = [
-                    Word(
-                        word=w.get("word", ""),
-                        start=float(w.get("start", 0.0)),
-                        end=float(w.get("end", 0.0)),
-                        probability=float(w.get("probability", 0.0) or 0.0),
-                    )
-                    for w in seg["words"]
-                ]
             segments.append(entry)
         return segments
 
@@ -233,14 +209,6 @@ class WhisperEngine(ASREngine):
                     "widget": "switch",
                     "description": "Voice activity detection",
                     "hint": "喺靜音位置自動切割段落，避免長句。建議廣播類用開。",
-                    "default": False,
-                },
-                "word_timestamps": {
-                    "type": "boolean",
-                    "label": "詞級時間碼",
-                    "widget": "switch",
-                    "description": "Emit per-word start/end timestamps",
-                    "hint": "開 = 每個英文字都有時間碼，可用於對齊翻譯；略增記憶體。關 = 只有 segment 級別。",
                     "default": False,
                 },
                 "initial_prompt": {

@@ -61,7 +61,7 @@ def validate_asr_profile(data: Any) -> list:
     if lang not in VALID_LANGUAGES:
         errors.append(f"language must be one of {sorted(VALID_LANGUAGES)}")
 
-    for key in ("word_timestamps", "condition_on_previous_text", "simplified_to_traditional"):
+    for key in ("condition_on_previous_text", "simplified_to_traditional"):
         if key in data and not isinstance(data[key], bool):
             errors.append(f"{key} must be bool")
 
@@ -137,7 +137,6 @@ class ASRProfileManager:
             "model_size": data.get("model_size", "large-v3"),
             "mode": data["mode"],
             "language": data["language"],
-            "word_timestamps": bool(data.get("word_timestamps", False)),
             "initial_prompt": data.get("initial_prompt", ""),
             "condition_on_previous_text": bool(data.get("condition_on_previous_text", False)),
             "simplified_to_traditional": bool(data.get("simplified_to_traditional", False)),

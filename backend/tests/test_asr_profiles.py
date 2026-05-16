@@ -53,9 +53,18 @@ def test_unknown_language_rejected():
 
 
 def test_boolean_field_type_check():
+    for key in ("condition_on_previous_text", "simplified_to_traditional"):
+        data = {**VALID_MIN_ASR, key: "yes"}
+        errors = validate_asr_profile(data)
+        assert any(key in e.lower() and "bool" in e.lower() for e in errors), \
+            f"Expected bool error for field {key!r}"
+
+
+def test_word_timestamps_field_is_no_longer_validated():
+    """word_timestamps was dropped in v4 A1 Q7-b; validator must silently ignore it."""
     data = {**VALID_MIN_ASR, "word_timestamps": "yes"}
     errors = validate_asr_profile(data)
-    assert any("word_timestamps" in e.lower() and "bool" in e.lower() for e in errors)
+    assert not any("word_timestamps" in e.lower() for e in errors)
 
 
 def test_initial_prompt_length_cap():
