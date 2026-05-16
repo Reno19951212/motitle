@@ -172,3 +172,117 @@ class PipelineManager:
         (self._dir / f"{pipeline['id']}.json").write_text(
             json.dumps(pipeline, ensure_ascii=False, indent=2)
         )
+
+    def create(self, data: dict, user_id: Optional[int]) -> dict:
+        errors = self.validate(data)
+        if errors:
+            raise ValueError("; ".join(errors))
+        now = int(time.time())
+        pipeline = {
+            "id": str(uuid.uuid4()),
+            "name": data["name"].strip(),
+            "description": data.get("description", ""),
+            "asr_profile_id": data["asr_profile_id"],
+            "mt_stages": list(data["mt_stages"]),
+            "glossary_stage": dict(data["glossary_stage"]),
+            "font_config": dict(data["font_config"]),
+            "user_id": user_id,
+            "created_at": now,
+            "updated_at": now,
+        }
+        self._save(pipeline)
+        self._cache[pipeline["id"]] = pipeline
+        return dict(pipeline)
+
+    def get(self, pipeline_id: str) -> Optional[dict]:
+        cached = self._cache.get(pipeline_id)
+        return dict(cached) if cached else None
+
+    def list_all(self) -> list:
+        return [dict(p) for p in self._cache.values()]
+
+    def list_visible(self, user_id: Optional[int], is_admin: bool) -> list:
+        if is_admin:
+            return self.list_all()
+        return [dict(p) for p in self._cache.values()
+                if p.get("user_id") is None or p.get("user_id") == user_id]
+
+    def can_view(self, pipeline_id: str, user_id: Optional[int], is_admin: bool) -> bool:
+        p = self._cache.get(pipeline_id)
+        if p is None:
+            return False
+        if is_admin:
+            return True
+        owner = p.get("user_id")
+        return owner is None or owner == user_id
+
+    def can_edit(self, pipeline_id: str, user_id: Optional[int], is_admin: bool) -> bool:
+        p = self._cache.get(pipeline_id)
+        if p is None:
+            return False
+        if is_admin:
+            return True
+        owner = p.get("user_id")
+        return owner is not None and owner == user_id
+
+    def update_if_owned(self, pipeline_id: str, user_id: Optional[int], is_admin: bool, patch: dict):
+        with _get_pipe_lock(pipeline_id):
+            if not self.can_edit(pipeline_id, user_id, is_admin):
+                return False, ["permission denied"]
+            current = self._cache.get(pipeline_id)
+            merged = {**current, **patch}
+            errors = self.validate(merged)
+            if errors:
+                return False, errors
+            merged["updated_at"] = int(time.time())
+            merged["id"] = current["id"]
+            merged["user_id"] = current["user_id"]
+            merged["created_at"] = current["created_at"]
+            self._save(merged)
+            self._cache[pipeline_id] = merged
+            return True, []
+
+    def delete_if_owned(self, pipeline_id: str, user_id: Optional[int], is_admin: bool) -> bool:
+        with _get_pipe_lock(pipeline_id):
+            if not self.can_edit(pipeline_id, user_id, is_admin):
+                return False
+            fpath = self._dir / f"{pipeline_id}.json"
+            if fpath.exists():
+                fpath.unlink()
+            self._cache.pop(pipeline_id, None)
+            return True
+
+    def annotate_broken_refs(self, pipeline: dict, user_id: Optional[int], is_admin: bool) -> dict:
+        """Return pipeline dict with extra `broken_refs` key listing
+        sub-resources the requesting user cannot view.
+
+        broken_refs shape:
+        {
+            "asr_profile_id": "<id>",    # only present if not visible
+            "mt_stages": ["<id>", ...],  # subset of mt_stages user can't see
+            "glossary_ids": ["<id>", ...],
+        }
+        """
+        out = dict(pipeline)
+        broken: dict = {}
+        if is_admin:
+            out["broken_refs"] = broken
+            return out
+        asr_id = pipeline.get("asr_profile_id")
+        if asr_id and not self._asr_manager.can_view(asr_id, user_id, is_admin):
+            broken["asr_profile_id"] = asr_id
+        broken_mt = [
+            mt_id for mt_id in pipeline.get("mt_stages", [])
+            if not self._mt_manager.can_view(mt_id, user_id, is_admin)
+        ]
+        if broken_mt:
+            broken["mt_stages"] = broken_mt
+        gloss_ids = pipeline.get("glossary_stage", {}).get("glossary_ids", [])
+        broken_gloss = [
+            g_id for g_id in gloss_ids
+            if not self._glossary_manager.can_view(g_id, user_id, is_admin)
+        ]
+        if broken_gloss:
+            broken["glossary_ids"] = broken_gloss
+        out["broken_refs"] = broken
+        return out

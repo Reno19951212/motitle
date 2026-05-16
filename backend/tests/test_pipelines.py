@@ -136,3 +136,69 @@ def test_bilingual_order_enum_validated(stack):
     }
     errors = pipe_mgr.validate(data)
     assert any("bilingual_order" in e for e in errors)
+
+
+def test_create_pipeline_persists(stack):
+    asr_mgr, mt_mgr, _, pipe_mgr = stack
+    asr = _make_asr(asr_mgr)
+    mt = _make_mt(mt_mgr)
+    p = pipe_mgr.create({
+        "name": "p", "asr_profile_id": asr["id"], "mt_stages": [mt["id"]],
+        "glossary_stage": {"enabled": False, "glossary_ids": [],
+                           "apply_order": "explicit", "apply_method": "string-match-then-llm"},
+        "font_config": VALID_FONT,
+    }, user_id=5)
+    assert p["user_id"] == 5
+    assert pipe_mgr.get(p["id"])["name"] == "p"
+
+
+def test_pipeline_update_validates_refs(stack):
+    asr_mgr, mt_mgr, _, pipe_mgr = stack
+    asr = _make_asr(asr_mgr)
+    mt = _make_mt(mt_mgr)
+    p = pipe_mgr.create({
+        "name": "p", "asr_profile_id": asr["id"], "mt_stages": [mt["id"]],
+        "glossary_stage": {"enabled": False, "glossary_ids": [],
+                           "apply_order": "explicit", "apply_method": "string-match-then-llm"},
+        "font_config": VALID_FONT,
+    }, user_id=5)
+    ok, errors = pipe_mgr.update_if_owned(
+        p["id"], user_id=5, is_admin=False,
+        patch={"mt_stages": ["ghost-mt-id"]},
+    )
+    assert ok is False
+    assert any("mt_stages" in e for e in errors)
+
+
+def test_visibility_check_with_broken_refs(stack):
+    """When a pipeline references an ASR profile owned by user A, but user B
+    asks to view the pipeline (and B can view the pipeline because it's
+    shared), B should see the pipeline but with a 'broken_refs' annotation
+    listing the sub-resources B can't access."""
+    asr_mgr, mt_mgr, _, pipe_mgr = stack
+    asr = _make_asr(asr_mgr, user_id=1)  # owned by user 1 only
+    mt = _make_mt(mt_mgr, user_id=None)  # shared
+    p = pipe_mgr.create({
+        "name": "shared-pipe",
+        "asr_profile_id": asr["id"],
+        "mt_stages": [mt["id"]],
+        "glossary_stage": {"enabled": False, "glossary_ids": [],
+                           "apply_order": "explicit", "apply_method": "string-match-then-llm"},
+        "font_config": VALID_FONT,
+    }, user_id=None)  # pipeline itself is shared
+    annotated = pipe_mgr.annotate_broken_refs(p, user_id=2, is_admin=False)
+    assert annotated["broken_refs"] == {"asr_profile_id": asr["id"]}
+
+
+def test_visibility_check_admin_no_broken_refs(stack):
+    asr_mgr, mt_mgr, _, pipe_mgr = stack
+    asr = _make_asr(asr_mgr, user_id=1)
+    mt = _make_mt(mt_mgr, user_id=None)
+    p = pipe_mgr.create({
+        "name": "p", "asr_profile_id": asr["id"], "mt_stages": [mt["id"]],
+        "glossary_stage": {"enabled": False, "glossary_ids": [],
+                           "apply_order": "explicit", "apply_method": "string-match-then-llm"},
+        "font_config": VALID_FONT,
+    }, user_id=None)
+    annotated = pipe_mgr.annotate_broken_refs(p, user_id=2, is_admin=True)
+    assert annotated["broken_refs"] == {}
