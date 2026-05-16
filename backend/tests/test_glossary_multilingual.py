@@ -624,3 +624,40 @@ def test_auto_translate_glossary_load_skips_non_en_zh_at_call_site():
         "EN→ZH glossary entries should be passed through to the translation engine"
     )
     assert result[0]["source"] == "broadcast"
+
+
+def test_can_view_owner(tmp_path):
+    """v4 Phase 1 T7 — GlossaryManager.can_view visibility control.
+
+    - Owner of private glossary (user_id != None) can view their own.
+    - Non-owner cannot view private glossary.
+    - Admin can view any glossary (private or shared).
+    - Shared glossary (user_id=None) visible to all authenticated users.
+    - Missing glossary returns False.
+    """
+    gm = _gm(tmp_path)
+    # Private glossary owned by user 5
+    g_private = gm.create({
+        "name": "private_broadcast", "source_lang": "en", "target_lang": "zh",
+        "user_id": 5,
+    })
+    # Shared glossary (user_id=None)
+    g_shared = gm.create({
+        "name": "shared_style", "source_lang": "en", "target_lang": "zh",
+        "user_id": None,
+    })
+
+    # Owner can view own private glossary
+    assert gm.can_view(g_private["id"], user_id=5, is_admin=False) is True
+    # Non-owner cannot view others' private glossary
+    assert gm.can_view(g_private["id"], user_id=6, is_admin=False) is False
+    # Admin can view any glossary
+    assert gm.can_view(g_private["id"], user_id=99, is_admin=True) is True
+    # Shared glossary visible to any non-admin user
+    assert gm.can_view(g_shared["id"], user_id=999, is_admin=False) is True
+    # Shared glossary also visible to admin
+    assert gm.can_view(g_shared["id"], user_id=888, is_admin=True) is True
+    # Missing glossary returns False for non-admins
+    assert gm.can_view("nonexistent-id", user_id=1, is_admin=False) is False
+    # Missing glossary returns True for admins (they can access anything)
+    assert gm.can_view("nonexistent-id", user_id=1, is_admin=True) is True
