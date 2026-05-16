@@ -60,8 +60,6 @@ def validate_asr_profile(data: Any) -> list:
     lang = data.get("language")
     if lang not in VALID_LANGUAGES:
         errors.append(f"language must be one of {sorted(VALID_LANGUAGES)}")
-    if mode == "translate-to-en" and lang != "en":
-        errors.append("when mode is translate-to-en, language must be 'en' (Whisper translate output is always English)")
 
     for key in ("word_timestamps", "condition_on_previous_text", "simplified_to_traditional"):
         if key in data and not isinstance(data[key], bool):

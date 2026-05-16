@@ -33,10 +33,17 @@ def test_unknown_mode_rejected():
     assert any("mode" in e.lower() for e in errors)
 
 
-def test_translate_to_en_mode_forces_language_en():
-    data = {**VALID_MIN_ASR, "mode": "translate-to-en", "language": "zh"}
-    errors = validate_asr_profile(data)
-    assert any("translate-to-en" in e.lower() and "language" in e.lower() for e in errors)
+def test_translate_to_en_mode_accepts_any_audio_language():
+    """translate-to-en mode means 'audio is X, output English'.
+    The language field is the AUDIO source hint, so it must accept
+    non-English values (e.g., language=zh for Cantonese-to-English).
+    Whisper's translate task always outputs English regardless of hint."""
+    for audio_lang in ("zh", "ja", "ko", "fr", "de", "es"):
+        data = {**VALID_MIN_ASR, "mode": "translate-to-en", "language": audio_lang}
+        assert validate_asr_profile(data) == [], f"translate-to-en + language={audio_lang} should be accepted"
+    # Also language="en" is still valid (English audio → English output, identity)
+    data = {**VALID_MIN_ASR, "mode": "translate-to-en", "language": "en"}
+    assert validate_asr_profile(data) == []
 
 
 def test_unknown_language_rejected():

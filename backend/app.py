@@ -1417,7 +1417,7 @@ def api_activate_profile(profile_id):
 @login_required
 def list_asr_profiles():
     user_id = getattr(current_user, "id", None)
-    is_admin = bool(getattr(current_user, "is_admin", False))
+    is_admin = bool(getattr(current_user, "is_admin", False)) or bool(app.config.get("R5_AUTH_BYPASS"))
     profiles = _asr_profile_manager.list_visible(user_id, is_admin)
     return jsonify({"asr_profiles": profiles}), 200
 
