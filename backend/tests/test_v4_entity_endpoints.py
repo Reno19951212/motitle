@@ -147,3 +147,120 @@ def test_delete_mt_profile(client):
     pid = create.get_json()["id"]
     resp = client.delete(f"/api/mt_profiles/{pid}")
     assert resp.status_code == 204
+
+
+def _create_asr_and_mt(client):
+    asr = client.post("/api/asr_profiles",
+                      data=json.dumps(VALID_ASR),
+                      content_type="application/json").get_json()
+    mt = client.post("/api/mt_profiles",
+                     data=json.dumps(VALID_MT),
+                     content_type="application/json").get_json()
+    return asr["id"], mt["id"]
+
+
+VALID_FONT_CONFIG = {
+    "family": "Noto Sans TC", "size": 35, "color": "#ffffff",
+    "outline_color": "#000000", "outline_width": 2, "margin_bottom": 40,
+    "subtitle_source": "auto", "bilingual_order": "target_top",
+}
+
+
+def test_create_pipeline_201(client):
+    asr_id, mt_id = _create_asr_and_mt(client)
+    data = {
+        "name": "test-pipeline",
+        "asr_profile_id": asr_id,
+        "mt_stages": [mt_id],
+        "glossary_stage": {"enabled": False, "glossary_ids": [],
+                           "apply_order": "explicit", "apply_method": "string-match-then-llm"},
+        "font_config": VALID_FONT_CONFIG,
+    }
+    resp = client.post("/api/pipelines",
+                       data=json.dumps(data),
+                       content_type="application/json")
+    assert resp.status_code == 201
+
+
+def test_create_pipeline_400_unknown_asr(client):
+    asr_id, mt_id = _create_asr_and_mt(client)
+    data = {
+        "name": "p", "asr_profile_id": "ghost", "mt_stages": [mt_id],
+        "glossary_stage": {"enabled": False, "glossary_ids": [],
+                           "apply_order": "explicit", "apply_method": "string-match-then-llm"},
+        "font_config": VALID_FONT_CONFIG,
+    }
+    resp = client.post("/api/pipelines",
+                       data=json.dumps(data),
+                       content_type="application/json")
+    assert resp.status_code == 400
+
+
+def test_list_pipelines(client):
+    asr_id, mt_id = _create_asr_and_mt(client)
+    client.post("/api/pipelines",
+                data=json.dumps({"name": "p",
+                                 "asr_profile_id": asr_id,
+                                 "mt_stages": [mt_id],
+                                 "glossary_stage": {"enabled": False, "glossary_ids": [],
+                                                    "apply_order": "explicit",
+                                                    "apply_method": "string-match-then-llm"},
+                                 "font_config": VALID_FONT_CONFIG}),
+                content_type="application/json")
+    resp = client.get("/api/pipelines")
+    assert resp.status_code == 200
+    assert isinstance(resp.get_json()["pipelines"], list)
+
+
+def test_get_pipeline_includes_broken_refs_annotation(client):
+    asr_id, mt_id = _create_asr_and_mt(client)
+    create = client.post("/api/pipelines",
+                         data=json.dumps({"name": "p",
+                                          "asr_profile_id": asr_id,
+                                          "mt_stages": [mt_id],
+                                          "glossary_stage": {"enabled": False, "glossary_ids": [],
+                                                             "apply_order": "explicit",
+                                                             "apply_method": "string-match-then-llm"},
+                                          "font_config": VALID_FONT_CONFIG}),
+                         content_type="application/json")
+    pid = create.get_json()["id"]
+    resp = client.get(f"/api/pipelines/{pid}")
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert "broken_refs" in body
+    # under R5_AUTH_BYPASS the request is admin-equivalent so broken_refs is {}
+    assert body["broken_refs"] == {}
+
+
+def test_patch_pipeline_validates_refs(client):
+    asr_id, mt_id = _create_asr_and_mt(client)
+    create = client.post("/api/pipelines",
+                         data=json.dumps({"name": "p",
+                                          "asr_profile_id": asr_id,
+                                          "mt_stages": [mt_id],
+                                          "glossary_stage": {"enabled": False, "glossary_ids": [],
+                                                             "apply_order": "explicit",
+                                                             "apply_method": "string-match-then-llm"},
+                                          "font_config": VALID_FONT_CONFIG}),
+                         content_type="application/json")
+    pid = create.get_json()["id"]
+    resp = client.patch(f"/api/pipelines/{pid}",
+                        data=json.dumps({"mt_stages": ["ghost-id"]}),
+                        content_type="application/json")
+    assert resp.status_code == 400
+
+
+def test_delete_pipeline(client):
+    asr_id, mt_id = _create_asr_and_mt(client)
+    create = client.post("/api/pipelines",
+                         data=json.dumps({"name": "p",
+                                          "asr_profile_id": asr_id,
+                                          "mt_stages": [mt_id],
+                                          "glossary_stage": {"enabled": False, "glossary_ids": [],
+                                                             "apply_order": "explicit",
+                                                             "apply_method": "string-match-then-llm"},
+                                          "font_config": VALID_FONT_CONFIG}),
+                         content_type="application/json")
+    pid = create.get_json()["id"]
+    resp = client.delete(f"/api/pipelines/{pid}")
+    assert resp.status_code == 204

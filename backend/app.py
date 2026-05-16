@@ -1546,6 +1546,76 @@ def delete_mt_profile(profile_id):
 
 
 # ============================================================
+# v4.0 Phase 1 — Pipeline REST endpoints
+# ============================================================
+
+@app.route('/api/pipelines', methods=['GET'])
+@login_required
+def list_pipelines():
+    user_id = getattr(current_user, "id", None)
+    is_admin = bool(getattr(current_user, "is_admin", False)) or bool(app.config.get("R5_AUTH_BYPASS"))
+    pipelines = _pipeline_manager.list_visible(user_id, is_admin)
+    annotated = [
+        _pipeline_manager.annotate_broken_refs(p, user_id, is_admin)
+        for p in pipelines
+    ]
+    return jsonify({"pipelines": annotated}), 200
+
+
+@app.route('/api/pipelines', methods=['POST'])
+@login_required
+def create_pipeline():
+    data = request.get_json(silent=True) or {}
+    user_id = getattr(current_user, "id", None)
+    try:
+        pipeline = _pipeline_manager.create(data, user_id=user_id)
+    except ValueError as exc:
+        return jsonify({"errors": str(exc).split("; ")}), 400
+    return jsonify(pipeline), 201
+
+
+@app.route('/api/pipelines/<pipeline_id>', methods=['GET'])
+@login_required
+@require_pipeline_owner
+def get_pipeline(pipeline_id):
+    pipeline = _pipeline_manager.get(pipeline_id)
+    if pipeline is None:
+        return jsonify({"error": "not found"}), 404
+    user_id = getattr(current_user, "id", None)
+    is_admin = bool(getattr(current_user, "is_admin", False)) or bool(app.config.get("R5_AUTH_BYPASS"))
+    annotated = _pipeline_manager.annotate_broken_refs(pipeline, user_id, is_admin)
+    return jsonify(annotated), 200
+
+
+@app.route('/api/pipelines/<pipeline_id>', methods=['PATCH'])
+@login_required
+@require_pipeline_owner
+def patch_pipeline(pipeline_id):
+    patch = request.get_json(silent=True) or {}
+    user_id = getattr(current_user, "id", None)
+    is_admin = bool(getattr(current_user, "is_admin", False)) or bool(app.config.get("R5_AUTH_BYPASS"))
+    ok, errors = _pipeline_manager.update_if_owned(
+        pipeline_id, user_id, is_admin, patch
+    )
+    if not ok:
+        if "permission denied" in errors:
+            return jsonify({"errors": errors}), 403
+        return jsonify({"errors": errors}), 400
+    return jsonify(_pipeline_manager.get(pipeline_id)), 200
+
+
+@app.route('/api/pipelines/<pipeline_id>', methods=['DELETE'])
+@login_required
+@require_pipeline_owner
+def delete_pipeline(pipeline_id):
+    user_id = getattr(current_user, "id", None)
+    is_admin = bool(getattr(current_user, "is_admin", False)) or bool(app.config.get("R5_AUTH_BYPASS"))
+    if not _pipeline_manager.delete_if_owned(pipeline_id, user_id, is_admin):
+        return jsonify({"error": "forbidden"}), 403
+    return "", 204
+
+
+# ============================================================
 # ASR Engine Info
 # ============================================================
 
