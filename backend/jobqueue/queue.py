@@ -37,6 +37,7 @@ class JobQueue:
         db_path: str,
         asr_handler: Optional[Callable[[dict], None]] = None,
         mt_handler: Optional[Callable[[dict], None]] = None,
+        pipeline_handler: Optional[Callable[[dict], None]] = None,
         app=None,
         socketio=None,
     ):
@@ -51,10 +52,12 @@ class JobQueue:
         self._db_path = db_path
         self._asr_handler = asr_handler
         self._mt_handler = mt_handler
+        self._pipeline_handler = pipeline_handler
         self._app = app
         self._socketio = socketio
         self._asr_q = stdqueue.Queue()
         self._mt_q = stdqueue.Queue()
+        self._pipeline_q = stdqueue.Queue()
         self._workers = []
         self._shutdown = threading.Event()
         self._cancel_events: dict = {}
@@ -84,6 +87,8 @@ class JobQueue:
                     self._asr_q.put(new_jid)
                 elif o["type"] in ("translate", "render"):
                     self._mt_q.put(new_jid)
+                elif o["type"] == "pipeline_run":
+                    self._pipeline_q.put(new_jid)
 
         # Also reload any rows that were left in status='queued' when the
         # previous server process died. Without this, those jobs sit in the
@@ -102,6 +107,8 @@ class JobQueue:
                     self._asr_q.put(j["id"])
                 elif j["type"] in ("translate", "render"):
                     self._mt_q.put(j["id"])
+                elif j["type"] == "pipeline_run":
+                    self._pipeline_q.put(j["id"])
 
     def _emit_changed(self) -> None:
         """Broadcast 'queue_changed' to all SocketIO clients. Best-effort —
@@ -115,15 +122,19 @@ class JobQueue:
             pass
 
     def enqueue(self, user_id: int, file_id: str, job_type: str,
-                parent_job_id=None) -> str:
+                parent_job_id=None, payload: dict = None) -> str:
         # parent_job_id propagates attempt_count = parent + 1 (used by manual
         # retry + boot-recovery orphan retry, both bound by R5_MAX_JOB_RETRY).
+        # v4 A1: payload carries extra metadata (e.g. pipeline_id) for
+        # pipeline_run jobs. Stored as JSON in the DB; returned by get_job().
         jid = insert_job(self._db_path, user_id, file_id, job_type,
-                         parent_job_id=parent_job_id)
+                         parent_job_id=parent_job_id, payload=payload)
         if job_type == "asr":
             self._asr_q.put(jid)
         elif job_type in ("translate", "render"):
             self._mt_q.put(jid)
+        elif job_type == "pipeline_run":
+            self._pipeline_q.put(jid)
         self._emit_changed()
         return jid
 
@@ -148,6 +159,12 @@ class JobQueue:
                                  daemon=True, name="mt-worker")
             t.start()
             self._workers.append(t)
+        # v4 A1: pipeline workers — 1 concurrent (GPU-bound like ASR)
+        t = threading.Thread(target=self._worker_loop,
+                             args=(self._pipeline_q, self._pipeline_handler),
+                             daemon=True, name="pipeline-worker")
+        t.start()
+        self._workers.append(t)
 
     def shutdown(self, timeout: float = 5.0) -> None:
         self._shutdown.set()
@@ -156,6 +173,7 @@ class JobQueue:
             try:
                 self._asr_q.put_nowait(None)
                 self._mt_q.put_nowait(None)
+                self._pipeline_q.put_nowait(None)
             except stdqueue.Full:
                 pass
         for t in self._workers:

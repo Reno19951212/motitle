@@ -362,9 +362,59 @@ def _mt_handler(job, cancel_event=None):
     _auto_translate(file_id, cancel_event=cancel_event)
 
 
+def _pipeline_run_handler(job, cancel_event=None):
+    """v4 A1 — execute a Pipeline on a file via PipelineRunner.
+
+    job.payload (or job["payload"] for dict jobs) must contain
+    {pipeline_id, file_id}.  Status transitions handled by JobQueue
+    (running before, done after; raise → failed).
+    """
+    # Support both dict jobs (production, returned by get_job()) and
+    # MagicMock-style objects used in unit tests.
+    payload = job.payload if hasattr(job, "payload") and not isinstance(job, dict) \
+        else (job.get("payload") or {}) if isinstance(job, dict) \
+        else {}
+
+    pipeline_id = payload.get("pipeline_id") if isinstance(payload, dict) else None
+    file_id = payload.get("file_id") if isinstance(payload, dict) else None
+
+    if not pipeline_id or not file_id:
+        raise ValueError(
+            "pipeline_run job requires payload {pipeline_id, file_id}"
+        )
+
+    pipeline = _pipeline_manager.get(pipeline_id)
+    if pipeline is None:
+        raise ValueError(f"pipeline {pipeline_id} not found")
+
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+    if entry is None:
+        raise ValueError(f"file {file_id} not found")
+
+    audio_path = entry.get("file_path") or str(UPLOAD_DIR / entry.get("stored_name", ""))
+
+    user_id = getattr(job, "user_id", None)
+    if user_id is None and isinstance(job, dict):
+        user_id = job.get("user_id")
+
+    runner = PipelineRunner(
+        pipeline=pipeline,
+        file_id=file_id,
+        audio_path=audio_path,
+        managers={
+            "asr_manager": _asr_profile_manager,
+            "mt_manager": _mt_profile_manager,
+            "glossary_manager": _glossary_manager,
+        },
+    )
+    runner.run(user_id=user_id, cancel_event=cancel_event)
+
+
 _job_queue = JobQueue(AUTH_DB_PATH,
                       asr_handler=_asr_handler,
                       mt_handler=_mt_handler,
+                      pipeline_handler=_pipeline_run_handler,
                       app=app,  # R5 Phase 5 T2.2: workers run with app context
                       socketio=socketio)  # broadcast 'queue_changed' on state changes
 _job_queue.start_workers()
@@ -410,6 +460,7 @@ def _init_language_config_manager(config_dir):
 from asr_profiles import ASRProfileManager
 from mt_profiles import MTProfileManager
 from pipelines import PipelineManager
+from pipeline_runner import PipelineRunner
 
 _asr_profile_manager = ASRProfileManager(CONFIG_DIR)
 _mt_profile_manager = MTProfileManager(CONFIG_DIR)
@@ -1613,6 +1664,39 @@ def delete_pipeline(pipeline_id):
     if not _pipeline_manager.delete_if_owned(pipeline_id, user_id, is_admin):
         return jsonify({"error": "forbidden"}), 403
     return "", 204
+
+
+@app.route('/api/pipelines/<pipeline_id>/run', methods=['POST'])
+@login_required
+@require_pipeline_owner
+def run_pipeline(pipeline_id):
+    """v4 A1 — enqueue a pipeline_run job for the given pipeline + file.
+
+    Body: {"file_id": "<id>"}  (or ?file_id= query string).
+    Returns 202 + {"job_id": "..."}.
+    """
+    data = request.get_json(silent=True) or {}
+    file_id = data.get("file_id") or request.args.get("file_id")
+    if not file_id:
+        return jsonify({"error": "file_id required"}), 400
+
+    pipeline = _pipeline_manager.get(pipeline_id)
+    if pipeline is None:
+        return jsonify({"error": "pipeline not found"}), 404
+
+    with _registry_lock:
+        file_entry = _file_registry.get(file_id)
+    if file_entry is None:
+        return jsonify({"error": "file not found"}), 404
+
+    user_id = getattr(current_user, "id", None) or 0
+    job_id = _job_queue.enqueue(
+        user_id=user_id,
+        file_id=file_id,
+        job_type="pipeline_run",
+        payload={"pipeline_id": pipeline_id, "file_id": file_id},
+    )
+    return jsonify({"job_id": job_id}), 202
 
 
 # ============================================================

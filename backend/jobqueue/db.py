@@ -1,4 +1,5 @@
 """SQLite-backed jobs table CRUD."""
+import json
 import sqlite3
 import time
 import uuid
@@ -10,13 +11,14 @@ CREATE TABLE IF NOT EXISTS jobs (
   id TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL,
   file_id TEXT NOT NULL,
-  type TEXT NOT NULL CHECK(type IN ('asr', 'translate', 'render')),
+  type TEXT NOT NULL CHECK(type IN ('asr', 'translate', 'render', 'pipeline_run')),
   status TEXT NOT NULL CHECK(status IN ('queued', 'running', 'done', 'failed', 'cancelled')),
   created_at REAL NOT NULL,
   started_at REAL,
   finished_at REAL,
   error_msg TEXT,
-  attempt_count INTEGER NOT NULL DEFAULT 1  -- R5 Phase 5 T1.5: poison-pill cap
+  attempt_count INTEGER NOT NULL DEFAULT 1,  -- R5 Phase 5 T1.5: poison-pill cap
+  payload TEXT  -- v4 A1: JSON blob for pipeline_run {pipeline_id, file_id}
 );
 CREATE INDEX IF NOT EXISTS idx_jobs_user_status ON jobs(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON jobs(status, created_at);
@@ -38,23 +40,76 @@ def init_jobs_table(db_path: str) -> None:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
     conn.execute("PRAGMA temp_store=memory")
-    # R5 Phase 5 T1.5: backfill attempt_count column on databases created
-    # before Phase 5 (CREATE TABLE IF NOT EXISTS skips the new column).
+
+    # Column backfills — ALTER TABLE ADD COLUMN is idempotent-safe because we
+    # check cols before altering.
+    # R5 Phase 5 T1.5: backfill attempt_count.
+    # v4 A1: backfill payload for pipeline_run jobs.
     cols = {r[1] for r in conn.execute("PRAGMA table_info(jobs)").fetchall()}
     if "attempt_count" not in cols:
         conn.execute(
             "ALTER TABLE jobs ADD COLUMN attempt_count INTEGER NOT NULL DEFAULT 1"
         )
+    if "payload" not in cols:
+        conn.execute("ALTER TABLE jobs ADD COLUMN payload TEXT")
+
+    # v4 A1: Migrate CHECK constraint to include 'pipeline_run'.
+    # SQLite does not support ALTER TABLE … MODIFY CONSTRAINT. The only safe
+    # path is a 4-step table-rebuild: rename → create-new → copy → drop-old.
+    # We detect whether migration is needed by inspecting the CREATE TABLE DDL
+    # stored in sqlite_master.
+    ddl_row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='jobs'"
+    ).fetchone()
+    if ddl_row and "pipeline_run" not in ddl_row[0]:
+        conn.execute("PRAGMA foreign_keys=OFF")
+        conn.execute("BEGIN")
+        conn.execute("ALTER TABLE jobs RENAME TO _jobs_old")
+        conn.execute("""
+            CREATE TABLE jobs (
+              id TEXT PRIMARY KEY,
+              user_id INTEGER NOT NULL,
+              file_id TEXT NOT NULL,
+              type TEXT NOT NULL CHECK(type IN ('asr', 'translate', 'render', 'pipeline_run')),
+              status TEXT NOT NULL CHECK(status IN ('queued', 'running', 'done', 'failed', 'cancelled')),
+              created_at REAL NOT NULL,
+              started_at REAL,
+              finished_at REAL,
+              error_msg TEXT,
+              attempt_count INTEGER NOT NULL DEFAULT 1,
+              payload TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO jobs (id, user_id, file_id, type, status, created_at,
+                              started_at, finished_at, error_msg, attempt_count)
+            SELECT id, user_id, file_id, type, status, created_at,
+                   started_at, finished_at, error_msg,
+                   COALESCE(attempt_count, 1)
+            FROM _jobs_old
+        """)
+        conn.execute("DROP TABLE _jobs_old")
+        conn.execute("COMMIT")
+        conn.execute("PRAGMA foreign_keys=ON")
+
     conn.commit()
     conn.close()
 
 
+_VALID_JOB_TYPES = ("asr", "translate", "render", "pipeline_run")
+
+
 def insert_job(db_path: str, user_id: int, file_id: str, job_type: str,
-               parent_job_id: Optional[str] = None) -> str:
+               parent_job_id: Optional[str] = None,
+               payload: Optional[dict] = None) -> str:
     """Insert a queued job. If `parent_job_id` is given (re-enqueue from
     boot recovery), inherit attempt_count + 1 from the parent so the
-    poison-pill cap can stop re-enqueue loops."""
-    if job_type not in ("asr", "translate", "render"):
+    poison-pill cap can stop re-enqueue loops.
+
+    v4 A1: optional `payload` dict is serialised as JSON and stored in the
+    payload column.  Used by pipeline_run jobs to carry {pipeline_id, file_id}.
+    """
+    if job_type not in _VALID_JOB_TYPES:
         raise ValueError(f"invalid job_type: {job_type!r}")
     jid = uuid.uuid4().hex
     attempt_count = 1
@@ -62,12 +117,14 @@ def insert_job(db_path: str, user_id: int, file_id: str, job_type: str,
         parent = get_job(db_path, parent_job_id)
         if parent is not None:
             attempt_count = (parent.get("attempt_count") or 1) + 1
+    payload_json = json.dumps(payload) if payload is not None else None
     conn = get_connection(db_path)
     try:
         conn.execute(
-            "INSERT INTO jobs (id, user_id, file_id, type, status, created_at, attempt_count) "
-            "VALUES (?, ?, ?, ?, 'queued', ?, ?)",
-            (jid, user_id, file_id, job_type, time.time(), attempt_count),
+            "INSERT INTO jobs (id, user_id, file_id, type, status, created_at, "
+            "attempt_count, payload) "
+            "VALUES (?, ?, ?, ?, 'queued', ?, ?, ?)",
+            (jid, user_id, file_id, job_type, time.time(), attempt_count, payload_json),
         )
         conn.commit()
         return jid
@@ -77,6 +134,8 @@ def insert_job(db_path: str, user_id: int, file_id: str, job_type: str,
 
 def _row_to_job(row: sqlite3.Row) -> dict:
     keys = row.keys()
+    payload_raw = row["payload"] if "payload" in keys else None
+    payload = json.loads(payload_raw) if payload_raw else None
     return {
         "id": row["id"],
         "user_id": row["user_id"],
@@ -89,6 +148,8 @@ def _row_to_job(row: sqlite3.Row) -> dict:
         "error_msg": row["error_msg"],
         # R5 Phase 5 T1.5: tolerate pre-Phase-5 rows that pre-date ALTER.
         "attempt_count": row["attempt_count"] if "attempt_count" in keys else 1,
+        # v4 A1: payload dict for pipeline_run jobs; None for all other types.
+        "payload": payload,
     }
 
 
