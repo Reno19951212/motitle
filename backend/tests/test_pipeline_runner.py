@@ -109,3 +109,38 @@ def test_runner_with_glossary_stage(monkeypatch):
     assert len(outputs) == 2  # ASR + Glossary
     assert outputs[1]["stage_type"] == "glossary"
     assert outputs[1]["segments"][0]["text"] == "GLOSSED"
+
+
+def test_persist_stage_output_writes_to_registry(monkeypatch):
+    """_persist_stage_output writes to _file_registry under file.stage_outputs[idx]."""
+    import app as app_mod
+    registry = {"f1": {"id": "f1", "stage_outputs": {}}}
+    monkeypatch.setattr(app_mod, "_file_registry", registry)
+    monkeypatch.setattr(app_mod, "_save_registry", lambda: None)
+
+    from pipeline_runner import _persist_stage_output
+    output = {
+        "stage_index": 0, "stage_type": "asr", "stage_ref": "asr-1",
+        "status": "done", "ran_at": 1.0, "duration_seconds": 0.5,
+        "segments": [{"start": 0, "end": 1, "text": "x"}], "quality_flags": [],
+    }
+    _persist_stage_output("f1", output)
+    assert "0" in registry["f1"]["stage_outputs"] or 0 in registry["f1"]["stage_outputs"]
+
+
+def test_persist_stage_output_replaces_existing_index(monkeypatch):
+    import app as app_mod
+    registry = {"f1": {"id": "f1", "stage_outputs": {}}}
+    monkeypatch.setattr(app_mod, "_file_registry", registry)
+    monkeypatch.setattr(app_mod, "_save_registry", lambda: None)
+
+    from pipeline_runner import _persist_stage_output
+    first = {"stage_index": 0, "stage_type": "asr", "stage_ref": "x", "status": "done",
+             "ran_at": 1.0, "duration_seconds": 0.1, "segments": [{"text": "first"}], "quality_flags": []}
+    second = {"stage_index": 0, "stage_type": "asr", "stage_ref": "x", "status": "done",
+              "ran_at": 2.0, "duration_seconds": 0.1, "segments": [{"text": "second"}], "quality_flags": []}
+    _persist_stage_output("f1", first)
+    _persist_stage_output("f1", second)
+
+    key = "0" if "0" in registry["f1"]["stage_outputs"] else 0
+    assert registry["f1"]["stage_outputs"][key]["segments"][0]["text"] == "second"

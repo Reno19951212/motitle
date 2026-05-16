@@ -14,8 +14,19 @@ from stages.glossary_stage import GlossaryStage
 
 
 def _persist_stage_output(file_id: str, stage_output: StageOutput) -> None:
-    """Write stage output to file registry. Implementation in T6."""
-    pass  # Filled in Task 6
+    """Write stage output to file registry.
+
+    Uses string keys for stage_outputs dict so JSON round-trip is identity-preserving
+    (json.dumps converts int keys to strings anyway, so we use str() upfront).
+    """
+    import app as app_mod
+    with app_mod._registry_lock:
+        entry = app_mod._file_registry.get(file_id)
+        if entry is None:
+            return
+        outputs = entry.setdefault("stage_outputs", {})
+        outputs[str(stage_output["stage_index"])] = dict(stage_output)
+        app_mod._save_registry()
 
 
 class PipelineRunner:
