@@ -75,3 +75,55 @@ def admin_required(fn):
             return jsonify({"error": "admin only"}), 403
         return fn(*args, **kwargs)
     return wrapper
+
+
+# ---------------------------------------------------------------------------
+# v4.0 Phase 1 — entity-specific owner decorators
+# Mirror require_file_owner pattern. The manager modules are imported
+# lazily at call time so this module can stay decoupled from app.py boot.
+# ---------------------------------------------------------------------------
+
+_asr_manager = None
+_mt_manager = None
+_pipeline_manager = None
+
+
+def set_v4_managers(asr_manager, mt_manager, pipeline_manager):
+    """Called from app.py boot after managers are instantiated."""
+    global _asr_manager, _mt_manager, _pipeline_manager
+    _asr_manager = asr_manager
+    _mt_manager = mt_manager
+    _pipeline_manager = pipeline_manager
+
+
+def _make_owner_decorator(manager_attr_name: str, url_arg_name: str):
+    """Build a decorator that checks can_view on the given manager."""
+    def decorator(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            from flask import abort, jsonify  # noqa: F401 — already imported at top but kept local for clarity
+
+            if _auth_bypassed():
+                return fn(*args, **kwargs)
+
+            if not getattr(current_user, "is_authenticated", False):
+                return jsonify({"error": "authentication required"}), 401
+
+            resource_id = kwargs.get(url_arg_name)
+            mgr = globals().get(manager_attr_name)
+            if mgr is None:
+                return jsonify({"error": f"{manager_attr_name} not initialised"}), 500
+
+            is_admin = bool(getattr(current_user, "is_admin", False))
+            user_id = current_user.id
+
+            if not mgr.can_view(resource_id, user_id, is_admin):
+                return jsonify({"error": "not found"}), 403
+            return fn(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
+require_asr_profile_owner = _make_owner_decorator("_asr_manager", "profile_id")
+require_mt_profile_owner = _make_owner_decorator("_mt_manager", "profile_id")
+require_pipeline_owner = _make_owner_decorator("_pipeline_manager", "pipeline_id")
