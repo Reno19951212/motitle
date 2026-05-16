@@ -88,3 +88,54 @@ def test_temperature_passed_to_llm(monkeypatch):
     stage.transform([{"start": 0, "end": 1, "text": "a"}], _ctx())
 
     assert captured["temp"] == 0.3
+
+
+def test_mt_stage_uses_pipeline_override_system_prompt(monkeypatch):
+    captured = {}
+    def fake_qwen(sys_p, usr_p, temp):
+        captured["sys"] = sys_p
+        return "x"
+    monkeypatch.setattr("stages.mt_stage._call_qwen", fake_qwen)
+
+    profile = _profile()
+    profile["system_prompt"] = "DEFAULT system prompt"
+    stage = MTStage(profile)
+    ctx = StageContext(file_id="f1", user_id=1, pipeline_id="p1",
+                       stage_index=1, cancel_event=None, progress_callback=None,
+                       pipeline_overrides={"1": {"system_prompt": "OVERRIDDEN"}})
+    stage.transform([{"start": 0, "end": 1, "text": "x"}], ctx)
+    assert captured["sys"] == "OVERRIDDEN"
+
+
+def test_mt_stage_uses_pipeline_override_template(monkeypatch):
+    captured = {}
+    def fake_qwen(sys_p, usr_p, temp):
+        captured["usr"] = usr_p
+        return "x"
+    monkeypatch.setattr("stages.mt_stage._call_qwen", fake_qwen)
+
+    profile = _profile()
+    profile["user_message_template"] = "default: {text}"
+    stage = MTStage(profile)
+    ctx = StageContext(file_id="f1", user_id=1, pipeline_id="p1",
+                       stage_index=1, cancel_event=None, progress_callback=None,
+                       pipeline_overrides={"1": {"user_message_template": "OVERRIDE: {text}"}})
+    stage.transform([{"start": 0, "end": 1, "text": "hello"}], ctx)
+    assert captured["usr"] == "OVERRIDE: hello"
+
+
+def test_mt_stage_fallback_to_default_when_no_override(monkeypatch):
+    captured = {}
+    def fake_qwen(s, u, t):
+        captured["sys"] = s
+        captured["usr"] = u
+        return "x"
+    monkeypatch.setattr("stages.mt_stage._call_qwen", fake_qwen)
+    profile = _profile()
+    profile["system_prompt"] = "DEFAULT"
+    stage = MTStage(profile)
+    ctx = StageContext(file_id="f1", user_id=1, pipeline_id="p1",
+                       stage_index=1, cancel_event=None, progress_callback=None,
+                       pipeline_overrides={})
+    stage.transform([{"start": 0, "end": 1, "text": "a"}], ctx)
+    assert captured["sys"] == "DEFAULT"

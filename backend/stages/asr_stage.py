@@ -29,6 +29,7 @@ class ASRStage(PipelineStage):
     def __init__(self, asr_profile: dict, audio_path: str):
         self._profile = asr_profile
         self._audio_path = audio_path
+        self.quality_flags: List[str] = []
 
     @property
     def stage_type(self) -> str:
@@ -51,14 +52,21 @@ class ASRStage(PipelineStage):
             # Engine doesn't accept `task` kwarg yet; fall back to default transcribe
             raw = engine.transcribe(self._audio_path, language=language)
 
-        # Build output segments (Q7-b: strip `words` if present)
+        # T11: reset quality_flags per call, then detect low_logprob segments
+        self.quality_flags = []
         out: List[dict] = []
         for seg in raw:
-            out_seg = {
+            # Detect low-confidence segments (emergent quality canary)
+            avg_logprob = seg.get("avg_logprob")
+            if avg_logprob is not None and avg_logprob < LOW_LOGPROB_THRESHOLD:
+                if "low_logprob" not in self.quality_flags:
+                    self.quality_flags.append("low_logprob")
+
+            # Build output segments (Q7-b: strip `words` if present)
+            out.append({
                 "start": seg["start"],
                 "end": seg["end"],
                 "text": seg.get("text", "").strip(),
-            }
-            out.append(out_seg)
+            })
 
         return out

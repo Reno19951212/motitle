@@ -91,3 +91,35 @@ def test_segments_in_ignored_for_asr_stage(monkeypatch):
         _ctx(),
     )
     assert result[0]["text"] == "X"  # from mock engine, not garbage input
+
+
+def test_low_logprob_quality_flag(monkeypatch):
+    mock_engine = MagicMock()
+    mock_engine.transcribe.return_value = [
+        {"start": 0, "end": 1, "text": "good", "avg_logprob": -0.5},
+        {"start": 1, "end": 2, "text": "bad", "avg_logprob": -1.5},  # below threshold
+    ]
+    monkeypatch.setattr("stages.asr_stage.create_asr_engine", lambda cfg: mock_engine)
+    stage = ASRStage(_profile(), audio_path="/tmp/x.wav")
+    stage.transform([], _ctx())
+    assert "low_logprob" in stage.quality_flags
+
+
+def test_no_low_logprob_when_all_confident(monkeypatch):
+    mock_engine = MagicMock()
+    mock_engine.transcribe.return_value = [
+        {"start": 0, "end": 1, "text": "ok", "avg_logprob": -0.3},
+    ]
+    monkeypatch.setattr("stages.asr_stage.create_asr_engine", lambda cfg: mock_engine)
+    stage = ASRStage(_profile(), audio_path="/tmp/x.wav")
+    stage.transform([], _ctx())
+    assert "low_logprob" not in stage.quality_flags
+
+
+def test_no_quality_flag_when_engine_omits_logprob(monkeypatch):
+    mock_engine = MagicMock()
+    mock_engine.transcribe.return_value = [{"start": 0, "end": 1, "text": "ok"}]
+    monkeypatch.setattr("stages.asr_stage.create_asr_engine", lambda cfg: mock_engine)
+    stage = ASRStage(_profile(), audio_path="/tmp/x.wav")
+    stage.transform([], _ctx())
+    assert stage.quality_flags == []

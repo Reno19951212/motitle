@@ -146,13 +146,19 @@ class PipelineRunner:
             "file_id": self._file_id, "pipeline_id": self._pipeline["id"],
             "stage_index": stage_index, "stage_type": stage_type,
         })
+        # T10: load per-(file,pipeline) overrides from registry
+        import app as app_mod
+        with app_mod._registry_lock:
+            file_entry = app_mod._file_registry.get(self._file_id, {})
+            all_overrides = file_entry.get("pipeline_overrides", {})
+            overrides_for_this_pipeline = all_overrides.get(self._pipeline["id"], {})
         ctx = StageContext(
             file_id=self._file_id, user_id=user_id,
             pipeline_id=self._pipeline["id"], stage_index=stage_index,
             cancel_event=cancel_event,
             progress_callback=_make_progress_callback(
                 self._file_id, self._pipeline["id"], stage_index, stage_type),
-            pipeline_overrides={},
+            pipeline_overrides=overrides_for_this_pipeline,
         )
         start_t = time.time()
         try:

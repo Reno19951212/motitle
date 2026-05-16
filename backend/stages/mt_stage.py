@@ -31,7 +31,7 @@ class MTStage(PipelineStage):
 
     def transform(self, segments_in: List[dict], context: StageContext) -> List[dict]:
         system_prompt = self._resolve_system_prompt(context)
-        template = self._profile["user_message_template"]
+        template = self._resolve_user_message_template(context)
         temperature = float(self._profile.get("temperature", 0.1))
 
         out: List[dict] = []
@@ -62,5 +62,17 @@ class MTStage(PipelineStage):
         return out
 
     def _resolve_system_prompt(self, context: StageContext) -> str:
-        # File-level override (Q6-a per-(file,pipeline) scope) wired in T10.
+        override = (context.pipeline_overrides
+                    .get(str(context.stage_index), {})
+                    .get("system_prompt"))
+        if override and isinstance(override, str) and override.strip():
+            return override
         return self._profile["system_prompt"]
+
+    def _resolve_user_message_template(self, context: StageContext) -> str:
+        override = (context.pipeline_overrides
+                    .get(str(context.stage_index), {})
+                    .get("user_message_template"))
+        if override and isinstance(override, str) and override.strip() and "{text}" in override:
+            return override
+        return self._profile["user_message_template"]
