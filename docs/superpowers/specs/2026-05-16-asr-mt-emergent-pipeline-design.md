@@ -148,7 +148,6 @@ final subtitle output
   "model_size": "large-v3",           // 鎖死 large-v3（v3.17 已收窄）
   "mode": "emergent-translate",        // ← 新 field, 3 options (見 §3.1.2)
   "language": "zh",                    // target text language (decoder 出嘅文字 lang)
-  "word_timestamps": false,            // 默認 off (D9-a — 唔需要 word-level alignment)
   "initial_prompt": "以下係香港賽馬新聞...",  // 保留 v3.8 mechanism
   "condition_on_previous_text": false,  // 保留 v3.8 防 cascade
   "simplified_to_traditional": true,    // 保留 v3.8 OpenCC s2hk
@@ -334,7 +333,7 @@ class PipelineStage(ABC):
 
 - **Segment count invariant**：所有 stage 必須遵守 input/output 同段數
 - **Timeline invariant**：所有 stage 維持 `start` / `end` 不變（ASR 鎖定，後續純改 text）
-- **Word timestamps 屬可選**：只有 ASR stage word_timestamps=true 時有 `words` field，後續 stage 直接 pass-through
+- **Word timestamps removed** (Q7-b, v4 fresh start)：v3.18 ASR profile 嘅 `word_timestamps` field 喺 v4 砍走，因為 v4 砍咗 alignment_pipeline 之後 use case 消失
 
 ### 4.2 Per-stage output persistence
 
@@ -539,35 +538,31 @@ Frontend 讀邊個 stage 嘅 text 喺 file metadata 揀緊嘅 `current_stage_ind
 
 ---
 
-## 8. Migration Plan (E1 auto-split)
+## 8. Migration Plan — SKIPPED (Q8-c v4 fresh start)
 
-依家有 6 個 existing profile bundle。Migration script 將每個 bundle 拆三件：
+**決定 (2026-05-17)：唔做 migration。** Big Bang cutover 之前，**所有既有 file registry 同 profile 數據 retire**。
 
-```
-原 profile: prod-default
-  ↓
-asr_profile: prod-default-asr  (從原 .asr block 拆出)
-mt_profile:  prod-default-mt   (從原 .translation block 拆出)
-pipeline:    prod-default      (引用上面兩個 + 保留 .font block)
-```
+### 8.1 影響
 
-對應 mapping：
-- `profile.asr.engine + .language + ...` → `asr_profile.engine + .language + ...`
-- `profile.asr.mode` 自動推斷：v3.18 之前 `task` 寫死 `transcribe`，所以全部 set `mode="same-lang"`（保守，唔自動 enable emergent）
-- `profile.translation.engine + .style + ...` → `mt_profile.engine + .system_prompt + ...`
-- `profile.translation.alignment_mode / .translation_passes / .use_sentence_pipeline` → **drop**（新架構 single-mode）
-- `profile.translation.glossary_id` → `pipeline.glossary_stage.glossary_ids = [<id>]`（single-element array）
-- `profile.translation.prompt_overrides`（profile-level）→ `mt_profile.system_prompt` override
-- `profile.font` → `pipeline.font_config`
+- **既有 6 個 bundled profile**（包括 `prod-default`）— **deprecated**，A5 sub-phase 一齊刪走 JSON file 同 `_profile_manager` 加載路徑
+- **既有 file registry entries**（已上傳片 + 已 transcribe 嘅 segments + 已 translate 嘅 zh_text + 已 approved 嘅 translations）— **v4 UI 唔再 access**：
+  - 舊 file registry shape (`segments` / `translations` / `prompt_overrides` flat fields) 同 v4 stage_outputs map 唔兼容
+  - 用戶要喺 v4 UI 重新上傳 + 重跑 pipeline
+- **既有 glossary** — **保留**（v3.15 multilingual schema 同 v4 兼容；glossary stage 直接讀，唔需要 migration）
 
-File registry migration：
-- Existing `file.profile_id` → `file.pipeline_id`（指向新 split pipeline）
-- Existing `file.segments[].text` → `file.stage_outputs[asr][].text`
-- Existing `file.translations[].zh_text` → `file.stage_outputs[mt_1][].text`
-- Existing `file.translations[].flags` → 保留，attach 到對應 stage output
-- Existing `file.prompt_overrides`（v3.18 file-level）→ `file.pipeline_overrides.stage_2`（assume MT 係 stage 2）
+### 8.2 點解 skip
 
-Migration script 必須 idempotent + reversible（一個 `--dry-run` flag 預覽 changes、一個 `--rollback` flag 回去）。
+- A5 sub-phase 一次過清盤，唔養 dual code path
+- 用戶 explicit 接受 trade-off（「全新嘅方向諗，唔使兼容」）
+- Migration script effort（~10 task）省返，集中力做 v4 frontend
+- Reversibility 透過 git revert 提供 — 唔需要 in-place rollback flag
+
+### 8.3 用戶 transition steps（一次過）
+
+1. v4 ship 之後，舊 dashboard / proofread 路徑全部砍走
+2. 用戶 login 到新 dashboard → 揀「+ 新增 ASR Profile」、「+ 新增 MT Profile」、「+ 新增 Pipeline」
+3. 重新上傳 mp4 → 揀新 Pipeline → 跑
+4. 舊 video 嘅 approved translations 用戶有需要可以喺 v4 release 前 export SRT 留底（A5 ship 前手動）
 
 ---
 
@@ -577,6 +572,7 @@ Migration script 必須 idempotent + reversible（一個 `--dry-run` flag 預覽
 
 - **Validation-First Mode（修改 ASR / MT 必須遵守）** — 完整 section（包括 workflow 4 步、validation tracker 路徑、之前累積 evidence 列表）
 - **Verification Gates 段** 嘅 4-gate verification（保留 commit-message / docs update 嘅鼓勵，砍走 mandatory 4-gate）
+- **「Do not add a build system」rule** — v4 加 Vite + TS frontend，rule retire
 
 ### 9.2 重寫嘅 section
 
@@ -605,9 +601,10 @@ Migration script 必須 idempotent + reversible（一個 `--dry-run` flag 預覽
 | 簡體 → 繁體 + 普通話 → 粵語 雙重 polish 質量唔達標 | M | H | (1) Ship 多個 MT profile 試唔同 prompt; (2) 用戶喺 proofread page 可逐 segment 改; (3) v3.18 file-level prompt override carry over |
 | 砍 alignment_pipeline + sentence_pipeline 後，individual segment 太短 / 太長 嘅 ASR boundary 處理失控 | L | M | 保留 `split_segments` + 廢除 `merge_short_segments`（後者係 sentence-level 邏輯），讓 ASR 出嘅 segment 直接 pass-through |
 | Whisper emergent mode 喺某啲 mlx-whisper version 變化（model weights / token vocab 改） | L | H | Pin model version `mlx-community/whisper-large-v3-mlx`，CI 加 reference clip emergent translation snapshot test |
-| Migration 失敗令現有 file 無法 access | L | H | (1) Migration script idempotent + `--dry-run` + `--rollback`; (2) Backup registry 喺 migration 前；(3) Legacy `profiles.py` 保留為 compat layer |
+| **既有 file / profile 喺 v4 失效（Q8-c skip migration）** | **H** | M | (1) A5 ship 前用戶手動 export 舊 video 嘅 approved SRT 留底；(2) Reversibility 透過 git revert 提供（rollback 到 P1 commit）；(3) Glossary 嘅 v3.15 multilingual schema 維持，唔受影響 |
 | Glossary stage 唔再 inject MT prompt 導致 hallucination 機會升 | M | M | Glossary stage 用 string-match 先掃，剩下 ambiguous case 再 LLM smart replace；總體比 inject-then-pray reliable |
 | OpenRouter 砍走後，未來想用 cloud 模型 reach 唔到 | L | L | 砍走嘅 code 喺 git history reachable；未來想 reintroduce 加返一個 MT engine 就得 |
+| **Frontend rewrite (Vite/React/TS) bug 導致 UI regression** | M | H | (1) 5 個 sub-phase 各自 subagent dispatch + spec/quality review；(2) A1 backend ship 之後可以 curl-test，frontend 出 bug 唔影響 API 層；(3) shadcn/ui copy-paste 比 npm install 黑盒可控 |
 
 ---
 
@@ -626,17 +623,15 @@ Migration script 必須 idempotent + reversible（一個 `--dry-run` flag 預覽
 
 ---
 
-## 12. Open Questions（未答嘅嘢）
+## 12. Open Questions（已逐個 resolved 2026-05-17）
 
-呢啲 question **唔需要喺 design 階段答**，但 implementation plan 階段必須處理：
-
-1. **Emergent quality flag heuristic**：用咩 metric detect emergent transcription quality dropped？(e.g., Whisper avg log_prob、segment text length distribution、character set 比例) — implementation 時定 thresholds
-2. **Stage parallel execution**：N MT stage chain 入面，每 stage 內部係 per-segment parallel (parallel_batches)，但 stage 之間 strict sequential。Confirm？
-3. **Pipeline run cancellation granularity**：用戶 cancel pipeline 中途，已 done 嘅 stage 嘅 output 留低 vs roll back？建議留低，user 可以 selective re-run。
-4. **MT profile system_prompt 模板嘅 i18n**：依家 ship 嘅 3 個 default 全部繁體中文。Future 用戶起 EN→EN polish profile 點處理？(prompt 用咩 lang 寫不影響 MT 行為，由用戶決定)
-5. **File-level `pipeline_overrides`**：當 user override `stage_2.system_prompt`，呢個 override 跟 file 還是跟 (file, pipeline) pair？例如同一 file 將來用第二個 pipeline 跑，override 帶過去定 reset？建議跟 (file, pipeline_id) pair。
-6. **ASR profile `mode` 同 `language` 嘅 implicit-explicit boundary**：揀 `mode="emergent-translate"` + `language="zh"` + audio 確實係中文，會 trigger same-lang transcribe 行為（emergent fallback）。UI 點處理？建議跑 audio language detection (Whisper 第一 30s) → 同 language hint 比較 → 提示用戶。
-7. **Per-stage word_timestamps 需求**：v4.0 砍 alignment_pipeline 之後 word_timestamps 仲有冇 use case？(可能仲有：accurate caption positioning during render) — implementation 時 evaluate。
+1. ✅ **Emergent quality flag heuristic** — A1 implement 時用 Whisper avg log_prob threshold（< -1.0 觸發 warning），唔做 auto-fallback；UI 顯示 quality flag 等用戶決定
+2. ✅ **Stage parallel execution** — 每 stage 內部 per-segment parallel (Q4-a 5% progress emit)，stage 之間 strict sequential（confirmed）
+3. ✅ **Pipeline run cancellation granularity** — 已 done stage output 留低；cancel 之後 user 可 selective re-run（Q5-a 嘅 mirror semantics）
+4. ✅ **MT profile system_prompt i18n** — 用戶 own prompt 內容；shipped 3 個 default 全繁中，唔強制 i18n
+5. ✅ **File-level pipeline_overrides scope** — Q6-a：per (file, pipeline_id) pair，唔同 pipeline 嘅 override 唔 cross-pollinate
+6. ✅ **ASR mode + language UI boundary** — `mode="emergent-translate"` + audio 同 hint 同 lang 嘅情況：emergent fallback 等同 same-lang，唔額外 detect，UI 唔提示
+7. ✅ **word_timestamps** — Q7-b：v4 砍走 schema field 同 ASR engine 嘅 word_timestamps logic
 
 ---
 
@@ -644,7 +639,68 @@ Migration script 必須 idempotent + reversible（一個 `--dry-run` flag 預覽
 
 - [x] §1-12 vision lock，6 個 design choice + 4 個 dimension 確認
 - [x] User review 過設計 doc
-- [x] **P1 implementation plan written** ([2026-05-16-v4-phase1-entity-foundation-plan.md](../plans/2026-05-16-v4-phase1-entity-foundation-plan.md))
-- [x] **P1 implementation executed** — 891 backend tests pass, 0 regressions
-- [ ] P2-P7 plans pending P1 ship
-- [ ] (deferred) Each phase 落 implementation 前再 update vision-level doc
+- [x] **P1 (Entity foundation) implementation plan written + executed** ([2026-05-16-v4-phase1-entity-foundation-plan.md](../plans/2026-05-16-v4-phase1-entity-foundation-plan.md)) — 891 backend tests pass, 0 regressions
+- [x] **Big Bang restructure decided (2026-05-17)**：post-P1 phasing collapsed into 5 sub-phases A1-A5 shipping together as one merge
+- [x] **Q4-Q12 final dimensions locked**：5% progress / fail-fast / per-(file,pipeline) override / no word_timestamps / skip migration / React+Vite+TS frontend
+- [ ] **A1 plan written** ([2026-05-17-v4-A1-backend-foundation-plan.md](../plans/2026-05-17-v4-A1-backend-foundation-plan.md))
+- [ ] A1 implementation executed
+- [ ] A3/A4/A5 plans (each written after preceding sub-phase done)
+- [ ] Final merge to dev
+
+---
+
+## 14. Frontend Stack (Big Bang Q11-d + Q12-a)
+
+A3-A4 sub-phase 嘅 frontend 由 vanilla HTML 重寫 React + Vite + TypeScript。
+
+### 14.1 Tech stack
+
+| Concern | Choice | Rationale |
+|---|---|---|
+| Language | **TypeScript 5.x** | API surface typed contract，搭 Claude Code 編輯時 type inference 大幅減少 bug |
+| Bundler / dev | **Vite 5.x** | Native ES module dev server (port 5173)，build 出 `dist/` 由 Flask 靜態 serve |
+| Framework | **React 18.x** | 主流 + ecosystem 最完整 |
+| State | **Zustand 4.x** | ~30 行解 cross-component state (current pipeline / stage progress / file selection)，唔需要 Redux 黑盒 |
+| UI | **shadcn/ui + Tailwind 3.x** | CLI copy-paste TS source 入 `src/components/ui/`，用戶 own 曬 code，特別啱 stage chain + drag-sort 客制化 |
+| Form | **react-hook-form + zod** | Schema validation 同 backend Pydantic-style validator 平行；error message 統一 |
+| Router | **React Router 6.x** | 5 個 page (`/`, `/proofread`, `/pipelines`, `/glossaries`, `/admin`) |
+| API client | Native `fetch` + thin wrapper | 唔加 axios，CSRF cookie + 401 redirect 一個 file 解決 |
+| Auth | Existing Flask-Login session cookie | No JWT, no OAuth — 直接 reuse R5 Phase 1 auth |
+
+### 14.2 Project structure
+
+```
+frontend/                       (rewrite from scratch)
+├── package.json
+├── vite.config.ts              (proxy /api/* → http://localhost:5001)
+├── tsconfig.json
+├── tailwind.config.ts
+├── index.html
+└── src/
+    ├── main.tsx                (router + global providers)
+    ├── lib/
+    │   ├── api.ts              (fetch wrapper + 401 redirect)
+    │   ├── auth.ts             (current user state)
+    │   └── socket.ts           (Socket.IO client + Zustand bridge)
+    ├── stores/
+    │   ├── pipelineStore.ts    (Zustand: current pipeline, stage progress)
+    │   └── fileStore.ts        (Zustand: file list, selected file)
+    ├── components/
+    │   ├── ui/                 (shadcn/ui copy-pasted: Button, Dialog, Input, etc.)
+    │   ├── PipelineEditor.tsx
+    │   ├── StageChain.tsx
+    │   ├── DragSortGlossary.tsx
+    │   └── ...
+    └── pages/
+        ├── Dashboard.tsx
+        ├── Proofread.tsx
+        ├── Pipelines.tsx
+        ├── Glossaries.tsx
+        └── Admin.tsx
+```
+
+### 14.3 Backend serving
+
+- **Dev mode**：Vite dev server (5173) + Flask backend (5001)。Vite proxy 接 `/api/*` + `/login` + `/logout` + WebSocket
+- **Production**：`npm run build` 出 `frontend/dist/`，Flask `send_from_directory('frontend/dist', ...)` serve；setup scripts 加 `npm install` + `npm run build` step
+- **舊 HTML**：A5 sub-phase 完整刪除 `frontend/*.html` + `frontend/js/`
