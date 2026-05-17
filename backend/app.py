@@ -44,7 +44,7 @@ if sys.platform == "win32":
 
 import whisper
 import numpy as np
-from flask import Flask, request, jsonify, send_file, send_from_directory, redirect
+from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
 import ipaddress
 from urllib.parse import urlparse
@@ -1188,9 +1188,6 @@ def serve_font(filename):
 # ============================================================
 
 _FRONTEND_DIR = str(Path(__file__).parent.parent / "frontend")
-# v4.0 A3 — legacy vanilla HTML lives under frontend.old/ during A3-A4 transition.
-# A5 deletes these legacy .html routes once React parity is reached.
-_FRONTEND_LEGACY_DIR = str(Path(__file__).parent.parent / "frontend.old")
 
 
 def _serve_react_index():
@@ -1261,56 +1258,6 @@ def serve_admin_spa():
 @app.get("/proofread/<path:_subpath>")
 def serve_proofread_spa(_subpath):
     return _serve_react_index()
-
-
-# --- Legacy vanilla HTML pages (v4.0 A3-A4 transition) -----------------------
-# These existed before A3 and may still be hit by external callers or bookmarks
-# during the transition. A5 will remove them once React parity is reached.
-# They serve from frontend.old/ since frontend/ is now the React project root.
-
-@app.get("/login.html")
-def serve_login_page():
-    """Public route — legacy login page must be reachable without auth."""
-    return send_from_directory(_FRONTEND_LEGACY_DIR, "login.html")
-
-
-@app.get("/index.html")
-def serve_index_legacy():
-    if not current_user.is_authenticated:
-        return redirect("/login.html")
-    return send_from_directory(_FRONTEND_LEGACY_DIR, "index.html")
-
-
-@app.get("/proofread.html")
-def serve_proofread():
-    return send_from_directory(_FRONTEND_LEGACY_DIR, "proofread.html")
-
-
-@app.get("/Glossary.html")
-@login_required
-def serve_glossary_page():
-    """v3.15 — Standalone glossary management page (legacy)."""
-    return send_from_directory(_FRONTEND_LEGACY_DIR, "Glossary.html")
-
-
-@app.get("/js/<path:filename>")
-def serve_frontend_js(filename):
-    return send_from_directory(str(Path(_FRONTEND_LEGACY_DIR) / "js"), filename)
-
-
-@app.get("/css/<path:filename>")
-def serve_frontend_css(filename):
-    return send_from_directory(str(Path(_FRONTEND_LEGACY_DIR) / "css"), filename)
-
-
-@app.get("/admin.html")
-def serve_admin_page():
-    """R5 Phase 3 — admin-only page (legacy). Non-admins get 403; anonymous gets 302 to login."""
-    if not current_user.is_authenticated:
-        return redirect("/login.html")
-    if not current_user.is_admin:
-        return jsonify({"error": "admin only"}), 403
-    return send_from_directory(_FRONTEND_LEGACY_DIR, "admin.html")
 
 
 @app.errorhandler(404)
