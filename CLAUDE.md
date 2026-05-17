@@ -143,7 +143,8 @@ motitle/
 │   │   ├── lib/                # api fetch + socket events + zod schemas + utils
 │   │   ├── stores/             # Zustand: auth, pipeline-picker, ui (toasts)
 │   │   ├── providers/          # AuthProvider + SocketProvider
-│   │   ├── pages/              # Login, Dashboard, Pipelines, AsrProfiles, MtProfiles, Glossaries, Admin, ProofreadPlaceholder
+│   │   ├── pages/              # Login, Dashboard, Pipelines, AsrProfiles, MtProfiles, Glossaries, Admin
+│   │   │   └── Proofread/      # A4 — ~14 components + 6 hooks (VideoPanel, SegmentTable, StageHistorySidebar, PromptOverridesDrawer, GlossaryApplyModal, RenderModal, useSegmentEditor, useFindReplace, useRenderJob, useKeyboardShortcuts, ...)
 │   │   └── components/         # FileCard, UploadDropzone, PipelinePicker, StageEditor, EntityTable/Form, ConfirmDialog, Layout/TopBar/SideNav + ui/ shadcn primitives
 │   └── tests-e2e/              # Playwright suite (new — auth + dashboard scenarios)
 ├── docs/superpowers/           # Design specs and implementation plans
@@ -370,6 +371,30 @@ Whenever a new feature is completed or existing functionality is modified, you *
 ---
 
 ## Completed Features
+
+### v4.0 A4 — Proofread page rewrite (in progress on `chore/asr-mt-rearchitecture-research`)
+- 完整 port 舊 [frontend.old/proofread.html](frontend.old/proofread.html) (2833 行 vanilla HTML) 入 [frontend/src/pages/Proofread/](frontend/src/pages/Proofread/) 分拆成 ~14 個 React component + 6 個 hook
+- **Page layout**：TopBar (← back + filename + 字幕來源 dropdown + ⚙ Overrides + ▶ Render) + 兩欄 grid（左：VideoPanel + GlossaryPanel + SubtitleSettingsPanel；右：FindReplaceToolbar [⌘F] + SegmentTable）+ 4 個 overlay (StageHistorySidebar / PromptOverridesDrawer / GlossaryApplyModal / RenderModal) + 1 個 progress overlay (Render job bottom-right)
+- **VideoPanel + SubtitleOverlay**：SVG `paint-order="stroke fill"` 重現 v3.5 fidelity（FontFace API inject `/api/fonts`、`viewBox=1920×1080` 對齊 libass、`tspan` 處理 bilingual newline）；`pickSubtitleText` helper 兼容 source / target / bilingual + source_top / target_top
+- **SegmentTable + SegmentRow**：double-click ZH cell 入 edit mode、Enter commits、Esc reverts；React.memo 包 row 處理 100+ segments；Approve / Show history / Re-run dropdown 三個 action button per row；header 有「套用詞彙表」+「Approve all pending」bulk buttons
+- **Hooks (6 個)**：
+  - [useFileData](frontend/src/pages/Proofread/hooks/useFileData.ts) — fetch file + translations + refresh
+  - [useActiveProfile](frontend/src/pages/Proofread/hooks/useActiveProfile.ts) — fetch `/api/profiles/active`
+  - [useSegmentEditor](frontend/src/pages/Proofread/hooks/useSegmentEditor.ts) — reducer (INIT / EDIT_DRAFT / EDIT_COMMIT / EDIT_REVERT / APPROVE / BULK_APPROVE) + optimistic update + revert on API failure
+  - [useFindReplace](frontend/src/pages/Proofread/hooks/useFindReplace.ts) — query + scope filter (zh/en/both/pending) + cursor + replaceOne/replaceAll mutations
+  - [useRenderJob](frontend/src/pages/Proofread/hooks/useRenderJob.ts) — POST `/api/render` + 2s poll + File System Access API `showSaveFilePicker` (Chrome/Edge) 或 `<a download>` fallback (Safari/Firefox)
+  - [useKeyboardShortcuts](frontend/src/pages/Proofread/hooks/useKeyboardShortcuts.ts) — ⌘F open find + Esc cascading close (render > glossaryApply > overrides > history > find)
+- **A1 endpoints 全部 wire 到 UI**：
+  - PATCH `/api/files/<fid>/stages/<idx>/segments/<seg_idx>` — StageHistorySidebar 內每個 stage 嘅 Edit button
+  - POST `/api/files/<fid>/stages/<idx>/rerun` — SegmentRow actions 嘅 Re-run dropdown
+  - POST `/api/files/<fid>/pipeline_overrides` — PromptOverridesDrawer Save / Clear buttons
+- **RenderModal**：3 個 format tab (MP4 + MXF ProRes + XDCAM HD 422) + 完整 zod `RenderOptionsSchema` discriminated union；MP4 有 CRF/CBR/2-pass bitrate mode + pixel_format ↔ H.264 profile 雙向 cross-field validation；ProRes 有 profile 0-5 (Proxy/LT/Standard/HQ/4444/4444XQ) + audio bit depth；XDCAM HD 422 有 10-100 Mbps range slider + audio bit depth
+- **Per-file `subtitle_source` + `bilingual_order`**：TopBar dropdown 直接 PATCH `/api/files/<fid>`，refresh 後 overlay 即時跟住變
+- **State management**：本地 `useReducer` (useSegmentEditor) + 本地 `useState` (modal/drawer visibility) + Zustand auth store from A3 (read-only) + SocketProvider context for realtime stage progress；冇引入新 Zustand store
+- **Tests**：~183 個 Vitest unit pass (~50 個新增 from A4) + 3 個 Playwright E2E (proofread-load / render-modal / find-replace) skip 喺 admin password mismatch 嘅環境
+- **Out-of-A4 scope**（明確留 A5）：刪除 `frontend.old/` 整個 directory；退役 legacy backend route（`/proofread.html`, `/login.html`, `/admin.html`, `/Glossary.html`, `/index.html`, `/js/<path>`, `/css/<path>`, `/api/profiles` bundled endpoint）；test pollution cleanup (`backend/config/asr_profiles/*.json`, `backend/.coverage`)
+- **Stack note**：A4 用零個新 npm package — 全部 A3 stack 嘅 zod / react-hook-form / radix-ui / lucide-react / socket.io-client / @testing-library/react 都繼續用
+- **Spec / Plan**：[design](docs/superpowers/specs/2026-05-17-v4-A4-proofread-page-design.md) / [plan](docs/superpowers/plans/2026-05-17-v4-A4-proofread-page-plan.md)
 
 ### v4.0 A3 — Frontend foundation (in progress on `chore/asr-mt-rearchitecture-research`)
 - 舊 vanilla HTML pages 移去 [frontend.old/](frontend.old/) (A5 砍走)；新 Vite + React 18 + TypeScript 嘅 SPA 喺 [frontend/](frontend/)，按 design doc [§14](docs/superpowers/specs/2026-05-16-asr-mt-emergent-pipeline-design.md) 嘅 stack lock
