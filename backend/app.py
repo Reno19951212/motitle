@@ -3532,18 +3532,18 @@ def transcribe_file():
 
     sid = request.form.get('sid', None)
 
-    # v4.0 A3 T4 — optional pipeline_id form field. When present, validate
-    # visibility and enqueue a `pipeline_run` job (v4 A1 handler) instead of
-    # the legacy ASR-then-MT auto-translate flow. Validate BEFORE saving the
-    # uploaded file so a bad request doesn't leave an orphan on disk.
+    # v4.0 A5 T5 — pipeline_id is REQUIRED. Legacy ASR-only fallback deleted.
+    # Validate BEFORE saving the uploaded file so a bad request doesn't leave
+    # an orphan on disk.
     pipeline_id = (request.form.get('pipeline_id') or '').strip() or None
-    if pipeline_id:
-        if _pipeline_manager.get(pipeline_id) is None:
-            return jsonify({'error': f'Pipeline not found: {pipeline_id}'}), 400
-        if not app.config.get("R5_AUTH_BYPASS") and not _pipeline_manager.can_view(
-            pipeline_id, current_user.id, current_user.is_admin
-        ):
-            return jsonify({'error': 'Pipeline not visible to current user'}), 403
+    if not pipeline_id:
+        return jsonify({'error': 'pipeline_id is required (v4.0)'}), 400
+    if _pipeline_manager.get(pipeline_id) is None:
+        return jsonify({'error': f'Pipeline not found: {pipeline_id}'}), 400
+    if not app.config.get("R5_AUTH_BYPASS") and not _pipeline_manager.can_view(
+        pipeline_id, current_user.id, current_user.is_admin
+    ):
+        return jsonify({'error': 'Pipeline not visible to current user'}), 403
 
     # Generate a unique file id and save (R5 Phase 1: per-user dir layout)
     file_id = uuid.uuid4().hex[:12]
@@ -3559,25 +3559,14 @@ def transcribe_file():
     if sid:
         socketio.emit('file_added', entry, room=sid)
 
-    if pipeline_id:
-        # v4.0 A3 T4 — pipeline_run handler (v4 A1) takes over ASR+MT+glossary
-        # execution. payload carries pipeline_id + file_id per A1 contract.
-        job_id = _job_queue.enqueue(
-            user_id=current_user.id,
-            file_id=file_id,
-            job_type='pipeline_run',
-            payload={'pipeline_id': pipeline_id, 'file_id': file_id},
-        )
-    else:
-        # R5 Phase 1: enqueue the ASR job instead of running transcription in
-        # the request thread. Worker thread picks it up and calls _asr_handler →
-        # transcribe_with_segments. Full registry result-merge + auto-translate
-        # bridging is Phase 2 scope (see _asr_handler annotation in boot block).
-        job_id = _job_queue.enqueue(
-            user_id=current_user.id,
-            file_id=file_id,
-            job_type='asr',
-        )
+    # v4.0 A3 T4 — pipeline_run handler (v4 A1) takes over ASR+MT+glossary
+    # execution. payload carries pipeline_id + file_id per A1 contract.
+    job_id = _job_queue.enqueue(
+        user_id=current_user.id,
+        file_id=file_id,
+        job_type='pipeline_run',
+        payload={'pipeline_id': pipeline_id, 'file_id': file_id},
+    )
     return jsonify({
         'file_id': file_id,
         'job_id': job_id,

@@ -1,7 +1,8 @@
-"""v4.0 A3 T4 — POST /api/transcribe accepts optional pipeline_id form field.
+"""v4.0 A5 T5 — POST /api/transcribe REQUIRES pipeline_id form field.
 
-When present and valid, the upload enqueues a `pipeline_run` job (using A1
-handler) instead of the legacy ASR-then-MT auto-translate flow.
+The upload enqueues a `pipeline_run` job (using A1 handler). The legacy
+ASR-then-MT auto-translate fallback (A3 T4 had it optional) is deleted.
+Missing pipeline_id returns 400.
 """
 import io
 import pytest
@@ -129,13 +130,12 @@ def test_transcribe_with_pipeline_id_enqueues_pipeline_run(client_with_admin, fa
     assert (job.get("payload") or {}).get("pipeline_id") == fake_pipeline["id"]
 
 
-def test_transcribe_without_pipeline_id_uses_legacy_flow(client_with_admin):
+def test_transcribe_without_pipeline_id_returns_400(client_with_admin):
+    """v4.0 A5 T5: pipeline_id is mandatory; legacy asr-only flow deleted."""
     response = _upload_minimal_wav(client_with_admin)
-    assert response.status_code == 202, response.data
+    assert response.status_code == 400, response.data
     body = response.get_json()
-    job = _lookup_job(body["job_id"])
-    assert job is not None
-    assert job["type"] == "asr", f"expected legacy asr, got {job['type']}"
+    assert "pipeline_id" in (body.get("error") or "").lower(), body
 
 
 def test_transcribe_with_invalid_pipeline_id_returns_400(client_with_admin):
