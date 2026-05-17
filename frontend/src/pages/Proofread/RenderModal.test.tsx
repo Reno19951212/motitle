@@ -24,4 +24,28 @@ describe('RenderModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
     expect(screen.getByText(/pixel_format and H\.264 profile must match/)).toBeInTheDocument();
   });
+
+  it('switches to MXF ProRes tab + confirms with default options', () => {
+    const onConfirm = vi.fn();
+    render(<RenderModal open onClose={vi.fn()} onConfirm={onConfirm} />);
+    const proresTab = screen.getByRole('tab', { name: 'MXF ProRes' });
+    fireEvent.mouseDown(proresTab);
+    fireEvent.click(proresTab);
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    expect(onConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({ format: 'mxf_prores', prores_profile: '3' }),
+    );
+  });
+
+  it('switches to XDCAM HD 422 tab + confirms with default options', () => {
+    const onConfirm = vi.fn();
+    render(<RenderModal open onClose={vi.fn()} onConfirm={onConfirm} />);
+    const xdcamTab = screen.getByRole('tab', { name: 'XDCAM HD 422' });
+    fireEvent.mouseDown(xdcamTab);
+    fireEvent.click(xdcamTab);
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    expect(onConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({ format: 'mxf_xdcam_hd422', video_bitrate_mbps: 50 }),
+    );
+  });
 });

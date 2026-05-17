@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Mp4Schema } from './render-options';
+import { Mp4Schema, ProResSchema, XdcamSchema, RenderOptionsSchema } from './render-options';
 
 const base = { format: 'mp4' as const, bitrate_mode: 'crf' as const };
 
@@ -40,5 +40,56 @@ describe('Mp4Schema', () => {
   it('accepts unknown level=auto', () => {
     const r = Mp4Schema.parse({ ...base, level: 'auto' });
     expect(r.level).toBe('auto');
+  });
+});
+
+describe('ProResSchema', () => {
+  it('accepts default ProRes', () => {
+    const r = ProResSchema.parse({ format: 'mxf_prores' });
+    expect(r.prores_profile).toBe('3');
+    expect(r.audio_bit_depth).toBe('24');
+  });
+
+  it('rejects unknown profile', () => {
+    expect(() => ProResSchema.parse({ format: 'mxf_prores', prores_profile: '99' })).toThrow();
+  });
+
+  it('accepts each profile 0-5', () => {
+    for (const p of ['0', '1', '2', '3', '4', '5'] as const) {
+      const r = ProResSchema.parse({ format: 'mxf_prores', prores_profile: p });
+      expect(r.prores_profile).toBe(p);
+    }
+  });
+});
+
+describe('XdcamSchema', () => {
+  it('accepts default XDCAM (50 Mbps)', () => {
+    const r = XdcamSchema.parse({ format: 'mxf_xdcam_hd422' });
+    expect(r.video_bitrate_mbps).toBe(50);
+  });
+
+  it('rejects bitrate < 10', () => {
+    expect(() => XdcamSchema.parse({ format: 'mxf_xdcam_hd422', video_bitrate_mbps: 5 })).toThrow();
+  });
+
+  it('rejects bitrate > 100', () => {
+    expect(() => XdcamSchema.parse({ format: 'mxf_xdcam_hd422', video_bitrate_mbps: 150 })).toThrow();
+  });
+});
+
+describe('RenderOptionsSchema (discriminated union)', () => {
+  it('discriminates on format=mp4', () => {
+    const r = RenderOptionsSchema.parse({ format: 'mp4', bitrate_mode: 'crf' });
+    expect(r.format).toBe('mp4');
+  });
+
+  it('discriminates on format=mxf_prores', () => {
+    const r = RenderOptionsSchema.parse({ format: 'mxf_prores' });
+    expect(r.format).toBe('mxf_prores');
+  });
+
+  it('discriminates on format=mxf_xdcam_hd422', () => {
+    const r = RenderOptionsSchema.parse({ format: 'mxf_xdcam_hd422' });
+    expect(r.format).toBe('mxf_xdcam_hd422');
   });
 });

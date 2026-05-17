@@ -11,15 +11,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  Mp4Schema,
+  RenderOptionsSchema,
   MP4_BITRATE_MODES,
   MP4_PRESETS,
   MP4_PIXEL_FORMATS,
   MP4_PROFILES,
   MP4_LEVELS,
   MP4_AUDIO_BITRATES,
+  PRORES_PROFILES,
+  PRORES_PROFILE_LABELS,
+  AUDIO_BIT_DEPTHS,
   RESOLUTIONS,
+  SUBTITLE_SOURCES,
+  BILINGUAL_ORDERS,
   type Mp4Options,
+  type ProResOptions,
+  type XdcamOptions,
+  type RenderOptions,
 } from '@/lib/schemas/render-options';
 
 type Format = 'mp4' | 'mxf_prores' | 'mxf_xdcam_hd422';
@@ -27,7 +35,7 @@ type Format = 'mp4' | 'mxf_prores' | 'mxf_xdcam_hd422';
 interface Props {
   open: boolean;
   onClose: () => void;
-  onConfirm: (options: Mp4Options /* T15: union */) => void;
+  onConfirm: (options: RenderOptions) => void;
 }
 
 const mp4Defaults: Mp4Options = {
@@ -45,9 +53,90 @@ const mp4Defaults: Mp4Options = {
   bilingual_order: 'source_top',
 };
 
+const proresDefaults: ProResOptions = {
+  format: 'mxf_prores',
+  prores_profile: '3',
+  audio_bit_depth: '24',
+  resolution: 'keep',
+  subtitle_source: 'auto',
+  bilingual_order: 'source_top',
+};
+
+const xdcamDefaults: XdcamOptions = {
+  format: 'mxf_xdcam_hd422',
+  video_bitrate_mbps: 50,
+  audio_bit_depth: '24',
+  resolution: 'keep',
+  subtitle_source: 'auto',
+  bilingual_order: 'source_top',
+};
+
+interface CommonFieldsValue {
+  resolution: (typeof RESOLUTIONS)[number];
+  subtitle_source: (typeof SUBTITLE_SOURCES)[number];
+  bilingual_order: (typeof BILINGUAL_ORDERS)[number];
+}
+
+function CommonFields<T extends CommonFieldsValue>({
+  value,
+  update,
+}: {
+  value: T;
+  update: <K extends keyof T>(k: K, v: T[K]) => void;
+}) {
+  return (
+    <div className="grid grid-cols-3 gap-3 pt-2 border-t mt-2">
+      <div>
+        <Label className="text-xs">Resolution</Label>
+        <select
+          value={value.resolution}
+          onChange={(e) => update('resolution' as keyof T, e.target.value as T[keyof T])}
+          className="block w-full h-10 rounded-md border border-input bg-background px-2 text-sm"
+        >
+          {RESOLUTIONS.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <Label className="text-xs">Subtitle source</Label>
+        <select
+          value={value.subtitle_source}
+          onChange={(e) => update('subtitle_source' as keyof T, e.target.value as T[keyof T])}
+          className="block w-full h-10 rounded-md border border-input bg-background px-2 text-sm"
+        >
+          {SUBTITLE_SOURCES.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <Label className="text-xs">Bilingual order</Label>
+        <select
+          value={value.bilingual_order}
+          onChange={(e) => update('bilingual_order' as keyof T, e.target.value as T[keyof T])}
+          className="block w-full h-10 rounded-md border border-input bg-background px-2 text-sm"
+        >
+          {BILINGUAL_ORDERS.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
+
 export function RenderModal({ open, onClose, onConfirm }: Props) {
   const [format, setFormat] = useState<Format>('mp4');
   const [mp4, setMp4] = useState<Mp4Options>(mp4Defaults);
+  const [prores, setProres] = useState<ProResOptions>(proresDefaults);
+  const [xdcam, setXdcam] = useState<XdcamOptions>(xdcamDefaults);
   const [error, setError] = useState<string | null>(null);
 
   function patchMp4<K extends keyof Mp4Options>(key: K, value: Mp4Options[K]) {
@@ -55,12 +144,21 @@ export function RenderModal({ open, onClose, onConfirm }: Props) {
     setError(null);
   }
 
+  function patchProres<K extends keyof ProResOptions>(key: K, value: ProResOptions[K]) {
+    setProres((p) => ({ ...p, [key]: value }));
+    setError(null);
+  }
+
+  function patchXdcam<K extends keyof XdcamOptions>(key: K, value: XdcamOptions[K]) {
+    setXdcam((p) => ({ ...p, [key]: value }));
+    setError(null);
+  }
+
   function handleConfirm() {
-    if (format !== 'mp4') {
-      setError('Only MP4 supported in this build (T15 adds MXF formats)');
-      return;
-    }
-    const parsed = Mp4Schema.safeParse(mp4);
+    setError(null);
+    const candidate: RenderOptions =
+      format === 'mp4' ? mp4 : format === 'mxf_prores' ? prores : xdcam;
+    const parsed = RenderOptionsSchema.safeParse(candidate);
     if (!parsed.success) {
       setError(parsed.error.issues.map((i) => i.message).join('; '));
       return;
@@ -194,27 +292,89 @@ export function RenderModal({ open, onClose, onConfirm }: Props) {
                   ))}
                 </select>
               </div>
+            </div>
+            <CommonFields
+              value={mp4}
+              update={(k, v) => patchMp4(k as keyof Mp4Options, v as Mp4Options[keyof Mp4Options])}
+            />
+          </TabsContent>
+
+          <TabsContent value="mxf_prores" className="space-y-3 pt-2">
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs">Resolution</Label>
+                <Label className="text-xs">ProRes Profile</Label>
                 <select
-                  value={mp4.resolution}
-                  onChange={(e) => patchMp4('resolution', e.target.value as Mp4Options['resolution'])}
+                  value={prores.prores_profile}
+                  onChange={(e) => patchProres('prores_profile', e.target.value as ProResOptions['prores_profile'])}
                   className="block w-full h-10 rounded-md border border-input bg-background px-2 text-sm"
                 >
-                  {RESOLUTIONS.map((p) => (
+                  {PRORES_PROFILES.map((p) => (
                     <option key={p} value={p}>
-                      {p}
+                      {p} — {PRORES_PROFILE_LABELS[p]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label className="text-xs">Audio bit depth</Label>
+                <select
+                  value={prores.audio_bit_depth}
+                  onChange={(e) => patchProres('audio_bit_depth', e.target.value as ProResOptions['audio_bit_depth'])}
+                  className="block w-full h-10 rounded-md border border-input bg-background px-2 text-sm"
+                >
+                  {AUDIO_BIT_DEPTHS.map((p) => (
+                    <option key={p} value={p}>
+                      {p}-bit PCM
                     </option>
                   ))}
                 </select>
               </div>
             </div>
+            <CommonFields
+              value={prores}
+              update={(k, v) =>
+                patchProres(k as keyof ProResOptions, v as ProResOptions[keyof ProResOptions])
+              }
+            />
           </TabsContent>
-          <TabsContent value="mxf_prores">
-            <p className="p-4 text-sm text-muted-foreground">MXF ProRes controls — T15 will add full controls.</p>
-          </TabsContent>
-          <TabsContent value="mxf_xdcam_hd422">
-            <p className="p-4 text-sm text-muted-foreground">MXF XDCAM HD 422 controls — T15 will add full controls.</p>
+
+          <TabsContent value="mxf_xdcam_hd422" className="space-y-3 pt-2">
+            <div>
+              <Label className="text-xs">Video bitrate (Mbps): {xdcam.video_bitrate_mbps}</Label>
+              <input
+                type="range"
+                min={10}
+                max={100}
+                step={5}
+                value={xdcam.video_bitrate_mbps}
+                onChange={(e) => patchXdcam('video_bitrate_mbps', Number(e.target.value))}
+                className="w-full"
+                aria-label="XDCAM bitrate"
+              />
+              <p className="text-xs text-muted-foreground">
+                Default 50 Mbps (Sony XDCAM HD 422 broadcast standard)
+              </p>
+            </div>
+            <div>
+              <Label className="text-xs">Audio bit depth</Label>
+              <select
+                value={xdcam.audio_bit_depth}
+                onChange={(e) => patchXdcam('audio_bit_depth', e.target.value as XdcamOptions['audio_bit_depth'])}
+                className="block w-full h-10 rounded-md border border-input bg-background px-2 text-sm"
+              >
+                {AUDIO_BIT_DEPTHS.map((p) => (
+                  <option key={p} value={p}>
+                    {p}-bit PCM
+                  </option>
+                ))}
+              </select>
+            </div>
+            <CommonFields
+              value={xdcam}
+              update={(k, v) =>
+                patchXdcam(k as keyof XdcamOptions, v as XdcamOptions[keyof XdcamOptions])
+              }
+            />
           </TabsContent>
         </Tabs>
         {error && <p className="text-sm text-destructive">{error}</p>}
