@@ -346,7 +346,10 @@ app.register_blueprint(queue_bp)
 # v4.0 A5 T8 — legacy bundled ProfileManager removed. ASR/MT/Pipeline managers
 # (instantiated below) own profile data now. CONFIG_DIR retained for glossaries
 # and v4 managers.
-CONFIG_DIR = Path(__file__).parent / "config"
+# v4.0 A5 T10 — honor R5_CONFIG_DIR env var so tests can redirect manager
+# storage to a tmp_path/config dir without polluting backend/config/. Falls
+# back to the bundled config when unset.
+CONFIG_DIR = Path(os.environ.get("R5_CONFIG_DIR") or (Path(__file__).parent / "config"))
 
 
 # Glossary management
@@ -2067,10 +2070,10 @@ def api_glossary_apply(file_id):
 def get_prompt_templates():
     """v3.18 Stage 2 — list backend-managed MT prompt templates.
 
-    Templates live in backend/config/prompt_templates/*.json. Used by the
-    proofread page's '自訂 Prompt' panel as textarea seed source.
-    Returns templates in stable order with 'broadcast' first."""
-    template_dir = Path(__file__).parent / "config" / "prompt_templates"
+    Templates live in <CONFIG_DIR>/prompt_templates/*.json (R5_CONFIG_DIR
+    aware). Used by the proofread page's '自訂 Prompt' panel as textarea
+    seed source. Returns templates in stable order with 'broadcast' first."""
+    template_dir = CONFIG_DIR / "prompt_templates"
     # Stable order: broadcast (recommended default) → sports → literal
     ORDER = ["broadcast", "sports", "literal"]
     templates = []

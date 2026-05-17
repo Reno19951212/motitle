@@ -1,4 +1,5 @@
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -68,6 +69,84 @@ def _isolate_app_data(request, tmp_path, monkeypatch):
     monkeypatch.setattr(app, "RENDERS_DIR", test_data_dir / "renders")
     monkeypatch.setattr(app, "RESULTS_DIR", test_data_dir / "results")
 
+    # v4.0 A5 T10 — isolate v4 manager storage from the real
+    # backend/config/{asr_profiles,mt_profiles,pipelines,glossaries} dirs.
+    # Without this, every test that hit /api/asr_profiles or
+    # /api/mt_profiles or /api/pipelines etc. left junk JSONs in the
+    # real config tree. Strategy:
+    #
+    #   1. Build tmp_path/config/<sub> for every subdir managers expect.
+    #   2. Seed read-only data (languages/, prompt_templates/) by copy
+    #      so list / get endpoints still return real shapes.
+    #   3. Re-instantiate each manager pointed at the tmp config dir
+    #      and swap them onto the live app module.
+    #   4. Re-wire decorators with the fresh managers so
+    #      @require_asr_profile_owner etc. consult them.
+    #
+    # Approach B (monkeypatch managers) chosen over module reload
+    # because many tests do `import app as app_mod` and hold module-
+    # level references; a reload would invalidate those.
+    test_config_dir = tmp_path / "config"
+    test_config_dir.mkdir(parents=True, exist_ok=True)
+    for sub in (
+        "asr_profiles",
+        "mt_profiles",
+        "pipelines",
+        "glossaries",
+        "languages",
+        "prompt_templates",
+    ):
+        (test_config_dir / sub).mkdir(exist_ok=True)
+
+    # Seed read-only assets so language/prompt-template endpoints have
+    # data to return. We DO NOT copy glossaries/ or *_profiles/ — those
+    # are exactly the dirs tests pollute, and the isolation is meant to
+    # start each test from an empty slate.
+    real_config = Path(__file__).resolve().parent.parent / "config"
+    for src_sub in ("languages", "prompt_templates"):
+        src = real_config / src_sub
+        if src.exists():
+            dst = test_config_dir / src_sub
+            shutil.rmtree(dst, ignore_errors=True)
+            shutil.copytree(src, dst)
+
+    # Set env var so any *fresh* imports (rare) also see the tmp path.
+    monkeypatch.setenv("R5_CONFIG_DIR", str(test_config_dir))
+
+    # Swap CONFIG_DIR on the live module + replace each manager.
+    monkeypatch.setattr(app, "CONFIG_DIR", test_config_dir)
+
+    from glossary import GlossaryManager
+    from language_config import LanguageConfigManager
+    from asr_profiles import ASRProfileManager
+    from mt_profiles import MTProfileManager
+    from pipelines import PipelineManager
+
+    fresh_glossary = GlossaryManager(test_config_dir)
+    fresh_language = LanguageConfigManager(test_config_dir)
+    fresh_asr = ASRProfileManager(test_config_dir)
+    fresh_mt = MTProfileManager(test_config_dir)
+    fresh_pipeline = PipelineManager(
+        test_config_dir,
+        asr_manager=fresh_asr,
+        mt_manager=fresh_mt,
+        glossary_manager=fresh_glossary,
+    )
+
+    monkeypatch.setattr(app, "_glossary_manager", fresh_glossary)
+    monkeypatch.setattr(app, "_language_config_manager", fresh_language)
+    monkeypatch.setattr(app, "_asr_profile_manager", fresh_asr)
+    monkeypatch.setattr(app, "_mt_profile_manager", fresh_mt)
+    monkeypatch.setattr(app, "_pipeline_manager", fresh_pipeline)
+
+    # Re-register v4 managers with decorator module so the ownership
+    # check decorators look up profiles in the fresh managers.
+    try:
+        from auth.decorators import set_v4_managers
+        set_v4_managers(fresh_asr, fresh_mt, fresh_pipeline)
+    except ImportError:
+        pass
+
     # R5 Phase 1: existing tests don't authenticate, so bypass auth gates.
     # LOGIN_DISABLED makes flask_login.@login_required pass through.
     # R5_AUTH_BYPASS makes our @require_file_owner / @admin_required wrappers
@@ -109,3 +188,18 @@ def _isolate_app_data(request, tmp_path, monkeypatch):
     with app._registry_lock:
         app._file_registry.clear()
         app._file_registry.update(original_registry)
+
+    # v4.0 A5 T10 — restore the production v4 managers in the decorator
+    # closure so the *next* test (which gets a fresh monkeypatch) starts
+    # from a known baseline. monkeypatch undoes setattr() on the app
+    # module automatically, but set_v4_managers stores closures in
+    # auth.decorators directly.
+    try:
+        from auth.decorators import set_v4_managers
+        set_v4_managers(
+            app._asr_profile_manager,
+            app._mt_profile_manager,
+            app._pipeline_manager,
+        )
+    except ImportError:
+        pass

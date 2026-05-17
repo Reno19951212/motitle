@@ -52,7 +52,7 @@ def fresh_v4_managers(tmp_path, monkeypatch):
     from glossary import GlossaryManager
 
     config_dir = tmp_path / "config"
-    config_dir.mkdir()
+    config_dir.mkdir(exist_ok=True)
 
     asr_mgr = ASRProfileManager(config_dir)
     mt_mgr = MTProfileManager(config_dir)
