@@ -1,16 +1,16 @@
 // src/pages/Proofread/VideoPanel.tsx
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SubtitleOverlay, pickSubtitleText } from './SubtitleOverlay';
-import type { ActiveProfile } from './hooks/useActiveProfile';
+import type { FontConfig } from '@/lib/schemas/pipeline';
 import type { FileDetail, Translation } from './types';
 
 interface Props {
   file: FileDetail;
   translations: Translation[];
-  profile: ActiveProfile | null;
+  font: FontConfig | null;
 }
 
-export function VideoPanel({ file, translations, profile }: Props) {
+export function VideoPanel({ file, translations, font }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
 
@@ -48,7 +48,7 @@ export function VideoPanel({ file, translations, profile }: Props) {
         controls
         className="w-full h-full"
       />
-      <SubtitleOverlay text={overlayText} profile={profile} />
+      <SubtitleOverlay text={overlayText} font={font} />
     </div>
   );
 }

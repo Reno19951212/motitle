@@ -40,8 +40,8 @@ vi.mock('./hooks/useFileData', () => ({
   }),
 }));
 
-vi.mock('./hooks/useActiveProfile', () => ({
-  useActiveProfile: () => ({ profile: null, refresh: vi.fn() }),
+vi.mock('./hooks/useFilePipeline', () => ({
+  useFilePipeline: () => ({ pipeline: null, font: null, glossaryId: null, refresh: vi.fn() }),
 }));
 
 vi.mock('./hooks/useFindReplace', () => ({

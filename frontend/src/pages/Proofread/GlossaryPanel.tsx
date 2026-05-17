@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import type { ActiveProfile } from './hooks/useActiveProfile';
 
 interface Entry {
   source: string;
@@ -20,15 +19,14 @@ interface Glossary {
 }
 
 interface Props {
-  profile: ActiveProfile | null;
+  glossaryId: string | null;
 }
 
-export function GlossaryPanel({ profile }: Props) {
+export function GlossaryPanel({ glossaryId }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [glossary, setGlossary] = useState<Glossary | null>(null);
   const [loading, setLoading] = useState(false);
   const [newEntry, setNewEntry] = useState({ source: '', target: '' });
-  const glossaryId = profile?.translation?.glossary_id;
 
   useEffect(() => {
     if (!expanded || !glossaryId) return;

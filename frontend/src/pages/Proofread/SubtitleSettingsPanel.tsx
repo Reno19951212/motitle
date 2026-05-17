@@ -4,34 +4,35 @@ import { apiFetch } from '@/lib/api';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import type { ActiveProfile } from './hooks/useActiveProfile';
+import type { FontConfig } from '@/lib/schemas/pipeline';
 
 const DEBOUNCE_MS = 500;
 
 interface Props {
-  profile: ActiveProfile | null;
+  pipelineId: string | null | undefined;
+  font: FontConfig | null;
   onSaved?: () => void;
 }
 
-export function SubtitleSettingsPanel({ profile, onSaved }: Props) {
+export function SubtitleSettingsPanel({ pipelineId, font, onSaved }: Props) {
   const [expanded, setExpanded] = useState(false);
-  const [local, setLocal] = useState(profile?.font ?? null);
+  const [local, setLocal] = useState<FontConfig | null>(font);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    setLocal(profile?.font ?? null);
-  }, [profile?.id, profile?.font]);
+    setLocal(font);
+  }, [pipelineId, font]);
 
-  function update<K extends keyof NonNullable<typeof local>>(key: K, value: NonNullable<typeof local>[K]) {
-    if (!local || !profile) return;
-    const next = { ...local, [key]: value };
+  function update<K extends keyof FontConfig>(key: K, value: FontConfig[K]) {
+    if (!local || !pipelineId) return;
+    const next: FontConfig = { ...local, [key]: value };
     setLocal(next);
     if (timerRef.current !== null) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(async () => {
       try {
-        await apiFetch(`/api/profiles/${profile.id}`, {
+        await apiFetch(`/api/pipelines/${pipelineId}`, {
           method: 'PATCH',
-          body: JSON.stringify({ font: next }),
+          body: JSON.stringify({ font_config: next }),
         });
         onSaved?.();
       } catch {
@@ -60,8 +61,8 @@ export function SubtitleSettingsPanel({ profile, onSaved }: Props) {
       </button>
       {expanded && (
         <div className="p-3 space-y-3 border-t">
-          {!profile && <p className="text-xs text-muted-foreground">No active profile.</p>}
-          {profile && local && (
+          {!pipelineId && <p className="text-xs text-muted-foreground">No pipeline assigned.</p>}
+          {pipelineId && local && (
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label className="text-xs">Family</Label>

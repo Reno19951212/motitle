@@ -1,7 +1,7 @@
 // src/pages/Proofread/SubtitleOverlay.tsx
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
-import type { ActiveProfile } from './hooks/useActiveProfile';
+import type { FontConfig } from '@/lib/schemas/pipeline';
 import type { Translation } from './types';
 
 interface FontInfo {
@@ -11,10 +11,10 @@ interface FontInfo {
 
 interface Props {
   text: string;
-  profile: ActiveProfile | null;
+  font: FontConfig | null;
 }
 
-export function SubtitleOverlay({ text, profile }: Props) {
+export function SubtitleOverlay({ text, font }: Props) {
   const [fontsLoaded, setFontsLoaded] = useState(false);
 
   useEffect(() => {
@@ -47,8 +47,8 @@ export function SubtitleOverlay({ text, profile }: Props) {
     };
   }, []);
 
-  if (!profile || !text) return null;
-  const f = profile.font;
+  if (!font || !text) return null;
+  const f = font;
   const lines = text.split(/\n|\\N/);
   const lineHeight = f.size * 1.2;
   const baselineY = 1080 - f.margin_bottom;

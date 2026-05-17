@@ -16,7 +16,7 @@ import { GlossaryPanel } from './GlossaryPanel';
 import { SubtitleSettingsPanel } from './SubtitleSettingsPanel';
 import { RenderModal } from './RenderModal';
 import { useFileData } from './hooks/useFileData';
-import { useActiveProfile } from './hooks/useActiveProfile';
+import { useFilePipeline } from './hooks/useFilePipeline';
 import { useFindReplace } from './hooks/useFindReplace';
 import type { Replacement } from './hooks/useFindReplace';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -31,7 +31,7 @@ export default function Proofread() {
 
 function ProofreadInner({ fileId }: { fileId: string }) {
   const { file, translations, loading, error, refresh } = useFileData(fileId);
-  const { profile, refresh: refreshProfile } = useActiveProfile();
+  const { font, glossaryId, refresh: refreshPipeline } = useFilePipeline(file?.pipeline_id ?? null);
   const fr = useFindReplace(translations);
   const { state: socketState } = useSocket();
 
@@ -106,9 +106,13 @@ function ProofreadInner({ fileId }: { fileId: string }) {
       />
       <div className="grid grid-cols-2 overflow-hidden">
         <div className="border-r overflow-auto p-3 space-y-3">
-          <VideoPanel file={file} translations={translations} profile={profile} />
-          <GlossaryPanel profile={profile} />
-          <SubtitleSettingsPanel profile={profile} onSaved={refreshProfile} />
+          <VideoPanel file={file} translations={translations} font={font} />
+          <GlossaryPanel glossaryId={glossaryId} />
+          <SubtitleSettingsPanel
+            pipelineId={file?.pipeline_id ?? null}
+            font={font}
+            onSaved={refreshPipeline}
+          />
         </div>
         <div className="flex flex-col overflow-hidden">
           {findOpen && <FindReplaceToolbar fr={fr} onReplace={handleReplace} onClose={() => setFindOpen(false)} />}

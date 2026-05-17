@@ -2,22 +2,18 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { SubtitleOverlay, pickSubtitleText } from './SubtitleOverlay';
-import type { ActiveProfile } from './hooks/useActiveProfile';
+import type { FontConfig } from '@/lib/schemas/pipeline';
 import type { Translation } from './types';
 
-const profile: ActiveProfile = {
-  id: 'p',
-  name: 'P',
-  font: {
-    family: 'Noto Sans TC',
-    size: 35,
-    color: '#fff',
-    outline_color: '#000',
-    outline_width: 2,
-    margin_bottom: 40,
-    subtitle_source: 'auto',
-    bilingual_order: 'source_top',
-  },
+const font: FontConfig = {
+  family: 'Noto Sans TC',
+  size: 35,
+  color: '#fff',
+  outline_color: '#000',
+  outline_width: 2,
+  margin_bottom: 40,
+  subtitle_source: 'auto',
+  bilingual_order: 'source_top',
 };
 
 describe('SubtitleOverlay', () => {
@@ -25,12 +21,12 @@ describe('SubtitleOverlay', () => {
     vi.spyOn(global, 'fetch').mockResolvedValue(
       new Response('[]', { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
-    const { container } = render(<SubtitleOverlay text="" profile={profile} />);
+    const { container } = render(<SubtitleOverlay text="" font={font} />);
     expect(container.firstChild).toBeNull();
   });
 
-  it('renders nothing when profile is null', () => {
-    const { container } = render(<SubtitleOverlay text="hi" profile={null} />);
+  it('renders nothing when font is null', () => {
+    const { container } = render(<SubtitleOverlay text="hi" font={null} />);
     expect(container.firstChild).toBeNull();
   });
 
@@ -38,7 +34,7 @@ describe('SubtitleOverlay', () => {
     vi.spyOn(global, 'fetch').mockResolvedValue(
       new Response('[]', { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
-    render(<SubtitleOverlay text="Hello" profile={profile} />);
+    render(<SubtitleOverlay text="Hello" font={font} />);
     await waitFor(() => expect(screen.getByTestId('subtitle-overlay')).toBeInTheDocument());
     expect(screen.getByText('Hello')).toBeInTheDocument();
   });
@@ -47,7 +43,7 @@ describe('SubtitleOverlay', () => {
     vi.spyOn(global, 'fetch').mockResolvedValue(
       new Response('[]', { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
-    const { container } = render(<SubtitleOverlay text={'Hello\n你好'} profile={profile} />);
+    const { container } = render(<SubtitleOverlay text={'Hello\n你好'} font={font} />);
     await waitFor(() => expect(container.querySelectorAll('tspan').length).toBe(2));
   });
 });
