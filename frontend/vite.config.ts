@@ -16,7 +16,26 @@ export default defineConfig({
       '/fonts':     { target: 'http://localhost:5001', changeOrigin: true },
     },
   },
-  build: { outDir: 'dist', sourcemap: true },
+  build: {
+    outDir: 'dist',
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          if (id.includes('node_modules')) {
+            if (id.includes('react-router')) return 'vendor-router';
+            if (id.includes('@radix-ui') || id.includes('lucide-react')) return 'vendor-ui';
+            if (id.includes('react-hook-form') || id.includes('@hookform') || id.includes('zod')) return 'vendor-forms';
+            if (id.includes('@dnd-kit')) return 'vendor-dnd';
+            if (id.includes('socket.io') || id.includes('engine.io')) return 'vendor-socket';
+            if (id.includes('zustand')) return 'vendor-state';
+            if (id.includes('react-dom') || id.includes('react/') || id.includes('scheduler')) return 'vendor-react';
+          }
+          return undefined;
+        },
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     globals: true,
