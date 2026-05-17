@@ -102,40 +102,35 @@ A browser-based broadcast subtitle production pipeline that converts English vid
 motitle/
 ├── backend/
 │   ├── app.py                  # Flask server — REST API + WebSocket events
-│   ├── profiles.py             # Profile management (ASR + Translation model routing)
-│   ├── glossary.py             # Glossary management (EN→ZH term mappings)
+│   ├── asr_profiles.py         # v4.0 P1 ASR profile manager
+│   ├── mt_profiles.py          # v4.0 P1 MT profile manager
+│   ├── pipelines.py            # v4.0 P1 pipeline manager (ASR + MT stages + glossary stage + font_config)
+│   ├── pipeline_runner.py      # v4.0 A1 linear stage executor + Socket.IO progress
+│   ├── stages/                 # v4.0 A1 — PipelineStage ABC + asr_stage / mt_stage / glossary_stage
+│   ├── glossary.py             # Glossary management (multilingual term mappings)
 │   ├── renderer.py             # Subtitle renderer (ASS generation + FFmpeg burn-in)
 │   ├── asr/                    # ASR engine abstraction
 │   │   ├── __init__.py         # ASREngine ABC + factory + Word TypedDict
-│   │   ├── whisper_engine.py   # faster-whisper / openai-whisper (incl. word_timestamps)
-│   │   ├── mlx_whisper_engine.py # MLX-Whisper for Apple Silicon (word_timestamps supported)
-│   │   ├── segment_utils.py    # split_segments() post-processor (sentence-boundary split, word partitioning)
-│   │   ├── qwen3_engine.py     # Qwen3-ASR stub
-│   │   └── flg_engine.py       # FLG-ASR stub
+│   │   ├── whisper_engine.py   # faster-whisper / openai-whisper
+│   │   ├── mlx_whisper_engine.py # MLX-Whisper for Apple Silicon
+│   │   └── segment_utils.py    # split_segments() + merge_short_segments() post-processors
 │   ├── translation/            # Translation engine abstraction
 │   │   ├── __init__.py         # TranslationEngine ABC + factory
-│   │   ├── ollama_engine.py    # Ollama/Qwen + few-shot prompts + optional Pass 2 enrichment
+│   │   ├── ollama_engine.py    # Ollama/Qwen + few-shot prompts + inline `[LONG]`/`[NEEDS REVIEW]` post-checks
 │   │   ├── openrouter_engine.py # OpenRouter (OpenAI-compatible): Claude / GPT / Gemini / etc.
-│   │   ├── mock_engine.py      # Mock engine for dev/testing
-│   │   ├── sentence_pipeline.py # Sentence-aware merge/redistribute + time-gap guard
-│   │   ├── alignment_pipeline.py # Phase 6: LLM-anchored alignment (marker injection + fallback)
-│   │   └── post_processor.py   # Subtitle length / hallucination post-checks
+│   │   └── mock_engine.py      # Mock engine for dev/testing
 │   ├── language_config.py      # Per-language ASR/translation parameters
-│   ├── config/                 # Configuration files
-│   │   ├── settings.json       # Active profile pointer
-│   │   ├── profiles/           # Profile JSON files
+│   ├── config/                 # Configuration files (path overridable via R5_CONFIG_DIR env)
+│   │   ├── asr_profiles/       # v4.0 P1 ASR profile JSONs
+│   │   ├── mt_profiles/        # v4.0 P1 MT profile JSONs
+│   │   ├── pipelines/          # v4.0 P1 pipeline JSONs
 │   │   ├── glossaries/         # Glossary JSON files
-│   │   └── languages/          # Per-language config (en.json, zh.json)
-│   ├── tests/                  # Test suite (375 tests)
+│   │   ├── languages/          # Per-language config (en.json, zh.json)
+│   │   └── prompt_templates/   # v3.18 starter MT prompt templates
+│   ├── tests/                  # Test suite (790 tests after v4.0 A5)
 │   ├── data/                   # Runtime: uploads, registry, renders (gitignored)
 │   └── requirements.txt        # Python dependencies
-├── frontend.old/               # Legacy vanilla HTML/CSS/JS pages (v4.0 A5 sub-phase 砍走)
-│   ├── index.html              # Main dashboard — kept for transition only
-│   ├── proofread.html          # Proof-reading editor — kept until A4 ships replacement
-│   ├── login.html / admin.html / Glossary.html
-│   ├── js/font-preview.js      # Shared module (still imported by .old pages)
-│   └── tests/                  # Playwright suite (kept until A5)
-├── frontend/                   # NEW v4.0 A3 — Vite + React 18 + TypeScript SPA
+├── frontend/                   # v4.0 A3 — Vite + React 18 + TypeScript SPA
 │   ├── package.json            # npm scripts (dev/build/test/test:e2e)
 │   ├── vite.config.ts          # Proxies /api + /socket.io + /fonts to Flask :5001
 │   ├── src/
@@ -181,50 +176,42 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 
 ### Backend Modules
 
-**`app.py`** — Flask server, REST API, WebSocket events, file registry, orchestration
+**`app.py`** — Flask server, REST API, WebSocket events, file registry, orchestration. v4.0 A5 之後 legacy `transcribe_with_segments` / `_auto_translate` / `_asr_handler` / `_mt_handler` 已全部移除，剩 `_pipeline_handler` 一個 worker entry point。
 
-**`profiles.py`** — Profile CRUD. Each profile defines ASR engine + Translation engine + Font config. JSON file storage in `config/profiles/`. One profile is active at a time.
+**`asr_profiles.py` / `mt_profiles.py` / `pipelines.py`** — v4.0 P1 entity managers (per-user ownership + TOCTOU lock + cascade ref check)。Replaces bundled v3.x `profiles.py`（A5 已刪）。
 
-**`glossary.py`** — Glossary CRUD. EN→ZH term mappings injected into translation prompts. JSON file storage in `config/glossaries/`. CSV import/export supported.
+**`pipeline_runner.py` + `stages/`** — v4.0 A1 linear stage executor。`PipelineStage` ABC + `ASRStage` / `MTStage` / `GlossaryStage`；per-segment-1:1 contract；Socket.IO progress at 5% granularity；fail-fast + cancel_event。
 
-**`renderer.py`** — Generates ASS subtitle files from approved translations + font config, then invokes FFmpeg to burn subtitles into video. Supports MP4 (H.264) and MXF (ProRes 422 HQ) output.
+**`glossary.py`** — Glossary CRUD with multilingual `{source, target, target_aliases}` schema (v3.15)；JSON file storage in `config/glossaries/`；CSV import/export supported。
 
-**`asr/`** — Unified ASR interface. `ASREngine` ABC with `transcribe(audio_path, language)` method returning `[{start, end, text, words: [Word]}]`. Factory function creates the correct engine from profile config. WhisperEngine (faster-whisper / openai-whisper) and MLXWhisperEngine are fully implemented; Qwen3 and FLG are stubs. Optional `word_timestamps` flag in Profile ASR config enables DTW word-level alignment used by the LLM-anchored alignment pipeline.
+**`renderer.py`** — Generates ASS subtitle files from approved translations + font config, then invokes FFmpeg to burn subtitles into video. Supports MP4 (H.264) and MXF (ProRes 422 HQ / XDCAM HD 422) output.
 
-**`translation/`** — Unified translation interface. `TranslationEngine` ABC with `translate(segments, glossary, style, batch_size, temperature, progress_callback, parallel_batches)` method. Implementations:
-- **`OllamaTranslationEngine`** — Local Ollama + Qwen2.5/3.5 (incl. cloud variants via `ollama signin`). Uses few-shot prompts with sentence scope context and optional Pass 2 enrichment (`translation_passes: 2`).
+**`asr/`** — Unified ASR interface. `ASREngine` ABC with `transcribe(audio_path, language)` method returning `[{start, end, text, words: [Word]}]`. Factory function creates the correct engine from stage config. WhisperEngine (faster-whisper / openai-whisper) and MLXWhisperEngine implemented。
+
+**`translation/`** — Unified translation interface. `TranslationEngine` ABC with `translate(segments, glossary, style, batch_size, temperature, progress_callback, parallel_batches, prompt_overrides, cancel_event)` method. Implementations:
+- **`OllamaTranslationEngine`** — Local Ollama + Qwen2.5/3.5 (incl. cloud variants via `ollama signin`). Uses few-shot prompts with sentence scope context and optional Pass 2 enrichment (`translation_passes: 2`). v4.0 A5 後 `[LONG]`/`[NEEDS REVIEW]` flag injection inline 入 engine 嘅 `_TranslationPostProcessor` private class (legacy `post_processor.py` 已刪)。
 - **`OpenRouterTranslationEngine`** — Subclasses Ollama engine, overrides only the HTTP call to hit OpenRouter's OpenAI-compatible `/chat/completions`. Inherits all batching/retry/glossary/prompt logic. Bearer-auth, 9 curated models (Claude Opus/Sonnet/Haiku, GPT-4o/mini, Gemini 2.5, DeepSeek, Qwen, Llama) plus user-supplied free-form model ids.
 - **`MockTranslationEngine`** — dev/testing.
-- **`sentence_pipeline.py`** — `merge_to_sentences` (pySBD + time-gap guard, `MAX_MERGE_GAP_SEC=1.5`) → translate → `redistribute_to_segments`. Opt-in via `use_sentence_pipeline: true` or `alignment_mode: "sentence"`.
-- **`alignment_pipeline.py`** — `translate_with_alignment`: sentence merge + LLM marker injection (`[N]` anchors), LLM places markers in Chinese output, then splits back to original ASR segments. Chinese-punctuation-snap fallback if marker parsing fails. Opt-in via `alignment_mode: "llm-markers"`.
-- **`post_processor.py`** — `[LONG]` detection (>28 chars/line) + hallucination heuristic (>40 chars likely drift).
 
 **`language_config.py`** — Per-language ASR segmentation params (max_words_per_segment, max_segment_duration) and translation params (batch_size, temperature). JSON file storage in `config/languages/`. Validated ranges enforced.
 
 ### Backend (`app.py`)
 
-**Model loading (`get_model`)** — Legacy path for direct Whisper model loading. Maintains dual caches for faster-whisper and openai-whisper. Used when active profile doesn't specify a whisper ASR engine.
-
-**Transcription pipeline (`transcribe_with_segments`)** — Extracts audio from video via FFmpeg, then delegates to ASR engine from active profile. Reads language from profile config. Emits `subtitle_segment` WebSocket events per segment. After transcription completes, auto-triggers translation via `_auto_translate()`.
-
-**Auto-translation (`_auto_translate`)** — Called after transcription. Reads active profile's translation config, loads glossary if configured, calls translation engine, stores results in file registry.
+**Pipeline entry point**：`POST /api/transcribe` 強制要 `pipeline_id` form field → enqueue `pipeline_run` job → `_pipeline_handler` 經 `PipelineRunner` 跑 ASR / MT / Glossary stages 順序。Legacy `get_model` Whisper cache 仍然喺 module level 留住畀 stage 內部用，但唔再有 standalone API 入口。
 
 **WebSocket events (server → client)**
 | Event | Payload | When |
 |---|---|---|
 | `connected` | `{sid}` | On connect |
-| `model_loading` | `{model, status}` | Model load started |
-| `model_ready` | `{model, status}` | Model load complete |
-| `model_error` | `{error}` | Model load failed |
-| `transcription_status` | `{status, message}` | Extraction/transcription phase |
-| `subtitle_segment` | `{id, start, end, text, words[], progress, eta_seconds, total_duration}` | Each segment as it's ready |
-| `transcription_complete` | `{text, language, segment_count}` | Transcription done |
-| `transcription_error` | `{error}` | Any failure |
 | `file_added` | `{id, original_name, ...}` | New file uploaded |
-| `file_updated` | `{id, status, translation_status, ...}` | File status changed |
-| `profile_updated` | `{font: {family, size, color, outline_color, outline_width, margin_bottom}}` | Active profile activated or font config updated |
-| `translation_progress` | `{file_id, completed, total, percent, elapsed_seconds}` | Each translation batch completes |
-| `pipeline_timing` | `{file_id, asr_seconds: float\|null, translation_seconds: float, total_seconds: float}` | Translation completes (auto-translate path only) |
+| `live_subtitle` | `{...}` | Legacy live recording (kept for streaming code path, dormant under v4 pipeline flow) |
+| `model_loading` | `{model, status}` | Whisper model load started (still emitted by `load_model` client event) |
+| `model_ready` | `{model, status}` | Whisper model load complete |
+| `model_error` | `{error}` | Whisper model load failed |
+| `pipeline_stage_start` | `{file_id, stage_index, stage_type, ...}` | Stage begins (v4.0 A1) |
+| `pipeline_stage_progress` | `{file_id, stage_index, percent}` | 5% granularity progress (v4.0 A1) |
+| `pipeline_stage_done` | `{file_id, stage_index, status, ...}` | Stage success / failure (v4.0 A1) |
+| `queue_changed` | `{}` | JobQueue mutation (used by frontend queue panel auto-refresh) |
 
 **WebSocket events (client → server)**
 | Event | Payload |
@@ -236,24 +223,16 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 |---|---|---|
 | GET | `/api/health` | Server status, loaded models |
 | GET | `/api/models` | Available Whisper model list |
-| POST | `/api/transcribe` | Upload + async transcription → auto-translate |
+| POST | `/api/transcribe` | Upload + enqueue `pipeline_run` job (v4.0 A5: `pipeline_id` form field is **required**) |
 | GET | `/api/files` | List all uploaded files with status |
 | GET | `/api/files/<id>/media` | Serve original media file |
 | GET | `/api/files/<id>/subtitle.<fmt>` | Download subtitle (srt/vtt/txt)；接 `?source=` + `?order=` query params |
-| PATCH | `/api/files/<id>` | Update file-level settings (subtitle_source / bilingual_order) |
+| PATCH | `/api/files/<id>` | Update file-level settings (subtitle_source / bilingual_order / prompt_overrides) |
 | GET | `/api/files/<id>/segments` | Get transcription segments |
 | PATCH | `/api/files/<id>/segments/<seg_id>` | Update segment text |
 | DELETE | `/api/files/<id>` | Delete file |
-| GET | `/api/profiles` | List all profiles |
-| POST | `/api/profiles` | Create profile |
-| GET | `/api/profiles/active` | Get active profile |
-| GET | `/api/profiles/<id>` | Get profile |
-| PATCH | `/api/profiles/<id>` | Update profile |
-| DELETE | `/api/profiles/<id>` | Delete profile |
-| POST | `/api/profiles/<id>/activate` | Set active profile |
 | GET | `/api/asr/engines` | List ASR engines with availability |
 | GET | `/api/asr/engines/<name>/params` | Get param schema for ASR engine |
-| POST | `/api/translate` | Translate a file's segments |
 | GET | `/api/translation/engines` | List translation engines with availability |
 | GET | `/api/translation/engines/<name>/params` | Get param schema for translation engine |
 | GET | `/api/translation/engines/<name>/models` | List available models for translation engine |
@@ -305,9 +284,7 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 
 ### Frontend
 
-**`index.html`** — Main dashboard. File upload, transcription with progress, auto-translation, profile selector, transcript display (auto-switches to Chinese when translations available), subtitle overlay on video playback.
-
-**`proofread.html`** — Standalone proof-reading editor. Side-by-side layout: video player (left) + segment table (right). Inline editing of Chinese translations, per-segment and bulk approval, keyboard shortcuts, format picker (MP4/MXF), render with progress polling and download.
+v4.0 A3-A5 之後 frontend 全部係 Vite + React 18 + TypeScript SPA，喺 [frontend/](frontend/)。Build output (`frontend/dist/`) 由 Flask `serve_index` + `serve_assets` 提供，React Router routes (`/login`, `/`, `/pipelines`, `/asr_profiles`, `/mt_profiles`, `/glossaries`, `/admin`, `/proofread/:fileId`) 全部行 SPA fallback。Legacy vanilla `*.html` 同 `/js/<path>` / `/css/<path>` Flask routes 喺 A5 全部砍走。
 
 ---
 
@@ -371,6 +348,37 @@ Whenever a new feature is completed or existing functionality is modified, you *
 ---
 
 ## Completed Features
+
+### v4.0 A5 — Legacy cleanup (in progress on `chore/asr-mt-rearchitecture-research`)
+- v4.0 rearchitecture final 階段 — 全部 retire 咗 A1+A3+A4 後仲掛住嘅 legacy code path。Big Bang 嘅 housekeeping。
+- **Frontend 整片砍走**：`frontend.old/` directory（2833 行 vanilla `proofread.html` + 5 個其他 HTML + `js/` + `css/` + tests/）全部 `git rm -r`。
+- **Proofread 解耦 legacy profile**：legacy `useActiveProfile` hook 刪走，新 [hooks/useFilePipeline.ts](frontend/src/pages/Proofread/hooks/useFilePipeline.ts) 由 `file.pipeline_id` → `/api/pipelines/<id>` 讀 `pipeline.font_config` 同 `pipeline.glossary_stage.glossary_ids[0]`。`<SubtitleSettingsPanel>` PATCH `/api/pipelines/<pid>` 而非 legacy `/api/profiles/<pid>`。
+- **Backend Flask route 砍走 9 條**（連 A3 嘅 SPA fallback 一齊計）：
+  - 5 個 vanilla HTML route：`/login.html` / `/index.html` / `/proofread.html` / `/Glossary.html` / `/admin.html`
+  - 2 個 static route：`/js/<path>` / `/css/<path>`
+  - 7 個 `/api/profiles*` 全部砍：`GET /api/profiles` / `POST /api/profiles` / `GET /api/profiles/active` / `GET|PATCH|DELETE /api/profiles/<id>` / `POST /api/profiles/<id>/activate`
+  - `POST /api/translate` 砍
+  - `POST /api/files/<fid>/transcribe`（re-transcribe）砍 — v4 用 `POST /api/pipelines/<pid>/run` 接駁
+  - `POST /api/transcribe/sync` 砍
+  - `_FRONTEND_LEGACY_DIR` constant 砍
+  - `POST /api/transcribe` 改為**強制要 `pipeline_id`** form field，missing → 400
+- **Backend Python module 砍走 4 個 + ~1600 行 code**：
+  - [backend/profiles.py](backend/profiles.py)（legacy bundled `ProfileManager`，~440 行）
+  - [backend/translation/alignment_pipeline.py](backend/translation/alignment_pipeline.py)（LLM-marker alignment v3.1）
+  - [backend/translation/sentence_pipeline.py](backend/translation/sentence_pipeline.py)（sentence-merge v2.1）
+  - [backend/translation/post_processor.py](backend/translation/post_processor.py)（`[LONG]`/`[NEEDS REVIEW]` flag injection v3.4）— logic inline 入 `OllamaTranslationEngine` 做 `_TranslationPostProcessor` private class，behavior 保持
+  - [backend/scripts/v317_validation.py](backend/scripts/v317_validation.py)（驗證 tool，依賴 legacy ProfileManager）
+- **`app.py` 大手術 ~500 行**：
+  - 4 個 function 刪除：`_auto_translate` / `transcribe_with_segments` / `_asr_handler` / `_mt_handler`
+  - 3 個 `_profile_manager.get_active()` call site neutralize（glossary-apply / render / subtitle export）— file-level override path 仍然 work，profile fallthrough 改返 `DEFAULT_FONT_CONFIG`
+  - `JobQueue(asr_handler=, mt_handler=)` kwargs 砍走；剩 `pipeline_handler` only
+- **JobQueue 簡化**：`_VALID_JOB_TYPES = ("pipeline_run",)`（由 4 種 type 變 1）；`_asr_q` + `_mt_q` worker pool + `_ASR_CONCURRENCY` + `_MT_CONCURRENCY` constants 全部刪除；剩 `_pipeline_q` 一個 worker pool。
+- **Test fixture isolation**：`backend/app.py` 加 `R5_CONFIG_DIR` env var（default `<repo>/backend/config/`）；[backend/tests/conftest.py](backend/tests/conftest.py) `_isolate_app_data` autouse fixture 已擴展 — 創 `tmp_path/config/<subs>`，seed `languages/` + `prompt_templates/` 由 real config，monkeypatch 5 個 manager (`_glossary_manager` / `_language_config_manager` / `_asr_profile_manager` / `_mt_profile_manager` / `_pipeline_manager`) 同 `auth.decorators.set_v4_managers()`。**Result**：tests 唔再 leak JSON 入 `backend/config/*_profiles/`。
+- **Test pollution 整片清**：1229 個 untracked JSON 從 `asr_profiles/` + `mt_profiles/` + `pipelines/` + 4 個 test glossaries 一次過 `rm`；5 個 tracked legacy profile artifact `git rm`（`backend/config/profiles/*.json` + `profiles.example/dev-default.json` + `settings.json`）；`.coverage` files 也清。Real glossary `08b6666e-1bcc-4df1-9005-e5dafa27c076.json` 保留。
+- **Test count delta**：946 pass → 790 pass（-156 intentional deletions across T6/T8/T9）；**14 pre-existing baseline failures preserved across全部 11 個 A5 commit**（11 Playwright E2E 需 browser + 1 v3.3 macOS tmpdir colon-escape + 1 phase5_security SocketIO CORS regex + 1 queue_routes per-user filter）。新 frontend Vitest 仍然 184/184 pass（A3+A4+A5 T2 累積）。
+- **A1+P1 surface 完全保留**：stage executor + PipelineRunner + 15 個 P1 endpoints + 4 個 A1 endpoints 全部 untouched + tests 全部仍然 green。
+- **Out-of-scope**（明確留 future housekeeping branch）：legacy Socket.IO `subtitle_segment` / `translation_progress` / `pipeline_timing` event emitters（會 dead-code-eliminate 自然消失，因為 emitter 早已被刪）；frontend `index.test.tsx` 嘅 integration test 喺 A5 T2 之後其實 still passes；refactor `app.py` 仍然 ~3400 行（A5 落 ~500，但 ~3000 行 main module 可以再拆 multi-file）。
+- **Spec / Plan / Baseline**：[design](docs/superpowers/specs/2026-05-17-v4-A5-legacy-cleanup-design.md) / [plan](docs/superpowers/plans/2026-05-17-v4-A5-legacy-cleanup-plan.md) / [baseline](docs/superpowers/validation/v4-A5-baseline.md)
 
 ### v4.0 A4 — Proofread page rewrite (in progress on `chore/asr-mt-rearchitecture-research`)
 - 完整 port 舊 [frontend.old/proofread.html](frontend.old/proofread.html) (2833 行 vanilla HTML) 入 [frontend/src/pages/Proofread/](frontend/src/pages/Proofread/) 分拆成 ~14 個 React component + 6 個 hook
