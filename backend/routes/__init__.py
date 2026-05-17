@@ -15,12 +15,16 @@ def register_blueprints(app: Flask) -> None:
     from .fonts import bp as fonts_bp
     from .files import bp as files_bp
     from .pipelines import bp as pipelines_bp
+    from .asr_profiles import bp as asr_profiles_bp
+    from .mt_profiles import bp as mt_profiles_bp
 
     app.register_blueprint(health_bp)
     app.register_blueprint(spa_bp)
     app.register_blueprint(fonts_bp)
     app.register_blueprint(files_bp)
     app.register_blueprint(pipelines_bp)
+    app.register_blueprint(asr_profiles_bp)
+    app.register_blueprint(mt_profiles_bp)
 
 
 __all__ = ["register_blueprints"]
