@@ -139,6 +139,18 @@ def _isolate_app_data(request, tmp_path, monkeypatch):
     monkeypatch.setattr(app, "_mt_profile_manager", fresh_mt)
     monkeypatch.setattr(app, "_pipeline_manager", fresh_pipeline)
 
+    # v4 A6 C2 T5 — bootstrap.create_app() now reads manager singletons
+    # from the ``managers`` module. The JobQueue pipeline handler closure
+    # also reads them late-bound from ``managers``. Tests that monkeypatch
+    # ``app._<x>_manager`` must mirror onto ``managers._<x>_manager`` so
+    # the worker thread sees the fresh instances.
+    import managers as _managers_mod
+    monkeypatch.setattr(_managers_mod, "_glossary_manager", fresh_glossary)
+    monkeypatch.setattr(_managers_mod, "_language_config_manager", fresh_language)
+    monkeypatch.setattr(_managers_mod, "_asr_profile_manager", fresh_asr)
+    monkeypatch.setattr(_managers_mod, "_mt_profile_manager", fresh_mt)
+    monkeypatch.setattr(_managers_mod, "_pipeline_manager", fresh_pipeline)
+
     # Re-register v4 managers with decorator module so the ownership
     # check decorators look up profiles in the fresh managers.
     try:

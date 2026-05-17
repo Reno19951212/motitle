@@ -127,12 +127,20 @@ def load_file_registry_from_disk() -> None:
 # ---------------------------------------------------------------------------
 # init_job_queue
 # ---------------------------------------------------------------------------
-def init_job_queue(app: Flask) -> Any:
+def init_job_queue(app: Flask, pipeline_handler=None) -> Any:
     """Construct ``JobQueue`` with the pipeline-run handler closure.
 
-    The closure mirrors ``_pipeline_run_handler`` in ``app.py`` (lines
-    ~283-330). It closes over the module-level managers so the same
-    instances are visible to handler invocations on background threads.
+    The default closure mirrors ``_pipeline_run_handler`` in ``app.py``
+    (lines ~283-330). It closes over the module-level managers so the
+    same instances are visible to handler invocations on background
+    threads.
+
+    Args:
+        app: Flask app instance (workers run inside ``app.app_context()``).
+        pipeline_handler: Optional override. When provided (T5+), the
+            caller (``bootstrap.create_app``) injects ``app._pipeline_run_handler``
+            so tests can ``patch("app.PipelineRunner")`` and the handler
+            picks up the patched class.
 
     Returns the JobQueue instance for the caller to start workers and
     register on ``app.config["JOB_QUEUE"]``.
@@ -155,12 +163,17 @@ def init_job_queue(app: Flask) -> Any:
     # avoid a hard dependency at module load.
     from extensions import socketio as _socketio
 
-    def pipeline_handler(job, cancel_event=None):
+    def pipeline_handler_default(job, cancel_event=None):
         """v4 A1 — execute a Pipeline on a file via PipelineRunner.
 
-        Byte-perfect copy of ``app.py::_pipeline_run_handler``. Status
-        transitions are handled by JobQueue (running before, done after;
+        Default handler used when the caller does not pass ``pipeline_handler``.
+        Status transitions are handled by JobQueue (running before, done after;
         raise → failed).
+
+        Manager lookups go through ``sys.modules['managers']`` so test
+        fixtures that monkeypatch ``app._pipeline_manager`` (which mirrors
+        ``managers._pipeline_manager`` after T5) take effect inside the
+        worker thread without restarting the queue.
         """
         # Support both dict jobs (production, returned by get_job()) and
         # MagicMock-style objects used in unit tests.
@@ -176,12 +189,26 @@ def init_job_queue(app: Flask) -> Any:
                 "pipeline_run job requires payload {pipeline_id, file_id}"
             )
 
-        pipeline = _pipeline_manager.get(pipeline_id)
+        # Late-binding manager lookup. ``app.py`` re-exports each manager
+        # as a module-level alias; test fixtures that monkeypatch the
+        # ``app.*`` names also update ``managers.*`` via the same alias
+        # path. Reading the live values here (instead of binding at
+        # init time) keeps the worker honoring monkeypatched managers.
+        import sys
+        _live = sys.modules[__name__]
+        pipeline_mgr = _live._pipeline_manager
+        asr_mgr = _live._asr_profile_manager
+        mt_mgr = _live._mt_profile_manager
+        glossary_mgr = _live._glossary_manager
+        registry = _live._file_registry
+        registry_lock = _live._registry_lock
+
+        pipeline = pipeline_mgr.get(pipeline_id)
         if pipeline is None:
             raise ValueError(f"pipeline {pipeline_id} not found")
 
-        with _registry_lock:
-            entry = _file_registry.get(file_id)
+        with registry_lock:
+            entry = registry.get(file_id)
         if entry is None:
             raise ValueError(f"file {file_id} not found")
 
@@ -196,9 +223,9 @@ def init_job_queue(app: Flask) -> Any:
             file_id=file_id,
             audio_path=audio_path,
             managers={
-                "asr_manager": _asr_profile_manager,
-                "mt_manager": _mt_profile_manager,
-                "glossary_manager": _glossary_manager,
+                "asr_manager": asr_mgr,
+                "mt_manager": mt_mgr,
+                "glossary_manager": glossary_mgr,
             },
         )
         start_from_stage = int(payload.get("start_from_stage", 0)) if isinstance(payload, dict) else 0
@@ -206,7 +233,7 @@ def init_job_queue(app: Flask) -> Any:
 
     _job_queue = JobQueue(
         auth_db_path,
-        pipeline_handler=pipeline_handler,
+        pipeline_handler=pipeline_handler if pipeline_handler is not None else pipeline_handler_default,
         app=app,  # R5 Phase 5 T2.2: workers run with app context
         socketio=_socketio,  # broadcast 'queue_changed' on state changes
     )

@@ -85,91 +85,41 @@ except ImportError:
     WHISPER_STREAMING_AVAILABLE = False
     print("whisper-streaming not available — streaming mode disabled")
 
-# Initialize Flask app
-app = Flask(__name__)
-# R5 Phase 5 T1.3: FLASK_SECRET_KEY is required. A weak or absent secret
-# means session cookies can be forged, so we refuse to boot rather than
-# silently using the placeholder.
-_PLACEHOLDER_SECRET = "change-me-on-first-deploy"
-_secret_key = os.environ.get("FLASK_SECRET_KEY")
-if not _secret_key or _secret_key == _PLACEHOLDER_SECRET:
-    raise RuntimeError(
-        "R5 Phase 5 T1.3: FLASK_SECRET_KEY env var is REQUIRED. "
-        "Run ./setup-mac.sh / setup-win.ps1 / setup-linux-gb10.sh to generate one, "
-        "or export FLASK_SECRET_KEY=$(python -c 'import secrets; print(secrets.token_hex(32))'). "
-        f"Placeholder '{_PLACEHOLDER_SECRET}' is rejected for safety."
-    )
-app.config['SECRET_KEY'] = _secret_key
-
-# R5 Phase 5 T2.4: CSRF mitigation. SameSite=Lax tells the browser not to
-# send the session cookie on cross-site POST/PATCH/DELETE — without it, a
-# malicious page on http://attacker.example could submit a form to our
-# /api/files/<id> DELETE endpoint and the browser would happily attach
-# the user's auth cookie. Secure flag is added when HTTPS is active.
-# HttpOnly is Flask's default but pinned explicitly for defense-in-depth.
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['SESSION_COOKIE_SECURE'] = (os.environ.get('R5_HTTPS') != '0')
-app.config['SESSION_COOKIE_HTTPONLY'] = True
-
-app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024 * 1024  # 5GB max upload (broadcast MXF masters)
-
-_LAN_NETS = [
-    ipaddress.ip_network("10.0.0.0/8"),
-    ipaddress.ip_network("172.16.0.0/12"),
-    ipaddress.ip_network("192.168.0.0/16"),
-    ipaddress.ip_network("127.0.0.0/8"),
-]
-
-
-def _is_lan_origin(origin: str) -> bool:
-    """R5 Phase 1 — allow CORS for LAN origins only.
-
-    True if the origin's hostname is `localhost` or resolves to an IP in
-    a private LAN range (RFC 1918 + loopback). Public IPs and unresolvable
-    hostnames return False.
-    """
-    try:
-        host = urlparse(origin).hostname
-        if not host:
-            return False
-        if host == "localhost":
-            return True
-        ip = ipaddress.ip_address(host)
-        return any(ip in net for net in _LAN_NETS)
-    except (ValueError, TypeError):
-        return False
-
-
-# LAN-only CORS allowlist as a regex (flask-cors 6.x doesn't accept
-# callables — `origins` must be a string, list, or regex). The pattern
-# mirrors `_is_lan_origin`'s coverage: localhost + 127/8 + 10/8 +
-# 192.168/16 + 172.16/12, with optional port.
-_LAN_ORIGIN_REGEX = (
-    r"^https?://("
-    r"localhost"
-    r"|127\.\d+\.\d+\.\d+"
-    r"|10\.\d+\.\d+\.\d+"
-    r"|192\.168\.\d+\.\d+"
-    r"|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+"
-    r")(:\d+)?$"
+# --- v4 A6 C2 T5: app construction lives in bootstrap.create_app() ---
+# Flask app, SocketIO, CORS, auth init, LoginManager, Limiter, audit log,
+# admin bootstrap, all managers, JobQueue + worker pool, and the SPA 404
+# handler are all wired by the factory. Routes still register below this
+# line; T6-T11 will peel them out into routes/*.py blueprints.
+from bootstrap import create_app
+from auth.routes import _LoginUser  # noqa: F401 — re-exported for tests
+from auth.decorators import (  # noqa: F401 — re-exported for routes
+    login_required,
+    require_file_owner,
+    admin_required,
+    require_asr_profile_owner,
+    require_mt_profile_owner,
+    require_pipeline_owner,
 )
-CORS(app, supports_credentials=True, origins=_LAN_ORIGIN_REGEX)
-# R5 Phase 5 T1.2: SocketIO must use the same LAN-only allowlist as Flask CORS.
-# Note: engineio treats a str as a *literal* allowed-origin (not a regex), so
-# _LAN_ORIGIN_REGEX must be passed as a *callable* to get pattern matching.
-# _is_lan_origin(origin) → bool handles the same LAN ranges.
-socketio = SocketIO(app, cors_allowed_origins=_is_lan_origin, async_mode='threading',
-                    max_http_buffer_size=100 * 1024 * 1024)
+from flask_login import LoginManager, current_user  # noqa: F401
+import extensions as _extensions
+import managers as _managers
 
-# Persistent storage directory (inside project, survives restarts)
-DATA_DIR = Path(__file__).parent / "data"
-UPLOAD_DIR = DATA_DIR / "uploads"
-RESULTS_DIR = DATA_DIR / "results"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+app, socketio = create_app()
 
-RENDERS_DIR = DATA_DIR / "renders"
-RENDERS_DIR.mkdir(parents=True, exist_ok=True)
+# --- Backward-compat re-exports: tests + helpers in this file still reach
+# for these as module-level globals. They are the SAME objects the factory
+# stored on ``managers`` / ``extensions`` — kept here only so the import
+# surface stays unchanged during the T5-T13 migration window.
+_LAN_NETS = _extensions._LAN_NETS
+_is_lan_origin = _extensions._is_lan_origin
+_LAN_ORIGIN_REGEX = _extensions._LAN_ORIGIN_REGEX
+login_manager = _extensions.login_manager
+_limiter = _extensions.limiter
+
+DATA_DIR = _managers.DATA_DIR
+UPLOAD_DIR = _managers.UPLOAD_DIR
+RESULTS_DIR = _managers.RESULTS_DIR
+RENDERS_DIR = _managers.RENDERS_DIR
 _subtitle_renderer = SubtitleRenderer(RENDERS_DIR)
 _render_jobs = {}
 # R6 audit R4 — _render_jobs is mutated from the do_render worker thread
@@ -211,84 +161,67 @@ def _evict_old_render_jobs():
         except Exception:
             pass
 
-# Auth setup (R5 Phase 1) — bootstrap SQLite users table, register Flask-Login,
-# wire auth blueprint, optionally bootstrap an admin user from env on first run.
-from auth.users import init_db as _auth_init_db, get_user_by_id as _auth_get_user_by_id, create_user as _auth_create_user
-from auth.routes import bp as auth_bp, _LoginUser
-from auth.decorators import (
-    login_required,
-    require_file_owner,
-    admin_required,
-    require_asr_profile_owner,
-    require_mt_profile_owner,
-    require_pipeline_owner,
+# --- v4 A6 C2 T5 backward-compat re-exports ---
+# Tests and many helpers below this line still reference these names as
+# module-level globals on ``app``.  After T5 they're sourced from the
+# ``extensions`` / ``managers`` modules so the boot factory remains the
+# single source of truth.  T13 will sweep the tests that hold these
+# references and let us delete the shadow names entirely.
+AUTH_DB_PATH = app.config["AUTH_DB_PATH"]
+CONFIG_DIR = _managers._config_dir()
+
+# Manager singletons — assigned post-create_app(); aliases re-resolved any
+# time tests monkeypatch ``managers._<x>_manager`` because
+# ``_init_glossary_manager`` / ``_init_language_config_manager`` below
+# update both ``managers._x`` and the module-level alias here.
+_glossary_manager = _managers._glossary_manager
+_language_config_manager = _managers._language_config_manager
+_asr_profile_manager = _managers._asr_profile_manager
+_mt_profile_manager = _managers._mt_profile_manager
+_pipeline_manager = _managers._pipeline_manager
+_file_registry = _managers._file_registry
+_registry_lock = _managers._registry_lock
+_job_queue = _managers._job_queue
+
+# Import names used by helpers later in this file (PipelineRunner is
+# referenced by _pipeline_run_handler-equivalents; the manager classes are
+# referenced by the _init_*_manager test helpers below).
+from auth.users import (  # noqa: F401
+    init_db as _auth_init_db,
+    get_user_by_id as _auth_get_user_by_id,
+    create_user as _auth_create_user,
 )
-from flask_login import LoginManager, current_user
-
-AUTH_DB_PATH = os.environ.get(
-    'AUTH_DB_PATH', str(DATA_DIR / 'app.db')
-)
-app.config['AUTH_DB_PATH'] = AUTH_DB_PATH
-_auth_init_db(AUTH_DB_PATH)
-
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.unauthorized_handler(lambda: ({'error': 'unauthorized'}, 401))
-
-from auth.limiter import limiter as _limiter
-_limiter.init_app(app)
+from jobqueue.queue import JobQueue  # noqa: F401 — re-exported for tests
+from jobqueue.routes import set_db_path as _jq_set_db_path  # noqa: F401
+from pipeline_runner import PipelineRunner  # noqa: F401
+from asr_profiles import ASRProfileManager  # noqa: F401
+from mt_profiles import MTProfileManager  # noqa: F401
+from pipelines import PipelineManager  # noqa: F401
 
 
-@login_manager.user_loader
-def _load_user(uid: str):
-    u = _auth_get_user_by_id(AUTH_DB_PATH, int(uid))
-    return _LoginUser(u) if u else None
+def _init_glossary_manager(config_dir):
+    """Re-initialize glossary manager (used by tests)."""
+    global _glossary_manager
+    _glossary_manager = GlossaryManager(config_dir)
+    _managers._glossary_manager = _glossary_manager
 
 
-app.register_blueprint(auth_bp)
-
-from auth.admin import bp as admin_bp
-from auth.audit import init_audit_log
-init_audit_log(AUTH_DB_PATH)
-app.register_blueprint(admin_bp)
-
-
-def _bootstrap_admin_if_needed():
-    """Create admin user from ADMIN_BOOTSTRAP_PASSWORD env var if absent.
-
-    Phase 1 helper. Phase 2 will replace this with an explicit setup script
-    that prompts interactively.
-    """
-    from auth.users import get_user_by_username
-    if get_user_by_username(AUTH_DB_PATH, 'admin') is None:
-        admin_pw = os.environ.get('ADMIN_BOOTSTRAP_PASSWORD')
-        if admin_pw:
-            _auth_create_user(AUTH_DB_PATH, 'admin', admin_pw, is_admin=True)
-            app.logger.info('Bootstrapped admin user from ADMIN_BOOTSTRAP_PASSWORD env')
-
-
-_bootstrap_admin_if_needed()
-
-
-# Job queue (R5 Phase 1, v4.0 A5 T6 — legacy asr/mt handlers deleted).
-# Persistent SQLite-backed queue with a single pipeline-run worker pool.
-from jobqueue.db import init_jobs_table as _jq_init_db
-from jobqueue.queue import JobQueue
-from jobqueue.routes import bp as queue_bp, set_db_path as _jq_set_db_path
-
-_jq_init_db(AUTH_DB_PATH)
-_jq_set_db_path(AUTH_DB_PATH)
+def _init_language_config_manager(config_dir):
+    global _language_config_manager
+    _language_config_manager = LanguageConfigManager(config_dir)
+    _managers._language_config_manager = _language_config_manager
 
 
 def _pipeline_run_handler(job, cancel_event=None):
     """v4 A1 — execute a Pipeline on a file via PipelineRunner.
 
-    job.payload (or job["payload"] for dict jobs) must contain
-    {pipeline_id, file_id}.  Status transitions handled by JobQueue
-    (running before, done after; raise → failed).
+    Kept as a module-level function on ``app`` (not the inner closure
+    inside ``managers.init_job_queue``) so tests can ``patch("app.PipelineRunner")``
+    or call ``app._pipeline_run_handler(job, ...)`` directly.
+
+    Manager lookups are late-bound through this module so monkeypatched
+    fixtures take effect inside the worker thread.
     """
-    # Support both dict jobs (production, returned by get_job()) and
-    # MagicMock-style objects used in unit tests.
     payload = job.payload if hasattr(job, "payload") and not isinstance(job, dict) \
         else (job.get("payload") or {}) if isinstance(job, dict) \
         else {}
@@ -330,73 +263,11 @@ def _pipeline_run_handler(job, cancel_event=None):
     runner.run(user_id=user_id, cancel_event=cancel_event, start_from_stage=start_from_stage)
 
 
-_job_queue = JobQueue(AUTH_DB_PATH,
-                      pipeline_handler=_pipeline_run_handler,
-                      app=app,  # R5 Phase 5 T2.2: workers run with app context
-                      socketio=socketio)  # broadcast 'queue_changed' on state changes
+# v4 A6 C2 T5 — swap the JobQueue's pipeline handler from the default
+# closure in managers.init_job_queue to the app-level function above so
+# patch("app.PipelineRunner") works, then start the worker pool.
+_job_queue._pipeline_handler = _pipeline_run_handler
 _job_queue.start_workers()
-# Make the live instances reachable from routes via current_app — avoids
-# 'from app import' which creates a separate (broken) module copy.
-app.config["JOB_QUEUE"] = _job_queue
-app.config["SOCKETIO"] = socketio
-
-app.register_blueprint(queue_bp)
-
-
-# v4.0 A5 T8 — legacy bundled ProfileManager removed. ASR/MT/Pipeline managers
-# (instantiated below) own profile data now. CONFIG_DIR retained for glossaries
-# and v4 managers.
-# v4.0 A5 T10 — honor R5_CONFIG_DIR env var so tests can redirect manager
-# storage to a tmp_path/config dir without polluting backend/config/. Falls
-# back to the bundled config when unset.
-CONFIG_DIR = Path(os.environ.get("R5_CONFIG_DIR") or (Path(__file__).parent / "config"))
-
-
-# Glossary management
-_glossary_manager = GlossaryManager(CONFIG_DIR)
-
-
-def _init_glossary_manager(config_dir):
-    """Re-initialize glossary manager (used by tests)."""
-    global _glossary_manager
-    _glossary_manager = GlossaryManager(config_dir)
-
-
-# Language config management
-_language_config_manager = LanguageConfigManager(CONFIG_DIR)
-
-
-def _init_language_config_manager(config_dir):
-    global _language_config_manager
-    _language_config_manager = LanguageConfigManager(config_dir)
-
-
-# v4.0 Phase 1 — new entity managers (P1: CRUD only; P2 will add stage executor)
-from asr_profiles import ASRProfileManager
-from mt_profiles import MTProfileManager
-from pipelines import PipelineManager
-from pipeline_runner import PipelineRunner
-
-_asr_profile_manager = ASRProfileManager(CONFIG_DIR)
-_mt_profile_manager = MTProfileManager(CONFIG_DIR)
-_pipeline_manager = PipelineManager(
-    CONFIG_DIR,
-    asr_manager=_asr_profile_manager,
-    mt_manager=_mt_profile_manager,
-    glossary_manager=_glossary_manager,
-)
-
-# Wire decorators
-from auth.decorators import set_v4_managers
-set_v4_managers(_asr_profile_manager, _mt_profile_manager, _pipeline_manager)
-
-# In-memory file registry: file_id -> metadata dict
-_file_registry = {}
-_registry_lock = threading.Lock()
-# Bind the registry to the Flask app instance so auth.decorators (which
-# would otherwise import app.py a second time as the 'app' module and get
-# an empty copy) can read the running process's registry via current_app.
-app.config['FILE_REGISTRY'] = _file_registry
 
 
 def _load_registry():
@@ -907,19 +778,8 @@ def serve_proofread_spa(_subpath):
     return _serve_react_index()
 
 
-@app.errorhandler(404)
-def _not_found(_err):
-    """v4.0 A3 — keep /api/* and /socket.io/* as clean JSON 404s.
-
-    Without this, Flask returns its default HTML 404 page, which is misleading
-    for API callers (they'd parse it as JSON and crash) and could be confused
-    for the SPA fallback. Non-API paths still get the default error page —
-    explicit SPA routes are listed above, so reaching the default 404 handler
-    on a non-API path is an unconfigured route and should remain visible."""
-    path = request.path or ""
-    if path.startswith("/api/") or path.startswith("/socket.io/"):
-        return jsonify({"error": "not found"}), 404
-    return _err, 404
+# v4 A6 C2 T5 — the 404 handler is now registered by bootstrap.create_app().
+# See backend/bootstrap.py::_register_error_handlers.
 
 
 # ============================================================
