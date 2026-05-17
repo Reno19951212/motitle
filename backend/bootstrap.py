@@ -66,6 +66,11 @@ def create_app() -> tuple[Flask, "extensions.SocketIO"]:
     # --- Extensions: SocketIO, LoginManager, Limiter ---
     socketio = extensions.init_extensions(app)
 
+    # --- Socket.IO event handlers (v4 A6 C2 T12) ---
+    # Attached AFTER init_extensions so ``extensions.socketio`` is real.
+    import socket_events
+    socket_events.register_socket_events()
+
     # --- Auth DB init + Flask-Login user_loader + auth blueprints ---
     from auth.users import init_db as _auth_init_db, get_user_by_id as _auth_get_user_by_id
     from auth.routes import bp as auth_bp, _LoginUser
