@@ -31,7 +31,7 @@ def alice_with_queued_file(monkeypatch):
     open("/tmp/b1_fake.wav", "wb").close()
 
     # Queue an ASR job for that file
-    jid = insert_job(db, user_id=uid, file_id=fake_id, job_type="asr")
+    jid = insert_job(db, user_id=uid, file_id=fake_id, job_type="pipeline_run")
 
     c = app_module.app.test_client()
     r = c.post("/login", json={"username": "alice_b1", "password": "TestPass1!"})

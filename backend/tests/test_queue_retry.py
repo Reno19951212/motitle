@@ -17,7 +17,7 @@ def alice_client_with_failed_job(monkeypatch, tmp_path):
         update_password(db, "alice_e1", "TestPass1!")
         uid = get_user_by_username(db, "alice_e1")["id"]
     init_jobs_table(db)
-    jid = insert_job(db, user_id=uid, file_id="f-e1", job_type="asr")
+    jid = insert_job(db, user_id=uid, file_id="f-e1", job_type="pipeline_run")
     update_job_status(db, jid, "failed", error_msg="prior failure")
     c = app_module.app.test_client()
     c.post("/login", json={"username": "alice_e1", "password": "TestPass1!"})
@@ -39,7 +39,7 @@ def test_retry_only_valid_for_failed_status(alice_client_with_failed_job):
     from jobqueue.db import insert_job, get_job
     db = app_module.app.config["AUTH_DB_PATH"]
     # Queued job
-    qjid = insert_job(db, user_id=99, file_id="f-e2", job_type="asr")
+    qjid = insert_job(db, user_id=99, file_id="f-e2", job_type="pipeline_run")
     client, _ = alice_client_with_failed_job
     r = client.post(f"/api/queue/{qjid}/retry")
     assert r.status_code in (403, 409)  # 403 if owner check, 409 if status check
@@ -59,9 +59,9 @@ def test_recover_orphaned_running_with_auto_retry_returns_orphan_ids(tmp_path):
                              recover_orphaned_running)
     p = str(tmp_path / "q.db")
     init_jobs_table(p)
-    j1 = insert_job(p, user_id=1, file_id="f1", job_type="asr")
+    j1 = insert_job(p, user_id=1, file_id="f1", job_type="pipeline_run")
     update_job_status(p, j1, "running", started_at=time.time())
-    j2 = insert_job(p, user_id=2, file_id="f2", job_type="translate")
+    j2 = insert_job(p, user_id=2, file_id="f2", job_type="pipeline_run")
     update_job_status(p, j2, "running", started_at=time.time())
     orphans = recover_orphaned_running(p, auto_retry=True)
     assert isinstance(orphans, list)
@@ -81,7 +81,7 @@ def test_jobqueue_init_re_enqueues_orphans_when_recovered(tmp_path, monkeypatch)
     from jobqueue.queue import JobQueue
     p = str(tmp_path / "q.db")
     init_jobs_table(p)
-    orphan = insert_job(p, user_id=1, file_id="f1", job_type="asr")
+    orphan = insert_job(p, user_id=1, file_id="f1", job_type="pipeline_run")
     update_job_status(p, orphan, "running", started_at=time.time())
     # Boot a fresh JobQueue — should recover + re-enqueue
     q = JobQueue(p)
@@ -90,5 +90,5 @@ def test_jobqueue_init_re_enqueues_orphans_when_recovered(tmp_path, monkeypatch)
     # A NEW job exists with the same file_id + type
     from jobqueue.db import list_active_jobs
     active = list_active_jobs(p)
-    assert any(j["file_id"] == "f1" and j["type"] == "asr" for j in active)
+    assert any(j["file_id"] == "f1" and j["type"] == "pipeline_run" for j in active)
     q.shutdown()

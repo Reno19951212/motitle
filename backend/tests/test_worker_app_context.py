@@ -47,9 +47,9 @@ def test_handler_can_access_current_app(tmp_path):
 
     db = str(tmp_path / "q.db")
     init_jobs_table(db)
-    q = JobQueue(db, asr_handler=handler, app=app)
+    q = JobQueue(db, pipeline_handler=handler, app=app)
     try:
-        jid = q.enqueue(user_id=1, file_id="f1", job_type="asr")
+        jid = q.enqueue(user_id=1, file_id="f1", job_type="pipeline_run")
         q.start_workers()
         final = _wait_status(db, jid, ("done", "failed"))
         assert final == "done", f"handler crashed; status={final!r}"
@@ -72,9 +72,9 @@ def test_jobqueue_no_app_works_without_context(tmp_path):
 
     db = str(tmp_path / "q.db")
     init_jobs_table(db)
-    q = JobQueue(db, asr_handler=handler)
+    q = JobQueue(db, pipeline_handler=handler)
     try:
-        jid = q.enqueue(user_id=1, file_id="f1", job_type="asr")
+        jid = q.enqueue(user_id=1, file_id="f1", job_type="pipeline_run")
         q.start_workers()
         _wait_status(db, jid, ("done", "failed"))
     finally:

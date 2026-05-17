@@ -23,8 +23,8 @@ def app_with_queue(tmp_path):
     create_user(db, "bob", "TestPass1!")
 
     # Pre-seed jobs
-    insert_job(db, user_id=1, file_id="f-alice-1", job_type="asr")
-    insert_job(db, user_id=2, file_id="f-bob-1", job_type="asr")
+    insert_job(db, user_id=1, file_id="f-alice-1", job_type="pipeline_run")
+    insert_job(db, user_id=2, file_id="f-bob-1", job_type="pipeline_run")
 
     app = Flask(__name__)
     app.config["SECRET_KEY"] = "t"

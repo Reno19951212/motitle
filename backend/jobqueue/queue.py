@@ -1,8 +1,7 @@
 """Threaded JobQueue with SQLite persistence.
 
-Two worker pools:
-- ASR worker: 1 concurrent (GPU-bound)
-- MT worker: 3 concurrent (API-bound)
+Single worker pool (v4.0 A5 T6 — legacy asr/mt handlers deleted):
+- Pipeline worker: 1 concurrent (GPU-bound)
 
 Handlers are injected — they receive the job dict and either return
 (treated as 'done') or raise (treated as 'failed' with error_msg).
@@ -27,16 +26,10 @@ class JobCancelled(Exception):
     """
 
 
-_ASR_CONCURRENCY = 1
-_MT_CONCURRENCY = 3
-
-
 class JobQueue:
     def __init__(
         self,
         db_path: str,
-        asr_handler: Optional[Callable[[dict], None]] = None,
-        mt_handler: Optional[Callable[[dict], None]] = None,
         pipeline_handler: Optional[Callable[[dict], None]] = None,
         app=None,
         socketio=None,
@@ -50,13 +43,9 @@ class JobQueue:
         # every job state transition so all connected clients refresh in real
         # time instead of waiting for the next 3s poll.
         self._db_path = db_path
-        self._asr_handler = asr_handler
-        self._mt_handler = mt_handler
         self._pipeline_handler = pipeline_handler
         self._app = app
         self._socketio = socketio
-        self._asr_q = stdqueue.Queue()
-        self._mt_q = stdqueue.Queue()
         self._pipeline_q = stdqueue.Queue()
         self._workers = []
         self._shutdown = threading.Event()
@@ -72,7 +61,7 @@ class JobQueue:
         # R6 race fix R3 — track the freshly-inserted jids from orphan retry
         # so the queued-recovery pass below doesn't enqueue them a second
         # time. The new rows are status='queued' so list_active_jobs would
-        # otherwise return them and we'd push the same jid into _asr_q / _mt_q
+        # otherwise return them and we'd push the same jid into _pipeline_q
         # twice → handler runs twice on the same file.
         retry_jids = set()
         if orphans:
@@ -80,15 +69,14 @@ class JobQueue:
             logging.getLogger(__name__).warning(
                 "Recovered %d orphaned 'running' jobs; re-enqueuing", len(orphans))
             for o in orphans:
+                if o["type"] != "pipeline_run":
+                    # v4.0 A5 T6 — legacy 'asr' / 'translate' / 'render' types
+                    # were deleted; orphans of those types are not re-enqueued.
+                    continue
                 new_jid = insert_job(db_path, o["user_id"], o["file_id"], o["type"],
                                      parent_job_id=o["id"])
                 retry_jids.add(new_jid)
-                if o["type"] == "asr":
-                    self._asr_q.put(new_jid)
-                elif o["type"] in ("translate", "render"):
-                    self._mt_q.put(new_jid)
-                elif o["type"] == "pipeline_run":
-                    self._pipeline_q.put(new_jid)
+                self._pipeline_q.put(new_jid)
 
         # Also reload any rows that were left in status='queued' when the
         # previous server process died. Without this, those jobs sit in the
@@ -103,11 +91,7 @@ class JobQueue:
             logging.getLogger(__name__).warning(
                 "Reloading %d 'queued' jobs from DB into worker queue", len(stale_queued))
             for j in stale_queued:
-                if j["type"] == "asr":
-                    self._asr_q.put(j["id"])
-                elif j["type"] in ("translate", "render"):
-                    self._mt_q.put(j["id"])
-                elif j["type"] == "pipeline_run":
+                if j["type"] == "pipeline_run":
                     self._pipeline_q.put(j["id"])
 
     def _emit_changed(self) -> None:
@@ -129,11 +113,7 @@ class JobQueue:
         # pipeline_run jobs. Stored as JSON in the DB; returned by get_job().
         jid = insert_job(self._db_path, user_id, file_id, job_type,
                          parent_job_id=parent_job_id, payload=payload)
-        if job_type == "asr":
-            self._asr_q.put(jid)
-        elif job_type in ("translate", "render"):
-            self._mt_q.put(jid)
-        elif job_type == "pipeline_run":
+        if job_type == "pipeline_run":
             self._pipeline_q.put(jid)
         self._emit_changed()
         return jid
@@ -147,19 +127,9 @@ class JobQueue:
         return -1
 
     def start_workers(self) -> None:
-        for _ in range(_ASR_CONCURRENCY):
-            t = threading.Thread(target=self._worker_loop,
-                                 args=(self._asr_q, self._asr_handler),
-                                 daemon=True, name="asr-worker")
-            t.start()
-            self._workers.append(t)
-        for _ in range(_MT_CONCURRENCY):
-            t = threading.Thread(target=self._worker_loop,
-                                 args=(self._mt_q, self._mt_handler),
-                                 daemon=True, name="mt-worker")
-            t.start()
-            self._workers.append(t)
-        # v4 A1: pipeline workers — 1 concurrent (GPU-bound like ASR)
+        # v4 A1: pipeline workers — 1 concurrent (GPU-bound)
+        # v4.0 A5 T6 — legacy ASR (1 concurrent) + MT (3 concurrent) worker
+        # pools deleted; pipeline_run is the only job_type the system runs.
         t = threading.Thread(target=self._worker_loop,
                              args=(self._pipeline_q, self._pipeline_handler),
                              daemon=True, name="pipeline-worker")
@@ -171,8 +141,6 @@ class JobQueue:
         # Push sentinel to wake workers
         for _ in self._workers:
             try:
-                self._asr_q.put_nowait(None)
-                self._mt_q.put_nowait(None)
                 self._pipeline_q.put_nowait(None)
             except stdqueue.Full:
                 pass

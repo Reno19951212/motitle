@@ -27,8 +27,8 @@ def test_handler_raising_jobcancelled_marks_status_cancelled(db_path):
     def cancelling_handler(job, cancel_event=None):
         raise JobCancelled("user requested cancel")
 
-    q = JobQueue(db_path, asr_handler=cancelling_handler)
-    jid = q.enqueue(user_id=1, file_id="f1", job_type="asr")
+    q = JobQueue(db_path, pipeline_handler=cancelling_handler)
+    jid = q.enqueue(user_id=1, file_id="f1", job_type="pipeline_run")
     q.start_workers()
 
     deadline = time.time() + 5
@@ -61,8 +61,8 @@ def test_jobqueue_cancel_job_sets_event(db_path):
                 raise JobCancelled("cancel observed")
             time.sleep(0.05)
 
-    q = JobQueue(db_path, asr_handler=slow_handler)
-    jid = q.enqueue(user_id=1, file_id="f1", job_type="asr")
+    q = JobQueue(db_path, pipeline_handler=slow_handler)
+    jid = q.enqueue(user_id=1, file_id="f1", job_type="pipeline_run")
     q.start_workers()
 
     # Wait for the handler to start
@@ -108,7 +108,7 @@ def alice_with_running_job(monkeypatch):
         _upw(db, "alice_d4", "TestPass1!")
     uid = get_user_by_username(db, "alice_d4")["id"]
     init_jobs_table(db)
-    jid = insert_job(db, user_id=uid, file_id="f-d4", job_type="asr")
+    jid = insert_job(db, user_id=uid, file_id="f-d4", job_type="pipeline_run")
     update_job_status(db, jid, "running", started_at=time.time())
 
     # Pretend the job is currently in the queue's _cancel_events
@@ -152,7 +152,7 @@ def test_delete_queued_job_still_returns_200(db_path, monkeypatch):
         _upw(db, "alice_d4q", "TestPass1!")
     uid = get_user_by_username(db, "alice_d4q")["id"]
     init_jobs_table(db)
-    jid = insert_job(db, user_id=uid, file_id="f-d4q", job_type="asr")
+    jid = insert_job(db, user_id=uid, file_id="f-d4q", job_type="pipeline_run")
 
     c = app_module.app.test_client()
     c.post("/login", json={"username": "alice_d4q", "password": "TestPass1!"})

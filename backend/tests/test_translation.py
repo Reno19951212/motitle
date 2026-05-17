@@ -1608,89 +1608,10 @@ def test_parallel_batches_one_uses_sequential_path(monkeypatch):
     assert len(captured_contexts[1]) > 0, "sequential path: second batch must receive context from first"
 
 
-# ===== pipeline timing — app._auto_translate =====
-
-def test_translation_progress_includes_elapsed_seconds(monkeypatch):
-    """_auto_translate must include elapsed_seconds in every translation_progress emit."""
-    import sys, os
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-    import app as _app
-
-    class FakeProfileManager:
-        def get_active(self):
-            return {
-                "translation": {"engine": "mock"},
-                "asr": {"language": "en"},
-            }
-
-    class FakeLanguageConfigManager:
-        def get(self, _):
-            return None
-
-    class FakeGlossaryManager:
-        def get(self, _):
-            return None
-
-    monkeypatch.setattr(_app, "_profile_manager", FakeProfileManager())
-    monkeypatch.setattr(_app, "_language_config_manager", FakeLanguageConfigManager())
-    monkeypatch.setattr(_app, "_glossary_manager", FakeGlossaryManager())
-    monkeypatch.setattr(_app, "_update_file", lambda *a, **kw: None)
-    segments = [{"start": 0.0, "end": 1.0, "text": "hello"}]
-    monkeypatch.setattr(_app, "_file_registry", {"fake-id": {"segments": segments}})
-
-    emitted = []
-    monkeypatch.setattr(_app.socketio, "emit", lambda event, data=None, **kw: emitted.append((event, data)))
-
-    _app._auto_translate("fake-id")
-
-    progress_events = [d for e, d in emitted if e == "translation_progress"]
-    assert len(progress_events) > 0, "translation_progress must be emitted"
-    for evt in progress_events:
-        assert "elapsed_seconds" in evt, f"elapsed_seconds missing from translation_progress: {evt}"
-        assert isinstance(evt["elapsed_seconds"], float)
-
-
-def test_pipeline_timing_event_emitted(monkeypatch):
-    """_auto_translate must emit pipeline_timing after translation completes."""
-    import sys, os
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-    import app as _app
-
-    class FakeProfileManager:
-        def get_active(self):
-            return {
-                "translation": {"engine": "mock"},
-                "asr": {"language": "en"},
-            }
-
-    class FakeLanguageConfigManager:
-        def get(self, _):
-            return None
-
-    class FakeGlossaryManager:
-        def get(self, _):
-            return None
-
-    monkeypatch.setattr(_app, "_profile_manager", FakeProfileManager())
-    monkeypatch.setattr(_app, "_language_config_manager", FakeLanguageConfigManager())
-    monkeypatch.setattr(_app, "_glossary_manager", FakeGlossaryManager())
-    monkeypatch.setattr(_app, "_update_file", lambda *a, **kw: None)
-    segments = [{"start": 0.0, "end": 1.0, "text": "hello"}]
-    monkeypatch.setattr(_app, "_file_registry", {"fake-id": {"segments": segments}})
-
-    emitted = []
-    monkeypatch.setattr(_app.socketio, "emit", lambda event, data=None, **kw: emitted.append((event, data)))
-
-    _app._auto_translate("fake-id", sid="fake-sid")
-
-    timing_events = [d for e, d in emitted if e == "pipeline_timing"]
-    assert len(timing_events) == 1, "pipeline_timing must be emitted exactly once"
-    evt = timing_events[0]
-    assert "translation_seconds" in evt
-    assert "total_seconds" in evt
-    assert "asr_seconds" in evt
-    assert isinstance(evt["translation_seconds"], float)
-    assert evt.get("file_id") == "fake-id"
+# v4.0 A5 T6 — test_translation_progress_includes_elapsed_seconds +
+# test_pipeline_timing_event_emitted deleted; both called _auto_translate()
+# directly. The translation_progress / pipeline_timing emit contracts are now
+# exercised by MTStage tests on the new pipeline_run code path.
 
 
 # ---------------------------------------------------------------------------

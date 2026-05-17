@@ -19,7 +19,7 @@ def db_path(tmp_path):
 def test_enqueue_returns_job_id(db_path):
     from jobqueue.queue import JobQueue
     q = JobQueue(db_path)
-    jid = q.enqueue(user_id=1, file_id="f1", job_type="asr")
+    jid = q.enqueue(user_id=1, file_id="f1", job_type="pipeline_run")
     assert isinstance(jid, str)
     q.shutdown()
 
@@ -27,9 +27,9 @@ def test_enqueue_returns_job_id(db_path):
 def test_position_is_zero_indexed_in_queue(db_path):
     from jobqueue.queue import JobQueue
     q = JobQueue(db_path)
-    j1 = q.enqueue(user_id=1, file_id="f1", job_type="asr")
-    j2 = q.enqueue(user_id=2, file_id="f2", job_type="asr")
-    j3 = q.enqueue(user_id=1, file_id="f3", job_type="asr")
+    j1 = q.enqueue(user_id=1, file_id="f1", job_type="pipeline_run")
+    j2 = q.enqueue(user_id=2, file_id="f2", job_type="pipeline_run")
+    j3 = q.enqueue(user_id=1, file_id="f3", job_type="pipeline_run")
     assert q.position(j1) == 0
     assert q.position(j2) == 1
     assert q.position(j3) == 2
@@ -43,8 +43,8 @@ def test_register_handler_then_run_one(db_path):
     def fake_asr(job, cancel_event=None):
         completed.append(job["id"])
 
-    q = JobQueue(db_path, asr_handler=fake_asr)
-    jid = q.enqueue(user_id=1, file_id="f1", job_type="asr")
+    q = JobQueue(db_path, pipeline_handler=fake_asr)
+    jid = q.enqueue(user_id=1, file_id="f1", job_type="pipeline_run")
     q.start_workers()
     # wait for completion
     deadline = time.time() + 5
@@ -66,8 +66,8 @@ def test_handler_exception_marks_failed(db_path):
     def bad_handler(job, cancel_event=None):
         raise RuntimeError("boom")
 
-    q = JobQueue(db_path, asr_handler=bad_handler)
-    jid = q.enqueue(user_id=1, file_id="f1", job_type="asr")
+    q = JobQueue(db_path, pipeline_handler=bad_handler)
+    jid = q.enqueue(user_id=1, file_id="f1", job_type="pipeline_run")
     q.start_workers()
     deadline = time.time() + 5
     while time.time() < deadline:

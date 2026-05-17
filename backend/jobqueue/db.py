@@ -96,7 +96,7 @@ def init_jobs_table(db_path: str) -> None:
     conn.close()
 
 
-_VALID_JOB_TYPES = ("asr", "translate", "render", "pipeline_run")
+_VALID_JOB_TYPES = ("pipeline_run",)
 
 
 def insert_job(db_path: str, user_id: int, file_id: str, job_type: str,

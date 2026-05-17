@@ -25,14 +25,14 @@ def test_jobs_table_has_attempt_count_column(db_path):
 
 def test_insert_job_default_attempt_count_is_1(db_path):
     from jobqueue.db import insert_job, get_job
-    jid = insert_job(db_path, user_id=1, file_id="f1", job_type="asr")
+    jid = insert_job(db_path, user_id=1, file_id="f1", job_type="pipeline_run")
     assert get_job(db_path, jid)["attempt_count"] == 1
 
 
 def test_insert_job_with_parent_increments_attempt_count(db_path):
     from jobqueue.db import insert_job, get_job
-    parent = insert_job(db_path, user_id=1, file_id="f1", job_type="asr")
-    retry = insert_job(db_path, user_id=1, file_id="f1", job_type="asr",
+    parent = insert_job(db_path, user_id=1, file_id="f1", job_type="pipeline_run")
+    retry = insert_job(db_path, user_id=1, file_id="f1", job_type="pipeline_run",
                        parent_job_id=parent)
     assert get_job(db_path, retry)["attempt_count"] == 2
 
@@ -40,9 +40,9 @@ def test_insert_job_with_parent_increments_attempt_count(db_path):
 def test_insert_job_chain_increments_each_time(db_path):
     """Re-enqueue twice → attempt_count 1 → 2 → 3."""
     from jobqueue.db import insert_job, get_job
-    j1 = insert_job(db_path, user_id=1, file_id="f1", job_type="asr")
-    j2 = insert_job(db_path, user_id=1, file_id="f1", job_type="asr", parent_job_id=j1)
-    j3 = insert_job(db_path, user_id=1, file_id="f1", job_type="asr", parent_job_id=j2)
+    j1 = insert_job(db_path, user_id=1, file_id="f1", job_type="pipeline_run")
+    j2 = insert_job(db_path, user_id=1, file_id="f1", job_type="pipeline_run", parent_job_id=j1)
+    j3 = insert_job(db_path, user_id=1, file_id="f1", job_type="pipeline_run", parent_job_id=j2)
     assert get_job(db_path, j3)["attempt_count"] == 3
 
 
@@ -52,7 +52,7 @@ def test_recover_orphaned_running_skips_at_max_attempt(db_path, monkeypatch):
 
     monkeypatch.delenv("R5_MAX_JOB_RETRY", raising=False)  # use default 3
 
-    jid = insert_job(db_path, user_id=1, file_id="f1", job_type="asr")
+    jid = insert_job(db_path, user_id=1, file_id="f1", job_type="pipeline_run")
     c = sqlite3.connect(db_path)
     c.execute("UPDATE jobs SET attempt_count = 3 WHERE id = ?", (jid,))
     c.commit()
@@ -70,7 +70,7 @@ def test_recover_orphaned_running_re_enqueues_under_cap(db_path, monkeypatch):
 
     monkeypatch.delenv("R5_MAX_JOB_RETRY", raising=False)
 
-    jid = insert_job(db_path, user_id=1, file_id="f1", job_type="asr")
+    jid = insert_job(db_path, user_id=1, file_id="f1", job_type="pipeline_run")
     update_job_status(db_path, jid, "running", started_at=time.time())
 
     orphans = recover_orphaned_running(db_path, auto_retry=True)
@@ -85,7 +85,7 @@ def test_max_retry_env_override(db_path, monkeypatch):
 
     monkeypatch.setenv("R5_MAX_JOB_RETRY", "1")  # cap at 1 = block immediately
 
-    jid = insert_job(db_path, user_id=1, file_id="f1", job_type="asr")
+    jid = insert_job(db_path, user_id=1, file_id="f1", job_type="pipeline_run")
     update_job_status(db_path, jid, "running", started_at=time.time())
 
     orphans = recover_orphaned_running(db_path, auto_retry=True)
