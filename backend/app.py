@@ -133,33 +133,8 @@ _render_jobs_lock = threading.Lock()
 # their output files on disk being cleaned).
 _RENDER_JOB_TTL_SEC = 24 * 60 * 60  # 24 h
 
-
-def _evict_old_render_jobs():
-    """Drop completed render jobs older than _RENDER_JOB_TTL_SEC.
-
-    Called opportunistically — start, status, list. The render-job dict
-    previously grew unbounded with every render's payload + on-disk MP4/MXF
-    output file, eventually OOM'ing the box on a long-uptime server. Now
-    bounded by TTL; per-job memory is small (~300 bytes) and output files
-    are unlinked at the same time.
-    """
-    now = time.time()
-    to_drop = []
-    with _render_jobs_lock:
-        for rid, job in list(_render_jobs.items()):
-            if job.get("status") not in ("done", "error", "cancelled"):
-                continue
-            if (now - (job.get("created_at") or 0)) < _RENDER_JOB_TTL_SEC:
-                continue
-            to_drop.append((rid, job.get("output_path")))
-        for rid, _path in to_drop:
-            _render_jobs.pop(rid, None)
-    for _rid, path in to_drop:
-        try:
-            if path and os.path.exists(path):
-                os.remove(path)
-        except Exception:
-            pass
+# v4 A6 C2 T13a — _evict_old_render_jobs lives in helpers.render_options.
+# Re-exported below alongside the other helper module imports.
 
 # --- v4 A6 C2 T5 backward-compat re-exports ---
 # Tests and many helpers below this line still reference these names as
@@ -270,175 +245,50 @@ _job_queue._pipeline_handler = _pipeline_run_handler
 _job_queue.start_workers()
 
 
-def _load_registry():
-    """Load file registry from disk on startup"""
-    registry_path = DATA_DIR / "registry.json"
-    if registry_path.exists():
-        with open(registry_path) as f:
-            return json.load(f)
-    return {}
+# v4 A6 C2 T13a — registry / file-CRUD / media helpers extracted to the
+# ``backend/helpers/`` package. ``app.py`` keeps the original symbol names
+# as re-exports so call sites that still do ``app._register_file(...)``,
+# ``app.get_model(...)`` etc. keep working (incl. tests and the other
+# blueprints that lazy-look up via ``import app as _app``).
+from helpers import files as _h_files
+from helpers import registry as _h_registry
+from helpers import media as _h_media
+from helpers import render_options as _h_render_opts
 
+# --- registry persistence ---
+_load_registry = _h_registry._load_registry
+_save_registry_to_disk = _h_registry._save_registry_to_disk
+_save_registry = _h_registry._save_registry
+_registry_flusher_loop = _h_registry._registry_flusher_loop
+_start_registry_flusher = _h_registry._start_registry_flusher
+_REGISTRY_FLUSH_INTERVAL = _h_registry._REGISTRY_FLUSH_INTERVAL
+_registry_dirty = _h_registry._registry_dirty
+_registry_flush_stop = _h_registry._registry_flush_stop
 
-def _save_registry_to_disk():
-    """Atomic write of the registry JSON. Internal helper — public API is
-    `_save_registry()` which goes through the debouncer."""
-    registry_path = DATA_DIR / "registry.json"
-    tmp_path = registry_path.with_suffix(".json.tmp")
-    with open(tmp_path, 'w', encoding='utf-8') as f:
-        json.dump(_file_registry, f, ensure_ascii=False, indent=2)
-    os.replace(tmp_path, registry_path)
+# --- file registry CRUD ---
+_user_upload_dir = _h_files._user_upload_dir
+_resolve_file_path = _h_files._resolve_file_path
+_filter_files_by_owner = _h_files._filter_files_by_owner
+_register_file = _h_files._register_file
+_update_file = _h_files._update_file
+_delete_file_entry = _h_files._delete_file_entry
+_normalize_translation_for_api = _h_files._normalize_translation_for_api
 
+# --- render options ---
+_evict_old_render_jobs = _h_render_opts._evict_old_render_jobs
+_validate_render_options = _h_render_opts._validate_render_options
+VALID_RENDER_FORMATS = _h_render_opts.VALID_RENDER_FORMATS
+_FORMAT_TO_EXTENSION = _h_render_opts._FORMAT_TO_EXTENSION
 
-# R6 audit M2 — debounced registry persistence.
-#
-# Every translation PATCH / approve / unapprove previously triggered a full
-# JSON serialization of the entire in-memory _file_registry under the
-# registry lock — multi-MB of segments + word-timestamps + translations
-# even for a one-cell change. During heavy proofreading or MT progress
-# this dominated CPU. Now writes mark a dirty flag; a background thread
-# coalesces them, flushing at most once every _REGISTRY_FLUSH_INTERVAL.
-# Boot recovery + shutdown still flush synchronously.
-_REGISTRY_FLUSH_INTERVAL = 0.5  # seconds
-_registry_dirty = threading.Event()
-_registry_flush_thread = None
-_registry_flush_stop = threading.Event()
+# --- media ---
+get_model = _h_media.get_model
+get_media_duration = _h_media.get_media_duration
+extract_audio = _h_media.extract_audio
 
-
-def _registry_flusher_loop():
-    """Background thread — wake when dirty, sleep min interval, flush."""
-    while not _registry_flush_stop.is_set():
-        # Wait until something marks the registry dirty (or shutdown)
-        triggered = _registry_dirty.wait(timeout=5.0)
-        if _registry_flush_stop.is_set():
-            break
-        if not triggered:
-            continue
-        # Hold the dirty signal briefly so bursty writes (e.g. approve-all
-        # touching 50 segments serially) collapse into one disk write.
-        time.sleep(_REGISTRY_FLUSH_INTERVAL)
-        _registry_dirty.clear()
-        try:
-            with _registry_lock:
-                _save_registry_to_disk()
-        except Exception as e:
-            print(f"[registry-flusher] save failed: {e}")
-
-
-def _start_registry_flusher():
-    """Spawn the background flusher thread (idempotent)."""
-    global _registry_flush_thread
-    if _registry_flush_thread is not None and _registry_flush_thread.is_alive():
-        return
-    _registry_flush_thread = threading.Thread(
-        target=_registry_flusher_loop,
-        name="registry-flusher",
-        daemon=True,
-    )
-    _registry_flush_thread.start()
-
-
-def _save_registry():
-    """Mark the registry dirty. The background flusher coalesces writes
-    and persists at most once per _REGISTRY_FLUSH_INTERVAL. Callers that
-    need an immediate flush (shutdown, /api/restart) should call
-    _save_registry_to_disk() directly."""
-    _registry_dirty.set()
-
-
-def _user_upload_dir(user_id: int) -> Path:
-    """Per-user uploads directory (R5 Phase 1).
-
-    Creates `data/users/<uid>/uploads/` lazily. New uploads land here so
-    storage layout is owner-scoped. Legacy files at UPLOAD_DIR root are
-    still readable — see _resolve_file_path() for the lookup chain.
-    """
-    p = DATA_DIR / "users" / str(user_id) / "uploads"
-    p.mkdir(parents=True, exist_ok=True)
-    return p
-
-
-def _resolve_file_path(entry: dict) -> str:
-    """Return the on-disk path for a registry entry.
-
-    Prefers the per-user `file_path` recorded at save time (R5+); falls
-    back to the legacy UPLOAD_DIR root layout for entries created before
-    Phase 1 (which only stored `stored_name`).
-    """
-    fp = entry.get('file_path')
-    if fp and os.path.exists(fp):
-        return fp
-    return str(UPLOAD_DIR / entry['stored_name'])
-
-
-def _filter_files_by_owner(registry: dict, user) -> dict:
-    """Return registry subset visible to current user (R5 Phase 1).
-
-    - Admin sees all
-    - Other users see only files where `user_id == user.id`
-    - Files with no `user_id` (pre-R5 era / orphan) are NOT shown to non-admin
-      users; admin can re-assign via DB or migration script.
-    """
-    if getattr(user, "is_admin", False):
-        return dict(registry)
-    # R5_AUTH_BYPASS (test mode): return all files if user has no .id
-    if app.config.get("R5_AUTH_BYPASS") and not hasattr(user, "id"):
-        return dict(registry)
-    return {
-        fid: f for fid, f in registry.items()
-        if f.get("user_id") == user.id
-    }
-
-
-def _register_file(file_id, original_name, stored_name, size_bytes, user_id=None,
-                   file_path=None):
-    """Register an uploaded file. user_id is the owner (R5 Phase 1 — required
-    once auth lands; defaults to None for backward compatibility with any
-    pre-R5 path that may still upload anonymously). file_path is the
-    absolute on-disk path (R5 Phase 1 — set when files land under
-    per-user dirs; legacy entries without it fall back to UPLOAD_DIR root)."""
-    with _registry_lock:
-        _file_registry[file_id] = {
-            'id': file_id,
-            'user_id': user_id,
-            'original_name': original_name,
-            'stored_name': stored_name,
-            'file_path': file_path,
-            'size': size_bytes,
-            'status': 'uploaded',  # uploaded | transcribing | done | error
-            'uploaded_at': time.time(),
-            'segments': [],
-            'text': '',
-            'error': None,
-            'model': None,       # whisper model used (e.g. 'small', 'tiny')
-            'backend': None,     # 'openai-whisper' or 'faster-whisper'
-            'subtitle_source': None,
-            'bilingual_order': None,
-            'prompt_overrides': None,   # v3.18 Stage 2: per-file MT prompt override
-        }
-        _save_registry()
-    return _file_registry[file_id]
-
-
-def _update_file(file_id, **kwargs):
-    """Update file metadata"""
-    with _registry_lock:
-        if file_id in _file_registry:
-            _file_registry[file_id].update(kwargs)
-            _save_registry()
-
-
-def _delete_file_entry(file_id):
-    """Delete a file from registry and disk"""
-    with _registry_lock:
-        entry = _file_registry.pop(file_id, None)
-        _save_registry()
-    if entry:
-        media_path = Path(_resolve_file_path(entry))
-        if media_path.exists():
-            media_path.unlink()
-    return entry is not None
-
-# Global model cache — separate caches for each backend
+# Global model cache — separate caches for each backend.  Lives on ``app``
+# so the legacy ``/api/models`` endpoint + the helper in ``helpers/media.py``
+# see the same singletons; ``helpers.media.get_model`` reaches back through
+# ``import app as _app`` to mutate them.
 _openai_model_cache = {}
 _faster_model_cache = {}
 _model_lock = threading.Lock()
@@ -560,66 +410,10 @@ if WHISPER_STREAMING_AVAILABLE:
 ALLOWED_EXTENSIONS = {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.mxf', '.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg'}
 
 
-def get_model(model_size='small', backend='auto'):
-    """Load and cache Whisper model. backend: 'auto'|'openai'|'faster'"""
-    use_faster = (
-        backend == 'faster' or
-        (backend == 'auto' and FASTER_WHISPER_AVAILABLE)
-    )
-
-    with _model_lock:
-        if use_faster and FASTER_WHISPER_AVAILABLE:
-            if model_size not in _faster_model_cache:
-                print(f"Loading faster-whisper model: {model_size}")
-                _faster_model_cache[model_size] = FasterWhisperModel(
-                    model_size, device="auto", compute_type="int8"
-                )
-                print(f"faster-whisper model {model_size} loaded")
-            return _faster_model_cache[model_size], 'faster'
-        else:
-            if model_size not in _openai_model_cache:
-                print(f"Loading openai-whisper model: {model_size}")
-                _openai_model_cache[model_size] = whisper.load_model(model_size)
-                print(f"openai-whisper model {model_size} loaded")
-            return _openai_model_cache[model_size], 'openai'
-
-
-def get_media_duration(file_path: str) -> float:
-    """Get media duration in seconds using ffprobe"""
-    try:
-        cmd = [
-            'ffprobe', '-v', 'quiet',
-            '-print_format', 'json',
-            '-show_format',
-            file_path
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        if result.returncode == 0:
-            info = json.loads(result.stdout)
-            return float(info.get('format', {}).get('duration', 0))
-    except Exception as e:
-        print(f"Error getting duration: {e}")
-    return 0
-
-
-def extract_audio(video_path: str, output_path: str) -> bool:
-    """Extract audio from video file using ffmpeg"""
-    try:
-        cmd = [
-            'ffmpeg', '-i', video_path,
-            '-vn',  # No video
-            '-acodec', 'pcm_s16le',  # PCM 16-bit
-            '-ar', '16000',  # 16kHz sample rate (Whisper requirement)
-            '-ac', '1',  # Mono
-            '-y',  # Overwrite
-            output_path
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
-        return result.returncode == 0
-    except Exception as e:
-        print(f"Error extracting audio: {e}")
-        return False
-
+# v4 A6 C2 T13a — get_model / get_media_duration / extract_audio extracted
+# to helpers/media.py. Re-exports at the top of this module preserve the
+# ``app.get_model(...)`` / ``app.extract_audio(...)`` call sites used by
+# socket_events.py and tests.
 
 
 # v4 A6 C2 T6 — fonts / SPA / health-ready routes now live in
@@ -635,275 +429,16 @@ _FRONTEND_DIR = str(Path(__file__).parent.parent / "frontend")
 # ============================================================
 # REST API Routes
 # ============================================================
-
-@app.route('/api/models', methods=['GET'])
-@login_required
-def list_models():
-    """List available Whisper models with download/loaded status"""
-    # Check which models are downloaded on disk
-    cache_dir = Path.home() / '.cache' / 'whisper'
-    downloaded = set()
-    if cache_dir.exists():
-        for f in cache_dir.iterdir():
-            if f.suffix == '.pt':
-                downloaded.add(f.stem)  # e.g. 'small', 'tiny'
-
-    # Check which models are loaded in memory
-    loaded_openai = set(_openai_model_cache.keys())
-    loaded_faster = set(_faster_model_cache.keys())
-    loaded = loaded_openai | loaded_faster
-
-    models_info = [
-        {'id': 'tiny', 'name': 'Tiny', 'params': '39M', 'speed': '最快', 'quality': '基礎'},
-        {'id': 'base', 'name': 'Base', 'params': '74M', 'speed': '快', 'quality': '良好'},
-        {'id': 'small', 'name': 'Small', 'params': '244M', 'speed': '中等', 'quality': '優良'},
-        {'id': 'medium', 'name': 'Medium', 'params': '769M', 'speed': '慢', 'quality': '出色'},
-        {'id': 'large', 'name': 'Large', 'params': '1550M', 'speed': '最慢', 'quality': '最佳'},
-        {'id': 'turbo', 'name': 'Turbo', 'params': '809M', 'speed': '快', 'quality': '優良'},
-    ]
-
-    for m in models_info:
-        mid = m['id']
-        if mid in loaded:
-            m['status'] = 'loaded'       # in memory, ready to use
-        elif mid in downloaded:
-            m['status'] = 'downloaded'    # on disk, needs loading
-        else:
-            m['status'] = 'not_downloaded'  # needs download + loading
-
-    return jsonify({'models': models_info})
-
-
-# ============================================================
+#
+# v4 A6 C2 T13a — moved to routes/:
+#   /api/models                                 → routes/engines.py
+#   /api/asr/engines, /api/asr/engines/<n>/...  → routes/engines.py
+#   /api/translation/engines/...                → routes/engines.py
+#   /api/ollama/signin, /api/ollama/status      → routes/ollama.py
+#
 # v4.0 A5 T8 — legacy /api/profiles* endpoints + _redact_profile_for helper
 # deleted. Use /api/asr_profiles + /api/mt_profiles + /api/pipelines (P1).
-# ============================================================
-
-
-# ============================================================
-# v4.0 Phase 1 — ASR profile REST endpoints — moved to routes/asr_profiles.py (v4 A6 C2 T9)
-# ============================================================
-
-
-# ============================================================
-# v4.0 Phase 1 — MT profile REST endpoints — moved to routes/mt_profiles.py (v4 A6 C2 T9)
-# ============================================================
-
-
-# ============================================================
-# v4.0 Phase 1 — Pipeline REST endpoints — moved to routes/pipelines.py (v4 A6 C2 T8)
-# ============================================================
-
-
-# ============================================================
-# ASR Engine Info
-# ============================================================
-
-@app.route('/api/asr/engines', methods=['GET'])
-@login_required
-def api_list_asr_engines():
-    """List available ASR engines with status."""
-    from asr import create_asr_engine
-    engines_info = []
-    for engine_name, desc in [
-        ("whisper", "Whisper (faster-whisper, CPU)"),
-        ("mlx-whisper", "MLX Whisper (Metal GPU, Apple Silicon)"),
-    ]:
-        try:
-            engine = create_asr_engine({"engine": engine_name, "model_size": "unknown"})
-            info = engine.get_info()
-            engines_info.append({
-                "engine": engine_name,
-                "available": info.get("available", False),
-                "description": desc,
-            })
-        except Exception:
-            engines_info.append({
-                "engine": engine_name,
-                "available": False,
-                "description": desc,
-            })
-    return jsonify({"engines": engines_info})
-
-
-@app.route('/api/asr/engines/<name>/params', methods=['GET'])
-@login_required
-def api_asr_engine_params(name):
-    """Get configurable parameter schema for a specific ASR engine."""
-    from asr import create_asr_engine
-    try:
-        engine = create_asr_engine({"engine": name, "model_size": "unknown"})
-        return jsonify(engine.get_params_schema())
-    except ValueError:
-        return jsonify({"error": f"Unknown ASR engine: {name}"}), 404
-
-
-# ============================================================
-# Translation Engine Info
-# ============================================================
-
-@app.route('/api/translation/engines', methods=['GET'])
-@login_required
-def api_list_translation_engines():
-    """List available translation engines with status."""
-    from translation import create_translation_engine
-    from translation.ollama_engine import CLOUD_ENGINES
-
-    engines_info = []
-    for engine_name, desc in [
-        ("mock", "Mock translator (development)"),
-        ("qwen2.5-3b", "Qwen 2.5 3B (Ollama)"),
-        ("qwen2.5-7b", "Qwen 2.5 7B (Ollama)"),
-        ("qwen2.5-72b", "Qwen 2.5 72B (Ollama)"),
-        ("qwen3-235b", "Qwen3 235B MoE (Ollama)"),
-        ("qwen3.5-9b", "Qwen 3.5 9B (Ollama)"),
-        ("qwen3.5-35b-a3b", "Qwen 3.5 35B-A3B MLX (Ollama)"),
-        ("glm-4.6-cloud", "GLM-4.6 (Ollama Cloud)"),
-        ("qwen3.5-397b-cloud", "Qwen 3.5 397B MoE (Ollama Cloud)"),
-        ("gpt-oss-120b-cloud", "GPT-OSS 120B (Ollama Cloud)"),
-        ("openrouter", "OpenRouter (Claude / GPT / Gemini / etc.)"),
-    ]:
-        try:
-            engine = create_translation_engine({"engine": engine_name})
-            info = engine.get_info()
-            engines_info.append({
-                "engine": engine_name,
-                "available": info.get("available", False),
-                "description": desc,
-                "is_cloud": engine_name in CLOUD_ENGINES or engine_name == "openrouter",
-                "requires_api_key": info.get("requires_api_key", False),
-            })
-        except Exception:
-            engines_info.append({
-                "engine": engine_name,
-                "available": False,
-                "description": desc,
-                "is_cloud": engine_name in CLOUD_ENGINES or engine_name == "openrouter",
-                "requires_api_key": engine_name == "openrouter",
-            })
-    return jsonify({"engines": engines_info})
-
-
-@app.route('/api/translation/engines/<name>/params', methods=['GET'])
-@login_required
-def api_translation_engine_params(name):
-    """Get configurable parameter schema for a specific translation engine."""
-    from translation import create_translation_engine
-    try:
-        engine = create_translation_engine({"engine": name})
-        return jsonify(engine.get_params_schema())
-    except ValueError:
-        return jsonify({"error": f"Unknown translation engine: {name}"}), 404
-
-
-@app.route('/api/translation/engines/<name>/models', methods=['GET'])
-@login_required
-def api_translation_engine_models(name):
-    """Return the model info for the specified translation engine.
-
-    `OllamaTranslationEngine.get_models()` enumerates every entry in
-    ENGINE_TO_MODEL, so the raw result would confuse the frontend (which
-    expects one entry per engine). We filter to just the requested engine.
-    """
-    from translation import create_translation_engine
-    try:
-        engine = create_translation_engine({"engine": name})
-        all_models = engine.get_models()
-        matching = [m for m in all_models if m.get("engine") == name]
-        # Fallback: if no match (e.g. mock engine returns a single dummy),
-        # return whatever the engine provided.
-        models = matching if matching else all_models
-        return jsonify({"engine": name, "models": models})
-    except ValueError:
-        return jsonify({"error": f"Unknown translation engine: {name}"}), 404
-
-
-_LOCALHOST_ADDRS = frozenset({"127.0.0.1", "::1", None})
-
-
-def _require_localhost():
-    """Return (None, None) if the request is from localhost, else a 403 response.
-
-    Guards subprocess-spawning + signin-sensitive endpoints against LAN
-    exposure even if FLASK_HOST is set to 0.0.0.0. remote_addr is None when
-    Flask is running under a test client."""
-    if request.remote_addr not in _LOCALHOST_ADDRS:
-        return (
-            jsonify({"error": "restricted to localhost"}),
-            403,
-        )
-    return None
-
-
-@app.route('/api/ollama/signin', methods=['POST'])
-@login_required
-def api_ollama_signin():
-    """Check signin status; spawn interactive flow if not already signed in.
-
-    First invalidates the cache and checks signin status via ``ollama signin``
-    with a 2-second timeout (see ``_get_ollama_signin_status``).  If already
-    signed in, returns the user name immediately without spawning a new process.
-    If not signed in, spawns the interactive OAuth flow non-blocking so the
-    user can complete it in their browser.
-    """
-    forbidden = _require_localhost()
-    if forbidden:
-        return forbidden
-
-    import subprocess as sp
-    from translation.ollama_engine import _get_ollama_signin_status, _SIGNIN_STATUS_CACHE
-
-    # Invalidate cache so we get a fresh check
-    _SIGNIN_STATUS_CACHE["expires_at"] = 0
-    status = _get_ollama_signin_status()
-
-    if status["signed_in"]:
-        return jsonify({
-            "status": "already_signed_in",
-            "signed_in": True,
-            "user": status["user"],
-            "message": f"Already signed in as '{status['user']}'",
-        }), 200
-
-    # Not signed in — spawn interactive OAuth flow
-    try:
-        sp.Popen(
-            ["ollama", "signin"],
-            stdout=sp.DEVNULL,
-            stderr=sp.DEVNULL,
-            start_new_session=True,
-        )
-        return jsonify({
-            "status": "signin_spawned",
-            "signed_in": False,
-            "message": "Ollama signin launched. Complete login in browser.",
-        }), 200
-    except FileNotFoundError:
-        return jsonify({"error": "ollama binary not found in PATH. Install Ollama first."}), 500
-    except Exception as e:
-        return jsonify({"error": f"Failed to spawn ollama signin: {str(e)}"}), 500
-
-
-@app.route('/api/ollama/status', methods=['GET'])
-@login_required
-def api_ollama_status():
-    """Return cached Ollama Cloud signin status.
-
-    Uses the 60-second cached result from ``_get_ollama_signin_status`` to
-    avoid repeated subprocess overhead on repeated calls.
-    """
-    forbidden = _require_localhost()
-    if forbidden:
-        return forbidden
-
-    from translation.ollama_engine import _get_ollama_signin_status
-    status = _get_ollama_signin_status()
-    return jsonify({
-        "signed_in": status["signed_in"],
-        "user": status.get("user"),
-    }), 200
-
-
+#
 # v4.0 A5 T6 — POST /api/translate (legacy MT-only trigger) deleted along
 # with _auto_translate / _mt_handler. MT now runs as part of pipeline_run
 # (POST /api/pipelines/<pipeline_id>/run on a file).
@@ -1037,211 +572,27 @@ GLOSSARY_APPLY_SYSTEM_PROMPT = (
 # ============================================================
 # Translation Approval API (Proof-reading)
 # ============================================================
-
-# Legacy QA prefix migration: registry entries written before flags were
-# structured may still carry "[LONG] " / "[NEEDS REVIEW] " in zh_text.
-# Normalize on read so the API always exposes a clean zh_text + flags pair.
-import re as _re_qa
-_LEGACY_QA_PREFIX_RE = _re_qa.compile(r"^\s*(?:\[(LONG|NEEDS REVIEW)\])\s*")
-
-
-def _normalize_translation_for_api(t: dict) -> dict:
-    """Return a copy of ``t`` with structured ``flags`` and clean ``zh_text``.
-
-    If ``t`` already has a ``flags`` field, it is returned unchanged. Otherwise
-    legacy [LONG] / [NEEDS REVIEW] prefixes (possibly stacked) are parsed out
-    of zh_text and converted into a flags list.
-    """
-    if "flags" in t:
-        return t
-    zh = t.get("zh_text", "") or ""
-    flags: List[str] = []
-    while True:
-        m = _LEGACY_QA_PREFIX_RE.match(zh)
-        if not m:
-            break
-        tag = m.group(1)
-        flag = "long" if tag == "LONG" else "review"
-        if flag not in flags:
-            flags.append(flag)
-        zh = zh[m.end():]
-    return {**t, "zh_text": zh, "flags": flags}
-
-
-# v4 A6 C2 T7 — moved to routes/files.py:
+#
+# v4 A6 C2 T7  — moved to routes/files.py:
 #   GET   /api/files/<id>/translations             → api_get_translations
 #   POST  /api/files/<id>/translations/approve-all → api_approve_all_translations
 #   GET   /api/files/<id>/translations/status      → api_translation_status
 #   PATCH /api/files/<id>/translations/<idx>       → api_update_translation
 #   POST  /api/files/<id>/translations/<idx>/approve   → api_approve_translation
 #   POST  /api/files/<id>/translations/<idx>/unapprove → api_unapprove_translation
+#
+# v4 A6 C2 T13a — ``_normalize_translation_for_api`` extracted to
+# ``helpers/files.py`` (re-exported at top of this module).
 
 
 # ============================================================
 # Render Endpoints
 # ============================================================
-
-VALID_RENDER_FORMATS = {"mp4", "mxf", "mxf_xdcam_hd422"}
-
-# XDCAM HD 422 CBR bitrate range (Mbps). Default 50 is broadcast standard.
-_XDCAM_MIN_BITRATE_MBPS = 10
-_XDCAM_MAX_BITRATE_MBPS = 100
-_XDCAM_DEFAULT_BITRATE_MBPS = 50
-
-# MP4 advanced options
-_VALID_BITRATE_MODES   = {"crf", "cbr", "2pass"}
-_VALID_PIXEL_FORMATS   = {"yuv420p", "yuv422p", "yuv444p"}
-_VALID_H264_PROFILES   = {"baseline", "main", "high", "high422", "high444"}
-_VALID_H264_LEVELS     = {"3.1", "4.0", "4.1", "4.2", "5.0", "5.1", "5.2", "auto"}
-_MP4_MIN_BITRATE_MBPS  = 2
-_MP4_MAX_BITRATE_MBPS  = 100
-_MP4_DEFAULT_BITRATE_MBPS = 20
-
-# MXF-family formats all use the .mxf file extension. When a new MXF variant
-# is added (xdcam, imx, etc.), add it here so outputs don't get literal
-# filenames like "foo.mxf_xdcam_hd422".
-_FORMAT_TO_EXTENSION = {
-    "mp4": "mp4",
-    "mxf": "mxf",
-    "mxf_xdcam_hd422": "mxf",
-}
-
-# Allowed values for render_options fields
-_VALID_MP4_PRESETS     = {"ultrafast", "superfast", "veryfast", "faster", "fast",
-                           "medium", "slow", "slower", "veryslow"}
-_VALID_AUDIO_BITRATES  = {"64k", "96k", "128k", "192k", "256k", "320k"}
-_VALID_AUDIO_FORMATS   = {"pcm_s16le", "pcm_s24le", "pcm_s32le"}
-_VALID_RESOLUTIONS     = {None, "1280x720", "1920x1080", "2560x1440", "3840x2160"}
-_VALID_PRORES_PROFILES = {0, 1, 2, 3, 4, 5}
-
-
-def _validate_render_options(output_format: str, opts: dict):
-    """Return (clean_opts, error_str).  error_str is None when valid."""
-    clean = {}
-    if output_format == "mp4":
-        # --- bitrate mode ---
-        bitrate_mode = opts.get("bitrate_mode", "crf")
-        if bitrate_mode not in _VALID_BITRATE_MODES:
-            return None, f"render_options.bitrate_mode must be one of {sorted(_VALID_BITRATE_MODES)}, got {bitrate_mode!r}"
-        clean["bitrate_mode"] = bitrate_mode
-
-        if bitrate_mode == "crf":
-            crf = opts.get("crf", 18)
-            try:
-                crf = int(crf)
-            except (TypeError, ValueError):
-                return None, f"render_options.crf must be an integer, got {crf!r}"
-            if not (0 <= crf <= 51):
-                return None, f"render_options.crf must be 0–51, got {crf}"
-            clean["crf"] = crf
-        else:
-            mbps = opts.get("video_bitrate_mbps", _MP4_DEFAULT_BITRATE_MBPS)
-            # bool is a subclass of int — reject explicitly.
-            if isinstance(mbps, bool):
-                return None, f"render_options.video_bitrate_mbps must be an integer, got {mbps!r}"
-            try:
-                mbps = int(mbps)
-            except (TypeError, ValueError):
-                return None, f"render_options.video_bitrate_mbps must be an integer, got {mbps!r}"
-            if not (_MP4_MIN_BITRATE_MBPS <= mbps <= _MP4_MAX_BITRATE_MBPS):
-                return None, (
-                    f"render_options.video_bitrate_mbps must be "
-                    f"{_MP4_MIN_BITRATE_MBPS}–{_MP4_MAX_BITRATE_MBPS} Mbps, got {mbps}"
-                )
-            clean["video_bitrate_mbps"] = mbps
-
-        # --- preset + audio_bitrate (existing) ---
-        preset = opts.get("preset", "medium")
-        if preset not in _VALID_MP4_PRESETS:
-            return None, f"render_options.preset must be one of {sorted(_VALID_MP4_PRESETS)}, got {preset!r}"
-        clean["preset"] = preset
-
-        audio_bitrate = opts.get("audio_bitrate", "192k")
-        if audio_bitrate not in _VALID_AUDIO_BITRATES:
-            return None, f"render_options.audio_bitrate must be one of {sorted(_VALID_AUDIO_BITRATES)}, got {audio_bitrate!r}"
-        clean["audio_bitrate"] = audio_bitrate
-
-        # --- new: pixel_format, profile, level ---
-        pixel_format = opts.get("pixel_format", "yuv420p")
-        if pixel_format not in _VALID_PIXEL_FORMATS:
-            return None, f"render_options.pixel_format must be one of {sorted(_VALID_PIXEL_FORMATS)}, got {pixel_format!r}"
-        clean["pixel_format"] = pixel_format
-
-        profile = opts.get("profile", "high")
-        if profile not in _VALID_H264_PROFILES:
-            return None, f"render_options.profile must be one of {sorted(_VALID_H264_PROFILES)}, got {profile!r}"
-        clean["profile"] = profile
-
-        level = opts.get("level", "auto")
-        if level not in _VALID_H264_LEVELS:
-            return None, f"render_options.level must be one of {sorted(_VALID_H264_LEVELS)}, got {level!r}"
-        clean["level"] = level
-
-        # --- cross-field: pixel_format ↔ profile strict bidirectional pairing ---
-        # High 4:2:2 and High 4:4:4 profiles describe the chroma subsampling the
-        # encoder will write into the bitstream — they MUST match the actual
-        # pixel format. Bidirectional checks reject both:
-        #   pix=yuv422p + profile=high  (pix is richer than profile declares)
-        #   profile=high422 + pix=yuv420p  (profile is richer than pix supplies)
-        _PIXFMT_PROFILE_PAIRS = {"yuv422p": "high422", "yuv444p": "high444"}
-
-        required_profile_for_pix = _PIXFMT_PROFILE_PAIRS.get(pixel_format)
-        if required_profile_for_pix is not None and profile != required_profile_for_pix:
-            return None, (
-                f"render_options: pixel_format {pixel_format!r} requires "
-                f"profile {required_profile_for_pix!r}, got {profile!r}"
-            )
-
-        required_pix_for_profile = {v: k for k, v in _PIXFMT_PROFILE_PAIRS.items()}.get(profile)
-        if required_pix_for_profile is not None and pixel_format != required_pix_for_profile:
-            return None, (
-                f"render_options: profile {profile!r} requires "
-                f"pixel_format {required_pix_for_profile!r}, got {pixel_format!r}"
-            )
-
-    elif output_format == "mxf":
-        prores_profile = opts.get("prores_profile", 3)
-        try:
-            prores_profile = int(prores_profile)
-        except (TypeError, ValueError):
-            return None, f"render_options.prores_profile must be an integer, got {prores_profile!r}"
-        if prores_profile not in _VALID_PRORES_PROFILES:
-            return None, f"render_options.prores_profile must be 0–5, got {prores_profile}"
-        clean["prores_profile"] = prores_profile
-
-        audio_fmt = opts.get("audio_format", "pcm_s16le")
-        if audio_fmt not in _VALID_AUDIO_FORMATS:
-            return None, f"render_options.audio_format must be one of {sorted(_VALID_AUDIO_FORMATS)}, got {audio_fmt!r}"
-        clean["audio_format"] = audio_fmt
-
-    elif output_format == "mxf_xdcam_hd422":
-        bitrate_mbps = opts.get("video_bitrate_mbps", _XDCAM_DEFAULT_BITRATE_MBPS)
-        # bool is a subclass of int — reject it explicitly so True/False don't
-        # sneak through as 1/0.
-        if isinstance(bitrate_mbps, bool):
-            return None, f"render_options.video_bitrate_mbps must be an integer, got {bitrate_mbps!r}"
-        try:
-            bitrate_mbps = int(bitrate_mbps)
-        except (TypeError, ValueError):
-            return None, f"render_options.video_bitrate_mbps must be an integer, got {bitrate_mbps!r}"
-        if not (_XDCAM_MIN_BITRATE_MBPS <= bitrate_mbps <= _XDCAM_MAX_BITRATE_MBPS):
-            return None, (
-                f"render_options.video_bitrate_mbps must be "
-                f"{_XDCAM_MIN_BITRATE_MBPS}–{_XDCAM_MAX_BITRATE_MBPS} Mbps, got {bitrate_mbps}"
-            )
-        clean["video_bitrate_mbps"] = bitrate_mbps
-
-        audio_fmt = opts.get("audio_format", "pcm_s16le")
-        if audio_fmt not in _VALID_AUDIO_FORMATS:
-            return None, f"render_options.audio_format must be one of {sorted(_VALID_AUDIO_FORMATS)}, got {audio_fmt!r}"
-        clean["audio_format"] = audio_fmt
-
-    resolution = opts.get("resolution", None)
-    if resolution not in _VALID_RESOLUTIONS:
-        return None, f"render_options.resolution must be one of {sorted(r for r in _VALID_RESOLUTIONS if r)}, got {resolution!r}"
-    clean["resolution"] = resolution
-
-    return clean, None
+#
+# v4 A6 C2 T13a — render-options constants + ``_validate_render_options``
+# extracted to ``helpers/render_options.py``. ``VALID_RENDER_FORMATS`` and
+# ``_FORMAT_TO_EXTENSION`` are re-exported at top of this module so the
+# render blueprint that lazy-imports through ``app`` keeps observing them.
 
 
 def _resolve_subtitle_source(file_entry, profile, override=None):

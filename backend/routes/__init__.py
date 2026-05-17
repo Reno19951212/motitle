@@ -21,6 +21,8 @@ def register_blueprints(app: Flask) -> None:
     from .languages import bp as languages_bp
     from .prompt_templates import bp as prompt_templates_bp
     from .render import bp as render_bp
+    from .engines import bp as engines_bp
+    from .ollama import bp as ollama_bp
 
     app.register_blueprint(health_bp)
     app.register_blueprint(spa_bp)
@@ -33,6 +35,8 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(languages_bp)
     app.register_blueprint(prompt_templates_bp)
     app.register_blueprint(render_bp)
+    app.register_blueprint(engines_bp)
+    app.register_blueprint(ollama_bp)
 
 
 __all__ = ["register_blueprints"]
