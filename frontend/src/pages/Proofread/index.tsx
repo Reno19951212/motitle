@@ -1,8 +1,10 @@
 // src/pages/Proofread/index.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useSocket } from '@/providers/SocketProvider';
 import { apiFetch } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { TopBar } from './TopBar';
 import { VideoPanel } from './VideoPanel';
 import { SegmentTable } from './SegmentTable';
@@ -12,11 +14,14 @@ import { PromptOverridesDrawer } from './PromptOverridesDrawer';
 import { GlossaryApplyModal } from './GlossaryApplyModal';
 import { GlossaryPanel } from './GlossaryPanel';
 import { SubtitleSettingsPanel } from './SubtitleSettingsPanel';
+import { RenderModal } from './RenderModal';
 import { useFileData } from './hooks/useFileData';
 import { useActiveProfile } from './hooks/useActiveProfile';
 import { useFindReplace } from './hooks/useFindReplace';
 import type { Replacement } from './hooks/useFindReplace';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useRenderJob } from './hooks/useRenderJob';
+import type { RenderOptions } from '@/lib/schemas/render-options';
 
 export default function Proofread() {
   const { fileId } = useParams<{ fileId: string }>();
@@ -32,11 +37,17 @@ function ProofreadInner({ fileId }: { fileId: string }) {
 
   const [findOpen, setFindOpen] = useState(false);
   const [overridesOpen, setOverridesOpen] = useState(false);
-  const [renderOpen, setRenderOpen] = useState(false); // T14 wires modal
+  const [renderOpen, setRenderOpen] = useState(false);
   const [historyOpenIdx, setHistoryOpenIdx] = useState<number | null>(null);
   const [glossaryApplyOpen, setGlossaryApplyOpen] = useState(false);
 
-  void renderOpen;
+  const {
+    currentJob,
+    startRender,
+    cancel: cancelRender,
+    downloadWithPicker,
+    clear: clearRender,
+  } = useRenderJob();
 
   // Refresh when stage runs complete for this file
   const myStatus = socketState.files[fileId]?.status;
@@ -44,10 +55,23 @@ function ProofreadInner({ fileId }: { fileId: string }) {
     if (myStatus === 'completed') refresh();
   }, [myStatus, refresh]);
 
+  // Auto-download once when render completes
+  const completedRenderId = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      currentJob?.status === 'completed' &&
+      currentJob.render_id !== completedRenderId.current
+    ) {
+      completedRenderId.current = currentJob.render_id;
+      void downloadWithPicker().then(() => clearRender());
+    }
+  }, [currentJob, downloadWithPicker, clearRender]);
+
   useKeyboardShortcuts({
     onFindOpen: () => setFindOpen(true),
     onEscape: () => {
-      if (glossaryApplyOpen) setGlossaryApplyOpen(false);
+      if (renderOpen) setRenderOpen(false);
+      else if (glossaryApplyOpen) setGlossaryApplyOpen(false);
       else if (overridesOpen) setOverridesOpen(false);
       else if (historyOpenIdx !== null) setHistoryOpenIdx(null);
       else if (findOpen) setFindOpen(false);
@@ -120,6 +144,49 @@ function ProofreadInner({ fileId }: { fileId: string }) {
         onClose={() => setGlossaryApplyOpen(false)}
         onApplied={refresh}
       />
+      <RenderModal
+        open={renderOpen}
+        onClose={() => setRenderOpen(false)}
+        onConfirm={(options: RenderOptions) => {
+          setRenderOpen(false);
+          void startRender({ file_id: fileId, ...options });
+        }}
+      />
+
+      {currentJob && currentJob.status !== 'completed' && currentJob.status !== 'cancelled' && (
+        <div
+          role="status"
+          aria-label="Render progress"
+          className="fixed bottom-4 right-4 w-80 bg-background border rounded-lg shadow-lg p-3 z-50 space-y-2"
+        >
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-medium">Rendering</span>
+            <span className="text-xs text-muted-foreground">{currentJob.status}</span>
+          </div>
+          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+            <div
+              className={cn(
+                'h-full transition-all',
+                currentJob.status === 'failed' ? 'bg-destructive' : 'bg-primary',
+              )}
+              style={{ width: `${currentJob.progress ?? 0}%` }}
+            />
+          </div>
+          {currentJob.error && <p className="text-xs text-destructive">{currentJob.error}</p>}
+          <div className="flex gap-2 justify-end">
+            {currentJob.status !== 'failed' && (
+              <Button size="sm" variant="ghost" onClick={() => cancelRender()}>
+                Cancel
+              </Button>
+            )}
+            {currentJob.status === 'failed' && (
+              <Button size="sm" variant="outline" onClick={() => clearRender()}>
+                Dismiss
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
