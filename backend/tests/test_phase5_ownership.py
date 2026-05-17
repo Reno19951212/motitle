@@ -32,13 +32,9 @@ def two_users():
             pass
 
 
-@pytest.fixture
-def fresh_profile_manager(tmp_path, monkeypatch):
-    from profiles import ProfileManager
-    import app as app_module
-    pm = ProfileManager(tmp_path / "profiles")
-    monkeypatch.setattr(app_module, "_profile_manager", pm)
-    return pm
+# v4.0 A5 T8: fresh_profile_manager fixture deleted with legacy ProfileManager.
+# Profile-side Phase 5 T1.4 ownership coverage now lives in
+# test_asr_profiles.py + test_mt_profiles.py for the v4 entity managers.
 
 
 @pytest.fixture
@@ -57,54 +53,9 @@ def _login(app_module, username):
     return c
 
 
-def test_get_single_profile_403_for_non_owner(two_users, fresh_profile_manager):
-    app_module, alice_id, _ = two_users
-    pm = fresh_profile_manager
-
-    # Alice owns a private profile.
-    private = pm.create({
-        "name": "alice's private",
-        "asr": {"engine": "whisper", "model": "tiny"},
-        "translation": {"engine": "mock"},
-        "user_id": alice_id,
-    })
-
-    bob = _login(app_module, "bob_b4")
-    r = bob.get(f"/api/profiles/{private['id']}")
-    assert r.status_code == 403, f"got {r.status_code}: {r.data!r}"
-
-
-def test_get_shared_profile_200_for_anyone(two_users, fresh_profile_manager):
-    """Shared profile (user_id=None) is visible to all authenticated users."""
-    app_module, _, _ = two_users
-    pm = fresh_profile_manager
-
-    shared = pm.create({
-        "name": "shared",
-        "asr": {"engine": "whisper", "model": "tiny"},
-        "translation": {"engine": "mock"},
-        "user_id": None,
-    })
-
-    bob = _login(app_module, "bob_b4")
-    r = bob.get(f"/api/profiles/{shared['id']}")
-    assert r.status_code == 200, r.data
-
-
-def test_get_own_private_profile_200_for_owner(two_users, fresh_profile_manager):
-    app_module, alice_id, _ = two_users
-    pm = fresh_profile_manager
-
-    private = pm.create({
-        "name": "alice's",
-        "asr": {"engine": "whisper", "model": "tiny"},
-        "translation": {"engine": "mock"},
-        "user_id": alice_id,
-    })
-
-    alice = _login(app_module, "alice_b4")
-    r = alice.get(f"/api/profiles/{private['id']}")
-    assert r.status_code == 200
+# v4.0 A5 T8: 3 legacy profile ownership tests deleted (got_single_profile_403,
+# get_shared_profile_200, get_own_private_profile_200). Equivalent coverage for
+# v4 ASR/MT profile entities lives in test_asr_profiles.py + test_mt_profiles.py.
 
 
 def test_get_single_glossary_403_for_non_owner(two_users, fresh_glossary_manager):

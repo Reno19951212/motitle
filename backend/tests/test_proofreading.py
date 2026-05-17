@@ -8,13 +8,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 @pytest.fixture
 def client_with_file(tmp_path):
-    from app import app, _init_profile_manager, _init_glossary_manager, _file_registry, _registry_lock
-
-    profiles_dir = tmp_path / "profiles"
-    profiles_dir.mkdir()
-    settings = tmp_path / "settings.json"
-    settings.write_text(json.dumps({"active_profile": None}))
-    _init_profile_manager(tmp_path)
+    from app import app, _init_glossary_manager, _file_registry, _registry_lock
 
     glossaries_dir = tmp_path / "glossaries"
     glossaries_dir.mkdir()
@@ -163,11 +157,7 @@ def test_normalize_translation_helper_parses_stacked_prefixes():
 
 def test_get_translations_normalizes_legacy_prefix_on_read(tmp_path):
     """API returns clean zh_text + structured flags even when registry stores legacy format."""
-    from app import app, _init_profile_manager, _init_glossary_manager, _file_registry, _registry_lock
-    profiles_dir = tmp_path / "profiles"
-    profiles_dir.mkdir()
-    (tmp_path / "settings.json").write_text(json.dumps({"active_profile": None}))
-    _init_profile_manager(tmp_path)
+    from app import app, _init_glossary_manager, _file_registry, _registry_lock
     glossaries_dir = tmp_path / "glossaries"
     glossaries_dir.mkdir()
     _init_glossary_manager(tmp_path)

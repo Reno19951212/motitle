@@ -8,9 +8,9 @@ from app import app, _file_registry, _registry_lock
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    from profiles import ProfileManager
-    new_prof_mgr = ProfileManager(tmp_path)
-    monkeypatch.setattr("app._profile_manager", new_prof_mgr)
+    # v4.0 A5 T8: legacy ProfileManager removed; these tests exercise
+    # /api/files/<id> file-level prompt_overrides only — no profile setup
+    # needed.
     app.config["TESTING"] = True
     with app.test_client() as c:
         yield c

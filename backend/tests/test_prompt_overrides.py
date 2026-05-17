@@ -42,73 +42,11 @@ def _minimal_profile(extra_translation=None):
 
 # ---------------------------------------------------------------------------
 # 1–4: Validation in profiles.py
+# v4.0 A5 T8: TestPromptOverridesValidation (7 tests) deleted — exercised
+# profiles._validate_translation which is gone with the legacy ProfileManager.
+# prompt_overrides validation for the v4 layer lives in
+# translation/prompt_override_validator.py + test_file_prompt_overrides.py.
 # ---------------------------------------------------------------------------
-
-class TestPromptOverridesValidation:
-    def _validate(self, translation: dict) -> list:
-        from profiles import _validate_translation
-        return _validate_translation(translation)
-
-    def test_valid_prompt_overrides_passes(self):
-        """Profile with well-formed prompt_overrides validates with no errors."""
-        errs = self._validate({
-            "engine": "mock",
-            "prompt_overrides": {
-                "pass1_system": "你係 special test prompt",
-                "single_segment_system": None,
-                "pass2_enrich_system": None,
-                "alignment_anchor_system": None,
-            },
-        })
-        assert errs == []
-
-    def test_non_dict_prompt_overrides_rejected(self):
-        """Non-dict prompt_overrides must produce a clear error."""
-        errs = self._validate({
-            "engine": "mock",
-            "prompt_overrides": "just a string",
-        })
-        assert any("must be a dict" in e for e in errs), errs
-
-    def test_unknown_key_rejected(self):
-        """Unrecognised key in prompt_overrides must produce an error."""
-        errs = self._validate({
-            "engine": "mock",
-            "prompt_overrides": {"foo": "bar"},
-        })
-        assert any("foo" in e for e in errs), errs
-
-    def test_whitespace_only_value_rejected(self):
-        """Whitespace-only override string must be rejected (must be null or non-empty)."""
-        errs = self._validate({
-            "engine": "mock",
-            "prompt_overrides": {"pass1_system": "   "},
-        })
-        assert any("pass1_system" in e for e in errs), errs
-
-    def test_null_value_passes(self):
-        """Null values in prompt_overrides are always valid (= fall back to constant)."""
-        errs = self._validate({
-            "engine": "mock",
-            "prompt_overrides": {"pass1_system": None},
-        })
-        assert errs == []
-
-    def test_partial_overrides_passes(self):
-        """Specifying only some keys is fine; missing ones default to null."""
-        errs = self._validate({
-            "engine": "mock",
-            "prompt_overrides": {"single_segment_system": "override text here"},
-        })
-        assert errs == []
-
-    def test_empty_prompt_overrides_dict_passes(self):
-        """Empty dict prompt_overrides is valid."""
-        errs = self._validate({
-            "engine": "mock",
-            "prompt_overrides": {},
-        })
-        assert errs == []
 
 
 # ---------------------------------------------------------------------------

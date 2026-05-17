@@ -40,51 +40,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 @pytest.fixture(autouse=True)
-def _sync_imported_manager_refs(request, monkeypatch):
-    """Ensure module-level manager references imported by test modules stay in
-    sync with any monkeypatches applied by test-local fixtures.
-
-    Some test modules do ``from app import _profile_manager`` at module load
-    time.  When a test-local fixture later replaces ``app._profile_manager``
-    via ``monkeypatch.setattr``, the test module's cached reference is stale
-    and won't see profiles created via the patched manager.
-
-    This fixture requests the ``client`` fixture (if present for the test) so
-    that the test-local patch is applied first, then re-binds the stale names
-    in the test module to match the now-current ``app._profile_manager``.
-    """
-    # Only act for tests in modules that import _profile_manager from app
-    _MODULES_NEEDING_SYNC = ('test_languages_crud', 'test_subtitle_source_mode')
-    if not any(m in str(request.fspath) for m in _MODULES_NEEDING_SYNC):
-        yield
-        return
-
-    # Trigger the 'client' fixture (idempotent — pytest caches it) so that
-    # the test-local monkeypatch for app._profile_manager is in place before
-    # we forward the reference.
-    try:
-        request.getfixturevalue('client')
-    except pytest.FixtureLookupError:
-        yield
-        return
-
-    try:
-        import app as _app
-        import importlib
-        test_mod_name = Path(request.fspath).stem
-        try:
-            test_mod = importlib.import_module(f'tests.{test_mod_name}')
-        except ModuleNotFoundError:
-            test_mod = importlib.import_module(test_mod_name)
-        if hasattr(test_mod, '_profile_manager'):
-            monkeypatch.setattr(test_mod, '_profile_manager', _app._profile_manager)
-    except (ImportError, AttributeError):
-        pass
-
-    yield
-
-
-@pytest.fixture(autouse=True)
 def _isolate_app_data(request, tmp_path, monkeypatch):
     """Auto-isolate every test from the real DATA_DIR.
 
@@ -126,7 +81,7 @@ def _isolate_app_data(request, tmp_path, monkeypatch):
     #   1. Legacy: test module filename is in _REAL_AUTH_MODULES (backward compat).
     #   2. New:    test is decorated with @pytest.mark.real_auth.
     # "test_phase5_security" migrated to @pytest.mark.real_auth — removed from tuple.
-    _REAL_AUTH_MODULES = ("test_admin_users", "test_per_user_profiles", "test_per_user_glossaries", "test_queue_retry", "test_files_job_id", "test_cancel_running", "test_phase5_ownership", "test_render_ownership")
+    _REAL_AUTH_MODULES = ("test_admin_users", "test_per_user_glossaries", "test_queue_retry", "test_files_job_id", "test_cancel_running", "test_phase5_ownership", "test_render_ownership")
     _use_real_auth = (
         any(m in str(request.fspath) for m in _REAL_AUTH_MODULES)
         or request.node.get_closest_marker("real_auth") is not None

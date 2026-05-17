@@ -3,16 +3,16 @@ import json
 import pytest
 from pathlib import Path
 
-from app import app, _file_registry, _registry_lock, _profile_manager, _render_jobs
+from app import app, _file_registry, _registry_lock, _render_jobs
 from subtitle_text import resolve_segment_text, VALID_SUBTITLE_SOURCES, VALID_BILINGUAL_ORDERS
 from renderer import SubtitleRenderer
 
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    from profiles import ProfileManager
-    new_prof_mgr = ProfileManager(tmp_path)
-    monkeypatch.setattr("app._profile_manager", new_prof_mgr)
+    # v4.0 A5 T8: legacy ProfileManager removed; v4 ASR/MT/Pipeline managers
+    # are global and don't need per-test re-init for these subtitle-source
+    # tests (file-level overrides exercise the resolver path).
     app.config["TESTING"] = True
     with app.test_client() as c:
         yield c
@@ -279,23 +279,9 @@ def test_patch_file_invalid_source(client):
 
 
 # ---- PATCH profile tests ----
-
-def test_patch_profile_font_subtitle_source(client):
-    profile = _profile_manager.create({
-        "id": "p-test", "name": "Test",
-        "asr": {"engine": "mlx-whisper"},
-        "translation": {"engine": "mock"},
-        "font": {"family": "Noto Sans TC", "size": 32, "color": "#fff",
-                 "outline_color": "#000", "outline_width": 2, "margin_bottom": 40},
-    })
-    resp = client.patch(f"/api/profiles/{profile['id']}",
-                        json={"font": {**profile["font"],
-                                       "subtitle_source": "bilingual",
-                                       "bilingual_order": "zh_top"}})
-    assert resp.status_code == 200
-    refreshed = _profile_manager.get(profile["id"])
-    assert refreshed["font"]["subtitle_source"] == "bilingual"
-    assert refreshed["font"]["bilingual_order"] == "zh_top"
+# v4.0 A5 T8: test_patch_profile_font_subtitle_source deleted — legacy bundled
+# profile (and its `font.subtitle_source` block) gone. v4 has no equivalent
+# yet; file-level subtitle_source override is the supported path.
 
 
 # ---- cancel render ----

@@ -14,11 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 def _bootstrap(tmp_path, fonts_dir=None):
     """Initialise app with isolated config + optional fonts dir override."""
-    from app import app, _init_profile_manager, _init_glossary_manager
-    profiles_dir = tmp_path / "profiles"
-    profiles_dir.mkdir()
-    (tmp_path / "settings.json").write_text(json.dumps({"active_profile": None}))
-    _init_profile_manager(tmp_path)
+    from app import app, _init_glossary_manager
     glossaries_dir = tmp_path / "glossaries"
     glossaries_dir.mkdir()
     _init_glossary_manager(tmp_path)

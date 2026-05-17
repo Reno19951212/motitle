@@ -9,13 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 @pytest.fixture
 def client_with_approved_file(tmp_path):
-    from app import app, _init_profile_manager, _init_glossary_manager, _file_registry, _registry_lock
-
-    profiles_dir = tmp_path / "profiles"
-    profiles_dir.mkdir()
-    settings = tmp_path / "settings.json"
-    settings.write_text(json.dumps({"active_profile": None}))
-    _init_profile_manager(tmp_path)
+    from app import app, _init_glossary_manager, _file_registry, _registry_lock
 
     glossaries_dir = tmp_path / "glossaries"
     glossaries_dir.mkdir()

@@ -49,7 +49,6 @@ from flask_cors import CORS
 import ipaddress
 from urllib.parse import urlparse
 from flask_socketio import SocketIO, emit
-from profiles import ProfileManager
 from glossary import GlossaryManager
 from language_config import LanguageConfigManager, DEFAULT_ASR_CONFIG, DEFAULT_TRANSLATION_CONFIG
 from renderer import SubtitleRenderer, DEFAULT_FONT_CONFIG
@@ -344,15 +343,10 @@ app.config["SOCKETIO"] = socketio
 app.register_blueprint(queue_bp)
 
 
-# Profile management
+# v4.0 A5 T8 — legacy bundled ProfileManager removed. ASR/MT/Pipeline managers
+# (instantiated below) own profile data now. CONFIG_DIR retained for glossaries
+# and v4 managers.
 CONFIG_DIR = Path(__file__).parent / "config"
-_profile_manager = ProfileManager(CONFIG_DIR)
-
-
-def _init_profile_manager(config_dir):
-    """Re-initialize profile manager (used by tests)."""
-    global _profile_manager
-    _profile_manager = ProfileManager(config_dir)
 
 
 # Glossary management
@@ -1001,147 +995,9 @@ def list_models():
 
 
 # ============================================================
-# Profile Management API
+# v4.0 A5 T8 — legacy /api/profiles* endpoints + _redact_profile_for helper
+# deleted. Use /api/asr_profiles + /api/mt_profiles + /api/pipelines (P1).
 # ============================================================
-
-def _redact_profile_for(profile, viewer_is_admin, viewer_user_id):
-    """Strip translation.api_key from profile JSON unless caller is admin or
-    owner. Prevents shared profile (user_id=null) from leaking an org-wide
-    OpenRouter / API key to every authed team member (R6 audit S4).
-
-    Returns a NEW dict (never mutates the caller's reference).
-    """
-    if not profile:
-        return profile
-    owner = profile.get("user_id")
-    if viewer_is_admin or (owner is not None and owner == viewer_user_id):
-        return profile
-    tx = profile.get("translation") or {}
-    if "api_key" not in tx:
-        return profile
-    redacted_tx = {k: v for k, v in tx.items() if k != "api_key"}
-    return {**profile, "translation": redacted_tx}
-
-
-@app.route('/api/profiles', methods=['GET'])
-@login_required
-def api_list_profiles():
-    if app.config.get("R5_AUTH_BYPASS"):
-        return jsonify({"profiles": _profile_manager.list_all()})
-    visible = _profile_manager.list_visible(
-        user_id=current_user.id,
-        is_admin=current_user.is_admin,
-    )
-    return jsonify({"profiles": [
-        _redact_profile_for(p, current_user.is_admin, current_user.id)
-        for p in visible
-    ]})
-
-
-@app.route('/api/profiles', methods=['POST'])
-@login_required
-def api_create_profile():
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "Request body is required"}), 400
-    try:
-        # R5 Phase 3: non-admin always creates owned profiles; admin creates
-        # shared by default (user_id=null) — admin can override by passing
-        # user_id explicitly in body. Bypass path (test harness) leaves
-        # user_id unchanged so existing tests keep working.
-        if not app.config.get("R5_AUTH_BYPASS"):
-            if not current_user.is_admin:
-                data = {**data, "user_id": current_user.id}
-            elif "user_id" not in data:
-                data = {**data, "user_id": None}
-        profile = _profile_manager.create(data)
-        return jsonify({"profile": profile}), 201
-    except ValueError as e:
-        return jsonify({"errors": e.args[0]}), 400
-
-
-@app.route('/api/profiles/active', methods=['GET'])
-@login_required
-def api_get_active_profile():
-    profile = _profile_manager.get_active()
-    if profile and not app.config.get("R5_AUTH_BYPASS"):
-        profile = _redact_profile_for(profile, current_user.is_admin, current_user.id)
-    return jsonify({"profile": profile})
-
-
-@app.route('/api/profiles/<profile_id>', methods=['GET'])
-@login_required
-def api_get_profile(profile_id):
-    # R5 Phase 5 T1.4: LIST endpoint already filters via list_visible, but
-    # single-resource GET previously had no ownership check (Phase 3 D4
-    # only added can_edit for PATCH/DELETE), so a non-owner could read any
-    # private profile by guessing/seeing the id.
-    if not app.config.get("R5_AUTH_BYPASS") and not _profile_manager.can_view(
-        profile_id, current_user.id, current_user.is_admin
-    ):
-        # If the profile doesn't exist at all, leak that as 404 — only
-        # return 403 when the caller is unprivileged for a profile that
-        # does exist (don't expose whether private ids exist to admins).
-        if _profile_manager.get(profile_id) is None:
-            return jsonify({"error": "Profile not found"}), 404
-        return jsonify({"error": "forbidden"}), 403
-    profile = _profile_manager.get(profile_id)
-    if not profile:
-        return jsonify({"error": "Profile not found"}), 404
-    if not app.config.get("R5_AUTH_BYPASS"):
-        profile = _redact_profile_for(profile, current_user.is_admin, current_user.id)
-    return jsonify({"profile": profile})
-
-
-@app.route('/api/profiles/<profile_id>', methods=['PATCH'])
-@login_required
-def api_update_profile(profile_id):
-    if not app.config.get("R5_AUTH_BYPASS") and not _profile_manager.can_edit(
-        profile_id, current_user.id, current_user.is_admin
-    ):
-        return jsonify({"error": "forbidden"}), 403
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "Request body is required"}), 400
-    try:
-        active_before = _profile_manager.get_active()
-        profile = _profile_manager.update(profile_id, data)
-        if not profile:
-            return jsonify({"error": "Profile not found"}), 404
-        if active_before and active_before.get("id") == profile_id:
-            # Broadcast to all connected clients — all tabs should reflect the active profile change
-            socketio.emit("profile_updated", {"font": profile.get("font", DEFAULT_FONT_CONFIG)})
-        return jsonify({"profile": profile})
-    except ValueError as e:
-        return jsonify({"errors": e.args[0]}), 400
-
-
-@app.route('/api/profiles/<profile_id>', methods=['DELETE'])
-@login_required
-def api_delete_profile(profile_id):
-    if not app.config.get("R5_AUTH_BYPASS") and not _profile_manager.can_edit(
-        profile_id, current_user.id, current_user.is_admin
-    ):
-        return jsonify({"error": "forbidden"}), 403
-    if _profile_manager.delete(profile_id):
-        return jsonify({"message": "Profile deleted"})
-    return jsonify({"error": "Profile not found"}), 404
-
-
-@app.route('/api/profiles/<profile_id>/activate', methods=['POST'])
-@login_required
-def api_activate_profile(profile_id):
-    if not app.config.get("R5_AUTH_BYPASS") and not _profile_manager.can_edit(
-        profile_id, current_user.id, current_user.is_admin
-    ):
-        return jsonify({"error": "forbidden"}), 403
-    profile = _profile_manager.set_active(profile_id)
-    if not profile:
-        return jsonify({"error": "Profile not found"}), 404
-    response = jsonify({"profile": profile})
-    # Broadcast to all connected clients — all tabs should reflect the active profile change
-    socketio.emit("profile_updated", {"font": profile.get("font", DEFAULT_FONT_CONFIG)})
-    return response
 
 
 # ============================================================
@@ -2123,9 +1979,11 @@ def api_glossary_apply(file_id):
     source_lang = glossary["source_lang"]
     target_lang = glossary["target_lang"]
 
-    # Resolve apply model: profile override > default
-    active_profile = _profile_manager.get_active()
-    profile_override = (active_profile or {}).get("translation", {}).get("glossary_apply_model")
+    # v4.0 A5 T8: legacy bundled profile is gone, so glossary_apply_model
+    # override at the profile layer no longer exists. Glossary-apply always
+    # runs with the default model (qwen3.5-35b-a3b). Future: add an override
+    # column to the glossary entity if per-glossary tuning is needed.
+    profile_override = None
     # Look up the actual Ollama model map from ollama_engine. The user-facing
     # key 'qwen3.5-35b-a3b' maps to internal id 'qwen3.5:35b-a3b-mlx-bf16'.
     from translation import ollama_engine
@@ -2286,15 +2144,10 @@ def api_delete_language(lang_id):
     if _language_config_manager.get(lang_id) is None:
         return jsonify({'error': 'Not found'}), 404
 
-    used_by = []
-    for p in _profile_manager.list_all():
-        if p.get('asr', {}).get('language_config_id') == lang_id:
-            used_by.append(p.get('name') or p.get('id') or '<unnamed>')
-
-    if used_by:
-        return jsonify({
-            'error': f'Language config "{lang_id}" used by {len(used_by)} profile(s): {", ".join(used_by)}'
-        }), 400
+    # v4.0 A5 T8: legacy bundled profile (which carried asr.language_config_id)
+    # is deleted. v4 ASR profile schema has no language_config_id field, so
+    # there is no foreign-key relationship to check. Built-ins (en/zh) remain
+    # protected above.
 
     _language_config_manager.delete(lang_id)
     return jsonify({'ok': True}), 200
@@ -2698,9 +2551,12 @@ def api_start_render():
                 "error": "你已有 8 個渲染進行中。請等其中一個完成或取消後再試。",
             }), 429
 
-    active_profile = _profile_manager.get_active()
-    subtitle_source = _resolve_subtitle_source(entry, active_profile, src_override)
-    bilingual_order = _resolve_bilingual_order(entry, active_profile, ord_override)
+    # v4.0 A5 T8: legacy bundled profile is gone, so profile-level
+    # subtitle_source / bilingual_order default no longer exists. Resolver
+    # still honours the file-level override and the render-modal override;
+    # falls through to "auto" / "en_top" otherwise.
+    subtitle_source = _resolve_subtitle_source(entry, None, src_override)
+    bilingual_order = _resolve_bilingual_order(entry, None, ord_override)
 
     translations = entry.get("translations") or []
     # EN-only renders can run from segments alone (no translation required).
@@ -2757,8 +2613,11 @@ def api_start_render():
             "cancelled": False,
         }
 
-    # Load font config from active profile (fallback to DEFAULT_FONT_CONFIG)
-    font_config = active_profile.get("font", DEFAULT_FONT_CONFIG) if active_profile else DEFAULT_FONT_CONFIG
+    # v4.0 A5 T8: legacy active profile (which carried `font` config) is gone.
+    # Render now uses the global DEFAULT_FONT_CONFIG. A future enhancement
+    # could lift `font` into the pipeline entity if user-specific font choice
+    # per pipeline matters.
+    font_config = DEFAULT_FONT_CONFIG
 
     # Snapshot translations to pass into thread (immutable)
     translations_snapshot = list(translations)
@@ -3172,9 +3031,10 @@ def download_subtitle(file_id, fmt):
     if entry['status'] != 'done':
         return jsonify({'error': '轉錄尚未完成'}), 400
 
-    active_profile = _profile_manager.get_active()
-    mode = _resolve_subtitle_source(entry, active_profile, src_q)
-    order = _resolve_bilingual_order(entry, active_profile, ord_q)
+    # v4.0 A5 T8: legacy bundled profile removed; file override + query param
+    # override still applied via the resolver (None for profile arg).
+    mode = _resolve_subtitle_source(entry, None, src_q)
+    order = _resolve_bilingual_order(entry, None, ord_q)
 
     # Build a list of unified per-segment dicts with both text + zh_text.
     segs = entry.get('segments', [])

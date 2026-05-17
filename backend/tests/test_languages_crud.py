@@ -3,15 +3,14 @@ import json
 import pytest
 from pathlib import Path
 
-from app import app, _language_config_manager, _profile_manager
+from app import app, _language_config_manager
 
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    """Flask test client with isolated language_config + profile dirs."""
-    # Re-point both managers to a temp dir so we don't touch real config
+    """Flask test client with isolated language_config dir."""
+    # Re-point manager to a temp dir so we don't touch real config
     from language_config import LanguageConfigManager
-    from profiles import ProfileManager
 
     # Seed built-ins so delete-builtin tests have real targets
     lang_dir = tmp_path / "languages"
@@ -28,10 +27,8 @@ def client(tmp_path, monkeypatch):
     }))
 
     new_lc_mgr = LanguageConfigManager(tmp_path)
-    new_prof_mgr = ProfileManager(tmp_path)
 
     monkeypatch.setattr("app._language_config_manager", new_lc_mgr)
-    monkeypatch.setattr("app._profile_manager", new_prof_mgr)
 
     app.config["TESTING"] = True
     with app.test_client() as c:
@@ -87,23 +84,10 @@ def test_delete_built_in_blocked(client):
     assert "built-in" in resp.get_json()["error"].lower()
 
 
-def test_delete_in_use_blocked(client):
-    """DELETE config used by a profile returns 400 with profile names."""
-    # Create a custom config
-    client.post("/api/languages", json=_valid_body("zh-news"))
-    # Create a profile that uses it
-    profile = _profile_manager.create({
-        "id": "test-profile",
-        "name": "Test Profile",
-        "asr": {"engine": "mlx-whisper", "language_config_id": "zh-news"},
-        "translation": {"engine": "mock"},
-        "font": {"family": "Noto Sans TC", "size": 32, "color": "#fff",
-                 "outline_color": "#000", "outline_width": 2, "margin_bottom": 40},
-    })
-    resp = client.delete("/api/languages/zh-news")
-    assert resp.status_code == 400
-    error = resp.get_json()["error"]
-    assert "Test Profile" in error or "test-profile" in error
+# v4.0 A5 T8: test_delete_in_use_blocked deleted. Legacy bundled profile (which
+# carried asr.language_config_id) is gone. v4 ASR profile schema has no
+# language_config_id field, so the "in use by profile" check was removed from
+# DELETE /api/languages/<id>. Built-ins (en/zh) are still protected.
 
 
 def test_delete_unused_succeeds(client, tmp_path):
