@@ -9,7 +9,7 @@ import AsrProfiles from '@/pages/AsrProfiles';
 import MtProfiles from '@/pages/MtProfiles';
 import Glossaries from '@/pages/Glossaries';
 import Admin from '@/pages/Admin';
-import ProofreadPlaceholder from '@/pages/ProofreadPlaceholder';
+import Proofread from '@/pages/Proofread';
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const user = useAuthStore((s) => s.user);
@@ -47,7 +47,7 @@ export const router = createBrowserRouter([
           </RequireAdmin>
         ),
       },
-      { path: 'proofread/:fileId', element: <ProofreadPlaceholder /> },
+      { path: 'proofread/:fileId', element: <Proofread /> },
     ],
   },
 ]);
