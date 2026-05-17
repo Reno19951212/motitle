@@ -19,10 +19,21 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 
+interface BrokenRefs {
+  asr_profile_id?: string;
+  mt_stages?: string[];
+  glossary_ids?: string[];
+}
+
 interface PipelineRow extends Pipeline {
   id: string;
   user_id: number | null;
-  broken_refs?: string[];
+  broken_refs?: BrokenRefs;
+}
+
+function brokenRefCount(b?: BrokenRefs): number {
+  if (!b) return 0;
+  return (b.asr_profile_id ? 1 : 0) + (b.mt_stages?.length ?? 0) + (b.glossary_ids?.length ?? 0);
 }
 
 const defaults: Pipeline = {
@@ -129,8 +140,8 @@ export default function Pipelines() {
           {
             header: 'Health',
             render: (r) =>
-              r.broken_refs && r.broken_refs.length > 0 ? (
-                <Badge variant="destructive">{r.broken_refs.length} broken ref</Badge>
+              brokenRefCount(r.broken_refs) > 0 ? (
+                <Badge variant="destructive">{brokenRefCount(r.broken_refs)} broken ref</Badge>
               ) : (
                 <Badge variant="outline">ok</Badge>
               ),

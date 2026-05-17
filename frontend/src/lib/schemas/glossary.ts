@@ -8,18 +8,27 @@ export const GlossaryEntrySchema = z.object({
   target_aliases: z.array(z.string()).default([]),
 });
 
-export const GlossarySchema = z
-  .object({
-    name: z.string().min(1).max(64),
-    description: z.string().max(256).default(''),
-    shared: z.boolean().default(false),
-    source_lang: z.enum(GLOSSARY_LANGS),
-    target_lang: z.enum(GLOSSARY_LANGS),
-    entries: z.array(GlossaryEntrySchema).default([]),
-  })
-  .refine((g) => g.source_lang !== g.target_lang || g.entries.length === 0, {
-    message: 'source_lang and target_lang cannot match unless entries empty',
-  });
+export const GlossarySchema = z.object({
+  name: z.string().min(1).max(64),
+  description: z.string().max(256).default(''),
+  shared: z.boolean().default(false),
+  source_lang: z.enum(GLOSSARY_LANGS),
+  target_lang: z.enum(GLOSSARY_LANGS),
+  entries: z
+    .array(GlossaryEntrySchema)
+    .default([])
+    .superRefine((entries, ctx) => {
+      entries.forEach((e, idx) => {
+        if (e.source && e.target && e.source === e.target) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [idx, 'target'],
+            message: 'source and target cannot be identical',
+          });
+        }
+      });
+    }),
+});
 
 export type Glossary = z.infer<typeof GlossarySchema>;
 export type GlossaryEntry = z.infer<typeof GlossaryEntrySchema>;

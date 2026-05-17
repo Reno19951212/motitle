@@ -46,15 +46,29 @@ describe('GlossarySchema', () => {
     expect(r.shared).toBe(true);
   });
 
-  it('rejects same source_lang and target_lang with entries', () => {
-    expect(() =>
-      GlossarySchema.parse({ ...valid, source_lang: 'en', target_lang: 'en' }),
-    ).toThrow();
+  it('accepts same source_lang and target_lang with entries when source != target per row', () => {
+    const r = GlossarySchema.parse({
+      ...valid,
+      source_lang: 'en',
+      target_lang: 'en',
+      entries: [{ source: 'color', target: 'colour', target_aliases: [] }],
+    });
+    expect(r.source_lang).toBe('en');
+    expect(r.entries[0]?.target).toBe('colour');
   });
 
   it('accepts same source_lang and target_lang when entries empty', () => {
     const r = GlossarySchema.parse({ ...valid, source_lang: 'en', target_lang: 'en', entries: [] });
     expect(r.source_lang).toBe('en');
+  });
+
+  it('rejects entry where source equals target (self-translation)', () => {
+    expect(() =>
+      GlossarySchema.parse({
+        ...valid,
+        entries: [{ source: 'same', target: 'same', target_aliases: [] }],
+      }),
+    ).toThrow();
   });
 
   it('rejects unknown language', () => {
