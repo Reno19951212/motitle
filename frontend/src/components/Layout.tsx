@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { TopBar } from './TopBar';
 import { SideNav } from './SideNav';
+import { SocketProvider } from '@/providers/SocketProvider';
 
 export function Layout() {
   return (
@@ -12,7 +13,9 @@ export function Layout() {
         <SideNav />
       </aside>
       <main className="overflow-auto p-6">
-        <Outlet />
+        <SocketProvider>
+          <Outlet />
+        </SocketProvider>
       </main>
     </div>
   );
