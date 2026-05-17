@@ -16,6 +16,7 @@ import { useFileData } from './hooks/useFileData';
 import { useActiveProfile } from './hooks/useActiveProfile';
 import { useFindReplace } from './hooks/useFindReplace';
 import type { Replacement } from './hooks/useFindReplace';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
 export default function Proofread() {
   const { fileId } = useParams<{ fileId: string }>();
@@ -42,6 +43,16 @@ function ProofreadInner({ fileId }: { fileId: string }) {
   useEffect(() => {
     if (myStatus === 'completed') refresh();
   }, [myStatus, refresh]);
+
+  useKeyboardShortcuts({
+    onFindOpen: () => setFindOpen(true),
+    onEscape: () => {
+      if (glossaryApplyOpen) setGlossaryApplyOpen(false);
+      else if (overridesOpen) setOverridesOpen(false);
+      else if (historyOpenIdx !== null) setHistoryOpenIdx(null);
+      else if (findOpen) setFindOpen(false);
+    },
+  });
 
   async function handleReplace(mutations: Replacement[]) {
     if (mutations.length === 0) return;
@@ -109,23 +120,6 @@ function ProofreadInner({ fileId }: { fileId: string }) {
         onClose={() => setGlossaryApplyOpen(false)}
         onApplied={refresh}
       />
-
-      {/* Temporary ⌘F handler — T17 replaces with proper useKeyboardShortcuts hook */}
-      <KeyboardCmdF onTrigger={() => setFindOpen(true)} />
     </div>
   );
-}
-
-function KeyboardCmdF({ onTrigger }: { onTrigger: () => void }) {
-  useEffect(() => {
-    function handler(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
-        e.preventDefault();
-        onTrigger();
-      }
-    }
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [onTrigger]);
-  return null;
 }
