@@ -913,200 +913,18 @@ def api_ollama_status():
 # Glossary endpoints
 # ============================================================
 
-@app.route('/api/glossaries', methods=['GET'])
-@login_required
-def api_list_glossaries():
-    """List all glossaries (summaries, no entries)."""
-    if app.config.get("R5_AUTH_BYPASS"):
-        return jsonify({"glossaries": _glossary_manager.list_all()})
-    return jsonify({"glossaries": _glossary_manager.list_visible(
-        user_id=current_user.id,
-        is_admin=current_user.is_admin,
-    )})
-
-
-@app.route('/api/glossaries', methods=['POST'])
-@login_required
-def api_create_glossary():
-    """Create a new glossary."""
-    data = request.get_json(silent=True)
-    if not data:
-        return jsonify({"error": "Request body must be JSON"}), 400
-    try:
-        # R5 Phase 3: non-admin always creates owned glossaries; admin creates
-        # shared by default (user_id=null) — admin can override by passing
-        # user_id explicitly in body. Bypass path (test harness) leaves
-        # user_id unchanged so existing tests keep working.
-        if not app.config.get("R5_AUTH_BYPASS"):
-            if not current_user.is_admin:
-                data = {**data, "user_id": current_user.id}
-            elif "user_id" not in data:
-                data = {**data, "user_id": None}
-        glossary = _glossary_manager.create(data)
-        return jsonify(glossary), 201
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 422
-
-
-@app.route('/api/glossaries/languages', methods=['GET'])
-@login_required
-def api_glossary_languages():
-    """v3.x — Return the supported language whitelist for glossary
-    source/target dropdowns. Read-only endpoint; no auth bypass needed
-    since glossary CRUD itself is gated."""
-    from glossary import SUPPORTED_LANGS
-    return jsonify({
-        "languages": [
-            {
-                "code": code,
-                "english_name": names[0],
-                "display_name": names[1],
-            }
-            for code, names in SUPPORTED_LANGS.items()
-        ],
-    })
-
-
-@app.route('/api/glossaries/<glossary_id>', methods=['GET'])
-@login_required
-def api_get_glossary(glossary_id):
-    """Get a single glossary with all entries."""
-    # R5 Phase 5 T1.4: see api_get_profile.
-    if not app.config.get("R5_AUTH_BYPASS") and not _glossary_manager.can_view(
-        glossary_id, current_user.id, current_user.is_admin
-    ):
-        if _glossary_manager.get(glossary_id) is None:
-            return jsonify({"error": "Glossary not found"}), 404
-        return jsonify({"error": "forbidden"}), 403
-    glossary = _glossary_manager.get(glossary_id)
-    if glossary is None:
-        return jsonify({"error": "Glossary not found"}), 404
-    return jsonify(glossary)
-
-
-@app.route('/api/glossaries/<glossary_id>', methods=['PATCH'])
-@login_required
-def api_update_glossary(glossary_id):
-    """Update glossary name and/or description."""
-    if not app.config.get("R5_AUTH_BYPASS") and not _glossary_manager.can_edit(
-        glossary_id, current_user.id, current_user.is_admin
-    ):
-        return jsonify({"error": "forbidden"}), 403
-    data = request.get_json(silent=True)
-    if not data:
-        return jsonify({"error": "Request body must be JSON"}), 400
-    try:
-        updated = _glossary_manager.update(glossary_id, data)
-        if updated is None:
-            return jsonify({"error": "Glossary not found"}), 404
-        return jsonify(updated)
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 422
-
-
-@app.route('/api/glossaries/<glossary_id>', methods=['DELETE'])
-@login_required
-def api_delete_glossary(glossary_id):
-    """Delete a glossary."""
-    if not app.config.get("R5_AUTH_BYPASS") and not _glossary_manager.can_edit(
-        glossary_id, current_user.id, current_user.is_admin
-    ):
-        return jsonify({"error": "forbidden"}), 403
-    deleted = _glossary_manager.delete(glossary_id)
-    if not deleted:
-        return jsonify({"error": "Glossary not found"}), 404
-    return jsonify({"deleted": True})
-
-
-@app.route('/api/glossaries/<glossary_id>/entries', methods=['POST'])
-@login_required
-def api_add_entry(glossary_id):
-    """Add an entry to a glossary."""
-    if not app.config.get("R5_AUTH_BYPASS") and not _glossary_manager.can_edit(
-        glossary_id, current_user.id, current_user.is_admin
-    ):
-        return jsonify({"error": "forbidden"}), 403
-    data = request.get_json(silent=True)
-    if not data:
-        return jsonify({"error": "Request body must be JSON"}), 400
-    try:
-        updated = _glossary_manager.add_entry(glossary_id, data)
-        if updated is None:
-            return jsonify({"error": "Glossary not found"}), 404
-        return jsonify(updated), 201
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 422
-
-
-@app.route('/api/glossaries/<glossary_id>/entries/<entry_id>', methods=['PATCH'])
-@login_required
-def api_update_entry(glossary_id, entry_id):
-    """Update a single entry within a glossary."""
-    if not app.config.get("R5_AUTH_BYPASS") and not _glossary_manager.can_edit(
-        glossary_id, current_user.id, current_user.is_admin
-    ):
-        return jsonify({"error": "forbidden"}), 403
-    data = request.get_json(silent=True)
-    if not data:
-        return jsonify({"error": "Request body must be JSON"}), 400
-    try:
-        updated = _glossary_manager.update_entry(glossary_id, entry_id, data)
-        if updated is None:
-            return jsonify({"error": "Glossary or entry not found"}), 404
-        return jsonify(updated)
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 422
-
-
-@app.route('/api/glossaries/<glossary_id>/entries/<entry_id>', methods=['DELETE'])
-@login_required
-def api_delete_entry(glossary_id, entry_id):
-    """Delete a single entry from a glossary."""
-    if not app.config.get("R5_AUTH_BYPASS") and not _glossary_manager.can_edit(
-        glossary_id, current_user.id, current_user.is_admin
-    ):
-        return jsonify({"error": "forbidden"}), 403
-    updated = _glossary_manager.delete_entry(glossary_id, entry_id)
-    if updated is None:
-        return jsonify({"error": "Glossary not found"}), 404
-    return jsonify(updated)
-
-
-@app.route('/api/glossaries/<glossary_id>/import', methods=['POST'])
-@login_required
-def api_import_glossary_csv(glossary_id):
-    """Import entries from CSV text (JSON body with csv_content field)."""
-    if not app.config.get("R5_AUTH_BYPASS") and not _glossary_manager.can_edit(
-        glossary_id, current_user.id, current_user.is_admin
-    ):
-        return jsonify({"error": "forbidden"}), 403
-    data = request.get_json(silent=True)
-    if not data or "csv_content" not in data:
-        return jsonify({"error": "Request body must include csv_content"}), 400
-    try:
-        updated, added = _glossary_manager.import_csv(glossary_id, data["csv_content"])
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    if updated is None:
-        return jsonify({"error": "Glossary not found"}), 404
-    return jsonify({"glossary": updated, "added": added})
-
-
-@app.route('/api/glossaries/<glossary_id>/export', methods=['GET'])
-@login_required
-def api_export_glossary_csv(glossary_id):
-    """Export glossary entries as CSV text."""
-    if not app.config.get("R5_AUTH_BYPASS") and not _glossary_manager.can_edit(
-        glossary_id, current_user.id, current_user.is_admin
-    ):
-        return jsonify({"error": "forbidden"}), 403
-    csv_text = _glossary_manager.export_csv(glossary_id)
-    if csv_text is None:
-        return jsonify({"error": "Glossary not found"}), 404
-    return csv_text, 200, {
-        "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": f"attachment; filename={glossary_id}.csv",
-    }
+# v4 A6 C2 T10 — moved to routes/glossaries.py:
+#   GET    /api/glossaries
+#   POST   /api/glossaries
+#   GET    /api/glossaries/languages
+#   GET    /api/glossaries/<id>
+#   PATCH  /api/glossaries/<id>
+#   DELETE /api/glossaries/<id>
+#   POST   /api/glossaries/<id>/entries
+#   PATCH  /api/glossaries/<id>/entries/<eid>
+#   DELETE /api/glossaries/<id>/entries/<eid>
+#   POST   /api/glossaries/<id>/import
+#   GET    /api/glossaries/<id>/export
 
 
 # v3.x multilingual — per-script boundary character ranges. Source-language
@@ -1205,99 +1023,15 @@ GLOSSARY_APPLY_SYSTEM_PROMPT = (
 #   POST /api/files/<id>/glossary-apply  → api_glossary_apply
 
 
-# ============================================================
-# Prompt Templates API (v3.18 Stage 2)
-# ============================================================
+# v4 A6 C2 T10 — moved to routes/prompt_templates.py:
+#   GET /api/prompt_templates
 
-@app.route('/api/prompt_templates', methods=['GET'])
-@login_required
-def get_prompt_templates():
-    """v3.18 Stage 2 — list backend-managed MT prompt templates.
-
-    Templates live in <CONFIG_DIR>/prompt_templates/*.json (R5_CONFIG_DIR
-    aware). Used by the proofread page's '自訂 Prompt' panel as textarea
-    seed source. Returns templates in stable order with 'broadcast' first."""
-    template_dir = CONFIG_DIR / "prompt_templates"
-    # Stable order: broadcast (recommended default) → sports → literal
-    ORDER = ["broadcast", "sports", "literal"]
-    templates = []
-    for tid in ORDER:
-        path = template_dir / f"{tid}.json"
-        if path.exists():
-            try:
-                templates.append(json.loads(path.read_text(encoding="utf-8")))
-            except (json.JSONDecodeError, OSError) as e:
-                app.logger.warning("Failed to load template %s: %s", tid, e)
-    return jsonify({"templates": templates}), 200
-
-
-# ============================================================
-# Language Configuration API
-# ============================================================
-
-@app.route('/api/languages', methods=['GET'])
-@login_required
-def api_list_languages():
-    return jsonify({"languages": _language_config_manager.list_all()})
-
-
-@app.route('/api/languages/<lang_id>', methods=['GET'])
-@login_required
-def api_get_language(lang_id):
-    config = _language_config_manager.get(lang_id)
-    if not config:
-        return jsonify({"error": "Language config not found"}), 404
-    return jsonify({"language": config})
-
-
-@app.route('/api/languages/<lang_id>', methods=['PATCH'])
-@login_required
-def api_update_language(lang_id):
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "Request body is required"}), 400
-    try:
-        config = _language_config_manager.update(lang_id, data)
-        if not config:
-            return jsonify({"error": "Language config not found"}), 404
-        return jsonify({"language": config})
-    except ValueError as e:
-        return jsonify({"errors": e.args[0]}), 400
-
-
-@app.route('/api/languages', methods=['POST'])
-@login_required
-def api_create_language():
-    """Create a new language config."""
-    data = request.get_json(silent=True) or {}
-    try:
-        config = _language_config_manager.create(data)
-    except ValueError as e:
-        msg = str(e)
-        # Distinguish "already exists" (409) from validation errors (400)
-        if 'already exists' in msg.lower():
-            return jsonify({'error': msg}), 409
-        return jsonify({'error': msg}), 400
-    return jsonify({'config': config}), 200
-
-
-@app.route('/api/languages/<lang_id>', methods=['DELETE'])
-@login_required
-def api_delete_language(lang_id):
-    """Delete a language config. Built-ins (en/zh) and in-use configs are blocked."""
-    if lang_id in ('en', 'zh'):
-        return jsonify({'error': 'Cannot delete built-in language config'}), 400
-
-    if _language_config_manager.get(lang_id) is None:
-        return jsonify({'error': 'Not found'}), 404
-
-    # v4.0 A5 T8: legacy bundled profile (which carried asr.language_config_id)
-    # is deleted. v4 ASR profile schema has no language_config_id field, so
-    # there is no foreign-key relationship to check. Built-ins (en/zh) remain
-    # protected above.
-
-    _language_config_manager.delete(lang_id)
-    return jsonify({'ok': True}), 200
+# v4 A6 C2 T10 — moved to routes/languages.py:
+#   GET    /api/languages
+#   POST   /api/languages
+#   GET    /api/languages/<id>
+#   PATCH  /api/languages/<id>
+#   DELETE /api/languages/<id>
 
 
 # ============================================================

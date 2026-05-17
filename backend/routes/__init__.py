@@ -17,6 +17,9 @@ def register_blueprints(app: Flask) -> None:
     from .pipelines import bp as pipelines_bp
     from .asr_profiles import bp as asr_profiles_bp
     from .mt_profiles import bp as mt_profiles_bp
+    from .glossaries import bp as glossaries_bp
+    from .languages import bp as languages_bp
+    from .prompt_templates import bp as prompt_templates_bp
 
     app.register_blueprint(health_bp)
     app.register_blueprint(spa_bp)
@@ -25,6 +28,9 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(pipelines_bp)
     app.register_blueprint(asr_profiles_bp)
     app.register_blueprint(mt_profiles_bp)
+    app.register_blueprint(glossaries_bp)
+    app.register_blueprint(languages_bp)
+    app.register_blueprint(prompt_templates_bp)
 
 
 __all__ = ["register_blueprints"]
