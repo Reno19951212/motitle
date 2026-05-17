@@ -4,10 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Check, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Translation } from './types';
+import { StageRerunMenu } from './StageRerunMenu';
+import type { Translation, FileDetail } from './types';
 
 interface Props {
   t: Translation;
+  file: FileDetail;
   draft?: string;
   isFocused: boolean;
   onEditDraft: (idx: number, zh: string) => void;
@@ -15,10 +17,12 @@ interface Props {
   onRevert: (idx: number) => void;
   onApprove: (idx: number) => void;
   onShowHistory: (idx: number) => void;
+  onStageRerun?: (stageIdx: number) => void;
 }
 
 export const SegmentRow = memo(function SegmentRow({
   t,
+  file,
   draft,
   isFocused,
   onEditDraft,
@@ -26,6 +30,7 @@ export const SegmentRow = memo(function SegmentRow({
   onRevert,
   onApprove,
   onShowHistory,
+  onStageRerun,
 }: Props) {
   const [editing, setEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -75,24 +80,15 @@ export const SegmentRow = memo(function SegmentRow({
         )}
         <Badge variant={statusVariant}>{t.status}</Badge>
       </td>
-      <td className="p-2 w-28">
-        <div className="flex gap-1 justify-end">
+      <td className="p-2 w-44">
+        <div className="flex gap-1 justify-end items-center">
           {t.status !== 'approved' && (
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => onApprove(t.idx)}
-              aria-label="Approve"
-            >
+            <Button size="icon" variant="ghost" onClick={() => onApprove(t.idx)} aria-label="Approve">
               <Check className="h-4 w-4" />
             </Button>
           )}
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={() => onShowHistory(t.idx)}
-            aria-label="Show stage history"
-          >
+          <StageRerunMenu file={file} onTriggered={onStageRerun} />
+          <Button size="icon" variant="ghost" onClick={() => onShowHistory(t.idx)} aria-label="Show stage history">
             <Eye className="h-4 w-4" />
           </Button>
         </div>

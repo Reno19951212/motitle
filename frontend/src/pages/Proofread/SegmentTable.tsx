@@ -3,15 +3,18 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { SegmentRow } from './SegmentRow';
 import { useSegmentEditor } from './hooks/useSegmentEditor';
-import type { Translation } from './types';
+import type { Translation, FileDetail } from './types';
 
 interface Props {
   fileId: string;
+  file: FileDetail;
   translations: Translation[];
   onShowHistory: (idx: number) => void;
+  onOpenGlossaryApply: () => void;
+  onStageRerun?: (stageIdx: number) => void;
 }
 
-export function SegmentTable({ fileId, translations, onShowHistory }: Props) {
+export function SegmentTable({ fileId, file, translations, onShowHistory, onOpenGlossaryApply, onStageRerun }: Props) {
   const editor = useSegmentEditor(fileId, translations);
   const [focusedIdx] = useState<number | null>(null);
 
@@ -19,7 +22,10 @@ export function SegmentTable({ fileId, translations, onShowHistory }: Props) {
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between p-2 border-b bg-background sticky top-0 z-10">
         <span className="text-sm text-muted-foreground">{translations.length} segments</span>
-        <Button size="sm" onClick={editor.bulkApprove}>Approve all pending</Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={onOpenGlossaryApply}>套用詞彙表</Button>
+          <Button size="sm" onClick={editor.bulkApprove}>Approve all pending</Button>
+        </div>
       </div>
       <div className="overflow-auto flex-1">
         <table className="w-full">
@@ -29,7 +35,7 @@ export function SegmentTable({ fileId, translations, onShowHistory }: Props) {
               <th className="p-2 text-left">EN</th>
               <th className="p-2 text-left">ZH</th>
               <th className="p-2 text-left w-32">Status</th>
-              <th className="p-2 text-right w-28">Actions</th>
+              <th className="p-2 text-right w-44">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -37,6 +43,7 @@ export function SegmentTable({ fileId, translations, onShowHistory }: Props) {
               <SegmentRow
                 key={t.idx}
                 t={t}
+                file={file}
                 draft={editor.state.drafts[t.idx]}
                 isFocused={focusedIdx === t.idx}
                 onEditDraft={editor.editDraft}
@@ -47,6 +54,7 @@ export function SegmentTable({ fileId, translations, onShowHistory }: Props) {
                 }}
                 onApprove={editor.approve}
                 onShowHistory={onShowHistory}
+                onStageRerun={onStageRerun}
               />
             ))}
           </tbody>

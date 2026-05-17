@@ -2,7 +2,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SegmentRow } from './SegmentRow';
-import type { Translation } from './types';
+import type { Translation, FileDetail } from './types';
+
+const testFile: FileDetail = { id: 'a', original_name: 'x.mp4', status: 'completed' };
 
 function row(overrides: Partial<Translation> = {}): Translation {
   return { idx: 0, en_text: 'hello', zh_text: '你好', status: 'pending', flags: [], ...overrides };
@@ -24,6 +26,7 @@ describe('SegmentRow', () => {
       wrap(
         <SegmentRow
           t={row()}
+          file={testFile}
           isFocused={false}
           onEditDraft={noop}
           onSave={noop}
@@ -43,6 +46,7 @@ describe('SegmentRow', () => {
       wrap(
         <SegmentRow
           t={row()}
+          file={testFile}
           isFocused={false}
           onEditDraft={noop}
           onSave={noop}
@@ -60,6 +64,7 @@ describe('SegmentRow', () => {
       wrap(
         <SegmentRow
           t={row({ status: 'approved' })}
+          file={testFile}
           isFocused={false}
           onEditDraft={noop}
           onSave={noop}
@@ -77,6 +82,7 @@ describe('SegmentRow', () => {
       wrap(
         <SegmentRow
           t={row({ flags: ['long'] })}
+          file={testFile}
           isFocused={false}
           onEditDraft={noop}
           onSave={noop}
@@ -96,6 +102,7 @@ describe('SegmentRow', () => {
       wrap(
         <SegmentRow
           t={row()}
+          file={testFile}
           isFocused={false}
           onEditDraft={onEditDraft}
           onSave={onSave}
@@ -120,6 +127,7 @@ describe('SegmentRow', () => {
       wrap(
         <SegmentRow
           t={row()}
+          file={testFile}
           isFocused={false}
           onEditDraft={noop}
           onSave={noop}
@@ -141,6 +149,7 @@ describe('SegmentRow', () => {
       wrap(
         <SegmentRow
           t={row()}
+          file={testFile}
           isFocused={false}
           onEditDraft={noop}
           onSave={noop}
