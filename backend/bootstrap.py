@@ -118,6 +118,12 @@ def create_app() -> tuple[Flask, "extensions.SocketIO"]:
     from jobqueue.routes import bp as queue_bp
     app.register_blueprint(queue_bp)
 
+    # --- Route blueprints (v4 A6 C2 T6+) ---
+    # Health, SPA serving, and fonts endpoints moved out of app.py.
+    # T7-T11 will add additional blueprints under backend/routes/.
+    from routes import register_blueprints
+    register_blueprints(app)
+
     # --- SPA-friendly 404 handler (mirror app.py lines ~910-922) ---
     _register_error_handlers(app)
 
