@@ -101,7 +101,16 @@ A browser-based broadcast subtitle production pipeline that converts English vid
 ```
 motitle/
 ├── backend/
-│   ├── app.py                  # Flask server — REST API + WebSocket events
+│   ├── app.py                  # Flask server — module-level CUDA DLL init + StreamingSession + boot entrypoint (v4.0 A6: 3499 → 768 行)
+│   ├── bootstrap.py            # v4.0 A6 — `create_app()` factory, wires extensions + blueprints + middleware + error handlers
+│   ├── extensions.py           # v4.0 A6 — socketio / login_manager / limiter singletons
+│   ├── managers.py             # v4.0 A6 — 5 entity managers + JobQueue + file_registry init
+│   ├── socket_events.py        # v4.0 A6 — 8 Socket.IO event handlers
+│   ├── logging_setup.py        # v4.0 A6 — JSON / text log formatter + RequestIdFilter
+│   ├── errors.py               # v4.0 A6 — `ApiError` + Flask error handlers (JSON 404 / 500)
+│   ├── middleware.py           # v4.0 A6 — X-Request-ID request/response middleware
+│   ├── routes/                 # v4.0 A6 — 13 Flask Blueprint modules (health / spa / fonts / files / pipelines / asr_profiles / mt_profiles / glossaries / languages / prompt_templates / render / engines / ollama)
+│   ├── helpers/                # v4.0 A6 — shared helpers (files / registry / media / render_options)
 │   ├── asr_profiles.py         # v4.0 P1 ASR profile manager
 │   ├── mt_profiles.py          # v4.0 P1 MT profile manager
 │   ├── pipelines.py            # v4.0 P1 pipeline manager (ASR + MT stages + glossary stage + font_config)
@@ -127,21 +136,21 @@ motitle/
 │   │   ├── glossaries/         # Glossary JSON files
 │   │   ├── languages/          # Per-language config (en.json, zh.json)
 │   │   └── prompt_templates/   # v3.18 starter MT prompt templates
-│   ├── tests/                  # Test suite (790 tests after v4.0 A5)
+│   ├── tests/                  # Test suite (794 tests after v4.0 A6)
 │   ├── data/                   # Runtime: uploads, registry, renders (gitignored)
 │   └── requirements.txt        # Python dependencies
 ├── frontend/                   # v4.0 A3 — Vite + React 18 + TypeScript SPA
 │   ├── package.json            # npm scripts (dev/build/test/test:e2e)
 │   ├── vite.config.ts          # Proxies /api + /socket.io + /fonts to Flask :5001
 │   ├── src/
-│   │   ├── main.tsx, App.tsx, router.tsx, index.css
+│   │   ├── main.tsx, App.tsx, router.tsx, index.css  # v4.0 A6: router 用 React.lazy + Suspense 做 per-page code-split
 │   │   ├── lib/                # api fetch + socket events + zod schemas + utils
 │   │   ├── stores/             # Zustand: auth, pipeline-picker, ui (toasts)
 │   │   ├── providers/          # AuthProvider + SocketProvider
 │   │   ├── pages/              # Login, Dashboard, Pipelines, AsrProfiles, MtProfiles, Glossaries, Admin
 │   │   │   └── Proofread/      # A4 — ~14 components + 6 hooks (VideoPanel, SegmentTable, StageHistorySidebar, PromptOverridesDrawer, GlossaryApplyModal, RenderModal, useSegmentEditor, useFindReplace, useRenderJob, useKeyboardShortcuts, ...)
-│   │   └── components/         # FileCard, UploadDropzone, PipelinePicker, StageEditor, EntityTable/Form, ConfirmDialog, Layout/TopBar/SideNav + ui/ shadcn primitives
-│   └── tests-e2e/              # Playwright suite (new — auth + dashboard scenarios)
+│   │   └── components/         # FileCard, UploadDropzone, PipelinePicker, StageEditor, EntityTable/Form, ConfirmDialog, Layout/TopBar/SideNav, PageLoader (A6) + ui/ shadcn primitives
+│   └── tests-e2e/              # Playwright suite — 11 specs (auth + dashboard + A6 pipelines/asr-profiles/mt-profiles/glossaries/admin CRUD)
 ├── docs/superpowers/           # Design specs and implementation plans
 ├── setup.sh                    # One-shot environment setup
 ├── start.sh                    # Start backend + open browser
@@ -348,6 +357,35 @@ Whenever a new feature is completed or existing functionality is modified, you *
 ---
 
 ## Completed Features
+
+### v4.0 A6 — Production polish + performance (in progress on `chore/asr-mt-rearchitecture-research`)
+- 4-component polish phase post-A5 cleanup：bundle code-splitting + app.py multi-file refactor + structured logging/errors + E2E coverage 擴展。Branch 推上 main 前嘅最後 polish。
+- **C1 — Bundle code-splitting**（3 commits）：
+  - [vite.config.ts](frontend/vite.config.ts) 加 `build.rollupOptions.output.manualChunks` callback split vendor lib（react / router / ui / forms / dnd / socket / state）
+  - [src/router.tsx](frontend/src/router.tsx) 8 個 page 用 `React.lazy(() => import('@/pages/...'))`，App.tsx wrap `<Suspense fallback={<PageLoader />}>`
+  - **Result**：main chunk **652KB → 31KB**（raw -95% / gz -94%）；7 個 vendor chunk + 8 個 per-page chunk；Vite size warning 消失
+  - Report：[docs/superpowers/validation/v4-A6-C1-bundle-report.md](docs/superpowers/validation/v4-A6-C1-bundle-report.md)
+- **C2 — app.py multi-file refactor**（10 commits）：
+  - 新 module: [backend/bootstrap.py](backend/bootstrap.py)（`create_app()` factory），[backend/extensions.py](backend/extensions.py)（socketio / login_manager / limiter 單例），[backend/managers.py](backend/managers.py)（5 個 entity manager + JobQueue + file_registry），[backend/socket_events.py](backend/socket_events.py)（8 個 Socket.IO event handler）
+  - 11 個 Flask Blueprint module 喺 [backend/routes/](backend/routes/)：`health` / `spa` / `fonts` / `files` / `pipelines` / `asr_profiles` / `mt_profiles` / `glossaries` / `languages` / `prompt_templates` / `render` / `engines` / `ollama`
+  - 4 個 helper module 喺 [backend/helpers/](backend/helpers/)：`files` / `registry` / `media` / `render_options`
+  - **Result**：`app.py` **3499 → 768 行（-78%）**；剩低 module-level CUDA DLL init（Windows）、`StreamingSession` class（150 行，legacy streaming feature tied to `WHISPER_STREAMING_AVAILABLE`）、`_pipeline_run_handler`（passed into bootstrap.start_workers）、backwards-compat 重新 export、2 個小 route（`/api/restart`、`/api/streaming/available`）、`if __name__ == '__main__':` boot block
+  - Pattern：blueprint 用 lazy `import app as _app` 攞 module-level constant + helper，繼續 honor A5 T10 嘅 `_isolate_app_data` autouse fixture（tests monkeypatch `app.DATA_DIR` / `app._asr_profile_manager` 等）
+- **C4 — Structured logging + errors + request_id**（1 commit）：
+  - [logging_setup.py](backend/logging_setup.py)：`python-json-logger==2.0.7` 拉入，`LOG_LEVEL` / `LOG_JSON` env-controlled；`RequestIdFilter` 將 `g.request_id` 加入每行 log
+  - [errors.py](backend/errors.py)：`ApiError(message, status, details)` exception class + Flask `@errorhandler(ApiError)` + 統一 404 + 500 handler；preserve A3 T3 `/api/* → JSON 404`
+  - [middleware.py](backend/middleware.py)：`before_request` 用 `X-Request-ID` 入 header 或者 generate UUID；`after_request` echo `X-Request-ID` 響 response header
+  - `bootstrap.create_app()` wire order：`configure_logging(app)` 最先 → `init_extensions(app)` → `install_request_id_middleware(app)` → 全部 blueprint → `register_error_handlers(app)` 最尾
+  - Bootstrap 原本 inline 嘅 404 handler 移除（errors.py 接管）
+  - 4 個新 smoke test 喺 [test_logging_and_errors.py](backend/tests/test_logging_and_errors.py)：request_id 自動 set、inbound passthrough、ApiError → JSON、`/api/*` 404 → JSON
+- **C3 — E2E coverage expansion**（1 commit）：
+  - 5 個新 Playwright spec 喺 [frontend/tests-e2e/](frontend/tests-e2e/)：`pipelines-crud` / `asr-profiles-crud` / `mt-profiles-crud` / `glossaries-csv` / `admin-user-mgmt`
+  - Total Playwright spec count：6 → 11 files / 7 → 14 test cases
+  - 全部跟 A3 T22 嘅 graceful-skip pattern（`test.skip` on login failure 或者 missing seed data），方便 CI / dev environment 缺 credential 或者 seed data 時 specs 唔 fail
+- **Tests**：backend 790 → **794 pass** / 14 baseline failures preserved exactly（11 個 Playwright E2E 需 browser、1 個 v3.3 macOS tmpdir colon-escape、1 個 phase5 SocketIO CORS regex、1 個 queue routes filter）；frontend Vitest **184 pass** 跨 28 files；Playwright 11 specs / 14 cases parse cleanly。
+- **Stack changes**：唯一新 backend dep — `python-json-logger==2.0.7`（C4 嘅 JSON formatter）；frontend 零個新 npm package。
+- **Out-of-A6 scope**（明確留 future）：StreamingSession 移走（legacy feature）；Mac/Win 打包；mobile responsive；i18n；Storybook；CI/CD GitHub Actions。
+- **Spec / Plan / Report**：[design](docs/superpowers/specs/2026-05-17-v4-A6-production-polish-design.md) / [plan](docs/superpowers/plans/2026-05-17-v4-A6-production-polish-plan.md) / [C1 report](docs/superpowers/validation/v4-A6-C1-bundle-report.md)
 
 ### v4.0 A5 — Legacy cleanup (in progress on `chore/asr-mt-rearchitecture-research`)
 - v4.0 rearchitecture final 階段 — 全部 retire 咗 A1+A3+A4 後仲掛住嘅 legacy code path。Big Bang 嘅 housekeeping。
