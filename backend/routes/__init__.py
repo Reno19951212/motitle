@@ -20,6 +20,7 @@ def register_blueprints(app: Flask) -> None:
     from .glossaries import bp as glossaries_bp
     from .languages import bp as languages_bp
     from .prompt_templates import bp as prompt_templates_bp
+    from .render import bp as render_bp
 
     app.register_blueprint(health_bp)
     app.register_blueprint(spa_bp)
@@ -31,6 +32,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(glossaries_bp)
     app.register_blueprint(languages_bp)
     app.register_blueprint(prompt_templates_bp)
+    app.register_blueprint(render_bp)
 
 
 __all__ = ["register_blueprints"]
