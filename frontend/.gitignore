@@ -1,0 +1,12 @@
+node_modules
+dist
+*.local
+.vite
+coverage
+test-results
+playwright-report
+
+# tsc -b composite project emits (vite.config.ts -> .js/.d.ts + .tsbuildinfo)
+vite.config.js
+vite.config.d.ts
+*.tsbuildinfo
