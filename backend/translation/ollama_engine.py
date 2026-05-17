@@ -11,8 +11,109 @@ import urllib.error
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Optional
 
+import opencc
+
 from . import TranslationEngine, TranslatedSegment
-from .post_processor import TranslationPostProcessor
+
+
+# ---------------------------------------------------------------------------
+# Translation post-processing (inlined from former translation/post_processor.py
+# during v4.0 A5 T9 — that module's only consumer was this engine.)
+#
+# QA flags are exposed as a structured ``flags: List[str]`` field on each
+# segment rather than being prepended to ``zh_text``. This keeps the
+# rendered subtitle text clean (no `[LONG]` / `[NEEDS REVIEW]` ever burnt
+# into video) while still letting the UI surface the warnings as badges.
+#
+# Known flag values:
+#   "long"   — zh_text exceeds ``max_chars`` (broadcast single-line limit)
+#   "review" — validate_batch detected repetition / hallucination / missing
+# ---------------------------------------------------------------------------
+
+
+def _validate_batch(results: List[dict]) -> List[int]:
+    """Check translated segments for quality issues.
+
+    Returns sorted list of problematic segment indices (empty = all valid).
+    Checks: repetition (>=3 consecutive identical), missing translations,
+    too long (>40 Chinese chars — well beyond 2-line broadcast max of 32),
+    hallucination (zh > en*3 length).
+    """
+    bad_indices: List[int] = []
+
+    # Check repetition: 3+ consecutive identical zh_text
+    run_start = 0
+    for i in range(1, len(results) + 1):
+        if i < len(results) and results[i].get("zh_text", "") == results[run_start].get("zh_text", ""):
+            continue
+        run_length = i - run_start
+        if run_length >= 3:
+            for j in range(run_start, i):
+                if j not in bad_indices:
+                    bad_indices.append(j)
+        run_start = i
+
+    # Check individual segments
+    for i, r in enumerate(results):
+        zh = r.get("zh_text", "")
+        en = r.get("en_text", "")
+        if "[TRANSLATION MISSING]" in zh:
+            if i not in bad_indices:
+                bad_indices.append(i)
+            continue
+        if len(zh) > 40:
+            if i not in bad_indices:
+                bad_indices.append(i)
+        if len(en) > 0 and len(zh) > len(en) * 3:
+            if i not in bad_indices:
+                bad_indices.append(i)
+
+    return sorted(bad_indices)
+
+
+def _add_flag(segment: dict, flag: str) -> dict:
+    """Return a new segment dict with ``flag`` appended to its flags list (deduped)."""
+    existing = list(segment.get("flags", []))
+    if flag not in existing:
+        existing.append(flag)
+    return {**segment, "flags": existing}
+
+
+class _TranslationPostProcessor:
+    """Apply post-processing steps to translated segments."""
+
+    def __init__(self, max_chars: int = 28):
+        self._converter = opencc.OpenCC('s2twp')
+        self._max_chars = max_chars
+
+    def _convert_to_traditional(self, results: List[dict]) -> List[dict]:
+        """Convert any simplified Chinese characters to Traditional Chinese."""
+        return [
+            {**r, 'zh_text': self._converter.convert(r.get('zh_text', ''))}
+            for r in results
+        ]
+
+    def _flag_long_segments(self, results: List[dict]) -> List[dict]:
+        """Tag segments exceeding ``max_chars`` with the ``"long"`` flag."""
+        return [
+            _add_flag(r, "long") if len(r.get('zh_text', '')) > self._max_chars else r
+            for r in results
+        ]
+
+    def _mark_bad_segments(self, results: List[dict], bad_indices: List[int]) -> List[dict]:
+        """Tag segments flagged by ``_validate_batch`` with the ``"review"`` flag."""
+        bad_set = set(bad_indices)
+        return [
+            _add_flag(r, "review") if i in bad_set else r
+            for i, r in enumerate(results)
+        ]
+
+    def process(self, results: List[dict]) -> List[dict]:
+        """Run all post-processing steps in order."""
+        results = self._convert_to_traditional(results)
+        results = self._flag_long_segments(results)
+        bad_indices = _validate_batch(results)
+        return self._mark_bad_segments(results, bad_indices)
 
 # ---------------------------------------------------------------------------
 # Ollama Cloud signin status cache
@@ -309,7 +410,7 @@ class OllamaTranslationEngine(TranslationEngine):
                     glossary, effective_temp, progress_callback, total,
                     runtime_overrides=prompt_overrides,
                 )
-            processor = TranslationPostProcessor(max_chars=MAX_SUBTITLE_CHARS)
+            processor = _TranslationPostProcessor(max_chars=MAX_SUBTITLE_CHARS)
             return processor.process(all_translated)
 
         batches = [
@@ -406,7 +507,7 @@ class OllamaTranslationEngine(TranslationEngine):
                 runtime_overrides=prompt_overrides,
             )
 
-        processor = TranslationPostProcessor(max_chars=MAX_SUBTITLE_CHARS)
+        processor = _TranslationPostProcessor(max_chars=MAX_SUBTITLE_CHARS)
         return processor.process(all_translated)
 
     def _get_translation_passes(self) -> int:

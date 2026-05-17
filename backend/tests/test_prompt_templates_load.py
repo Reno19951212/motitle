@@ -44,15 +44,14 @@ class TestTemplateFiles:
 
     def test_broadcast_matches_削減版_defaults(self):
         """broadcast.json's overrides must byte-equal the new default constants
-        (the削減版 baseline). This guarantees template = current default."""
+        (the削減版 baseline). This guarantees template = current default.
+
+        v4.0 A5 T9: alignment_anchor_system check dropped — alignment_pipeline
+        retired with the legacy MT pipeline; MTStage from A1 does not consume
+        anchor prompts.
+        """
         from translation.ollama_engine import SINGLE_SEGMENT_SYSTEM_PROMPT, ENRICH_SYSTEM_PROMPT
-        from translation.alignment_pipeline import build_anchor_prompt
         t = load_template("broadcast")
-        # Reconstruct alignment_anchor preamble: build_anchor_prompt with no
-        # custom_system_prompt uses the default preamble.
-        anchor = build_anchor_prompt(["one"], [0], glossary=None)
-        anchor_preamble = anchor.split("\n\n【標記插入】")[0]
-        assert t["overrides"]["alignment_anchor_system"] == anchor_preamble
         assert t["overrides"]["single_segment_system"] == SINGLE_SEGMENT_SYSTEM_PROMPT
         assert t["overrides"]["pass2_enrich_system"] == ENRICH_SYSTEM_PROMPT
 

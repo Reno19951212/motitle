@@ -23,37 +23,9 @@ BANNED_CONNECTOR_EXAMPLES = [
 ]
 
 
-class TestAlignmentAnchorDefault:
-    def test_default_has_no_hardcoded_mappings(self):
-        from translation.alignment_pipeline import build_anchor_prompt
-        prompt = build_anchor_prompt(["one"], [0], glossary=None)
-        for phrase in BANNED_HARDCODED_MAPPINGS:
-            assert phrase not in prompt, (
-                f"Default alignment_anchor must not contain '{phrase}' "
-                f"(formulaic over-use root cause)"
-            )
-
-    def test_default_has_no_specific_connector_examples(self):
-        from translation.alignment_pipeline import build_anchor_prompt
-        prompt = build_anchor_prompt(["one"], [0], glossary=None)
-        for c in BANNED_CONNECTOR_EXAMPLES:
-            assert c not in prompt, f"Default must not contain '{c}'"
-
-    def test_default_still_mentions_modifier_preservation(self):
-        from translation.alignment_pipeline import build_anchor_prompt
-        prompt = build_anchor_prompt(["one"], [0], glossary=None)
-        assert "修飾" in prompt  # rule #1 preserved (in some form)
-
-    def test_default_still_mentions_book_register(self):
-        from translation.alignment_pipeline import build_anchor_prompt
-        prompt = build_anchor_prompt(["one"], [0], glossary=None)
-        assert "書面語" in prompt
-
-    def test_default_mentions_anti_formulaic(self):
-        """The 削減 must explicitly warn against formulaic over-use."""
-        from translation.alignment_pipeline import build_anchor_prompt
-        prompt = build_anchor_prompt(["one"], [0], glossary=None)
-        assert ("避免" in prompt and "套用" in prompt) or "毋須" in prompt
+# v4.0 A5 T9: TestAlignmentAnchorDefault (5 tests) deleted — exercised
+# translation.alignment_pipeline.build_anchor_prompt which is gone with the
+# legacy LLM-marker alignment pipeline. MTStage (A1) does not call it.
 
 
 class TestSingleSegmentDefault:

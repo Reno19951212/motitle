@@ -9,7 +9,7 @@ Covers:
      falls back to constant when null
   6. OllamaTranslationEngine._translate_single uses single_segment override
   7. OllamaTranslationEngine._enrich_batch uses pass2_enrich override
-  8. alignment_pipeline.build_anchor_prompt honours custom_system_prompt
+  8. (Removed in v4.0 A5 T9 — alignment_pipeline retired)
 """
 import sys
 from pathlib import Path
@@ -190,75 +190,7 @@ class TestEnrichBatchOverride:
 
 
 # ---------------------------------------------------------------------------
-# 8: alignment_pipeline.build_anchor_prompt honours custom_system_prompt
+# 8: v4.0 A5 T9 — TestAlignmentAnchorOverride (3 tests) deleted along with
+# translation.alignment_pipeline (LLM-marker alignment retired; MTStage from
+# A1 does not invoke it). build_anchor_prompt no longer exists.
 # ---------------------------------------------------------------------------
-
-class TestAlignmentAnchorOverride:
-    def test_custom_system_prompt_used_when_provided(self):
-        """build_anchor_prompt with custom_system_prompt replaces the hardcoded preamble."""
-        from translation.alignment_pipeline import build_anchor_prompt
-        result = build_anchor_prompt(
-            en_words=["Hello", "world", "today"],
-            boundaries=[1],
-            glossary=None,
-            custom_system_prompt="CUSTOM_ANCHOR_SYSTEM",
-        )
-        assert result.startswith("CUSTOM_ANCHOR_SYSTEM")
-        # The word index and boundary info should still be present
-        assert "[1]" in result
-
-    def test_no_custom_system_prompt_uses_default(self):
-        """Without custom_system_prompt, build_anchor_prompt uses the hardcoded Chinese preamble."""
-        from translation.alignment_pipeline import build_anchor_prompt
-        result = build_anchor_prompt(
-            en_words=["Hello", "world"],
-            boundaries=[0],
-            glossary=None,
-        )
-        # The default prompt is in Traditional Chinese
-        assert "繁體中文" in result
-
-    def test_translate_with_alignment_passes_anchor_override(self):
-        """translate_with_alignment plumbs custom_system_prompt through build_anchor_prompt
-        and into the user_message sent to _call_ollama (alignment_pipeline's _safe_engine_call
-        always passes "" as system_prompt, and the full build_anchor_prompt output as
-        user_message)."""
-        from translation.alignment_pipeline import translate_with_alignment
-
-        # Mock engine that pretends to be OllamaTranslationEngine with _call_ollama
-        captured_user_messages = []
-
-        class FakeEngine:
-            def translate(self, segs, **kw):
-                # Fake single-segment translate
-                return [
-                    {"start": s["start"], "end": s["end"],
-                     "en_text": s["text"], "zh_text": "中文", "flags": []}
-                    for s in segs
-                ]
-
-            def _call_ollama(self, system_prompt, user_message, temperature):
-                captured_user_messages.append(user_message)
-                # Return a valid marker response with boundary marker [1]
-                return "你好[1]世界"
-
-        engine = FakeEngine()
-        # Two segments that will merge into a multi-segment sentence so
-        # _align_multi_segment_sentence is invoked.
-        segments = [
-            {"start": 0.0, "end": 1.0, "text": "Hello world,"},
-            {"start": 1.0, "end": 2.0, "text": "today is good."},
-        ]
-        translate_with_alignment(
-            engine,
-            segments,
-            custom_system_prompt="MY_ANCHOR_OVERRIDE",
-        )
-        # At least one user_message should have been sent to _call_ollama
-        # (multi-segment sentences invoke _safe_engine_call which passes the
-        # build_anchor_prompt output as user_message).
-        # We verify that IF any call was made, the user_message starts with override.
-        for msg in captured_user_messages:
-            assert msg.startswith("MY_ANCHOR_OVERRIDE"), (
-                f"Expected user_message to start with override, got: {msg[:80]}"
-            )

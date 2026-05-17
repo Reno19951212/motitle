@@ -8,7 +8,7 @@ class TranslatedSegment(TypedDict, total=False):
     end: float
     en_text: str
     zh_text: str
-    # QA flags raised by post_processor / sentence_pipeline.
+    # QA flags raised by OllamaTranslationEngine post-processing.
     # Known values: "long" (zh_text length exceeds broadcast single-line max)
     #               "review" (validate_batch flagged repetition / hallucination / missing)
     # Stored as a structured field so UI can render badges and renderer
