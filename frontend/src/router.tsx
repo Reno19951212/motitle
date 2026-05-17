@@ -1,15 +1,17 @@
+import { lazy } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAuthStore } from '@/stores/auth';
 import { Layout } from '@/components/Layout';
-import Login from '@/pages/Login';
-import Dashboard from '@/pages/Dashboard';
-import Pipelines from '@/pages/Pipelines';
-import AsrProfiles from '@/pages/AsrProfiles';
-import MtProfiles from '@/pages/MtProfiles';
-import Glossaries from '@/pages/Glossaries';
-import Admin from '@/pages/Admin';
-import Proofread from '@/pages/Proofread';
+
+const Login = lazy(() => import('@/pages/Login'));
+const Dashboard = lazy(() => import('@/pages/Dashboard'));
+const Pipelines = lazy(() => import('@/pages/Pipelines'));
+const AsrProfiles = lazy(() => import('@/pages/AsrProfiles'));
+const MtProfiles = lazy(() => import('@/pages/MtProfiles'));
+const Glossaries = lazy(() => import('@/pages/Glossaries'));
+const Admin = lazy(() => import('@/pages/Admin'));
+const Proofread = lazy(() => import('@/pages/Proofread'));
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const user = useAuthStore((s) => s.user);
