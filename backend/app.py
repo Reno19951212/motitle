@@ -1188,58 +1188,144 @@ def serve_font(filename):
 # ============================================================
 
 _FRONTEND_DIR = str(Path(__file__).parent.parent / "frontend")
+# v4.0 A3 — legacy vanilla HTML lives under frontend.old/ during A3-A4 transition.
+# A5 deletes these legacy .html routes once React parity is reached.
+_FRONTEND_LEGACY_DIR = str(Path(__file__).parent.parent / "frontend.old")
 
 
-@app.get("/login.html")
-def serve_login_page():
-    """Public route — login page itself must be reachable without auth."""
-    return send_from_directory(_FRONTEND_DIR, "login.html")
+def _serve_react_index():
+    """Serve the Vite-built React index.html from frontend/dist/.
+
+    Falls back to a friendly placeholder when the dist bundle is not built —
+    happens in dev environments before `npm run build` was ever run.
+    """
+    dist_index = Path(_FRONTEND_DIR) / "dist" / "index.html"
+    if dist_index.exists():
+        return send_from_directory(str(dist_index.parent), "index.html")
+    return (
+        "<html><body>Frontend dist not built. Run "
+        "<code>cd frontend && npm run build</code>.</body></html>",
+        200,
+    )
 
 
 @app.get("/")
 def serve_index():
-    """Dashboard root. Redirect to /login.html when no session, otherwise
-    serve frontend/index.html. NOT decorated with @login_required because we
-    want a 302 to the login page rather than a 401."""
+    """Root — serve React SPA. Auth is handled by the React app itself
+    (it'll POST /login if needed). No server-side redirect."""
+    return _serve_react_index()
+
+
+@app.get("/assets/<path:filename>")
+def serve_assets(filename):
+    """Vite-built hashed bundle assets (JS / CSS / images) from frontend/dist/assets/."""
+    assets_dir = Path(_FRONTEND_DIR) / "dist" / "assets"
+    return send_from_directory(str(assets_dir), filename)
+
+
+# --- React SPA routes (v4.0 A3) ----------------------------------------------
+# These bare paths all render the same index.html — React Router handles
+# client-side routing from there. NONE of these have @login_required because
+# /login is itself a SPA route; the React app handles auth state via /api/me.
+
+@app.get("/login")
+def serve_login_spa():
+    return _serve_react_index()
+
+
+@app.get("/pipelines")
+def serve_pipelines_spa():
+    return _serve_react_index()
+
+
+@app.get("/asr_profiles")
+def serve_asr_profiles_spa():
+    return _serve_react_index()
+
+
+@app.get("/mt_profiles")
+def serve_mt_profiles_spa():
+    return _serve_react_index()
+
+
+@app.get("/glossaries")
+def serve_glossaries_spa():
+    return _serve_react_index()
+
+
+@app.get("/admin")
+def serve_admin_spa():
+    return _serve_react_index()
+
+
+@app.get("/proofread/<path:_subpath>")
+def serve_proofread_spa(_subpath):
+    return _serve_react_index()
+
+
+# --- Legacy vanilla HTML pages (v4.0 A3-A4 transition) -----------------------
+# These existed before A3 and may still be hit by external callers or bookmarks
+# during the transition. A5 will remove them once React parity is reached.
+# They serve from frontend.old/ since frontend/ is now the React project root.
+
+@app.get("/login.html")
+def serve_login_page():
+    """Public route — legacy login page must be reachable without auth."""
+    return send_from_directory(_FRONTEND_LEGACY_DIR, "login.html")
+
+
+@app.get("/index.html")
+def serve_index_legacy():
     if not current_user.is_authenticated:
         return redirect("/login.html")
-    return send_from_directory(_FRONTEND_DIR, "index.html")
+    return send_from_directory(_FRONTEND_LEGACY_DIR, "index.html")
 
 
-# Serve auxiliary frontend pages and static assets (R5 Phase 1).
-# These are public — they hold no secrets and the dashboard needs them
-# loaded before /api/me resolves the session. Path traversal is rejected
-# by send_from_directory.
 @app.get("/proofread.html")
 def serve_proofread():
-    return send_from_directory(_FRONTEND_DIR, "proofread.html")
+    return send_from_directory(_FRONTEND_LEGACY_DIR, "proofread.html")
 
 
 @app.get("/Glossary.html")
 @login_required
 def serve_glossary_page():
-    """v3.15 — Standalone glossary management page."""
-    return send_from_directory(_FRONTEND_DIR, "Glossary.html")
+    """v3.15 — Standalone glossary management page (legacy)."""
+    return send_from_directory(_FRONTEND_LEGACY_DIR, "Glossary.html")
 
 
 @app.get("/js/<path:filename>")
 def serve_frontend_js(filename):
-    return send_from_directory(str(Path(_FRONTEND_DIR) / "js"), filename)
+    return send_from_directory(str(Path(_FRONTEND_LEGACY_DIR) / "js"), filename)
 
 
 @app.get("/css/<path:filename>")
 def serve_frontend_css(filename):
-    return send_from_directory(str(Path(_FRONTEND_DIR) / "css"), filename)
+    return send_from_directory(str(Path(_FRONTEND_LEGACY_DIR) / "css"), filename)
 
 
 @app.get("/admin.html")
 def serve_admin_page():
-    """R5 Phase 3 — admin-only page. Non-admins get 403; anonymous gets 302 to login."""
+    """R5 Phase 3 — admin-only page (legacy). Non-admins get 403; anonymous gets 302 to login."""
     if not current_user.is_authenticated:
         return redirect("/login.html")
     if not current_user.is_admin:
         return jsonify({"error": "admin only"}), 403
-    return send_from_directory(_FRONTEND_DIR, "admin.html")
+    return send_from_directory(_FRONTEND_LEGACY_DIR, "admin.html")
+
+
+@app.errorhandler(404)
+def _not_found(_err):
+    """v4.0 A3 — keep /api/* and /socket.io/* as clean JSON 404s.
+
+    Without this, Flask returns its default HTML 404 page, which is misleading
+    for API callers (they'd parse it as JSON and crash) and could be confused
+    for the SPA fallback. Non-API paths still get the default error page —
+    explicit SPA routes are listed above, so reaching the default 404 handler
+    on a non-API path is an unconfigured route and should remain visible."""
+    path = request.path or ""
+    if path.startswith("/api/") or path.startswith("/socket.io/"):
+        return jsonify({"error": "not found"}), 404
+    return _err, 404
 
 
 # ============================================================
