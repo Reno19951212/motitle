@@ -129,11 +129,23 @@ motitle/
 │   ├── tests/                  # Test suite (375 tests)
 │   ├── data/                   # Runtime: uploads, registry, renders (gitignored)
 │   └── requirements.txt        # Python dependencies
-├── frontend/
-│   ├── index.html              # Main dashboard — upload, transcribe, translate
-│   ├── proofread.html          # Proof-reading editor — review, edit, approve, render
-│   └── js/
-│       └── font-preview.js      # Shared module: syncs subtitle overlay with active Profile font config
+├── frontend.old/               # Legacy vanilla HTML/CSS/JS pages (v4.0 A5 sub-phase 砍走)
+│   ├── index.html              # Main dashboard — kept for transition only
+│   ├── proofread.html          # Proof-reading editor — kept until A4 ships replacement
+│   ├── login.html / admin.html / Glossary.html
+│   ├── js/font-preview.js      # Shared module (still imported by .old pages)
+│   └── tests/                  # Playwright suite (kept until A5)
+├── frontend/                   # NEW v4.0 A3 — Vite + React 18 + TypeScript SPA
+│   ├── package.json            # npm scripts (dev/build/test/test:e2e)
+│   ├── vite.config.ts          # Proxies /api + /socket.io + /fonts to Flask :5001
+│   ├── src/
+│   │   ├── main.tsx, App.tsx, router.tsx, index.css
+│   │   ├── lib/                # api fetch + socket events + zod schemas + utils
+│   │   ├── stores/             # Zustand: auth, pipeline-picker, ui (toasts)
+│   │   ├── providers/          # AuthProvider + SocketProvider
+│   │   ├── pages/              # Login, Dashboard, Pipelines, AsrProfiles, MtProfiles, Glossaries, Admin, ProofreadPlaceholder
+│   │   └── components/         # FileCard, UploadDropzone, PipelinePicker, StageEditor, EntityTable/Form, ConfirmDialog, Layout/TopBar/SideNav + ui/ shadcn primitives
+│   └── tests-e2e/              # Playwright suite (new — auth + dashboard scenarios)
 ├── docs/superpowers/           # Design specs and implementation plans
 ├── setup.sh                    # One-shot environment setup
 ├── start.sh                    # Start backend + open browser
@@ -358,6 +370,25 @@ Whenever a new feature is completed or existing functionality is modified, you *
 ---
 
 ## Completed Features
+
+### v4.0 A3 — Frontend foundation (in progress on `chore/asr-mt-rearchitecture-research`)
+- 舊 vanilla HTML pages 移去 [frontend.old/](frontend.old/) (A5 砍走)；新 Vite + React 18 + TypeScript 嘅 SPA 喺 [frontend/](frontend/)，按 design doc [§14](docs/superpowers/specs/2026-05-16-asr-mt-emergent-pipeline-design.md) 嘅 stack lock
+- **Pages 全部 ship 齊**：`/login` ([src/pages/Login.tsx](frontend/src/pages/Login.tsx) RHF + zod)、`/` (Dashboard with PipelinePicker + UploadDropzone + per-stage FileCard)、`/pipelines` (drag-sortable @dnd-kit StageEditor + glossary stage + font config)、`/asr_profiles`、`/mt_profiles` (engine locked to `qwen3.5-35b-a3b`)、`/glossaries` (with entries editor + CSV import/export)、`/admin` (users + audit tabs)、`/proofread/:fileId` (placeholder — A4 實現完整 editor)
+- **Auth**：React Router guard + boot `/api/me` probe + Zustand `useAuthStore`；Logout 經 TopBar
+- **Realtime**：React Context + reducer 接收 Socket.IO events (`file_added` / `file_updated` / `pipeline_stage_progress` / `pipeline_stage_complete` / `pipeline_complete` / `pipeline_failed`)
+- **State**：Zustand for auth + pipeline-picker (with `localStorage` persistence via `partialize`) + UI toast store；per-page local state for entity list refetch
+- **Validation**：zod schemas (`AsrProfileSchema` / `MtProfileSchema` / `GlossarySchema` / `PipelineSchema` / `LoginSchema`) mirror backend validators 1:1，包括 MT same-lang refine 同 Pipeline cascade-ref shape (`asr_profile_id` + `mt_stages[]` + `glossary_stage` + `font_config`)
+- **Forms**：react-hook-form + zodResolver；shared `<EntityTable>` + `<EntityForm>` + `<ConfirmDialog>` 三件套畀 5 個 entity CRUD page 共用
+- **Dev mode**：`npm run dev` 喺 `frontend/` 內由 `concurrently` 同時起 Vite (5173) + Flask (5001)；Vite proxy forward `/api`, `/socket.io`, `/fonts` 去 Flask
+- **Production**：`npm run build` → `frontend/dist/` → Flask `serve_index` / `serve_assets` + SPA fallback for React Router routes (`/login`, `/pipelines`, `/asr_profiles`, etc.)
+- **Backend changes (minimal)**：
+  - `serve_index` 改 serve `frontend/dist/index.html` if exists；6 個 React SPA route (`/login` `/pipelines` etc.) 路 SPA fallback；`/assets/<path>` 路 hashed Vite bundle；`/api/*` 404 仍返 JSON `{"error":"not found"}` 唔 fall through 入 SPA shell
+  - 新 `_FRONTEND_LEGACY_DIR` constant；legacy `*.html` route (`/login.html` / `/proofread.html` / `/admin.html` / `/Glossary.html` / `/index.html`) 路 `frontend.old/`，A5 sub-phase 砍走
+  - `/api/transcribe` 接 optional `pipeline_id` form field — 有 → enqueue `pipeline_run` job + payload；冇 → 行 legacy `asr` job (A5 砍走 legacy 路徑)
+- **Tests**：~80 個 Vitest unit (schemas / api / auth store / SocketProvider reducer / FileCard / pipeline-picker) + Playwright E2E (auth + dashboard) — frontend 100% green；backend +10 個新 test (T3 SPA fallback / T3 serve_assets / T4 transcribe with pipeline_id) — no regressions
+- **Stack locked per parent spec [§14](docs/superpowers/specs/2026-05-16-asr-mt-emergent-pipeline-design.md)**：TypeScript 5.6 strict (`noUncheckedIndexedAccess: true`)、Vite 5.4、React 18.3、React Router 6.27、Zustand 5.0、shadcn/ui (copy-in)、Tailwind 3.4、react-hook-form 7.53、zod 3.23、@dnd-kit 6.1+sortable 8.0、react-dropzone 14.3、socket.io-client 4.8、Vitest 2.1、Playwright 1.48、concurrently 9.0
+- **Out-of-A3 scope**（明確留 A4 / A5）：A4 proofread page (per-segment editor + render modal + glossary apply UI)；A5 cleanup (`frontend.old/` 整個 delete + legacy `/api/transcribe` 嘅 ASR-only flow + `/api/profiles` bundled endpoint + 5 個 `_FRONTEND_LEGACY_DIR` 嘅 .html route + `/js/<path>` + `/css/<path>` 靜態 route 全部砍走)
+- **Spec / Plan**：[design](docs/superpowers/specs/2026-05-17-v4-A3-frontend-foundation-design.md) / [plan](docs/superpowers/plans/2026-05-17-v4-A3-frontend-foundation-plan.md)
 
 ### v4.0 A1 — Stage executor + pipeline_runner (in progress on `chore/asr-mt-rearchitecture-research`)
 - 3 new stage classes ([backend/stages/asr_stage.py](backend/stages/asr_stage.py) / [backend/stages/mt_stage.py](backend/stages/mt_stage.py) / [backend/stages/glossary_stage.py](backend/stages/glossary_stage.py)) sharing `PipelineStage` ABC, per-segment-1:1 contract per design doc §4
