@@ -23,3 +23,5 @@ Flask-Login==0.6.3
 bcrypt==4.1.2
 # Phase 6: rate limiting
 Flask-Limiter>=3.5.0
+# v4.0 A6 C4: structured JSON logging
+python-json-logger==2.0.7

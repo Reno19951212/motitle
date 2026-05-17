@@ -23,7 +23,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from flask import Flask, jsonify, request
+from flask import Flask
 from flask_cors import CORS
 
 import extensions
@@ -45,6 +45,11 @@ def create_app() -> tuple[Flask, "extensions.SocketIO"]:
     # identical to the pre-T5 boot (which did ``Flask(__name__)`` inside
     # app.py, giving import_name == "app").
     app = Flask("app")
+
+    # --- v4.0 A6 C4: structured logging FIRST so subsequent boot lines log via JSON ---
+    import logging_setup
+    logging_setup.configure_logging(app)
+
     secret_key = os.environ.get("FLASK_SECRET_KEY")
     if not secret_key or secret_key == _PLACEHOLDER_SECRET:
         raise RuntimeError(
@@ -62,6 +67,11 @@ def create_app() -> tuple[Flask, "extensions.SocketIO"]:
 
     # --- CORS — LAN-only allowlist (regex form for flask-cors 6.x) ---
     CORS(app, supports_credentials=True, origins=extensions._LAN_ORIGIN_REGEX)
+
+    # --- v4.0 A6 C4: request_id middleware — installed before any blueprint
+    # so every request gets a request_id available in `g` from before_request. ---
+    import middleware
+    middleware.install_request_id_middleware(app)
 
     # --- Extensions: SocketIO, LoginManager, Limiter ---
     socketio = extensions.init_extensions(app)
@@ -129,8 +139,11 @@ def create_app() -> tuple[Flask, "extensions.SocketIO"]:
     from routes import register_blueprints
     register_blueprints(app)
 
-    # --- SPA-friendly 404 handler (mirror app.py lines ~910-922) ---
-    _register_error_handlers(app)
+    # --- v4.0 A6 C4: ApiError + 404 + 500 handlers — registered LAST so they
+    # take precedence over any blueprint-local handlers. Preserves the prior
+    # /api/* + /socket.io/* JSON-404 contract that the inline _not_found used.
+    import errors
+    errors.register_error_handlers(app)
 
     return app, socketio
 
@@ -149,20 +162,6 @@ def _bootstrap_admin_if_needed(app: Flask, auth_db_path: str) -> None:
             app.logger.info(
                 "Bootstrapped admin user from ADMIN_BOOTSTRAP_PASSWORD env"
             )
-
-
-def _register_error_handlers(app: Flask) -> None:
-    """Install the 404 handler that keeps ``/api/*`` + ``/socket.io/*`` as JSON.
-
-    Mirrors ``app.py::_not_found``. Non-API paths fall through to Flask's
-    default error page so unconfigured SPA routes remain visible.
-    """
-    @app.errorhandler(404)
-    def _not_found(_err):
-        path = request.path or ""
-        if path.startswith("/api/") or path.startswith("/socket.io/"):
-            return jsonify({"error": "not found"}), 404
-        return _err, 404
 
 
 __all__ = ["create_app"]
