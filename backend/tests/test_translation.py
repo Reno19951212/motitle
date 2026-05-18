@@ -538,6 +538,9 @@ def test_ollama_engine_get_models_mocked():
 
     # Ensure signin status cache reports "not signed in" so cloud models are unavailable
     _oe._SIGNIN_STATUS_CACHE["expires_at"] = 0
+    # Reset /api/tags probe cache so the test's patched urlopen is actually called
+    _oe._OLLAMA_TAGS_CACHE["result"] = None
+    _oe._OLLAMA_TAGS_CACHE["expires"] = 0.0
 
     mock_response_body = json_mod.dumps({
         "models": [{"name": "qwen2.5:3b"}, {"name": "qwen2.5:7b"}]
@@ -1740,3 +1743,81 @@ def test_ollama_batch_size_gt_1_uses_batch_path():
     assert len(captured) == 1
     # Batch user message contains numbered list, not single-mode 英文：format
     assert "1. " in captured[0] and "2. " in captured[0]
+
+
+# ---------------------------------------------------------------------------
+# BUG-020: Ollama /api/tags probe — timeout enforcement + 60s memoization
+# ---------------------------------------------------------------------------
+
+def test_ollama_tags_probe_has_timeout(monkeypatch):
+    """_check_available() must pass a timeout <= 5 to urlopen."""
+    import urllib.request
+    import json as _json
+    import translation.ollama_engine as _eng_mod
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    # Reset cache so the patched urlopen is actually invoked
+    _eng_mod._OLLAMA_TAGS_CACHE['result'] = None
+    _eng_mod._OLLAMA_TAGS_CACHE['expires'] = 0.0
+
+    captured_timeout = {}
+
+    class FakeResp:
+        def read(self):
+            return _json.dumps({"models": [{"name": "qwen2.5:3b"}]}).encode()
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            pass
+
+    def fake_urlopen(req, timeout=None):
+        captured_timeout['timeout'] = timeout
+        return FakeResp()
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    engine = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+    engine._check_available()
+    assert captured_timeout.get('timeout') is not None
+    assert captured_timeout['timeout'] <= 5
+
+
+def test_ollama_tags_probe_memoized(monkeypatch):
+    """_probe_ollama_tags() should cache the /api/tags result for 60s.
+
+    Two consecutive _check_available() calls on different engine instances
+    that share the same base_url should only make ONE network call because
+    the module-level cache is populated on the first call.
+    """
+    import urllib.request
+    import json as _json
+    import translation.ollama_engine as _eng_mod
+    from translation.ollama_engine import OllamaTranslationEngine
+
+    call_count = {'n': 0}
+
+    class FakeResp:
+        def read(self):
+            return _json.dumps({"models": [{"name": "qwen2.5:3b"}, {"name": "qwen2.5:7b"}]}).encode()
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            pass
+
+    def fake_urlopen(req, timeout=None):
+        call_count['n'] += 1
+        return FakeResp()
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    # Reset the cache so we start fresh
+    _eng_mod._OLLAMA_TAGS_CACHE['result'] = None
+    _eng_mod._OLLAMA_TAGS_CACHE['expires'] = 0.0
+
+    engine1 = OllamaTranslationEngine({"engine": "qwen2.5-3b"})
+    engine2 = OllamaTranslationEngine({"engine": "qwen2.5-7b"})
+
+    engine1._check_available()
+    engine2._check_available()
+
+    # Both calls should share ONE network request
+    assert call_count['n'] == 1

@@ -29,7 +29,7 @@
 | BUG-017 | D | P2 | cross | Confirmed out-of-scope | Open | CI/CD GitHub Actions not configured |
 | BUG-018 | D | P3 | A5 | 純 bug fix | Fixed | Legacy Socket.IO emitter event names cleanup (docs + types) |
 | BUG-019 | D | P3 | cross | Defer | Open | faster-whisper BatchedInferencePipeline not tried |
-| BUG-020 | D | P2 | cross | 純 bug fix | Open | `/api/translation/engines` Ollama probe missing timeout + memoization |
+| BUG-020 | D | P2 | cross | 純 bug fix | Fixed | `/api/translation/engines` Ollama probe missing timeout + memoization |
 | BUG-021 | D | P3 | cross | Confirmed out-of-scope | Open | Domain context anchor (per-file subject prefix) |
 | BUG-022 | D | P3 | cross | Confirmed out-of-scope | Open | Forbidden phrases list (negative vocabulary) |
 | BUG-023 | D | P3 | cross | Confirmed out-of-scope | Open | User self-service prompt template publishing |

@@ -128,6 +128,46 @@ _SIGNIN_STATUS_CACHE: dict = {
 _SIGNIN_CACHE_TTL = 60
 
 
+# ---------------------------------------------------------------------------
+# Ollama /api/tags probe cache
+# ---------------------------------------------------------------------------
+
+# Module-level TTL cache for /api/tags responses.  Memoises the installed-
+# model list for 60 s so that /api/translation/engines (which calls
+# _check_available() once per engine in a loop) only issues one HTTP
+# request to the Ollama daemon per minute instead of N×1 requests.
+#
+# Structure mirrors _SIGNIN_STATUS_CACHE so tests can reset it the same way.
+_OLLAMA_TAGS_CACHE: dict = {
+    "result": None,       # None or {"models": [...]}
+    "expires": 0.0,
+}
+_OLLAMA_TAGS_CACHE_TTL = 60  # seconds
+
+
+def _probe_ollama_tags(base_url: str = "http://localhost:11434") -> dict:
+    """Fetch (or return cached) /api/tags from the Ollama daemon.
+
+    Returns a dict ``{"models": [{"name": "..."}, ...]}``.  On any network
+    error returns ``{"models": []}``.  Result is cached for
+    ``_OLLAMA_TAGS_CACHE_TTL`` seconds at the module level so repeated calls
+    from the same process share a single HTTP round-trip.
+    """
+    now = time.monotonic()
+    if _OLLAMA_TAGS_CACHE["result"] is not None and now < _OLLAMA_TAGS_CACHE["expires"]:
+        return _OLLAMA_TAGS_CACHE["result"]
+    try:
+        req = urllib.request.Request(f"{base_url}/api/tags")
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            data = json.loads(resp.read())
+            result = {"models": data.get("models", [])}
+    except Exception:
+        result = {"models": []}
+    _OLLAMA_TAGS_CACHE["result"] = result
+    _OLLAMA_TAGS_CACHE["expires"] = now + _OLLAMA_TAGS_CACHE_TTL
+    return result
+
+
 def _get_ollama_signin_status() -> dict:
     """Check if user is signed in to Ollama Cloud.
 
@@ -1091,31 +1131,22 @@ class OllamaTranslationEngine(TranslationEngine):
         key = engine_key if engine_key is not None else self._engine_name
         if key in CLOUD_ENGINES:
             return _get_ollama_signin_status()["signed_in"]
-        try:
-            req = urllib.request.Request(f"{self._base_url}/api/tags")
-            with urllib.request.urlopen(req, timeout=3) as resp:
-                data = json.loads(resp.read())
-                installed = [m.get("name", "") for m in data.get("models", [])]
-                return model_tag in installed
-        except Exception:
-            return False
+        data = _probe_ollama_tags(self._base_url)
+        installed = [m.get("name", "") for m in data.get("models", [])]
+        return model_tag in installed
 
     def _check_available(self) -> bool:
         """Check if the current engine's model is available.
 
         For cloud engines, checks Ollama Cloud signin status.
-        For local engines, checks the Ollama ``/api/tags`` endpoint.
+        For local engines, delegates to ``_probe_ollama_tags()`` which
+        caches the ``/api/tags`` response for 60 s.
         """
         if self._engine_name in CLOUD_ENGINES:
             return _get_ollama_signin_status()["signed_in"]
-        try:
-            req = urllib.request.Request(f"{self._base_url}/api/tags")
-            with urllib.request.urlopen(req, timeout=3) as resp:
-                data = json.loads(resp.read())
-                models = [m.get("name", "") for m in data.get("models", [])]
-                return self._model in models
-        except Exception:
-            return False
+        data = _probe_ollama_tags(self._base_url)
+        models = [m.get("name", "") for m in data.get("models", [])]
+        return self._model in models
 
 
 # v3.x multilingual glossary-apply — parameterized prompt templates.
