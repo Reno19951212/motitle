@@ -39,6 +39,8 @@
 | BUG-027 | D | P3 | cross | Confirmed out-of-scope | Open | s2hk simplified-Chinese leak MT-side post-process |
 | BUG-028 | D | P3 | cross | Confirmed out-of-scope | Closed | ASR-side fragment merge Stage 1 (intentionally skipped) |
 | BUG-029 | T27-T29 prep | P2 | A5 | Spec 假設錯 | Fixed | `DATA_DIR` / `UPLOAD_DIR` / `RENDERS_DIR` hardcoded in managers.py:55 — no env override → isolated boot impossible. Fixed: `R5_DATA_DIR` env var added; smoke verified upload_dir = isolated path. |
+| BUG-030 | T27-T29 inline | P1 | A1/A5 | 需開新 sub-phase | Open | PipelineRunner `stage_outputs` not bridged to legacy `segments`/`translations` fields — blocks all proofread + render after v4 pipeline run |
+| BUG-031 | T29 inline | P2 | A4/routes | 純 bug fix | Open | Render status naming mismatch: backend uses `"done"`, frontend `useRenderJob` polls for `"completed"` → download never triggered |
 
 ---
 
@@ -47,31 +49,33 @@
 | Severity | Count | % |
 |---|---|---|
 | **P0** | **0** | 0% |
-| **P1** | **0** | 0% |
-| **P2** | **9** | 31% |
-| **P3** | **20** | 69% |
-| **Total** | **29** | 100% |
+| **P1** | **1** | 3% |
+| **P2** | **10** | 32% |
+| **P3** | **20** | 65% |
+| **Total** | **31** | 100% |
 
 > +1 P2 (BUG-029) discovered Phase 3b during T27 prep — DATA_DIR isolation gap. Confirms Phase 2 hypothesis §8 row "A5 R5_CONFIG_DIR fixture robustness".
+> +1 P1 + 1 P2 (BUG-030, BUG-031) discovered T27-T29 inline validation — stage_outputs bridge gap + render status naming mismatch.
 
 ## Plan impact breakdown
 
 | Bucket | Count | BUG IDs |
 |---|---|---|
-| 純 bug fix | 11 | BUG-001, 002, 003, 004, 006, 007, 009, 010, 011, 018, 020 |
-| Spec 假設錯 | 0 | — |
-| 需開新 sub-phase | 0 | — |
+| 純 bug fix | 12 | BUG-001, 002, 003, 004, 006, 007, 009, 010, 011, 018, 020, 031 |
+| Spec 假設錯 | 1 | BUG-029 |
+| 需開新 sub-phase | 1 | BUG-030 |
 | Defer 入 backlog | 3 | BUG-005, 008, 019 |
 | Confirmed out-of-scope | 14 | BUG-012, 013, 014, 015, 016, 017, 021–028 (incl. 028 Closed) |
-| **Total** | **28** | |
+| **Total** | **31** | |
 
 ---
 
 ## Abort gate evaluation
 
 - **P0 count: 0** vs threshold 5 (spec §6)
-- **Status: NOT TRIGGERED** — proceed Phase 3a normally
-- No need to freeze v4.0 ship or rewrite parent phases
+- **P1 count: 1** (BUG-030) — architectural gap, needs sub-phase fix but not a P0 abort trigger
+- **Status: NOT TRIGGERED** — proceed with BUG-030 fix as priority action before v4 ship
+- No need to freeze v4.0 ship or rewrite parent phases; BUG-030 is a targeted bridge fix
 
 ---
 
@@ -173,6 +177,39 @@ Full repro / expected / actual / suggested fix for each Open entry below. Order:
 - **Repro**: `time curl http://localhost:5001/api/translation/engines` — when Ollama down, request hangs (no HTTP timeout). v3.14 audit observed 994ms outlier.
 - **Suggested fix**: `engines.py` blueprint adds `requests.get(..., timeout=2)` + ttl_cache memoization (60s TTL).
 
+### BUG-030 [P1 / T27-T29 inline / A1+A5 / 需開新 sub-phase]: PipelineRunner stage_outputs not bridged to legacy fields
+
+- **Repro:**
+  1. Upload file → `POST /api/transcribe?pipeline_id=X` → 202 with `job_id`
+  2. Poll until job `status: done` in DB
+  3. `GET /api/files/<id>/segments` → `{"segments": [], "status": "uploaded"}` — 0 segments
+  4. `GET /api/files/<id>/translations` → `{"translations": []}` — 0 translations
+  5. `GET /api/files` → `"segment_count": 0, "status": "uploaded"` — looks untouched
+  6. `POST /api/render` → `{"error": "File has no translations to render"}`
+  7. But registry.json shows `stage_outputs: {"0": {segments: [{...}]}, "1": {segments: [{...}]}}` with correct data
+- **Root cause:** `PipelineRunner._persist_stage_output()` writes only to `entry["stage_outputs"][str(idx)]`. No code path bridges this to `entry["segments"]`, `entry["translations"]`, `entry["status"]`, timing fields, or `entry["pipeline_id"]`.
+- **All affected APIs:** `/segments`, `/translations`, `/translations/approve-all`, `/render`, `/api/files` list (`segment_count`, `status`), Proofread page (depends on translations)
+- **Suggested fix (Option A — recommended):** After `runner.run()` in `_pipeline_run_handler`, call a `_bridge_stage_outputs(file_id, pipeline_id, stage_outputs)` function that:
+  - Reads stage 0 (ASR) segments → writes to `entry["segments"]`
+  - Pairs stage 0 + last MT stage segments → writes `entry["translations"]` as `[{seg_idx, start, end, en_text, zh_text, status: "pending", flags: []}]`
+  - Sets `entry["status"] = "done"`, `entry["pipeline_id"] = pipeline_id`
+  - Sets `entry["asr_seconds"]`, `entry["translation_seconds"]`, `entry["pipeline_seconds"]` from stage durations
+- **Note:** Also add `pipeline_id` to `_register_file()` so it is present from upload time and returned in `GET /api/files`
+
+### BUG-031 [P2 / T29 inline / A4/routes / 純 bug fix]: Render status `"done"` vs frontend expected `"completed"`
+
+- **Repro:**
+  1. Submit render via `POST /api/render`
+  2. Poll `GET /api/renders/<id>` → returns `{"status": "done"}` when complete
+  3. `useRenderJob.ts` line 42: `updated.status === 'completed'` — condition never true
+  4. Download dialog never triggered; polling continues indefinitely
+- **Root cause:**
+  - `backend/routes/render.py:197`: `{**job_state, "status": "done"}`
+  - `frontend/src/pages/Proofread/hooks/useRenderJob.ts:42`: checks `=== 'completed'`
+  - Same mismatch at line 7 (type definition) and lines 99
+- **Suggested fix:** Update backend to use `"status": "completed"` on success (aligns with frontend type), and `"status": "failed"` on error (already matches). Specifically change `render.py:197` from `"done"` to `"completed"`. Also update line 273 (`if job["status"] != "done"` → `!= "completed"`) and the `GET /api/renders/in-progress` filter if it also checks `"done"`.
+- **Alternative:** Update frontend to accept `"done"` — but this requires updating type definitions in 3 places.
+
 ### Confirmed out-of-scope (audit trail, no fix expected)
 
 - **BUG-012 — StreamingSession inline in app.py** (~150 lines, A6 C2 didn't extract)
@@ -196,8 +233,10 @@ Full content for these 14 entries in `v4-bug-tracker-trackD-known.md`.
 
 ## Notes for Phase 3a
 
-- 0 P0 / 0 P1 → no abort gate triggered, v4.0 ship plan stays intact
-- 8 P2 + 6 P3 active fixes (BUG-001 to BUG-011 active + BUG-018, BUG-020)
+- 0 P0 / 1 P1 → P1 abort gate NOT triggered (threshold: 3 P1s); BUG-030 is a critical architectural gap that blocks the full v4 user-facing flow
+- **BUG-030 must be fixed before any user can complete the v4 pipeline → proofread → render workflow** — it is the highest-priority open item
+- 9 P2 + 6 P3 active fixes (BUG-001 to BUG-011 active + BUG-018, BUG-020, BUG-031)
 - Among P2s, BUG-010 (request_id) and BUG-011 (print bypass) are A6 C4 implementation-level fixes — should be done before any production deployment to ensure log aggregator compatibility
 - Among P2s, BUG-004 (silent save no-op) and BUG-006 (no connection state) are A4 UX bugs that affect daily use
+- BUG-031 (render status "done" vs "completed") is a 1-line backend fix — trivial once BUG-030 is fixed
 - 14 Confirmed out-of-scope entries provide audit trail — no action needed in this debug branch

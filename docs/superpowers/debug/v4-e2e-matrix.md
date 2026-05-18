@@ -4,9 +4,10 @@
 
 ## Section 1: 真實 ASR
 **Prerequisite:** M-series Mac + mlx-whisper medium model (~3GB downloaded)
+**T27 inline validation (2026-05-18):** faster-whisper large-v3 CPU int8 verified instead of mlx-whisper. mlx-whisper items remain deferred.
 
 - [DEFER — see DEFERRED-S1] mlx-whisper medium 跑廣東話樣本
-- [DEFER — see DEFERRED-S1] mlx-whisper medium 跑英文樣本
+- [PASS — verified by T27 inline] faster-whisper large-v3 跑英文樣本 — "Hello World This is a test of the broadcast subtitle pipeline." (3.7s audio → 1 segment, 7.61s)
 - [DEFER — see DEFERRED-S1] mlx-whisper medium 跑中英混合樣本
 - [DEFER — see DEFERRED-S1] 確認 cn_convert s2hk flag 真正 trigger
 - [DEFER — see DEFERRED-S1] 確認 merge_short_segments 唔產 1-word fragment
@@ -14,9 +15,11 @@
 
 ## Section 2: 真實 MT — Ollama
 **Prerequisite:** Local Ollama + qwen3.5-35b-a3b (~22GB) + 32GB+ RAM
+**T28 inline validation (2026-05-18):** qwen3.5:35b-a3b-mlx-bf16 verified via v4 MTStage (same-lang transform with EN→ZH system prompt).
 
-- [DEFER — see DEFERRED-S2] batch_size=1 single-segment mode
-- [DEFER — see DEFERRED-S2] batch_size=10 batched mode
+- [PASS — verified by T28 inline] v4 MTStage 跑英文 → 繁體中文翻譯 — "Hello World..." → "你好世界 這是廣播字幕管線的測試。" (20.15s, correct)
+- [DEFER — see DEFERRED-S2] batch_size=1 single-segment mode (legacy engine path)
+- [DEFER — see DEFERRED-S2] batch_size=10 batched mode (legacy engine path)
 - [DEFER — see DEFERRED-S2] parallel_batches=4
 - [DEFER — see DEFERRED-S2] prompt_overrides 真正 inject 入 LLM payload
 - [DEFER — see DEFERRED-S2] translation_passes=2 enrich pass trigger
@@ -30,18 +33,19 @@
 
 ## Section 4: 真實 FFmpeg render
 **Prerequisite:** FFmpeg installed + 30s test MP4 + 5GB free disk
+**T29 inline validation (2026-05-18):** 3 formats verified. Note: BUG-030 blocks normal render path (no translations in legacy field). Workaround: manually bridged stage_outputs → translations before render. FFmpeg engine itself confirmed working.
 
-- [DEFER — see DEFERRED-S4] MP4 CRF mode + ffprobe metadata check
+- [PASS — verified by T29 inline, workaround for BUG-030] MP4 CRF mode + ffprobe check — h264, 640×360, 25fps, 22KB ✓
 - [DEFER — see DEFERRED-S4] MP4 CBR mode + ffprobe check
 - [DEFER — see DEFERRED-S4] MP4 2-pass mode + ffprobe check
 - [DEFER — see DEFERRED-S4] MXF ProRes profile 0 (Proxy)
 - [DEFER — see DEFERRED-S4] MXF ProRes profile 1 (LT)
 - [DEFER — see DEFERRED-S4] MXF ProRes profile 2 (Standard)
-- [DEFER — see DEFERRED-S4] MXF ProRes profile 3 (HQ)
+- [PASS — verified by T29 inline, workaround for BUG-030] MXF ProRes profile 3 (HQ) — prores, 640×360, 25fps, 4.6MB ✓
 - [DEFER — see DEFERRED-S4] MXF ProRes profile 4 (4444)
 - [DEFER — see DEFERRED-S4] MXF ProRes profile 5 (4444 XQ)
 - [DEFER — see DEFERRED-S4] XDCAM HD 422 @ 10 Mbps
-- [DEFER — see DEFERRED-S4] XDCAM HD 422 @ 50 Mbps
+- [PASS — verified by T29 inline, workaround for BUG-030] XDCAM HD 422 @ 50 Mbps — mpeg2video, 640×360, 25fps, 50Mbps CBR, 96MB ✓
 - [DEFER — see DEFERRED-S4] XDCAM HD 422 @ 100 Mbps
 
 ## Section 5: WebSocket reliability
