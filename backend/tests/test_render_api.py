@@ -181,6 +181,53 @@ def test_render_ffmpeg_error_includes_details(client_with_approved_file, monkeyp
     assert "nonexistent" in data["error"]
 
 
+def test_render_job_status_is_completed_on_success(client_with_approved_file, monkeypatch):
+    """BUG-031: backend render status should be 'completed' (matches frontend expectation),
+    not 'done'. Frontend useRenderJob.ts polls for status=='completed' to trigger download."""
+    from renderer import SubtitleRenderer
+    import tempfile, os
+
+    # Create a fake output file so 'success' path is triggered
+    fake_output = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+    fake_output.write(b"\x00\x01\x02\x03")
+    fake_output.close()
+
+    def fake_render(self, video_path, ass_content, output_path, output_format, render_options=None):
+        # Write something so the output exists
+        with open(output_path, "wb") as f:
+            f.write(b"\x00\x01\x02\x03")
+        return True, None
+
+    monkeypatch.setattr(SubtitleRenderer, "render", fake_render)
+
+    client, file_id = client_with_approved_file
+    resp = client.post("/api/render", json={"file_id": file_id, "format": "mp4"})
+    assert resp.status_code == 202
+    render_id = resp.get_json()["render_id"]
+
+    # Poll briefly for the thread to complete
+    import time as _time
+    final_data = {}
+    for _ in range(20):
+        _time.sleep(0.2)
+        status_resp = client.get(f"/api/renders/{render_id}")
+        final_data = status_resp.get_json()
+        if final_data.get("status") not in ("processing", "queued"):
+            break
+
+    assert final_data.get("status") == "completed", (
+        f"Expected 'completed' but got '{final_data.get('status')}'. "
+        "Frontend useRenderJob.ts polls for 'completed' — if backend writes 'done', "
+        "download is never triggered."
+    )
+    # Clean up fake output if render wrote it
+    fake_output_path = final_data.get("output_path") or fake_output.name
+    try:
+        os.unlink(fake_output.name)
+    except FileNotFoundError:
+        pass
+
+
 # ===== render_options validation =====
 
 def test_render_options_mp4_defaults_accepted(client_with_approved_file):

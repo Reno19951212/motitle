@@ -192,7 +192,7 @@ def _evict_old_render_jobs():
     to_drop = []
     with _app._render_jobs_lock:
         for rid, job in list(_app._render_jobs.items()):
-            if job.get("status") not in ("done", "error", "cancelled"):
+            if job.get("status") not in ("completed", "error", "cancelled"):
                 continue
             if (now - (job.get("created_at") or 0)) < _app._RENDER_JOB_TTL_SEC:
                 continue

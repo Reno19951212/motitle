@@ -40,7 +40,7 @@
 | BUG-028 | D | P3 | cross | Confirmed out-of-scope | Closed | ASR-side fragment merge Stage 1 (intentionally skipped) |
 | BUG-029 | T27-T29 prep | P2 | A5 | Spec 假設錯 | Fixed | `DATA_DIR` / `UPLOAD_DIR` / `RENDERS_DIR` hardcoded in managers.py:55 — no env override → isolated boot impossible. Fixed: `R5_DATA_DIR` env var added; smoke verified upload_dir = isolated path. |
 | BUG-030 | T27-T29 inline | P1 | A1/A5 | 需開新 sub-phase | Open | PipelineRunner `stage_outputs` not bridged to legacy `segments`/`translations` fields — blocks all proofread + render after v4 pipeline run |
-| BUG-031 | T29 inline | P2 | A4/routes | 純 bug fix | Open | Render status naming mismatch: backend uses `"done"`, frontend `useRenderJob` polls for `"completed"` → download never triggered |
+| BUG-031 | T29 inline | P2 | A4/routes | 純 bug fix | Fixed | Render status naming mismatch: backend uses `"done"`, frontend `useRenderJob` polls for `"completed"` → download never triggered |
 
 ---
 

@@ -194,7 +194,7 @@ def api_start_render():
                     _app._render_jobs[render_id] = {**job_state, 'status': 'cancelled'}
                     cleanup = True
                 elif success:
-                    _app._render_jobs[render_id] = {**job_state, "status": "done"}
+                    _app._render_jobs[render_id] = {**job_state, "status": "completed"}
                     cleanup = False
                 else:
                     error_msg = f"FFmpeg render failed: {ffmpeg_error}" if ffmpeg_error else "FFmpeg render failed"
@@ -270,7 +270,7 @@ def api_download_render(render_id):
     if not _app._can_access_render(render_id, current_user):
         return jsonify({"error": "forbidden"}), 403
 
-    if job["status"] != "done":
+    if job["status"] != "completed":
         return jsonify({"error": f"Render job is not done yet (status: {job['status']})"}), 400
 
     output_path = job["output_path"]
