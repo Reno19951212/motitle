@@ -13,7 +13,7 @@
 | BUG-001 | A | P2 | cross | 純 bug fix | Fixed | Test fixture media file missing → upload E2E specs auto-skip |
 | BUG-002 | A | P2 | cross | 純 bug fix | Fixed | global-setup.ts seed idempotency (409 loses entity IDs) |
 | BUG-003 | A | P3 | cross | 純 bug fix | Fixed | test:e2e:seeded script Unix env syntax (Windows incompatible) |
-| BUG-004 | A | P2 | A4 | 純 bug fix | Open | PromptOverridesDrawer Save silently no-ops when `file.pipeline_id` null |
+| BUG-004 | A | P2 | A4 | 純 bug fix | Fixed | PromptOverridesDrawer Save silently no-ops when `file.pipeline_id` null |
 | BUG-005 | A | P3 | A4 | Defer | Open | StageRerunMenu renders dropdown when `stage_outputs` empty |
 | BUG-006 | B | P2 | A3/A6 | 純 bug fix | Open | SocketProvider does not expose connection state to UI |
 | BUG-007 | B | P2 | A3/A6 | 純 bug fix | Open | Stage progress lost on page refresh (no HTTP recovery endpoint) |

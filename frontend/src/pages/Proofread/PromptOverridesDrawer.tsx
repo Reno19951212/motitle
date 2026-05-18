@@ -130,7 +130,12 @@ export function PromptOverridesDrawer({ open, file, onClose, onSaved }: Props) {
           <Button size="sm" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button size="sm" onClick={() => save(false)} disabled={saving}>
+          <Button
+            size="sm"
+            onClick={() => save(false)}
+            disabled={saving || !file?.pipeline_id}
+            title={!file?.pipeline_id ? '此檔案未綁定 pipeline，無法儲存覆寫' : undefined}
+          >
             {saving ? 'Saving…' : 'Save'}
           </Button>
         </div>
