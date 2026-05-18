@@ -38,6 +38,7 @@
 | BUG-026 | D | P3 | cross | Confirmed out-of-scope | Open | A/B prompt comparison feature |
 | BUG-027 | D | P3 | cross | Confirmed out-of-scope | Open | s2hk simplified-Chinese leak MT-side post-process |
 | BUG-028 | D | P3 | cross | Confirmed out-of-scope | Closed | ASR-side fragment merge Stage 1 (intentionally skipped) |
+| BUG-029 | T27-T29 prep | P2 | A5 | Spec 假設錯 | Fixed | `DATA_DIR` / `UPLOAD_DIR` / `RENDERS_DIR` hardcoded in managers.py:55 — no env override → isolated boot impossible. Fixed: `R5_DATA_DIR` env var added; smoke verified upload_dir = isolated path. |
 
 ---
 
@@ -47,9 +48,11 @@
 |---|---|---|
 | **P0** | **0** | 0% |
 | **P1** | **0** | 0% |
-| **P2** | **8** | 29% |
-| **P3** | **20** | 71% |
-| **Total** | **28** | 100% |
+| **P2** | **9** | 31% |
+| **P3** | **20** | 69% |
+| **Total** | **29** | 100% |
+
+> +1 P2 (BUG-029) discovered Phase 3b during T27 prep — DATA_DIR isolation gap. Confirms Phase 2 hypothesis §8 row "A5 R5_CONFIG_DIR fixture robustness".
 
 ## Plan impact breakdown
 
