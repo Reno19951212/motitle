@@ -16,7 +16,7 @@
 | BUG-004 | A | P2 | A4 | 純 bug fix | Fixed | PromptOverridesDrawer Save silently no-ops when `file.pipeline_id` null |
 | BUG-005 | A | P3 | A4 | Defer | Open | StageRerunMenu renders dropdown when `stage_outputs` empty |
 | BUG-006 | B | P2 | A3/A6 | 純 bug fix | Fixed | SocketProvider does not expose connection state to UI |
-| BUG-007 | B | P2 | A3/A6 | 純 bug fix | Open | Stage progress lost on page refresh (no HTTP recovery endpoint) |
+| BUG-007 | B | P2 | A3/A6 | 純 bug fix | Fixed | Stage progress lost on page refresh (no HTTP recovery endpoint) |
 | BUG-008 | B | P3 | A3/A6 | Defer | Open | No WebSocket event sequence/dedup on reconnect (theoretical) |
 | BUG-009 | B | P3 | A6 C1 | 純 bug fix | Open | Proofread page chunk named `index-*.js` not `Proofread-*.js` |
 | BUG-010 | B | P2 | A6 C4 | 純 bug fix | Fixed | `request_id` always null in log lines (werkzeug context gap) |
@@ -123,11 +123,12 @@ Full repro / expected / actual / suggested fix for each Open entry below. Order:
 - **Expected**: SocketState gains `connected: boolean`, register connect/disconnect handlers
 - **Fix**: Added `SOCKET_CONNECTED` / `SOCKET_DISCONNECTED` action types + `connected: boolean` to `SocketState` (default `false`). Registered `socket.on('connect')` + `socket.on('disconnect')` in `useEffect`; cleanup includes `socket.off('connect')` + `socket.off('disconnect')`. 4 new tests in `SocketProvider.test.tsx`.
 
-### BUG-007 [P2 / Track B / A3/A6 / 純 bug fix]: Stage progress lost on refresh
+### BUG-007 [P2 / Track B / A3/A6 / 純 bug fix]: Stage progress lost on refresh ✅ Fixed (Option A — degraded)
 
 - **Repro**: Start pipeline (stage 1 @ 60%). Hard refresh. `stageProgress` reducer state resets to `{}`. File still shows "running" status, but no progress bar.
 - **Expected**: Page mount restores in-progress stage % from server
-- **Suggested fix**: Backend `GET /api/files/<id>` returns `current_stage_progress: {stage_idx, percent} | null` from active job runner state; OR frontend accepts degraded UX (% starts from 0, next event fills it).
+- **Fix (Option A)**: `BULK_FILES` reducer now scans files for `status in {'running', 'queued'}`. For each in-flight file without existing `stageStatus`, marks `stageStatus[fileId][stageIdx] = 'running'` where `stageIdx = stage_outputs.length` (current stage inferred from completed outputs). Existing live-event state is preserved (recovered entries only written when `!state.stageStatus[f.id]`). UI shows indeterminate running indicator until next `pipeline_stage_progress` event delivers exact %. 3 new tests.
+- **Note**: Exact % not recoverable without backend `GET /api/files/<id>` exposing `current_stage_progress` — deferred per Phase 3b scope.
 
 ### BUG-008 [P3 / Track B / A3/A6 / Defer]: No WebSocket event dedup
 

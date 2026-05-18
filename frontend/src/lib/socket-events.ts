@@ -63,7 +63,23 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
     case 'BULK_FILES': {
       const files: Record<string, FileRecord> = {};
       for (const f of action.files) files[f.id] = f;
-      return { ...state, files };
+      // Option A: degrade-recover running stage indicator after page refresh.
+      // For files that are in-flight (status 'running' or 'queued'), mark the
+      // current stage as 'running' so the UI shows an indeterminate indicator
+      // until the next real pipeline_stage_progress event arrives.
+      const IN_PROGRESS_STATUSES = new Set(['running', 'queued']);
+      const recoveredStatus: Record<string, Record<number, StageStatus>> = {};
+      for (const f of action.files) {
+        if (IN_PROGRESS_STATUSES.has(f.status) && !state.stageStatus[f.id]) {
+          const stageIdx = Array.isArray(f.stage_outputs) ? f.stage_outputs.length : 0;
+          recoveredStatus[f.id] = { [stageIdx]: 'running' };
+        }
+      }
+      return {
+        ...state,
+        files,
+        stageStatus: { ...recoveredStatus, ...state.stageStatus },
+      };
     }
     case 'FILE_ADDED':
     case 'FILE_UPDATED': {
