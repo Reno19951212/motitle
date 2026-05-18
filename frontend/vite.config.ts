@@ -22,6 +22,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
+          if (id.includes('/pages/Proofread/')) return 'Proofread';
           if (id.includes('node_modules')) {
             if (id.includes('react-router')) return 'vendor-router';
             if (id.includes('@radix-ui') || id.includes('lucide-react')) return 'vendor-ui';

@@ -40,18 +40,22 @@ export type SocketAction =
   | { type: 'STAGE_PROGRESS'; ev: StageProgressEvent }
   | { type: 'STAGE_COMPLETE'; ev: StageCompleteEvent }
   | { type: 'PIPELINE_COMPLETE'; ev: PipelineCompleteEvent }
-  | { type: 'PIPELINE_FAILED'; ev: PipelineFailedEvent };
+  | { type: 'PIPELINE_FAILED'; ev: PipelineFailedEvent }
+  | { type: 'SOCKET_CONNECTED' }
+  | { type: 'SOCKET_DISCONNECTED' };
 
 export interface SocketState {
   files: Record<string, FileRecord>;
   stageProgress: Record<string, Record<number, number>>;
   stageStatus: Record<string, Record<number, StageStatus>>;
+  connected: boolean;
 }
 
 export const initialSocketState: SocketState = {
   files: {},
   stageProgress: {},
   stageStatus: {},
+  connected: false,
 };
 
 export function socketReducer(state: SocketState, action: SocketAction): SocketState {
@@ -59,7 +63,23 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
     case 'BULK_FILES': {
       const files: Record<string, FileRecord> = {};
       for (const f of action.files) files[f.id] = f;
-      return { ...state, files };
+      // Option A: degrade-recover running stage indicator after page refresh.
+      // For files that are in-flight (status 'running' or 'queued'), mark the
+      // current stage as 'running' so the UI shows an indeterminate indicator
+      // until the next real pipeline_stage_progress event arrives.
+      const IN_PROGRESS_STATUSES = new Set(['running', 'queued']);
+      const recoveredStatus: Record<string, Record<number, StageStatus>> = {};
+      for (const f of action.files) {
+        if (IN_PROGRESS_STATUSES.has(f.status) && !state.stageStatus[f.id]) {
+          const stageIdx = Array.isArray(f.stage_outputs) ? f.stage_outputs.length : 0;
+          recoveredStatus[f.id] = { [stageIdx]: 'running' };
+        }
+      }
+      return {
+        ...state,
+        files,
+        stageStatus: { ...recoveredStatus, ...state.stageStatus },
+      };
     }
     case 'FILE_ADDED':
     case 'FILE_UPDATED': {
@@ -101,6 +121,10 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
         stageStatus: { ...state.stageStatus, [action.ev.file_id]: stageStatus },
       };
     }
+    case 'SOCKET_CONNECTED':
+      return { ...state, connected: true };
+    case 'SOCKET_DISCONNECTED':
+      return { ...state, connected: false };
     default:
       return state;
   }

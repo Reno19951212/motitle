@@ -54,6 +54,39 @@ describe('PromptOverridesDrawer', () => {
     expect(anchor.value).toBe('TPLA');
   });
 
+  it('disables Save when file.pipeline_id is null and shows tooltip', () => {
+    const fileWithoutPipeline: FileDetail = {
+      id: 'f-no-pipeline',
+      original_name: 'no-pipe.mp4',
+      status: 'completed',
+      pipeline_id: null,
+    };
+    vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ templates: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    render(<PromptOverridesDrawer open file={fileWithoutPipeline} onClose={vi.fn()} />);
+    const saveBtn = screen.getByRole('button', { name: 'Save' });
+    expect(saveBtn).toBeDisabled();
+    const title = saveBtn.getAttribute('title');
+    expect(title).toBeTruthy();
+    expect(title?.toLowerCase()).toMatch(/pipeline|管線/);
+  });
+
+  it('enables Save when file.pipeline_id is set', () => {
+    vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ templates: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    render(<PromptOverridesDrawer open file={file} onClose={vi.fn()} />);
+    const saveBtn = screen.getByRole('button', { name: 'Save' });
+    expect(saveBtn).not.toBeDisabled();
+  });
+
   it('Save POSTs with overrides + invokes onClose', async () => {
     const onClose = vi.fn();
     const fetchSpy = vi

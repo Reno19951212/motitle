@@ -50,9 +50,15 @@ _language_config_manager: Any = None  # language_config.LanguageConfigManager
 # Paths — derived once at first use. Mirror app.py's DATA_DIR / UPLOAD_DIR /
 # RESULTS_DIR / RENDERS_DIR layout so handlers built around those constants
 # keep resolving to the same on-disk locations.
+#
+# R5_DATA_DIR env var overrides default; allows isolated backend boot for
+# testing / subagent runs (BUG-029 fix). All subdirectories derive from
+# DATA_DIR. Default unchanged when env not set — backward compatible with
+# existing setup.sh + start.sh flows.
 # ---------------------------------------------------------------------------
 _BACKEND_DIR = Path(__file__).parent
-DATA_DIR = _BACKEND_DIR / "data"
+_R5_DATA_DIR_ENV = os.environ.get("R5_DATA_DIR")
+DATA_DIR = Path(_R5_DATA_DIR_ENV).resolve() if _R5_DATA_DIR_ENV else _BACKEND_DIR / "data"
 UPLOAD_DIR = DATA_DIR / "uploads"
 RESULTS_DIR = DATA_DIR / "results"
 RENDERS_DIR = DATA_DIR / "renders"

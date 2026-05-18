@@ -32,6 +32,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       });
 
     let socket: Socket | null = io({ path: '/socket.io' });
+    socket.on('connect', () => dispatch({ type: 'SOCKET_CONNECTED' }));
+    socket.on('disconnect', () => dispatch({ type: 'SOCKET_DISCONNECTED' }));
     socket.on('file_added', (f: FileRecord) => dispatch({ type: 'FILE_ADDED', file: f }));
     socket.on('file_updated', (f: FileRecord) => dispatch({ type: 'FILE_UPDATED', file: f }));
     socket.on('pipeline_stage_progress', (ev: { file_id: string; stage_idx: number; percent: number }) =>
@@ -50,6 +52,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     return () => {
       active = false;
       if (socket) {
+        socket.off('connect');
+        socket.off('disconnect');
         socket.disconnect();
         socket = null;
       }
