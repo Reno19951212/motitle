@@ -116,83 +116,122 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
     'Content-Type': 'application/json',
   };
 
-  async function e2ePost(path: string, body: unknown): Promise<Record<string, unknown>> {
-    const res = await fetch(`${BASE_URL}${path}`, {
+  /**
+   * getOrCreate — idempotent entity bootstrap helper.
+   *
+   * POSTs createBody to listPath. On success returns the created entity id.
+   * On 409 (already exists), GETs the list and finds the entry whose `name`
+   * field matches matchValue, returning its id so downstream steps can proceed.
+   * Returns null only on unrecoverable error.
+   */
+  async function getOrCreate(
+    listPath: string,
+    matchValue: string,
+    createBody: Record<string, unknown>,
+  ): Promise<string | null> {
+    const postRes = await fetch(`${BASE_URL}${listPath}`, {
       method: 'POST',
       headers: e2eHeaders,
-      body: JSON.stringify(body),
+      body: JSON.stringify(createBody),
     });
-    if (res.status === 409) {
-      console.log(`[global-setup] ${path} conflict (409), skipping.`);
-      return {};
+    if (postRes.ok) {
+      const data = (await postRes.json()) as { id?: string };
+      console.log(`[global-setup] Created ${listPath}: ${data.id ?? '?'}`);
+      return data.id ?? null;
     }
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      throw new Error(`[global-setup] POST ${path} failed: HTTP ${res.status} — ${text}`);
+    if (postRes.status === 409) {
+      // Already exists — recover id by listing and matching on name
+      console.log(`[global-setup] ${listPath} conflict (409) — recovering id by name lookup…`);
+      const listRes = await fetch(`${BASE_URL}${listPath}`, { headers: e2eHeaders });
+      if (!listRes.ok) {
+        console.error(`[global-setup] getOrCreate list ${listPath} failed: ${listRes.status}`);
+        return null;
+      }
+      const list = (await listRes.json()) as Array<Record<string, unknown>>;
+      const found = list.find((e) => e['name'] === matchValue);
+      if (found && typeof found['id'] === 'string') {
+        console.log(`[global-setup] Recovered ${listPath} id=${found['id']}`);
+        return found['id'];
+      }
+      console.error(`[global-setup] getOrCreate: could not find "${matchValue}" in ${listPath}`);
+      return null;
     }
-    return res.json() as Promise<Record<string, unknown>>;
+    const text = await postRes.text().catch(() => '');
+    console.error(
+      `[global-setup] getOrCreate ${listPath} failed: HTTP ${postRes.status} — ${text}`,
+    );
+    return null;
   }
 
   // Step 5: Create seeded ASR Profile
-  const asrProfile = await e2ePost('/api/asr_profiles', {
-    name: 'E2E Whisper Profile',
-    engine: 'whisper',
-    language: 'en',
-    model_size: 'large-v3',
-    device: 'cpu',
-    compute_type: 'int8',
-    condition_on_previous_text: false,
-    vad_filter: false,
-  });
-  const asrProfileId = (asrProfile.id ?? null) as string | null;
-  console.log(`[global-setup] ASR profile: ${asrProfileId ?? 'skipped (already existed)'}`);
+  const asrProfileId = await getOrCreate(
+    '/api/asr_profiles',
+    'E2E Whisper Profile',
+    {
+      name: 'E2E Whisper Profile',
+      engine: 'whisper',
+      language: 'en',
+      model_size: 'large-v3',
+      device: 'cpu',
+      compute_type: 'int8',
+      condition_on_previous_text: false,
+      vad_filter: false,
+    },
+  );
+  console.log(`[global-setup] ASR profile id: ${asrProfileId ?? 'unavailable'}`);
 
   // Step 6: Create seeded MT Profile
-  const mtProfile = await e2ePost('/api/mt_profiles', {
-    name: 'E2E Mock MT Profile',
-    engine: 'mock',
-    language: 'zh',
-    batch_size: 5,
-    temperature: 0.1,
-    parallel_batches: 1,
-    translation_passes: 1,
-  });
-  const mtProfileId = (mtProfile.id ?? null) as string | null;
-  console.log(`[global-setup] MT profile: ${mtProfileId ?? 'skipped (already existed)'}`);
+  const mtProfileId = await getOrCreate(
+    '/api/mt_profiles',
+    'E2E Mock MT Profile',
+    {
+      name: 'E2E Mock MT Profile',
+      engine: 'mock',
+      language: 'zh',
+      batch_size: 5,
+      temperature: 0.1,
+      parallel_batches: 1,
+      translation_passes: 1,
+    },
+  );
+  console.log(`[global-setup] MT profile id: ${mtProfileId ?? 'unavailable'}`);
 
   // Step 7: Create seeded Glossary
-  const glossary = await e2ePost('/api/glossaries', {
-    name: 'E2E Test Glossary',
-    source_lang: 'en',
-    target_lang: 'zh',
-    entries: [{ source: 'test', target: '測試' }],
-  });
-  const glossaryId = (glossary.id ?? null) as string | null;
-  console.log(`[global-setup] Glossary: ${glossaryId ?? 'skipped (already existed)'}`);
+  const glossaryId = await getOrCreate(
+    '/api/glossaries',
+    'E2E Test Glossary',
+    {
+      name: 'E2E Test Glossary',
+      source_lang: 'en',
+      target_lang: 'zh',
+      entries: [{ source: 'test', target: '測試' }],
+    },
+  );
+  console.log(`[global-setup] Glossary id: ${glossaryId ?? 'unavailable'}`);
 
   // Step 8: Create seeded Pipeline (requires at least asrProfileId and mtProfileId)
   if (asrProfileId && mtProfileId) {
-    const pipeline = await e2ePost('/api/pipelines', {
-      name: 'E2E Test Pipeline',
-      asr_profile_id: asrProfileId,
-      mt_stages: [{ mt_profile_id: mtProfileId }],
-      glossary_stage: glossaryId ? { glossary_ids: [glossaryId] } : null,
-      font_config: {
-        family: 'Noto Sans TC',
-        size: 32,
-        color: 'white',
-        outline: 2,
-        margin_bottom: 60,
+    const pipelineId = await getOrCreate(
+      '/api/pipelines',
+      'E2E Test Pipeline',
+      {
+        name: 'E2E Test Pipeline',
+        asr_profile_id: asrProfileId,
+        mt_stages: [{ mt_profile_id: mtProfileId }],
+        glossary_stage: glossaryId ? { glossary_ids: [glossaryId] } : null,
+        font_config: {
+          family: 'Noto Sans TC',
+          size: 32,
+          color: 'white',
+          outline: 2,
+          margin_bottom: 60,
+        },
       },
-    });
-    console.log(
-      `[global-setup] Pipeline: ${(pipeline.id ?? 'skipped (already existed)') as string}`,
     );
+    console.log(`[global-setup] Pipeline id: ${pipelineId ?? 'unavailable'}`);
   } else {
     console.warn(
-      '[global-setup] Skipping pipeline creation — ASR or MT profile IDs unavailable ' +
-        '(likely already existed but IDs not recoverable from 409). ' +
-        'If pipeline is needed, run seed-e2e.sh against a fresh DB.',
+      '[global-setup] Skipping pipeline creation — ASR or MT profile IDs unavailable.',
     );
   }
 
