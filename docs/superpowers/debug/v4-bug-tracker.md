@@ -15,7 +15,7 @@
 | BUG-003 | A | P3 | cross | 純 bug fix | Fixed | test:e2e:seeded script Unix env syntax (Windows incompatible) |
 | BUG-004 | A | P2 | A4 | 純 bug fix | Fixed | PromptOverridesDrawer Save silently no-ops when `file.pipeline_id` null |
 | BUG-005 | A | P3 | A4 | Defer | Open | StageRerunMenu renders dropdown when `stage_outputs` empty |
-| BUG-006 | B | P2 | A3/A6 | 純 bug fix | Open | SocketProvider does not expose connection state to UI |
+| BUG-006 | B | P2 | A3/A6 | 純 bug fix | Fixed | SocketProvider does not expose connection state to UI |
 | BUG-007 | B | P2 | A3/A6 | 純 bug fix | Open | Stage progress lost on page refresh (no HTTP recovery endpoint) |
 | BUG-008 | B | P3 | A3/A6 | Defer | Open | No WebSocket event sequence/dedup on reconnect (theoretical) |
 | BUG-009 | B | P3 | A6 C1 | 純 bug fix | Open | Proofread page chunk named `index-*.js` not `Proofread-*.js` |
@@ -117,11 +117,11 @@ Full repro / expected / actual / suggested fix for each Open entry below. Order:
 - **Repro**: Open /proofread on file with empty `stage_outputs`. `<summary>Re-run</summary>` renders, click opens dropdown showing "No stages yet."
 - **Suggested fix**: Conditionally render `<details>` only when `stages.length > 0`
 
-### BUG-006 [P2 / Track B / A3/A6 / 純 bug fix]: SocketProvider no connection state
+### BUG-006 [P2 / Track B / A3/A6 / 純 bug fix]: SocketProvider no connection state ✅ Fixed
 
 - **Repro**: Read `SocketProvider.tsx` — no `socket.on('disconnect', ...)`, no `connected: boolean` in SocketContextValue. UI cannot show "Disconnected — reconnecting..." banner.
 - **Expected**: SocketState gains `connected: boolean`, register connect/disconnect handlers
-- **Suggested fix**: Add `SOCKET_CONNECTED` / `SOCKET_DISCONNECTED` action types, register handlers in `useEffect`, expose `connected` from context.
+- **Fix**: Added `SOCKET_CONNECTED` / `SOCKET_DISCONNECTED` action types + `connected: boolean` to `SocketState` (default `false`). Registered `socket.on('connect')` + `socket.on('disconnect')` in `useEffect`; cleanup includes `socket.off('connect')` + `socket.off('disconnect')`. 4 new tests in `SocketProvider.test.tsx`.
 
 ### BUG-007 [P2 / Track B / A3/A6 / 純 bug fix]: Stage progress lost on refresh
 

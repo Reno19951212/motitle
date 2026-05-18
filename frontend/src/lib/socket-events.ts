@@ -40,18 +40,22 @@ export type SocketAction =
   | { type: 'STAGE_PROGRESS'; ev: StageProgressEvent }
   | { type: 'STAGE_COMPLETE'; ev: StageCompleteEvent }
   | { type: 'PIPELINE_COMPLETE'; ev: PipelineCompleteEvent }
-  | { type: 'PIPELINE_FAILED'; ev: PipelineFailedEvent };
+  | { type: 'PIPELINE_FAILED'; ev: PipelineFailedEvent }
+  | { type: 'SOCKET_CONNECTED' }
+  | { type: 'SOCKET_DISCONNECTED' };
 
 export interface SocketState {
   files: Record<string, FileRecord>;
   stageProgress: Record<string, Record<number, number>>;
   stageStatus: Record<string, Record<number, StageStatus>>;
+  connected: boolean;
 }
 
 export const initialSocketState: SocketState = {
   files: {},
   stageProgress: {},
   stageStatus: {},
+  connected: false,
 };
 
 export function socketReducer(state: SocketState, action: SocketAction): SocketState {
@@ -101,6 +105,10 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
         stageStatus: { ...state.stageStatus, [action.ev.file_id]: stageStatus },
       };
     }
+    case 'SOCKET_CONNECTED':
+      return { ...state, connected: true };
+    case 'SOCKET_DISCONNECTED':
+      return { ...state, connected: false };
     default:
       return state;
   }

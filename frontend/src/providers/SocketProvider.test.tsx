@@ -1,6 +1,33 @@
 import { describe, it, expect } from 'vitest';
 import { socketReducer, initialSocketState, type FileRecord } from '@/lib/socket-events';
 
+describe('SocketProvider connected state (BUG-006)', () => {
+  it('initialSocketState.connected is false by default', () => {
+    expect(initialSocketState.connected).toBe(false);
+  });
+
+  it('SOCKET_CONNECTED action sets connected: true', () => {
+    const next = socketReducer(initialSocketState, { type: 'SOCKET_CONNECTED' });
+    expect(next.connected).toBe(true);
+  });
+
+  it('SOCKET_DISCONNECTED action sets connected: false', () => {
+    const ready = socketReducer(initialSocketState, { type: 'SOCKET_CONNECTED' });
+    const next = socketReducer(ready, { type: 'SOCKET_DISCONNECTED' });
+    expect(next.connected).toBe(false);
+  });
+
+  it('SOCKET_CONNECTED preserves other state fields', () => {
+    const withFile = socketReducer(initialSocketState, {
+      type: 'FILE_ADDED',
+      file: { id: 'f1', original_name: 'a.mp3', status: 'queued' } as FileRecord,
+    });
+    const next = socketReducer(withFile, { type: 'SOCKET_CONNECTED' });
+    expect(next.connected).toBe(true);
+    expect(next.files['f1']).toBeDefined();
+  });
+});
+
 describe('socketReducer', () => {
   it('BULK_FILES sets files map', () => {
     const r = socketReducer(initialSocketState, {
