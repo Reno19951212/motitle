@@ -35,4 +35,30 @@ Each finding is one H2 section:
 
 ## Entries
 
-(Track C subagent adds findings below as separate H2 sections)
+### AUDIT: Static analysis pass (no findings)
+
+**Date:** 2026-05-18  
+**Scope:** Surgical greps + tsc + lint (vulture/ts-prune excluded per spec §5.3)
+
+#### Results
+
+- **Grep 1 (alignment_pipeline imports)**: 0 matches
+- **Grep 2 (sentence_pipeline imports)**: 0 matches
+- **Grep 3 (post_processor imports)**: 0 matches
+- **Grep 4 (profiles imports)**: 0 matches
+- **Grep 5 (A5-deleted functions)**: 5 matches (all comments/docstrings, no functional imports)
+  - `app.py:443` — comment explaining legacy pipeline removed
+  - `app.py:668-669` — comment explaining legacy ASR/MT chain
+  - `ollama_engine.py:760` — docstring reference to removed function
+  - `files.py:502` — comment about concurrent worker thread (historical context)
+- **Frontend legacy residue** — 0 matches:
+  - `frontend.old` references: 0
+  - `useActiveProfile` hook usage: 0
+- **TypeScript strict** (`tsc --noEmit`): **clean** (0 errors)
+- **Lint**: No lint script configured (npm run lint fails with "Missing script"); acceptable per spec
+
+#### Conclusion
+
+✅ **A5 cleanup invariant fully maintained**. All dead reference greps clean except for benign comments. Frontend legacy residue fully eliminated. TypeScript strict mode passes. No static-layer bugs detected.
+
+---
