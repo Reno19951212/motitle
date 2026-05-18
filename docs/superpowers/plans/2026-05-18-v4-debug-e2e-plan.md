@@ -1193,13 +1193,820 @@ Expected: 1 commit. 之後 executing-plans / subagent-driven-development 接住�
 
 ---
 
-## Phase 3b — Targeted fix（Phase 3a 之後 amend，呢度只係 placeholder）
+## Phase 3b — Targeted fix
 
-> **NOTE:** Phase 3b 嘅具體 task 內容由 Phase 2 triage 結果決定。Task 15 完成之後呢個 section 會有 Task 16+ 嘅具體 fix task。Phase 3b 開始之前唔可以預先估個數量。
+### Updated 2026-05-18: Phase 3b task list per Phase 3a decisions (BUG triage + Ambitious close target + Real E2E inline)
 
-### Task 16+: TBD pending Phase 2 + 3a
+Phase 2 triage outcome: 0 P0 / 0 P1 / 8 P2 / 20 P3. Phase 3a user decision: Ambitious close (P2 100% + 純 bug fix P3 100%) + Real E2E inline.
 
-由 Task 15 amend 入。
+**17 actionable Phase 3b items** sorted by group dependency:
+
+---
+
+### Task 16: BUG-001 — Add test fixture media file
+
+**Files:**
+- Create: `frontend/tests-e2e/fixtures/sample.mp3`
+- Modify: `frontend/.gitignore` (if needed, ensure fixtures/ not excluded)
+
+- [ ] **Step 1: Generate 5-second silent MP3**
+
+```bash
+cd "/Users/renocheung/Documents/GitHub - Remote Repo/whisper-subtitle-ai"
+mkdir -p frontend/tests-e2e/fixtures
+ffmpeg -f lavfi -i anullsrc=r=16000:cl=mono -t 5 -q:a 9 -acodec libmp3lame frontend/tests-e2e/fixtures/sample.mp3
+ls -la frontend/tests-e2e/fixtures/sample.mp3
+```
+
+Expected: file ~10-30 KB created.
+
+- [ ] **Step 2: Verify .gitignore does not exclude it**
+
+```bash
+cd frontend
+cat .gitignore | grep -i "fixture\|\.mp3\|\.mp4"
+```
+
+If excluded, add explicit allow: `!tests-e2e/fixtures/*.mp3` (or remove the over-broad exclusion).
+
+- [ ] **Step 3: Update tracker entry**
+
+Edit `docs/superpowers/debug/v4-bug-tracker.md` BUG-001 summary table row: `Status: Open → Fixed`. Add Linked commit SHA after Step 4.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add frontend/tests-e2e/fixtures/sample.mp3 docs/superpowers/debug/v4-bug-tracker.md
+git commit -m "fix(v4 debug): add test fixture media file
+
+Fixes: BUG-001"
+```
+
+---
+
+### Task 17: BUG-002 — global-setup.ts seed idempotency
+
+**Files:**
+- Modify: `frontend/tests-e2e/global-setup.ts`
+
+- [ ] **Step 1: Read existing global-setup.ts**
+
+```bash
+cat frontend/tests-e2e/global-setup.ts
+```
+
+Identify where `seedPost()` is called for each entity (ASR / MT / Glossary / Pipeline) and where 409 is currently swallowed silently.
+
+- [ ] **Step 2: Add getOrCreate helper**
+
+Add helper function (use Edit tool on existing global-setup.ts):
+
+```typescript
+async function getOrCreate(
+  listPath: string,
+  matchKey: 'name' | 'title',
+  matchValue: string,
+  createBody: Record<string, unknown>,
+  cookie: string
+): Promise<string | null> {
+  // Try POST first
+  const postRes = await fetch(`${BASE_URL}${listPath}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Cookie': cookie },
+    body: JSON.stringify(createBody),
+  });
+  if (postRes.ok) {
+    const data = await postRes.json();
+    return data.id ?? null;
+  }
+  if (postRes.status === 409) {
+    // GET the list and find the existing entry by name
+    const listRes = await fetch(`${BASE_URL}${listPath}`, {
+      headers: { 'Cookie': cookie },
+    });
+    if (!listRes.ok) return null;
+    const list = await listRes.json() as Array<Record<string, unknown>>;
+    const found = list.find((e) => e[matchKey] === matchValue);
+    return (found?.id as string) ?? null;
+  }
+  return null;
+}
+```
+
+- [ ] **Step 3: Replace existing seedPost calls with getOrCreate**
+
+For each of ASR profile / MT profile / Glossary creation, call `getOrCreate(...)` instead. Use the returned id for the dependent Pipeline create.
+
+- [ ] **Step 4: Verify TypeScript compiles**
+
+```bash
+cd frontend && npx tsc --noEmit
+```
+
+Expected: clean.
+
+- [ ] **Step 5: Update tracker + commit**
+
+```bash
+git add frontend/tests-e2e/global-setup.ts docs/superpowers/debug/v4-bug-tracker.md
+git commit -m "fix(v4 debug): seed bootstrap idempotency via getOrCreate
+
+Fixes: BUG-002"
+```
+
+---
+
+### Task 18: BUG-003 — cross-env for Windows compat
+
+**Files:**
+- Modify: `frontend/package.json`
+
+- [ ] **Step 1: Install cross-env**
+
+```bash
+cd frontend
+npm install --save-dev cross-env
+```
+
+- [ ] **Step 2: Update test:e2e:seeded script**
+
+Use Edit tool on `frontend/package.json`:
+
+Old: `"test:e2e:seeded": "E2E_REQUIRE_SEED=1 playwright test --global-setup=./tests-e2e/global-setup.ts"`
+
+New: `"test:e2e:seeded": "cross-env E2E_REQUIRE_SEED=1 playwright test --global-setup=./tests-e2e/global-setup.ts"`
+
+- [ ] **Step 3: Verify**
+
+```bash
+cd frontend
+grep "test:e2e:seeded" package.json
+```
+
+Expected: `cross-env` prefix present.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add frontend/package.json frontend/package-lock.json docs/superpowers/debug/v4-bug-tracker.md
+git commit -m "fix(v4 debug): cross-env for test:e2e:seeded Windows compat
+
+Fixes: BUG-003"
+```
+
+---
+
+### Task 19: BUG-010 — request_id propagation to werkzeug logger
+
+**Files:**
+- Modify: `backend/logging_setup.py` (the RequestIdFilter)
+- Test: `backend/tests/test_logging_and_errors.py` (add assertion)
+
+- [ ] **Step 1: Inspect current RequestIdFilter**
+
+```bash
+cat backend/logging_setup.py
+```
+
+Identify the filter that does `flask.has_request_context()` check.
+
+- [ ] **Step 2: Write failing test**
+
+Add to `backend/tests/test_logging_and_errors.py`:
+
+```python
+def test_werkzeug_log_lines_carry_request_id(client, caplog):
+    """werkzeug access logger should emit request_id in its log lines."""
+    import logging
+    caplog.set_level(logging.INFO, logger='werkzeug')
+    resp = client.get('/api/health', headers={'X-Request-ID': 'test-trace-werkzeug-1'})
+    assert resp.status_code == 200
+    # Find werkzeug access log lines for this request
+    werkzeug_lines = [r for r in caplog.records if r.name == 'werkzeug']
+    assert any(getattr(r, 'request_id', None) == 'test-trace-werkzeug-1'
+               for r in werkzeug_lines), \
+        "werkzeug logger lines did not carry inbound X-Request-ID"
+```
+
+- [ ] **Step 3: Run test, verify it fails**
+
+```bash
+cd backend && source venv/bin/activate
+pytest tests/test_logging_and_errors.py::test_werkzeug_log_lines_carry_request_id -v
+```
+
+Expected: FAIL with "werkzeug logger lines did not carry inbound X-Request-ID".
+
+- [ ] **Step 4: Implement fix**
+
+Modify `backend/logging_setup.py` to use a thread-local fallback. The RequestIdFilter should read from a contextvar / threadlocal that's set by middleware in addition to flask.g:
+
+```python
+import contextvars
+
+_request_id_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    'request_id', default=None
+)
+
+def set_request_id(request_id: str | None) -> None:
+    _request_id_var.set(request_id)
+
+def get_request_id() -> str | None:
+    return _request_id_var.get()
+
+class RequestIdFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        # Try contextvar first (works across threads via copy_context if propagated)
+        rid = _request_id_var.get()
+        if rid is None:
+            # Fall back to flask.g if in request context
+            try:
+                from flask import has_request_context, g
+                if has_request_context():
+                    rid = getattr(g, 'request_id', None)
+            except Exception:
+                rid = None
+        record.request_id = rid
+        return True
+```
+
+Then modify `backend/middleware.py` `before_request` to also call `set_request_id(g.request_id)`, and `after_request` (or teardown) to clear via `set_request_id(None)`.
+
+- [ ] **Step 5: Run test, verify it passes**
+
+```bash
+pytest tests/test_logging_and_errors.py::test_werkzeug_log_lines_carry_request_id -v
+```
+
+Expected: PASS.
+
+- [ ] **Step 6: Full regression**
+
+```bash
+pytest tests/test_logging_and_errors.py -v
+pytest tests/ -k "not test_e2e_render and not test_phase5_security and not test_queue_routes and not test_ass_filter" 2>&1 | tail -10
+```
+
+Expected: 794 still pass (or +1 with the new test).
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add backend/logging_setup.py backend/middleware.py backend/tests/test_logging_and_errors.py docs/superpowers/debug/v4-bug-tracker.md
+git commit -m "fix(v4 debug): propagate request_id via contextvar to werkzeug logger
+
+Fixes: BUG-010"
+```
+
+---
+
+### Task 20: BUG-011 — Replace 20+ print() with logger calls
+
+**Files:**
+- Modify: `backend/app.py`
+
+- [ ] **Step 1: Locate all print() calls in app.py**
+
+```bash
+grep -n "^\s*print(" backend/app.py
+```
+
+Expected: 20+ matches.
+
+- [ ] **Step 2: Categorize each by intent**
+
+Walk through each line. Categorize: INFO (banner / startup status), WARNING (non-fatal degraded path), DEBUG (verbose diagnostic).
+
+- [ ] **Step 3: Replace each print()**
+
+Use Edit tool with `replace_all=false` per line (each replacement unique). Pattern:
+
+- `print(f"... {var}")` → `logger.info("... %s", var)` (preferred — lazy format)
+- `print(f"Warning: ...")` → `logger.warning(...)`
+- `print(f"[DEBUG] ...")` → `logger.debug(...)`
+
+Ensure `logger = logging.getLogger(__name__)` exists near top of app.py.
+
+- [ ] **Step 4: Verify with grep**
+
+```bash
+grep -c "^\s*print(" backend/app.py
+```
+
+Expected: 0 (excluding any in __main__ block if intentional).
+
+- [ ] **Step 5: Smoke test backend boot**
+
+```bash
+cd backend && source venv/bin/activate
+LOG_JSON=1 python app.py > /tmp/post-fix-startup.log 2>&1 &
+PID=$!
+sleep 5
+kill $PID
+# Verify startup log is all JSON
+python3 -c "import json,sys; [json.loads(l) for l in open('/tmp/post-fix-startup.log') if l.strip()]"
+```
+
+Expected: no JSON parse error.
+
+- [ ] **Step 6: Run pytest regression**
+
+```bash
+pytest tests/ 2>&1 | tail -5
+```
+
+Expected: 794 pass baseline preserved.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add backend/app.py docs/superpowers/debug/v4-bug-tracker.md
+git commit -m "fix(v4 debug): replace 20+ print() with logger calls in app.py
+
+Fixes: BUG-011"
+```
+
+---
+
+### Task 21: BUG-004 — PromptOverridesDrawer Save disable when no pipeline_id
+
+**Files:**
+- Modify: `frontend/src/pages/Proofread/PromptOverridesDrawer.tsx`
+- Test: add Vitest spec at `frontend/src/pages/Proofread/PromptOverridesDrawer.test.tsx` (or extend existing)
+
+- [ ] **Step 1: Read existing component**
+
+```bash
+cat frontend/src/pages/Proofread/PromptOverridesDrawer.tsx
+```
+
+Locate line 53: `if (!file || !file.pipeline_id) return;`
+
+- [ ] **Step 2: Write failing test**
+
+Add to a Vitest spec file (extend existing if present):
+
+```tsx
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { PromptOverridesDrawer } from './PromptOverridesDrawer';
+
+describe('PromptOverridesDrawer Save behavior', () => {
+  it('disables Save button when file.pipeline_id is null', () => {
+    const file = { id: 'f1', pipeline_id: null, /* other fields */ } as any;
+    render(<PromptOverridesDrawer file={file} open={true} onClose={() => {}} />);
+    const save = screen.getByRole('button', { name: /save/i });
+    expect(save).toBeDisabled();
+    expect(save).toHaveAttribute('title', expect.stringContaining('pipeline'));
+  });
+});
+```
+
+- [ ] **Step 3: Run test, verify it fails**
+
+```bash
+cd frontend && npx vitest run PromptOverridesDrawer.test.tsx
+```
+
+Expected: FAIL (Save not disabled).
+
+- [ ] **Step 4: Implement fix**
+
+In `PromptOverridesDrawer.tsx`, locate the Save `<Button>`. Add `disabled={!file?.pipeline_id}` and `title="File has no pipeline — overrides cannot be saved"`.
+
+- [ ] **Step 5: Run test, verify it passes**
+
+```bash
+cd frontend && npx vitest run PromptOverridesDrawer.test.tsx
+```
+
+Expected: PASS.
+
+- [ ] **Step 6: Full Vitest run**
+
+```bash
+cd frontend && npx vitest run
+```
+
+Expected: 184 + N new tests pass.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add frontend/src/pages/Proofread/PromptOverridesDrawer.tsx frontend/src/pages/Proofread/PromptOverridesDrawer.test.tsx docs/superpowers/debug/v4-bug-tracker.md
+git commit -m "fix(v4 debug): PromptOverridesDrawer disable Save when no pipeline_id
+
+Fixes: BUG-004"
+```
+
+---
+
+### Task 22: BUG-006 — SocketProvider connected state + handlers
+
+**Files:**
+- Modify: `frontend/src/providers/SocketProvider.tsx`
+- Modify: `frontend/src/lib/socket-events.ts` (add action types)
+- Test: extend `frontend/src/providers/SocketProvider.test.tsx` (if present) or create
+
+- [ ] **Step 1: Read existing SocketProvider + socket-events**
+
+```bash
+cat frontend/src/providers/SocketProvider.tsx
+cat frontend/src/lib/socket-events.ts
+```
+
+- [ ] **Step 2: Write failing test**
+
+```tsx
+import { renderHook, act } from '@testing-library/react';
+import { SocketProvider, useSocket } from './SocketProvider';
+
+it('connected state flips on connect/disconnect', async () => {
+  const wrapper = ({ children }: { children: React.ReactNode }) =>
+    <SocketProvider>{children}</SocketProvider>;
+  const { result } = renderHook(() => useSocket(), { wrapper });
+  expect(result.current.state.connected).toBe(false); // initial
+  // ... simulate socket emit 'connect' / 'disconnect' via mock
+  // assert state.connected flips
+});
+```
+
+- [ ] **Step 3: Implement fix**
+
+In `socket-events.ts`:
+```ts
+export type SocketAction =
+  | { type: 'SOCKET_CONNECTED' }
+  | { type: 'SOCKET_DISCONNECTED' }
+  | ...; // existing types
+```
+
+In reducer, add:
+```ts
+case 'SOCKET_CONNECTED':
+  return { ...state, connected: true };
+case 'SOCKET_DISCONNECTED':
+  return { ...state, connected: false };
+```
+
+Add `connected: false` to `initialSocketState`.
+
+In `SocketProvider.tsx` `useEffect` where `socket.on(...)` handlers register, add:
+```ts
+socket.on('connect', () => dispatch({ type: 'SOCKET_CONNECTED' }));
+socket.on('disconnect', () => dispatch({ type: 'SOCKET_DISCONNECTED' }));
+```
+
+- [ ] **Step 4: Verify test passes + Vitest full run**
+
+```bash
+cd frontend && npx vitest run
+```
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add frontend/src/providers/SocketProvider.tsx frontend/src/lib/socket-events.ts frontend/src/providers/SocketProvider.test.tsx docs/superpowers/debug/v4-bug-tracker.md
+git commit -m "fix(v4 debug): SocketProvider exposes connected state to UI
+
+Fixes: BUG-006"
+```
+
+---
+
+### Task 23: BUG-007 — Stage progress recovery on page refresh
+
+**Files:**
+- Modify: `frontend/src/providers/SocketProvider.tsx` (mount-time recovery)
+- Alternative: backend `GET /api/files/<id>` to expose `current_stage_progress`
+
+- [ ] **Step 1: Decide approach**
+
+Two options:
+- **(A) Frontend-only degraded UX**: on mount, after BULK_FILES, immediately query for any "running" file and set `stageStatus[fileId] = 'running'` to show indeterminate indicator. Progress % starts at 0 until next event fills.
+- **(B) Backend authoritative state**: add `current_stage_progress: {stage_idx, percent} | null` to file detail response, frontend hydrates from it.
+
+For simplicity + minimum change, do **(A)**. Document in BUG-007 fix commit that exact % recovery requires (B) future work.
+
+- [ ] **Step 2: Modify SocketProvider mount hook**
+
+In `useEffect` after `apiFetch('/api/files')` returns, dispatch a `RECOVER_RUNNING_STATUS` action that scans files and sets `stageStatus[id] = 'running'` for any file with `status: 'running'`.
+
+Add reducer case:
+```ts
+case 'RECOVER_RUNNING_STATUS':
+  return {
+    ...state,
+    stageStatus: {
+      ...state.stageStatus,
+      ...Object.fromEntries(action.runningFileIds.map((id) => [id, 'running'])),
+    },
+  };
+```
+
+- [ ] **Step 3: Update test**
+
+Add Vitest spec asserting after BULK_FILES with a "running" file, stageStatus has that file marked running.
+
+- [ ] **Step 4: Verify + commit**
+
+```bash
+cd frontend && npx vitest run
+git add ...
+git commit -m "fix(v4 debug): recover running-status on SocketProvider mount
+
+Implements degraded recovery UX (option A). Exact % recovery requires
+backend GET /api/files/<id> to expose current_stage_progress — deferred.
+
+Fixes: BUG-007"
+```
+
+---
+
+### Task 24: BUG-009 — Proofread chunk naming via manualChunks
+
+**Files:**
+- Modify: `frontend/vite.config.ts`
+
+- [ ] **Step 1: Read current vite.config.ts**
+
+Locate `manualChunks` callback.
+
+- [ ] **Step 2: Add Proofread case**
+
+Use Edit tool:
+
+Old (locate the current callback):
+```ts
+manualChunks: (id) => {
+  if (id.includes('node_modules')) {
+    if (id.includes('react-router')) return 'vendor-router';
+    // ...existing vendor cases
+  }
+  return undefined;
+},
+```
+
+New: add a top-level page case BEFORE the node_modules block:
+```ts
+manualChunks: (id) => {
+  if (id.includes('/pages/Proofread/')) return 'Proofread';
+  if (id.includes('node_modules')) {
+    if (id.includes('react-router')) return 'vendor-router';
+    // ...existing
+  }
+  return undefined;
+},
+```
+
+- [ ] **Step 3: Rebuild + verify**
+
+```bash
+cd frontend && npm run build
+ls dist/assets/ | grep -i proofread
+```
+
+Expected: `Proofread-<hash>.js` exists (no longer `index-<hash>.js`).
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add frontend/vite.config.ts docs/superpowers/debug/v4-bug-tracker.md
+git commit -m "fix(v4 debug): Vite manualChunks named Proofread chunk
+
+Fixes: BUG-009"
+```
+
+---
+
+### Task 25: BUG-018 — Legacy Socket.IO emitter docs cleanup
+
+**Files:**
+- Modify: `CLAUDE.md` (remove 3 dead event rows from WebSocket events table)
+- Modify: `frontend/src/lib/socket-events.ts` (remove dead type union members if any)
+
+- [ ] **Step 1: Grep CLAUDE.md for dead events**
+
+```bash
+grep -n "subtitle_segment\|translation_progress\|pipeline_timing" CLAUDE.md
+```
+
+- [ ] **Step 2: Remove those rows from WebSocket events table**
+
+Use Edit tool to delete each matching row.
+
+- [ ] **Step 3: Grep frontend types**
+
+```bash
+grep -rn "subtitle_segment\|translation_progress\|pipeline_timing" frontend/src/
+```
+
+If type members exist, remove via Edit.
+
+- [ ] **Step 4: Verify tsc still clean**
+
+```bash
+cd frontend && npx tsc --noEmit
+```
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add CLAUDE.md frontend/src/lib/socket-events.ts docs/superpowers/debug/v4-bug-tracker.md
+git commit -m "docs(v4 debug): remove dead Socket.IO emitter docs + types
+
+Fixes: BUG-018"
+```
+
+---
+
+### Task 26: BUG-020 — Ollama probe timeout + memoization
+
+**Files:**
+- Modify: `backend/routes/engines.py` (or wherever `/api/translation/engines` lives)
+- Test: extend `backend/tests/test_translation.py`
+
+- [ ] **Step 1: Locate Ollama probe code**
+
+```bash
+grep -rn "ollama" backend/routes/engines.py | head -20
+```
+
+Identify the `requests.get(...)` call hitting Ollama.
+
+- [ ] **Step 2: Write failing test**
+
+```python
+def test_ollama_probe_has_timeout(monkeypatch):
+    """Ollama probe should pass a timeout kwarg to requests.get."""
+    captured = {}
+    def fake_get(*args, **kwargs):
+        captured['timeout'] = kwargs.get('timeout')
+        from unittest.mock import MagicMock
+        r = MagicMock(); r.ok = False; return r
+    import requests
+    monkeypatch.setattr(requests, 'get', fake_get)
+    from routes.engines import probe_ollama  # or however imported
+    probe_ollama()
+    assert captured['timeout'] is not None and captured['timeout'] <= 5
+```
+
+- [ ] **Step 3: Implement timeout + cache**
+
+```python
+from functools import lru_cache
+import time
+
+_PROBE_CACHE: dict[str, tuple[float, dict]] = {}
+_PROBE_TTL = 60  # seconds
+
+def probe_ollama() -> dict:
+    now = time.monotonic()
+    cached = _PROBE_CACHE.get('result')
+    if cached and (now - cached[0]) < _PROBE_TTL:
+        return cached[1]
+    try:
+        r = requests.get('http://localhost:11434/api/tags', timeout=2)
+        result = {'available': r.ok, 'models': r.json().get('models', []) if r.ok else []}
+    except (requests.RequestException, ValueError):
+        result = {'available': False, 'models': []}
+    _PROBE_CACHE['result'] = (now, result)
+    return result
+```
+
+- [ ] **Step 4: Verify test passes + integration smoke**
+
+```bash
+pytest tests/test_translation.py::test_ollama_probe_has_timeout -v
+```
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add backend/routes/engines.py backend/tests/test_translation.py docs/superpowers/debug/v4-bug-tracker.md
+git commit -m "fix(v4 debug): Ollama probe timeout + 60s memoization
+
+Fixes: BUG-020"
+```
+
+---
+
+### Task 27: Track B S1 — Real mlx-whisper ASR validation
+
+**Manual task — user-driven.** Requires backend running + mlx-whisper medium model downloaded + 3 audio samples (en/zh/mixed).
+
+- [ ] **Step 1: Confirm mlx-whisper medium model**
+
+```bash
+python3 -c "from mlx_whisper import load_models; load_models.load_model('mlx-community/whisper-medium-mlx')"
+```
+
+Expected: model downloads if missing (~3GB) then loads.
+
+- [ ] **Step 2: Prepare 3 audio samples**
+
+Either user-provided real broadcast samples, OR generate test samples:
+- `/tmp/test-en.mp3` — 30s English speech (TTS or recorded)
+- `/tmp/test-zh.mp3` — 30s Cantonese
+- `/tmp/test-mixed.mp3` — 30s code-switched
+
+- [ ] **Step 3: Run via backend pipeline**
+
+For each sample:
+1. Start backend (if not running)
+2. Login as e2e-admin in browser
+3. Upload audio file via dashboard
+4. Verify pipeline_run kicks off
+5. Wait for ASR stage done
+6. Inspect output segments — check fragments / s2hk conversion / initial_prompt effect
+
+- [ ] **Step 4: Update e2e-matrix.md checkboxes**
+
+Mark each Section 1 item per result: PASS / FAIL — see BUG-NNN.
+
+- [ ] **Step 5: Log any new BUG findings to Track B tracker + master tracker**
+
+If real-audio testing reveals new bugs (e.g., merge_short_segments misses a case), add BUG entries and update master tracker summary table. Severity tentative.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add docs/superpowers/debug/v4-e2e-matrix.md docs/superpowers/debug/v4-bug-tracker-trackB-manual.md docs/superpowers/debug/v4-bug-tracker.md
+git commit -m "test(v4 debug): Track B S1 real mlx-whisper ASR validation"
+```
+
+---
+
+### Task 28: Track B S2 — Real Ollama MT validation
+
+**Manual task — user-driven.** Requires backend + Ollama running (qwen3.5-mlx confirmed available per Phase 0 env probe).
+
+- [ ] **Step 1: Prepare** — Need ASR output from Task 27 (3 files with ASR done)
+- [ ] **Step 2: Run MT** — In dashboard, trigger MT stage on each file. Try `batch_size=1`, `batch_size=10`, `parallel_batches=4`
+- [ ] **Step 3: Test prompt_overrides** — On one file, set prompt override via PromptOverridesDrawer, re-translate, verify in stage history
+- [ ] **Step 4: Test translation_passes=2** — Edit pipeline to use Pass-2 enrichment, re-translate
+- [ ] **Step 5: Update matrix + log findings**
+- [ ] **Step 6: Commit**
+
+---
+
+### Task 29: Track B S4 — Real FFmpeg render validation (12 sub-formats)
+
+**Manual task — user-driven.** Requires test video as render source (use one of Task 27 files if it's MP4, or generate a 30s test MP4).
+
+- [ ] **Step 1: Render MP4** — CRF, CBR, 2-pass modes; ffprobe each output
+- [ ] **Step 2: Render MXF ProRes** — 6 profiles (0/1/2/3/4/5)
+- [ ] **Step 3: Render XDCAM HD 422** — 10 / 50 / 100 Mbps
+- [ ] **Step 4: Verify metadata via ffprobe**
+- [ ] **Step 5: Update matrix + log findings**
+- [ ] **Step 6: Commit**
+
+---
+
+### Task 30: Confirm-defer entries (BUG-005, BUG-008, BUG-019)
+
+**Files:**
+- Modify: `docs/superpowers/debug/v4-deferred-backlog.md`
+
+- [ ] **Step 1: Append 3 backlog entries**
+
+For each (BUG-005, BUG-008, BUG-019), write:
+
+```markdown
+## BUG-NNN: <title> [deferred Phase 3a]
+
+- **Source**: master tracker BUG-NNN
+- **Reason**: <e.g., theoretical race condition, no observed regression>
+- **Future action**: Re-evaluate if Socket.IO reconnect issue observed in production; or when faster-whisper batch API gains real-audio validation
+```
+
+- [ ] **Step 2: Update master tracker entries Status → Deferred**
+
+Edit `v4-bug-tracker.md` BUG-005 / BUG-008 / BUG-019 Status from "Open" to "Deferred (backlog)".
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add docs/superpowers/debug/v4-deferred-backlog.md docs/superpowers/debug/v4-bug-tracker.md
+git commit -m "docs(v4 debug): confirm defer BUG-005, BUG-008, BUG-019 to backlog
+
+Per Phase 3a decisions (v4-phase3-decisions.md)."
+```
+
+---
+
+## Phase 3b execution order recommendation
+
+Sequential execution per group:
+
+1. **Group 1 (Tasks 16-18)** — Test infra (BUG-001/002/003) — quick, unblocks future testing
+2. **Group 2 (Tasks 19-20)** — A6 C4 logging (BUG-010/011) — highest production impact
+3. **Group 3 (Task 21)** — A4 UX (BUG-004)
+4. **Group 4 (Tasks 22-23)** — Socket reliability (BUG-006/007)
+5. **Group 5 (Tasks 24-26)** — Bundle + cleanup (BUG-009/018/020)
+6. **Task 30** — Defer confirmations (lightweight)
+7. **Tasks 27-29** — Real E2E validation (user-driven, 3-4 hr)
+
 
 ---
 
