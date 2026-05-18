@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:seeded": "E2E_REQUIRE_SEED=1 playwright test --global-setup=./tests-e2e/global-setup.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
