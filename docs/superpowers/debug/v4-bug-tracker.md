@@ -14,10 +14,10 @@
 | BUG-002 | A | P2 | cross | 純 bug fix | Fixed | global-setup.ts seed idempotency (409 loses entity IDs) |
 | BUG-003 | A | P3 | cross | 純 bug fix | Fixed | test:e2e:seeded script Unix env syntax (Windows incompatible) |
 | BUG-004 | A | P2 | A4 | 純 bug fix | Fixed | PromptOverridesDrawer Save silently no-ops when `file.pipeline_id` null |
-| BUG-005 | A | P3 | A4 | Defer | Open | StageRerunMenu renders dropdown when `stage_outputs` empty |
+| BUG-005 | A | P3 | A4 | Defer | Deferred (backlog) | StageRerunMenu renders dropdown when `stage_outputs` empty |
 | BUG-006 | B | P2 | A3/A6 | 純 bug fix | Fixed | SocketProvider does not expose connection state to UI |
 | BUG-007 | B | P2 | A3/A6 | 純 bug fix | Fixed | Stage progress lost on page refresh (no HTTP recovery endpoint) |
-| BUG-008 | B | P3 | A3/A6 | Defer | Open | No WebSocket event sequence/dedup on reconnect (theoretical) |
+| BUG-008 | B | P3 | A3/A6 | Defer | Deferred (backlog) | No WebSocket event sequence/dedup on reconnect (theoretical) |
 | BUG-009 | B | P3 | A6 C1 | 純 bug fix | Fixed | Proofread page chunk named `index-*.js` not `Proofread-*.js` |
 | BUG-010 | B | P2 | A6 C4 | 純 bug fix | Fixed | `request_id` always null in log lines (werkzeug context gap) |
 | BUG-011 | B | P2 | A6 C4 | 純 bug fix | Fixed | 20+ `print()` calls in app.py bypass logger → mix into JSON log stream |
@@ -28,7 +28,7 @@
 | BUG-016 | D | P3 | A3/A4 | Confirmed out-of-scope | Open | Storybook not introduced |
 | BUG-017 | D | P2 | cross | Confirmed out-of-scope | Open | CI/CD GitHub Actions not configured |
 | BUG-018 | D | P3 | A5 | 純 bug fix | Fixed | Legacy Socket.IO emitter event names cleanup (docs + types) |
-| BUG-019 | D | P3 | cross | Defer | Open | faster-whisper BatchedInferencePipeline not tried |
+| BUG-019 | D | P3 | cross | Defer | Deferred (backlog) | faster-whisper BatchedInferencePipeline not tried |
 | BUG-020 | D | P2 | cross | 純 bug fix | Fixed | `/api/translation/engines` Ollama probe missing timeout + memoization |
 | BUG-021 | D | P3 | cross | Confirmed out-of-scope | Open | Domain context anchor (per-file subject prefix) |
 | BUG-022 | D | P3 | cross | Confirmed out-of-scope | Open | Forbidden phrases list (negative vocabulary) |
