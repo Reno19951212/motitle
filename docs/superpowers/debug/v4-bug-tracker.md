@@ -19,7 +19,7 @@
 | BUG-007 | B | P2 | A3/A6 | 純 bug fix | Open | Stage progress lost on page refresh (no HTTP recovery endpoint) |
 | BUG-008 | B | P3 | A3/A6 | Defer | Open | No WebSocket event sequence/dedup on reconnect (theoretical) |
 | BUG-009 | B | P3 | A6 C1 | 純 bug fix | Open | Proofread page chunk named `index-*.js` not `Proofread-*.js` |
-| BUG-010 | B | P2 | A6 C4 | 純 bug fix | Open | `request_id` always null in log lines (werkzeug context gap) |
+| BUG-010 | B | P2 | A6 C4 | 純 bug fix | Fixed | `request_id` always null in log lines (werkzeug context gap) |
 | BUG-011 | B | P2 | A6 C4 | 純 bug fix | Open | 20+ `print()` calls in app.py bypass logger → mix into JSON log stream |
 | BUG-012 | D | P3 | A6 | Confirmed out-of-scope | Open | StreamingSession class still inline in app.py |
 | BUG-013 | D | P3 | cross | Confirmed out-of-scope | Open | Mac/Win packaging not done |
