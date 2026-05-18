@@ -39,7 +39,7 @@
 | BUG-027 | D | P3 | cross | Confirmed out-of-scope | Open | s2hk simplified-Chinese leak MT-side post-process |
 | BUG-028 | D | P3 | cross | Confirmed out-of-scope | Closed | ASR-side fragment merge Stage 1 (intentionally skipped) |
 | BUG-029 | T27-T29 prep | P2 | A5 | Spec 假設錯 | Fixed | `DATA_DIR` / `UPLOAD_DIR` / `RENDERS_DIR` hardcoded in managers.py:55 — no env override → isolated boot impossible. Fixed: `R5_DATA_DIR` env var added; smoke verified upload_dir = isolated path. |
-| BUG-030 | T27-T29 inline | P1 | A1/A5 | 需開新 sub-phase | Open | PipelineRunner `stage_outputs` not bridged to legacy `segments`/`translations` fields — blocks all proofread + render after v4 pipeline run |
+| BUG-030 | T27-T29 inline | P1 | A1/A5 | 純 bug fix | Fixed | PipelineRunner `stage_outputs` not bridged to legacy `segments`/`translations` fields — blocks all proofread + render after v4 pipeline run |
 | BUG-031 | T29 inline | P2 | A4/routes | 純 bug fix | Fixed | Render status naming mismatch: backend uses `"done"`, frontend `useRenderJob` polls for `"completed"` → download never triggered |
 
 ---
@@ -61,9 +61,9 @@
 
 | Bucket | Count | BUG IDs |
 |---|---|---|
-| 純 bug fix | 12 | BUG-001, 002, 003, 004, 006, 007, 009, 010, 011, 018, 020, 031 |
+| 純 bug fix | 13 | BUG-001, 002, 003, 004, 006, 007, 009, 010, 011, 018, 020, 030, 031 |
 | Spec 假設錯 | 1 | BUG-029 |
-| 需開新 sub-phase | 1 | BUG-030 |
+| 需開新 sub-phase | 0 | — |
 | Defer 入 backlog | 3 | BUG-005, 008, 019 |
 | Confirmed out-of-scope | 14 | BUG-012, 013, 014, 015, 016, 017, 021–028 (incl. 028 Closed) |
 | **Total** | **31** | |
@@ -73,9 +73,9 @@
 ## Abort gate evaluation
 
 - **P0 count: 0** vs threshold 5 (spec §6)
-- **P1 count: 1** (BUG-030) — architectural gap, needs sub-phase fix but not a P0 abort trigger
-- **Status: NOT TRIGGERED** — proceed with BUG-030 fix as priority action before v4 ship
-- No need to freeze v4.0 ship or rewrite parent phases; BUG-030 is a targeted bridge fix
+- **P1 count: 0** (BUG-030 Fixed — targeted bridge function, no sub-phase needed)
+- **Status: NOT TRIGGERED** — all P0/P1 bugs resolved
+- BUG-030 turned out to be a pure targeted bridge fix, not an architectural sub-phase
 
 ---
 

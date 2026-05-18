@@ -190,6 +190,70 @@ def _init_language_config_manager(config_dir):
     _managers._language_config_manager = _language_config_manager
 
 
+def _bridge_stage_outputs_to_legacy(entry: dict, pipeline_id: str = None) -> None:
+    """BUG-030 fix: copy stage_outputs into legacy fields that downstream
+    endpoints (/segments, /translations, /render, GET /api/files) read from.
+
+    Called from _pipeline_run_handler after runner.run() returns successfully.
+
+    Bridges:
+    - stage_outputs['0']['segments']    → entry['segments'] (with numeric 'id' + segment_count + text)
+    - last MT stage's segments          → entry['translations'] (en_text/zh_text/seg_idx/status=pending)
+    - entry['status']                   = 'completed'
+    - entry['pipeline_id']              = pipeline_id (for A4 useFilePipeline hook)
+    - entry['translation_status']       = 'pending' (if translations exist)
+
+    If stage_outputs is missing or empty, this function is a no-op and does NOT
+    change entry['status'] (partial run — let the caller handle that case).
+    """
+    stage_outputs = entry.get("stage_outputs") or {}
+    if not stage_outputs:
+        return  # Nothing to bridge; caller decides status
+
+    # --- ASR segments (always stage 0) ---
+    asr_out = stage_outputs.get("0", {})
+    asr_segments = asr_out.get("segments", [])
+    if asr_segments:
+        # Assign integer 'id' fields so PATCH /api/files/<id>/segments/<seg_id> works
+        bridged_segs = [
+            {**seg, "id": i}
+            for i, seg in enumerate(asr_segments)
+        ]
+        entry["segments"] = bridged_segs
+        entry["segment_count"] = len(bridged_segs)
+        entry["text"] = " ".join(s.get("text", "") for s in bridged_segs)
+
+    # --- MT translations (last MT stage, paired with ASR segments for en_text) ---
+    # Walk stage_outputs in index order; take the last stage whose stage_type == "mt".
+    last_mt_segments = None
+    for idx_str in sorted(stage_outputs.keys(), key=lambda x: int(x)):
+        out = stage_outputs[idx_str]
+        if out.get("stage_type") == "mt" and out.get("segments") is not None:
+            last_mt_segments = out["segments"]
+
+    if last_mt_segments is not None:
+        # Build paired translations: en_text from ASR stage, zh_text from MT stage
+        translations = []
+        for i, mt_seg in enumerate(last_mt_segments):
+            asr_seg = asr_segments[i] if i < len(asr_segments) else {}
+            translations.append({
+                "start": mt_seg.get("start", asr_seg.get("start", 0.0)),
+                "end": mt_seg.get("end", asr_seg.get("end", 0.0)),
+                "en_text": asr_seg.get("text", ""),
+                "zh_text": mt_seg.get("text", ""),
+                "seg_idx": i,
+                "status": "pending",
+            })
+        entry["translations"] = translations
+        if translations:
+            entry["translation_status"] = "pending"
+
+    # --- Mark pipeline run complete ---
+    entry["status"] = "completed"
+    if pipeline_id is not None:
+        entry["pipeline_id"] = pipeline_id
+
+
 def _pipeline_run_handler(job, cancel_event=None):
     """v4 A1 — execute a Pipeline on a file via PipelineRunner.
 
@@ -239,6 +303,14 @@ def _pipeline_run_handler(job, cancel_event=None):
     )
     start_from_stage = int(payload.get("start_from_stage", 0)) if isinstance(payload, dict) else 0
     runner.run(user_id=user_id, cancel_event=cancel_event, start_from_stage=start_from_stage)
+
+    # BUG-030 fix: bridge stage_outputs to legacy segments/translations fields so
+    # downstream consumers (/segments, /translations, /render) see the pipeline output.
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+        if entry is not None:
+            _bridge_stage_outputs_to_legacy(entry, pipeline_id=pipeline_id)
+    _save_registry()
 
 
 # v4 A6 C2 T5 — swap the JobQueue's pipeline handler from the default
