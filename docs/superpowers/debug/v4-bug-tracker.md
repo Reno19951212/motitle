@@ -27,7 +27,7 @@
 | BUG-015 | D | P3 | A3 | Confirmed out-of-scope | Open | i18n framework not introduced |
 | BUG-016 | D | P3 | A3/A4 | Confirmed out-of-scope | Open | Storybook not introduced |
 | BUG-017 | D | P2 | cross | Confirmed out-of-scope | Open | CI/CD GitHub Actions not configured |
-| BUG-018 | D | P3 | A5 | 純 bug fix | Open | Legacy Socket.IO emitter event names cleanup (docs + types) |
+| BUG-018 | D | P3 | A5 | 純 bug fix | Fixed | Legacy Socket.IO emitter event names cleanup (docs + types) |
 | BUG-019 | D | P3 | cross | Defer | Open | faster-whisper BatchedInferencePipeline not tried |
 | BUG-020 | D | P2 | cross | 純 bug fix | Open | `/api/translation/engines` Ollama probe missing timeout + memoization |
 | BUG-021 | D | P3 | cross | Confirmed out-of-scope | Open | Domain context anchor (per-file subject prefix) |
