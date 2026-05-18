@@ -13,6 +13,9 @@ import time
 import uuid
 import threading
 import tempfile
+
+# Module-level logger used throughout app.py (before and after Flask app init).
+logger = logging.getLogger(__name__)
 import subprocess
 from pathlib import Path
 from typing import List
@@ -38,9 +41,9 @@ if sys.platform == "win32":
                 _added.append(_bin)
         if _added:
             os.environ["PATH"] = os.pathsep.join(_added) + os.pathsep + os.environ.get("PATH", "")
-            print(f"[cuda-dll] registered {len(_added)} NVIDIA DLL path(s) for GPU acceleration")
+            logger.info("[cuda-dll] registered %d NVIDIA DLL path(s) for GPU acceleration", len(_added))
     except Exception as _e:
-        print(f"[cuda-dll] skipped DLL path registration: {_e}")
+        logger.warning("[cuda-dll] skipped DLL path registration: %s", _e)
 
 import whisper
 import numpy as np
@@ -64,10 +67,10 @@ from subtitle_text import (
 try:
     from faster_whisper import WhisperModel as FasterWhisperModel
     FASTER_WHISPER_AVAILABLE = True
-    print("faster-whisper available — will use for live transcription")
+    logger.info("faster-whisper available — will use for live transcription")
 except ImportError:
     FASTER_WHISPER_AVAILABLE = False
-    print("faster-whisper not available — using openai-whisper only")
+    logger.info("faster-whisper not available — using openai-whisper only")
 
 # Try to import whisper-streaming for real-time streaming mode
 try:
@@ -80,10 +83,10 @@ try:
     )
     from whisper_streaming.base import Backend as StreamingBackend
     WHISPER_STREAMING_AVAILABLE = True
-    print("whisper-streaming available — streaming mode enabled")
+    logger.info("whisper-streaming available — streaming mode enabled")
 except ImportError:
     WHISPER_STREAMING_AVAILABLE = False
-    print("whisper-streaming not available — streaming mode disabled")
+    logger.info("whisper-streaming not available — streaming mode disabled")
 
 # --- v4 A6 C2 T5: app construction lives in bootstrap.create_app() ---
 # Flask app, SocketIO, CORS, auth init, LoginManager, Limiter, audit log,
@@ -393,7 +396,7 @@ if WHISPER_STREAMING_AVAILABLE:
             """Start the streaming processor in a background thread."""
             self._thread = threading.Thread(target=self.processor.run, daemon=True)
             self._thread.start()
-            print(f"Streaming session started for {self.sid}")
+            logger.info("Streaming session started for %s", self.sid)
 
         def feed_audio(self, audio_np):
             """Feed a numpy float32 16kHz audio chunk to the processor."""
@@ -405,7 +408,7 @@ if WHISPER_STREAMING_AVAILABLE:
             self.output_sender.close()
             if self._thread and self._thread.is_alive():
                 self._thread.join(timeout=3)
-            print(f"Streaming session stopped for {self.sid}")
+            logger.info("Streaming session stopped for %s", self.sid)
 
 ALLOWED_EXTENSIONS = {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.mxf', '.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg'}
 
@@ -730,12 +733,12 @@ def _boot_socketio() -> None:
 
 
 if __name__ == '__main__':
-    print("=" * 60)
-    print("MoTitle - Backend Server")
-    print("=" * 60)
-    print(f"上傳目錄: {UPLOAD_DIR}")
-    print(f"結果目錄: {RESULTS_DIR}")
-    print("正在啟動服務器...")
+    logger.info("=" * 60)
+    logger.info("MoTitle - Backend Server")
+    logger.info("=" * 60)
+    logger.info("上傳目錄: %s", UPLOAD_DIR)
+    logger.info("結果目錄: %s", RESULTS_DIR)
+    logger.info("正在啟動服務器...")
 
     # Load persisted file registry
     _file_registry.update(_load_registry())
@@ -746,20 +749,20 @@ if __name__ == '__main__':
     if stuck:
         # Synchronous flush — flusher thread isn't running yet at boot time.
         _save_registry_to_disk()
-        print(f"已重置 {len(stuck)} 個中斷的翻譯狀態")
-    print(f"已載入 {len(_file_registry)} 個已上傳文件")
+        logger.info("已重置 %d 個中斷的翻譯狀態", len(stuck))
+    logger.info("已載入 %d 個已上傳文件", len(_file_registry))
     # Start the background registry flusher (R6 audit M2). Debounces writes
     # so heavy proofreading / MT progress doesn't pay full-JSON serialization
     # cost per PATCH.
     _start_registry_flusher()
 
     # Pre-load small model
-    print("預加載模型 (small)...")
+    logger.info("預加載模型 (small)...")
     try:
         get_model('small')
-        print("模型加載完成!")
+        logger.info("模型加載完成!")
     except Exception as e:
-        print(f"模型預加載失敗: {e}")
+        logger.warning("模型預加載失敗: %s", e)
 
     # R5 Phase 1: bind to all interfaces by default for LAN exposure.
     # CORS is locked down to LAN-only origins via _is_lan_origin (see top of
