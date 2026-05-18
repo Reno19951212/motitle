@@ -10,7 +10,7 @@
 
 | BUG ID | Source | Severity | A-phase | Plan impact | Status | Title |
 |---|---|---|---|---|---|---|
-| BUG-001 | A | P2 | cross | 純 bug fix | Open | Test fixture media file missing → upload E2E specs auto-skip |
+| BUG-001 | A | P2 | cross | 純 bug fix | Fixed | Test fixture media file missing → upload E2E specs auto-skip |
 | BUG-002 | A | P2 | cross | 純 bug fix | Open | global-setup.ts seed idempotency (409 loses entity IDs) |
 | BUG-003 | A | P3 | cross | 純 bug fix | Open | test:e2e:seeded script Unix env syntax (Windows incompatible) |
 | BUG-004 | A | P2 | A4 | 純 bug fix | Open | PromptOverridesDrawer Save silently no-ops when `file.pipeline_id` null |
