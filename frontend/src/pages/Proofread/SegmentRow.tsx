@@ -44,8 +44,11 @@ export const SegmentRow = memo(function SegmentRow({
     t.status === 'approved' ? 'default' : t.status === 'pending' ? 'outline' : 'destructive';
 
   return (
-    <tr className={cn('border-b text-sm', isFocused && 'bg-accent/50')}>
-      <td className="p-2 w-10 text-muted-foreground tabular-nums">{t.idx}</td>
+    <tr
+      className={cn('border-b text-sm', isFocused && 'active bg-accent/50')}
+      data-active-segment={isFocused ? 'true' : undefined}
+    >
+      <td className="p-2 w-10 text-muted-foreground tabular-nums col-idx">{t.idx}</td>
       <td className="p-2">{t.en_text}</td>
       <td className="p-2" onDoubleClick={() => setEditing(true)}>
         {editing ? (
@@ -80,7 +83,7 @@ export const SegmentRow = memo(function SegmentRow({
         )}
         <Badge variant={statusVariant}>{t.status}</Badge>
       </td>
-      <td className="p-2 w-44">
+      <td className="p-2 w-44 col-actions">
         <div className="flex gap-1 justify-end items-center">
           {t.status !== 'approved' && (
             <Button size="icon" variant="ghost" onClick={() => onApprove(t.idx)} aria-label="Approve">

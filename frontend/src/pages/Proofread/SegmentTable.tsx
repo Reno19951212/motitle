@@ -1,5 +1,5 @@
 // src/pages/Proofread/SegmentTable.tsx
-import { useState } from 'react';
+import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { SegmentRow } from './SegmentRow';
 import { useSegmentEditor } from './hooks/useSegmentEditor';
@@ -12,30 +12,57 @@ interface Props {
   onShowHistory: (idx: number) => void;
   onOpenGlossaryApply: () => void;
   onStageRerun?: (stageIdx: number) => void;
+  /** Current playhead time (seconds). When provided, the row whose
+   *  [start, end] window contains this time will be marked as focused. */
+  currentTime?: number;
 }
 
-export function SegmentTable({ fileId, file, translations, onShowHistory, onOpenGlossaryApply, onStageRerun }: Props) {
+export function SegmentTable({
+  fileId,
+  file,
+  translations,
+  onShowHistory,
+  onOpenGlossaryApply,
+  onStageRerun,
+  currentTime = 0,
+}: Props) {
   const editor = useSegmentEditor(fileId, translations);
-  const [focusedIdx] = useState<number | null>(null);
+
+  const activeIdx = useMemo(() => {
+    for (const t of editor.state.translations) {
+      const s = t.start;
+      const e = t.end;
+      if (s !== undefined && e !== undefined && currentTime >= s && currentTime < e) {
+        return t.idx;
+      }
+    }
+    return null;
+  }, [editor.state.translations, currentTime]);
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between p-2 border-b bg-background sticky top-0 z-10">
-        <span className="text-sm text-muted-foreground">{translations.length} segments</span>
+        <span className="text-sm text-muted-foreground">
+          {translations.length} segments
+        </span>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={onOpenGlossaryApply}>套用詞彙表</Button>
-          <Button size="sm" onClick={editor.bulkApprove}>Approve all pending</Button>
+          <Button size="sm" variant="outline" onClick={onOpenGlossaryApply}>
+            套用詞彙表
+          </Button>
+          <Button size="sm" onClick={editor.bulkApprove}>
+            Approve all pending
+          </Button>
         </div>
       </div>
-      <div className="overflow-auto flex-1">
-        <table className="w-full">
-          <thead className="sticky top-0 bg-background border-b z-10">
+      <div className="seg-table-wrap" data-testid="segment-table-scroll">
+        <table>
+          <thead>
             <tr>
-              <th className="p-2 text-left w-10">#</th>
-              <th className="p-2 text-left">EN</th>
-              <th className="p-2 text-left">ZH</th>
-              <th className="p-2 text-left w-32">Status</th>
-              <th className="p-2 text-right w-44">Actions</th>
+              <th>#</th>
+              <th>EN</th>
+              <th>ZH</th>
+              <th>Status</th>
+              <th style={{ textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -45,7 +72,7 @@ export function SegmentTable({ fileId, file, translations, onShowHistory, onOpen
                 t={t}
                 file={file}
                 draft={editor.state.drafts[t.idx]}
-                isFocused={focusedIdx === t.idx}
+                isFocused={activeIdx === t.idx}
                 onEditDraft={editor.editDraft}
                 onSave={editor.saveEdit}
                 onRevert={(idx) => {
