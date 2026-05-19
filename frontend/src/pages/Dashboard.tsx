@@ -7,10 +7,24 @@ import { useDropzone } from 'react-dropzone';
 import { useSocket } from '@/providers/SocketProvider';
 import { usePipelinePickerStore } from '@/stores/pipeline-picker';
 import { useUIStore } from '@/stores/ui';
+import { apiFetch } from '@/lib/api';
 import type { FileRecord } from '@/lib/socket-events';
 import { Icon, MoTitleStageBadge } from '@/lib/motitle-icons';
 import type { IconName } from '@/lib/motitle-icons';
 import '@/styles/motitle-bold.css';
+
+// ---------------------------------------------------------------------------
+// Engine health probe types (Batch D)
+// ---------------------------------------------------------------------------
+interface EngineProbeItem {
+  engine: string;
+  available: boolean;
+  description?: string;
+}
+
+interface EngineProbeResponse {
+  engines: EngineProbeItem[];
+}
 
 // ---------------------------------------------------------------------------
 // Helpers — map FileRecord → design's "f" shape
@@ -303,6 +317,53 @@ function PipelineStrip() {
 // ---------------------------------------------------------------------------
 
 function BoldTopbar({ onRun }: { onRun?: () => void }) {
+  const { state: socketState } = useSocket();
+  const [asrEngines, setAsrEngines] = useState<EngineProbeItem[] | null>(null);
+  const [mtEngines, setMtEngines] = useState<EngineProbeItem[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const probe = async () => {
+      if (document.hidden) return;
+      try {
+        const asr = await apiFetch<EngineProbeResponse>('/api/asr/engines');
+        if (!cancelled) setAsrEngines(asr.engines ?? []);
+      } catch {
+        if (!cancelled) setAsrEngines([]);
+      }
+      try {
+        const mt = await apiFetch<EngineProbeResponse>('/api/translation/engines');
+        if (!cancelled) setMtEngines(mt.engines ?? []);
+      } catch {
+        if (!cancelled) setMtEngines([]);
+      }
+    };
+
+    probe();
+    const id = window.setInterval(probe, 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
+
+  const asrReady = !!asrEngines && asrEngines.some((e) => e.available);
+  const mtReady = !!mtEngines && mtEngines.some((e) => e.available);
+
+  const asrTooltip = asrEngines
+    ? asrEngines
+        .map((e) => `${e.engine}: ${e.available ? 'OK' : 'unavailable'}${e.description ? ` (${e.description})` : ''}`)
+        .join('\n')
+    : 'ASR engines · loading…';
+  const mtTooltip = mtEngines
+    ? mtEngines
+        .map((e) => `${e.engine}: ${e.available ? 'OK' : 'unavailable'}${e.description ? ` (${e.description})` : ''}`)
+        .join('\n')
+    : 'Translation engines · loading…';
+
+  const socketConnected = socketState.connected;
+
   return (
     <div className="b-topbar">
       <div className="search">
@@ -326,15 +387,23 @@ function BoldTopbar({ onRun }: { onRun?: () => void }) {
       </div>
 
       <div className="health-cluster">
-        <div className="health-pill ok" title="Whisper ASR · local GPU">
+        <div className={`health-pill ${asrReady ? 'ok' : 'err'}`} title={asrTooltip}>
           <span className="led" />
           <span className="hk">ASR</span>
-          <span className="hv">ready</span>
+          <span className="hv">{asrReady ? '就緒' : '離線'}</span>
         </div>
-        <div className="health-pill ok" title="Ollama translation server">
+        <div className={`health-pill ${mtReady ? 'ok' : 'err'}`} title={mtTooltip}>
           <span className="led" />
           <span className="hk">MT</span>
-          <span className="hv">ready</span>
+          <span className="hv">{mtReady ? '就緒' : '離線'}</span>
+        </div>
+        <div
+          className={`health-pill ${socketConnected ? 'ok' : 'err'}`}
+          title={socketConnected ? 'Socket.IO 已連接 · 即時事件正常' : 'Socket.IO 中斷 · 即時事件不可用'}
+        >
+          <span className="led" />
+          <span className="hk">即時</span>
+          <span className="hv">{socketConnected ? '已連' : '離線'}</span>
         </div>
       </div>
     </div>

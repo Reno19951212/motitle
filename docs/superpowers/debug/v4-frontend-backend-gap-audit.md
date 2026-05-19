@@ -156,7 +156,9 @@ Gap kinds: MISSING_FIELD (mock shows data backend doesn't provide) / SHAPE_MISMA
 
 ---
 
-## Batch D — Health pills [STATUS: not_started]
+## Batch D — Health pills [STATUS: fixed]
+**Fixed in commit**: <pending> — real probes wired, 30s poll, 3rd socket pill added.
+
 
 **Affected files**:
 - `frontend/src/pages/Dashboard.tsx:305-341` (`BoldTopbar` → `.health-cluster`)
