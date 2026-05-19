@@ -157,7 +157,7 @@ Gap kinds: MISSING_FIELD (mock shows data backend doesn't provide) / SHAPE_MISMA
 ---
 
 ## Batch D — Health pills [STATUS: fixed]
-**Fixed in commit**: <pending> — real probes wired, 30s poll, 3rd socket pill added.
+**Fixed in commit**: ae8a1c9 — real probes wired, 30s poll, 3rd socket pill added.
 
 
 **Affected files**:
