@@ -1,3 +1,5 @@
+import pytest
+
 from pipeline_schema_v5 import validate_v5_pipeline, promote_v4_to_v5
 
 
@@ -67,3 +69,94 @@ def test_promote_v4_to_v5_minimal():
     assert v5["glossary_stages"]["zh"] == ["g1"]
     # Validator must accept the promoted result
     assert validate_v5_pipeline(v5) == []
+
+
+def test_validate_v5_refinements_lang_not_in_targets():
+    data = {
+        "version": 5, "name": "x",
+        "asr_primary": {"transcribe_profile_id": "tp", "source_lang": "zh"},
+        "target_languages": ["zh"],
+        "refinements": {"zh": [], "ja": []},  # ja not in targets
+        "font_config": {"family": "f", "color": "w", "outline_color": "b"},
+    }
+    errors = validate_v5_pipeline(data)
+    assert any("'ja'" in e and "target_languages" in e for e in errors)
+
+
+def test_validate_v5_refinements_entry_must_be_dict_with_profile_id():
+    data = {
+        "version": 5, "name": "x",
+        "asr_primary": {"transcribe_profile_id": "tp", "source_lang": "zh"},
+        "target_languages": ["zh"],
+        "refinements": {"zh": ["not-a-dict"]},
+        "font_config": {"family": "f", "color": "w", "outline_color": "b"},
+    }
+    errors = validate_v5_pipeline(data)
+    assert any("refiner_profile_id" in e for e in errors)
+
+
+def test_validate_v5_secondary_lang_must_match_primary():
+    data = {
+        "version": 5, "name": "x",
+        "asr_primary": {"transcribe_profile_id": "tp", "source_lang": "zh"},
+        "asr_secondary": {"transcribe_profile_id": "tp2", "source_lang": "en"},
+        "target_languages": ["zh"],
+        "refinements": {"zh": []},
+        "font_config": {"family": "f", "color": "w", "outline_color": "b"},
+    }
+    errors = validate_v5_pipeline(data)
+    assert any("asr_secondary.source_lang" in e for e in errors)
+
+
+def test_validate_v5_translator_required_for_non_source_target():
+    data = {
+        "version": 5, "name": "x",
+        "asr_primary": {"transcribe_profile_id": "tp", "source_lang": "zh"},
+        "target_languages": ["zh", "en"],
+        "refinements": {"zh": [], "en": []},
+        "translators": {},  # missing en translator
+        "font_config": {"family": "f", "color": "w", "outline_color": "b"},
+    }
+    errors = validate_v5_pipeline(data)
+    assert any("translators.en" in e for e in errors)
+
+
+def test_validate_v5_translator_with_proper_shape_passes():
+    data = {
+        "version": 5, "name": "x",
+        "asr_primary": {"transcribe_profile_id": "tp", "source_lang": "zh"},
+        "target_languages": ["zh", "en"],
+        "refinements": {"zh": [], "en": []},
+        "translators": {"en": {"translator_profile_id": "tr1"}},
+        "font_config": {"family": "f", "color": "w", "outline_color": "b"},
+    }
+    errors = validate_v5_pipeline(data)
+    assert errors == [], f"unexpected errors: {errors}"
+
+
+def test_validate_v5_glossary_stages_must_be_list_of_strings():
+    data = {
+        "version": 5, "name": "x",
+        "asr_primary": {"transcribe_profile_id": "tp", "source_lang": "zh"},
+        "target_languages": ["zh"],
+        "refinements": {"zh": []},
+        "glossary_stages": {"zh": "not-a-list"},
+        "font_config": {"family": "f", "color": "w", "outline_color": "b"},
+    }
+    errors = validate_v5_pipeline(data)
+    assert any("glossary_stages.zh" in e for e in errors)
+
+
+def test_promote_v4_missing_id_raises():
+    with pytest.raises(ValueError, match="missing required field: id"):
+        promote_v4_to_v5({"name": "x", "asr_profile_id": "a"})
+
+
+def test_promote_v4_missing_name_raises():
+    with pytest.raises(ValueError, match="missing required field: name"):
+        promote_v4_to_v5({"id": "x", "asr_profile_id": "a"})
+
+
+def test_promote_v4_missing_asr_profile_id_raises():
+    with pytest.raises(ValueError, match="missing required field: asr_profile_id"):
+        promote_v4_to_v5({"id": "x", "name": "n"})

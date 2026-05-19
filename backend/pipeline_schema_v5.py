@@ -44,25 +44,97 @@ def validate_v5_pipeline(data: Any) -> list[str]:
         errors.append("font_config required (object)")
     elif not all(isinstance(font.get(k), str) and font.get(k) for k in ("family", "color", "outline_color")):
         errors.append("font_config.family / color / outline_color required (strings)")
+
+    # Cross-field rules (per design spec §3)
+    primary = data.get("asr_primary") or {}
+    primary_src = primary.get("source_lang") if isinstance(primary, dict) else None
+    targets = data.get("target_languages") or []
+
+    # Rule: target_languages must include every key in refinements
+    refinements = data.get("refinements") or {}
+    if isinstance(refinements, dict) and isinstance(targets, list):
+        for lang in refinements.keys():
+            if lang not in targets:
+                errors.append(f"refinements key '{lang}' missing from target_languages")
+
+    # Rule: refinements[lang] must be a list of dicts with refiner_profile_id
+    if isinstance(refinements, dict):
+        for lang, entries in refinements.items():
+            if not isinstance(entries, list):
+                errors.append(f"refinements.{lang} must be a list")
+                continue
+            for i, entry in enumerate(entries):
+                if not isinstance(entry, dict) or not entry.get("refiner_profile_id"):
+                    errors.append(f"refinements.{lang}[{i}] must be an object with refiner_profile_id")
+
+    # Rule: asr_secondary.source_lang must equal asr_primary.source_lang (when set)
+    secondary = data.get("asr_secondary")
+    if isinstance(secondary, dict):
+        sec_src = secondary.get("source_lang")
+        if sec_src != primary_src:
+            errors.append(
+                f"asr_secondary.source_lang must equal asr_primary.source_lang "
+                f"(got primary={primary_src!r}, secondary={sec_src!r})"
+            )
+
+    # Rule: translators[lang] required for every non-source target
+    translators = data.get("translators") or {}
+    if isinstance(translators, dict) and isinstance(targets, list) and primary_src:
+        for lang in targets:
+            if lang == primary_src:
+                continue  # source-lang target needs no translator
+            if lang not in translators:
+                errors.append(f"translators.{lang} required (target_languages contains '{lang}' which is not source_lang)")
+            else:
+                t = translators[lang]
+                if not isinstance(t, dict) or not t.get("translator_profile_id"):
+                    errors.append(f"translators.{lang} must be an object with translator_profile_id")
+
+    # Rule: glossary_stages values must be list[str]
+    glossary = data.get("glossary_stages") or {}
+    if isinstance(glossary, dict):
+        for key, glist in glossary.items():
+            if not isinstance(glist, list):
+                errors.append(f"glossary_stages.{key} must be a list")
+            elif not all(isinstance(g, str) and g for g in glist):
+                errors.append(f"glossary_stages.{key} must contain only non-empty strings")
+
     return errors
 
 
 def promote_v4_to_v5(v4: dict) -> dict:
-    """Map v4 pipeline JSON shape to v5 shape. Preserves semantics."""
+    """Map v4 pipeline JSON shape to v5 shape. Preserves semantics.
+
+    Raises ValueError if required v4 fields are missing.
+    """
+    if not isinstance(v4, dict):
+        raise ValueError("v4 pipeline must be a dict")
+    pid = v4.get("id")
+    name = v4.get("name")
+    asr_profile_id = v4.get("asr_profile_id")
+    if not pid:
+        raise ValueError("v4 pipeline missing required field: id")
+    if not name:
+        raise ValueError("v4 pipeline missing required field: name")
+    if not asr_profile_id:
+        raise ValueError("v4 pipeline missing required field: asr_profile_id")
+
     source_lang = (v4.get("asr_profile") or {}).get("language", "en")
-    target_lang = source_lang  # v4 conflated source/target; assume same after promote
+    # v4 mt_stages collapsed translator + refiner; we map all to refinements.
+    # User must edit in v5 UI to enable translation (see design doc §3 promote caveat).
+    target_lang = source_lang
     refiner_entries = [
         {"refiner_profile_id": mt_id}
-        for mt_id in v4.get("mt_stages", [])
+        for mt_id in (v4.get("mt_stages") or [])
     ]
     return {
-        "id": v4["id"],
-        "name": v4["name"],
+        "id": pid,
+        "name": name,
         "version": 5,
         "user_id": v4.get("user_id"),
         "shared": v4.get("shared", False),
         "asr_primary": {
-            "transcribe_profile_id": v4["asr_profile_id"],
+            "transcribe_profile_id": asr_profile_id,
             "source_lang": source_lang,
         },
         "asr_secondary": None,
