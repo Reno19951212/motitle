@@ -244,3 +244,58 @@ def test_translator_profile_pattern_hardening(tmp_path):
     updated = mgr.update_if_owned(pid, user_id=1, is_admin=False, patch={"user_id": 2, "id": "evil"})
     assert updated["user_id"] == 1
     assert updated["id"] == pid
+
+
+# ============================================================
+# RefinerProfile manager tests (T9)
+# ============================================================
+
+
+def test_refiner_profile_valid(tmp_path):
+    from refiner_profiles import RefinerProfileManager, validate_refiner_profile
+    data = {
+        "name": "ZH broadcast HK",
+        "lang": "zh",
+        "style": "broadcast-hk",
+        "llm_profile_id": "llm1",
+        "prompt_template_id": "refiner/zh_broadcast_hk_default",
+    }
+    assert validate_refiner_profile(data) == []
+    mgr = RefinerProfileManager(tmp_path)
+    pid = mgr.create(data, user_id=1)
+    assert mgr.get(pid)["style"] == "broadcast-hk"
+
+
+def test_refiner_profile_rejects_missing_lang(tmp_path):
+    from refiner_profiles import validate_refiner_profile
+    errors = validate_refiner_profile({
+        "name": "x", "style": "broadcast",
+        "llm_profile_id": "x", "prompt_template_id": "y",
+    })
+    assert any("lang" in e for e in errors)
+
+
+def test_refiner_profile_rejects_missing_style(tmp_path):
+    from refiner_profiles import validate_refiner_profile
+    errors = validate_refiner_profile({
+        "name": "x", "lang": "zh",
+        "llm_profile_id": "x", "prompt_template_id": "y",
+    })
+    assert any("style" in e for e in errors)
+
+
+def test_refiner_profile_pattern_hardening(tmp_path):
+    """Verify pattern-setter hardening (immutable fields, name strip, can_view)."""
+    from refiner_profiles import RefinerProfileManager
+    mgr = RefinerProfileManager(tmp_path)
+    pid = mgr.create({
+        "name": "  Test  ", "lang": "zh", "style": "broadcast-hk",
+        "llm_profile_id": "x", "prompt_template_id": "y",
+    }, user_id=1)
+    assert mgr.get(pid)["name"] == "Test"
+    assert mgr.can_view(pid, user_id=1, is_admin=False) is True
+    assert mgr.can_view(pid, user_id=2, is_admin=False) is False
+    assert mgr.can_view(pid, user_id=999, is_admin=True) is True
+    updated = mgr.update_if_owned(pid, user_id=1, is_admin=False, patch={"user_id": 2, "id": "evil"})
+    assert updated["user_id"] == 1
+    assert updated["id"] == pid
