@@ -226,6 +226,101 @@ def test_pipeline_manager_promotes_v4_on_read(tmp_path):
     assert loaded["refinements"]["zh"][0]["refiner_profile_id"] == "mt1"
 
 
+def test_pipelines_route_accepts_v5(monkeypatch, tmp_path):
+    """POST /api/pipelines accepts v5 schema with valid cascade refs."""
+    from flask import Flask
+    from routes.pipelines import bp as pl_bp
+    from pipelines import PipelineManager
+    import app as _app
+
+    monkeypatch.setattr(_app, "_pipeline_manager", PipelineManager(tmp_path), raising=False)
+    # Stub the 5 v5 managers to look up cascade refs cleanly
+    class _FakeMgr:
+        def __init__(self, known_ids): self._known = known_ids
+        def list_visible(self, *a, **kw):
+            return [{"id": i} for i in self._known]
+        def get(self, i):
+            return {"id": i} if i in self._known else None
+        def can_view(self, *a, **kw): return True
+        def can_edit(self, *a, **kw): return True
+
+    monkeypatch.setattr(_app, "_transcribe_profile_manager", _FakeMgr({"tp1"}), raising=False)
+    monkeypatch.setattr(_app, "_translator_profile_manager", _FakeMgr(set()), raising=False)
+    monkeypatch.setattr(_app, "_refiner_profile_manager", _FakeMgr(set()), raising=False)
+    monkeypatch.setattr(_app, "_verifier_profile_manager", _FakeMgr(set()), raising=False)
+    monkeypatch.setattr(_app, "_llm_profile_manager", _FakeMgr(set()), raising=False)
+    monkeypatch.setattr(_app, "_glossary_manager", _FakeMgr(set()), raising=False)
+
+    app = Flask(__name__)
+    app.config["LOGIN_DISABLED"] = True
+    app.config["TESTING"] = True
+    app.register_blueprint(pl_bp)
+    from flask_login import LoginManager
+    lm = LoginManager(); lm.init_app(app)
+    class _U:
+        def __init__(self): self.id=1; self.is_admin=False; self.is_authenticated=True; self.is_active=True; self.is_anonymous=False
+        def get_id(self): return "1"
+    @lm.request_loader
+    def _load(req): return _U()
+    client = app.test_client()
+    resp = client.post("/api/pipelines", json={
+        "name": "v5", "version": 5,
+        "asr_primary": {"transcribe_profile_id": "tp1", "source_lang": "zh"},
+        "asr_secondary": None, "asr_verifier": None,
+        "target_languages": ["zh"],
+        "refinements": {"zh": []},
+        "translators": {},
+        "glossary_stages": {},
+        "font_config": {"family": "f", "color": "w", "outline_color": "b"},
+    })
+    assert resp.status_code in (200, 201), f"got {resp.status_code}: {resp.data}"
+    body = resp.get_json()
+    assert body.get("version") == 5
+
+
+def test_pipelines_route_rejects_v5_with_broken_refs(monkeypatch, tmp_path):
+    """POST /api/pipelines rejects v5 with unknown transcribe_profile_id."""
+    from flask import Flask
+    from routes.pipelines import bp as pl_bp
+    from pipelines import PipelineManager
+    import app as _app
+
+    monkeypatch.setattr(_app, "_pipeline_manager", PipelineManager(tmp_path), raising=False)
+    class _EmptyMgr:
+        def list_visible(self, *a, **kw): return []
+        def get(self, i): return None
+        def can_view(self, *a, **kw): return True
+        def can_edit(self, *a, **kw): return True
+    for attr in ("_transcribe_profile_manager", "_translator_profile_manager",
+                 "_refiner_profile_manager", "_verifier_profile_manager",
+                 "_llm_profile_manager", "_glossary_manager"):
+        monkeypatch.setattr(_app, attr, _EmptyMgr(), raising=False)
+
+    app = Flask(__name__)
+    app.config["LOGIN_DISABLED"] = True
+    app.config["TESTING"] = True
+    app.register_blueprint(pl_bp)
+    from flask_login import LoginManager
+    lm = LoginManager(); lm.init_app(app)
+    class _U:
+        def __init__(self): self.id=1; self.is_admin=False; self.is_authenticated=True; self.is_active=True; self.is_anonymous=False
+        def get_id(self): return "1"
+    @lm.request_loader
+    def _load(req): return _U()
+    client = app.test_client()
+    resp = client.post("/api/pipelines", json={
+        "name": "v5", "version": 5,
+        "asr_primary": {"transcribe_profile_id": "missing", "source_lang": "zh"},
+        "target_languages": ["zh"],
+        "refinements": {"zh": []},
+        "translators": {},
+        "glossary_stages": {},
+        "font_config": {"family": "f", "color": "w", "outline_color": "b"},
+    })
+    assert resp.status_code == 400
+    assert "asr_primary.transcribe_profile_id" in str(resp.get_json())
+
+
 def test_pipeline_manager_get_default_v4_shape(tmp_path):
     """Default get() (without as_v5) keeps v4 shape — backward-compat."""
     from pipelines import PipelineManager

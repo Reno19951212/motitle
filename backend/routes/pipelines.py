@@ -23,8 +23,42 @@ from auth.decorators import (
     require_file_owner,
     require_pipeline_owner,
 )
+from pipeline_schema_v5 import (
+    validate_v5_pipeline,
+    check_cascade_refs as v5_check_cascade_refs,
+)
 
 bp = Blueprint("pipelines", __name__)
+
+
+def _collect_v5_known_refs() -> dict:
+    """Build known-refs dict for v5 cascade check from all 5 v5 managers + glossary.
+
+    Returns the union of IDs visible to the requesting user (admin OR
+    owner OR shared). Cascade ref check is schema validation, not access
+    control — but we still respect visibility so a non-admin can't probe
+    private IDs by guessing.
+    """
+    import app as _app
+    uid = current_user.id
+    is_admin = bool(getattr(current_user, "is_admin", False))
+
+    def _ids(mgr):
+        if mgr is None:
+            return set()
+        try:
+            return {p["id"] for p in mgr.list_visible(uid, is_admin)}
+        except Exception:
+            return set()
+
+    return {
+        "transcribe": _ids(getattr(_app, "_transcribe_profile_manager", None)),
+        "translator": _ids(getattr(_app, "_translator_profile_manager", None)),
+        "refiner": _ids(getattr(_app, "_refiner_profile_manager", None)),
+        "verifier": _ids(getattr(_app, "_verifier_profile_manager", None)),
+        "llm": _ids(getattr(_app, "_llm_profile_manager", None)),
+        "glossary": _ids(getattr(_app, "_glossary_manager", None)),
+    }
 
 
 # ============================================================
@@ -57,6 +91,29 @@ def create_pipeline():
     import app as _app
     data = request.get_json(silent=True) or {}
     user_id = getattr(current_user, "id", None)
+
+    # v5-A1 T25: v5 branch — validate v5 schema + cascade refs against the
+    # new managers (transcribe / translator / refiner / verifier / llm /
+    # glossary). v4 path untouched below.
+    if isinstance(data, dict) and data.get("version") == 5:
+        errors = validate_v5_pipeline(data)
+        if errors:
+            return jsonify({"error": "; ".join(errors)}), 400
+        refs = _collect_v5_known_refs()
+        broken = v5_check_cascade_refs(data, refs)
+        if broken:
+            return jsonify({"error": f"unknown references: {broken}"}), 400
+        mgr = _app._pipeline_manager
+        try:
+            pid = mgr.create(data, user_id=user_id)
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        # Return the v5 dict (not the bare pid). Use ``as_v5=True`` so even
+        # if the storage round-trip drops the version key, the response
+        # body still carries it.
+        return jsonify(mgr.get(pid, as_v5=True)), 201
+
+    # v4 path (existing behavior, unchanged)
     try:
         pipeline = _app._pipeline_manager.create(data, user_id=user_id)
     except ValueError as exc:
