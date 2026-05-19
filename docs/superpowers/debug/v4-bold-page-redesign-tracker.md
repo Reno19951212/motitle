@@ -516,3 +516,105 @@ All 5 pages migrated to the Bold layout. Aggregate totals:
   create+delete round-trip / back nav). Full regression: **56 passed / 19
   skipped / 0 failed** (baseline 49 passed before iter 5, +7 new bold-admin
   + reframed admin-user-mgmt stayed at 2 tests, no broken tests).
+
+## Iter 6 — Proofread (Claude Designer rewrite)
+
+[FIXED] — 2026-05-19
+
+The Iter-1 Proofread Bold layout (`.b-body-proofread` 3-col grid:
+SegmentTable | VideoPanel | Inspector) was replaced with the layout
+shipped by Claude Designer in `/tmp/proofread-design/motitle/project/
+Proofread.html`. The new layout is a `.rv-shell` + `.rv-body` + `.rv-b`
+2-col grid (340 px segment rail | right pane = video + glossary +
+subtitle settings on top half, detail editor on the other half of the
+top row, and a full-width waveform timeline panel at the bottom).
+
+- CSS — `~480 new lines` appended to `motitle-bold.css` covering the
+  `.rv-*` class families (rv-shell / rv-header / rv-b / rv-b-rail* /
+  rv-b-video* / rv-b-vid-panels / rv-b-glossary* / rv-b-subtitle-settings
+  / rv-b-detail* / rv-b-timeline-panel / rv-wave* / qa-flag* / find-bar*).
+  Existing tokens (`--bg`, `--surface`, `--accent`, …) reused as-is.
+
+- New React components (under `src/pages/Proofread/`):
+  - `SegmentRail.tsx` — compact rail; each row =
+    `[#num] [in-timestamp] [text…] [QA flags / ✓]`.
+  - `DetailEditor.tsx` — single-segment editor; EN read-only quote +
+    ZH textarea (with CPS counter) + approve/skip footer. Owns its
+    local dirty state + onBlur saves; receives `translation`, dispatches
+    PATCH `/api/files/<id>/translations/<idx>` + approve POST.
+  - `TimelinePanel.tsx` — bottom waveform; fetches
+    `/api/files/<id>/waveform?bins=480` once, renders 480 vertical bars
+    + 1 region per segment (colored approved/flagged/current) + clickable
+    seek (region click → onSelect; empty click → onSeek).
+
+- Rewritten components:
+  - `TopBar.tsx` — now renders `.rv-header` strip (Back chip + `/` +
+    filename + progress bar + JK kbd hint + subtitle source dropdown +
+    Overrides chip + Render button). Export name + props shape preserved
+    so existing `index.test.tsx` vi.mock works without changes.
+  - `VideoPanel.tsx` — wrapped in `.rv-b-video`; uses `forwardRef` so
+    parent can imperatively `seek(s)` / `play()` / `pause()` when a
+    timeline region or rail row is clicked. Emits `onDurationChange(d)`
+    so TimelinePanel knows total length for region positioning.
+  - `GlossaryPanel.tsx` — fills `.rv-b-glossary`, always-expanded
+    compact table (drops the legacy collapse toggle).
+  - `SubtitleSettingsPanel.tsx` — fills `.rv-b-subtitle-settings`,
+    always-expanded form. Debounced PATCH preserved.
+  - `index.tsx` — page shell rewritten to use `.rv-shell` + `.rv-body`
+    + `.rv-b` instead of `.b-body-proofread`. Adds:
+    - `cursorIdx` state (selected segment) + `duration` state +
+      `videoRef` for imperative seek.
+    - Auto-follow cursor while playing (skipped when user is editing).
+    - J/K keyboard nav + Cmd+Enter approve + Space play/pause (J/K
+      handlers gated on `tagName !== TEXTAREA` to avoid stomping the
+      editor).
+
+- Functional contracts preserved (zero touch):
+  - `useFileData` / `useFilePipeline` / `useFindReplace` /
+    `useKeyboardShortcuts` / `useRenderJob` — no API change.
+  - All drawers/modals (`StageHistorySidebar`, `PromptOverridesDrawer`,
+    `GlossaryApplyModal`, `RenderModal`) keep existing props.
+  - Auto-download on render completion still fires via the same
+    `completedRenderId` ref.
+
+- Test updates:
+  - `GlossaryPanel.test.tsx` — drop collapse-related assertions; assert
+    the new `.rv-b-glossary` landmark + inline-add inputs visible after
+    glossary loads.
+  - `SubtitleSettingsPanel.test.tsx` — drop expand-click; debounced PATCH
+    assertion preserved.
+  - `index.test.tsx` — mock the 3 new sub-components (SegmentRail,
+    DetailEditor, TimelinePanel) + wrap VideoPanel mock in `forwardRef`
+    (the real component now uses forwardRef so the mock must too, or
+    React emits a "Function components cannot be given refs" warning).
+  - `tests-e2e/bold-proofread.spec.ts` — rewritten to assert
+    `.rv-shell` / `.rv-header` / `.rv-b` / `.rv-b-left` / `.rv-b-right`
+    / `.rv-b-rail-item` / `.rv-b-detail` / `.rv-b-timeline-panel`
+    / `.rv-wave` instead of `.b-body-proofread` / `.seg-table-wrap`
+    / `.inspector` / tbody-tr. 7 tests (Bold landmarks / rail rows ≥50 /
+    row-click populates detail / SVG overlay at t=40s / waveform rendered
+    + region rects / Render modal open via header / Back to Dashboard).
+  - `tests-e2e/verify-transcript-visible.spec.ts` — Proofread case updated
+    to query `.rv-b-rail-*` instead of `<th>#</th>` / `<tbody><tr>`.
+
+- Backend gaps discovered: **none**. All endpoints touched by the new
+  layout (`/api/files/<id>/waveform`, `/api/files/<id>/translations/<idx>`,
+  `/api/files/<id>/translations/<idx>/approve`, `/api/files/<id>/
+  segments/<idx>`, `/api/files/<id>/pipeline_overrides`, `/api/render`)
+  already existed and were already in use.
+
+- Commits (this iter):
+  - `7d55a5c` — style(motitle-bold): add .rv-* Proofread layout classes
+  - `2771577` — feat(proofread): rewrite to match Claude Designer
+    Proofread.html (2-col rail + detail editor + timeline panel)
+  - `5eae4a0` — test(e2e): update bold-proofread spec for new layout
+  - (this commit) — docs(tracker): note Proofread page rewritten to
+    match designer spec
+
+- Vitest: **204/204 pass** (unchanged from iter 5 baseline 204).
+- Playwright: full regression **56 passed / 19 skipped / 0 failed**
+  (matches the iter-5 baseline exactly; existing bold-proofread spec
+  rewritten in-place + verify-transcript-visible Proofread case
+  rewritten in-place — net 0 spec count delta, but the existing
+  bold-proofread spec gained one new test for the timeline panel
+  while the row-click test reframed from SegmentTable → SegmentRail).
