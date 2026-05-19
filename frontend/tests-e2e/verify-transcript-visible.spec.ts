@@ -53,20 +53,21 @@ test.describe('Transcript visibility (Dashboard inspector + Proofread)', () => {
     expect(fullText.length).toBeGreaterThan(50);
   });
 
-  test('Proofread page shows SegmentTable rows', async ({ page }) => {
+  test('Proofread page shows SegmentRail rows', async ({ page }) => {
     await page.goto(`/proofread/${FID}`);
-    // Wait for table headers
-    await expect(page.locator('th:has-text("#")')).toBeVisible({ timeout: 10_000 });
+    await page.waitForLoadState('networkidle');
 
-    // Wait for at least one row + count
-    const rows = page.locator('tbody tr');
+    // Bold layout — segment rail (iter 6 designer rewrite, .rv-b-rail-*)
+    const railHead = page.locator('.rv-b-rail-head');
+    await expect(railHead).toBeVisible({ timeout: 10_000 });
+
+    const rows = page.locator('.rv-b-rail-item');
     await expect(rows.first()).toBeVisible({ timeout: 10_000 });
     const rowCount = await rows.count();
-    console.log(`[proofread] segment rows: ${rowCount}`);
+    console.log(`[proofread] segment rail rows: ${rowCount}`);
     expect(rowCount).toBeGreaterThan(10);
 
-    // Verify header counter shows N segments
-    const header = page.locator('text=/\\d+ segments/');
-    await expect(header.first()).toBeVisible();
+    // Rail header counter shows "段列表 · N 段"
+    await expect(page.locator('text=/段列表 · \\d+ 段/').first()).toBeVisible();
   });
 });
