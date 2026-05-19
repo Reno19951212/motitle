@@ -12,8 +12,16 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api':       { target: 'http://localhost:5001', changeOrigin: true },
-      '/login':     { target: 'http://localhost:5001', changeOrigin: true },
-      '/logout':    { target: 'http://localhost:5001', changeOrigin: true },
+      '/login': {
+        target: 'http://localhost:5001',
+        changeOrigin: true,
+        bypass: (req) => (req.method === 'GET' ? '/index.html' : undefined),
+      },
+      '/logout': {
+        target: 'http://localhost:5001',
+        changeOrigin: true,
+        bypass: (req) => (req.method === 'GET' ? '/index.html' : undefined),
+      },
       '/socket.io': { target: 'http://localhost:5001', changeOrigin: true, ws: true },
       '/fonts':     { target: 'http://localhost:5001', changeOrigin: true },
     },

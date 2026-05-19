@@ -14,7 +14,10 @@
 import { test, expect } from '@playwright/test';
 import * as path from 'path';
 import * as fs from 'fs';
+import { fileURLToPath } from 'node:url';
 import { requireSeedOrSkip, SEEDED_ADMIN_USERNAME, SEEDED_ADMIN_PASSWORD } from './helpers';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const FIXTURE_CANDIDATES = [
   path.join(__dirname, 'fixtures', 'sample.mp4'),
