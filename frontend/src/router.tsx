@@ -59,12 +59,14 @@ export const router = createBrowserRouter([
       // Bold layout — no Layout shell. Must sit outside the <Layout/> branch
       // so the b-rail + b-topbar are not nested inside TopBar + SideNav.
       { path: 'proofread/:fileId', element: <Proofread /> },
+      // AsrProfiles (iter 2 of Bold redesign) renders its own full-page Bold
+      // layout — no Layout shell. Same pattern as Dashboard + Proofread.
+      { path: 'asr_profiles', element: <AsrProfiles /> },
       // All other pages use the existing Layout (TopBar + SideNav)
       {
         element: <Layout />,
         children: [
           { path: 'pipelines', element: <Pipelines /> },
-          { path: 'asr_profiles', element: <AsrProfiles /> },
           { path: 'mt_profiles', element: <MtProfiles /> },
           { path: 'glossaries', element: <Glossaries /> },
           {

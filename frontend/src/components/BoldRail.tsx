@@ -12,12 +12,14 @@ export const RAIL_ITEMS: Array<{
   label: string;
   href: string;
 }> = [
-  { id: 'home',     icon: 'home',   label: '主頁',     href: '/' },
-  { id: 'files',    icon: 'film',   label: '檔案',     href: '/' },
-  { id: 'proof',    icon: 'edit',   label: '校對',     href: '/' },
-  { id: 'pipeline', icon: 'flow',   label: 'Pipeline', href: '/pipelines' },
-  { id: 'gloss',    icon: 'book',   label: '術語表',   href: '/glossaries' },
-  { id: 'lang',     icon: 'layers', label: '語言配置', href: '/' },
+  { id: 'home',     icon: 'home',     label: '主頁',     href: '/' },
+  { id: 'files',    icon: 'film',     label: '檔案',     href: '/' },
+  { id: 'proof',    icon: 'edit',     label: '校對',     href: '/' },
+  { id: 'pipeline', icon: 'flow',     label: 'Pipeline', href: '/pipelines' },
+  { id: 'asr',      icon: 'waveform', label: 'ASR',      href: '/asr_profiles' },
+  { id: 'mt',       icon: 'layers',   label: 'MT',       href: '/mt_profiles' },
+  { id: 'gloss',    icon: 'book',     label: '術語表',   href: '/glossaries' },
+  { id: 'admin',    icon: 'user',     label: '管理員',   href: '/admin' },
 ];
 
 interface BoldRailProps {
