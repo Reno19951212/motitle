@@ -70,19 +70,21 @@ export const router = createBrowserRouter([
       // layout — no Layout shell. Same pattern as Dashboard + Proofread +
       // AsrProfiles + MtProfiles.
       { path: 'glossaries', element: <Glossaries /> },
+      // Admin (iter 5 of Bold redesign — FINAL) renders its own full-page
+      // Bold layout — no Layout shell. Same pattern as iters 1-4.
+      {
+        path: 'admin',
+        element: (
+          <RequireAdmin>
+            <Admin />
+          </RequireAdmin>
+        ),
+      },
       // All other pages use the existing Layout (TopBar + SideNav)
       {
         element: <Layout />,
         children: [
           { path: 'pipelines', element: <Pipelines /> },
-          {
-            path: 'admin',
-            element: (
-              <RequireAdmin>
-                <Admin />
-              </RequireAdmin>
-            ),
-          },
         ],
       },
     ],

@@ -1335,3 +1335,10 @@
   background: var(--surface);
 }
 .motitle-bold .csv-actions { display: flex; gap: 8px; align-items: center; }
+
+/* ============================================================
+ * Iter 5 — Admin page
+ * ============================================================ */
+.motitle-bold .user-row .user-actions { display: flex; gap: 6px; flex-wrap: wrap; padding-left: 36px; }
+.motitle-bold .audit-table tbody tr:hover { background: var(--surface-2); }
+.motitle-bold .audit-filters select:focus { outline: none; border-color: var(--accent-ring); }
