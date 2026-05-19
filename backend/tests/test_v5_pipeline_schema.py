@@ -160,3 +160,49 @@ def test_promote_v4_missing_name_raises():
 def test_promote_v4_missing_asr_profile_id_raises():
     with pytest.raises(ValueError, match="missing required field: asr_profile_id"):
         promote_v4_to_v5({"id": "x", "name": "n"})
+
+
+def test_check_cascade_refs_unknown_transcribe_profile():
+    from pipeline_schema_v5 import check_cascade_refs
+    pipeline = {
+        "version": 5,
+        "asr_primary": {"transcribe_profile_id": "missing", "source_lang": "zh"},
+        "target_languages": ["zh"],
+        "refinements": {"zh": []},
+        "translators": {},
+        "glossary_stages": {},
+    }
+    refs = {
+        "transcribe": {"tp_existing"},
+        "translator": set(),
+        "refiner": set(),
+        "verifier": set(),
+        "glossary": set(),
+        "llm": set(),
+    }
+    broken = check_cascade_refs(pipeline, refs)
+    assert "asr_primary.transcribe_profile_id" in broken
+
+
+def test_check_cascade_refs_all_present():
+    from pipeline_schema_v5 import check_cascade_refs
+    pipeline = {
+        "version": 5,
+        "asr_primary": {"transcribe_profile_id": "tp1", "source_lang": "zh"},
+        "asr_secondary": {"transcribe_profile_id": "tp2", "source_lang": "zh"},
+        "asr_verifier": {"llm_profile_id": "llm1", "prompt_template_id": "v_zh_default"},
+        "target_languages": ["zh", "en"],
+        "refinements": {"zh": [{"refiner_profile_id": "rp1"}], "en": []},
+        "translators": {"en": {"translator_profile_id": "tr1"}},
+        "glossary_stages": {"zh": ["g1"], "zh_to_en": ["g2"]},
+    }
+    refs = {
+        "transcribe": {"tp1", "tp2"},
+        "translator": {"tr1"},
+        "refiner": {"rp1"},
+        "verifier": set(),
+        "glossary": {"g1", "g2"},
+        "llm": {"llm1"},
+    }
+    broken = check_cascade_refs(pipeline, refs)
+    assert broken == [], f"unexpected broken refs: {broken}"

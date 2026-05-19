@@ -151,3 +151,43 @@ def promote_v4_to_v5(v4: dict) -> dict:
             "outline_color": "black",
         }),
     }
+
+
+def check_cascade_refs(pipeline: dict, known_refs: dict) -> list:
+    """Return list of `field.path` strings whose ID isn't in the matching known_refs set.
+
+    known_refs keys: 'transcribe', 'translator', 'refiner', 'verifier', 'glossary', 'llm'.
+
+    Returns empty list when every referenced ID is present in its corresponding set.
+    """
+    broken: list = []
+
+    primary = pipeline.get("asr_primary") or {}
+    if primary.get("transcribe_profile_id") and primary["transcribe_profile_id"] not in known_refs.get("transcribe", set()):
+        broken.append("asr_primary.transcribe_profile_id")
+
+    secondary = pipeline.get("asr_secondary")
+    if secondary and secondary.get("transcribe_profile_id") and secondary["transcribe_profile_id"] not in known_refs.get("transcribe", set()):
+        broken.append("asr_secondary.transcribe_profile_id")
+
+    verifier = pipeline.get("asr_verifier")
+    if verifier and verifier.get("llm_profile_id") and verifier["llm_profile_id"] not in known_refs.get("llm", set()):
+        broken.append("asr_verifier.llm_profile_id")
+
+    for lang, refiner_list in (pipeline.get("refinements") or {}).items():
+        for i, entry in enumerate(refiner_list):
+            rp = entry.get("refiner_profile_id") if isinstance(entry, dict) else None
+            if rp and rp not in known_refs.get("refiner", set()):
+                broken.append(f"refinements.{lang}[{i}].refiner_profile_id")
+
+    for lang, t in (pipeline.get("translators") or {}).items():
+        tr = t.get("translator_profile_id") if isinstance(t, dict) else None
+        if tr and tr not in known_refs.get("translator", set()):
+            broken.append(f"translators.{lang}.translator_profile_id")
+
+    for key, glossaries in (pipeline.get("glossary_stages") or {}).items():
+        for i, g in enumerate(glossaries):
+            if g and g not in known_refs.get("glossary", set()):
+                broken.append(f"glossary_stages.{key}[{i}]")
+
+    return broken
