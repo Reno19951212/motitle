@@ -25,7 +25,7 @@ export default function Login() {
   async function onSubmit(data: LoginData) {
     setAuthError(null);
     try {
-      await apiFetch('/login', { method: 'POST', body: JSON.stringify(data) });
+      await apiFetch('/api/login', { method: 'POST', body: JSON.stringify(data) });
       const me = await apiFetch<User>('/api/me');
       setUser(me);
       navigate('/');

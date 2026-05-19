@@ -8,6 +8,7 @@ import { useSocket } from '@/providers/SocketProvider';
 import { usePipelinePickerStore } from '@/stores/pipeline-picker';
 import type { PipelineBrokenRefs, PipelineSummary } from '@/stores/pipeline-picker';
 import { useUIStore } from '@/stores/ui';
+import { useAuthStore } from '@/stores/auth';
 import { useProfileLookupStore } from '@/stores/profile-lookup';
 import type {
   AsrProfileLookup,
@@ -688,8 +689,21 @@ function PipelineStrip() {
 
 function BoldTopbar({ onRun }: { onRun?: () => void }) {
   const { state: socketState } = useSocket();
+  const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const clearUser = useAuthStore((s) => s.clearUser);
   const [asrEngines, setAsrEngines] = useState<EngineProbeItem[] | null>(null);
   const [mtEngines, setMtEngines] = useState<EngineProbeItem[] | null>(null);
+
+  async function handleLogout() {
+    try {
+      await apiFetch('/api/logout', { method: 'POST' });
+    } catch {
+      /* ignore */
+    }
+    clearUser();
+    navigate('/login');
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -772,6 +786,16 @@ function BoldTopbar({ onRun }: { onRun?: () => void }) {
           <span className="hk">即時</span>
           <span className="hv">{socketConnected ? '已連' : '離線'}</span>
         </div>
+        <button
+          className="health-pill"
+          onClick={handleLogout}
+          title={user ? `登出 ${user.username}` : '登出'}
+          style={{ cursor: 'pointer' }}
+        >
+          <Icon name="user" size={11} />
+          <span className="hk">{user?.username ?? '—'}</span>
+          <span className="hv">Logout</span>
+        </button>
       </div>
     </div>
   );

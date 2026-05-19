@@ -10,7 +10,7 @@ export function TopBar() {
 
   async function handleLogout() {
     try {
-      await apiFetch('/logout', { method: 'POST' });
+      await apiFetch('/api/logout', { method: 'POST' });
     } catch {
       /* ignore */
     }
