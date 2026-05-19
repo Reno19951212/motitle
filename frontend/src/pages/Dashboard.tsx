@@ -812,10 +812,18 @@ function DropHero() {
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
       if (!acceptedFiles.length) return;
+      if (!pipelineId) {
+        pushToast({
+          title: '請先揀 Pipeline',
+          description: '上傳之前需要喺左上 Pipeline 預設度揀一個（或者去 /pipelines 創建）',
+          variant: 'destructive',
+        });
+        return;
+      }
       for (const file of acceptedFiles) {
         const fd = new FormData();
         fd.append('file', file);
-        if (pipelineId) fd.append('pipeline_id', pipelineId);
+        fd.append('pipeline_id', pipelineId);
         try {
           const r = await fetch('/api/transcribe', {
             method: 'POST',
@@ -829,6 +837,8 @@ function DropHero() {
               description: String((body as { error?: string }).error ?? r.statusText),
               variant: 'destructive',
             });
+          } else {
+            pushToast({ title: '已上傳', description: `${file.name} · 等候處理中` });
           }
         } catch (e) {
           pushToast({ title: '上傳失敗', description: String(e), variant: 'destructive' });
