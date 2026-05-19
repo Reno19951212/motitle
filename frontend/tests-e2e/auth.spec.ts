@@ -10,13 +10,14 @@ test.describe('Auth flow', () => {
     await page.fill('#password', 'AdminPass1!');
     await page.click('button:has-text("Log in")');
 
-    // Land on dashboard (root) — TopBar visible
+    // Land on Bold Dashboard at root — .b-topbar replaces <header>
     await expect(page).toHaveURL('/', { timeout: 10_000 });
-    await expect(page.locator('header').getByText('MoTitle')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Logout' })).toBeVisible();
+    await expect(page.locator('.b-topbar')).toBeVisible();
+    const logoutBtn = page.locator('.b-topbar .health-cluster button:has-text("Logout")');
+    await expect(logoutBtn).toBeVisible();
 
     // Logout returns to /login
-    await page.getByRole('button', { name: 'Logout' }).click();
+    await logoutBtn.click();
     await expect(page).toHaveURL(/\/login/);
   });
 
