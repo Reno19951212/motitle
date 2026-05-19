@@ -117,7 +117,29 @@ Notes:
 
 ---
 
-## Batch B — Pipeline Strip [STATUS: not_started]
+## Batch B — Pipeline Strip [STATUS: fixed]
+**Fixed in commit**: (see commit log — `feat(frontend-redesign): data-driven pipeline strip with variable stages (Batch B)`)
+
+Notes:
+- `PipelineStrip` is now data-driven via `useProfileLookupStore` (Batch F cache).
+  Chips render: ASR + N MT (squashed when > `MT_SQUASH_THRESHOLD` = 3) +
+  Glossary. **Output chip removed** — output format is per-render-job, not
+  a pipeline stage.
+- Step popovers are **read-only summaries** with "編輯 →" links to
+  `/asr_profiles` / `/mt_profiles` / `/glossaries`. Inline model swap
+  semantics dropped (profiles bundle engine+model+lang+params; per-model
+  swap isn't meaningful — switch the whole pipeline via the preset
+  dropdown).
+- Glossary chip handles 3 states: 未啟用 (disabled) / 未設定 (enabled but
+  empty `glossary_ids`) / N 個術語表 (or single name) when resolved. Greyed
+  style applied when disabled or empty.
+- Loading UX: chips show "…" rather than "—" while the lookup cache resolves
+  (per audit guidance).
+- CSS: added `flex-wrap: wrap` + `row-gap: 3px` to `.pipeline-strip` for
+  variable count safety on narrow viewports (e.g. 7 chips: preset + ASR +
+  3 MT + glossary + arrows). No color/spacing restyling.
+- `MT_SQUASH_THRESHOLD = 3` retained from Batch F (Inspector stages-track
+  uses the same constant, now hoisted to the top of the file).
 
 **Affected files**:
 - `frontend/src/pages/Dashboard.tsx:138-187` (`PipelineStep` component)
