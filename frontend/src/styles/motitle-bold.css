@@ -287,6 +287,8 @@
 .motitle-bold .topbar-mid .pipeline-strip { flex: 1; min-width: 0; }
 .motitle-bold .b-topbar .pipeline-strip {
   display: flex; align-items: center;
+  flex-wrap: wrap;
+  row-gap: 3px;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 10px;

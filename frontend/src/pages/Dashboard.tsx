@@ -12,6 +12,7 @@ import { useProfileLookupStore } from '@/stores/profile-lookup';
 import type {
   AsrProfileLookup,
   MtProfileLookup,
+  GlossaryLookup,
   PipelineLookup,
 } from '@/stores/profile-lookup';
 import { apiFetch, ApiError } from '@/lib/api';
@@ -237,56 +238,278 @@ function BoldRail() {
   );
 }
 
+/** Squash threshold: more than this many MT stages collapses into one chip. */
+const MT_SQUASH_THRESHOLD = 3;
+
 // ---------------------------------------------------------------------------
-// PipelineStrip — reads from usePipelinePickerStore
+// PipelineStrip — data-driven per audit Batch B
+//
+// Renders the active pipeline as variable-length chip strip:
+//   [Pipeline preset] · ASR · → · MT (× N or squashed) · → · Glossary
+//
+// There is no "Output" chip — output format is chosen per-render-job
+// (render modal payload), not stored on the pipeline.
+//
+// Step popovers are read-only summaries (name / engine / model / language)
+// with a "編輯 →" link to /pipelines. Inline editing is out of scope; a
+// profile bundles engine+model+lang+params and switching one model isn't
+// a meaningful operation here — switch the whole pipeline via the preset
+// dropdown to the left.
+//
+// Profile resolution reuses `useProfileLookupStore` from Batch F so we
+// avoid duplicate fetches when the inspector also resolves the same ids.
 // ---------------------------------------------------------------------------
 
-interface StepMenuOption {
-  name: string;
-  badge?: string;
-  desc?: string;
-  current?: boolean;
-}
-
-function PipelineStep({
-  icon,
-  k,
-  v,
-  options,
-  width = 180,
-  alignRight = false,
+/** ASR step chip with read-only summary popover. */
+function PipelineAsrStep({
+  asrId,
+  asrProfile,
 }: {
-  icon: IconName;
-  k: string;
-  v: string;
-  options: StepMenuOption[];
-  width?: number;
-  alignRight?: boolean;
+  asrId: string;
+  asrProfile: AsrProfileLookup | null | undefined;
 }) {
+  const v = asrProfile
+    ? asrProfile.name || asrProfile.model_size || asrProfile.engine || asrId
+    : '…';
+  const isLoading = asrProfile === null || asrProfile === undefined;
   return (
     <div className="step" style={{ position: 'relative' }}>
-      <Icon name={icon} size={12} color="var(--accent-2)" />
+      <Icon name="waveform" size={12} color="var(--accent-2)" />
       <div>
-        <div className="k">{k}</div>
+        <div className="k">ASR</div>
         <div className="v">{v}</div>
       </div>
       <Icon name="caret" size={10} />
-      <div className="step-menu" style={{ minWidth: width, ...(alignRight ? { left: 'auto', right: 0 } : {}) }}>
-        <div className="step-menu-head">{k} · 選擇</div>
-        {options.map((o, i) => (
-          <button key={i} className={o.current ? 'on' : ''}>
+      <div className="step-menu" style={{ minWidth: 240 }}>
+        <div className="step-menu-head">ASR · 詳情</div>
+        {isLoading ? (
+          <div style={{ padding: '8px 10px', fontSize: 12, color: 'var(--text-dim)' }}>
+            載入中…
+          </div>
+        ) : (
+          <div style={{ padding: '6px 10px', display: 'flex', flexDirection: 'column', gap: 3 }}>
             <div className="smn-main">
-              <span className="smn-name">{o.name}</span>
-              {o.badge && <span className="smn-badge">{o.badge}</span>}
+              <span className="smn-name">{asrProfile?.name ?? '—'}</span>
             </div>
-            {o.desc && <div className="smn-desc">{o.desc}</div>}
-          </button>
-        ))}
+            <div className="smn-desc">引擎：{asrProfile?.engine ?? '—'}</div>
+            {asrProfile?.model_size && (
+              <div className="smn-desc">模型：{asrProfile.model_size}</div>
+            )}
+            {asrProfile?.language && (
+              <div className="smn-desc">語言：{asrProfile.language}</div>
+            )}
+            {asrProfile?.device && (
+              <div className="smn-desc">裝置：{asrProfile.device}</div>
+            )}
+          </div>
+        )}
         <div className="split-divider" />
-        <button className="smn-manage">
-          <span className="fmt-badge outline">⚙</span>
-          <span className="fmt-desc">管理 / 新增…</span>
-        </button>
+        <Link
+          to="/asr_profiles"
+          className="smn-manage"
+          style={{ display: 'flex', gap: 8, padding: '7px 10px', borderRadius: 6, fontSize: 13, color: 'var(--text-mid)', alignItems: 'center' }}
+        >
+          <span className="fmt-badge outline">✎</span>
+          <span className="fmt-desc">編輯 ASR Profile →</span>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+/** Single MT step chip with read-only summary popover. */
+function PipelineMtStep({
+  index,
+  total,
+  mtId,
+  mtProfile,
+}: {
+  index: number;
+  total: number;
+  mtId: string;
+  mtProfile: MtProfileLookup | null | undefined;
+}) {
+  const label = total > 1 ? `MT ${index + 1}` : 'MT';
+  const v = mtProfile
+    ? mtProfile.name || mtProfile.engine || mtId
+    : '…';
+  const isLoading = mtProfile === null || mtProfile === undefined;
+  return (
+    <div className="step" style={{ position: 'relative' }}>
+      <Icon name="layers" size={12} color="var(--accent-2)" />
+      <div>
+        <div className="k">{label}</div>
+        <div className="v">{v}</div>
+      </div>
+      <Icon name="caret" size={10} />
+      <div className="step-menu" style={{ minWidth: 240 }}>
+        <div className="step-menu-head">{label} · 詳情</div>
+        {isLoading ? (
+          <div style={{ padding: '8px 10px', fontSize: 12, color: 'var(--text-dim)' }}>
+            載入中…
+          </div>
+        ) : (
+          <div style={{ padding: '6px 10px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div className="smn-main">
+              <span className="smn-name">{mtProfile?.name ?? '—'}</span>
+            </div>
+            <div className="smn-desc">引擎：{mtProfile?.engine ?? '—'}</div>
+            {(mtProfile?.input_lang || mtProfile?.output_lang) && (
+              <div className="smn-desc">
+                語向：{mtProfile?.input_lang ?? '?'} → {mtProfile?.output_lang ?? '?'}
+              </div>
+            )}
+            {typeof mtProfile?.batch_size === 'number' && (
+              <div className="smn-desc">Batch：{mtProfile.batch_size}</div>
+            )}
+          </div>
+        )}
+        <div className="split-divider" />
+        <Link
+          to="/mt_profiles"
+          className="smn-manage"
+          style={{ display: 'flex', gap: 8, padding: '7px 10px', borderRadius: 6, fontSize: 13, color: 'var(--text-mid)', alignItems: 'center' }}
+        >
+          <span className="fmt-badge outline">✎</span>
+          <span className="fmt-desc">編輯 MT Profile →</span>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+/** Squashed MT chip (>3 stages) — lists every stage in popover. */
+function PipelineMtSquashedStep({
+  mtIds,
+  mtProfiles,
+}: {
+  mtIds: string[];
+  mtProfiles: Array<MtProfileLookup | null | undefined>;
+}) {
+  return (
+    <div className="step" style={{ position: 'relative' }}>
+      <Icon name="layers" size={12} color="var(--accent-2)" />
+      <div>
+        <div className="k">MT</div>
+        <div className="v">{`× ${mtIds.length}`}</div>
+      </div>
+      <Icon name="caret" size={10} />
+      <div className="step-menu" style={{ minWidth: 260 }}>
+        <div className="step-menu-head">MT 階段 · {mtIds.length} 段串接</div>
+        {mtIds.map((id, i) => {
+          const p = mtProfiles[i];
+          const isLoading = p === null || p === undefined;
+          return (
+            <div key={`${id}-${i}`} style={{ padding: '6px 10px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <div className="smn-main">
+                <span className="smn-name">
+                  {i + 1}. {isLoading ? '…' : p?.name || p?.engine || id}
+                </span>
+                {!isLoading && p?.engine && <span className="smn-badge">{p.engine}</span>}
+              </div>
+              {!isLoading && (p?.input_lang || p?.output_lang) && (
+                <div className="smn-desc">
+                  {p?.input_lang ?? '?'} → {p?.output_lang ?? '?'}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        <div className="split-divider" />
+        <Link
+          to="/mt_profiles"
+          className="smn-manage"
+          style={{ display: 'flex', gap: 8, padding: '7px 10px', borderRadius: 6, fontSize: 13, color: 'var(--text-mid)', alignItems: 'center' }}
+        >
+          <span className="fmt-badge outline">✎</span>
+          <span className="fmt-desc">編輯 MT Profile →</span>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+/** Glossary step chip — reads `pipeline.glossary_stage`. */
+function PipelineGlossaryStep({
+  enabled,
+  glossaryIds,
+  glossaries,
+}: {
+  enabled: boolean;
+  glossaryIds: string[];
+  glossaries: Array<GlossaryLookup | null | undefined>;
+}) {
+  const count = glossaryIds.length;
+  // Display value: enabled state + count or first name
+  let v: string;
+  const greyed = !enabled || count === 0;
+  if (!enabled) {
+    v = '未啟用';
+  } else if (count === 0) {
+    v = '未設定';
+  } else if (count === 1) {
+    const g = glossaries[0];
+    if (g === null || g === undefined) v = '…';
+    else v = g.name || glossaryIds[0] || '—';
+  } else {
+    v = `${count} 個術語表`;
+  }
+  return (
+    <div
+      className="step step-gloss"
+      title="執行時套用嘅術語表"
+      style={{
+        position: 'relative',
+        ...(greyed ? { opacity: 0.55 } : {}),
+      }}
+    >
+      <Icon name="book" size={12} color="var(--accent)" />
+      <div>
+        <div className="k">術語表</div>
+        <div className="v">{v}</div>
+      </div>
+      <Icon name="caret" size={10} />
+      <div className="step-menu" style={{ minWidth: 260, right: 0, left: 'auto' }}>
+        <div className="step-menu-head">術語表 · 詳情</div>
+        {!enabled ? (
+          <div style={{ padding: '8px 10px', fontSize: 12, color: 'var(--text-dim)' }}>
+            此 Pipeline 已停用術語階段。
+          </div>
+        ) : count === 0 ? (
+          <div style={{ padding: '8px 10px', fontSize: 12, color: 'var(--text-dim)' }}>
+            已啟用但未設定任何術語表。
+          </div>
+        ) : (
+          glossaryIds.map((id, i) => {
+            const g = glossaries[i];
+            const isLoading = g === null || g === undefined;
+            return (
+              <div key={`${id}-${i}`} style={{ padding: '6px 10px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <div className="smn-main">
+                  <span className="smn-name">{isLoading ? '…' : g?.name || id}</span>
+                  {!isLoading && (g?.source_lang || g?.target_lang) && (
+                    <span className="smn-badge">
+                      {(g?.source_lang ?? '?').toUpperCase()}→
+                      {(g?.target_lang ?? '?').toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                {!isLoading && typeof g?.entry_count === 'number' && (
+                  <div className="smn-desc">{g.entry_count} 個條目</div>
+                )}
+              </div>
+            );
+          })
+        )}
+        <div className="split-divider" />
+        <Link
+          to="/glossaries"
+          className="smn-manage"
+          style={{ display: 'flex', gap: 8, padding: '7px 10px', borderRadius: 6, fontSize: 13, color: 'var(--text-mid)', alignItems: 'center' }}
+        >
+          <span className="fmt-badge outline">✎</span>
+          <span className="fmt-desc">編輯術語表 →</span>
+        </Link>
       </div>
     </div>
   );
@@ -295,13 +518,60 @@ function PipelineStep({
 function PipelineStrip() {
   const { pipelines, pipelineId, setPipelineId, refresh } = usePipelinePickerStore();
 
+  // Reuse the Batch F profile-lookup cache so we don't duplicate fetches
+  // when BoldInspector resolves the same ids on the right column.
+  const fetchPipeline = useProfileLookupStore((s) => s.fetchPipeline);
+  const fetchAsr = useProfileLookupStore((s) => s.fetchAsr);
+  const fetchMt = useProfileLookupStore((s) => s.fetchMt);
+  const fetchGlossary = useProfileLookupStore((s) => s.fetchGlossary);
+  const cachedPipelines = useProfileLookupStore((s) => s.pipelines);
+  const cachedAsrProfiles = useProfileLookupStore((s) => s.asrProfiles);
+  const cachedMtProfiles = useProfileLookupStore((s) => s.mtProfiles);
+  const cachedGlossaries = useProfileLookupStore((s) => s.glossaries);
+
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  const activePipeline = pipelines.find((p) => p.id === pipelineId) ?? pipelines[0];
-  const activeName = activePipeline?.name ?? '新聞廣播 · TC';
-  const activeBrokenTooltip = brokenRefsTooltip(activePipeline);
+  // Pick the active pipeline summary (from picker store) — used for name +
+  // broken_refs warning. The full schema (mt_stages / glossary_stage) lives
+  // in the lookup cache and gets fetched below.
+  const activePipelineSummary =
+    pipelines.find((p) => p.id === pipelineId) ?? pipelines[0] ?? null;
+  const activeName = activePipelineSummary?.name ?? '—';
+  const activeBrokenTooltip = brokenRefsTooltip(activePipelineSummary);
+
+  // Cascade-fetch full pipeline → ASR profile + MT profiles + glossary list.
+  const activeFullId = activePipelineSummary?.id ?? null;
+  useEffect(() => {
+    if (activeFullId) void fetchPipeline(activeFullId);
+  }, [activeFullId, fetchPipeline]);
+
+  const activeFull = activeFullId ? cachedPipelines[activeFullId] ?? null : null;
+
+  useEffect(() => {
+    if (activeFull?.asr_profile_id) {
+      void fetchAsr(activeFull.asr_profile_id);
+    }
+    if (Array.isArray(activeFull?.mt_stages)) {
+      for (const mtId of activeFull.mt_stages) {
+        void fetchMt(mtId);
+      }
+    }
+    const gIds = activeFull?.glossary_stage?.glossary_ids ?? [];
+    for (const gId of gIds) {
+      void fetchGlossary(gId);
+    }
+  }, [activeFull, fetchAsr, fetchMt, fetchGlossary]);
+
+  const asrProfile = activeFull?.asr_profile_id
+    ? cachedAsrProfiles[activeFull.asr_profile_id] ?? null
+    : null;
+  const mtIds = activeFull?.mt_stages ?? [];
+  const mtProfiles = mtIds.map((id) => cachedMtProfiles[id] ?? null);
+  const glossEnabled = !!activeFull?.glossary_stage?.enabled;
+  const glossaryIds = activeFull?.glossary_stage?.glossary_ids ?? [];
+  const glossaries = glossaryIds.map((id) => cachedGlossaries[id] ?? null);
 
   return (
     <div className="pipeline-strip" title="當前 Pipeline 組合">
@@ -312,7 +582,7 @@ function PipelineStrip() {
             <div className="pp-k">Pipeline</div>
             <div className="pp-v" style={{ display: 'inline-flex', alignItems: 'center' }}>
               {activeName}
-              {hasBrokenRefs(activePipeline) && (
+              {hasBrokenRefs(activePipelineSummary) && (
                 <BrokenRefsDot title={activeBrokenTooltip} />
               )}
             </div>
@@ -364,64 +634,50 @@ function PipelineStrip() {
         </div>
       </div>
       <span className="sep" />
-      <PipelineStep
-        icon="waveform"
-        k="ASR"
-        v="large-v3"
-        options={[
-          { name: 'large-v3', badge: 'GPU', desc: '最高準確度 · 慢 1.0×', current: true },
-          { name: 'medium', badge: 'GPU', desc: '平衡 · 0.4× RT' },
-          { name: 'small', badge: 'CPU', desc: '快速 · 0.15× RT' },
-        ]}
-      />
-      <span className="arrow">→</span>
-      <PipelineStep
-        icon="layers"
-        k="MT"
-        v="qwen3:235b"
-        options={[
-          { name: 'qwen3:235b', badge: '本地', desc: '142 tok/s · 香港中文最佳', current: true },
-          { name: 'qwen3:32b', badge: '本地', desc: '380 tok/s · 日常稿件' },
-          { name: 'DeepSeek V3', badge: 'API', desc: '成本較低 · 準確度高' },
-          { name: 'GPT-4o', badge: 'API', desc: '高品質 · 較貴' },
-        ]}
-        width={220}
-      />
-      <span className="arrow">→</span>
-      <PipelineStep
-        icon="film"
-        k="輸出"
-        v="H.264 · MP4"
-        options={[
-          { name: 'H.264 · MP4', desc: '通用播放 · CRF 20', current: true },
-          { name: 'ProRes · MOV', desc: '後期剪輯 · 大檔案' },
-          { name: 'VP9 · WebM', desc: '網頁串流' },
-          { name: '— 只輸出字幕 —', desc: '不重新編碼影片' },
-        ]}
-      />
-      <span className="arrow">→</span>
-      <div className="step step-gloss" title="執行時套用嘅術語表" style={{ position: 'relative' }}>
-        <Icon name="book" size={12} color="var(--accent)" />
-        <div>
-          <div className="k">術語表</div>
-          <div className="v">—</div>
+      {/* No pipeline loaded yet: stub the strip with a single placeholder so
+          the layout doesn't collapse. */}
+      {!activeFull ? (
+        <div className="step" style={{ opacity: 0.6 }}>
+          <Icon name="waveform" size={12} color="var(--text-dim)" />
+          <div>
+            <div className="k">階段</div>
+            <div className="v">載入中…</div>
+          </div>
         </div>
-        <Icon name="caret" size={10} />
-        <div className="step-menu" style={{ minWidth: 240, right: 0, left: 'auto' }}>
-          <div className="step-menu-head">術語表 · 選擇</div>
-          <button>
-            <div className="smn-main">
-              <span className="smn-name">— 不使用 —</span>
-            </div>
-            <div className="smn-desc">跳過術語校正</div>
-          </button>
-          <div className="split-divider" />
-          <Link to="/glossaries" style={{ display: 'flex', gap: 8, padding: '7px 10px', borderRadius: 6, fontSize: 13, color: 'var(--text-mid)', alignItems: 'center' }}>
-            <span className="fmt-badge outline">+</span>
-            <span className="fmt-desc">新增 / 管理術語表…</span>
-          </Link>
-        </div>
-      </div>
+      ) : (
+        <>
+          {/* ASR — always present */}
+          {activeFull.asr_profile_id && (
+            <PipelineAsrStep asrId={activeFull.asr_profile_id} asrProfile={asrProfile} />
+          )}
+
+          {/* MT — variable count, squashed when > MT_SQUASH_THRESHOLD */}
+          {mtIds.length > 0 && <span className="arrow">→</span>}
+          {mtIds.length > MT_SQUASH_THRESHOLD ? (
+            <PipelineMtSquashedStep mtIds={mtIds} mtProfiles={mtProfiles} />
+          ) : (
+            mtIds.map((id, i) => (
+              <span key={`${id}-${i}`} style={{ display: 'contents' }}>
+                {i > 0 && <span className="arrow">→</span>}
+                <PipelineMtStep
+                  index={i}
+                  total={mtIds.length}
+                  mtId={id}
+                  mtProfile={mtProfiles[i]}
+                />
+              </span>
+            ))
+          )}
+
+          {/* Glossary — always rendered (shows 未啟用 when disabled) */}
+          <span className="arrow">→</span>
+          <PipelineGlossaryStep
+            enabled={glossEnabled}
+            glossaryIds={glossaryIds}
+            glossaries={glossaries}
+          />
+        </>
+      )}
     </div>
   );
 }
@@ -1043,9 +1299,6 @@ interface StagesTrackStep {
   pulse: boolean;
   showCheck: boolean;
 }
-
-/** Squash threshold: more than this many MT stages collapses into one chip. */
-const MT_SQUASH_THRESHOLD = 3;
 
 /**
  * Read stage_outputs from a file_added socket payload. Backend stores it as
