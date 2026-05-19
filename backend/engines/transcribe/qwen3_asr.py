@@ -14,7 +14,8 @@ from __future__ import annotations
 import json
 import subprocess
 from pathlib import Path
-from typing import Optional
+
+from asr import ASREngine
 
 
 _LANG_MAP = {
@@ -31,7 +32,7 @@ def _qwen3_language_name(source_lang: str) -> str:
     return _LANG_MAP.get(source_lang, "Cantonese")
 
 
-class Qwen3AsrTranscribeEngine:
+class Qwen3AsrTranscribeEngine(ASREngine):
     """v5-A1 TranscribeEngine implementation wrapping mlx-qwen3-asr via subprocess."""
 
     def __init__(self, profile: dict):
@@ -47,7 +48,7 @@ class Qwen3AsrTranscribeEngine:
     def transcribe(
         self,
         audio_path: str,
-        source_lang: str,
+        language: str = "zh",
         *,
         context: str = "",
         return_timestamps: bool = True,
@@ -58,13 +59,16 @@ class Qwen3AsrTranscribeEngine:
 
         Prefers chunk-level (sentence-boundary) output; falls back to
         word-level if chunks are empty.
+
+        `language` is an ISO-639-1 code (matching v4 ASREngine convention);
+        it is internally mapped to Qwen3's language label via _qwen3_language_name().
         """
-        language = _qwen3_language_name(source_lang)
+        qwen_language = _qwen3_language_name(language)
         model_full = f"Qwen/Qwen3-ASR-{self.model_size}"
         args = {
             "audio_path": audio_path,
             "model": model_full,
-            "language": language,
+            "language": qwen_language,
             "context": context,
             "return_timestamps": return_timestamps,
             "return_chunks": True,
@@ -92,3 +96,49 @@ class Qwen3AsrTranscribeEngine:
             {"start": w["start"], "end": w["end"], "text": w["text"]}
             for w in data.get("words", [])
         ]
+
+    def get_info(self) -> dict:
+        """Engine metadata for /api/asr/engines listing."""
+        return {
+            "engine": "qwen3-asr",
+            "model_size": self.model_size,
+            "languages": list(_LANG_MAP.keys()),
+            "subprocess": True,
+            "available": True,
+        }
+
+    def get_params_schema(self) -> dict:
+        """JSON schema describing configurable parameters for Qwen3-ASR."""
+        return {
+            "engine": "qwen3-asr",
+            "params": {
+                "model_size": {
+                    "type": "string",
+                    "label": "模型大小",
+                    "description": "Qwen3-ASR model size",
+                    "enum": ["0.6B", "1.7B"],
+                    "default": "1.7B",
+                },
+                "language": {
+                    "type": "string",
+                    "label": "語言",
+                    "description": "Source language code (ISO 639-1)",
+                    "enum": list(_LANG_MAP.keys()),
+                    "enum_labels": {
+                        "zh": "中文",
+                        "yue": "粵語",
+                        "en": "English",
+                        "ja": "日本語",
+                        "ko": "한국어",
+                    },
+                    "default": "zh",
+                },
+                "context": {
+                    "type": "string",
+                    "label": "Context Hint",
+                    "description": "Optional textual context to bias recognition",
+                    "default": "",
+                    "max_length": 512,
+                },
+            },
+        }

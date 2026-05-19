@@ -48,7 +48,7 @@ def test_qwen3_asr_runs_subprocess(monkeypatch, tmp_path):
     eng = Qwen3AsrTranscribeEngine({"engine": "qwen3-asr", "language": "zh"})
     audio = tmp_path / "fake.wav"
     audio.write_bytes(b"RIFF\x00\x00\x00\x00WAVE")  # minimal stub
-    segments = eng.transcribe(str(audio), source_lang="zh")
+    segments = eng.transcribe(str(audio), language="zh")
     # Chunks have priority over words for segment boundaries
     assert len(segments) == 1
     assert segments[0]["text"] == "hello chunk"
@@ -69,7 +69,7 @@ def test_qwen3_asr_falls_back_to_words_when_no_chunks(monkeypatch, tmp_path):
     eng = Qwen3AsrTranscribeEngine({"engine": "qwen3-asr", "language": "zh"})
     audio = tmp_path / "fake.wav"
     audio.write_bytes(b"RIFF")
-    segments = eng.transcribe(str(audio), source_lang="zh")
+    segments = eng.transcribe(str(audio), language="zh")
     assert len(segments) == 1
     assert segments[0]["text"] == "hello"
 
@@ -85,7 +85,16 @@ def test_qwen3_asr_raises_on_subprocess_failure(monkeypatch, tmp_path):
     audio.write_bytes(b"RIFF")
     import pytest
     with pytest.raises(RuntimeError, match="Qwen3-ASR subprocess failed"):
-        eng.transcribe(str(audio), source_lang="zh")
+        eng.transcribe(str(audio), language="zh")
+
+
+def test_qwen3_asr_isinstance_of_asr_engine():
+    """Qwen3AsrTranscribeEngine must inherit ASREngine ABC so A2 pipeline_runner
+    isinstance dispatch works correctly."""
+    from engines.transcribe.qwen3_asr import Qwen3AsrTranscribeEngine
+    from asr import ASREngine
+    eng = Qwen3AsrTranscribeEngine({"engine": "qwen3-asr", "model_size": "1.7B"})
+    assert isinstance(eng, ASREngine)
 
 
 def test_qwen3_asr_language_mapping():
