@@ -61,3 +61,86 @@ def test_asr_secondary_stage_type_and_ref():
     stage = ASRSecondaryStage(profile, "/tmp/fake.wav")
     assert stage.stage_type == "asr_secondary"
     assert stage.stage_ref == "tp2"
+
+
+def test_asr_verifier_stage_judges_disagreement():
+    """ASRVerifierStage routes (primary, secondary) to LLMVerifier."""
+    from stages.v5.asr_verifier_stage import ASRVerifierStage
+    fake_llm = Mock()
+    fake_llm.call.return_value = "judged"
+    verifier_profile = {
+        "id": "vp1",
+        "lang": "zh",
+        "llm_profile_id": "lp1",
+        "prompt_template_id": "verifier/zh_default",
+    }
+    llm_profile = {"id": "lp1", "backend": "ollama", "model": "m", "base_url": "http://x"}
+
+    stage = ASRVerifierStage(
+        verifier_profile=verifier_profile,
+        llm_profile=llm_profile,
+    )
+    primary = [{"start": 0.0, "end": 1.0, "text": "whisper said"}]
+    secondary = [{"start": 0.0, "end": 1.0, "text": "qwen said"}]
+    ctx = StageContext(
+        file_id="f1", user_id=1, pipeline_id="p1",
+        stage_index=2, cancel_event=None,
+        progress_callback=None,
+        pipeline_overrides={"__secondary_segments": secondary},
+    )
+    with patch("stages.v5.asr_verifier_stage.build_llm_engine", return_value=fake_llm):
+        out = stage.transform(primary, ctx)
+    assert out == [{"start": 0.0, "end": 1.0, "text": "judged"}]
+
+
+def test_asr_verifier_stage_type_and_ref():
+    from stages.v5.asr_verifier_stage import ASRVerifierStage
+    verifier_profile = {"id": "vp1", "lang": "zh", "llm_profile_id": "lp1",
+                        "prompt_template_id": "verifier/zh_default"}
+    llm_profile = {"id": "lp1", "backend": "ollama", "model": "m", "base_url": "http://x"}
+    stage = ASRVerifierStage(verifier_profile=verifier_profile, llm_profile=llm_profile)
+    assert stage.stage_type == "asr_verifier"
+    assert stage.stage_ref == "vp1"
+
+
+def test_asr_verifier_stage_with_no_secondary_passes_primary_through():
+    """If __secondary_segments missing from ctx, primary passes through unchanged."""
+    from stages.v5.asr_verifier_stage import ASRVerifierStage
+    verifier_profile = {"id": "vp1", "lang": "zh", "llm_profile_id": "lp1",
+                        "prompt_template_id": "verifier/zh_default"}
+    llm_profile = {"id": "lp1", "backend": "ollama", "model": "m", "base_url": "http://x"}
+    stage = ASRVerifierStage(verifier_profile=verifier_profile, llm_profile=llm_profile)
+    primary = [{"start": 0.0, "end": 1.0, "text": "whisper"}]
+    ctx = StageContext(
+        file_id="f1", user_id=1, pipeline_id="p1",
+        stage_index=2, cancel_event=None,
+        progress_callback=None, pipeline_overrides={},
+    )
+    out = stage.transform(primary, ctx)
+    assert out == primary
+
+
+def test_asr_verifier_stage_uses_file_prompt_override():
+    """ctx.pipeline_overrides['verifier'] (file-level) overrides template default."""
+    from stages.v5.asr_verifier_stage import ASRVerifierStage
+    fake_llm = Mock()
+    fake_llm.call.return_value = "verdict"
+    verifier_profile = {"id": "vp1", "lang": "zh", "llm_profile_id": "lp1",
+                        "prompt_template_id": "verifier/zh_default"}
+    llm_profile = {"id": "lp1", "backend": "ollama", "model": "m", "base_url": "http://x"}
+    stage = ASRVerifierStage(verifier_profile=verifier_profile, llm_profile=llm_profile)
+    primary = [{"start": 0.0, "end": 1.0, "text": "whisper text"}]
+    secondary = [{"start": 0.0, "end": 1.0, "text": "qwen text"}]
+    ctx = StageContext(
+        file_id="f1", user_id=1, pipeline_id="p1", stage_index=2,
+        cancel_event=None, progress_callback=None,
+        pipeline_overrides={
+            "__secondary_segments": secondary,
+            "verifier": "CUSTOM VERIFIER PROMPT",
+        },
+    )
+    with patch("stages.v5.asr_verifier_stage.build_llm_engine", return_value=fake_llm):
+        stage.transform(primary, ctx)
+    # The system prompt sent to LLM should be the override, not the template
+    sent_system = fake_llm.call.call_args.args[0]
+    assert sent_system == "CUSTOM VERIFIER PROMPT"
