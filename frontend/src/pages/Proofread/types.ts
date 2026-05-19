@@ -28,7 +28,9 @@ export interface FileDetail {
   original_name: string;
   status: string;
   pipeline_id?: string | null;
-  stage_outputs?: StageOutput[];
+  // Backend writes stage_outputs as a dict keyed by str(stage_index).
+  // Consumers should normalize to an array via Object.entries(...) sort.
+  stage_outputs?: StageOutput[] | Record<string, StageOutput>;
   subtitle_source?: 'auto' | 'source' | 'target' | 'bilingual';
   bilingual_order?: 'source_top' | 'target_top';
   prompt_overrides?: Record<string, unknown> | null;

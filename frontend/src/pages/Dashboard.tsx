@@ -1314,6 +1314,97 @@ function BoldWorkbench({
 }
 
 // ---------------------------------------------------------------------------
+// InspectorTranscriptPreview — inline first-N segments preview
+// (Un-defers Batch F's deferred 實時字幕 inline preview)
+// ---------------------------------------------------------------------------
+
+interface SegmentPreview {
+  start: number;
+  end: number;
+  text: string;
+}
+
+function fmtTimestamp(sec: number): string {
+  const total = Math.max(0, Math.floor(sec));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function InspectorTranscriptPreview({ fileId }: { fileId: string }) {
+  const [segs, setSegs] = useState<SegmentPreview[] | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSegs(null);
+    setErr(null);
+    apiFetch<{ segments: SegmentPreview[] }>(`/api/files/${fileId}/segments`)
+      .then((r) => {
+        if (!cancelled) setSegs(r.segments ?? []);
+      })
+      .catch((e) => {
+        if (!cancelled) setErr(e instanceof Error ? e.message : 'load failed');
+      });
+    return () => { cancelled = true; };
+  }, [fileId]);
+
+  if (err) {
+    return (
+      <div className="transcript-scroll">
+        <div className="empty"><div className="empty-sub">字幕載入失敗：{err}</div></div>
+      </div>
+    );
+  }
+  if (segs === null) {
+    return (
+      <div className="transcript-scroll">
+        <div className="empty"><div className="empty-sub">載入中…</div></div>
+      </div>
+    );
+  }
+  if (segs.length === 0) {
+    return (
+      <div className="transcript-scroll">
+        <div className="empty"><div className="empty-sub">尚無字幕。Pipeline 完成後將顯示。</div></div>
+      </div>
+    );
+  }
+
+  const preview = segs.slice(0, 25);
+  const remaining = segs.length - preview.length;
+
+  return (
+    <div className="transcript-scroll" style={{ padding: 4, fontSize: 12, lineHeight: 1.45 }}>
+      {preview.map((s, i) => (
+        <div
+          key={i}
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '50px 1fr',
+            gap: 8,
+            padding: '4px 6px',
+            borderRadius: 4,
+            background: i % 2 === 0 ? 'transparent' : 'var(--surface-2)',
+          }}
+        >
+          <span className="dim" style={{ fontSize: 10 }}>{fmtTimestamp(s.start)}</span>
+          <span>{s.text}</span>
+        </div>
+      ))}
+      {remaining > 0 && (
+        <div
+          className="dim"
+          style={{ padding: '8px 6px', fontSize: 11 }}
+        >
+          … 仲有 {remaining} 段，去校對頁睇晒
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // BoldInspector — empty state when no file selected
 // ---------------------------------------------------------------------------
 
@@ -1700,33 +1791,14 @@ function BoldInspector({
                 <span className="counter">
                   <b>{file.approved}</b> / {file.segments} 段已批核
                 </span>
-                <div className="ts-filter">
-                  <button className="on">全部</button>
-                  <button>未批核</button>
-                  <button>已編輯</button>
-                </div>
+                <Link
+                  to={`/proofread/${file.id}`}
+                  style={{ color: 'var(--accent-2)', fontSize: 11 }}
+                >
+                  校對頁 →
+                </Link>
               </div>
-              <div className="transcript-scroll">
-                <div className="empty">
-                  <div className="empty-sub">
-                    前往
-                    <Link
-                      to={`/proofread/${file.id}`}
-                      style={{ color: 'var(--accent-2)', margin: '0 4px' }}
-                    >
-                      校對頁面
-                    </Link>
-                    以查看完整字幕列表
-                  </div>
-                </div>
-              </div>
-              <div className="ts-foot">
-                <span className="kbd">J</span>
-                <span className="kbd">K</span>
-                <span className="dim" style={{ fontSize: 11 }}>
-                  上/下一句
-                </span>
-              </div>
+              <InspectorTranscriptPreview fileId={file.id} />
             </div>
           </div>
         )}

@@ -19,7 +19,15 @@ export function StageHistorySidebar({ open, file, segmentIdx, onClose, onSaved }
   const [saving, setSaving] = useState(false);
 
   if (!open || !file || segmentIdx === null) return null;
-  const stages = file.stage_outputs ?? [];
+  // Backend writes stage_outputs as a dict keyed by str(stage_index).
+  const rawStages = file.stage_outputs;
+  const stages = Array.isArray(rawStages)
+    ? rawStages
+    : rawStages && typeof rawStages === 'object'
+      ? Object.entries(rawStages)
+          .sort(([a], [b]) => Number(a) - Number(b))
+          .map(([, v]) => v as typeof rawStages[string])
+      : [];
 
   async function handleSave(stageIdx: number) {
     if (!file) return;

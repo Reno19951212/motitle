@@ -22,7 +22,16 @@ export function StageRerunMenu({ file, onTriggered }: Props) {
     if (ref.current) ref.current.open = false;
   }
 
-  const stages = file.stage_outputs ?? [];
+  // Backend writes stage_outputs as a dict keyed by str(stage_index) — not an array.
+  // Normalize to an ordered array so .map works regardless of shape.
+  const rawStages = file.stage_outputs;
+  const stages = Array.isArray(rawStages)
+    ? rawStages
+    : rawStages && typeof rawStages === 'object'
+      ? Object.entries(rawStages)
+          .sort(([a], [b]) => Number(a) - Number(b))
+          .map(([, v]) => v as typeof rawStages[string])
+      : [];
 
   return (
     <details ref={ref} className="relative">

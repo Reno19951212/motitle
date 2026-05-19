@@ -357,6 +357,25 @@ def _fmt_vtt(seconds):
 
 
 # ============================================================
+# GET /api/files/<id> — single file entry (registry dict)
+# ============================================================
+
+@bp.get("/api/files/<file_id>")
+@require_file_owner
+def get_file_entry(file_id):
+    """Return the full registry entry for a single file. Used by Proofread
+    page's useFileData hook + any other surface that needs the entry without
+    pulling the whole /api/files list."""
+    import app as _app
+    with _app._registry_lock:
+        entry = _app._file_registry.get(file_id)
+    if not entry:
+        return jsonify({'error': '文件不存在'}), 404
+    # Shallow copy so callers can't mutate the registry through the response.
+    return jsonify(dict(entry))
+
+
+# ============================================================
 # GET /api/files/<id>/segments — segments list
 # ============================================================
 

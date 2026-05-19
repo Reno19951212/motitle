@@ -1,5 +1,5 @@
 // src/pages/Proofread/hooks/useSegmentEditor.ts
-import { useCallback, useReducer } from 'react';
+import { useCallback, useEffect, useReducer } from 'react';
 import { apiFetch } from '@/lib/api';
 import type { Translation } from '../types';
 
@@ -62,6 +62,13 @@ export function useSegmentEditor(fileId: string, initial: Translation[]) {
     reducer,
     { translations: initial, drafts: {} } as State,
   );
+
+  // Re-INIT when the source translations array changes identity.
+  // useFileData starts with [] then resolves with N segments — without this
+  // sync the table stays empty even after data arrives.
+  useEffect(() => {
+    dispatch({ type: 'INIT', translations: initial });
+  }, [initial]);
 
   const editDraft = useCallback((idx: number, zh_text: string) => {
     dispatch({ type: 'EDIT_DRAFT', idx, zh_text });
