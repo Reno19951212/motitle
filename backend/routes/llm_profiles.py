@@ -15,7 +15,6 @@ Errors:
 from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
 
-import app as _app
 from llm_profiles import validate_llm_profile
 
 bp = Blueprint("llm_profiles", __name__)
@@ -28,6 +27,7 @@ def _is_admin() -> bool:
 @bp.get("/api/llm_profiles")
 @login_required
 def list_profiles():
+    import app as _app
     mgr = _app._llm_profile_manager
     profiles = mgr.list_visible(user_id=current_user.id, is_admin=_is_admin())
     return jsonify({"profiles": profiles}), 200
@@ -36,6 +36,7 @@ def list_profiles():
 @bp.post("/api/llm_profiles")
 @login_required
 def create_profile():
+    import app as _app
     data = request.get_json(silent=True) or {}
     errors = validate_llm_profile(data)
     if errors:
@@ -51,6 +52,7 @@ def create_profile():
 @bp.get("/api/llm_profiles/<pid>")
 @login_required
 def get_profile(pid):
+    import app as _app
     mgr = _app._llm_profile_manager
     if not mgr.can_view(pid, current_user.id, _is_admin()):
         # Admin gets explicit 404 if absent; non-admin always sees 403 (no info leak)
@@ -63,6 +65,7 @@ def get_profile(pid):
 @bp.patch("/api/llm_profiles/<pid>")
 @login_required
 def update_profile(pid):
+    import app as _app
     patch = request.get_json(silent=True) or {}
     mgr = _app._llm_profile_manager
     try:
@@ -77,6 +80,7 @@ def update_profile(pid):
 @bp.delete("/api/llm_profiles/<pid>")
 @login_required
 def delete_profile(pid):
+    import app as _app
     mgr = _app._llm_profile_manager
     ok = mgr.delete_if_owned(pid, current_user.id, _is_admin())
     if not ok:

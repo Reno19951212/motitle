@@ -23,6 +23,12 @@ def register_blueprints(app: Flask) -> None:
     from .render import bp as render_bp
     from .engines import bp as engines_bp
     from .ollama import bp as ollama_bp
+    # v5-A1 T26 — 5 new profile blueprints (split from v4 ASR / MT profile)
+    from .llm_profiles import bp as llm_profiles_bp
+    from .transcribe_profiles import bp as transcribe_profiles_bp
+    from .translator_profiles import bp as translator_profiles_bp
+    from .refiner_profiles import bp as refiner_profiles_bp
+    from .verifier_profiles import bp as verifier_profiles_bp
 
     app.register_blueprint(health_bp)
     app.register_blueprint(spa_bp)
@@ -37,6 +43,12 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(render_bp)
     app.register_blueprint(engines_bp)
     app.register_blueprint(ollama_bp)
+    # v5-A1 T26
+    app.register_blueprint(llm_profiles_bp)
+    app.register_blueprint(transcribe_profiles_bp)
+    app.register_blueprint(translator_profiles_bp)
+    app.register_blueprint(refiner_profiles_bp)
+    app.register_blueprint(verifier_profiles_bp)
 
 
 __all__ = ["register_blueprints"]

@@ -308,3 +308,33 @@ def test_verifier_profiles_404_for_admin(monkeypatch, tmp_path):
     app = _make_app_with_bp(v_bp, user_id=999, is_admin=True)
     resp = app.test_client().get("/api/verifier_profiles/missing")
     assert resp.status_code == 404
+
+
+# ============================================================
+# T26 — bootstrap wires 5 v5 blueprints + manager singletons
+# ============================================================
+
+
+def test_bootstrap_registers_v5_blueprints():
+    """Verify all 5 v5 blueprints are registered on app + manager singletons exist."""
+    import app as _app
+    # ``app`` is the live Flask app constructed by bootstrap.create_app()
+    # at module import time. Inspect its URL map for the 5 v5 routes.
+    rules = [r.rule for r in _app.app.url_map.iter_rules()]
+    assert "/api/llm_profiles" in rules
+    assert "/api/transcribe_profiles" in rules
+    assert "/api/translator_profiles" in rules
+    assert "/api/refiner_profiles" in rules
+    assert "/api/verifier_profiles" in rules
+    # Singletons should exist on the `app` module
+    assert hasattr(_app, "_llm_profile_manager")
+    assert hasattr(_app, "_transcribe_profile_manager")
+    assert hasattr(_app, "_translator_profile_manager")
+    assert hasattr(_app, "_refiner_profile_manager")
+    assert hasattr(_app, "_verifier_profile_manager")
+    # And singletons should be non-None instances
+    assert _app._llm_profile_manager is not None
+    assert _app._transcribe_profile_manager is not None
+    assert _app._translator_profile_manager is not None
+    assert _app._refiner_profile_manager is not None
+    assert _app._verifier_profile_manager is not None

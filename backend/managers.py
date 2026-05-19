@@ -45,6 +45,16 @@ _pipeline_manager: Any = None  # pipelines.PipelineManager
 _glossary_manager: Any = None  # glossary.GlossaryManager
 _language_config_manager: Any = None  # language_config.LanguageConfigManager
 
+# v5-A1 T26 — new profile-layer managers (engine ABCs reference these via
+# profile_id). Populated by ``init_v5_managers()`` after ``init_managers()``
+# completes. v4 managers above keep working in parallel until A2 retires
+# them.
+_llm_profile_manager: Any = None  # llm_profiles.LLMProfileManager
+_transcribe_profile_manager: Any = None  # transcribe_profiles.TranscribeProfileManager
+_translator_profile_manager: Any = None  # translator_profiles.TranslatorProfileManager
+_refiner_profile_manager: Any = None  # refiner_profiles.RefinerProfileManager
+_verifier_profile_manager: Any = None  # verifier_profiles.VerifierProfileManager
+
 
 # ---------------------------------------------------------------------------
 # Paths — derived once at first use. Mirror app.py's DATA_DIR / UPLOAD_DIR /
@@ -113,6 +123,43 @@ def init_managers() -> None:
         mt_manager=_mt_profile_manager,
         glossary_manager=_glossary_manager,
     )
+
+    # v5-A1 T26 — populate the 5 v5 profile manager singletons. Storage
+    # lives under config/<llm|transcribe|translator|refiner|verifier>_profiles/.
+    # Idempotent — re-running ``init_managers()`` rebuilds these too.
+    init_v5_managers(config_dir)
+
+
+def init_v5_managers(config_dir) -> None:
+    """Construct the 5 v5 profile manager singletons.
+
+    Storage layout (one JSON file per profile):
+        <config_dir>/llm_profiles/<uuid>.json
+        <config_dir>/transcribe_profiles/<uuid>.json
+        <config_dir>/translator_profiles/<uuid>.json
+        <config_dir>/refiner_profiles/<uuid>.json
+        <config_dir>/verifier_profiles/<uuid>.json
+
+    Called from ``init_managers()`` so app boot picks them up automatically.
+    Tests that want isolated v5 storage can call this directly with a
+    tmp_path (and monkeypatch the manager singletons on ``app`` + ``managers``).
+    """
+    global _llm_profile_manager, _transcribe_profile_manager
+    global _translator_profile_manager, _refiner_profile_manager
+    global _verifier_profile_manager
+
+    from llm_profiles import LLMProfileManager
+    from transcribe_profiles import TranscribeProfileManager
+    from translator_profiles import TranslatorProfileManager
+    from refiner_profiles import RefinerProfileManager
+    from verifier_profiles import VerifierProfileManager
+
+    base = Path(config_dir)
+    _llm_profile_manager = LLMProfileManager(base / "llm_profiles")
+    _transcribe_profile_manager = TranscribeProfileManager(base / "transcribe_profiles")
+    _translator_profile_manager = TranslatorProfileManager(base / "translator_profiles")
+    _refiner_profile_manager = RefinerProfileManager(base / "refiner_profiles")
+    _verifier_profile_manager = VerifierProfileManager(base / "verifier_profiles")
 
 
 def load_file_registry_from_disk() -> None:
@@ -256,6 +303,12 @@ __all__ = [
     "_pipeline_manager",
     "_glossary_manager",
     "_language_config_manager",
+    # v5-A1 T26
+    "_llm_profile_manager",
+    "_transcribe_profile_manager",
+    "_translator_profile_manager",
+    "_refiner_profile_manager",
+    "_verifier_profile_manager",
     # Paths
     "DATA_DIR",
     "UPLOAD_DIR",
@@ -263,6 +316,7 @@ __all__ = [
     "RENDERS_DIR",
     # Init helpers
     "init_managers",
+    "init_v5_managers",
     "load_file_registry_from_disk",
     "init_job_queue",
 ]

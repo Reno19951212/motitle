@@ -170,6 +170,14 @@ _language_config_manager = _managers._language_config_manager
 _asr_profile_manager = _managers._asr_profile_manager
 _mt_profile_manager = _managers._mt_profile_manager
 _pipeline_manager = _managers._pipeline_manager
+# v5-A1 T26 — 5 v5 profile manager singletons; aliased here so routes that
+# do ``import app as _app; _app._llm_profile_manager`` keep working without
+# having to know about the ``managers`` module.
+_llm_profile_manager = _managers._llm_profile_manager
+_transcribe_profile_manager = _managers._transcribe_profile_manager
+_translator_profile_manager = _managers._translator_profile_manager
+_refiner_profile_manager = _managers._refiner_profile_manager
+_verifier_profile_manager = _managers._verifier_profile_manager
 _file_registry = _managers._file_registry
 _registry_lock = _managers._registry_lock
 _job_queue = _managers._job_queue
