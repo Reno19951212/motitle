@@ -136,4 +136,28 @@ describe('socketReducer', () => {
     expect(r.files.a?.status).toBe('failed');
     expect(r.stageStatus.a?.[1]).toBe('failed');
   });
+
+  it('FILE_REMOVED drops file + associated stage state (Batch A)', () => {
+    const withFile = socketReducer(initialSocketState, {
+      type: 'FILE_ADDED',
+      file: { id: 'a', original_name: 'x.mp4', status: 'running' } as FileRecord,
+    });
+    const withProgress = socketReducer(withFile, {
+      type: 'STAGE_PROGRESS',
+      ev: { file_id: 'a', stage_idx: 0, percent: 42 },
+    });
+    const next = socketReducer(withProgress, { type: 'FILE_REMOVED', file_id: 'a' });
+    expect(next.files.a).toBeUndefined();
+    expect(next.stageProgress.a).toBeUndefined();
+    expect(next.stageStatus.a).toBeUndefined();
+  });
+
+  it('FILE_REMOVED on unknown file is a safe no-op', () => {
+    const withFile = socketReducer(initialSocketState, {
+      type: 'FILE_ADDED',
+      file: { id: 'a', original_name: 'x.mp4', status: 'queued' } as FileRecord,
+    });
+    const next = socketReducer(withFile, { type: 'FILE_REMOVED', file_id: 'missing' });
+    expect(next.files.a?.original_name).toBe('x.mp4');
+  });
 });

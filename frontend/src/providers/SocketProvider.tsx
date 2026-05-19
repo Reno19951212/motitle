@@ -6,14 +6,24 @@ import {
   socketReducer,
   initialSocketState,
   type SocketState,
+  type SocketAction,
   type FileRecord,
 } from '@/lib/socket-events';
 
 interface SocketContextValue {
   state: SocketState;
+  /** Dispatch a socket action. Currently used for client-driven mutations
+   *  (e.g. DELETE /api/files/<id> success → FILE_REMOVED) since the backend
+   *  has no corresponding broadcast event. */
+  dispatch: (action: SocketAction) => void;
 }
 
-const SocketContext = createContext<SocketContextValue>({ state: initialSocketState });
+const SocketContext = createContext<SocketContextValue>({
+  state: initialSocketState,
+  dispatch: () => {
+    /* no-op default; real value provided by SocketProvider */
+  },
+});
 
 export function SocketProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(socketReducer, initialSocketState);
@@ -60,7 +70,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     };
   }, [user]);
 
-  return <SocketContext.Provider value={{ state }}>{children}</SocketContext.Provider>;
+  return <SocketContext.Provider value={{ state, dispatch }}>{children}</SocketContext.Provider>;
 }
 
 export function useSocket() {

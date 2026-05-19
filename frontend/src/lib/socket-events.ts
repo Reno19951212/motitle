@@ -6,7 +6,11 @@ export interface FileRecord {
   job_id?: string | null;
   pipeline_id?: string | null;
   stage_outputs?: Array<{ stage_type: string; stage_ref: string }>;
-  created_at?: number;
+  /** Unix epoch seconds (float). Backend field name; matches GET /api/files. */
+  uploaded_at?: number;
+  segment_count?: number;
+  approved_count?: number;
+  size?: number;
   [key: string]: unknown;
 }
 
@@ -37,6 +41,7 @@ export type SocketAction =
   | { type: 'BULK_FILES'; files: FileRecord[] }
   | { type: 'FILE_ADDED'; file: FileRecord }
   | { type: 'FILE_UPDATED'; file: FileRecord }
+  | { type: 'FILE_REMOVED'; file_id: string }
   | { type: 'STAGE_PROGRESS'; ev: StageProgressEvent }
   | { type: 'STAGE_COMPLETE'; ev: StageCompleteEvent }
   | { type: 'PIPELINE_COMPLETE'; ev: PipelineCompleteEvent }
@@ -85,6 +90,21 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
     case 'FILE_UPDATED': {
       const prev = state.files[action.file.id];
       return { ...state, files: { ...state.files, [action.file.id]: { ...prev, ...action.file } } };
+    }
+    case 'FILE_REMOVED': {
+      // Immutable removal: drop file entry + associated stage state.
+      const nextFiles = { ...state.files };
+      delete nextFiles[action.file_id];
+      const nextProgress = { ...state.stageProgress };
+      delete nextProgress[action.file_id];
+      const nextStatus = { ...state.stageStatus };
+      delete nextStatus[action.file_id];
+      return {
+        ...state,
+        files: nextFiles,
+        stageProgress: nextProgress,
+        stageStatus: nextStatus,
+      };
     }
     case 'STAGE_PROGRESS': {
       const fileProg = { ...(state.stageProgress[action.ev.file_id] ?? {}), [action.ev.stage_idx]: action.ev.percent };

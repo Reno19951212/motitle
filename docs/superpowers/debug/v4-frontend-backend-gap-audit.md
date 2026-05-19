@@ -81,7 +81,17 @@ Gap kinds: MISSING_FIELD (mock shows data backend doesn't provide) / SHAPE_MISMA
 
 ---
 
-## Batch A — Queue items [STATUS: not_started]
+## Batch A — Queue items [STATUS: fixed]
+**Fixed in commit**: (pending — see git log on feat/frontend-redesign)
+
+Notes:
+- `toDesignFile` now reads `uploaded_at` (Unix epoch float from `time.time()` in `backend/helpers/files.py:112`) — was reading non-existent `created_at`.
+- Queue render-path sort key also switched to `uploaded_at`.
+- Delete wired through `ConfirmDialog` + `apiFetch('/api/files/<id>', { method: 'DELETE' })` + new `FILE_REMOVED` socket action (no backend broadcast; dispatched client-side on success).
+- `SocketProvider` now exposes `dispatch` via context so callers can drive local mutations without a refetch.
+- Queue-item `duration` span removed (deferred until backend captures via ffprobe). `renderProgress` no longer rendered on queue rows (renders are separate jobs).
+- ASR stage % now reads `state.stageProgress[file.id]?.[0]` (live Socket.IO).
+- **Punted**: per-MT-stage badge label (e.g. "MT 第2段") for pipelines with `mt_stages.length > 1`. Backend `state.stageStatus[file.id][stage_idx]` is wired in but the queue pill only shows a single "MT 翻譯中" label. Documented inline in `toDesignFile` and listed under Out-of-scope follow-ups.
 
 **Affected files**:
 - `frontend/src/pages/Dashboard.tsx:38-84` (`toDesignFile` helper)

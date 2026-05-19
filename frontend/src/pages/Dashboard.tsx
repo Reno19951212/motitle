@@ -12,6 +12,7 @@ import { apiFetch, ApiError } from '@/lib/api';
 import type { FileRecord } from '@/lib/socket-events';
 import { Icon, MoTitleStageBadge } from '@/lib/motitle-icons';
 import type { IconName } from '@/lib/motitle-icons';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import '@/styles/motitle-bold.css';
 
 // ---------------------------------------------------------------------------
@@ -100,8 +101,21 @@ interface DesignFile {
   mtModel: string;
 }
 
-function toDesignFile(f: FileRecord): DesignFile {
-  // Derive stage from FileRecord.status
+/**
+ * Map a backend FileRecord (GET /api/files row) into the design shape consumed
+ * by Bold-variant queue/workbench/inspector. Socket-derived live progress is
+ * threaded in via `stageProgress`/`stageStatus` so we do not depend on backend
+ * to set a per-record `transcribe_progress` field (it doesn't).
+ */
+function toDesignFile(
+  f: FileRecord,
+  stageProgress: Record<number, number> | undefined,
+  stageStatus: Record<number, import('@/lib/socket-events').StageStatus> | undefined,
+): DesignFile {
+  // Derive stage from FileRecord.status + live per-stage Socket.IO state.
+  // Note: if any MT stage_idx > 0 is 'running', we still surface 'translating'
+  //   — improving per-MT-stage badge labels stays out of Batch A scope (see
+  //   audit doc "Out of scope" follow-ups).
   let stage = 'idle';
   const status = f.status ?? '';
   if (status === 'transcribing' || status === 'running') {
@@ -121,30 +135,51 @@ function toDesignFile(f: FileRecord): DesignFile {
   }
 
   const name = String(f.original_name ?? f.id ?? 'unknown');
-  const createdAt = typeof f.created_at === 'number' ? f.created_at : 0;
-  const ageSec = createdAt > 0 ? (Date.now() / 1000 - createdAt) : 0;
-  let uploaded = '—';
-  if (ageSec < 120) uploaded = '剛剛';
-  else if (ageSec < 3600) uploaded = `${Math.floor(ageSec / 60)} 分鐘前`;
-  else if (ageSec < 86400) uploaded = `${Math.floor(ageSec / 3600)} 小時前`;
-  else uploaded = `${Math.floor(ageSec / 86400)} 日前`;
 
+  // Backend uses `uploaded_at` (Unix epoch float, time.time() from
+  // backend/helpers/files.py:112). Previous code read `created_at` which was
+  // always undefined → every queue row showed '—'.
+  const uploadedAt = typeof f.uploaded_at === 'number' ? f.uploaded_at : 0;
+  const ageSec = uploadedAt > 0 ? (Date.now() / 1000 - uploadedAt) : 0;
+  let uploaded = '—';
+  if (uploadedAt > 0) {
+    if (ageSec < 120) uploaded = '剛剛';
+    else if (ageSec < 3600) uploaded = `${Math.floor(ageSec / 60)} 分鐘前`;
+    else if (ageSec < 86400) uploaded = `${Math.floor(ageSec / 3600)} 小時前`;
+    else uploaded = `${Math.floor(ageSec / 86400)} 日前`;
+  }
+
+  // Live ASR (stage 0) progress comes from Socket.IO pipeline_stage_progress.
+  // Stage 0 is always ASR per backend pipeline_runner.py contract (ASRStage
+  // is appended first). Fall back to 0 if no event has fired yet.
+  const asrPercent = typeof stageProgress?.[0] === 'number' ? stageProgress[0] : 0;
+  // Detect any MT stage (>= idx 1) currently running for the future
+  // "MT stage N" badge — recorded but not yet rendered in queue-item (see
+  // audit doc Out-of-scope).
+  void stageStatus;
+
+  // duration: deferred until backend captures via ffprobe at upload.
+  // Workbench/inspector still render the field but show '?:??'; the queue
+  // row no longer renders the duration span (Batch A drops it).
   return {
     id: f.id,
     name,
-    duration: String(f.duration ?? '?:??'),
-    segments: typeof f.segments === 'number' ? f.segments : (typeof f.segment_count === 'number' ? f.segment_count as number : 0),
-    approved: typeof f.approved_count === 'number' ? f.approved_count as number : 0,
+    duration: '?:??',
+    segments: typeof f.segment_count === 'number' ? f.segment_count : 0,
+    approved: typeof f.approved_count === 'number' ? f.approved_count : 0,
     uploaded,
     stage,
-    transcribeProgress: typeof f.transcribe_progress === 'number' ? f.transcribe_progress as number : 0,
-    renderProgress: typeof f.render_progress === 'number' ? f.render_progress as number : 0,
-    size: String(f.file_size ?? '—'),
-    language: String(f.language ?? 'English → 繁體中文'),
-    asrEngine: String(f.asr_engine ?? '—'),
-    asrModel: String(f.asr_model ?? '—'),
-    mtEngine: String(f.mt_engine ?? '—'),
-    mtModel: String(f.mt_model ?? '—'),
+    transcribeProgress: Math.round(asrPercent),
+    // renderProgress dropped from queue items (renders are separate jobs via
+    // /api/renders/<id>, not pipeline stages). Inspector still displays the
+    // value but it is no longer surfaced on queue rows.
+    renderProgress: 0,
+    size: typeof f.size === 'number' ? String(f.size) : '—',
+    language: 'English → 繁體中文',
+    asrEngine: '—',
+    asrModel: '—',
+    mtEngine: '—',
+    mtModel: '—',
   };
 }
 
@@ -547,17 +582,18 @@ function QueueItem({
   f,
   onSelect,
   active,
+  onDelete,
 }: {
   f: DesignFile;
   onSelect: (f: DesignFile) => void;
   active: boolean;
+  onDelete: (fileId: string) => void;
 }) {
   const stages = stageForStagePill(f.stage);
-  const [confirm, setConfirm] = useState(false);
 
   return (
     <div
-      className={`queue-item ${active ? 'active' : ''} ${confirm ? 'confirming' : ''}`}
+      className={`queue-item ${active ? 'active' : ''}`}
       onClick={() => onSelect(f)}
     >
       <div className="qh">
@@ -569,25 +605,18 @@ function QueueItem({
         <span className="nm">{f.name}</span>
         <MoTitleStageBadge file={f} />
         <button
-          className={`qi-del ${confirm ? 'armed' : ''}`}
-          title={confirm ? '再撳一次確認刪除' : '刪除此檔案'}
+          className="qi-del"
+          title="刪除此檔案"
           onClick={(e) => {
             e.stopPropagation();
-            if (confirm) {
-              setConfirm(false);
-              // TODO: call DELETE /api/files/<id>
-            } else {
-              setConfirm(true);
-              setTimeout(() => setConfirm(false), 3000);
-            }
+            onDelete(f.id);
           }}
         >
-          {confirm ? <Icon name="check" size={10} /> : <Icon name="x" size={10} />}
+          <Icon name="x" size={10} />
         </button>
       </div>
       <div className="qm">
-        <span>{f.duration}</span>
-        <span style={{ color: 'var(--border-strong)' }}>·</span>
+        {/* duration: deferred until backend captures via ffprobe at upload */}
         <span>{f.segments > 0 ? `${f.segments} 段` : '—'}</span>
         <span style={{ color: 'var(--border-strong)' }}>·</span>
         <span>{f.uploaded}</span>
@@ -1094,18 +1123,22 @@ function BoldInspector({ file }: { file: DesignFile | null }) {
 // ---------------------------------------------------------------------------
 
 export default function Dashboard() {
-  const { state } = useSocket();
+  const { state, dispatch } = useSocket();
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const [deleteCandidateId, setDeleteCandidateId] = useState<string | null>(null);
   const pipelineId = usePipelinePickerStore((s) => s.pipelineId);
   const pushToast = useUIStore((s) => s.pushToast);
 
+  // Sort newest first by uploaded_at (Unix epoch). Previous code read
+  // `created_at` which backend never sets → undefined, causing every row to
+  // resolve to 0 and the sort to be a no-op.
   const files: DesignFile[] = Object.values(state.files)
     .sort((a, b) => {
-      const ta = typeof a.created_at === 'number' ? a.created_at : 0;
-      const tb = typeof b.created_at === 'number' ? b.created_at : 0;
+      const ta = typeof a.uploaded_at === 'number' ? a.uploaded_at : 0;
+      const tb = typeof b.uploaded_at === 'number' ? b.uploaded_at : 0;
       return tb - ta;
     })
-    .map(toDesignFile);
+    .map((f) => toDesignFile(f, state.stageProgress[f.id], state.stageStatus[f.id]));
 
   // Auto-select first file when files load
   useEffect(() => {
@@ -1115,6 +1148,9 @@ export default function Dashboard() {
   }, [files, selectedFileId]);
 
   const selectedFile = files.find((f) => f.id === selectedFileId) ?? null;
+  const deleteCandidate = deleteCandidateId
+    ? files.find((f) => f.id === deleteCandidateId) ?? null
+    : null;
 
   const handleRun = useCallback(async () => {
     if (!selectedFileId) {
@@ -1136,6 +1172,24 @@ export default function Dashboard() {
       pushToast({ title: '排隊失敗', description: msg, variant: 'destructive' });
     }
   }, [selectedFileId, pipelineId, pushToast]);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deleteCandidateId) return;
+    const fileId = deleteCandidateId;
+    setDeleteCandidateId(null);
+    try {
+      await apiFetch(`/api/files/${fileId}`, { method: 'DELETE' });
+      // Backend has no FILE_REMOVED broadcast — dispatch locally so the queue
+      // updates immediately without a full refetch.
+      dispatch({ type: 'FILE_REMOVED', file_id: fileId });
+      // If the deleted file was selected, clear selection.
+      if (selectedFileId === fileId) setSelectedFileId(null);
+      pushToast({ title: '已刪除檔案' });
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : String(e);
+      pushToast({ title: '刪除失敗', description: msg, variant: 'destructive' });
+    }
+  }, [deleteCandidateId, dispatch, pushToast, selectedFileId]);
 
   return (
     <div className="motitle-bold">
@@ -1182,6 +1236,7 @@ export default function Dashboard() {
                         f={f}
                         onSelect={(df) => setSelectedFileId(df.id)}
                         active={f.id === selectedFileId}
+                        onDelete={(fileId) => setDeleteCandidateId(fileId)}
                       />
                     ))
                   )}
@@ -1197,6 +1252,18 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      <ConfirmDialog
+        open={deleteCandidateId !== null}
+        title="刪除此檔案？"
+        description={
+          deleteCandidate
+            ? `確定要刪除「${deleteCandidate.name}」？所有相關字幕同進度將會一併移除，無法復原。`
+            : undefined
+        }
+        confirmLabel="刪除"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteCandidateId(null)}
+      />
     </div>
   );
 }
