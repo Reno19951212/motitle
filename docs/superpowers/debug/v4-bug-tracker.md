@@ -41,6 +41,7 @@
 | BUG-029 | T27-T29 prep | P2 | A5 | Spec 假設錯 | Fixed | `DATA_DIR` / `UPLOAD_DIR` / `RENDERS_DIR` hardcoded in managers.py:55 — no env override → isolated boot impossible. Fixed: `R5_DATA_DIR` env var added; smoke verified upload_dir = isolated path. |
 | BUG-030 | T27-T29 inline | P1 | A1/A5 | 純 bug fix | Fixed | PipelineRunner `stage_outputs` not bridged to legacy `segments`/`translations` fields — blocks all proofread + render after v4 pipeline run |
 | BUG-031 | T29 inline | P2 | A4/routes | 純 bug fix | Fixed | Render status naming mismatch: backend uses `"done"`, frontend `useRenderJob` polls for `"completed"` → download never triggered |
+| BUG-032 | human-test 2026-05-19 | P2 | A3 | 純 bug fix | Fixed | Vite proxy missing `/login` + `/logout` entries → SPA login flow gets 404 from dev server (works fine in prod where Flask serves both). Also stale compiled `vite.config.{js,d.ts}` was loaded instead of `.ts` source. |
 
 ---
 
