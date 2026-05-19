@@ -512,9 +512,12 @@ def api_get_translations(file_id):
     if not entry:
         return jsonify({"error": "File not found"}), 404
     translations = [_app._normalize_translation_for_api(t) for t in entry.get("translations", [])]
-    # v5-A2 T7 — default to v5 by_lang shape; ?shape=v4 disables normalization
-    # for legacy callers still parsing the v4 {en_text, zh_text} response.
-    if request.args.get("shape") != "v4":
+    # v5-A2 T7 (inverted per final review) — default to v4 shape (en_text/zh_text)
+    # for backward compat with the live v4 React frontend which reads en_text/
+    # zh_text directly without a ?shape query param. v5 callers (A3 frontend +
+    # internal v5 consumers) opt in explicitly via ?shape=v5 to get the
+    # normalized by_lang shape.
+    if request.args.get("shape") == "v5":
         translations = normalize_translations_for_v5(translations)
     return jsonify({"translations": translations, "file_id": file_id})
 
