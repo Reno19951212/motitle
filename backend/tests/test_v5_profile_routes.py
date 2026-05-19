@@ -219,3 +219,61 @@ def test_translator_profiles_rejects_same_lang(monkeypatch, tmp_path):
         "llm_profile_id": "x", "prompt_template_id": "y",
     })
     assert resp.status_code == 400
+
+
+# ============================================================
+# RefinerProfile REST blueprint tests (T10)
+# ============================================================
+
+
+def test_refiner_profiles_create(monkeypatch, tmp_path):
+    from routes.refiner_profiles import bp as ref_bp
+    from refiner_profiles import RefinerProfileManager
+    import app as _app
+    monkeypatch.setattr(_app, "_refiner_profile_manager", RefinerProfileManager(tmp_path), raising=False)
+    app = _make_app_with_bp(ref_bp, user_id=1, is_admin=False)
+    client = app.test_client()
+    resp = client.post("/api/refiner_profiles", json={
+        "name": "zh-bc",
+        "lang": "zh", "style": "broadcast-hk",
+        "llm_profile_id": "x",
+        "prompt_template_id": "refiner/zh_broadcast_hk_default",
+    })
+    assert resp.status_code == 201
+    assert resp.json["lang"] == "zh"
+
+
+def test_mt_profiles_returns_deprecation_header(monkeypatch, tmp_path):
+    from flask import Flask
+    from flask_login import LoginManager
+    from routes.mt_profiles import bp as mt_bp
+    import app as _app
+    # Wire mt_profile_manager (v4 class is MTProfileManager — capital M-T)
+    from mt_profiles import MTProfileManager
+    monkeypatch.setattr(_app, "_mt_profile_manager", MTProfileManager(tmp_path), raising=False)
+    app = Flask(__name__)
+    app.config["LOGIN_DISABLED"] = True
+    app.config["TESTING"] = True
+    app.register_blueprint(mt_bp)
+    lm = LoginManager()
+    lm.init_app(app)
+
+    class _U:
+        def __init__(self):
+            self.id = 1
+            self.is_admin = False
+            self.is_authenticated = True
+            self.is_active = True
+            self.is_anonymous = False
+
+        def get_id(self):
+            return "1"
+
+    @lm.request_loader
+    def _load(req):
+        return _U()
+
+    client = app.test_client()
+    resp = client.get("/api/mt_profiles")
+    assert resp.headers.get("Deprecation") == "true"
+    assert "/api/refiner_profiles" in resp.headers.get("Link", "")
