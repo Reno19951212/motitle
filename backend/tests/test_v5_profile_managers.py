@@ -299,3 +299,59 @@ def test_refiner_profile_pattern_hardening(tmp_path):
     updated = mgr.update_if_owned(pid, user_id=1, is_admin=False, patch={"user_id": 2, "id": "evil"})
     assert updated["user_id"] == 1
     assert updated["id"] == pid
+
+
+# ============================================================
+# VerifierProfile manager tests (T11)
+# ============================================================
+
+
+def test_verifier_profile_valid(tmp_path):
+    from verifier_profiles import VerifierProfileManager, validate_verifier_profile
+    data = {
+        "name": "ZH verifier (LLM judge)",
+        "lang": "zh",
+        "llm_profile_id": "llm1",
+        "prompt_template_id": "verifier/zh_default",
+    }
+    assert validate_verifier_profile(data) == []
+    mgr = VerifierProfileManager(tmp_path)
+    pid = mgr.create(data, user_id=1)
+    assert mgr.get(pid)["lang"] == "zh"
+
+
+def test_verifier_profile_rejects_missing_llm_profile_id(tmp_path):
+    from verifier_profiles import validate_verifier_profile
+    errors = validate_verifier_profile({"name": "x", "lang": "zh", "prompt_template_id": "y"})
+    assert any("llm_profile_id" in e for e in errors)
+
+
+def test_verifier_profile_rejects_missing_prompt_template_id(tmp_path):
+    from verifier_profiles import validate_verifier_profile
+    errors = validate_verifier_profile({"name": "x", "lang": "zh", "llm_profile_id": "x"})
+    assert any("prompt_template_id" in e for e in errors)
+
+
+def test_verifier_profile_rejects_unknown_lang(tmp_path):
+    from verifier_profiles import validate_verifier_profile
+    errors = validate_verifier_profile({
+        "name": "x", "lang": "klingon",
+        "llm_profile_id": "x", "prompt_template_id": "y",
+    })
+    assert any("lang must be in" in e for e in errors)
+
+
+def test_verifier_profile_pattern_hardening(tmp_path):
+    from verifier_profiles import VerifierProfileManager
+    mgr = VerifierProfileManager(tmp_path)
+    pid = mgr.create({
+        "name": "  Test  ", "lang": "zh",
+        "llm_profile_id": "x", "prompt_template_id": "y",
+    }, user_id=1)
+    assert mgr.get(pid)["name"] == "Test"
+    assert mgr.can_view(pid, user_id=1, is_admin=False) is True
+    assert mgr.can_view(pid, user_id=2, is_admin=False) is False
+    assert mgr.can_view(pid, user_id=999, is_admin=True) is True
+    updated = mgr.update_if_owned(pid, user_id=1, is_admin=False, patch={"user_id": 2, "id": "evil"})
+    assert updated["user_id"] == 1
+    assert updated["id"] == pid
