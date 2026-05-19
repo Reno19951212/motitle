@@ -3,7 +3,7 @@
 **Branch base**: `chore/asr-mt-rearchitecture-research` @ `cdf985f` (post v4-debug merge)
 **Current HEAD**: `fccd26c` (Bold Dashboard)
 **Audit date**: 2026-05-19
-**Iteration plan**: 5 ralph-loop iters — iter 1 (audit) ✅ COMPLETE 2026-05-19. Iter 2+ = fix batches in ROI order (D → C → A → F → E → B).
+**Iteration plan**: 5 ralph-loop iters — ALL 6 BATCHES FIXED 2026-05-19. Iter 1 audit ✅. Iter 2-5 fixes ✅ (D → C → A → F → E → B). Verified: vite build clean, vitest 203/203, backend pytest 807 pass (14 pre-existing baseline failures unchanged).
 
 ---
 
