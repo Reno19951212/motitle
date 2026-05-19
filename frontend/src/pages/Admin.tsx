@@ -115,15 +115,17 @@ export default function Admin() {
         <TabsContent value="users" className="space-y-4">
           <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-2 items-end p-3 border rounded">
             <div>
-              <Label>Username</Label>
+              <Label htmlFor="username">Username</Label>
               <Input
+                id="username"
                 value={newUser.username}
                 onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
               />
             </div>
             <div>
-              <Label>Password</Label>
+              <Label htmlFor="password">Password</Label>
               <Input
+                id="password"
                 type="password"
                 value={newUser.password}
                 onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}

@@ -144,18 +144,19 @@ function AsrProfileFields({ form }: { form: UseFormReturn<AsrProfile> }) {
   return (
     <div className="grid gap-3">
       <div>
-        <Label>Name</Label>
-        <Input {...register('name')} />
+        <Label htmlFor="name">Name</Label>
+        <Input id="name" {...register('name')} />
         {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
       </div>
       <div>
-        <Label>Description</Label>
-        <Textarea {...register('description')} />
+        <Label htmlFor="description">Description</Label>
+        <Textarea id="description" {...register('description')} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label>Engine</Label>
+          <Label htmlFor="engine">Engine</Label>
           <select
+            id="engine"
             {...register('engine')}
             className="block w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
           >
@@ -167,8 +168,9 @@ function AsrProfileFields({ form }: { form: UseFormReturn<AsrProfile> }) {
           </select>
         </div>
         <div>
-          <Label>Mode</Label>
+          <Label htmlFor="mode">Mode</Label>
           <select
+            id="mode"
             {...register('mode')}
             className="block w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
           >
@@ -180,8 +182,9 @@ function AsrProfileFields({ form }: { form: UseFormReturn<AsrProfile> }) {
           </select>
         </div>
         <div>
-          <Label>Language</Label>
+          <Label htmlFor="language">Language</Label>
           <select
+            id="language"
             {...register('language')}
             className="block w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
           >
@@ -193,8 +196,9 @@ function AsrProfileFields({ form }: { form: UseFormReturn<AsrProfile> }) {
           </select>
         </div>
         <div>
-          <Label>Device</Label>
+          <Label htmlFor="device">Device</Label>
           <select
+            id="device"
             {...register('device')}
             className="block w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
           >
@@ -206,14 +210,14 @@ function AsrProfileFields({ form }: { form: UseFormReturn<AsrProfile> }) {
           </select>
         </div>
         <div>
-          <Label>Model size</Label>
-          <Input disabled value="large-v3" />
+          <Label htmlFor="model_size">Model size</Label>
+          <Input id="model_size" disabled value="large-v3" />
           <input type="hidden" {...register('model_size')} value="large-v3" />
         </div>
       </div>
       <div>
-        <Label>Initial prompt</Label>
-        <Textarea {...register('initial_prompt')} rows={3} />
+        <Label htmlFor="initial_prompt">Initial prompt</Label>
+        <Textarea id="initial_prompt" {...register('initial_prompt')} rows={3} />
         {errors.initial_prompt && (
           <p className="text-xs text-destructive">{errors.initial_prompt.message}</p>
         )}

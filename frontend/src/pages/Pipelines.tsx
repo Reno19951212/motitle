@@ -212,17 +212,18 @@ function PipelineFields({
       <section className="space-y-3">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Basic</h3>
         <div>
-          <Label>Name</Label>
-          <Input {...register('name')} />
+          <Label htmlFor="name">Name</Label>
+          <Input id="name" {...register('name')} />
           {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
         </div>
         <div>
-          <Label>Description</Label>
-          <Textarea {...register('description')} />
+          <Label htmlFor="description">Description</Label>
+          <Textarea id="description" {...register('description')} />
         </div>
         <div>
-          <Label>ASR Profile</Label>
+          <Label htmlFor="asr_profile_id">ASR Profile</Label>
           <select
+            id="asr_profile_id"
             {...register('asr_profile_id')}
             className="block w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
           >
@@ -316,40 +317,43 @@ function PipelineFields({
         <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Font Config</h3>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label>Family</Label>
-            <Input {...register('font_config.family')} />
+            <Label htmlFor="font_config_family">Family</Label>
+            <Input id="font_config_family" {...register('font_config.family')} />
           </div>
           <div>
-            <Label>Color</Label>
-            <Input {...register('font_config.color')} placeholder="#ffffff" />
+            <Label htmlFor="font_config_color">Color</Label>
+            <Input id="font_config_color" {...register('font_config.color')} placeholder="#ffffff" />
           </div>
           <div>
-            <Label>Outline color</Label>
-            <Input {...register('font_config.outline_color')} placeholder="#000000" />
+            <Label htmlFor="font_config_outline_color">Outline color</Label>
+            <Input id="font_config_outline_color" {...register('font_config.outline_color')} placeholder="#000000" />
           </div>
           <div>
-            <Label>Size</Label>
-            <Input type="number" min="0" {...register('font_config.size', { valueAsNumber: true })} />
+            <Label htmlFor="font_config_size">Size</Label>
+            <Input id="font_config_size" type="number" min="0" {...register('font_config.size', { valueAsNumber: true })} />
           </div>
           <div>
-            <Label>Outline width</Label>
+            <Label htmlFor="font_config_outline_width">Outline width</Label>
             <Input
+              id="font_config_outline_width"
               type="number"
               min="0"
               {...register('font_config.outline_width', { valueAsNumber: true })}
             />
           </div>
           <div>
-            <Label>Margin bottom</Label>
+            <Label htmlFor="font_config_margin_bottom">Margin bottom</Label>
             <Input
+              id="font_config_margin_bottom"
               type="number"
               min="0"
               {...register('font_config.margin_bottom', { valueAsNumber: true })}
             />
           </div>
           <div>
-            <Label>Subtitle source</Label>
+            <Label htmlFor="font_config_subtitle_source">Subtitle source</Label>
             <select
+              id="font_config_subtitle_source"
               {...register('font_config.subtitle_source')}
               className="block w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
             >
@@ -361,8 +365,9 @@ function PipelineFields({
             </select>
           </div>
           <div>
-            <Label>Bilingual order</Label>
+            <Label htmlFor="font_config_bilingual_order">Bilingual order</Label>
             <select
+              id="font_config_bilingual_order"
               {...register('font_config.bilingual_order')}
               className="block w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
             >

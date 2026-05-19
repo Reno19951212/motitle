@@ -138,18 +138,19 @@ function MtProfileFields({ form }: { form: UseFormReturn<MtProfile> }) {
     <div className="grid gap-3">
       <input type="hidden" {...register('engine')} value="qwen3.5-35b-a3b" />
       <div>
-        <Label>Name</Label>
-        <Input {...register('name')} />
+        <Label htmlFor="name">Name</Label>
+        <Input id="name" {...register('name')} />
         {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
       </div>
       <div>
-        <Label>Description</Label>
-        <Textarea {...register('description')} />
+        <Label htmlFor="description">Description</Label>
+        <Textarea id="description" {...register('description')} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label>Input language</Label>
+          <Label htmlFor="input_lang">Input language</Label>
           <select
+            id="input_lang"
             {...register('input_lang')}
             className="block w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
           >
@@ -161,8 +162,9 @@ function MtProfileFields({ form }: { form: UseFormReturn<MtProfile> }) {
           </select>
         </div>
         <div>
-          <Label>Output language</Label>
+          <Label htmlFor="output_lang">Output language</Label>
           <select
+            id="output_lang"
             {...register('output_lang')}
             className="block w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
           >
@@ -179,15 +181,15 @@ function MtProfileFields({ form }: { form: UseFormReturn<MtProfile> }) {
       </p>
       {errors.root && <p className="text-xs text-destructive">{errors.root.message}</p>}
       <div>
-        <Label>System prompt</Label>
-        <Textarea {...register('system_prompt')} rows={6} />
+        <Label htmlFor="system_prompt">System prompt</Label>
+        <Textarea id="system_prompt" {...register('system_prompt')} rows={6} />
         {errors.system_prompt && (
           <p className="text-xs text-destructive">{errors.system_prompt.message}</p>
         )}
       </div>
       <div>
-        <Label>User message template</Label>
-        <Textarea {...register('user_message_template')} rows={3} />
+        <Label htmlFor="user_message_template">User message template</Label>
+        <Textarea id="user_message_template" {...register('user_message_template')} rows={3} />
         <p className="text-xs text-muted-foreground mt-1">
           Must include <code className="bg-muted px-1 rounded">{'{text}'}</code> placeholder
         </p>
@@ -197,8 +199,9 @@ function MtProfileFields({ form }: { form: UseFormReturn<MtProfile> }) {
       </div>
       <div className="grid grid-cols-3 gap-3">
         <div>
-          <Label>Temperature</Label>
+          <Label htmlFor="temperature">Temperature</Label>
           <Input
+            id="temperature"
             type="number"
             step="0.05"
             min="0"
@@ -207,8 +210,9 @@ function MtProfileFields({ form }: { form: UseFormReturn<MtProfile> }) {
           />
         </div>
         <div>
-          <Label>Batch size</Label>
+          <Label htmlFor="batch_size">Batch size</Label>
           <Input
+            id="batch_size"
             type="number"
             min="1"
             max="64"
@@ -216,8 +220,9 @@ function MtProfileFields({ form }: { form: UseFormReturn<MtProfile> }) {
           />
         </div>
         <div>
-          <Label>Parallel batches</Label>
+          <Label htmlFor="parallel_batches">Parallel batches</Label>
           <Input
+            id="parallel_batches"
             type="number"
             min="1"
             max="16"

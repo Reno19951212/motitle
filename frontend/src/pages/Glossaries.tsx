@@ -184,18 +184,19 @@ function GlossaryFields({ form }: { form: UseFormReturn<Glossary> }) {
   return (
     <div className="grid gap-3">
       <div>
-        <Label>Name</Label>
-        <Input {...register('name')} />
+        <Label htmlFor="name">Name</Label>
+        <Input id="name" {...register('name')} />
         {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
       </div>
       <div>
-        <Label>Description</Label>
-        <Textarea {...register('description')} />
+        <Label htmlFor="description">Description</Label>
+        <Textarea id="description" {...register('description')} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label>Source lang</Label>
+          <Label htmlFor="source_lang">Source lang</Label>
           <select
+            id="source_lang"
             {...register('source_lang')}
             className="block w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
           >
@@ -207,8 +208,9 @@ function GlossaryFields({ form }: { form: UseFormReturn<Glossary> }) {
           </select>
         </div>
         <div>
-          <Label>Target lang</Label>
+          <Label htmlFor="target_lang">Target lang</Label>
           <select
+            id="target_lang"
             {...register('target_lang')}
             className="block w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
           >
