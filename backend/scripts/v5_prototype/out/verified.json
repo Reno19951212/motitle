@@ -1,0 +1,875 @@
+[
+  {
+    "idx": 0,
+    "start": 0.0,
+    "end": 29.98,
+    "whisper_text": "中文字幕提供",
+    "qwen_text": "下個月有新騎師登場就係澳洲好手鮑浩勇同埋見習騎師袁幸堯啊兩位系啱啱星期二都有現身試習其中袁幸堯幫師傅姚本輝試咗三匹馬仲出席埋記者會同傳媒見面一齊睇下我中意coffeeshop啊我乜都中意食啊真系豆豆腐花",
+    "verified_text": "下個月有新騎師登場，就係澳洲好手鮑浩勇同埋見習騎師袁幸堯。兩位係啱啱星期二都有現身試習，其中袁幸堯幫師傅姚本輝試咗三匹馬，仲出席埋記者會同傳媒見面。",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 1,
+    "start": 30.0,
+    "end": 31.2,
+    "whisper_text": "粟米片",
+    "qwen_text": "粟米片",
+    "verified_text": "粟米片",
+    "method": "AGREE"
+  },
+  {
+    "idx": 2,
+    "start": 31.28,
+    "end": 32.64,
+    "whisper_text": "貓, 超喜歡貓",
+    "qwen_text": "貓超中意貓",
+    "verified_text": "貓超中意貓",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 3,
+    "start": 32.72,
+    "end": 34.52,
+    "whisper_text": "我很喜歡看, 連新年都看",
+    "qwen_text": "我好中意睇我年年新年都睇",
+    "verified_text": "我好中意睇，我年年新年都睇",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 4,
+    "start": 34.6,
+    "end": 37.56,
+    "whisper_text": "所以南非自己過新年都看",
+    "qwen_text": "所以南非自己過新年都系睇尼古尼古啊",
+    "verified_text": "所以南非自己過新年都係睇尼古尼古啊",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 5,
+    "start": 37.64,
+    "end": 38.76,
+    "whisper_text": "新年才",
+    "qwen_text": "新年財",
+    "verified_text": "新年財",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 6,
+    "start": 40.0,
+    "end": 43.120000000000005,
+    "whisper_text": "這天新10磅仔袁幸瑤出席記者會",
+    "qwen_text": "呢日新十磅仔袁幸堯出席記者會",
+    "verified_text": "呢日新十磅仔袁幸堯出席記者會",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 7,
+    "start": 43.2,
+    "end": 45.2,
+    "whisper_text": "大方分享自己的興趣",
+    "qwen_text": "大方分享自己嘅興趣",
+    "verified_text": "大方分享自己嘅興趣",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 8,
+    "start": 45.28,
+    "end": 47.0,
+    "whisper_text": "陽光自信的對答",
+    "qwen_text": "陽光自信嘅對答",
+    "verified_text": "陽光自信嘅對答",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 9,
+    "start": 47.08,
+    "end": 50.32,
+    "whisper_text": "加上真摯的笑容, 真的非常圈粉",
+    "qwen_text": "加上真摯嘅笑容真系非常圈粉啊",
+    "verified_text": "加上真摯嘅笑容，真係好圈粉啊",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 10,
+    "start": 50.400000000000006,
+    "end": 51.84,
+    "whisper_text": "目前她最大目標",
+    "qwen_text": "目前佢最大目",
+    "verified_text": "目前佢最大目標",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 11,
+    "start": 51.92,
+    "end": 53.44,
+    "whisper_text": "就是盡量吸收經驗",
+    "qwen_text": "就係儘量吸收經",
+    "verified_text": "就係儘量吸收經驗",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 12,
+    "start": 53.519999999999996,
+    "end": 55.16,
+    "whisper_text": "令自己不斷進步",
+    "qwen_text": "驗令自己不斷進步",
+    "verified_text": "令自己不斷進步",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 13,
+    "start": 56.04,
+    "end": 58.480000000000004,
+    "whisper_text": "強項我覺得是自己的推期",
+    "qwen_text": "強項就我覺得誒自己嘅推騎",
+    "verified_text": "強項我覺得係自己嘅推騎",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 14,
+    "start": 58.48,
+    "end": 62.08,
+    "whisper_text": "我希望自己比較出色",
+    "qwen_text": "啦就我希望自己比較出色",
+    "verified_text": "希望我自己比較出色",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 15,
+    "start": 62.08,
+    "end": 65.08,
+    "whisper_text": "若瀚我還在找",
+    "qwen_text": "弱項我仲揾緊",
+    "verified_text": "弱項我仲揾緊",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 16,
+    "start": 65.08,
+    "end": 68.08,
+    "whisper_text": "應該盡量希望不會有若瀚",
+    "qwen_text": "啦誒應該就盡量希望唔會優弱",
+    "verified_text": "應該盡量希望唔會有若瀚",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 17,
+    "start": 68.08,
+    "end": 72.08,
+    "whisper_text": "當然全方位地幫自己不停地進步下去",
+    "qwen_text": "項啦咁當然全方位地幫自己不停咁進步落去啦",
+    "verified_text": "當然全方位地幫自己不停咁進步落去啦",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 18,
+    "start": 72.08,
+    "end": 75.47999999999999,
+    "whisper_text": "始終我也很留意每一位騎師",
+    "qwen_text": "當然始終我都好留意每一位嘅騎師因",
+    "verified_text": "當然始終我都好留意每一位嘅騎師因",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 19,
+    "start": 75.47999999999999,
+    "end": 77.28,
+    "whisper_text": "因為每一位騎師都有他們的特別之處",
+    "qwen_text": "為每一位騎師都有佢哋嘅特別之處",
+    "verified_text": "因為每一位騎師都有佢哋嘅特別之處",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 20,
+    "start": 77.28,
+    "end": 79.08,
+    "whisper_text": "還有他們的好處",
+    "qwen_text": "啦同埋佢哋嘅好",
+    "verified_text": "同埋佢哋嘅好處",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 21,
+    "start": 79.08,
+    "end": 80.88,
+    "whisper_text": "而且他們的拆騎方式都不同",
+    "qwen_text": "處啦而且佢哋嘅策騎方式都唔同",
+    "verified_text": "而且佢哋嘅策騎方式都唔同",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 22,
+    "start": 80.88,
+    "end": 86.28,
+    "whisper_text": "所以我希望自己可以拿他們每一位騎師的好處",
+    "qwen_text": "啦所以就我希望自己可以攞一啲佢哋每一樣每一位騎師嘅好處",
+    "verified_text": "所以我就希望自己可以攞一啲佢哋每一位騎師嘅好處",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 23,
+    "start": 86.28,
+    "end": 89.04,
+    "whisper_text": "放在自己身上就最好",
+    "qwen_text": "放喺自己度咁就最好",
+    "verified_text": "放喺自己度咁就最好",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 24,
+    "start": 90.48,
+    "end": 91.28,
+    "whisper_text": "3月8日",
+    "qwen_text": "三月八號",
+    "verified_text": "三月八號",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 25,
+    "start": 91.36,
+    "end": 94.32000000000001,
+    "whisper_text": "騎士艾少麗正式升格當爸爸",
+    "qwen_text": "騎師艾少禮正式升格做爸爸啦",
+    "verified_text": "騎師艾少禮正式升格做爸爸啦",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 26,
+    "start": 94.4,
+    "end": 96.32000000000001,
+    "whisper_text": "兒子Thomas在香港出生",
+    "qwen_text": "仔仔Thomas系香港出世",
+    "verified_text": "仔仔 Thomas 喺香港出世",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 27,
+    "start": 96.4,
+    "end": 97.84,
+    "whisper_text": "還非常有腳頭",
+    "qwen_text": "非常好腳頭",
+    "verified_text": "仲好有腳頭",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 28,
+    "start": 97.92,
+    "end": 99.0,
+    "whisper_text": "出生當日",
+    "qwen_text": "出世當日",
+    "verified_text": "出世當日",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 29,
+    "start": 99.08,
+    "end": 102.04,
+    "whisper_text": "艾少麗正正一天贏出四場頭碼",
+    "qwen_text": "艾少禮正正一日贏出四場頭馬",
+    "verified_text": "艾少禮正正一日贏出四場頭馬",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 30,
+    "start": 102.12,
+    "end": 103.6,
+    "whisper_text": "不少朋友和馬迷",
+    "qwen_text": "唔少朋友同埋馬迷",
+    "verified_text": "唔少朋友同埋馬迷",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 31,
+    "start": 103.68,
+    "end": 105.44,
+    "whisper_text": "都湧入她的社交平台",
+    "qwen_text": "湧入佢嘅社交平台",
+    "verified_text": "都湧入佢嘅社交平台",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 32,
+    "start": 105.52000000000001,
+    "end": 108.56,
+    "whisper_text": "為這對新手父母送上滿滿的祝福",
+    "qwen_text": "為呢對新手父母送上滿滿嘅祝福",
+    "verified_text": "為呢對新手父母送上滿滿嘅祝福",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 33,
+    "start": 108.64,
+    "end": 111.84,
+    "whisper_text": "希望Thomas仔繼續發揮小福星的本色",
+    "qwen_text": "希望Thomas仔繼續發揮小福星嘅本色",
+    "verified_text": "希望Thomas仔繼續發揮小福星嘅本色",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 34,
+    "start": 111.92,
+    "end": 114.04,
+    "whisper_text": "帶領爸爸衝擊更多頭碼",
+    "qwen_text": "帶領爸爸衝擊更多頭馬",
+    "verified_text": "帶領爸爸衝擊更多頭馬",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 35,
+    "start": 114.04,
+    "end": 116.4,
+    "whisper_text": "奶粉錢靠你繼續看下去",
+    "qwen_text": "奶粉錢靠你繼續旺落去啦",
+    "verified_text": "奶粉錢靠你繼續旺落去啦",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 36,
+    "start": 118.92,
+    "end": 121.36000000000001,
+    "whisper_text": "除了雙喜臨門的艾少麗之外",
+    "qwen_text": "除咗雙喜臨門嘅艾少禮之外",
+    "verified_text": "除咗雙喜臨門嘅艾少禮之外",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 37,
+    "start": 121.44000000000001,
+    "end": 122.68,
+    "whisper_text": "另外一位騎師",
+    "qwen_text": "另外一位騎師",
+    "verified_text": "另外一位騎師",
+    "method": "AGREE"
+  },
+  {
+    "idx": 38,
+    "start": 122.76,
+    "end": 125.72,
+    "whisper_text": "最近也上演贏到傻的神級演出",
+    "qwen_text": "最近亦上演贏到傻嘅神級演出",
+    "verified_text": "最近亦上演贏到傻嘅神級演出",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 39,
+    "start": 125.80000000000001,
+    "end": 127.12,
+    "whisper_text": "就是麥道朗",
+    "qwen_text": "就係麥道朗啦",
+    "verified_text": "就係麥道朗啦",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 40,
+    "start": 127.2,
+    "end": 128.12,
+    "whisper_text": "3月7日",
+    "qwen_text": "三月七號",
+    "verified_text": "三月七號",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 41,
+    "start": 128.20000000000002,
+    "end": 130.72,
+    "whisper_text": "他在南域馬場舉行的賽日",
+    "qwen_text": "佢喺南域馬場舉行嘅賽",
+    "verified_text": "佢喺南域馬場舉行嘅賽日",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 42,
+    "start": 130.8,
+    "end": 133.0,
+    "whisper_text": "一日贏出六場頭馬",
+    "qwen_text": "一日贏出六場頭馬",
+    "verified_text": "一日贏出六場頭馬",
+    "method": "AGREE"
+  },
+  {
+    "idx": 43,
+    "start": 133.08,
+    "end": 134.4,
+    "whisper_text": "包括一級賽",
+    "qwen_text": "包括一級賽",
+    "verified_text": "包括一級賽",
+    "method": "AGREE"
+  },
+  {
+    "idx": 44,
+    "start": 134.48000000000002,
+    "end": 135.84,
+    "whisper_text": "肯德伯利錦標",
+    "qwen_text": "肯德百利錦標",
+    "verified_text": "肯德百利錦標",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 45,
+    "start": 135.92000000000002,
+    "end": 138.56,
+    "whisper_text": "最平左傳奇騎師賈西迪",
+    "qwen_text": "追平咗傳奇騎師賈西",
+    "verified_text": "追平咗傳奇騎師賈西迪",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 46,
+    "start": 138.64000000000001,
+    "end": 142.68,
+    "whisper_text": "亦即潘頓外虎在1987年創下的紀錄",
+    "qwen_text": "迪亦即系潘頓外父喺一九八七年創下嘅紀錄",
+    "verified_text": "即係潘頓嘅外父喺一九八七年創下嘅紀錄",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 47,
+    "start": 142.68,
+    "end": 145.72,
+    "whisper_text": "同時亦是38年來首次有人在",
+    "qwen_text": "同時亦系三十八年嚟首次有人喺",
+    "verified_text": "同時亦係三十八年嚟首次有人喺",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 48,
+    "start": 145.8,
+    "end": 149.52,
+    "whisper_text": "悉尼城市馬場重現一日六邊的壯舉",
+    "qwen_text": "尼城市馬場重現一日六win嘅壯",
+    "verified_text": "悉尼城市馬場重現一日六勝嘅壯舉",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 49,
+    "start": 149.6,
+    "end": 152.28,
+    "whisper_text": "絕對震撼整個澳洲賽馬界",
+    "qwen_text": "舉絕對震撼成個澳洲賽馬界",
+    "verified_text": "絕對震撼成個澳洲賽馬界",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 50,
+    "start": 154.52,
+    "end": 156.92000000000002,
+    "whisper_text": "最近有市民在沙田馬場附近",
+    "qwen_text": "最近有市民喺沙田馬場附近",
+    "verified_text": "最近有市民喺沙田馬場附近",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 51,
+    "start": 157.0,
+    "end": 158.72,
+    "whisper_text": "認得有匹可愛的小馬",
+    "qwen_text": "認到有匹得意馬仔喺",
+    "verified_text": "認得有匹可愛嘅小馬",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 52,
+    "start": 158.8,
+    "end": 162.04000000000002,
+    "whisper_text": "在馬格裡面伸頭出窗外望風景",
+    "qwen_text": "馬格裏面伸個頭出窗外望風景",
+    "verified_text": "馬格裏面伸個頭出窗外望風景",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 53,
+    "start": 162.12,
+    "end": 164.08,
+    "whisper_text": "大家都說牠很可愛",
+    "qwen_text": "大家都話佢好可愛啊",
+    "verified_text": "大家都話佢好可愛啊",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 54,
+    "start": 164.16,
+    "end": 166.36,
+    "whisper_text": "不過有眼利的網民發現",
+    "qwen_text": "不過有眼力嘅網民就發現",
+    "verified_text": "不過有眼力嘅網民就發現",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 55,
+    "start": 166.44,
+    "end": 169.28,
+    "whisper_text": "小馬好像掉了些東西,究竟是什麼",
+    "qwen_text": "馬仔好似跌咗啲嘢究竟係咩咧",
+    "verified_text": "馬仔好似跌咗啲嘢，究竟係咩咧",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 56,
+    "start": 170.0,
+    "end": 171.48000000000002,
+    "whisper_text": "原來是這堆草",
+    "qwen_text": "原來系呢堆草啊",
+    "verified_text": "原來係呢堆草啊",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 57,
+    "start": 171.48,
+    "end": 174.98,
+    "whisper_text": "大家都非常担心马仔跌了一份午餐会饿",
+    "qwen_text": "大家都非常擔心馬仔跌咗份午餐會餓親",
+    "verified_text": "大家都非常擔心馬仔跌咗份午餐會餓親",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 58,
+    "start": 174.98,
+    "end": 178.2,
+    "whisper_text": "所以惹来一众网友疯狂转载",
+    "qwen_text": "所以惹嚟咗一眾網友瘋狂轉",
+    "verified_text": "所以惹嚟咗一眾網友瘋狂轉載",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 59,
+    "start": 178.2,
+    "end": 182.26,
+    "whisper_text": "幸好这个铺成功召唤了马房工作人员出马",
+    "qwen_text": "載好彩呢個po成功召喚咗馬房工作人員出馬",
+    "verified_text": "幸好這個鋪成功召喚咗馬房工作人員出馬",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 60,
+    "start": 182.26,
+    "end": 184.95999999999998,
+    "whisper_text": "除了帮马仔补给午餐之外",
+    "qwen_text": "除咗幫馬仔補給午餐之外",
+    "verified_text": "除咗幫馬仔補給午餐之外",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 61,
+    "start": 184.95999999999998,
+    "end": 188.76,
+    "whisper_text": "还顺便和大家揭开神秘马仔的真实身份",
+    "qwen_text": "仲順便同大家揭開神秘馬仔嘅真實身份",
+    "verified_text": "仲順便同大家揭開神秘馬仔嘅真實身份",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 62,
+    "start": 188.76,
+    "end": 191.44,
+    "whisper_text": "原来这批任性又可爱的主角",
+    "qwen_text": "原來呢匹任性又可愛嘅主角",
+    "verified_text": "原來呢匹任性又可愛嘅主角",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 63,
+    "start": 191.44,
+    "end": 194.22,
+    "whisper_text": "是来自犹达荣马房的幸运风采",
+    "qwen_text": "系嚟自尤達榮馬房嘅幸運風采",
+    "verified_text": "係嚟自尤達榮馬房嘅幸運風采",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 64,
+    "start": 194.22,
+    "end": 196.54,
+    "whisper_text": "大家下次路过马场附近",
+    "qwen_text": "大家下次路過馬場附近",
+    "verified_text": "大家下次路過馬場附近",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 65,
+    "start": 196.54,
+    "end": 198.76,
+    "whisper_text": "都可以远远地和他打个招呼",
+    "qwen_text": "都可以遠遠咁同佢打個招呼",
+    "verified_text": "都可以遠遠咁同佢打個招呼",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 66,
+    "start": 198.76,
+    "end": 202.76,
+    "whisper_text": "3月9日澳洲年轻骑师史腾雷",
+    "qwen_text": "啊三月九號澳洲年輕騎師史騰雷",
+    "verified_text": "三月九號澳洲年輕騎師史騰雷",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 67,
+    "start": 202.76,
+    "end": 204.7,
+    "whisper_text": "喷注拆骑美朗王",
+    "qwen_text": "憑住策騎美狼王",
+    "verified_text": "憑住策騎美狼王",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 68,
+    "start": 204.7,
+    "end": 206.78,
+    "whisper_text": "激快带热门Highland Blink",
+    "qwen_text": "擊敗大熱門Highland",
+    "verified_text": "擊敗大熱門 Highland",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 69,
+    "start": 206.78,
+    "end": 208.44,
+    "whisper_text": "赢出阿德雷德杯",
+    "qwen_text": "Bling贏出亞德雷德杯",
+    "verified_text": "Bling 贏出亞德雷德杯",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 70,
+    "start": 208.44,
+    "end": 211.17999999999998,
+    "whisper_text": "两匹马顶多马头要拍照",
+    "qwen_text": "兩匹馬叮噹馬頭要影相",
+    "verified_text": "兩匹馬頂多馬頭要影相",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 71,
+    "start": 211.17999999999998,
+    "end": 212.22,
+    "whisper_text": "才分出胜负",
+    "qwen_text": "先分出勝負",
+    "verified_text": "先分出勝負",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 72,
+    "start": 212.22,
+    "end": 213.2,
+    "whisper_text": "非常刺激",
+    "qwen_text": "非常刺激",
+    "verified_text": "非常刺激",
+    "method": "AGREE"
+  },
+  {
+    "idx": 73,
+    "start": 213.2,
+    "end": 214.88,
+    "whisper_text": "但是过终点没来",
+    "qwen_text": "但系過終點無奈",
+    "verified_text": "但係過終點無奈",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 74,
+    "start": 214.88,
+    "end": 217.23999999999998,
+    "whisper_text": "收获拆骑身来最大胜利的",
+    "qwen_text": "收穫策騎生涯最大勝利嘅",
+    "verified_text": "收穫策騎生涯最大勝利嘅",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 75,
+    "start": 217.23999999999998,
+    "end": 219.79999999999998,
+    "whisper_text": "史腾雷就被美朗王抛下来",
+    "qwen_text": "史騰雷就俾美狼王拋咗落嚟",
+    "verified_text": "史騰雷就俾美狼王拋咗落嚟",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 76,
+    "start": 219.79999999999998,
+    "end": 221.38,
+    "whisper_text": "人生高光时刻",
+    "qwen_text": "人生高光時刻",
+    "verified_text": "人生高光時刻",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 77,
+    "start": 221.38,
+    "end": 223.39999999999998,
+    "whisper_text": "瞬间变成翻车现场",
+    "qwen_text": "瞬間變成翻車現場",
+    "verified_text": "瞬間變成翻車現場",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 78,
+    "start": 223.39999999999998,
+    "end": 225.14,
+    "whisper_text": "不少网民都将事发",
+    "qwen_text": "唔少網民都將事發",
+    "verified_text": "唔少網民都將事發",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 79,
+    "start": 225.14,
+    "end": 227.32,
+    "whisper_text": "经过CAPTO变成最新的Meme",
+    "qwen_text": "經過Capt圖變成最新嘅面",
+    "verified_text": "經過 Capt 圖變成最新嘅面",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 80,
+    "start": 227.32,
+    "end": 229.76,
+    "whisper_text": "其实大家都很替他开心",
+    "qwen_text": "其實大家都好戥佢開心",
+    "verified_text": "其實大家都好戥佢開心",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 81,
+    "start": 229.76,
+    "end": 231.94,
+    "whisper_text": "好像早几天坐飞机一样",
+    "qwen_text": "㗎好似早幾日搭飛機咁",
+    "verified_text": "好似早幾日搭飛機咁",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 82,
+    "start": 231.94,
+    "end": 234.54,
+    "whisper_text": "史腾雷除了获得客舱升级之外",
+    "qwen_text": "史騰雷",
+    "verified_text": "史騰雷",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 83,
+    "start": 234.54,
+    "end": 236.48,
+    "whisper_text": "机组人员还为他准备了",
+    "qwen_text": "除咗獲得客艙升級之外",
+    "verified_text": "除咗獲得客艙升級之外，機組人員仲為佢準備咗",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 84,
+    "start": 236.48,
+    "end": 237.92,
+    "whisper_text": "特别的欢迎仪式",
+    "qwen_text": "機組人員仲為佢準備咗特別嘅歡迎儀式",
+    "verified_text": "機組人員仲為佢準備咗特別嘅歡迎儀式",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 85,
+    "start": 237.92,
+    "end": 239.48,
+    "whisper_text": "就是全机乘客",
+    "qwen_text": "就係全機乘客",
+    "verified_text": "就係全機乘客",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 86,
+    "start": 239.48,
+    "end": 241.29999999999998,
+    "whisper_text": "一起帮他庆祝夜马",
+    "qwen_text": "齊齊幫佢慶祝夜馬",
+    "verified_text": "齊齊幫佢慶祝夜馬",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 87,
+    "start": 241.29999999999998,
+    "end": 242.54,
+    "whisper_text": "这么大只瓶杯",
+    "qwen_text": "咁大隻獎杯",
+    "verified_text": "咁大隻獎杯",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 88,
+    "start": 242.54,
+    "end": 243.85999999999999,
+    "whisper_text": "最适合用来喝香槟",
+    "qwen_text": "最啱用嚟飲香檳",
+    "verified_text": "最啱用嚟飲香檳",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 89,
+    "start": 243.85999999999999,
+    "end": 249.0,
+    "whisper_text": "下星期日就是宝马香港",
+    "qwen_text": "啊下星期日就係寶馬香港",
+    "verified_text": "啊下星期日就係寶馬香港",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 90,
+    "start": 249.0,
+    "end": 250.98,
+    "whisper_text": "大杯大赛举行的大日子",
+    "qwen_text": "打比大賽舉行嘅大日子而",
+    "verified_text": "打比大賽舉行嘅大日子",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 91,
+    "start": 250.98,
+    "end": 252.4,
+    "whisper_text": "而排位抽签仪式",
+    "qwen_text": "排位抽籤儀式",
+    "verified_text": "排位抽籤儀式",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 92,
+    "start": 252.4,
+    "end": 254.35999999999999,
+    "whisper_text": "将会在3月19日进行",
+    "qwen_text": "將會喺三月十九號進行",
+    "verified_text": "將會喺三月十九號進行",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 93,
+    "start": 254.35999999999999,
+    "end": 255.74,
+    "whisper_text": "大家记得留意",
+    "qwen_text": "大家記得留意",
+    "verified_text": "大家記得留意",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 94,
+    "start": 255.74,
+    "end": 258.1,
+    "whisper_text": "哪些參賽者可以抽到好多",
+    "qwen_text": "邊啲參戰馬可以抽到好檔啦",
+    "verified_text": "邊啲參戰馬可以抽到好檔啦",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 95,
+    "start": 258.18,
+    "end": 259.86,
+    "whisper_text": "下星期再跟大家跟進",
+    "qwen_text": "下星期再同大家跟進",
+    "verified_text": "下星期再同大家跟進",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 96,
+    "start": 259.94,
+    "end": 261.42,
+    "whisper_text": "大賽的最新消息",
+    "qwen_text": "大賽嘅最新消息",
+    "verified_text": "大賽嘅最新消息",
+    "method": "LLM_JUDGE"
+  }
+]

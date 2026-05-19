@@ -1,0 +1,1208 @@
+[
+  {
+    "idx": 0,
+    "start": 0.04,
+    "end": 4.92,
+    "whisper_text": "Hi and welcome to The Winning Factor. I'm Alan Aitken and on this show each week",
+    "qwen_text": "HiandwelcometotheWinningFactorI'mAlanAikenandonthisshoweach",
+    "verified_text": "Hi and welcome to The Winning Factor. I'm Alan Aitken, and on this show each week",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 1,
+    "start": 4.92,
+    "end": 10.26,
+    "whisper_text": "we take a look at some upcoming races in Hong Kong, try to identify an angle to",
+    "qwen_text": "weekwetakealookatsomeupcomingracesinHongKongtrytoidentifyanangleto",
+    "verified_text": "we take a look at some upcoming races in Hong Kong, try to identify an angle to",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 2,
+    "start": 10.26,
+    "end": 15.120000000000001,
+    "whisper_text": "the race that might lead us to finding the winner. Well it's Saturday racing",
+    "qwen_text": "theracethatmightleadustofindingthewinnerWellit'sSaturdayracing",
+    "verified_text": "The race that might lead us to finding the winner. Well, it's Saturday racing.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 3,
+    "start": 15.120000000000001,
+    "end": 19.82,
+    "whisper_text": "this weekend in Hong Kong and the first race I'm going to take a look at is race",
+    "qwen_text": "thisweekendinHongKongandthefirstraceI'mgoingtotakealookatisRace",
+    "verified_text": "this weekend in Hong Kong, the first race I'm going to take a look at is Race",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 4,
+    "start": 19.82,
+    "end": 25.68,
+    "whisper_text": "10 where our winning factor is the map. So this is class 3 1600 meters and",
+    "qwen_text": "TenwhereourwinningfactoristhemapSothisisclassthree1600metres",
+    "verified_text": "Ten, where our winning factor is the map. So this is Class 3, 1600 metres.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 5,
+    "start": 25.68,
+    "end": 29.259999999999998,
+    "whisper_text": "And Blazing Wukong and Amazing Partners are coming off last start wins.",
+    "qwen_text": "andBlazingWuKongandAmazingPartnersarecomingofflaststartwins",
+    "verified_text": "And Blazing Wukong and Amazing Partners are coming off last start wins.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 6,
+    "start": 29.82,
+    "end": 33.14,
+    "whisper_text": "Endured has been racing well in similar events without much luck.",
+    "qwen_text": "Enduredhasbeenracingwellinsimilareventswithoutmuchluck",
+    "verified_text": "Endured has been racing well in similar events without much luck.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 7,
+    "start": 33.68,
+    "end": 35.92,
+    "whisper_text": "Smart Avenue should improve with a better draw.",
+    "qwen_text": "SmartAvenueshouldimprovewithabetterdraw",
+    "verified_text": "Smart Avenue should improve with a better draw.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 8,
+    "start": 36.38,
+    "end": 40.54,
+    "whisper_text": "And Family Jewel and Hymnbook both look to have chances as well.",
+    "qwen_text": "FamilyJewelandHimbookbothlooktohavechancesaswell",
+    "verified_text": "And Family Jewel and Hymnbook both look to have chances as well.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 9,
+    "start": 41.44,
+    "end": 44.46,
+    "whisper_text": "So not a one horse race by any means.",
+    "qwen_text": "Sonotaonehorseracebyanymeans",
+    "verified_text": "So not a one-horse race by any means.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 10,
+    "start": 44.58,
+    "end": 45.56,
+    "whisper_text": "Quite a few chances.",
+    "qwen_text": "Quiteafewchances",
+    "verified_text": "Quite a few chances.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 11,
+    "start": 45.56,
+    "end": 53.92,
+    "whisper_text": "But I'm looking most closely at a couple of horses I think will cope with what looks quite a tricky event in terms of the map.",
+    "qwen_text": "butI'mlookingmostcloselyatacoupleofhorsesIthinkwillcopewithwhatlooksquiteatrickyeventintermsofthemap",
+    "verified_text": "But I'm looking most closely at a couple of horses I think will cope with what looks quite a tricky event in terms of the map.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 12,
+    "start": 53.92,
+    "end": 57.38,
+    "whisper_text": "And that's Blazing Wukong and Amazing Partners.",
+    "qwen_text": "andthat'sBlazingWukongandAmazingPartners",
+    "verified_text": "And that's Blazing Wukong and Amazing Partners.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 13,
+    "start": 58.22,
+    "end": 61.54,
+    "whisper_text": "Now, Amazing Partners, first of all, well, he's lightly raced.",
+    "qwen_text": "NowamazingpartnersFirstofallwellhe'slightlyraced",
+    "verified_text": "Now, Amazing Partners, first of all, well, he's lightly raced.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 14,
+    "start": 61.68,
+    "end": 63.88,
+    "whisper_text": "He's only had six starts for three wins.",
+    "qwen_text": "He'sonlyhadsixstartsforthreewins",
+    "verified_text": "He's only had six starts for three wins.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 15,
+    "start": 64.38,
+    "end": 68.44,
+    "whisper_text": "And this was his latest when he tackled 1,600 metres for the first time.",
+    "qwen_text": "andthiswashislatestwhenhetackledsixteenhundredmetresforthefirsttime",
+    "verified_text": "And this was his latest when he tackled 1,600 metres for the first time.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 16,
+    "start": 68.86,
+    "end": 72.2,
+    "whisper_text": "This is race 601. He's in gate four pink colours.",
+    "qwen_text": "ThisisracesixhundredandoneHe'singatefourpinkcolours",
+    "verified_text": "This is Race 601. He's in gate four, pink colours.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 17,
+    "start": 72.68,
+    "end": 76.2,
+    "whisper_text": "And Amazing Partners jumps well. He isn't a quick horse naturally.",
+    "qwen_text": "AnamazingpartnerJumpswellHeisn'taquickhorsenaturally",
+    "verified_text": "And Amazing Partners jumps well. He isn't a quick horse naturally.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 18,
+    "start": 76.74000000000001,
+    "end": 80.28,
+    "whisper_text": "But Vincent Ho is able to get him into a position near the lead",
+    "qwen_text": "butVincentHoisabletogethimintoapositionnearthelead",
+    "verified_text": "But Vincent Ho is able to get him into a position near the lead.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 19,
+    "start": 80.28,
+    "end": 82.96000000000001,
+    "whisper_text": "through what is a slow first sectional",
+    "qwen_text": "throughwhatisaslowfirstsectional",
+    "verified_text": "through what is a slow first sectional",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 20,
+    "start": 82.96,
+    "end": 86.75999999999999,
+    "whisper_text": "before the pace does pick up a little through the middle stages,",
+    "qwen_text": "Beforethepacedoespickupalittlethroughthemiddlestages",
+    "verified_text": "Before the pace does pick up a little through the middle stages.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 21,
+    "start": 86.94,
+    "end": 88.91999999999999,
+    "whisper_text": "but still is only steady.",
+    "qwen_text": "butstillisonlysteady",
+    "verified_text": "but still is only steady.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 22,
+    "start": 89.75999999999999,
+    "end": 92.1,
+    "whisper_text": "A number of Saturday's rivals are here too.",
+    "qwen_text": "numberofSaturday'srivalsareheretoo",
+    "verified_text": "A number of Saturday's rivals are here too.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 23,
+    "start": 92.25999999999999,
+    "end": 94.53999999999999,
+    "whisper_text": "In Jude, inside amazing partners in red and grey,",
+    "qwen_text": "Enduedinsideamazingpartnersinredandgrey",
+    "verified_text": "In Jude, inside amazing partners in red and grey.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 24,
+    "start": 94.67999999999999,
+    "end": 97.75999999999999,
+    "whisper_text": "Mr Dapper, the leader, and Himbuk in green near the tail.",
+    "qwen_text": "MrDappertheleaderandHimbookingreennearthetail",
+    "verified_text": "Mr Dapper, the leader, and Himbuk in green near the tail.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 25,
+    "start": 97.83999999999999,
+    "end": 101.24,
+    "whisper_text": "Now, the field is bunched here with no serious pace",
+    "qwen_text": "Nowthefieldisbunchedherewithnoseriouspace",
+    "verified_text": "Now, the field is bunched here with no serious pace.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 26,
+    "start": 101.24,
+    "end": 104.03999999999999,
+    "whisper_text": "and becomes just a dash down the straight,",
+    "qwen_text": "andbecomesjustadashdownthestraight",
+    "verified_text": "and becomes just a dash down the straight",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 27,
+    "start": 104.53999999999999,
+    "end": 106.46,
+    "whisper_text": "with in Jude on the inside having no luck.",
+    "qwen_text": "WithEnduedontheinsidehavingnoluck",
+    "verified_text": "With Endue on the inside having no luck.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 28,
+    "start": 106.78,
+    "end": 109.28,
+    "whisper_text": "But amazing partners, well, he's able to be challenging",
+    "qwen_text": "butamazingpartnersWellhe'sabletobechallenging",
+    "verified_text": "But amazing partners, well, he's able to be challenging",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 29,
+    "start": 109.28,
+    "end": 111.96,
+    "whisper_text": "at the right time with enough turn of foot",
+    "qwen_text": "attherighttimewithenoughturnoffoot",
+    "verified_text": "at the right time with enough turn of foot",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 30,
+    "start": 111.96,
+    "end": 114.74,
+    "whisper_text": "to reel in the leaders and he grinds out the win.",
+    "qwen_text": "toreelintheleadersandhegrindsoutthewin",
+    "verified_text": "to reel in the leaders and he grinds out the win.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 31,
+    "start": 116.3,
+    "end": 120.58,
+    "whisper_text": "Now, despite his good winning record, three from six amazing partners,",
+    "qwen_text": "Nowdespitehisgoodwinningrecordthreefromsixamazingpartners",
+    "verified_text": "Now, despite his good winning record, three from six amazing partners",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 32,
+    "start": 120.83999999999999,
+    "end": 123.58,
+    "whisper_text": "I don't really think we've seen the best of him yet",
+    "qwen_text": "Idon'treallythinkwe'veseenthebestofhimyet",
+    "verified_text": "I don't really think we've seen the best of him yet",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 33,
+    "start": 123.58,
+    "end": 126.61999999999999,
+    "whisper_text": "because he's been in several of these kinds of races",
+    "qwen_text": "becausehe'sbeeninseveralofthesekindsofraces",
+    "verified_text": "because he's been in several of these kinds of races",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 34,
+    "start": 126.61999999999999,
+    "end": 129.45999999999998,
+    "whisper_text": "where it's just a grinding sort of finish,",
+    "qwen_text": "Whereit'sjustagrindingsortoffinish",
+    "verified_text": "where it's just a grinding sort of finish",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 35,
+    "start": 129.56,
+    "end": 131.76,
+    "whisper_text": "difficult to get separation on the field.",
+    "qwen_text": "difficulttogetseparationonthefield",
+    "verified_text": "difficult to get separation on the field.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 36,
+    "start": 131.88,
+    "end": 135.22,
+    "whisper_text": "So he's done well to put that record together",
+    "qwen_text": "Sohe'sdonewelltoputthatrecordtogether",
+    "verified_text": "So he's done well to put that record together",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 37,
+    "start": 135.22,
+    "end": 139.62,
+    "whisper_text": "and that could be a key thing in Saturday's race.",
+    "qwen_text": "andthatcouldbeakeythinginSaturday'srace",
+    "verified_text": "and that could be a key thing in Saturday's race.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 38,
+    "start": 139.62,
+    "end": 141.22,
+    "whisper_text": "Now, Blazing Wukong, on the other hand,",
+    "qwen_text": "NowBlazingWuKongontheotherhand",
+    "verified_text": "Now, Blazing Wukong, on the other hand,",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 39,
+    "start": 141.22,
+    "end": 146.34,
+    "whisper_text": "He's a little bit more well explored with 11 starts so far for three wins.",
+    "qwen_text": "he'salittlebitmorewellexploredwith11startssofarforthreewins",
+    "verified_text": "He's a little bit more well explored with 11 starts so far for three wins.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 40,
+    "start": 146.84,
+    "end": 148.16,
+    "whisper_text": "And here's his latest offering.",
+    "qwen_text": "andhere'shislatestoffering",
+    "verified_text": "And here's his latest offering.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 41,
+    "start": 148.38,
+    "end": 152.02,
+    "whisper_text": "This is race 643, gate 13 in black colours.",
+    "qwen_text": "Thisisrace643Gate13inblackcolours",
+    "verified_text": "This is race 643, gate 13 in black colours.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 42,
+    "start": 152.2,
+    "end": 160.36,
+    "whisper_text": "And Blazing Wukong jumps okay, but jockey Andrea Azzini doesn't even think of looking for a more forward position going back to the rear.",
+    "qwen_text": "blazingWuKongjumpsokaybutjockeyAndreaZanidoesn'teventhinkoflookingforamoreforwardpositionGoingbacktotherear",
+    "verified_text": "And Blazing Wukong jumps okay, but jockey Andrea Zanido doesn't even think of looking for a more forward position going back to the rear.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 43,
+    "start": 160.5,
+    "end": 163.36,
+    "whisper_text": "Now, that prevents him covering extra ground early.",
+    "qwen_text": "nowthatpreventshimcoveringextragroundearly",
+    "verified_text": "Now, that prevents him covering extra ground early.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 44,
+    "start": 163.68,
+    "end": 169.22,
+    "whisper_text": "But we can see on the heat map it's also a disadvantage with the slow early speed here.",
+    "qwen_text": "Butwecanseeontheheatmapit'salsoadisadvantagewiththeslowearlyspeedhere",
+    "verified_text": "But we can see on the heat map it's also a disadvantage with the slow early speed here.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 45,
+    "start": 169.22,
+    "end": 174.22,
+    "whisper_text": "The pace is a little better mid-race but never really gets above steady.",
+    "qwen_text": "ThepaceisalittlebettermidracebutneverreallygetsabovesteadyAnd",
+    "verified_text": "The pace is a little better mid-race but never really gets above steady.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 46,
+    "start": 174.22,
+    "end": 179.04,
+    "whisper_text": "Blazing Wukong then sprints well around the field, deceptively fast around the field in",
+    "qwen_text": "BlazingWuKongthensprintswellaroundthefielddeceptivelyfastaroundthefield",
+    "verified_text": "Blazing Wukong then sprints well around the field, deceptively fast around the field in",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 47,
+    "start": 179.04,
+    "end": 183.54,
+    "whisper_text": "fact as they turn into the stretch and he's the one with the acceleration to go and pick",
+    "qwen_text": "Infactastheyturnintothestretchandhe'stheonewiththeaccelerationtogoandpick",
+    "verified_text": "In fact, as they turn into the stretch, he's the one with the acceleration to go and pick.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 48,
+    "start": 183.54,
+    "end": 186.72,
+    "whisper_text": "up the leaders and put them away.",
+    "qwen_text": "uptheleadersandputthemawayNowjust",
+    "verified_text": "up the leaders and put them away.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 49,
+    "start": 186.72,
+    "end": 192.78,
+    "whisper_text": "Just like Amazing Partners, not the most impressive win to the eye but what they have in common",
+    "qwen_text": "likeamazingpartnersnotthemostimpressivewintotheeyebutwhattheyhaveincommon",
+    "verified_text": "Just like Amazing Partners, not the most impressive win to the eye but what they have in common.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 50,
+    "start": 192.78,
+    "end": 199.12,
+    "whisper_text": "is that each of them had to produce acceleration at the right time, the right place to go and",
+    "qwen_text": "isthateachofthemhadtoproduceaccelerationattherighttimetherightplacetogoand",
+    "verified_text": "is that each of them had to produce acceleration at the right time, the right place to go and",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 51,
+    "start": 199.12,
+    "end": 204.8,
+    "whisper_text": "win the race and as I said I think that's going to be important in the context of Saturday's race.",
+    "qwen_text": "wintheraceAndasIsaidIthinkthat'sgoingtobeimportantinthecontextofSaturday'srace",
+    "verified_text": "win the race and as I said I think that's going to be important in the context of Saturday's race.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 52,
+    "start": 205.3,
+    "end": 211.38,
+    "whisper_text": "Now the leaders Mr Dapper and with all my faith have the outside gates so that is the hope of the",
+    "qwen_text": "NowtheleadersMrDapperandwithallmyfaithhavetheoutsidegatesSothatisthehopeofthe",
+    "verified_text": "Now the leaders, Mr. Dapper and With All My Faith, have the outside gates, so that is the hope of the...",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 53,
+    "start": 211.38,
+    "end": 217.98000000000002,
+    "whisper_text": "side as far as getting a better speed but it's quite possible they could get across quickly and",
+    "qwen_text": "sideasfarasgettingabetterspeedButit'squitepossibletheycouldgetacrossquicklyand",
+    "verified_text": "side as far as getting a better speed, but it's quite possible they could get across quickly and",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 54,
+    "start": 217.98000000000002,
+    "end": 223.42000000000002,
+    "whisper_text": "then steady the brakes and we might have a similar style of race to what we've been seeing.",
+    "qwen_text": "thensteadythebrakesandwemighthaveasimilarstyleofracetowhatwe'vebeenseeing",
+    "verified_text": "then steady the brakes and we might have a similar style of race to what we've been seeing.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 55,
+    "start": 223.42,
+    "end": 229.6,
+    "whisper_text": "There still looks a little speed in it, inside or out, and that's not going to help the likes",
+    "qwen_text": "Therestilllooksalittlespeedinitinsideoroutandthat'snotgoingtohelpthelikes",
+    "verified_text": "There still looks a little speed in it, inside or out, and that's not going to help the likes",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 56,
+    "start": 229.6,
+    "end": 235.98,
+    "whisper_text": "of Family Jewel, Endured and others who have wider draws, while Hymnbook and Smart Avenue",
+    "qwen_text": "ofFamilyJewelEnduedandotherswhohavewiderdrawsWhileHimbookandSmartAvenue",
+    "verified_text": "of Family Jewel, Endured and others who have wider draws, while Hymnbook and Smart Avenue",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 57,
+    "start": 235.98,
+    "end": 241.48,
+    "whisper_text": "have never really shown as much tactical speed yet, regardless of their draw.",
+    "qwen_text": "haveneverreallyshownasmuchtacticalspeedyetregardlessoftheirdraw",
+    "verified_text": "have never really shown as much tactical speed yet, regardless of their draw.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 58,
+    "start": 241.48,
+    "end": 244.0,
+    "whisper_text": "Now Blazing Wukong went all the way back last time.",
+    "qwen_text": "NowBlazingWukongwentallthewaybacklasttimeWe",
+    "verified_text": "Now Blazing Wukong went all the way back last time.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 59,
+    "start": 244.0,
+    "end": 250.27999999999997,
+    "whisper_text": "We have seen him ridden like that quite a bit, but he has also had a lot of wider draws.",
+    "qwen_text": "haveseenhimriddenlikethatquiteabitbuthehasalsohadalotofwiderdrawsThis",
+    "verified_text": "We have seen him ridden like that quite a bit, but he has also had a lot of wider draws.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 60,
+    "start": 250.28,
+    "end": 255.44,
+    "whisper_text": "This time he's got a better draw, so he might even be closer from barrier five.",
+    "qwen_text": "timehe'sgotabetterdrawsohemightevenbecloserfromBarrierFiveBut",
+    "verified_text": "This time he's got a better draw, so he might even be closer from Barrier Five.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 61,
+    "start": 255.44,
+    "end": 260.28,
+    "whisper_text": "But we do know that Amazing Partners has the tactical speed to be where he needs to be",
+    "qwen_text": "wedoknowthatAmazingPartnershasthetacticalspeedtobewhereheneedsto",
+    "verified_text": "But we do know that Amazing Partners has the tactical speed to be where he needs to be.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 62,
+    "start": 260.28,
+    "end": 262.22,
+    "whisper_text": "again.",
+    "qwen_text": "beagainSo",
+    "verified_text": "be again.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 63,
+    "start": 262.22,
+    "end": 267.54,
+    "whisper_text": "So the tip from me in race 10, Amazing Partners, his winning factor, the map.",
+    "qwen_text": "thetipformeinracetenamazingpartnersHiswinningfactorthemapIt",
+    "verified_text": "So the tip from me in race 10, Amazing Partners, his winning factor, the map.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 64,
+    "start": 267.54,
+    "end": 272.2,
+    "whisper_text": "It does look a very tricky map, but it could be a stop start kind of race.",
+    "qwen_text": "doeslookaverytrickymapbutitcouldbeastopstartkindofraceBut",
+    "verified_text": "It does look a very tricky map, but it could be a stop-start kind of race.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 65,
+    "start": 272.2,
+    "end": 277.34000000000003,
+    "whisper_text": "But what we've seen from Amazing Partners, even in those kinds of races, is that he's",
+    "qwen_text": "whatwe'veseenfromamazingpartnerseveninthosekindsofracesisthathe's",
+    "verified_text": "But what we've seen from Amazing Partners, even in those kinds of races, is that he's",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 66,
+    "start": 277.34000000000003,
+    "end": 279.5,
+    "whisper_text": "able to put himself in the right place.",
+    "qwen_text": "abletoputhimselfintherightplaceHe's",
+    "verified_text": "able to put himself in the right place. He's",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 67,
+    "start": 279.5,
+    "end": 287.68,
+    "whisper_text": "able to accelerate at the right time and that might be the winning recipe for this event.",
+    "qwen_text": "abletoaccelerateattherighttimeandthatmightbethewinningrecipeforthiseventThe",
+    "verified_text": "able to accelerate at the right time and that might be the winning recipe for this event.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 68,
+    "start": 287.68,
+    "end": 291.82,
+    "whisper_text": "The other race I want to take a look at on Sunday is the final event, race 11 and our",
+    "qwen_text": "otherraceIwanttotakealookatonSundayisthefinaleventraceelevenandour",
+    "verified_text": "The other race I want to take a look at on Sunday is the final event, race 11 and our",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 69,
+    "start": 291.82,
+    "end": 293.78,
+    "whisper_text": "winning factor here, the draw.",
+    "qwen_text": "winningfactorherethedrawSo",
+    "verified_text": "winning factor here, the draw.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 70,
+    "start": 293.78,
+    "end": 299.62,
+    "whisper_text": "So this is class two, an excellent class two in fact, over 1200 metres and despite the",
+    "qwen_text": "thisisclasstwoanexcellentclasstwoinfactovertwelvehundredmetresAnddespitethe",
+    "verified_text": "This is Class Two, an excellent Class Two in fact, over 1200 metres and despite the",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 71,
+    "start": 299.62,
+    "end": 305.62,
+    "whisper_text": "talent in the race, I think we can narrow this down to three really strong chances.",
+    "qwen_text": "talentintheraceIthinkwecannarrowthisdowntothreereallystrongchances",
+    "verified_text": "Talent in the Race, I think we can narrow this down to three really strong chances.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 72,
+    "start": 305.62,
+    "end": 307.88,
+    "whisper_text": "a patch of stars who continues to race well,",
+    "qwen_text": "PatchofStarswhocontinuestoracewell",
+    "verified_text": "Patch of Stars, who continues to race well.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 73,
+    "start": 308.3,
+    "end": 312.76,
+    "whisper_text": "and two horses we expect to see figuring in some serious races in the future,",
+    "qwen_text": "andtwohorsesweexpecttoseefiguringinsomeseriousracesinthefuture",
+    "verified_text": "and two horses we expect to see figuring in some serious races in the future.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 74,
+    "start": 313.28000000000003,
+    "end": 317.52,
+    "whisper_text": "Jamie Richards' trained Bulb General and the unbeaten three-year-old Hot Delight.",
+    "qwen_text": "JamieRichardstrainedBulbGeneralandtheunbeatenthreeyearoldHotDelight",
+    "verified_text": "Jamie Richards' trained Bulb General and the unbeaten three-year-old Hot Delight.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 75,
+    "start": 318.48,
+    "end": 322.62,
+    "whisper_text": "And I'm most interested in this race in those two lightly raced horses.",
+    "qwen_text": "AndI'mmostinterestedinthisraceinthosetwolightlyracedhorses",
+    "verified_text": "And I'm most interested in this race in those two lightly raced horses.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 76,
+    "start": 322.62,
+    "end": 325.58,
+    "whisper_text": "As I said, Hot Delight, unbeaten, three from three,",
+    "qwen_text": "AsIsaidHotDelightunbeatenthreefromthree",
+    "verified_text": "As I said, Hot Delight, unbeaten, three from three.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 77,
+    "start": 325.98,
+    "end": 330.52,
+    "whisper_text": "and Bulb General, a year older, and he's three wins from five starts.",
+    "qwen_text": "andBobGeneralayearolderandhe'sthreewinsfromfivestarts",
+    "verified_text": "and Bulb General, a year older, and he's three wins from five starts.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 78,
+    "start": 331.26,
+    "end": 334.46,
+    "whisper_text": "Now, firstly, Hot Delight, and his trainer, Francis Loy,",
+    "qwen_text": "NowfirstlyHotDelightandhistrainerFrancisLoy",
+    "verified_text": "Now, firstly, Hot Delight, and his trainer, Francis Loy,",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 79,
+    "start": 334.46,
+    "end": 340.21999999999997,
+    "whisper_text": "has made comparisons at the same stage with a horse that you might be familiar with that he",
+    "qwen_text": "hasmadecomparisonsatthesamestagewithahorsethatyoumightbefamiliarwiththathe",
+    "verified_text": "has made comparisons at the same stage with a horse that you might be familiar with that he",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 80,
+    "start": 340.21999999999997,
+    "end": 346.02,
+    "whisper_text": "used to train, Golden 60. That's a big call. Certainly there's a lot of water to flow under",
+    "qwen_text": "usedtotrainGoldenSixtyThat'sabigcallCertainlythere'salotofwatertoflowunder",
+    "verified_text": "used to train Golden Sixty. That's a big call. Certainly there's a lot of water to flow under",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 81,
+    "start": 346.02,
+    "end": 352.9,
+    "whisper_text": "the bridge for that one, but he can't be faulted in what he's done so far. This is race 540. He's",
+    "qwen_text": "thebridgeforthatoneButhecan'tbefaultedinwhathe'sdonesofarThisisrace540He's",
+    "verified_text": "the bridge for that one, but he can't be faulted in what he's done so far. This is race 540. He's",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 82,
+    "start": 352.9,
+    "end": 359.26,
+    "whisper_text": "in gate seven in yellow and red colours and Hot Delight jumps well for Vincent Ho and is quickly",
+    "qwen_text": "ingateseveninyellowandredcoloursandHotDelightjumpswellforVincentHoandisquickly",
+    "verified_text": "in gate seven in yellow and red colours, and Hot Delight jumps well for Vincent Ho and is quickly",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 83,
+    "start": 359.26,
+    "end": 366.15999999999997,
+    "whisper_text": "up on the speed in what you can see is a slow first 400 metre section with Ho on the odds",
+    "qwen_text": "uponthespeedinwhatyoucanseeisaslowfirst400metresectionWithHoontheoddson",
+    "verified_text": "Up on the speed, in what you can see is a slow first 400-metre section with Ho on the odds.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 84,
+    "start": 366.15999999999997,
+    "end": 369.8,
+    "whisper_text": "on favourite here taking bad luck out of the equation.",
+    "qwen_text": "favouriteheretakingbadluckoutoftheequationNow",
+    "verified_text": "on favourite here taking bad luck out of the equation.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 85,
+    "start": 369.8,
+    "end": 375.24,
+    "whisper_text": "Now the pace does lift a little as the race progresses then becomes a strong sprint home",
+    "qwen_text": "thepacedoesliftalittleastheraceprogressesthenbecomesastrongsprinthome",
+    "verified_text": "Now the pace does lift a little as the race progresses then becomes a strong sprint home.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 86,
+    "start": 375.24,
+    "end": 376.58,
+    "whisper_text": "down the stretch.",
+    "qwen_text": "downthestretchThe",
+    "verified_text": "down the stretch.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 87,
+    "start": 376.58,
+    "end": 381.59999999999997,
+    "whisper_text": "The leader fights on well but ultimately Hot Delight is too good and comes clear to win",
+    "qwen_text": "leaderfightsonwellbutultimatelyHotDelightistoogoodandcomescleartowin",
+    "verified_text": "The leader fights on well but ultimately Hot Delight is too good and comes clear to win.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 88,
+    "start": 381.59999999999997,
+    "end": 383.88,
+    "whisper_text": "with some conviction.",
+    "qwen_text": "withsomeconviction",
+    "verified_text": "with some conviction.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 89,
+    "start": 383.88,
+    "end": 388.94,
+    "whisper_text": "Now perhaps to the eye not deserving the kind of boom that we're talking about on this horse",
+    "qwen_text": "Nowperhapstotheeyenotdeservingthekindofboomthatwe'retalkingaboutonthishorse",
+    "verified_text": "Now, perhaps to the eye, not deserving the kind of boom that we're talking about on this horse.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 90,
+    "start": 388.94,
+    "end": 393.6,
+    "whisper_text": "But the way the race was run there meant that to win it the way he did,",
+    "qwen_text": "butthewaytheracewasruntheremeantthattowinitthewayhedid",
+    "verified_text": "But the way the race was run there meant that to win it the way he did,",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 91,
+    "start": 393.66,
+    "end": 397.84,
+    "whisper_text": "Hot Delight had to break 44 seconds for his last 800 metres.",
+    "qwen_text": "HotDelighthadtobreak44secondsforhislast800metres",
+    "verified_text": "Hot Delight had to break 44 seconds for his last 800 metres.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 92,
+    "start": 397.84,
+    "end": 402.42,
+    "whisper_text": "And that's the kind of sustained speed that is going to make this young horse",
+    "qwen_text": "andthat'sthekindofsustainedspeedthatisgoingtomakethisyounghorse",
+    "verified_text": "And that's the kind of sustained speed that is going to make this young horse.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 93,
+    "start": 402.42,
+    "end": 407.06,
+    "whisper_text": "a star of the future as he develops and grows stronger.",
+    "qwen_text": "astarofthefutureashedevelopsandgrowsstronger",
+    "verified_text": "A star of the future as he develops and grows stronger.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 94,
+    "start": 407.48,
+    "end": 410.9,
+    "whisper_text": "As to Bulb General, well, as I mentioned, he's a year older.",
+    "qwen_text": "AstoBoldGeneralwellasImentionedhe'sayearolder",
+    "verified_text": "As to Bold General, well, as I mentioned, he's a year older.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 95,
+    "start": 411.22,
+    "end": 416.78,
+    "whisper_text": "And really, he was this time last year where Hot Delight is now.",
+    "qwen_text": "ReallyhewasthistimelastyearwhereHotDelightisnow",
+    "verified_text": "And really, he was this time last year where Hot Delight is now.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 96,
+    "start": 417.23999999999995,
+    "end": 422.23999999999995,
+    "whisper_text": "He was an up-and-comer with a great turn of foot as a three-year-old.",
+    "qwen_text": "Hewasanupandcomerwithagreatturnoffootasathreeyearold",
+    "verified_text": "He was an up-and-comer with a great turn of foot as a three-year-old.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 97,
+    "start": 422.46,
+    "end": 424.96,
+    "whisper_text": "He took that into his early starts as a four-year-old,",
+    "qwen_text": "Hetookthatintohisearlystartsasafouryearold",
+    "verified_text": "He took that into his early starts as a four-year-old.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 98,
+    "start": 425.03999999999996,
+    "end": 428.58,
+    "whisper_text": "but then his career was interrupted by injury.",
+    "qwen_text": "butthenhiscareerwasinterruptedbyinjury",
+    "verified_text": "but then his career was interrupted by injury.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 99,
+    "start": 429.26,
+    "end": 431.71999999999997,
+    "whisper_text": "He's only had the one run back in March,",
+    "qwen_text": "He'sonlyhadtheonerunbackinMarch",
+    "verified_text": "He's only had the one run back in March.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 100,
+    "start": 432.03999999999996,
+    "end": 434.47999999999996,
+    "whisper_text": "and let's have a look at how he handled that.",
+    "qwen_text": "andlet'shavealookathowhehandledthat",
+    "verified_text": "and let's have a look at how he handled that.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 101,
+    "start": 434.73999999999995,
+    "end": 438.7,
+    "whisper_text": "This is race 562, gate seven here in orange and white colours.",
+    "qwen_text": "Thisisrace562gatesevenhereinorangeandwhitecolours",
+    "verified_text": "This is Race 562, gate seven here in orange and white colours.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 102,
+    "start": 439.03999999999996,
+    "end": 441.34,
+    "whisper_text": "Bulb General jumps well for Zach Burton,",
+    "qwen_text": "BulbGeneraljumpswellforZacPurton",
+    "verified_text": "Bulb General jumps well for Zac Purton.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 103,
+    "start": 441.76,
+    "end": 444.41999999999996,
+    "whisper_text": "but this race is a contrast with the one that we just saw,",
+    "qwen_text": "butthisraceisacontrastwiththeonethatwejustsaw",
+    "verified_text": "but this race is a contrast with the one that we just saw",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 104,
+    "start": 444.47999999999996,
+    "end": 446.47999999999996,
+    "whisper_text": "as the early speed here is pretty good.",
+    "qwen_text": "astheearlyspeedhereisprettygood",
+    "verified_text": "as the early speed here is pretty good.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 105,
+    "start": 446.78,
+    "end": 452.71999999999997,
+    "whisper_text": "Zach lets Bulb General find his feet as is usual and he ends up towards the rear with",
+    "qwen_text": "Zaklet'sbulbgeneralfindhisfeetasisusualandheendsuptowardstherearwith",
+    "verified_text": "Zak let Bulb General find his feet as is usual, and he ends up towards the rear with",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 106,
+    "start": 452.71999999999997,
+    "end": 457.32,
+    "whisper_text": "another of Saturday's rivals Patch of Stars in yellow, white and blue a few lengths ahead",
+    "qwen_text": "anotherofSaturday'srivalsPatchofStarsinyellowwhiteandblueafewlengthsahead",
+    "verified_text": "another of Saturday's rivals Patch of Stars in yellow, white and blue a few lengths ahead",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 107,
+    "start": 457.32,
+    "end": 458.88,
+    "whisper_text": "of him on the rail.",
+    "qwen_text": "ofhimontherailNow",
+    "verified_text": "of him on the rail.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 108,
+    "start": 458.88,
+    "end": 464.61999999999995,
+    "whisper_text": "Now the pace increases again mid-race so it's really run to suit horses off the pace and",
+    "qwen_text": "thepaceincreasesagainmidracesoit'sreallyruntosuithorsesoffthepaceAnd",
+    "verified_text": "Now the pace increases again mid-race so it's really run to suit horses off the pace.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 109,
+    "start": 464.61999999999995,
+    "end": 469.05999999999995,
+    "whisper_text": "when they straighten up Patch of Stars comes to pounce, he comes up short behind Young",
+    "qwen_text": "whentheystraightenupPatchofStarscomestopounceHecomesupshortbehindYoung",
+    "verified_text": "When they straighten up, Patch of Stars comes to pounce; he comes up short behind Young.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 110,
+    "start": 469.05999999999995,
+    "end": 473.78,
+    "whisper_text": "Champion with Bulb General working home steadily into third.",
+    "qwen_text": "ChampionwithBobGeneralworkinghomesteadilyintothird",
+    "verified_text": "Champion with Bob General working home steadily into third.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 111,
+    "start": 473.78,
+    "end": 480.05999999999995,
+    "whisper_text": "Now Bob General will meet the first two that beat him home there on Saturday, but they",
+    "qwen_text": "NowBobGeneralwillmeetthefirsttwothatbeathimhomethereonSaturdayButthey",
+    "verified_text": "Now Bob General will meet the first two that beat him home there on Saturday, but they",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 112,
+    "start": 480.05999999999995,
+    "end": 485.53999999999996,
+    "whisper_text": "were hard race fit horses and he was coming off quite a lengthy break.",
+    "qwen_text": "werehardracefithorsesandhewascomingoffquitealengthybreakSo",
+    "verified_text": "were hard race-fit horses and he was coming off quite a lengthy break.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 113,
+    "start": 485.53999999999996,
+    "end": 491.15999999999997,
+    "whisper_text": "So I do think he's going to tighten up and be a better version of himself on Saturday.",
+    "qwen_text": "Idothinkhe'sgoingtotightenupandbeabetterversionofhimselfonSaturday",
+    "verified_text": "So I do think he's going to tighten up and be a better version of himself on Saturday.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 114,
+    "start": 491.15999999999997,
+    "end": 496.84,
+    "whisper_text": "But I think when we go to the draw, that's where things are really getting interesting",
+    "qwen_text": "ButIthinkwhenwegotothedrawthat'swherethingsarereallygettinginteresting",
+    "verified_text": "But I think when we go to the draw, that's where things are really getting interesting.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 115,
+    "start": 496.84,
+    "end": 498.2,
+    "whisper_text": "in this race.",
+    "qwen_text": "inthisraceThere's",
+    "verified_text": "in this race.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 116,
+    "start": 498.2,
+    "end": 502.46,
+    "whisper_text": "There's good speed out wide here from Victor the winner, Crimson Flash and Ladies Choice.",
+    "qwen_text": "goodspeedoutwideherefromVictorthewinnerCrimsonFlashandLady'sChoiceSo",
+    "verified_text": "There's good speed out wide here from Victor the winner, Crimson Flash and Lady's Choice.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 117,
+    "start": 502.46,
+    "end": 504.09999999999997,
+    "whisper_text": "So the tempo looks sound enough.",
+    "qwen_text": "thetempolookssoundenough",
+    "verified_text": "So the tempo looks sound enough.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 118,
+    "start": 504.09999999999997,
+    "end": 508.59999999999997,
+    "whisper_text": "Bob General is drawn lower this time, while he's still not going to be on the front end",
+    "qwen_text": "BibleGeneralisdrawnlowerthistimewhilehe'sstillnotgoingtobeonthefrontend",
+    "verified_text": "Bob General is drawn lower this time, while he's still not going to be on the front end.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 119,
+    "start": 508.59999999999997,
+    "end": 509.59999999999997,
+    "whisper_text": "of the race.",
+    "qwen_text": "oftherace",
+    "verified_text": "of the race.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 120,
+    "start": 509.59999999999997,
+    "end": 514.56,
+    "whisper_text": "His jockey this time, Joe Marrera, should be able to use that draw to get a nice trip",
+    "qwen_text": "HisjockeythistimeJoeMoreirashouldbeabletousethatdrawtogetanicetrip",
+    "verified_text": "His jockey this time, Joe Moreira, should be able to use that draw to get a nice trip.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 121,
+    "start": 514.56,
+    "end": 516.16,
+    "whisper_text": "through the race.",
+    "qwen_text": "throughtherace",
+    "verified_text": "through the race.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 122,
+    "start": 516.16,
+    "end": 520.8199999999999,
+    "whisper_text": "Harry Bentley takes over on Hot Delight with the light weight, but his map looks filled",
+    "qwen_text": "HarryBentleytakesoveronHotDelightwiththelightweightbuthismaplooksfilled",
+    "verified_text": "Harry Bentley takes over on Hot Delight with the light weight, but his map looks filled.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 123,
+    "start": 520.8199999999999,
+    "end": 525.36,
+    "whisper_text": "with a lot of decisions to make, and tough ones they are.",
+    "qwen_text": "withalotofdecisionstomakeAndtoughonestheyareWe",
+    "verified_text": "with a lot of decisions to make, and tough ones they are.",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 124,
+    "start": 525.36,
+    "end": 529.9,
+    "whisper_text": "We saw Hot Delight up on the speed, his last two starts in slow tempos, but with a better",
+    "qwen_text": "sawHotDelightuponthespeedHislasttwostartsinslowtemposbutwithabetter",
+    "verified_text": "We saw Hot Delight up on the speed, his last two starts in slow tempos, but with a better",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 125,
+    "start": 529.9,
+    "end": 535.5,
+    "whisper_text": "pace and a wide draw here he would have trouble getting to a similar spot without covering ground",
+    "qwen_text": "paceandawidedrawherehewouldhavetroublegettingtoasimilarspotwithoutcoveringground",
+    "verified_text": "pace and a wide draw here he would have trouble getting to a similar spot without covering ground",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 126,
+    "start": 535.5,
+    "end": 541.02,
+    "whisper_text": "and working and might even have to drag all the way back in the field so that he doesn't have a",
+    "qwen_text": "andworkingandmightevenhavetodragallthewaybackinthefieldsothathedoesn'thavea",
+    "verified_text": "and working and might even have to drag all the way back in the field so that he doesn't have a",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 127,
+    "start": 541.02,
+    "end": 549.1,
+    "whisper_text": "difficult run so the tip from me in race 11 bulb general his winning factor the draw now had they",
+    "qwen_text": "difficultrunSothetipfrommeinraceelevenBulbGeneralHiswinningfactorthedrawNowhad",
+    "verified_text": "difficult run, so the tip from me in race 11 is Bulb General. His winning factor, the draw now had they",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 128,
+    "start": 549.1,
+    "end": 555.42,
+    "whisper_text": "drawn the other way around i'm sure that i would have been tipping hot delight but his job looks",
+    "qwen_text": "theydrawntheotherwayaroundI'msurethatIwouldhavebeentippingHotDelightButhisjoblooks",
+    "verified_text": "Drawn the other way around, I'm sure that I would have been tipping Hot Delight, but his job looks",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 129,
+    "start": 555.42,
+    "end": 559.38,
+    "whisper_text": "full of difficulties. He's good enough to overcome them. I certainly don't want to",
+    "qwen_text": "fullofdifficultiesHe'sgoodenoughtoovercomethemIcertainlydon'twantto",
+    "verified_text": "full of difficulties. He's good enough to overcome them. I certainly don't want to",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 130,
+    "start": 559.38,
+    "end": 563.8199999999999,
+    "whisper_text": "say it's lights out for his chances but it brings him back to the older horse",
+    "qwen_text": "sayit'slightsoutforhischancesButitbringshimbacktotheolderhorse",
+    "verified_text": "say it's lights out for his chances but it brings him back to the older horse",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 131,
+    "start": 563.8199999999999,
+    "end": 568.5,
+    "whisper_text": "who has drawn better this time, Bulb General, and should be fitter than he was",
+    "qwen_text": "whohasdrawnbetterthistimeBoldGeneralandshouldbefitterthanhewas",
+    "verified_text": "who has drawn better this time, Bold General, and should be fitter than he was",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 132,
+    "start": 568.5,
+    "end": 574.1999999999999,
+    "whisper_text": "for that first up run. Well that's it from the Winning Factor this week. Good",
+    "qwen_text": "forthatfirstuprunWellthat'sitfromtheWinningFactorthisweekGood",
+    "verified_text": "for that first up run. Well, that's it from The Winning Factor this week. Good",
+    "method": "LLM_JUDGE"
+  },
+  {
+    "idx": 133,
+    "start": 574.1999999999999,
+    "end": 578.06,
+    "whisper_text": "luck on Saturday. We'll see you next time.",
+    "qwen_text": "luckonSaturdayWe'llseeyounexttime",
+    "verified_text": "luck on Saturday. We'll see you next time.",
+    "method": "LLM_JUDGE"
+  }
+]

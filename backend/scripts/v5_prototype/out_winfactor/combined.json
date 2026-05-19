@@ -1,0 +1,1342 @@
+[
+  {
+    "idx": 0,
+    "start": 0.04,
+    "end": 4.92,
+    "whisper_en": "Hi and welcome to The Winning Factor. I'm Alan Aitken and on this show each week",
+    "qwen_en": "HiandwelcometotheWinningFactorI'mAlanAikenandonthisshoweach",
+    "verified_en": "Hi and welcome to The Winning Factor. I'm Alan Aitken, and on this show each week",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "歡迎嚟到《致勝因素》，我係艾登，呢個節目每週同大家。"
+  },
+  {
+    "idx": 1,
+    "start": 4.92,
+    "end": 10.26,
+    "whisper_en": "we take a look at some upcoming races in Hong Kong, try to identify an angle to",
+    "qwen_en": "weekwetakealookatsomeupcomingracesinHongKongtrytoidentifyanangleto",
+    "verified_en": "we take a look at some upcoming races in Hong Kong, try to identify an angle to",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "我哋睇下香港幾場即將舉行嘅賽事，搵個切入點。"
+  },
+  {
+    "idx": 2,
+    "start": 10.26,
+    "end": 15.120000000000001,
+    "whisper_en": "the race that might lead us to finding the winner. Well it's Saturday racing",
+    "qwen_en": "theracethatmightleadustofindingthewinnerWellit'sSaturdayracing",
+    "verified_en": "The race that might lead us to finding the winner. Well, it's Saturday racing.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "呢場賽事或可揭曉頭馬。星期六有賽馬。"
+  },
+  {
+    "idx": 3,
+    "start": 15.120000000000001,
+    "end": 19.82,
+    "whisper_en": "this weekend in Hong Kong and the first race I'm going to take a look at is race",
+    "qwen_en": "thisweekendinHongKongandthefirstraceI'mgoingtotakealookatisRace",
+    "verified_en": "this weekend in Hong Kong, the first race I'm going to take a look at is Race",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "本週六香港，我首先睇嘅係第一場賽事。"
+  },
+  {
+    "idx": 4,
+    "start": 19.82,
+    "end": 25.68,
+    "whisper_en": "10 where our winning factor is the map. So this is class 3 1600 meters and",
+    "qwen_en": "TenwhereourwinningfactoristhemapSothisisclassthree1600metres",
+    "verified_en": "Ten, where our winning factor is the map. So this is Class 3, 1600 metres.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "第十場，我哋嘅致勝關鍵係地圖。呢場係第三班一千六百米賽事。"
+  },
+  {
+    "idx": 5,
+    "start": 25.68,
+    "end": 29.259999999999998,
+    "whisper_en": "And Blazing Wukong and Amazing Partners are coming off last start wins.",
+    "qwen_en": "andBlazingWuKongandAmazingPartnersarecomingofflaststartwins",
+    "verified_en": "And Blazing Wukong and Amazing Partners are coming off last start wins.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "火燄悟空同驚奇搭檔上仗都贏返。"
+  },
+  {
+    "idx": 6,
+    "start": 29.82,
+    "end": 33.14,
+    "whisper_en": "Endured has been racing well in similar events without much luck.",
+    "qwen_en": "Enduredhasbeenracingwellinsimilareventswithoutmuchluck",
+    "verified_en": "Endured has been racing well in similar events without much luck.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "Endured喺類似賽事表現不俗，但一直冇好運。"
+  },
+  {
+    "idx": 7,
+    "start": 33.68,
+    "end": 35.92,
+    "whisper_en": "Smart Avenue should improve with a better draw.",
+    "qwen_en": "SmartAvenueshouldimprovewithabetterdraw",
+    "verified_en": "Smart Avenue should improve with a better draw.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "Smart Avenue抽到好閘應該會更出色。"
+  },
+  {
+    "idx": 8,
+    "start": 36.38,
+    "end": 40.54,
+    "whisper_en": "And Family Jewel and Hymnbook both look to have chances as well.",
+    "qwen_en": "FamilyJewelandHimbookbothlooktohavechancesaswell",
+    "verified_en": "And Family Jewel and Hymnbook both look to have chances as well.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "家庭寶石同聖歌亦都有機會。"
+  },
+  {
+    "idx": 9,
+    "start": 41.44,
+    "end": 44.46,
+    "whisper_en": "So not a one horse race by any means.",
+    "qwen_en": "Sonotaonehorseracebyanymeans",
+    "verified_en": "So not a one-horse race by any means.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "絕對唔係單馬獨贏嘅賽事。"
+  },
+  {
+    "idx": 10,
+    "start": 44.58,
+    "end": 45.56,
+    "whisper_en": "Quite a few chances.",
+    "qwen_en": "Quiteafewchances",
+    "verified_en": "Quite a few chances.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "機會真係幾多。"
+  },
+  {
+    "idx": 11,
+    "start": 45.56,
+    "end": 53.92,
+    "whisper_en": "But I'm looking most closely at a couple of horses I think will cope with what looks quite a tricky event in terms of the map.",
+    "qwen_en": "butI'mlookingmostcloselyatacoupleofhorsesIthinkwillcopewithwhatlooksquiteatrickyeventintermsofthemap",
+    "verified_en": "But I'm looking most closely at a couple of horses I think will cope with what looks quite a tricky event in terms of the map.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "不過我最關注幾匹馬，佢哋應該能應付呢場地圖上睇落好艱難嘅賽事。"
+  },
+  {
+    "idx": 12,
+    "start": 53.92,
+    "end": 57.38,
+    "whisper_en": "And that's Blazing Wukong and Amazing Partners.",
+    "qwen_en": "andthat'sBlazingWukongandAmazingPartners",
+    "verified_en": "And that's Blazing Wukong and Amazing Partners.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "而家係火燄悟空同驚奇搭檔。"
+  },
+  {
+    "idx": 13,
+    "start": 58.22,
+    "end": 61.54,
+    "whisper_en": "Now, Amazing Partners, first of all, well, he's lightly raced.",
+    "qwen_en": "NowamazingpartnersFirstofallwellhe'slightlyraced",
+    "verified_en": "Now, Amazing Partners, first of all, well, he's lightly raced.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "而家係驚奇搭檔，首先佢出賽次數唔多。"
+  },
+  {
+    "idx": 14,
+    "start": 61.68,
+    "end": 63.88,
+    "whisper_en": "He's only had six starts for three wins.",
+    "qwen_en": "He'sonlyhadsixstartsforthreewins",
+    "verified_en": "He's only had six starts for three wins.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "佢只跑過六場，贏咗三場。"
+  },
+  {
+    "idx": 15,
+    "start": 64.38,
+    "end": 68.44,
+    "whisper_en": "And this was his latest when he tackled 1,600 metres for the first time.",
+    "qwen_en": "andthiswashislatestwhenhetackledsixteenhundredmetresforthefirsttime",
+    "verified_en": "And this was his latest when he tackled 1,600 metres for the first time.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "而家呢場係佢首次跑一千六百米。"
+  },
+  {
+    "idx": 16,
+    "start": 68.86,
+    "end": 72.2,
+    "whisper_en": "This is race 601. He's in gate four pink colours.",
+    "qwen_en": "ThisisracesixhundredandoneHe'singatefourpinkcolours",
+    "verified_en": "This is Race 601. He's in gate four, pink colours.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "呢場係第六零一場，佢喺四檔，粉紅衫。"
+  },
+  {
+    "idx": 17,
+    "start": 72.68,
+    "end": 76.2,
+    "whisper_en": "And Amazing Partners jumps well. He isn't a quick horse naturally.",
+    "qwen_en": "AnamazingpartnerJumpswellHeisn'taquickhorsenaturally",
+    "verified_en": "And Amazing Partners jumps well. He isn't a quick horse naturally.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "驚奇搭檔起跳幾好，佢本身唔係快馬。"
+  },
+  {
+    "idx": 18,
+    "start": 76.74000000000001,
+    "end": 80.28,
+    "whisper_en": "But Vincent Ho is able to get him into a position near the lead",
+    "qwen_en": "butVincentHoisabletogethimintoapositionnearthelead",
+    "verified_en": "But Vincent Ho is able to get him into a position near the lead.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "不過何澤堯可以將佢帶到接近領先嘅位置。"
+  },
+  {
+    "idx": 19,
+    "start": 80.28,
+    "end": 82.96000000000001,
+    "whisper_en": "through what is a slow first sectional",
+    "qwen_en": "throughwhatisaslowfirstsectional",
+    "verified_en": "through what is a slow first sectional",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "點解頭段時間慢咗？"
+  },
+  {
+    "idx": 20,
+    "start": 82.96,
+    "end": 86.75999999999999,
+    "whisper_en": "before the pace does pick up a little through the middle stages,",
+    "qwen_en": "Beforethepacedoespickupalittlethroughthemiddlestages",
+    "verified_en": "Before the pace does pick up a little through the middle stages.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "速度喺中段先會稍微加快。"
+  },
+  {
+    "idx": 21,
+    "start": 86.94,
+    "end": 88.91999999999999,
+    "whisper_en": "but still is only steady.",
+    "qwen_en": "butstillisonlysteady",
+    "verified_en": "but still is only steady.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "但始終都只係穩陣。"
+  },
+  {
+    "idx": 22,
+    "start": 89.75999999999999,
+    "end": 92.1,
+    "whisper_en": "A number of Saturday's rivals are here too.",
+    "qwen_en": "numberofSaturday'srivalsareheretoo",
+    "verified_en": "A number of Saturday's rivals are here too.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "星期六嘅多個對手亦喺度。"
+  },
+  {
+    "idx": 23,
+    "start": 92.25999999999999,
+    "end": 94.53999999999999,
+    "whisper_en": "In Jude, inside amazing partners in red and grey,",
+    "qwen_en": "Enduedinsideamazingpartnersinredandgrey",
+    "verified_en": "In Jude, inside amazing partners in red and grey.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "朱迪，身披紅灰彩衣嘅搭檔表現驚艷。"
+  },
+  {
+    "idx": 24,
+    "start": 94.67999999999999,
+    "end": 97.75999999999999,
+    "whisper_en": "Mr Dapper, the leader, and Himbuk in green near the tail.",
+    "qwen_en": "MrDappertheleaderandHimbookingreennearthetail",
+    "verified_en": "Mr Dapper, the leader, and Himbuk in green near the tail.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "領放嘅 Mr Dapper 同埋綠色馬衣嘅 Himbuk 喺尾。"
+  },
+  {
+    "idx": 25,
+    "start": 97.83999999999999,
+    "end": 101.24,
+    "whisper_en": "Now, the field is bunched here with no serious pace",
+    "qwen_en": "Nowthefieldisbunchedherewithnoseriouspace",
+    "verified_en": "Now, the field is bunched here with no serious pace.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "而家馬群喺度擠埋一齊，完全無快節奏。"
+  },
+  {
+    "idx": 26,
+    "start": 101.24,
+    "end": 104.03999999999999,
+    "whisper_en": "and becomes just a dash down the straight,",
+    "qwen_en": "andbecomesjustadashdownthestraight",
+    "verified_en": "and becomes just a dash down the straight",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "而家就係直路衝刺啦"
+  },
+  {
+    "idx": 27,
+    "start": 104.53999999999999,
+    "end": 106.46,
+    "whisper_en": "with in Jude on the inside having no luck.",
+    "qwen_en": "WithEnduedontheinsidehavingnoluck",
+    "verified_en": "With Endue on the inside having no luck.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "Endue 喺內欄冇得發揮。"
+  },
+  {
+    "idx": 28,
+    "start": 106.78,
+    "end": 109.28,
+    "whisper_en": "But amazing partners, well, he's able to be challenging",
+    "qwen_en": "butamazingpartnersWellhe'sabletobechallenging",
+    "verified_en": "But amazing partners, well, he's able to be challenging",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "但佢嘅拍檔好出色，所以有得挑戰。"
+  },
+  {
+    "idx": 29,
+    "start": 109.28,
+    "end": 111.96,
+    "whisper_en": "at the right time with enough turn of foot",
+    "qwen_en": "attherighttimewithenoughturnoffoot",
+    "verified_en": "at the right time with enough turn of foot",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "喺啱嘅時機有足夠嘅加速力"
+  },
+  {
+    "idx": 30,
+    "start": 111.96,
+    "end": 114.74,
+    "whisper_en": "to reel in the leaders and he grinds out the win.",
+    "qwen_en": "toreelintheleadersandhegrindsoutthewin",
+    "verified_en": "to reel in the leaders and he grinds out the win.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "追上前領放馬並咬實贏波。"
+  },
+  {
+    "idx": 31,
+    "start": 116.3,
+    "end": 120.58,
+    "whisper_en": "Now, despite his good winning record, three from six amazing partners,",
+    "qwen_en": "Nowdespitehisgoodwinningrecordthreefromsixamazingpartners",
+    "verified_en": "Now, despite his good winning record, three from six amazing partners",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "雖然佢贏馬紀錄唔錯，六場三勝嘅搭檔好驚。"
+  },
+  {
+    "idx": 32,
+    "start": 120.83999999999999,
+    "end": 123.58,
+    "whisper_en": "I don't really think we've seen the best of him yet",
+    "qwen_en": "Idon'treallythinkwe'veseenthebestofhimyet",
+    "verified_en": "I don't really think we've seen the best of him yet",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "我仲未睇到佢最好嘅一面"
+  },
+  {
+    "idx": 33,
+    "start": 123.58,
+    "end": 126.61999999999999,
+    "whisper_en": "because he's been in several of these kinds of races",
+    "qwen_en": "becausehe'sbeeninseveralofthesekindsofraces",
+    "verified_en": "because he's been in several of these kinds of races",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "因為佢喺呢類賽事入面跑過幾次啦"
+  },
+  {
+    "idx": 34,
+    "start": 126.61999999999999,
+    "end": 129.45999999999998,
+    "whisper_en": "where it's just a grinding sort of finish,",
+    "qwen_en": "Whereit'sjustagrindingsortoffinish",
+    "verified_en": "where it's just a grinding sort of finish",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "而家就係一場磨擦到底嘅終點戰。"
+  },
+  {
+    "idx": 35,
+    "start": 129.56,
+    "end": 131.76,
+    "whisper_en": "difficult to get separation on the field.",
+    "qwen_en": "difficulttogetseparationonthefield",
+    "verified_en": "difficult to get separation on the field.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "場上難以拉開距離。"
+  },
+  {
+    "idx": 36,
+    "start": 131.88,
+    "end": 135.22,
+    "whisper_en": "So he's done well to put that record together",
+    "qwen_en": "Sohe'sdonewelltoputthatrecordtogether",
+    "verified_en": "So he's done well to put that record together",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "佢真係做到咁好嘅紀錄"
+  },
+  {
+    "idx": 37,
+    "start": 135.22,
+    "end": 139.62,
+    "whisper_en": "and that could be a key thing in Saturday's race.",
+    "qwen_en": "andthatcouldbeakeythinginSaturday'srace",
+    "verified_en": "and that could be a key thing in Saturday's race.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "呢樣嘢或係星期六賽事嘅關鍵。"
+  },
+  {
+    "idx": 38,
+    "start": 139.62,
+    "end": 141.22,
+    "whisper_en": "Now, Blazing Wukong, on the other hand,",
+    "qwen_en": "NowBlazingWuKongontheotherhand",
+    "verified_en": "Now, Blazing Wukong, on the other hand,",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "另一方面，火燄悟空"
+  },
+  {
+    "idx": 39,
+    "start": 141.22,
+    "end": 146.34,
+    "whisper_en": "He's a little bit more well explored with 11 starts so far for three wins.",
+    "qwen_en": "he'salittlebitmorewellexploredwith11startssofarforthreewins",
+    "verified_en": "He's a little bit more well explored with 11 starts so far for three wins.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "佢跑過十一場，贏咗三場，表現算係有幾深入。"
+  },
+  {
+    "idx": 40,
+    "start": 146.84,
+    "end": 148.16,
+    "whisper_en": "And here's his latest offering.",
+    "qwen_en": "andhere'shislatestoffering",
+    "verified_en": "And here's his latest offering.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "而家係佢最新嘅作品。"
+  },
+  {
+    "idx": 41,
+    "start": 148.38,
+    "end": 152.02,
+    "whisper_en": "This is race 643, gate 13 in black colours.",
+    "qwen_en": "Thisisrace643Gate13inblackcolours",
+    "verified_en": "This is race 643, gate 13 in black colours.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "呢場係第六四三號賽事，十三檔穿黑衣。"
+  },
+  {
+    "idx": 42,
+    "start": 152.2,
+    "end": 160.36,
+    "whisper_en": "And Blazing Wukong jumps okay, but jockey Andrea Azzini doesn't even think of looking for a more forward position going back to the rear.",
+    "qwen_en": "blazingWuKongjumpsokaybutjockeyAndreaZanidoesn'teventhinkoflookingforamoreforwardpositionGoingbacktotherear",
+    "verified_en": "And Blazing Wukong jumps okay, but jockey Andrea Zanido doesn't even think of looking for a more forward position going back to the rear.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "火燄悟空起步幾好，但騎師贊尼度仲未諗過要衝前，反而退後。"
+  },
+  {
+    "idx": 43,
+    "start": 160.5,
+    "end": 163.36,
+    "whisper_en": "Now, that prevents him covering extra ground early.",
+    "qwen_en": "nowthatpreventshimcoveringextragroundearly",
+    "verified_en": "Now, that prevents him covering extra ground early.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "而家咁樣令佢早段唔使跑多啲路。"
+  },
+  {
+    "idx": 44,
+    "start": 163.68,
+    "end": 169.22,
+    "whisper_en": "But we can see on the heat map it's also a disadvantage with the slow early speed here.",
+    "qwen_en": "Butwecanseeontheheatmapit'salsoadisadvantagewiththeslowearlyspeedhere",
+    "verified_en": "But we can see on the heat map it's also a disadvantage with the slow early speed here.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "不過從熱力圖睇，呢度慢起步亦係劣勢。"
+  },
+  {
+    "idx": 45,
+    "start": 169.22,
+    "end": 174.22,
+    "whisper_en": "The pace is a little better mid-race but never really gets above steady.",
+    "qwen_en": "ThepaceisalittlebettermidracebutneverreallygetsabovesteadyAnd",
+    "verified_en": "The pace is a little better mid-race but never really gets above steady.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "節奏中段稍快，但始終未脫離穩步。"
+  },
+  {
+    "idx": 46,
+    "start": 174.22,
+    "end": 179.04,
+    "whisper_en": "Blazing Wukong then sprints well around the field, deceptively fast around the field in",
+    "qwen_en": "BlazingWuKongthensprintswellaroundthefielddeceptivelyfastaroundthefield",
+    "verified_en": "Blazing Wukong then sprints well around the field, deceptively fast around the field in",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "火燄悟空繞場衝刺，速度驚人。"
+  },
+  {
+    "idx": 47,
+    "start": 179.04,
+    "end": 183.54,
+    "whisper_en": "fact as they turn into the stretch and he's the one with the acceleration to go and pick",
+    "qwen_en": "Infactastheyturnintothestretchandhe'stheonewiththeaccelerationtogoandpick",
+    "verified_en": "In fact, as they turn into the stretch, he's the one with the acceleration to go and pick.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "其實入直路佢有加速力去揀位。"
+  },
+  {
+    "idx": 48,
+    "start": 183.54,
+    "end": 186.72,
+    "whisper_en": "up the leaders and put them away.",
+    "qwen_en": "uptheleadersandputthemawayNowjust",
+    "verified_en": "up the leaders and put them away.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "帶頭馬群加速甩開對手。"
+  },
+  {
+    "idx": 49,
+    "start": 186.72,
+    "end": 192.78,
+    "whisper_en": "Just like Amazing Partners, not the most impressive win to the eye but what they have in common",
+    "qwen_en": "likeamazingpartnersnotthemostimpressivewintotheeyebutwhattheyhaveincommon",
+    "verified_en": "Just like Amazing Partners, not the most impressive win to the eye but what they have in common.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "同驚奇搭檔一樣，呢場勝利唔算好靚，但佢哋有共同點。"
+  },
+  {
+    "idx": 50,
+    "start": 192.78,
+    "end": 199.12,
+    "whisper_en": "is that each of them had to produce acceleration at the right time, the right place to go and",
+    "qwen_en": "isthateachofthemhadtoproduceaccelerationattherighttimetherightplacetogoand",
+    "verified_en": "is that each of them had to produce acceleration at the right time, the right place to go and",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "佢哋每個都要喺啱嘅時間同地點加速先至得。"
+  },
+  {
+    "idx": 51,
+    "start": 199.12,
+    "end": 204.8,
+    "whisper_en": "win the race and as I said I think that's going to be important in the context of Saturday's race.",
+    "qwen_en": "wintheraceAndasIsaidIthinkthat'sgoingtobeimportantinthecontextofSaturday'srace",
+    "verified_en": "win the race and as I said I think that's going to be important in the context of Saturday's race.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "贏到呢場同我講過咁，對星期六嗰場好重要。"
+  },
+  {
+    "idx": 52,
+    "start": 205.3,
+    "end": 211.38,
+    "whisper_en": "Now the leaders Mr Dapper and with all my faith have the outside gates so that is the hope of the",
+    "qwen_en": "NowtheleadersMrDapperandwithallmyfaithhavetheoutsidegatesSothatisthehopeofthe",
+    "verified_en": "Now the leaders, Mr. Dapper and With All My Faith, have the outside gates, so that is the hope of the...",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "而家領先嘅「靚仔」同「全心全意」都喺外檔，所以希望係……"
+  },
+  {
+    "idx": 53,
+    "start": 211.38,
+    "end": 217.98000000000002,
+    "whisper_en": "side as far as getting a better speed but it's quite possible they could get across quickly and",
+    "qwen_en": "sideasfarasgettingabetterspeedButit'squitepossibletheycouldgetacrossquicklyand",
+    "verified_en": "side as far as getting a better speed, but it's quite possible they could get across quickly and",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "位置咁遠想追速度，但佢哋都可能會快啲攞到前頭同"
+  },
+  {
+    "idx": 54,
+    "start": 217.98000000000002,
+    "end": 223.42000000000002,
+    "whisper_en": "then steady the brakes and we might have a similar style of race to what we've been seeing.",
+    "qwen_en": "thensteadythebrakesandwemighthaveasimilarstyleofracetowhatwe'vebeenseeing",
+    "verified_en": "then steady the brakes and we might have a similar style of race to what we've been seeing.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "只要穩定煞車，今場可能同之前睇到嘅類似。"
+  },
+  {
+    "idx": 55,
+    "start": 223.42,
+    "end": 229.6,
+    "whisper_en": "There still looks a little speed in it, inside or out, and that's not going to help the likes",
+    "qwen_en": "Therestilllooksalittlespeedinitinsideoroutandthat'snotgoingtohelpthelikes",
+    "verified_en": "There still looks a little speed in it, inside or out, and that's not going to help the likes",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "仲有少少速度喺入面或者外面，咁樣對呢啲馬唔幫襯。"
+  },
+  {
+    "idx": 56,
+    "start": 229.6,
+    "end": 235.98,
+    "whisper_en": "of Family Jewel, Endured and others who have wider draws, while Hymnbook and Smart Avenue",
+    "qwen_en": "ofFamilyJewelEnduedandotherswhohavewiderdrawsWhileHimbookandSmartAvenue",
+    "verified_en": "of Family Jewel, Endured and others who have wider draws, while Hymnbook and Smart Avenue",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "呢啲馬同其他外閘嘅如家族寶、耐性同埋其他人，而聖歌同智道"
+  },
+  {
+    "idx": 57,
+    "start": 235.98,
+    "end": 241.48,
+    "whisper_en": "have never really shown as much tactical speed yet, regardless of their draw.",
+    "qwen_en": "haveneverreallyshownasmuchtacticalspeedyetregardlessoftheirdraw",
+    "verified_en": "have never really shown as much tactical speed yet, regardless of their draw.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "佢哋始終未展現過咁多戰術速度，無論抽到幾檔。"
+  },
+  {
+    "idx": 58,
+    "start": 241.48,
+    "end": 244.0,
+    "whisper_en": "Now Blazing Wukong went all the way back last time.",
+    "qwen_en": "NowBlazingWukongwentallthewaybacklasttimeWe",
+    "verified_en": "Now Blazing Wukong went all the way back last time.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "上仗火燄悟空一直跑至最後。"
+  },
+  {
+    "idx": 59,
+    "start": 244.0,
+    "end": 250.27999999999997,
+    "whisper_en": "We have seen him ridden like that quite a bit, but he has also had a lot of wider draws.",
+    "qwen_en": "haveseenhimriddenlikethatquiteabitbuthehasalsohadalotofwiderdrawsThis",
+    "verified_en": "We have seen him ridden like that quite a bit, but he has also had a lot of wider draws.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "我哋睇過佢多次咁樣策騎，不過佢亦抽到好多次外檔。"
+  },
+  {
+    "idx": 60,
+    "start": 250.28,
+    "end": 255.44,
+    "whisper_en": "This time he's got a better draw, so he might even be closer from barrier five.",
+    "qwen_en": "timehe'sgotabetterdrawsohemightevenbecloserfromBarrierFiveBut",
+    "verified_en": "This time he's got a better draw, so he might even be closer from Barrier Five.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "今仗佢排位較好，由五檔出發都可能更貼近。"
+  },
+  {
+    "idx": 61,
+    "start": 255.44,
+    "end": 260.28,
+    "whisper_en": "But we do know that Amazing Partners has the tactical speed to be where he needs to be",
+    "qwen_en": "wedoknowthatAmazingPartnershasthetacticalspeedtobewhereheneedsto",
+    "verified_en": "But we do know that Amazing Partners has the tactical speed to be where he needs to be.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "不過我哋知驚奇搭檔有戰術速度去到佢需要嘅位置。"
+  },
+  {
+    "idx": 62,
+    "start": 260.28,
+    "end": 262.22,
+    "whisper_en": "again.",
+    "qwen_en": "beagainSo",
+    "verified_en": "be again.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "再試一次啦。"
+  },
+  {
+    "idx": 63,
+    "start": 262.22,
+    "end": 267.54,
+    "whisper_en": "So the tip from me in race 10, Amazing Partners, his winning factor, the map.",
+    "qwen_en": "thetipformeinracetenamazingpartnersHiswinningfactorthemapIt",
+    "verified_en": "So the tip from me in race 10, Amazing Partners, his winning factor, the map.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "我第十場嘅推介係驚奇搭檔，佢贏嘅因素係跑位。"
+  },
+  {
+    "idx": 64,
+    "start": 267.54,
+    "end": 272.2,
+    "whisper_en": "It does look a very tricky map, but it could be a stop start kind of race.",
+    "qwen_en": "doeslookaverytrickymapbutitcouldbeastopstartkindofraceBut",
+    "verified_en": "It does look a very tricky map, but it could be a stop-start kind of race.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "呢場賽路好複雜，但可能係走走停停嘅局面。"
+  },
+  {
+    "idx": 65,
+    "start": 272.2,
+    "end": 277.34000000000003,
+    "whisper_en": "But what we've seen from Amazing Partners, even in those kinds of races, is that he's",
+    "qwen_en": "whatwe'veseenfromamazingpartnerseveninthosekindsofracesisthathe's",
+    "verified_en": "But what we've seen from Amazing Partners, even in those kinds of races, is that he's",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "但從驚奇搭檔嘅表現睇，即使係呢類賽事，佢都"
+  },
+  {
+    "idx": 66,
+    "start": 277.34000000000003,
+    "end": 279.5,
+    "whisper_en": "able to put himself in the right place.",
+    "qwen_en": "abletoputhimselfintherightplaceHe's",
+    "verified_en": "able to put himself in the right place. He's",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "佢可以喺適當位置入位。佢係"
+  },
+  {
+    "idx": 67,
+    "start": 279.5,
+    "end": 287.68,
+    "whisper_en": "able to accelerate at the right time and that might be the winning recipe for this event.",
+    "qwen_en": "abletoaccelerateattherighttimeandthatmightbethewinningrecipeforthiseventThe",
+    "verified_en": "able to accelerate at the right time and that might be the winning recipe for this event.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "有本事喺啱嘅時機加速，呢個或許係贏出呢場賽事嘅秘訣。"
+  },
+  {
+    "idx": 68,
+    "start": 287.68,
+    "end": 291.82,
+    "whisper_en": "The other race I want to take a look at on Sunday is the final event, race 11 and our",
+    "qwen_en": "otherraceIwanttotakealookatonSundayisthefinaleventraceelevenandour",
+    "verified_en": "The other race I want to take a look at on Sunday is the final event, race 11 and our",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "星期日我想睇嘅另一場係尾場第十一場同我哋"
+  },
+  {
+    "idx": 69,
+    "start": 291.82,
+    "end": 293.78,
+    "whisper_en": "winning factor here, the draw.",
+    "qwen_en": "winningfactorherethedrawSo",
+    "verified_en": "winning factor here, the draw.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "今場嘅致勝因素，就係閘檔。"
+  },
+  {
+    "idx": 70,
+    "start": 293.78,
+    "end": 299.62,
+    "whisper_en": "So this is class two, an excellent class two in fact, over 1200 metres and despite the",
+    "qwen_en": "thisisclasstwoanexcellentclasstwoinfactovertwelvehundredmetresAnddespitethe",
+    "verified_en": "This is Class Two, an excellent Class Two in fact, over 1200 metres and despite the",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "呢場係二班，其實係極佳嘅二班，跑一千二百米，雖然……"
+  },
+  {
+    "idx": 71,
+    "start": 299.62,
+    "end": 305.62,
+    "whisper_en": "talent in the race, I think we can narrow this down to three really strong chances.",
+    "qwen_en": "talentintheraceIthinkwecannarrowthisdowntothreereallystrongchances",
+    "verified_en": "Talent in the Race, I think we can narrow this down to three really strong chances.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "呢場嘅人才，我認為可縮減至三個極強嘅機會。"
+  },
+  {
+    "idx": 72,
+    "start": 305.62,
+    "end": 307.88,
+    "whisper_en": "a patch of stars who continues to race well,",
+    "qwen_en": "PatchofStarswhocontinuestoracewell",
+    "verified_en": "Patch of Stars, who continues to race well.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "星彩斑斕繼續表現出色。"
+  },
+  {
+    "idx": 73,
+    "start": 308.3,
+    "end": 312.76,
+    "whisper_en": "and two horses we expect to see figuring in some serious races in the future,",
+    "qwen_en": "andtwohorsesweexpecttoseefiguringinsomeseriousracesinthefuture",
+    "verified_en": "and two horses we expect to see figuring in some serious races in the future.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "兩匹馬預計未來會角逐重要賽事。"
+  },
+  {
+    "idx": 74,
+    "start": 313.28000000000003,
+    "end": 317.52,
+    "whisper_en": "Jamie Richards' trained Bulb General and the unbeaten three-year-old Hot Delight.",
+    "qwen_en": "JamieRichardstrainedBulbGeneralandtheunbeatenthreeyearoldHotDelight",
+    "verified_en": "Jamie Richards' trained Bulb General and the unbeaten three-year-old Hot Delight.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "黎家榮訓練嘅燈籠將軍同未嘗一敗嘅三歲馬熱力。"
+  },
+  {
+    "idx": 75,
+    "start": 318.48,
+    "end": 322.62,
+    "whisper_en": "And I'm most interested in this race in those two lightly raced horses.",
+    "qwen_en": "AndI'mmostinterestedinthisraceinthosetwolightlyracedhorses",
+    "verified_en": "And I'm most interested in this race in those two lightly raced horses.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "我最關注呢場賽嘅係兩匹出賽不多嘅馬。"
+  },
+  {
+    "idx": 76,
+    "start": 322.62,
+    "end": 325.58,
+    "whisper_en": "As I said, Hot Delight, unbeaten, three from three,",
+    "qwen_en": "AsIsaidHotDelightunbeatenthreefromthree",
+    "verified_en": "As I said, Hot Delight, unbeaten, three from three.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "好似我講過，熱心頭未敗，三戰三勝。"
+  },
+  {
+    "idx": 77,
+    "start": 325.98,
+    "end": 330.52,
+    "whisper_en": "and Bulb General, a year older, and he's three wins from five starts.",
+    "qwen_en": "andBobGeneralayearolderandhe'sthreewinsfromfivestarts",
+    "verified_en": "and Bulb General, a year older, and he's three wins from five starts.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "而布爾傑納爾年長一歲，五戰三勝。"
+  },
+  {
+    "idx": 78,
+    "start": 331.26,
+    "end": 334.46,
+    "whisper_en": "Now, firstly, Hot Delight, and his trainer, Francis Loy,",
+    "qwen_en": "NowfirstlyHotDelightandhistrainerFrancisLoy",
+    "verified_en": "Now, firstly, Hot Delight, and his trainer, Francis Loy,",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "而家首先係「熱心」同佢嘅練馬師廖康榮。"
+  },
+  {
+    "idx": 79,
+    "start": 334.46,
+    "end": 340.21999999999997,
+    "whisper_en": "has made comparisons at the same stage with a horse that you might be familiar with that he",
+    "qwen_en": "hasmadecomparisonsatthesamestagewithahorsethatyoumightbefamiliarwiththathe",
+    "verified_en": "has made comparisons at the same stage with a horse that you might be familiar with that he",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "佢喺同一階段同你熟悉嘅馬比較過。"
+  },
+  {
+    "idx": 80,
+    "start": 340.21999999999997,
+    "end": 346.02,
+    "whisper_en": "used to train, Golden 60. That's a big call. Certainly there's a lot of water to flow under",
+    "qwen_en": "usedtotrainGoldenSixtyThat'sabigcallCertainlythere'salotofwatertoflowunder",
+    "verified_en": "used to train Golden Sixty. That's a big call. Certainly there's a lot of water to flow under",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "曾經訓練過金鎗六十。呢個真係大膽預測。肯定仲有好多水要流落去"
+  },
+  {
+    "idx": 81,
+    "start": 346.02,
+    "end": 352.9,
+    "whisper_en": "the bridge for that one, but he can't be faulted in what he's done so far. This is race 540. He's",
+    "qwen_en": "thebridgeforthatoneButhecan'tbefaultedinwhathe'sdonesofarThisisrace540He's",
+    "verified_en": "the bridge for that one, but he can't be faulted in what he's done so far. This is race 540. He's",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "嗰匹馬嘅橋段係咁，但佢至今表現無可挑剔。呢場係第五十四場。佢……"
+  },
+  {
+    "idx": 82,
+    "start": 352.9,
+    "end": 359.26,
+    "whisper_en": "in gate seven in yellow and red colours and Hot Delight jumps well for Vincent Ho and is quickly",
+    "qwen_en": "ingateseveninyellowandredcoloursandHotDelightjumpswellforVincentHoandisquickly",
+    "verified_en": "in gate seven in yellow and red colours, and Hot Delight jumps well for Vincent Ho and is quickly",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "七檔黃紅配色的熱心歡喜為何偉倫起跳出色，迅速"
+  },
+  {
+    "idx": 83,
+    "start": 359.26,
+    "end": 366.15999999999997,
+    "whisper_en": "up on the speed in what you can see is a slow first 400 metre section with Ho on the odds",
+    "qwen_en": "uponthespeedinwhatyoucanseeisaslowfirst400metresectionWithHoontheoddson",
+    "verified_en": "Up on the speed, in what you can see is a slow first 400-metre section with Ho on the odds.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "跑得快，首四百米慢，而何馬係大熱門。"
+  },
+  {
+    "idx": 84,
+    "start": 366.15999999999997,
+    "end": 369.8,
+    "whisper_en": "on favourite here taking bad luck out of the equation.",
+    "qwen_en": "favouriteheretakingbadluckoutoftheequationNow",
+    "verified_en": "on favourite here taking bad luck out of the equation.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "呢場嘅大熱門已經甩走啲霉運。"
+  },
+  {
+    "idx": 85,
+    "start": 369.8,
+    "end": 375.24,
+    "whisper_en": "Now the pace does lift a little as the race progresses then becomes a strong sprint home",
+    "qwen_en": "thepacedoesliftalittleastheraceprogressesthenbecomesastrongsprinthome",
+    "verified_en": "Now the pace does lift a little as the race progresses then becomes a strong sprint home.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "呢場賽事步速稍為加快，尾段變做強勁衝刺。"
+  },
+  {
+    "idx": 86,
+    "start": 375.24,
+    "end": 376.58,
+    "whisper_en": "down the stretch.",
+    "qwen_en": "downthestretchThe",
+    "verified_en": "down the stretch.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "衝向終點線。"
+  },
+  {
+    "idx": 87,
+    "start": 376.58,
+    "end": 381.59999999999997,
+    "whisper_en": "The leader fights on well but ultimately Hot Delight is too good and comes clear to win",
+    "qwen_en": "leaderfightsonwellbutultimatelyHotDelightistoogoodandcomescleartowin",
+    "verified_en": "The leader fights on well but ultimately Hot Delight is too good and comes clear to win.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "領放馬奮力追擊，但最終熱心太強，輕鬆取勝。"
+  },
+  {
+    "idx": 88,
+    "start": 381.59999999999997,
+    "end": 383.88,
+    "whisper_en": "with some conviction.",
+    "qwen_en": "withsomeconviction",
+    "verified_en": "with some conviction.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "帶住少少信心。"
+  },
+  {
+    "idx": 89,
+    "start": 383.88,
+    "end": 388.94,
+    "whisper_en": "Now perhaps to the eye not deserving the kind of boom that we're talking about on this horse",
+    "qwen_en": "Nowperhapstotheeyenotdeservingthekindofboomthatwe'retalkingaboutonthishorse",
+    "verified_en": "Now, perhaps to the eye, not deserving the kind of boom that we're talking about on this horse.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "而家睇落去，呢匹馬未必值得我哋講嗰種爆發力。"
+  },
+  {
+    "idx": 90,
+    "start": 388.94,
+    "end": 393.6,
+    "whisper_en": "But the way the race was run there meant that to win it the way he did,",
+    "qwen_en": "butthewaytheracewasruntheremeantthattowinitthewayhedid",
+    "verified_en": "But the way the race was run there meant that to win it the way he did,",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "但嗰場賽嘅跑法令到要贏返佢咁樣，"
+  },
+  {
+    "idx": 91,
+    "start": 393.66,
+    "end": 397.84,
+    "whisper_en": "Hot Delight had to break 44 seconds for his last 800 metres.",
+    "qwen_en": "HotDelighthadtobreak44secondsforhislast800metres",
+    "verified_en": "Hot Delight had to break 44 seconds for his last 800 metres.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "熱喜上仗最後八百米跑足四十四秒。"
+  },
+  {
+    "idx": 92,
+    "start": 397.84,
+    "end": 402.42,
+    "whisper_en": "And that's the kind of sustained speed that is going to make this young horse",
+    "qwen_en": "andthat'sthekindofsustainedspeedthatisgoingtomakethisyounghorse",
+    "verified_en": "And that's the kind of sustained speed that is going to make this young horse.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "正係呢種持久速度，令到匹年輕馬兒前途無量。"
+  },
+  {
+    "idx": 93,
+    "start": 402.42,
+    "end": 407.06,
+    "whisper_en": "a star of the future as he develops and grows stronger.",
+    "qwen_en": "astarofthefutureashedevelopsandgrowsstronger",
+    "verified_en": "A star of the future as he develops and grows stronger.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "佢係未來之星，越練越強。"
+  },
+  {
+    "idx": 94,
+    "start": 407.48,
+    "end": 410.9,
+    "whisper_en": "As to Bulb General, well, as I mentioned, he's a year older.",
+    "qwen_en": "AstoBoldGeneralwellasImentionedhe'sayearolder",
+    "verified_en": "As to Bold General, well, as I mentioned, he's a year older.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "至於大將風範，正如我提過，佢年長咗一歲。"
+  },
+  {
+    "idx": 95,
+    "start": 411.22,
+    "end": 416.78,
+    "whisper_en": "And really, he was this time last year where Hot Delight is now.",
+    "qwen_en": "ReallyhewasthistimelastyearwhereHotDelightisnow",
+    "verified_en": "And really, he was this time last year where Hot Delight is now.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "其實佢而家嘅狀態，同去年呢時熱喜喺嗰陣一樣。"
+  },
+  {
+    "idx": 96,
+    "start": 417.23999999999995,
+    "end": 422.23999999999995,
+    "whisper_en": "He was an up-and-comer with a great turn of foot as a three-year-old.",
+    "qwen_en": "Hewasanupandcomerwithagreatturnoffootasathreeyearold",
+    "verified_en": "He was an up-and-comer with a great turn of foot as a three-year-old.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "佢三歲時已經係潛力新星，末段加速極快。"
+  },
+  {
+    "idx": 97,
+    "start": 422.46,
+    "end": 424.96,
+    "whisper_en": "He took that into his early starts as a four-year-old,",
+    "qwen_en": "Hetookthatintohisearlystartsasafouryearold",
+    "verified_en": "He took that into his early starts as a four-year-old.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "佢喺四歲初出賽時已經將呢點帶入去。"
+  },
+  {
+    "idx": 98,
+    "start": 425.03999999999996,
+    "end": 428.58,
+    "whisper_en": "but then his career was interrupted by injury.",
+    "qwen_en": "butthenhiscareerwasinterruptedbyinjury",
+    "verified_en": "but then his career was interrupted by injury.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "不過佢嘅職業生涯曾經因傷而中斷。"
+  },
+  {
+    "idx": 99,
+    "start": 429.26,
+    "end": 431.71999999999997,
+    "whisper_en": "He's only had the one run back in March,",
+    "qwen_en": "He'sonlyhadtheonerunbackinMarch",
+    "verified_en": "He's only had the one run back in March.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "佢三月之後只出過一次賽。"
+  },
+  {
+    "idx": 100,
+    "start": 432.03999999999996,
+    "end": 434.47999999999996,
+    "whisper_en": "and let's have a look at how he handled that.",
+    "qwen_en": "andlet'shavealookathowhehandledthat",
+    "verified_en": "and let's have a look at how he handled that.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "睇下佢點樣處理嗰場。"
+  },
+  {
+    "idx": 101,
+    "start": 434.73999999999995,
+    "end": 438.7,
+    "whisper_en": "This is race 562, gate seven here in orange and white colours.",
+    "qwen_en": "Thisisrace562gatesevenhereinorangeandwhitecolours",
+    "verified_en": "This is Race 562, gate seven here in orange and white colours.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "呢場係第五六二場，嗰匹橙白衫嘅馬喺七檔。"
+  },
+  {
+    "idx": 102,
+    "start": 439.03999999999996,
+    "end": 441.34,
+    "whisper_en": "Bulb General jumps well for Zach Burton,",
+    "qwen_en": "BulbGeneraljumpswellforZacPurton",
+    "verified_en": "Bulb General jumps well for Zac Purton.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "布爾將軍為柏寶起跳出色。"
+  },
+  {
+    "idx": 103,
+    "start": 441.76,
+    "end": 444.41999999999996,
+    "whisper_en": "but this race is a contrast with the one that we just saw,",
+    "qwen_en": "butthisraceisacontrastwiththeonethatwejustsaw",
+    "verified_en": "but this race is a contrast with the one that we just saw",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "但呢場賽同我哋啱先睇嗰場好唔同"
+  },
+  {
+    "idx": 104,
+    "start": 444.47999999999996,
+    "end": 446.47999999999996,
+    "whisper_en": "as the early speed here is pretty good.",
+    "qwen_en": "astheearlyspeedhereisprettygood",
+    "verified_en": "as the early speed here is pretty good.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "呢度早段速度幾快。"
+  },
+  {
+    "idx": 105,
+    "start": 446.78,
+    "end": 452.71999999999997,
+    "whisper_en": "Zach lets Bulb General find his feet as is usual and he ends up towards the rear with",
+    "qwen_en": "Zaklet'sbulbgeneralfindhisfeetasisusualandheendsuptowardstherearwith",
+    "verified_en": "Zak let Bulb General find his feet as is usual, and he ends up towards the rear with",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "扎克讓「燈泡通」照慣例找狀態，最後落後到排尾同埋"
+  },
+  {
+    "idx": 106,
+    "start": 452.71999999999997,
+    "end": 457.32,
+    "whisper_en": "another of Saturday's rivals Patch of Stars in yellow, white and blue a few lengths ahead",
+    "qwen_en": "anotherofSaturday'srivalsPatchofStarsinyellowwhiteandblueafewlengthsahead",
+    "verified_en": "another of Saturday's rivals Patch of Stars in yellow, white and blue a few lengths ahead",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "星期六另一對手「星彩」黃白藍衣領先數碼位"
+  },
+  {
+    "idx": 107,
+    "start": 457.32,
+    "end": 458.88,
+    "whisper_en": "of him on the rail.",
+    "qwen_en": "ofhimontherailNow",
+    "verified_en": "of him on the rail.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "佢喺欄邊跑。"
+  },
+  {
+    "idx": 108,
+    "start": 458.88,
+    "end": 464.61999999999995,
+    "whisper_en": "Now the pace increases again mid-race so it's really run to suit horses off the pace and",
+    "qwen_en": "thepaceincreasesagainmidracesoit'sreallyruntosuithorsesoffthepaceAnd",
+    "verified_en": "Now the pace increases again mid-race so it's really run to suit horses off the pace.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "而家中段步速再加快，真係跑給慢腳馬啱。"
+  },
+  {
+    "idx": 109,
+    "start": 464.61999999999995,
+    "end": 469.05999999999995,
+    "whisper_en": "when they straighten up Patch of Stars comes to pounce, he comes up short behind Young",
+    "qwen_en": "whentheystraightenupPatchofStarscomestopounceHecomesupshortbehindYoung",
+    "verified_en": "When they straighten up, Patch of Stars comes to pounce; he comes up short behind Young.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "直路時星彩展開追擊；但最終落後於揚。"
+  },
+  {
+    "idx": 110,
+    "start": 469.05999999999995,
+    "end": 473.78,
+    "whisper_en": "Champion with Bulb General working home steadily into third.",
+    "qwen_en": "ChampionwithBobGeneralworkinghomesteadilyintothird",
+    "verified_en": "Champion with Bob General working home steadily into third.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "同班冠軍鮑伯將軍穩步走返第三。"
+  },
+  {
+    "idx": 111,
+    "start": 473.78,
+    "end": 480.05999999999995,
+    "whisper_en": "Now Bob General will meet the first two that beat him home there on Saturday, but they",
+    "qwen_en": "NowBobGeneralwillmeetthefirsttwothatbeathimhomethereonSaturdayButthey",
+    "verified_en": "Now Bob General will meet the first two that beat him home there on Saturday, but they",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "而家寶通將同上週六喺佢之前過線嘅兩匹馬再碰頭，但佢哋……"
+  },
+  {
+    "idx": 112,
+    "start": 480.05999999999995,
+    "end": 485.53999999999996,
+    "whisper_en": "were hard race fit horses and he was coming off quite a lengthy break.",
+    "qwen_en": "werehardracefithorsesandhewascomingoffquitealengthybreakSo",
+    "verified_en": "were hard race-fit horses and he was coming off quite a lengthy break.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "呢匹馬係硬仗後復出，而且喺長休之後。"
+  },
+  {
+    "idx": 113,
+    "start": 485.53999999999996,
+    "end": 491.15999999999997,
+    "whisper_en": "So I do think he's going to tighten up and be a better version of himself on Saturday.",
+    "qwen_en": "Idothinkhe'sgoingtotightenupandbeabetterversionofhimselfonSaturday",
+    "verified_en": "So I do think he's going to tighten up and be a better version of himself on Saturday.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "我諗佢星期六會收緊馬勢，跑出一個更好嘅自己。"
+  },
+  {
+    "idx": 114,
+    "start": 491.15999999999997,
+    "end": 496.84,
+    "whisper_en": "But I think when we go to the draw, that's where things are really getting interesting",
+    "qwen_en": "ButIthinkwhenwegotothedrawthat'swherethingsarereallygettinginteresting",
+    "verified_en": "But I think when we go to the draw, that's where things are really getting interesting.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "不過我諗等抽到閘檔先至係真正精彩嘅時候。"
+  },
+  {
+    "idx": 115,
+    "start": 496.84,
+    "end": 498.2,
+    "whisper_en": "in this race.",
+    "qwen_en": "inthisraceThere's",
+    "verified_en": "in this race.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "呢場賽事。"
+  },
+  {
+    "idx": 116,
+    "start": 498.2,
+    "end": 502.46,
+    "whisper_en": "There's good speed out wide here from Victor the winner, Crimson Flash and Ladies Choice.",
+    "qwen_en": "goodspeedoutwideherefromVictorthewinnerCrimsonFlashandLady'sChoiceSo",
+    "verified_en": "There's good speed out wide here from Victor the winner, Crimson Flash and Lady's Choice.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "外檔有速度嘅係勝出者維克多、紅閃同女仔揀。"
+  },
+  {
+    "idx": 117,
+    "start": 502.46,
+    "end": 504.09999999999997,
+    "whisper_en": "So the tempo looks sound enough.",
+    "qwen_en": "thetempolookssoundenough",
+    "verified_en": "So the tempo looks sound enough.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "節奏睇落都夠穩陣。"
+  },
+  {
+    "idx": 118,
+    "start": 504.09999999999997,
+    "end": 508.59999999999997,
+    "whisper_en": "Bob General is drawn lower this time, while he's still not going to be on the front end",
+    "qwen_en": "BibleGeneralisdrawnlowerthistimewhilehe'sstillnotgoingtobeonthefrontend",
+    "verified_en": "Bob General is drawn lower this time, while he's still not going to be on the front end.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "鮑勃將軍今次排位較後，但仲係唔會喺最前頭。"
+  },
+  {
+    "idx": 119,
+    "start": 508.59999999999997,
+    "end": 509.59999999999997,
+    "whisper_en": "of the race.",
+    "qwen_en": "oftherace",
+    "verified_en": "of the race.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "呢場賽事嘅。"
+  },
+  {
+    "idx": 120,
+    "start": 509.59999999999997,
+    "end": 514.56,
+    "whisper_en": "His jockey this time, Joe Marrera, should be able to use that draw to get a nice trip",
+    "qwen_en": "HisjockeythistimeJoeMoreirashouldbeabletousethatdrawtogetanicetrip",
+    "verified_en": "His jockey this time, Joe Moreira, should be able to use that draw to get a nice trip.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "今仗騎師莫雷拉應能利用呢個閘檔取得理想走位。"
+  },
+  {
+    "idx": 121,
+    "start": 514.56,
+    "end": 516.16,
+    "whisper_en": "through the race.",
+    "qwen_en": "throughtherace",
+    "verified_en": "through the race.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "沿途表現。"
+  },
+  {
+    "idx": 122,
+    "start": 516.16,
+    "end": 520.8199999999999,
+    "whisper_en": "Harry Bentley takes over on Hot Delight with the light weight, but his map looks filled",
+    "qwen_en": "HarryBentleytakesoveronHotDelightwiththelightweightbuthismaplooksfilled",
+    "verified_en": "Harry Bentley takes over on Hot Delight with the light weight, but his map looks filled.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "哈利·本特利策騎熱力，雖負輕磅但走位圖滿佈。"
+  },
+  {
+    "idx": 123,
+    "start": 520.8199999999999,
+    "end": 525.36,
+    "whisper_en": "with a lot of decisions to make, and tough ones they are.",
+    "qwen_en": "withalotofdecisionstomakeAndtoughonestheyareWe",
+    "verified_en": "with a lot of decisions to make, and tough ones they are.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "好多決定要揀，而且都好難揀。"
+  },
+  {
+    "idx": 124,
+    "start": 525.36,
+    "end": 529.9,
+    "whisper_en": "We saw Hot Delight up on the speed, his last two starts in slow tempos, but with a better",
+    "qwen_en": "sawHotDelightuponthespeedHislasttwostartsinslowtemposbutwithabetter",
+    "verified_en": "We saw Hot Delight up on the speed, his last two starts in slow tempos, but with a better",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "我哋見熱心快喺領放位，佢上兩仗慢步速，但今次情況好啲。"
+  },
+  {
+    "idx": 125,
+    "start": 529.9,
+    "end": 535.5,
+    "whisper_en": "pace and a wide draw here he would have trouble getting to a similar spot without covering ground",
+    "qwen_en": "paceandawidedrawherehewouldhavetroublegettingtoasimilarspotwithoutcoveringground",
+    "verified_en": "pace and a wide draw here he would have trouble getting to a similar spot without covering ground",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "呢個跑法加外閘，唔行多啲路好難去到同樣位置"
+  },
+  {
+    "idx": 126,
+    "start": 535.5,
+    "end": 541.02,
+    "whisper_en": "and working and might even have to drag all the way back in the field so that he doesn't have a",
+    "qwen_en": "andworkingandmightevenhavetodragallthewaybackinthefieldsothathedoesn'thavea",
+    "verified_en": "and working and might even have to drag all the way back in the field so that he doesn't have a",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "而家要跑同埋甚至可能要拖返成個馬群後面先至唔會..."
+  },
+  {
+    "idx": 127,
+    "start": 541.02,
+    "end": 549.1,
+    "whisper_en": "difficult run so the tip from me in race 11 bulb general his winning factor the draw now had they",
+    "qwen_en": "difficultrunSothetipfrommeinraceelevenBulbGeneralHiswinningfactorthedrawNowhad",
+    "verified_en": "difficult run, so the tip from me in race 11 is Bulb General. His winning factor, the draw now had they",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "呢場好艱難，所以我推介第十一場嘅「一般燈泡」。佢嘅勝出因素係而家嘅排位。"
+  },
+  {
+    "idx": 128,
+    "start": 549.1,
+    "end": 555.42,
+    "whisper_en": "drawn the other way around i'm sure that i would have been tipping hot delight but his job looks",
+    "qwen_en": "theydrawntheotherwayaroundI'msurethatIwouldhavebeentippingHotDelightButhisjoblooks",
+    "verified_en": "Drawn the other way around, I'm sure that I would have been tipping Hot Delight, but his job looks",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "若排位相反，我肯定會揀熱力，但佢嘅任務好似"
+  },
+  {
+    "idx": 129,
+    "start": 555.42,
+    "end": 559.38,
+    "whisper_en": "full of difficulties. He's good enough to overcome them. I certainly don't want to",
+    "qwen_en": "fullofdifficultiesHe'sgoodenoughtoovercomethemIcertainlydon'twantto",
+    "verified_en": "full of difficulties. He's good enough to overcome them. I certainly don't want to",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "充滿困難。佢實力足夠克服。我絕對唔想"
+  },
+  {
+    "idx": 130,
+    "start": 559.38,
+    "end": 563.8199999999999,
+    "whisper_en": "say it's lights out for his chances but it brings him back to the older horse",
+    "qwen_en": "sayit'slightsoutforhischancesButitbringshimbacktotheolderhorse",
+    "verified_en": "say it's lights out for his chances but it brings him back to the older horse",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "話佢機會唔大，不過返到嚟同老馬對決。"
+  },
+  {
+    "idx": 131,
+    "start": 563.8199999999999,
+    "end": 568.5,
+    "whisper_en": "who has drawn better this time, Bulb General, and should be fitter than he was",
+    "qwen_en": "whohasdrawnbetterthistimeBoldGeneralandshouldbefitterthanhewas",
+    "verified_en": "who has drawn better this time, Bold General, and should be fitter than he was",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "邊匹馬今次抽得較好？「大將」應該比上仗更壯。"
+  },
+  {
+    "idx": 132,
+    "start": 568.5,
+    "end": 574.1999999999999,
+    "whisper_en": "for that first up run. Well that's it from the Winning Factor this week. Good",
+    "qwen_en": "forthatfirstuprunWellthat'sitfromtheWinningFactorthisweekGood",
+    "verified_en": "for that first up run. Well, that's it from The Winning Factor this week. Good",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "呢場係首次出賽。好喇，本週《勝算》就到呢度啦。多謝。"
+  },
+  {
+    "idx": 133,
+    "start": 574.1999999999999,
+    "end": 578.06,
+    "whisper_en": "luck on Saturday. We'll see you next time.",
+    "qwen_en": "luckonSaturdayWe'llseeyounexttime",
+    "verified_en": "luck on Saturday. We'll see you next time.",
+    "verifier_method": "LLM_JUDGE",
+    "translated_zh": "星期六祝你好運，下次再見。"
+  }
+]

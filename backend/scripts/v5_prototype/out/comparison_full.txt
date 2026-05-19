@@ -1,0 +1,497 @@
+# v5 Prototype side-by-side (97 segments total)
+
+Source lang: zh
+FID: b9b9e4fad18c
+
+--- #  0    0.00- 29.98s ⚠️
+  v4 raw ZH:  中文字幕提供
+  v5 pol ZH:  [HALLUC] 中文字幕提供
+  v5 xlat EN: Chinese subtitles provided
+
+--- #  1   30.00- 31.20s ⚠️
+  v4 raw ZH:  粟米片
+  v5 pol ZH:  [HALLUC] 粟米片
+  v5 xlat EN: Cornflakes
+
+--- #  2   31.28- 32.64s ⚠️
+  v4 raw ZH:  貓, 超喜歡貓
+  v5 pol ZH:  [HALLUC] 貓，超喜歡貓
+  v5 xlat EN: Cats, I love cats so much.
+
+--- #  3   32.72- 34.52s
+  v4 raw ZH:  我很喜歡看, 連新年都看
+  v5 pol ZH:  我好鍾意睇，連新年都睇
+  v5 xlat EN: I love watching it, even during Chinese New Year.
+
+--- #  4   34.60- 37.56s
+  v4 raw ZH:  所以南非自己過新年都看
+  v5 pol ZH:  所以南非自己過新年都睇
+  v5 xlat EN: So South Africa also celebrates its own New Year.
+
+--- #  5   37.64- 38.76s
+  v4 raw ZH:  新年才
+  v5 pol ZH:  新年先至
+  v5 xlat EN: It's only just New Year.
+
+--- #  6   40.00- 43.12s
+  v4 raw ZH:  這天新10磅仔袁幸瑤出席記者會
+  v5 pol ZH:  今日新十磅見習騎師袁幸瑤出席記者會
+  v5 xlat EN: New 10-pound apprentice jockey Yuen Hang-yiu attended today's press conference.
+
+--- #  7   43.20- 45.20s
+  v4 raw ZH:  大方分享自己的興趣
+  v5 pol ZH:  大方分享自己嘅興趣
+  v5 xlat EN: Generously sharing their own hobbies.
+
+--- #  8   45.28- 47.00s
+  v4 raw ZH:  陽光自信的對答
+  v5 pol ZH:  陽光自信嘅對答
+  v5 xlat EN: Confident and sunny responses.
+
+--- #  9   47.08- 50.32s
+  v4 raw ZH:  加上真摯的笑容, 真的非常圈粉
+  v5 pol ZH:  加上真摯笑容，真係好攞分
+  v5 xlat EN: With a sincere smile, she really gained points.
+
+--- # 10   50.40- 51.84s
+  v4 raw ZH:  目前她最大目標
+  v5 pol ZH:  目前佢最大嘅目標
+  v5 xlat EN: Her current biggest goal is...
+
+--- # 11   51.92- 53.44s
+  v4 raw ZH:  就是盡量吸收經驗
+  v5 pol ZH:  就係盡量吸收經驗
+  v5 xlat EN: Just trying to absorb as much experience as possible.
+
+--- # 12   53.52- 55.16s
+  v4 raw ZH:  令自己不斷進步
+  v5 pol ZH:  令自己不斷進步
+  v5 xlat EN: Strive for continuous self-improvement.
+
+--- # 13   56.04- 58.48s
+  v4 raw ZH:  強項我覺得是自己的推期
+  v5 pol ZH:  強項我覺係自己嘅推期
+  v5 xlat EN: My strength is my own prediction of the due date.
+
+--- # 14   58.48- 62.08s
+  v4 raw ZH:  我希望自己比較出色
+  v5 pol ZH:  希望自己表現更出色
+  v5 xlat EN: Hoping to perform even better.
+
+--- # 15   62.08- 65.08s
+  v4 raw ZH:  若瀚我還在找
+  v5 pol ZH:  若瀚我仲喺度搵
+  v5 xlat EN: If Han, I am still looking for you.
+
+--- # 16   65.08- 68.08s
+  v4 raw ZH:  應該盡量希望不會有若瀚
+  v5 pol ZH:  應盡量唔希望會有若瀚
+  v5 xlat EN: We hope there will be no further incidents like this.
+
+--- # 17   68.08- 72.08s
+  v4 raw ZH:  當然全方位地幫自己不停地進步下去
+  v5 pol ZH:  當然會全方位咁幫自己不停進步落去
+  v5 xlat EN: Of course, I will fully dedicate myself to continuous improvement.
+
+--- # 18   72.08- 75.48s
+  v4 raw ZH:  始終我也很留意每一位騎師
+  v5 pol ZH:  始終我都好留意每一位騎師
+  v5 xlat EN: I always pay close attention to every jockey.
+
+--- # 19   75.48- 77.28s
+  v4 raw ZH:  因為每一位騎師都有他們的特別之處
+  v5 pol ZH:  因為每一位騎師都有佢哋嘅特別之處
+  v5 xlat EN: Because every jockey has their own unique qualities.
+
+--- # 20   77.28- 79.08s
+  v4 raw ZH:  還有他們的好處
+  v5 pol ZH:  仲有佢哋嘅好處
+  v5 xlat EN: And there are benefits to them as well.
+
+--- # 21   79.08- 80.88s
+  v4 raw ZH:  而且他們的拆騎方式都不同
+  v5 pol ZH:  而且佢哋嘅拆騎方式都唔同
+  v5 xlat EN: Moreover, their jockey pairings differ.
+
+--- # 22   80.88- 86.28s
+  v4 raw ZH:  所以我希望自己可以拿他們每一位騎師的好處
+  v5 pol ZH:  所以我希望可以取每位騎師嘅好處
+  v5 xlat EN: So I hope to draw on each jockey's strengths.
+
+--- # 23   86.28- 89.04s
+  v4 raw ZH:  放在自己身上就最好
+  v5 pol ZH:  放喺自己身上就最好
+  v5 xlat EN: It is best if it fits oneself.
+
+--- # 24   90.48- 91.28s
+  v4 raw ZH:  3月8日
+  v5 pol ZH:  3月8日
+  v5 xlat EN: March 8
+
+--- # 25   91.36- 94.32s
+  v4 raw ZH:  騎士艾少麗正式升格當爸爸
+  v5 pol ZH:  騎師艾少麗正式升格當爸爸
+  v5 xlat EN: Jockey Ashley Low officially becomes a father.
+
+--- # 26   94.40- 96.32s
+  v4 raw ZH:  兒子Thomas在香港出生
+  v5 pol ZH:  兒子 Thomas 喺香港出世
+  v5 xlat EN: Son Thomas was born in Hong Kong.
+
+--- # 27   96.40- 97.84s
+  v4 raw ZH:  還非常有腳頭
+  v5 pol ZH:  仲好有腳頭
+  v5 xlat EN: Also has a foot at the end.
+
+--- # 28   97.92- 99.00s
+  v4 raw ZH:  出生當日
+  v5 pol ZH:  出生嗰日
+  v5 xlat EN: on the day of birth
+
+--- # 29   99.08-102.04s
+  v4 raw ZH:  艾少麗正正一天贏出四場頭碼
+  v5 pol ZH:  艾少麗正正一日贏出四場頭馬
+  v5 xlat EN: Jockey Siu Lai Ngai won four races in a single day.
+
+--- # 30  102.12-103.60s
+  v4 raw ZH:  不少朋友和馬迷
+  v5 pol ZH:  不少朋友同馬迷
+  v5 xlat EN: Many friends and horse racing fans
+
+--- # 31  103.68-105.44s
+  v4 raw ZH:  都湧入她的社交平台
+  v5 pol ZH:  紛紛湧入佢嘅社交平台
+  v5 xlat EN: Many people flocked to her social media platforms.
+
+--- # 32  105.52-108.56s
+  v4 raw ZH:  為這對新手父母送上滿滿的祝福
+  v5 pol ZH:  為呢對新手父母送上滿滿祝福
+  v5 xlat EN: Sending full blessings to this new couple of parents.
+
+--- # 33  108.64-111.84s
+  v4 raw ZH:  希望Thomas仔繼續發揮小福星的本色
+  v5 pol ZH:  希望 Thomas 仔繼續發揮小福星嘅本色
+  v5 xlat EN: Hope Thomas continues to shine as a little lucky charm.
+
+--- # 34  111.92-114.04s
+  v4 raw ZH:  帶領爸爸衝擊更多頭碼
+  v5 pol ZH:  帶領爸爸衝擊更多頭馬
+  v5 xlat EN: Leading his father to chase more victories.
+
+--- # 35  114.04-116.40s
+  v4 raw ZH:  奶粉錢靠你繼續看下去
+  v5 pol ZH:  奶粉錢靠你繼續睇落去
+  v5 xlat EN: Baby formula money depends on you continuing to watch.
+
+--- # 36  118.92-121.36s
+  v4 raw ZH:  除了雙喜臨門的艾少麗之外
+  v5 pol ZH:  除咗雙喜臨門嘅艾少麗之外
+  v5 xlat EN: Apart from Ai Siu-li, who is celebrating two joys at once,
+
+--- # 37  121.44-122.68s
+  v4 raw ZH:  另外一位騎師
+  v5 pol ZH:  另外一位騎師
+  v5 xlat EN: Another jockey
+
+--- # 38  122.76-125.72s
+  v4 raw ZH:  最近也上演贏到傻的神級演出
+  v5 pol ZH:  近期亦上演贏到傻嘅神級演出
+  v5 xlat EN: Recently, a god-tier performance that left everyone stunned unfolded.
+
+--- # 39  125.80-127.12s
+  v4 raw ZH:  就是麥道朗
+  v5 pol ZH:  就係麥道朗
+  v5 xlat EN: It is Macdonald.
+
+--- # 40  127.20-128.12s
+  v4 raw ZH:  3月7日
+  v5 pol ZH:  3月7日
+  v5 xlat EN: March 7
+
+--- # 41  128.20-130.72s
+  v4 raw ZH:  他在南域馬場舉行的賽日
+  v5 pol ZH:  佢喺南域馬場舉行嘅賽日
+  v5 xlat EN: The race day was held at Sha Tin Racecourse.
+
+--- # 42  130.80-133.00s
+  v4 raw ZH:  一日贏出六場頭馬
+  v5 pol ZH:  一日贏出六場頭馬
+  v5 xlat EN: Won six races in a single day.
+
+--- # 43  133.08-134.40s
+  v4 raw ZH:  包括一級賽
+  v5 pol ZH:  包括一級賽
+  v5 xlat EN: including Group One races.
+
+--- # 44  134.48-135.84s
+  v4 raw ZH:  肯德伯利錦標
+  v5 pol ZH:  肯達伯利錦標
+  v5 xlat EN: Kentucky Derby
+
+--- # 45  135.92-138.56s
+  v4 raw ZH:  最平左傳奇騎師賈西迪
+  v5 pol ZH:  最平嘅傳奇騎師莫雷拉
+  v5 xlat EN: The most affordable legendary jockey, Moreira.
+
+--- # 46  138.64-142.68s
+  v4 raw ZH:  亦即潘頓外虎在1987年創下的紀錄
+  v5 pol ZH:  即係潘頓外父喺1987年創下嘅紀錄
+  v5 xlat EN: That is the record set by Pat's father-in-law in 1987.
+
+--- # 47  142.68-145.72s
+  v4 raw ZH:  同時亦是38年來首次有人在
+  v5 pol ZH:  同時亦係38年來首次有人喺
+  v5 xlat EN: It is also the first time in 38 years that someone has...
+
+--- # 48  145.80-149.52s
+  v4 raw ZH:  悉尼城市馬場重現一日六邊的壯舉
+  v5 pol ZH:  悉尼城市馬場重現一日六捷嘅壯舉
+  v5 xlat EN: Sydney's City Racecourse replicates a historic six-win day.
+
+--- # 49  149.60-152.28s
+  v4 raw ZH:  絕對震撼整個澳洲賽馬界
+  v5 pol ZH:  絕對震撼整個澳洲賽馬界
+  v5 xlat EN: It absolutely shook the entire Australian racing world.
+
+--- # 50  154.52-156.92s
+  v4 raw ZH:  最近有市民在沙田馬場附近
+  v5 pol ZH:  最近有市民喺沙田馬場附近
+  v5 xlat EN: Recently, citizens were near Sha Tin Racecourse.
+
+--- # 51  157.00-158.72s
+  v4 raw ZH:  認得有匹可愛的小馬
+  v5 pol ZH:  認得有一匹可愛嘅小馬
+  v5 xlat EN: Recognized a cute little horse.
+
+--- # 52  158.80-162.04s
+  v4 raw ZH:  在馬格裡面伸頭出窗外望風景
+  v5 pol ZH:  喺馬廄入面伸頭出窗外望風景
+  v5 xlat EN: Peering out of a stable window to enjoy the view.
+
+--- # 53  162.12-164.08s
+  v4 raw ZH:  大家都說牠很可愛
+  v5 pol ZH:  大家都話佢好可愛
+  v5 xlat EN: Everyone says she is very cute.
+
+--- # 54  164.16-166.36s
+  v4 raw ZH:  不過有眼利的網民發現
+  v5 pol ZH:  不過有眼利嘅網民發現
+  v5 xlat EN: However, some sharp-eyed netizens noticed.
+
+--- # 55  166.44-169.28s
+  v4 raw ZH:  小馬好像掉了些東西,究竟是什麼
+  v5 pol ZH:  小馬好似掉咗啲嘢，究竟係乜
+  v5 xlat EN: The pony seems to have dropped something; what could it be?
+
+--- # 56  170.00-171.48s
+  v4 raw ZH:  原來是這堆草
+  v5 pol ZH:  原來係呢堆草
+  v5 xlat EN: It turns out it was this pile of grass.
+
+--- # 57  171.48-174.98s
+  v4 raw ZH:  大家都非常担心马仔跌了一份午餐会饿
+  v5 pol ZH:  大家好擔心馬仔跌咗一餐會餓
+  v5 xlat EN: Everyone is worried that if the horse misses a meal, it will go hungry.
+
+--- # 58  174.98-178.20s
+  v4 raw ZH:  所以惹来一众网友疯狂转载
+  v5 pol ZH:  所以惹來一眾網民瘋狂轉載
+  v5 xlat EN: This sparked a frenzy of reposts among netizens.
+
+--- # 59  178.20-182.26s
+  v4 raw ZH:  幸好这个铺成功召唤了马房工作人员出马
+  v5 pol ZH:  幸好呢個鋪成功召喚馬房工作人員出馬
+  v5 xlat EN: Fortunately, the shop succeeded in summoning stable staff.
+
+--- # 60  182.26-184.96s
+  v4 raw ZH:  除了帮马仔补给午餐之外
+  v5 pol ZH:  除咗幫馬仔補給午餐之外
+  v5 xlat EN: Besides providing lunch for the horses,
+
+--- # 61  184.96-188.76s
+  v4 raw ZH:  还顺便和大家揭开神秘马仔的真实身份
+  v5 pol ZH:  仲順便同大家揭開神秘馬仔嘅真實身份
+  v5 xlat EN: Also revealing the mysterious horse's true identity to everyone.
+
+--- # 62  188.76-191.44s
+  v4 raw ZH:  原来这批任性又可爱的主角
+  v5 pol ZH:  原來呢批任性又可愛嘅主角
+  v5 xlat EN: It turns out these willful yet adorable protagonists
+
+--- # 63  191.44-194.22s
+  v4 raw ZH:  是来自犹达荣马房的幸运风采
+  v5 pol ZH:  係來自猶達榮馬房嘅幸運風采
+  v5 xlat EN: It comes from Lucky Style in Yau Tat Wing's stable.
+
+--- # 64  194.22-196.54s
+  v4 raw ZH:  大家下次路过马场附近
+  v5 pol ZH:  大家下次路過馬場附近
+  v5 xlat EN: Everyone, next time you pass by the racecourse area
+
+--- # 65  196.54-198.76s
+  v4 raw ZH:  都可以远远地和他打个招呼
+  v5 pol ZH:  都可以遠遠同佢打聲招呼
+  v5 xlat EN: They can also wave hello from a distance.
+
+--- # 66  198.76-202.76s
+  v4 raw ZH:  3月9日澳洲年轻骑师史腾雷
+  v5 pol ZH:  3月9日澳洲年輕騎師史騰雷
+  v5 xlat EN: On March 9, Australian jockey Steven Ray.
+
+--- # 67  202.76-204.70s
+  v4 raw ZH:  喷注拆骑美朗王
+  v5 pol ZH:  噴注拆騎美朗王
+  v5 xlat EN: Jockey Maw Long-wong was removed from his mount.
+
+--- # 68  204.70-206.78s
+  v4 raw ZH:  激快带热门Highland Blink
+  v5 pol ZH:  激快帶熱門 Highland Blink
+  v5 xlat EN: Highland Blink, a popular and fast-paced horse.
+
+--- # 69  206.78-208.44s
+  v4 raw ZH:  赢出阿德雷德杯
+  v5 pol ZH:  贏出阿德萊德盃
+  v5 xlat EN: Won the Adelaide Cup.
+
+--- # 70  208.44-211.18s
+  v4 raw ZH:  两匹马顶多马头要拍照
+  v5 pol ZH:  兩匹馬頂多馬頭要影相
+  v5 xlat EN: Two horses, heads only, for a photo.
+
+--- # 71  211.18-212.22s
+  v4 raw ZH:  才分出胜负
+  v5 pol ZH:  先至分出勝負
+  v5 xlat EN: Only then was the winner decided.
+
+--- # 72  212.22-213.20s
+  v4 raw ZH:  非常刺激
+  v5 pol ZH:  好刺激
+  v5 xlat EN: So thrilling.
+
+--- # 73  213.20-214.88s
+  v4 raw ZH:  但是过终点没来
+  v5 pol ZH:  但係過咗終點先嚟
+  v5 xlat EN: but they crossed the finish line first.
+
+--- # 74  214.88-217.24s
+  v4 raw ZH:  收获拆骑身来最大胜利的
+  v5 pol ZH:  憑拆騎師身位贏得最大勝利
+  v5 xlat EN: Secured biggest victory by dismounting the jockey.
+
+--- # 75  217.24-219.80s
+  v4 raw ZH:  史腾雷就被美朗王抛下来
+  v5 pol ZH:  史騰雷被美朗王拋落馬下
+  v5 xlat EN: Stenley was unseated by Mawlong Wang.
+
+--- # 76  219.80-221.38s
+  v4 raw ZH:  人生高光时刻
+  v5 pol ZH:  人生高光的時刻
+  v5 xlat EN: The highlight of life's journey.
+
+--- # 77  221.38-223.40s
+  v4 raw ZH:  瞬间变成翻车现场
+  v5 pol ZH:  瞬間變成翻車現場
+  v5 xlat EN: Instantly turned into a disaster scene.
+
+--- # 78  223.40-225.14s
+  v4 raw ZH:  不少网民都将事发
+  v5 pol ZH:  不少網民都將事發
+  v5 xlat EN: Many netizens have reacted to the incident.
+
+--- # 79  225.14-227.32s
+  v4 raw ZH:  经过CAPTO变成最新的Meme
+  v5 pol ZH:  經過 CAPTO 變成最新嘅 Meme
+  v5 xlat EN: It has become the latest meme through CAPTO.
+
+--- # 80  227.32-229.76s
+  v4 raw ZH:  其实大家都很替他开心
+  v5 pol ZH:  其實大家都好替佢開心
+  v5 xlat EN: Everyone is truly happy for him.
+
+--- # 81  229.76-231.94s
+  v4 raw ZH:  好像早几天坐飞机一样
+  v5 pol ZH:  好似幾日前搭飛機咁
+  v5 xlat EN: Like taking a flight a few days ago.
+
+--- # 82  231.94-234.54s
+  v4 raw ZH:  史腾雷除了获得客舱升级之外
+  v5 pol ZH:  史提芬除咗獲得客艙升級之外
+  v5 xlat EN: Besides Stephen, he also received a cabin upgrade.
+
+--- # 83  234.54-236.48s
+  v4 raw ZH:  机组人员还为他准备了
+  v5 pol ZH:  機組人員仲為佢準備咗
+  v5 xlat EN: The crew also prepared for him.
+
+--- # 84  236.48-237.92s
+  v4 raw ZH:  特别的欢迎仪式
+  v5 pol ZH:  特別歡迎儀式
+  v5 xlat EN: Special welcome ceremony.
+
+--- # 85  237.92-239.48s
+  v4 raw ZH:  就是全机乘客
+  v5 pol ZH:  就係全機乘客
+  v5 xlat EN: It was all passengers on board.
+
+--- # 86  239.48-241.30s
+  v4 raw ZH:  一起帮他庆祝夜马
+  v5 pol ZH:  一齊幫佢慶祝夜馬
+  v5 xlat EN: Let's celebrate the night race together.
+
+--- # 87  241.30-242.54s
+  v4 raw ZH:  这么大只瓶杯
+  v5 pol ZH:  咁大隻嘅樽杯
+  v5 xlat EN: Such a large bottle cup.
+
+--- # 88  242.54-243.86s
+  v4 raw ZH:  最适合用来喝香槟
+  v5 pol ZH:  最適合飲用香檳嘅
+  v5 xlat EN: The most suitable occasion for drinking champagne.
+
+--- # 89  243.86-249.00s
+  v4 raw ZH:  下星期日就是宝马香港
+  v5 pol ZH:  下星期日就係寶馬香港
+  v5 xlat EN: Next Sunday is the BMW Hong Kong.
+
+--- # 90  249.00-250.98s
+  v4 raw ZH:  大杯大赛举行的大日子
+  v5 pol ZH:  大杯賽舉行嘅大日子
+  v5 xlat EN: The big day of the Grand Cup race.
+
+--- # 91  250.98-252.40s
+  v4 raw ZH:  而排位抽签仪式
+  v5 pol ZH:  而排位抽籤儀式
+  v5 xlat EN: And the draw ceremony for the race positions
+
+--- # 92  252.40-254.36s
+  v4 raw ZH:  将会在3月19日进行
+  v5 pol ZH:  將會喺3月19日進行
+  v5 xlat EN: It will take place on March 19.
+
+--- # 93  254.36-255.74s
+  v4 raw ZH:  大家记得留意
+  v5 pol ZH:  大家記得留意
+  v5 xlat EN: Everyone remember to pay attention.
+
+--- # 94  255.74-258.10s
+  v4 raw ZH:  哪些參賽者可以抽到好多
+  v5 pol ZH:  邊位參賽者可以抽到好彩頭
+  v5 xlat EN: Which contestant will draw the lucky prize?
+
+--- # 95  258.18-259.86s
+  v4 raw ZH:  下星期再跟大家跟進
+  v5 pol ZH:  下星期再同大家跟進
+  v5 xlat EN: We will follow up with everyone next week.
+
+--- # 96  259.94-261.42s
+  v4 raw ZH:  大賽的最新消息
+  v5 pol ZH:  大賽嘅最新消息
+  v5 xlat EN: Latest updates on the major tournament.
+
+
+=== Summary (first 97 segments) ===
+  Hallucination flagged: 3
+  Total segments: 97
+  ZH polished empty:    0/97
+  EN translated empty:  0/97
+  ZH [HALLUC] flagged:  3/97

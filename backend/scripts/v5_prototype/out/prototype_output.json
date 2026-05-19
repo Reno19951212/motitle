@@ -1,0 +1,1558 @@
+{
+  "fid": "b9b9e4fad18c",
+  "source_lang": "zh",
+  "segments": [
+    {
+      "idx": 0,
+      "start": 0.0,
+      "end": 29.98,
+      "source_text": "中文字幕提供",
+      "by_lang": {
+        "zh": {
+          "text": "[HALLUC] 中文字幕提供",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Chinese subtitles provided",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 1,
+      "start": 30.0,
+      "end": 31.2,
+      "source_text": "粟米片",
+      "by_lang": {
+        "zh": {
+          "text": "[HALLUC] 粟米片",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Cornflakes",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 2,
+      "start": 31.28,
+      "end": 32.64,
+      "source_text": "貓, 超喜歡貓",
+      "by_lang": {
+        "zh": {
+          "text": "[HALLUC] 貓，超喜歡貓",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Cats, I love cats so much.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 3,
+      "start": 32.72,
+      "end": 34.52,
+      "source_text": "我很喜歡看, 連新年都看",
+      "by_lang": {
+        "zh": {
+          "text": "我好鍾意睇，連新年都睇",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "I love watching it, even during Chinese New Year.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 4,
+      "start": 34.6,
+      "end": 37.56,
+      "source_text": "所以南非自己過新年都看",
+      "by_lang": {
+        "zh": {
+          "text": "所以南非自己過新年都睇",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "So South Africa also celebrates its own New Year.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 5,
+      "start": 37.64,
+      "end": 38.76,
+      "source_text": "新年才",
+      "by_lang": {
+        "zh": {
+          "text": "新年先至",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "It's only just New Year.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 6,
+      "start": 40.0,
+      "end": 43.120000000000005,
+      "source_text": "這天新10磅仔袁幸瑤出席記者會",
+      "by_lang": {
+        "zh": {
+          "text": "今日新十磅見習騎師袁幸瑤出席記者會",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "New 10-pound apprentice jockey Yuen Hang-yiu attended today's press conference.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 7,
+      "start": 43.2,
+      "end": 45.2,
+      "source_text": "大方分享自己的興趣",
+      "by_lang": {
+        "zh": {
+          "text": "大方分享自己嘅興趣",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Generously sharing their own hobbies.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 8,
+      "start": 45.28,
+      "end": 47.0,
+      "source_text": "陽光自信的對答",
+      "by_lang": {
+        "zh": {
+          "text": "陽光自信嘅對答",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Confident and sunny responses.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 9,
+      "start": 47.08,
+      "end": 50.32,
+      "source_text": "加上真摯的笑容, 真的非常圈粉",
+      "by_lang": {
+        "zh": {
+          "text": "加上真摯笑容，真係好攞分",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "With a sincere smile, she really gained points.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 10,
+      "start": 50.400000000000006,
+      "end": 51.84,
+      "source_text": "目前她最大目標",
+      "by_lang": {
+        "zh": {
+          "text": "目前佢最大嘅目標",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Her current biggest goal is...",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 11,
+      "start": 51.92,
+      "end": 53.44,
+      "source_text": "就是盡量吸收經驗",
+      "by_lang": {
+        "zh": {
+          "text": "就係盡量吸收經驗",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Just trying to absorb as much experience as possible.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 12,
+      "start": 53.519999999999996,
+      "end": 55.16,
+      "source_text": "令自己不斷進步",
+      "by_lang": {
+        "zh": {
+          "text": "令自己不斷進步",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Strive for continuous self-improvement.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 13,
+      "start": 56.04,
+      "end": 58.480000000000004,
+      "source_text": "強項我覺得是自己的推期",
+      "by_lang": {
+        "zh": {
+          "text": "強項我覺係自己嘅推期",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "My strength is my own prediction of the due date.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 14,
+      "start": 58.48,
+      "end": 62.08,
+      "source_text": "我希望自己比較出色",
+      "by_lang": {
+        "zh": {
+          "text": "希望自己表現更出色",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Hoping to perform even better.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 15,
+      "start": 62.08,
+      "end": 65.08,
+      "source_text": "若瀚我還在找",
+      "by_lang": {
+        "zh": {
+          "text": "若瀚我仲喺度搵",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "If Han, I am still looking for you.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 16,
+      "start": 65.08,
+      "end": 68.08,
+      "source_text": "應該盡量希望不會有若瀚",
+      "by_lang": {
+        "zh": {
+          "text": "應盡量唔希望會有若瀚",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "We hope there will be no further incidents like this.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 17,
+      "start": 68.08,
+      "end": 72.08,
+      "source_text": "當然全方位地幫自己不停地進步下去",
+      "by_lang": {
+        "zh": {
+          "text": "當然會全方位咁幫自己不停進步落去",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Of course, I will fully dedicate myself to continuous improvement.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 18,
+      "start": 72.08,
+      "end": 75.47999999999999,
+      "source_text": "始終我也很留意每一位騎師",
+      "by_lang": {
+        "zh": {
+          "text": "始終我都好留意每一位騎師",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "I always pay close attention to every jockey.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 19,
+      "start": 75.47999999999999,
+      "end": 77.28,
+      "source_text": "因為每一位騎師都有他們的特別之處",
+      "by_lang": {
+        "zh": {
+          "text": "因為每一位騎師都有佢哋嘅特別之處",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Because every jockey has their own unique qualities.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 20,
+      "start": 77.28,
+      "end": 79.08,
+      "source_text": "還有他們的好處",
+      "by_lang": {
+        "zh": {
+          "text": "仲有佢哋嘅好處",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "And there are benefits to them as well.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 21,
+      "start": 79.08,
+      "end": 80.88,
+      "source_text": "而且他們的拆騎方式都不同",
+      "by_lang": {
+        "zh": {
+          "text": "而且佢哋嘅拆騎方式都唔同",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Moreover, their jockey pairings differ.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 22,
+      "start": 80.88,
+      "end": 86.28,
+      "source_text": "所以我希望自己可以拿他們每一位騎師的好處",
+      "by_lang": {
+        "zh": {
+          "text": "所以我希望可以取每位騎師嘅好處",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "So I hope to draw on each jockey's strengths.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 23,
+      "start": 86.28,
+      "end": 89.04,
+      "source_text": "放在自己身上就最好",
+      "by_lang": {
+        "zh": {
+          "text": "放喺自己身上就最好",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "It is best if it fits oneself.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 24,
+      "start": 90.48,
+      "end": 91.28,
+      "source_text": "3月8日",
+      "by_lang": {
+        "zh": {
+          "text": "3月8日",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "March 8",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 25,
+      "start": 91.36,
+      "end": 94.32000000000001,
+      "source_text": "騎士艾少麗正式升格當爸爸",
+      "by_lang": {
+        "zh": {
+          "text": "騎師艾少麗正式升格當爸爸",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Jockey Ashley Low officially becomes a father.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 26,
+      "start": 94.4,
+      "end": 96.32000000000001,
+      "source_text": "兒子Thomas在香港出生",
+      "by_lang": {
+        "zh": {
+          "text": "兒子 Thomas 喺香港出世",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Son Thomas was born in Hong Kong.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 27,
+      "start": 96.4,
+      "end": 97.84,
+      "source_text": "還非常有腳頭",
+      "by_lang": {
+        "zh": {
+          "text": "仲好有腳頭",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Also has a foot at the end.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 28,
+      "start": 97.92,
+      "end": 99.0,
+      "source_text": "出生當日",
+      "by_lang": {
+        "zh": {
+          "text": "出生嗰日",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "on the day of birth",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 29,
+      "start": 99.08,
+      "end": 102.04,
+      "source_text": "艾少麗正正一天贏出四場頭碼",
+      "by_lang": {
+        "zh": {
+          "text": "艾少麗正正一日贏出四場頭馬",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Jockey Siu Lai Ngai won four races in a single day.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 30,
+      "start": 102.12,
+      "end": 103.6,
+      "source_text": "不少朋友和馬迷",
+      "by_lang": {
+        "zh": {
+          "text": "不少朋友同馬迷",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Many friends and horse racing fans",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 31,
+      "start": 103.68,
+      "end": 105.44,
+      "source_text": "都湧入她的社交平台",
+      "by_lang": {
+        "zh": {
+          "text": "紛紛湧入佢嘅社交平台",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Many people flocked to her social media platforms.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 32,
+      "start": 105.52000000000001,
+      "end": 108.56,
+      "source_text": "為這對新手父母送上滿滿的祝福",
+      "by_lang": {
+        "zh": {
+          "text": "為呢對新手父母送上滿滿祝福",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Sending full blessings to this new couple of parents.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 33,
+      "start": 108.64,
+      "end": 111.84,
+      "source_text": "希望Thomas仔繼續發揮小福星的本色",
+      "by_lang": {
+        "zh": {
+          "text": "希望 Thomas 仔繼續發揮小福星嘅本色",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Hope Thomas continues to shine as a little lucky charm.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 34,
+      "start": 111.92,
+      "end": 114.04,
+      "source_text": "帶領爸爸衝擊更多頭碼",
+      "by_lang": {
+        "zh": {
+          "text": "帶領爸爸衝擊更多頭馬",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Leading his father to chase more victories.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 35,
+      "start": 114.04,
+      "end": 116.4,
+      "source_text": "奶粉錢靠你繼續看下去",
+      "by_lang": {
+        "zh": {
+          "text": "奶粉錢靠你繼續睇落去",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Baby formula money depends on you continuing to watch.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 36,
+      "start": 118.92,
+      "end": 121.36000000000001,
+      "source_text": "除了雙喜臨門的艾少麗之外",
+      "by_lang": {
+        "zh": {
+          "text": "除咗雙喜臨門嘅艾少麗之外",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Apart from Ai Siu-li, who is celebrating two joys at once,",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 37,
+      "start": 121.44000000000001,
+      "end": 122.68,
+      "source_text": "另外一位騎師",
+      "by_lang": {
+        "zh": {
+          "text": "另外一位騎師",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Another jockey",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 38,
+      "start": 122.76,
+      "end": 125.72,
+      "source_text": "最近也上演贏到傻的神級演出",
+      "by_lang": {
+        "zh": {
+          "text": "近期亦上演贏到傻嘅神級演出",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Recently, a god-tier performance that left everyone stunned unfolded.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 39,
+      "start": 125.80000000000001,
+      "end": 127.12,
+      "source_text": "就是麥道朗",
+      "by_lang": {
+        "zh": {
+          "text": "就係麥道朗",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "It is Macdonald.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 40,
+      "start": 127.2,
+      "end": 128.12,
+      "source_text": "3月7日",
+      "by_lang": {
+        "zh": {
+          "text": "3月7日",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "March 7",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 41,
+      "start": 128.20000000000002,
+      "end": 130.72,
+      "source_text": "他在南域馬場舉行的賽日",
+      "by_lang": {
+        "zh": {
+          "text": "佢喺南域馬場舉行嘅賽日",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "The race day was held at Sha Tin Racecourse.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 42,
+      "start": 130.8,
+      "end": 133.0,
+      "source_text": "一日贏出六場頭馬",
+      "by_lang": {
+        "zh": {
+          "text": "一日贏出六場頭馬",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Won six races in a single day.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 43,
+      "start": 133.08,
+      "end": 134.4,
+      "source_text": "包括一級賽",
+      "by_lang": {
+        "zh": {
+          "text": "包括一級賽",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "including Group One races.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 44,
+      "start": 134.48000000000002,
+      "end": 135.84,
+      "source_text": "肯德伯利錦標",
+      "by_lang": {
+        "zh": {
+          "text": "肯達伯利錦標",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Kentucky Derby",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 45,
+      "start": 135.92000000000002,
+      "end": 138.56,
+      "source_text": "最平左傳奇騎師賈西迪",
+      "by_lang": {
+        "zh": {
+          "text": "最平嘅傳奇騎師莫雷拉",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "The most affordable legendary jockey, Moreira.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 46,
+      "start": 138.64000000000001,
+      "end": 142.68,
+      "source_text": "亦即潘頓外虎在1987年創下的紀錄",
+      "by_lang": {
+        "zh": {
+          "text": "即係潘頓外父喺1987年創下嘅紀錄",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "That is the record set by Pat's father-in-law in 1987.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 47,
+      "start": 142.68,
+      "end": 145.72,
+      "source_text": "同時亦是38年來首次有人在",
+      "by_lang": {
+        "zh": {
+          "text": "同時亦係38年來首次有人喺",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "It is also the first time in 38 years that someone has...",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 48,
+      "start": 145.8,
+      "end": 149.52,
+      "source_text": "悉尼城市馬場重現一日六邊的壯舉",
+      "by_lang": {
+        "zh": {
+          "text": "悉尼城市馬場重現一日六捷嘅壯舉",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Sydney's City Racecourse replicates a historic six-win day.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 49,
+      "start": 149.6,
+      "end": 152.28,
+      "source_text": "絕對震撼整個澳洲賽馬界",
+      "by_lang": {
+        "zh": {
+          "text": "絕對震撼整個澳洲賽馬界",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "It absolutely shook the entire Australian racing world.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 50,
+      "start": 154.52,
+      "end": 156.92000000000002,
+      "source_text": "最近有市民在沙田馬場附近",
+      "by_lang": {
+        "zh": {
+          "text": "最近有市民喺沙田馬場附近",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Recently, citizens were near Sha Tin Racecourse.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 51,
+      "start": 157.0,
+      "end": 158.72,
+      "source_text": "認得有匹可愛的小馬",
+      "by_lang": {
+        "zh": {
+          "text": "認得有一匹可愛嘅小馬",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Recognized a cute little horse.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 52,
+      "start": 158.8,
+      "end": 162.04000000000002,
+      "source_text": "在馬格裡面伸頭出窗外望風景",
+      "by_lang": {
+        "zh": {
+          "text": "喺馬廄入面伸頭出窗外望風景",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Peering out of a stable window to enjoy the view.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 53,
+      "start": 162.12,
+      "end": 164.08,
+      "source_text": "大家都說牠很可愛",
+      "by_lang": {
+        "zh": {
+          "text": "大家都話佢好可愛",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Everyone says she is very cute.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 54,
+      "start": 164.16,
+      "end": 166.36,
+      "source_text": "不過有眼利的網民發現",
+      "by_lang": {
+        "zh": {
+          "text": "不過有眼利嘅網民發現",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "However, some sharp-eyed netizens noticed.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 55,
+      "start": 166.44,
+      "end": 169.28,
+      "source_text": "小馬好像掉了些東西,究竟是什麼",
+      "by_lang": {
+        "zh": {
+          "text": "小馬好似掉咗啲嘢，究竟係乜",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "The pony seems to have dropped something; what could it be?",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 56,
+      "start": 170.0,
+      "end": 171.48000000000002,
+      "source_text": "原來是這堆草",
+      "by_lang": {
+        "zh": {
+          "text": "原來係呢堆草",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "It turns out it was this pile of grass.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 57,
+      "start": 171.48,
+      "end": 174.98,
+      "source_text": "大家都非常担心马仔跌了一份午餐会饿",
+      "by_lang": {
+        "zh": {
+          "text": "大家好擔心馬仔跌咗一餐會餓",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Everyone is worried that if the horse misses a meal, it will go hungry.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 58,
+      "start": 174.98,
+      "end": 178.2,
+      "source_text": "所以惹来一众网友疯狂转载",
+      "by_lang": {
+        "zh": {
+          "text": "所以惹來一眾網民瘋狂轉載",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "This sparked a frenzy of reposts among netizens.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 59,
+      "start": 178.2,
+      "end": 182.26,
+      "source_text": "幸好这个铺成功召唤了马房工作人员出马",
+      "by_lang": {
+        "zh": {
+          "text": "幸好呢個鋪成功召喚馬房工作人員出馬",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Fortunately, the shop succeeded in summoning stable staff.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 60,
+      "start": 182.26,
+      "end": 184.95999999999998,
+      "source_text": "除了帮马仔补给午餐之外",
+      "by_lang": {
+        "zh": {
+          "text": "除咗幫馬仔補給午餐之外",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Besides providing lunch for the horses,",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 61,
+      "start": 184.95999999999998,
+      "end": 188.76,
+      "source_text": "还顺便和大家揭开神秘马仔的真实身份",
+      "by_lang": {
+        "zh": {
+          "text": "仲順便同大家揭開神秘馬仔嘅真實身份",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Also revealing the mysterious horse's true identity to everyone.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 62,
+      "start": 188.76,
+      "end": 191.44,
+      "source_text": "原来这批任性又可爱的主角",
+      "by_lang": {
+        "zh": {
+          "text": "原來呢批任性又可愛嘅主角",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "It turns out these willful yet adorable protagonists",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 63,
+      "start": 191.44,
+      "end": 194.22,
+      "source_text": "是来自犹达荣马房的幸运风采",
+      "by_lang": {
+        "zh": {
+          "text": "係來自猶達榮馬房嘅幸運風采",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "It comes from Lucky Style in Yau Tat Wing's stable.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 64,
+      "start": 194.22,
+      "end": 196.54,
+      "source_text": "大家下次路过马场附近",
+      "by_lang": {
+        "zh": {
+          "text": "大家下次路過馬場附近",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Everyone, next time you pass by the racecourse area",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 65,
+      "start": 196.54,
+      "end": 198.76,
+      "source_text": "都可以远远地和他打个招呼",
+      "by_lang": {
+        "zh": {
+          "text": "都可以遠遠同佢打聲招呼",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "They can also wave hello from a distance.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 66,
+      "start": 198.76,
+      "end": 202.76,
+      "source_text": "3月9日澳洲年轻骑师史腾雷",
+      "by_lang": {
+        "zh": {
+          "text": "3月9日澳洲年輕騎師史騰雷",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "On March 9, Australian jockey Steven Ray.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 67,
+      "start": 202.76,
+      "end": 204.7,
+      "source_text": "喷注拆骑美朗王",
+      "by_lang": {
+        "zh": {
+          "text": "噴注拆騎美朗王",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Jockey Maw Long-wong was removed from his mount.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 68,
+      "start": 204.7,
+      "end": 206.78,
+      "source_text": "激快带热门Highland Blink",
+      "by_lang": {
+        "zh": {
+          "text": "激快帶熱門 Highland Blink",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Highland Blink, a popular and fast-paced horse.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 69,
+      "start": 206.78,
+      "end": 208.44,
+      "source_text": "赢出阿德雷德杯",
+      "by_lang": {
+        "zh": {
+          "text": "贏出阿德萊德盃",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Won the Adelaide Cup.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 70,
+      "start": 208.44,
+      "end": 211.17999999999998,
+      "source_text": "两匹马顶多马头要拍照",
+      "by_lang": {
+        "zh": {
+          "text": "兩匹馬頂多馬頭要影相",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Two horses, heads only, for a photo.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 71,
+      "start": 211.17999999999998,
+      "end": 212.22,
+      "source_text": "才分出胜负",
+      "by_lang": {
+        "zh": {
+          "text": "先至分出勝負",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Only then was the winner decided.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 72,
+      "start": 212.22,
+      "end": 213.2,
+      "source_text": "非常刺激",
+      "by_lang": {
+        "zh": {
+          "text": "好刺激",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "So thrilling.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 73,
+      "start": 213.2,
+      "end": 214.88,
+      "source_text": "但是过终点没来",
+      "by_lang": {
+        "zh": {
+          "text": "但係過咗終點先嚟",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "but they crossed the finish line first.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 74,
+      "start": 214.88,
+      "end": 217.23999999999998,
+      "source_text": "收获拆骑身来最大胜利的",
+      "by_lang": {
+        "zh": {
+          "text": "憑拆騎師身位贏得最大勝利",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Secured biggest victory by dismounting the jockey.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 75,
+      "start": 217.23999999999998,
+      "end": 219.79999999999998,
+      "source_text": "史腾雷就被美朗王抛下来",
+      "by_lang": {
+        "zh": {
+          "text": "史騰雷被美朗王拋落馬下",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Stenley was unseated by Mawlong Wang.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 76,
+      "start": 219.79999999999998,
+      "end": 221.38,
+      "source_text": "人生高光时刻",
+      "by_lang": {
+        "zh": {
+          "text": "人生高光的時刻",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "The highlight of life's journey.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 77,
+      "start": 221.38,
+      "end": 223.39999999999998,
+      "source_text": "瞬间变成翻车现场",
+      "by_lang": {
+        "zh": {
+          "text": "瞬間變成翻車現場",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Instantly turned into a disaster scene.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 78,
+      "start": 223.39999999999998,
+      "end": 225.14,
+      "source_text": "不少网民都将事发",
+      "by_lang": {
+        "zh": {
+          "text": "不少網民都將事發",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Many netizens have reacted to the incident.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 79,
+      "start": 225.14,
+      "end": 227.32,
+      "source_text": "经过CAPTO变成最新的Meme",
+      "by_lang": {
+        "zh": {
+          "text": "經過 CAPTO 變成最新嘅 Meme",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "It has become the latest meme through CAPTO.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 80,
+      "start": 227.32,
+      "end": 229.76,
+      "source_text": "其实大家都很替他开心",
+      "by_lang": {
+        "zh": {
+          "text": "其實大家都好替佢開心",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Everyone is truly happy for him.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 81,
+      "start": 229.76,
+      "end": 231.94,
+      "source_text": "好像早几天坐飞机一样",
+      "by_lang": {
+        "zh": {
+          "text": "好似幾日前搭飛機咁",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Like taking a flight a few days ago.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 82,
+      "start": 231.94,
+      "end": 234.54,
+      "source_text": "史腾雷除了获得客舱升级之外",
+      "by_lang": {
+        "zh": {
+          "text": "史提芬除咗獲得客艙升級之外",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Besides Stephen, he also received a cabin upgrade.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 83,
+      "start": 234.54,
+      "end": 236.48,
+      "source_text": "机组人员还为他准备了",
+      "by_lang": {
+        "zh": {
+          "text": "機組人員仲為佢準備咗",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "The crew also prepared for him.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 84,
+      "start": 236.48,
+      "end": 237.92,
+      "source_text": "特别的欢迎仪式",
+      "by_lang": {
+        "zh": {
+          "text": "特別歡迎儀式",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Special welcome ceremony.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 85,
+      "start": 237.92,
+      "end": 239.48,
+      "source_text": "就是全机乘客",
+      "by_lang": {
+        "zh": {
+          "text": "就係全機乘客",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "It was all passengers on board.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 86,
+      "start": 239.48,
+      "end": 241.29999999999998,
+      "source_text": "一起帮他庆祝夜马",
+      "by_lang": {
+        "zh": {
+          "text": "一齊幫佢慶祝夜馬",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Let's celebrate the night race together.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 87,
+      "start": 241.29999999999998,
+      "end": 242.54,
+      "source_text": "这么大只瓶杯",
+      "by_lang": {
+        "zh": {
+          "text": "咁大隻嘅樽杯",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Such a large bottle cup.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 88,
+      "start": 242.54,
+      "end": 243.85999999999999,
+      "source_text": "最适合用来喝香槟",
+      "by_lang": {
+        "zh": {
+          "text": "最適合飲用香檳嘅",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "The most suitable occasion for drinking champagne.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 89,
+      "start": 243.85999999999999,
+      "end": 249.0,
+      "source_text": "下星期日就是宝马香港",
+      "by_lang": {
+        "zh": {
+          "text": "下星期日就係寶馬香港",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Next Sunday is the BMW Hong Kong.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 90,
+      "start": 249.0,
+      "end": 250.98,
+      "source_text": "大杯大赛举行的大日子",
+      "by_lang": {
+        "zh": {
+          "text": "大杯賽舉行嘅大日子",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "The big day of the Grand Cup race.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 91,
+      "start": 250.98,
+      "end": 252.4,
+      "source_text": "而排位抽签仪式",
+      "by_lang": {
+        "zh": {
+          "text": "而排位抽籤儀式",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "And the draw ceremony for the race positions",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 92,
+      "start": 252.4,
+      "end": 254.35999999999999,
+      "source_text": "将会在3月19日进行",
+      "by_lang": {
+        "zh": {
+          "text": "將會喺3月19日進行",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "It will take place on March 19.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 93,
+      "start": 254.35999999999999,
+      "end": 255.74,
+      "source_text": "大家记得留意",
+      "by_lang": {
+        "zh": {
+          "text": "大家記得留意",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Everyone remember to pay attention.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 94,
+      "start": 255.74,
+      "end": 258.1,
+      "source_text": "哪些參賽者可以抽到好多",
+      "by_lang": {
+        "zh": {
+          "text": "邊位參賽者可以抽到好彩頭",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Which contestant will draw the lucky prize?",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 95,
+      "start": 258.18,
+      "end": 259.86,
+      "source_text": "下星期再跟大家跟進",
+      "by_lang": {
+        "zh": {
+          "text": "下星期再同大家跟進",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "We will follow up with everyone next week.",
+          "stage": "translated"
+        }
+      }
+    },
+    {
+      "idx": 96,
+      "start": 259.94,
+      "end": 261.42,
+      "source_text": "大賽的最新消息",
+      "by_lang": {
+        "zh": {
+          "text": "大賽嘅最新消息",
+          "stage": "refined"
+        },
+        "en": {
+          "text": "Latest updates on the major tournament.",
+          "stage": "translated"
+        }
+      }
+    }
+  ]
+}
