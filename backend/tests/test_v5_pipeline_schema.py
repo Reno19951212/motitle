@@ -184,6 +184,69 @@ def test_check_cascade_refs_unknown_transcribe_profile():
     assert "asr_primary.transcribe_profile_id" in broken
 
 
+def test_pipeline_manager_loads_v5(tmp_path):
+    """PipelineManager should accept v5 schema and store + retrieve it."""
+    from pipelines import PipelineManager
+    mgr = PipelineManager(tmp_path)
+    v5_data = {
+        "name": "v5 test",
+        "version": 5,
+        "asr_primary": {"transcribe_profile_id": "tp1", "source_lang": "zh"},
+        "asr_secondary": None,
+        "asr_verifier": None,
+        "target_languages": ["zh"],
+        "refinements": {"zh": []},
+        "translators": {},
+        "glossary_stages": {},
+        "font_config": {"family": "f", "color": "w", "outline_color": "b"},
+    }
+    pid = mgr.create(v5_data, user_id=1, validate_refs=False)
+    loaded = mgr.get(pid, as_v5=True)
+    assert loaded["version"] == 5
+
+
+def test_pipeline_manager_promotes_v4_on_read(tmp_path):
+    """A v4 pipeline JSON loaded via the manager should round-trip as v5 when as_v5=True."""
+    from pipelines import PipelineManager
+    mgr = PipelineManager(tmp_path)
+    v4_data = {
+        "name": "legacy v4",
+        "asr_profile_id": "asr1",
+        "asr_profile": {"language": "zh"},
+        "mt_stages": ["mt1"],
+        "glossary_stage": {"glossary_ids": ["g1"]},
+        "font_config": {"family": "f", "color": "w", "outline_color": "b"},
+    }
+    pipeline = mgr.create(v4_data, user_id=1, validate_refs=False)
+    pid = pipeline["id"]
+    loaded = mgr.get(pid, as_v5=True)
+    # Auto-promote to v5 on read
+    assert loaded["version"] == 5
+    assert loaded["target_languages"] == ["zh"]
+    assert loaded["refinements"]["zh"][0]["refiner_profile_id"] == "mt1"
+
+
+def test_pipeline_manager_get_default_v4_shape(tmp_path):
+    """Default get() (without as_v5) keeps v4 shape — backward-compat."""
+    from pipelines import PipelineManager
+    mgr = PipelineManager(tmp_path)
+    v4_data = {
+        "name": "legacy v4",
+        "asr_profile_id": "asr1",
+        "asr_profile": {"language": "zh"},
+        "mt_stages": ["mt1"],
+        "glossary_stage": {"glossary_ids": ["g1"]},
+        "font_config": {"family": "f", "color": "w", "outline_color": "b"},
+    }
+    pipeline = mgr.create(v4_data, user_id=1, validate_refs=False)
+    pid = pipeline["id"]
+    # Default behavior: keep v4 shape (no version, asr_profile_id present)
+    loaded = mgr.get(pid)
+    assert loaded.get("version") != 5
+    assert loaded["asr_profile_id"] == "asr1"
+    assert loaded["mt_stages"] == ["mt1"]
+
+
 def test_check_cascade_refs_all_present():
     from pipeline_schema_v5 import check_cascade_refs
     pipeline = {

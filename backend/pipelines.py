@@ -20,6 +20,8 @@ import uuid
 from pathlib import Path
 from typing import Any, Optional
 
+from pipeline_schema_v5 import validate_v5_pipeline, promote_v4_to_v5
+
 VALID_SUBTITLE_SOURCES = {"auto", "source", "target", "bilingual"}
 VALID_BILINGUAL_ORDERS = {"source_top", "target_top"}
 VALID_GLOSSARY_APPLY_ORDERS = {"explicit"}
@@ -140,13 +142,21 @@ class PipelineManager:
 
     DIRNAME = "pipelines"
 
-    def __init__(self, config_dir, asr_manager, mt_manager, glossary_manager):
+    def __init__(self, config_dir, asr_manager=None, mt_manager=None, glossary_manager=None):
+        # v5-A1 T24: manager args default to None so the manager can be used
+        # for v5-only test contexts (where v4 cascade refs aren't checked).
+        # When None, v4 validation `validate_pipeline` only runs schema-level
+        # checks (still required for v4 path). v5 path uses
+        # ``validate_v5_pipeline`` instead.
         self._config_dir = Path(config_dir)
         self._dir = self._config_dir / self.DIRNAME
         self._dir.mkdir(parents=True, exist_ok=True)
         self._asr_manager = asr_manager
         self._mt_manager = mt_manager
         self._glossary_manager = glossary_manager
+        # v5-A1 T24: expose `dir` attr for v5-aware test fixtures that write
+        # JSON directly (mirrors v5 manager modules which use `.dir`).
+        self.dir = self._dir
         self._cache: dict = {}
         self._load_all()
 
@@ -173,19 +183,69 @@ class PipelineManager:
             json.dumps(pipeline, ensure_ascii=False, indent=2)
         )
 
-    def create(self, data: dict, user_id: Optional[int]) -> dict:
-        errors = self.validate(data)
-        if errors:
-            raise ValueError("; ".join(errors))
+    def create(self, data: dict, user_id: Optional[int] = None, *, validate_refs: bool = True):
+        """Create a pipeline.
+
+        v4 path (default): validates name/description/asr_profile_id/mt_stages/
+        glossary_stage/font_config and (when ``validate_refs=True`` AND
+        managers were injected) cross-checks profile/glossary IDs. Returns
+        the persisted v4 dict.
+
+        v5 path (``data["version"] == 5``): validates against
+        ``pipeline_schema_v5.validate_v5_pipeline`` (always — v5 has no
+        opt-out at the manager layer; cross-ref check is owned by the
+        route handler via ``check_cascade_refs``). Returns the pipeline_id
+        string (matches the v5 test contract; v4 callers continue to
+        receive the full dict).
+
+        ``validate_refs=False`` (v4 only): skip ALL validation, store
+        the payload as-is. Test seed shortcut for fixture data that doesn't
+        need to pass the schema — production callers should always leave
+        this True.
+        """
+        # v5 branch — store as-is after schema validation
+        if isinstance(data, dict) and data.get("version") == 5:
+            errors = validate_v5_pipeline(data)
+            if errors:
+                raise ValueError("; ".join(errors))
+            pid = str(uuid.uuid4())
+            now = time.time()
+            payload = {
+                **data,
+                "id": pid,
+                "user_id": user_id,
+                "created_at": now,
+                "updated_at": now,
+            }
+            (self._dir / f"{pid}.json").write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            self._cache[pid] = payload
+            return pid
+
+        # v4 path
+        if validate_refs:
+            errors = self.validate(data)
+            if errors:
+                raise ValueError("; ".join(errors))
         now = int(time.time())
+        # Defensive shape for fixture data with missing fields — only when
+        # ``validate_refs=False`` AND fields absent. Production v4 callers
+        # always provide the full dict.
+        #
+        # For ``validate_refs=False`` callers, preserve all extra keys so
+        # v4→v5 promote (which reads ``asr_profile.language`` etc.) sees
+        # the original payload. Validated production v4 callers already
+        # pass the canonical keys, so the projection below is equivalent.
         pipeline = {
+            **(data if not validate_refs else {}),
             "id": str(uuid.uuid4()),
-            "name": data["name"].strip(),
+            "name": (data.get("name") or "").strip(),
             "description": data.get("description", ""),
-            "asr_profile_id": data["asr_profile_id"],
-            "mt_stages": list(data["mt_stages"]),
-            "glossary_stage": dict(data["glossary_stage"]),
-            "font_config": dict(data["font_config"]),
+            "asr_profile_id": data.get("asr_profile_id"),
+            "mt_stages": list(data.get("mt_stages", [])),
+            "glossary_stage": dict(data.get("glossary_stage", {})),
+            "font_config": dict(data.get("font_config", {})),
             "user_id": user_id,
             "created_at": now,
             "updated_at": now,
@@ -194,9 +254,31 @@ class PipelineManager:
         self._cache[pipeline["id"]] = pipeline
         return dict(pipeline)
 
-    def get(self, pipeline_id: str) -> Optional[dict]:
+    def get(self, pipeline_id: str, *, as_v5: bool = False) -> Optional[dict]:
+        """Return pipeline dict.
+
+        Default (``as_v5=False``): backward-compatible v4 shape — returns
+        the stored JSON as-is (whether it was written as v4 or v5). Existing
+        callers (PipelineRunner, broken-refs annotation, routes that read
+        ``mt_stages`` / ``asr_profile_id`` / ``glossary_stage``) keep working.
+
+        Opt-in (``as_v5=True``): if the stored pipeline is v4 shape, run
+        ``promote_v4_to_v5`` so the caller receives a v5 dict. v5 stored
+        pipelines pass through unchanged. Malformed v4 data (e.g. missing
+        ``id`` / ``name`` / ``asr_profile_id``) falls back to the raw stored
+        dict — caller responsibility to handle.
+        """
         cached = self._cache.get(pipeline_id)
-        return dict(cached) if cached else None
+        if cached is None:
+            return None
+        data = dict(cached)
+        if as_v5 and data.get("version") != 5:
+            try:
+                data = promote_v4_to_v5(data)
+            except ValueError:
+                # v4 data too malformed to promote — return raw shape
+                pass
+        return data
 
     def list_all(self) -> list:
         return [dict(p) for p in self._cache.values()]
