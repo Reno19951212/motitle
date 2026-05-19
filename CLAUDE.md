@@ -358,6 +358,31 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### v5-A1 — Schema + Engine ABCs (in progress on `feat/frontend-redesign`)
+- Foundation phase for v5 dual-ASR + Refiner-Translator separation. Spec: [docs/superpowers/specs/2026-05-19-v5-dual-asr-refiner-translator-design.md](docs/superpowers/specs/2026-05-19-v5-dual-asr-refiner-translator-design.md). Plan: [docs/superpowers/plans/2026-05-19-v5-A1-schema-engines-plan.md](docs/superpowers/plans/2026-05-19-v5-A1-schema-engines-plan.md).
+- **Schema (T1-T2)**: New `backend/pipeline_schema_v5.py` — `validate_v5_pipeline` (6 schema fields + 5 cross-field rules from spec §3 — target_languages contains refinements keys, asr_secondary lang matches primary, translators required for non-source targets, value-type validation on refinements/translators/glossary_stages), `promote_v4_to_v5` (defensive — raises `ValueError` not `KeyError` on missing v4 fields), `check_cascade_refs` (cross-manager ID validation).
+- **5 new profile managers (T3-T12)**:
+  - `LLMProfileManager` ([backend/llm_profiles.py](backend/llm_profiles.py)) — Ollama / OpenRouter / Claude backend config (`backend` enum, `model`, `base_url` urlparse-validated, `temperature` 0..2 with bool guard)
+  - `TranscribeProfileManager` ([backend/transcribe_profiles.py](backend/transcribe_profiles.py)) — adds `qwen3-asr` engine to whisper / mlx-whisper; `language` includes `auto` + new `yue` `th`; `initial_prompt` max 512 chars
+  - `TranslatorProfileManager` ([backend/translator_profiles.py](backend/translator_profiles.py)) — NEW cross-lingual profile (source_lang ≠ target_lang enforced)
+  - `RefinerProfileManager` ([backend/refiner_profiles.py](backend/refiner_profiles.py)) — same-lingual polish (rename of MT, narrowed semantics — no target_language field)
+  - `VerifierProfileManager` ([backend/verifier_profiles.py](backend/verifier_profiles.py)) — NEW LLM-as-judge config
+- **Pattern hardening across all 5 managers** (driven by T3 code review): explicit `shared: true` sharing semantic (vs v4's `user_id: None` sentinel), `can_view(pid, user_id, is_admin)` Phase 5 security parity, immutable id/user_id/created_at protected in `update_if_owned` (closes ownership escalation vector via malicious patch), `updated_at` audit field, name stripping, per-resource lock pattern.
+- **5 new REST blueprints** under `backend/routes/` (`llm_profiles.py` / `transcribe_profiles.py` / `translator_profiles.py` / `refiner_profiles.py` / `verifier_profiles.py`); 5 endpoints each (list/create/get/patch/delete) with 400/403/404 disambiguation (admin gets explicit 404 on missing; non-admin always sees 403 to prevent info leak).
+- **Backward-compat**: `/api/asr_profiles` + `/api/mt_profiles` keep working with `Deprecation: true` + `Link: <successor>` + `Sunset: Wed, 31 Dec 2026 00:00:00 GMT` headers. Removed in v5-A3.
+- **5 new engine ABCs** under `backend/engines/`:
+  - `LLMEngine` ([backend/engines/llm/](backend/engines/llm/)) + `OllamaLLM` + `OpenRouterLLM` concretes; supports Qwen3 `think: false` to disable reasoning chain (186× speedup observed in v5 prototype on qwen3.5:35b-a3b-mlx-bf16: 41s/seg → 0.4s/seg).
+  - `TranscribeEngine` alias of v4 `ASREngine` ([backend/engines/transcribe/](backend/engines/transcribe/)) + factory dispatch; `Qwen3AsrTranscribeEngine` subprocess wrapper invoking py3.11 `mlx-qwen3-asr` 0.3.5 via JSON stdin/stdout (subprocess script at [backend/engines/transcribe/qwen3_subprocess.py](backend/engines/transcribe/qwen3_subprocess.py); py3.11 venv at `backend/scripts/v5_prototype/venv_qwen/`).
+  - `TranslatorEngine` ABC + `LLMTranslator` concrete (cross-lingual, per-segment 1:1, strips `[HALLUC]` tag from refiner output before translating).
+  - `RefinerEngine` ABC + `LLMRefiner` concrete (same-lingual polish, per-segment 1:1).
+  - `VerifierEngine` ABC + `LLMVerifier` concrete with `collect_words_for_range` alignment helper (word midpoint in `[start, end)`) + OpenCC s2hk conversion for `lang="zh"` source; trivial shortcuts (both empty / one side empty / identical) bypass LLM for cost.
+- **6 default prompt templates** under `backend/config/prompt_templates_v5/` (translator zh→en + en→zh HK; refiner zh broadcast HK + en newscast; verifier zh + en), seeded from working prototype prompts validated in HK clip + Winning Factor runs (see spec §10).
+- **Pipeline integration (T24-T26)**: `PipelineManager.create()` accepts v5 JSON natively; `PipelineManager.get(pid, as_v5=True)` opts in to auto-promote v4 → v5 on read (default keeps v4 shape for backward compat). `/api/pipelines` POST validates v5 + cascade-checks all refs across the 5 new managers + glossary + llm. `bootstrap.create_app()` wires all 5 v5 blueprints + `init_v5_managers()` singleton init.
+- **End-to-end integration test (T27)** ([backend/tests/test_v5_integration.py](backend/tests/test_v5_integration.py)) — builds 5 profiles, saves v5 pipeline JSON with dual-ASR + verifier + refiner + translator, loads with `as_v5=True`, cascade-checks all refs; 2 cases (full + minimal source-only).
+- **Out of A1 scope** (deferred to A2 / A3): `pipeline_runner` DAG executor (A2); new stage classes (A2); file registry multi-lang `by_lang` shape (A2); frontend redesign (A3); SenseVoice third ASR (post-v5).
+- **Tests**: ~100 new backend pytest cases (15 schema + 28 profile managers + 14 profile routes + 38 engines + 2 integration + 1 bootstrap) across 9 new test files. v4 regression baseline preserved (~910 pass + 14 known baseline failures).
+- **Validation evidence**: Prototype runs at [backend/scripts/v5_prototype/out/](backend/scripts/v5_prototype/out/) (HK clip 261s, 97 segments — first 28s hallucination fully recovered + 8 entity names corrected vs Whisper-only baseline) and [backend/scripts/v5_prototype/out_winfactor/](backend/scripts/v5_prototype/out_winfactor/) (Winning Factor EN 577s — zero v3.18 black-list formulaic phrases vs 7+ in v4 baseline). 50.9 / 228 second end-to-end with `think:false`.
+
 ### v4.0 A6 — Production polish + performance (in progress on `chore/asr-mt-rearchitecture-research`)
 - 4-component polish phase post-A5 cleanup：bundle code-splitting + app.py multi-file refactor + structured logging/errors + E2E coverage 擴展。Branch 推上 main 前嘅最後 polish。
 - **C1 — Bundle code-splitting**（3 commits）：
