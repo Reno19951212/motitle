@@ -47,8 +47,8 @@ export default function AsrProfiles() {
 
   async function refresh() {
     try {
-      const data = await apiFetch<AsrProfileRow[]>('/api/asr_profiles');
-      setRows(data);
+      const { asr_profiles } = await apiFetch<{ asr_profiles: AsrProfileRow[] }>('/api/asr_profiles');
+      setRows(asr_profiles);
     } catch {
       setRows([]);
     }

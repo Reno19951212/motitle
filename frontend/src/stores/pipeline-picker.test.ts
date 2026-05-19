@@ -19,7 +19,7 @@ describe('usePipelinePickerStore', () => {
   });
 
   it('refresh fetches /api/pipelines and updates pipelines', async () => {
-    const fake = [{ id: 'p1', name: 'P1', description: '', shared: false, user_id: 1 }];
+    const fake = { pipelines: [{ id: 'p1', name: 'P1', description: '', shared: false, user_id: 1 }] };
     vi.spyOn(global, 'fetch').mockResolvedValueOnce(
       new Response(JSON.stringify(fake), { status: 200, headers: { 'Content-Type': 'application/json' } })
     );

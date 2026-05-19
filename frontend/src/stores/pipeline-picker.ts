@@ -25,7 +25,7 @@ export const usePipelinePickerStore = create<PickerState>()(
       setPipelineId: (id) => set({ pipelineId: id }),
       refresh: async () => {
         try {
-          const pipelines = await apiFetch<PipelineSummary[]>('/api/pipelines');
+          const { pipelines } = await apiFetch<{ pipelines: PipelineSummary[] }>('/api/pipelines');
           set({ pipelines });
         } catch {
           /* keep stale */

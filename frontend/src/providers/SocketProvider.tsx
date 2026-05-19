@@ -23,8 +23,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     if (!user) return;
 
     let active = true;
-    apiFetch<FileRecord[]>('/api/files')
-      .then((files) => {
+    apiFetch<{ files: FileRecord[] }>('/api/files')
+      .then(({ files }) => {
         if (active) dispatch({ type: 'BULK_FILES', files });
       })
       .catch(() => {

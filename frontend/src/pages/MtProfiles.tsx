@@ -40,8 +40,8 @@ export default function MtProfiles() {
 
   async function refresh() {
     try {
-      const data = await apiFetch<MtProfileRow[]>('/api/mt_profiles');
-      setRows(data);
+      const { mt_profiles } = await apiFetch<{ mt_profiles: MtProfileRow[] }>('/api/mt_profiles');
+      setRows(mt_profiles);
     } catch {
       setRows([]);
     }

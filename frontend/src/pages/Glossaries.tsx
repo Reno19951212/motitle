@@ -37,8 +37,8 @@ export default function Glossaries() {
 
   async function refresh() {
     try {
-      const data = await apiFetch<GlossaryRow[]>('/api/glossaries');
-      setRows(data);
+      const { glossaries } = await apiFetch<{ glossaries: GlossaryRow[] }>('/api/glossaries');
+      setRows(glossaries);
     } catch {
       setRows([]);
     }

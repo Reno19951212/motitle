@@ -76,19 +76,22 @@ export default function Pipelines() {
 
   async function refresh() {
     try {
-      const data = await apiFetch<PipelineRow[]>('/api/pipelines');
-      setRows(data);
+      const { pipelines } = await apiFetch<{ pipelines: PipelineRow[] }>('/api/pipelines');
+      setRows(pipelines);
     } catch {
       setRows([]);
     }
   }
   async function refreshOptions() {
     try {
-      const [asr, mt, gl] = await Promise.all([
-        apiFetch<Array<{ id: string; name: string }>>('/api/asr_profiles'),
-        apiFetch<Array<{ id: string; name: string }>>('/api/mt_profiles'),
-        apiFetch<Array<{ id: string; name: string }>>('/api/glossaries'),
+      const [asrRes, mtRes, glossRes] = await Promise.all([
+        apiFetch<{ asr_profiles: Array<{ id: string; name: string }> }>('/api/asr_profiles'),
+        apiFetch<{ mt_profiles: Array<{ id: string; name: string }> }>('/api/mt_profiles'),
+        apiFetch<{ glossaries: Array<{ id: string; name: string }> }>('/api/glossaries'),
       ]);
+      const asr = asrRes.asr_profiles;
+      const mt = mtRes.mt_profiles;
+      const gl = glossRes.glossaries;
       setOpts({ asr, mt, glossary: gl });
     } catch {
       /* keep stale */

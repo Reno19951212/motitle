@@ -42,6 +42,7 @@
 | BUG-030 | T27-T29 inline | P1 | A1/A5 | 純 bug fix | Fixed | PipelineRunner `stage_outputs` not bridged to legacy `segments`/`translations` fields — blocks all proofread + render after v4 pipeline run |
 | BUG-031 | T29 inline | P2 | A4/routes | 純 bug fix | Fixed | Render status naming mismatch: backend uses `"done"`, frontend `useRenderJob` polls for `"completed"` → download never triggered |
 | BUG-032 | human-test 2026-05-19 | P2 | A3 | 純 bug fix | Fixed | Vite proxy missing `/login` + `/logout` entries → SPA login flow gets 404 from dev server (works fine in prod where Flask serves both). Also stale compiled `vite.config.{js,d.ts}` was loaded instead of `.ts` source. |
+| BUG-033 | human-test 2026-05-19 | P1 | A3 | 純 bug fix | Fixed | Frontend listing endpoint readers assumed bare array but backend returns wrapped `{key: [...]}` → all entity-list pages crash on mount. 9 call sites across 6 files unwrapped. |
 
 ---
 
@@ -50,13 +51,14 @@
 | Severity | Count | % |
 |---|---|---|
 | **P0** | **0** | 0% |
-| **P1** | **1** | 3% |
-| **P2** | **10** | 32% |
-| **P3** | **20** | 65% |
-| **Total** | **31** | 100% |
+| **P1** | **2** | 6% |
+| **P2** | **10** | 31% |
+| **P3** | **20** | 63% |
+| **Total** | **32** | 100% |
 
 > +1 P2 (BUG-029) discovered Phase 3b during T27 prep — DATA_DIR isolation gap. Confirms Phase 2 hypothesis §8 row "A5 R5_CONFIG_DIR fixture robustness".
 > +1 P1 + 1 P2 (BUG-030, BUG-031) discovered T27-T29 inline validation — stage_outputs bridge gap + render status naming mismatch.
+> +1 P1 (BUG-033) discovered human-test 2026-05-19 — frontend listing endpoint unwrap missing; all entity-list pages crashed on mount.
 
 ## Plan impact breakdown
 
