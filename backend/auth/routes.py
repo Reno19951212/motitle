@@ -25,6 +25,7 @@ class _LoginUser:
 
 
 @bp.post("/login")
+@bp.post("/api/login")
 @limiter.limit("10 per minute")
 def login():
     data = request.get_json(silent=True) or {}
@@ -52,6 +53,7 @@ def login():
 
 
 @bp.post("/logout")
+@bp.post("/api/logout")
 @login_required
 def logout():
     logout_user()

@@ -64,6 +64,8 @@ def create_app() -> tuple[Flask, "extensions.SocketIO"]:
     app.config["SESSION_COOKIE_SECURE"] = os.environ.get("R5_HTTPS") != "0"
     app.config["SESSION_COOKIE_HTTPONLY"] = True
     app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024 * 1024  # 5 GB
+    # R5_RATELIMIT=0 disables Flask-Limiter (dev / Playwright burst). Default on.
+    app.config["RATELIMIT_ENABLED"] = os.environ.get("R5_RATELIMIT") != "0"
 
     # --- CORS — LAN-only allowlist (regex form for flask-cors 6.x) ---
     CORS(app, supports_credentials=True, origins=extensions._LAN_ORIGIN_REGEX)

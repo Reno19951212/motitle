@@ -20,6 +20,19 @@ import subprocess
 from pathlib import Path
 from typing import List
 
+# Load backend/.env before bootstrap.create_app() reads env vars (FLASK_SECRET_KEY,
+# R5_HTTPS, R5_DATA_DIR, R5_RATELIMIT, etc.). Without this, .env values are silently
+# ignored when running via `npm run dev` (no shell-level export).
+#
+# Skipped under pytest because tests use monkeypatch.delenv() to validate boot-time
+# env handling — re-injecting .env values would mask those assertions.
+if "pytest" not in sys.modules and not os.environ.get("PYTEST_CURRENT_TEST"):
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(Path(__file__).parent / '.env')
+    except ImportError:
+        pass  # dotenv optional
+
 # --- Windows GPU: register bundled CUDA DLLs (cublas / cudnn) before any CUDA-using import ---
 # Install with: pip install nvidia-cublas-cu12 nvidia-cudnn-cu12
 # Without this, faster-whisper on device="auto"/"cuda" fails with:
