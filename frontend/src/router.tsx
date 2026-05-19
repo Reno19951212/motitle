@@ -1,8 +1,9 @@
 import { lazy } from 'react';
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAuthStore } from '@/stores/auth';
 import { Layout } from '@/components/Layout';
+import { SocketProvider } from '@/providers/SocketProvider';
 
 const Login = lazy(() => import('@/pages/Login'));
 const Dashboard = lazy(() => import('@/pages/Dashboard'));
@@ -26,30 +27,53 @@ function RequireAdmin({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+/**
+ * AuthenticatedShell — wraps all authenticated routes with SocketProvider.
+ * Dashboard uses its own full-page Bold layout (no Layout shell), while other
+ * pages still use Layout (TopBar + SideNav). Both share this SocketProvider.
+ * Choice: option (b) from the dispatch spec — separate router config where
+ * Dashboard bypasses Layout. SocketProvider is lifted here so Dashboard can
+ * call useSocket() without needing to nest its own provider.
+ */
+function AuthenticatedShell() {
+  return (
+    <SocketProvider>
+      <Outlet />
+    </SocketProvider>
+  );
+}
+
 export const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
   {
     path: '/',
     element: (
       <RequireAuth>
-        <Layout />
+        <AuthenticatedShell />
       </RequireAuth>
     ),
     children: [
+      // Dashboard renders its own full-page Bold layout — no Layout shell
       { index: true, element: <Dashboard /> },
-      { path: 'pipelines', element: <Pipelines /> },
-      { path: 'asr_profiles', element: <AsrProfiles /> },
-      { path: 'mt_profiles', element: <MtProfiles /> },
-      { path: 'glossaries', element: <Glossaries /> },
+      // All other pages use the existing Layout (TopBar + SideNav)
       {
-        path: 'admin',
-        element: (
-          <RequireAdmin>
-            <Admin />
-          </RequireAdmin>
-        ),
+        element: <Layout />,
+        children: [
+          { path: 'pipelines', element: <Pipelines /> },
+          { path: 'asr_profiles', element: <AsrProfiles /> },
+          { path: 'mt_profiles', element: <MtProfiles /> },
+          { path: 'glossaries', element: <Glossaries /> },
+          {
+            path: 'admin',
+            element: (
+              <RequireAdmin>
+                <Admin />
+              </RequireAdmin>
+            ),
+          },
+          { path: 'proofread/:fileId', element: <Proofread /> },
+        ],
       },
-      { path: 'proofread/:fileId', element: <Proofread /> },
     ],
   },
 ]);

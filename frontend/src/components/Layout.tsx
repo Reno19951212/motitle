@@ -1,7 +1,9 @@
 import { Outlet } from 'react-router-dom';
 import { TopBar } from './TopBar';
 import { SideNav } from './SideNav';
-import { SocketProvider } from '@/providers/SocketProvider';
+
+// Note: SocketProvider has been lifted to AuthenticatedShell in router.tsx
+// so it's shared by both Dashboard (full-page Bold layout) and pages here.
 
 export function Layout() {
   return (
@@ -13,9 +15,7 @@ export function Layout() {
         <SideNav />
       </aside>
       <main className="overflow-auto p-6">
-        <SocketProvider>
-          <Outlet />
-        </SocketProvider>
+        <Outlet />
       </main>
     </div>
   );
