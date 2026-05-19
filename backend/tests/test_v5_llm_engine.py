@@ -66,3 +66,40 @@ def test_ollama_llm_call_passes_think_param(monkeypatch):
     llm = OllamaLLM(model="m", base_url="http://localhost:11434")
     llm.call("sys", "user", think=False)
     assert captured["payload"]["think"] is False
+
+
+def test_openrouter_llm_call_success(monkeypatch):
+    from engines.llm.openrouter import OpenRouterLLM
+    fake_resp = Mock()
+    fake_resp.json.return_value = {"choices": [{"message": {"content": "translated text"}}]}
+    fake_resp.raise_for_status = Mock()
+    monkeypatch.setattr("requests.post", Mock(return_value=fake_resp))
+    llm = OpenRouterLLM(model="anthropic/claude-opus-4-7", api_key="sk-xxx")
+    out = llm.call("sys", "user")
+    assert out == "translated text"
+
+
+def test_openrouter_llm_sends_bearer_header(monkeypatch):
+    from engines.llm.openrouter import OpenRouterLLM
+    captured = {}
+    def fake_post(url, json=None, headers=None, timeout=None):
+        captured["headers"] = headers
+        r = Mock()
+        r.json.return_value = {"choices": [{"message": {"content": "x"}}]}
+        r.raise_for_status = Mock()
+        return r
+    monkeypatch.setattr("requests.post", fake_post)
+    llm = OpenRouterLLM(model="m", api_key="sk-secret")
+    llm.call("sys", "user")
+    assert captured["headers"]["Authorization"] == "Bearer sk-secret"
+
+
+def test_openrouter_llm_call_empty_raises(monkeypatch):
+    from engines.llm.openrouter import OpenRouterLLM
+    fake_resp = Mock()
+    fake_resp.json.return_value = {"choices": [{"message": {"content": ""}}]}
+    fake_resp.raise_for_status = Mock()
+    monkeypatch.setattr("requests.post", Mock(return_value=fake_resp))
+    llm = OpenRouterLLM(model="m", api_key="sk-x", max_retries=0)
+    with pytest.raises(RuntimeError, match="empty"):
+        llm.call("sys", "user")
