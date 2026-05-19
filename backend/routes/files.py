@@ -274,7 +274,8 @@ def download_subtitle(file_id, fmt):
         entry = _app._file_registry.get(file_id)
     if not entry:
         return jsonify({'error': '文件不存在'}), 404
-    if entry['status'] != 'done':
+    # v4 pipeline writes 'completed'; legacy ASR path writes 'done'. Accept both.
+    if entry.get('status') not in ('done', 'completed'):
         return jsonify({'error': '轉錄尚未完成'}), 400
 
     # v4.0 A5 T8: legacy bundled profile removed; file override + query param
