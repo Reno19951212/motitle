@@ -62,12 +62,15 @@ export const router = createBrowserRouter([
       // AsrProfiles (iter 2 of Bold redesign) renders its own full-page Bold
       // layout — no Layout shell. Same pattern as Dashboard + Proofread.
       { path: 'asr_profiles', element: <AsrProfiles /> },
+      // MtProfiles (iter 3 of Bold redesign) renders its own full-page Bold
+      // layout — no Layout shell. Same pattern as Dashboard + Proofread +
+      // AsrProfiles.
+      { path: 'mt_profiles', element: <MtProfiles /> },
       // All other pages use the existing Layout (TopBar + SideNav)
       {
         element: <Layout />,
         children: [
           { path: 'pipelines', element: <Pipelines /> },
-          { path: 'mt_profiles', element: <MtProfiles /> },
           { path: 'glossaries', element: <Glossaries /> },
           {
             path: 'admin',

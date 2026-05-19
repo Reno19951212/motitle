@@ -1238,6 +1238,7 @@
 }
 .motitle-bold .entity-form input[type=text],
 .motitle-bold .entity-form input[type=password],
+.motitle-bold .entity-form input[type=number],
 .motitle-bold .entity-form textarea,
 .motitle-bold .entity-form select {
   width: 100%;
@@ -1253,6 +1254,7 @@
 }
 .motitle-bold .entity-form input[type=text]:focus,
 .motitle-bold .entity-form input[type=password]:focus,
+.motitle-bold .entity-form input[type=number]:focus,
 .motitle-bold .entity-form textarea:focus,
 .motitle-bold .entity-form select:focus {
   border-color: var(--accent-ring);
@@ -1269,6 +1271,24 @@
   cursor: pointer;
 }
 .motitle-bold .entity-form .field-err { color: var(--danger); font-size: 11px; }
+.motitle-bold .entity-form .field-hint {
+  color: var(--text-dim); font-size: 11px; margin: -4px 0 0;
+}
+.motitle-bold .entity-form .field-code {
+  font-family: var(--font-mono);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 11px;
+  color: var(--text);
+}
+.motitle-bold .entity-form .field-grid.field-grid-3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+@media (max-width: 900px) {
+  .motitle-bold .entity-form .field-grid.field-grid-3 { grid-template-columns: 1fr; }
+}
 .motitle-bold .entity-form .form-actions {
   display: flex; gap: 8px; justify-content: flex-end;
   padding-top: 8px;

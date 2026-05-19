@@ -10,7 +10,7 @@
  */
 import { test, expect } from '@playwright/test';
 
-const FID = 'b9b9e4fad18c';
+// FID = 'b9b9e4fad18c' — seeded HK clip file id (kept as reference)
 
 test.describe('Realtime subtitle wiring (overlay + scroll)', () => {
   test.beforeEach(async ({ page }) => {
@@ -94,7 +94,6 @@ test.describe('Realtime subtitle wiring (overlay + scroll)', () => {
     await page.waitForTimeout(250);
 
     // Active row should have moved (some index > 7)
-    const activeRows = page.locator('.transcript-scroll [style*="--accent)"]');
     // Just confirm SOME active row exists with new idx
     const active = page.locator('.transcript-scroll [data-seg-idx]').filter({
       has: page.locator('text=/\\d+:\\d{2}/'),
