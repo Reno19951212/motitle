@@ -144,3 +144,57 @@ def test_asr_verifier_stage_uses_file_prompt_override():
     # The system prompt sent to LLM should be the override, not the template
     sent_system = fake_llm.call.call_args.args[0]
     assert sent_system == "CUSTOM VERIFIER PROMPT"
+
+
+def test_refiner_stage_polishes_segments():
+    from stages.v5.refiner_stage import RefinerStage
+    fake_llm = Mock()
+    fake_llm.call.return_value = "polished"
+    refiner_profile = {
+        "id": "rp1",
+        "lang": "zh",
+        "style": "broadcast-hk",
+        "llm_profile_id": "lp1",
+        "prompt_template_id": "refiner/zh_broadcast_hk_default",
+    }
+    llm_profile = {"id": "lp1", "backend": "ollama", "model": "m", "base_url": "http://x"}
+    stage = RefinerStage(refiner_profile=refiner_profile, llm_profile=llm_profile)
+    segments = [{"start": 0, "end": 1, "text": "raw"}]
+    ctx = StageContext(
+        file_id="f1", user_id=1, pipeline_id="p1", stage_index=3,
+        cancel_event=None, progress_callback=None, pipeline_overrides={},
+    )
+    with patch("stages.v5.refiner_stage.build_llm_engine", return_value=fake_llm):
+        out = stage.transform(segments, ctx)
+    assert out == [{"start": 0, "end": 1, "text": "polished"}]
+
+
+def test_refiner_stage_type_and_ref_carries_lang():
+    """stage_type includes lang so persisted output is distinguishable."""
+    from stages.v5.refiner_stage import RefinerStage
+    refiner_profile = {"id": "rp1", "lang": "zh", "style": "broadcast-hk",
+                       "llm_profile_id": "lp1", "prompt_template_id": "refiner/zh_broadcast_hk_default"}
+    llm_profile = {"id": "lp1", "backend": "ollama", "model": "m", "base_url": "http://x"}
+    stage = RefinerStage(refiner_profile=refiner_profile, llm_profile=llm_profile)
+    assert stage.stage_type == "refiner:zh"
+    assert stage.stage_ref == "rp1"
+
+
+def test_refiner_stage_uses_file_prompt_override_per_lang():
+    """File override key is `refiners.<lang>`, not just `refiner`."""
+    from stages.v5.refiner_stage import RefinerStage
+    fake_llm = Mock()
+    fake_llm.call.return_value = "x"
+    refiner_profile = {"id": "rp1", "lang": "zh", "style": "broadcast-hk",
+                       "llm_profile_id": "lp1", "prompt_template_id": "refiner/zh_broadcast_hk_default"}
+    llm_profile = {"id": "lp1", "backend": "ollama", "model": "m", "base_url": "http://x"}
+    stage = RefinerStage(refiner_profile=refiner_profile, llm_profile=llm_profile)
+    ctx = StageContext(
+        file_id="f1", user_id=1, pipeline_id="p1", stage_index=3,
+        cancel_event=None, progress_callback=None,
+        pipeline_overrides={"refiners": {"zh": "CUSTOM ZH REFINER", "en": "irrelevant"}},
+    )
+    with patch("stages.v5.refiner_stage.build_llm_engine", return_value=fake_llm):
+        stage.transform([{"start": 0, "end": 1, "text": "src"}], ctx)
+    sent_system = fake_llm.call.call_args.args[0]
+    assert sent_system == "CUSTOM ZH REFINER"
