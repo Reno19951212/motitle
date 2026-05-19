@@ -1,5 +1,6 @@
 // src/pages/Proofread/index.test.tsx
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { forwardRef as _forwardRef } from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import Proofread from './index';
@@ -9,7 +10,17 @@ import type { RenderJob } from './hooks/useRenderJob';
 // RenderModal + useRenderJob wiring. We keep TopBar interactive (it owns the
 // ▶ Render button), and RenderModal real (we want to drive its onConfirm path).
 
-vi.mock('./VideoPanel', () => ({ VideoPanel: () => <div data-testid="video-panel" /> }));
+// VideoPanel uses forwardRef on the real component so the parent can invoke
+// imperative seek() / play() / pause(). The mock must also forward refs so
+// React doesn't emit a "Function components cannot be given refs" warning.
+vi.mock('./VideoPanel', () => ({
+  VideoPanel: _forwardRef(function MockVideoPanel(_props, _ref) {
+    return <div data-testid="video-panel" />;
+  }),
+}));
+vi.mock('./SegmentRail', () => ({ SegmentRail: () => <div data-testid="segment-rail" /> }));
+vi.mock('./DetailEditor', () => ({ DetailEditor: () => <div data-testid="detail-editor" /> }));
+vi.mock('./TimelinePanel', () => ({ TimelinePanel: () => <div data-testid="timeline-panel" /> }));
 vi.mock('./GlossaryPanel', () => ({ GlossaryPanel: () => <div data-testid="glossary-panel" /> }));
 vi.mock('./SubtitleSettingsPanel', () => ({
   SubtitleSettingsPanel: () => <div data-testid="subtitle-settings-panel" />,

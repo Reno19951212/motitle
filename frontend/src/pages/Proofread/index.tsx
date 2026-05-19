@@ -1,9 +1,15 @@
 // src/pages/Proofread/index.tsx
-// Iter 1 of the Bold variant rollout — full-page motitle-bold layout matching
-// Dashboard.tsx structure (b-rail + b-main > b-topbar + b-body 3-col grid).
-// Preserves all v3 functionality (segment editing, find-replace, stage history,
-// glossary apply, render modal, prompt overrides, keyboard shortcuts).
-import { useEffect, useRef, useState } from 'react';
+// Iter 6 of the Bold variant rollout — rewritten to match Claude Designer's
+// Proofread.html spec. Replaces the iter 1 .b-body-proofread 3-col layout
+// with a .rv-shell + .rv-b 2-col layout (segment rail | right pane).
+//
+// Functional contracts preserved from iter 1:
+//   - useFileData / useFilePipeline / useFindReplace / useKeyboardShortcuts / useRenderJob
+//   - All drawers/modals (StageHistorySidebar, PromptOverridesDrawer,
+//     GlossaryApplyModal, RenderModal)
+//   - currentTime lifted to drive overlay + active row highlight
+//   - Auto-download on render completion
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useSocket } from '@/providers/SocketProvider';
 import { apiFetch } from '@/lib/api';
@@ -13,7 +19,10 @@ import { Icon } from '@/lib/motitle-icons';
 import { BoldRail } from '@/components/BoldRail';
 import { TopBar } from './TopBar';
 import { VideoPanel } from './VideoPanel';
-import { SegmentTable } from './SegmentTable';
+import type { VideoPanelHandle } from './VideoPanel';
+import { SegmentRail } from './SegmentRail';
+import { DetailEditor } from './DetailEditor';
+import { TimelinePanel } from './TimelinePanel';
 import { FindReplaceToolbar } from './FindReplaceToolbar';
 import { StageHistorySidebar } from './StageHistorySidebar';
 import { PromptOverridesDrawer } from './PromptOverridesDrawer';
@@ -50,10 +59,14 @@ function ProofreadInner({ fileId }: { fileId: string }) {
   const [historyOpenIdx, setHistoryOpenIdx] = useState<number | null>(null);
   const [glossaryApplyOpen, setGlossaryApplyOpen] = useState(false);
 
-  // Playhead drives both the subtitle overlay (above <video>) and the active
-  // row highlight in the SegmentTable. Lifted here so VideoPanel + SegmentTable
-  // share the same source of truth.
+  // Playhead + media duration drive overlay + active row highlight + timeline.
   const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  // Selection cursor (index into translations array, not idx). Defaults to 0
+  // once data arrives so the detail editor always has something to show.
+  const [cursorIdx, setCursorIdx] = useState<number | null>(null);
+
+  const videoRef = useRef<VideoPanelHandle | null>(null);
 
   const {
     currentJob,
@@ -81,6 +94,37 @@ function ProofreadInner({ fileId }: { fileId: string }) {
     }
   }, [currentJob, downloadWithPicker, clearRender]);
 
+  // First-load: pick segment 0 once translations arrive.
+  useEffect(() => {
+    if (cursorIdx == null && translations.length > 0) {
+      setCursorIdx(0);
+    }
+  }, [translations.length, cursorIdx]);
+
+  // Auto-follow cursor while playing — advance to segment that contains
+  // currentTime, but skip when user is editing the ZH textarea.
+  const segCount = translations.length;
+  useEffect(() => {
+    if (segCount === 0) return;
+    const editing =
+      document.activeElement &&
+      (document.activeElement as HTMLElement).tagName === 'TEXTAREA';
+    if (editing) return;
+    let active = -1;
+    for (let i = 0; i < translations.length; i++) {
+      const t = translations[i];
+      if (!t) continue;
+      if (t.start != null && t.end != null && currentTime >= t.start && currentTime < t.end) {
+        active = i;
+        break;
+      }
+    }
+    if (active >= 0 && active !== cursorIdx) {
+      setCursorIdx(active);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTime, segCount]);
+
   useKeyboardShortcuts({
     onFindOpen: () => setFindOpen(true),
     onEscape: () => {
@@ -91,6 +135,54 @@ function ProofreadInner({ fileId }: { fileId: string }) {
       else if (findOpen) setFindOpen(false);
     },
   });
+
+  // J/K nav + Space play/pause + Cmd+Enter approve. Skip when user is typing
+  // in an input or textarea (except Cmd+F + Cmd+Enter which we want).
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const inInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+      if (inInput) return;
+      if (e.key === 'j' || e.key === 'J') {
+        e.preventDefault();
+        navSeg(-1);
+      } else if (e.key === 'k' || e.key === 'K') {
+        e.preventDefault();
+        navSeg(1);
+      } else if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        const v = document.querySelector('video');
+        if (v) {
+          if (v.paused) void v.play().catch(() => undefined);
+          else v.pause();
+        }
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [translations.length, cursorIdx]);
+
+  function navSeg(dir: number) {
+    if (translations.length === 0) return;
+    const cur = cursorIdx ?? 0;
+    const next = cur + dir;
+    if (next < 0 || next >= translations.length) return;
+    setCursorIdx(next);
+    const t = translations[next];
+    if (t && t.start != null) {
+      videoRef.current?.seek(t.start);
+    }
+  }
+
+  function selectSeg(i: number, seek = false) {
+    if (i < 0 || i >= translations.length) return;
+    setCursorIdx(i);
+    if (seek) {
+      const t = translations[i];
+      if (t && t.start != null) videoRef.current?.seek(t.start);
+    }
+  }
 
   async function handleReplace(mutations: Replacement[]) {
     if (mutations.length === 0) return;
@@ -108,17 +200,38 @@ function ProofreadInner({ fileId }: { fileId: string }) {
     refresh();
   }
 
+  async function handleApproveAll() {
+    if (!confirm('批核所有未批核嘅段落？')) return;
+    try {
+      await apiFetch(`/api/files/${fileId}/translations/approve-all`, {
+        method: 'POST',
+      });
+      refresh();
+    } catch {
+      /* swallow */
+    }
+  }
+
+  // Find-bar match: array of segment-row indices for the rail highlight.
+  const findMatchIndices = useMemo(() => fr.matches.map((m) => {
+    // matches use Translation.idx (== translation.idx field). We need to map
+    // back to array index because SegmentRail uses array index for keys.
+    return translations.findIndex((t) => t.idx === m.idx);
+  }).filter((i) => i >= 0), [fr.matches, translations]);
+
   if (loading) {
     return (
       <div className="motitle-bold">
         <div className="bold">
           <BoldRail activeId="proof" />
-          <div className="b-main">
-            <div className="empty" style={{ margin: 'auto' }}>
-              <div className="empty-icon">
-                <Icon name="film" size={24} color="var(--text-dim)" />
+          <div className="rv-shell">
+            <div className="rv-body" style={{ alignItems: 'center', justifyContent: 'center' }}>
+              <div className="empty">
+                <div className="empty-icon">
+                  <Icon name="film" size={24} color="var(--text-dim)" />
+                </div>
+                <div className="empty-title">Loading…</div>
               </div>
-              <div className="empty-title">Loading…</div>
             </div>
           </div>
         </div>
@@ -130,12 +243,14 @@ function ProofreadInner({ fileId }: { fileId: string }) {
       <div className="motitle-bold">
         <div className="bold">
           <BoldRail activeId="proof" />
-          <div className="b-main">
-            <div className="empty" style={{ margin: 'auto', color: 'var(--danger)' }}>
-              <div className="empty-icon">
-                <Icon name="alert" size={24} color="var(--danger)" />
+          <div className="rv-shell">
+            <div className="rv-body" style={{ alignItems: 'center', justifyContent: 'center' }}>
+              <div className="empty" style={{ color: 'var(--danger)' }}>
+                <div className="empty-icon">
+                  <Icon name="alert" size={24} color="var(--danger)" />
+                </div>
+                <div className="empty-title">Error: {error}</div>
               </div>
-              <div className="empty-title">Error: {error}</div>
             </div>
           </div>
         </div>
@@ -147,12 +262,14 @@ function ProofreadInner({ fileId }: { fileId: string }) {
       <div className="motitle-bold">
         <div className="bold">
           <BoldRail activeId="proof" />
-          <div className="b-main">
-            <div className="empty" style={{ margin: 'auto' }}>
-              <div className="empty-icon">
-                <Icon name="film" size={24} color="var(--text-dim)" />
+          <div className="rv-shell">
+            <div className="rv-body" style={{ alignItems: 'center', justifyContent: 'center' }}>
+              <div className="empty">
+                <div className="empty-icon">
+                  <Icon name="film" size={24} color="var(--text-dim)" />
+                </div>
+                <div className="empty-title">File not found.</div>
               </div>
-              <div className="empty-title">File not found.</div>
             </div>
           </div>
         </div>
@@ -160,178 +277,96 @@ function ProofreadInner({ fileId }: { fileId: string }) {
     );
   }
 
-  const fileForTopbar = file;
-  const segmentCount = translations.length;
   const approvedCount = translations.filter((t) => t.status === 'approved').length;
+  const selectedTranslation =
+    cursorIdx != null ? translations[cursorIdx] ?? null : null;
 
   return (
     <div className="motitle-bold">
       <div className="bold">
         <BoldRail activeId="proof" />
-        <div className="b-main">
+        <div className="rv-shell">
+          {/* Sticky find/replace bar (above body so it overlays the rail) */}
+          {findOpen && (
+            <FindReplaceToolbar
+              fr={fr}
+              onReplace={handleReplace}
+              onClose={() => setFindOpen(false)}
+            />
+          )}
+
           <TopBar
-            file={fileForTopbar}
+            file={file}
             onOpenOverrides={() => setOverridesOpen(true)}
             onOpenRender={() => setRenderOpen(true)}
             onSubtitleSourceChanged={refresh}
+            approvedCount={approvedCount}
+            totalCount={translations.length}
           />
 
-          <div className="b-body b-body-proofread">
-            {/* Left col — Segment Table + Find/Replace */}
-            <div className="b-col">
-              <div className="panel" style={{ flex: 1, minHeight: 0 }}>
-                <div className="panel-head">
-                  <div className="title">
-                    <Icon name="edit" size={12} /> 字幕段 Segments
-                    <span
-                      style={{
-                        fontFamily: 'var(--font-mono)',
-                        color: 'var(--text-dim)',
-                        fontWeight: 500,
-                        letterSpacing: 0,
-                        marginLeft: 4,
-                      }}
-                    >
-                      · {approvedCount}/{segmentCount}
-                    </span>
-                  </div>
-                  <div className="spacer" />
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => setFindOpen((b) => !b)}
-                    aria-label="Toggle find and replace"
-                    style={{
-                      padding: '4px 10px',
-                      fontSize: 11,
-                      color: 'var(--text-mid)',
-                      background: 'var(--surface-2)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 6,
-                    }}
-                  >
-                    <Icon name="search" size={11} /> 搜尋 ⌘F
-                  </button>
-                </div>
-                <div
-                  className="panel-body"
-                  style={{ padding: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}
-                >
-                  {findOpen && (
-                    <FindReplaceToolbar
-                      fr={fr}
-                      onReplace={handleReplace}
-                      onClose={() => setFindOpen(false)}
-                    />
-                  )}
-                  <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-                    <SegmentTable
-                      fileId={fileId}
-                      file={file}
-                      translations={translations}
-                      onShowHistory={(idx) => setHistoryOpenIdx(idx)}
-                      onOpenGlossaryApply={() => setGlossaryApplyOpen(true)}
-                      onStageRerun={() => {
-                        /* SocketProvider drives UI; refresh on completion */
-                      }}
-                      currentTime={currentTime}
-                    />
-                  </div>
-                </div>
+          <div className="rv-body">
+            <div className="rv-b">
+              {/* Left: segment rail */}
+              <div className="rv-b-left">
+                <SegmentRail
+                  translations={translations}
+                  cursorIdx={cursorIdx}
+                  onSelect={(i) => selectSeg(i, true)}
+                  findQuery={findOpen ? fr.query : ''}
+                  findMatchIndices={findOpen ? findMatchIndices : []}
+                  findCurMatchIdx={findOpen ? fr.cursor : -1}
+                />
               </div>
-            </div>
 
-            {/* Middle col — Video preview */}
-            <div className="b-col">
-              <div className="panel" style={{ minHeight: 0 }}>
-                <div className="panel-head">
-                  <div className="title">
-                    <Icon name="video" size={12} /> 預覽 Preview
+              {/* Right: top row (video + detail) + timeline */}
+              <div className="rv-b-right">
+                <div className="rv-b-top-row">
+                  <div className="rv-b-video-col">
+                    <div className="rv-b-video-wrap">
+                      <VideoPanel
+                        ref={videoRef}
+                        file={file}
+                        translations={translations}
+                        font={font}
+                        currentTime={currentTime}
+                        onTimeUpdate={setCurrentTime}
+                        onDurationChange={setDuration}
+                      />
+                    </div>
+                    <div className="rv-b-vid-panels">
+                      <GlossaryPanel glossaryId={glossaryId} />
+                      <SubtitleSettingsPanel
+                        pipelineId={file?.pipeline_id ?? null}
+                        font={font}
+                        onSaved={refreshPipeline}
+                      />
+                    </div>
                   </div>
-                  <div className="spacer" />
-                </div>
-                <div className="panel-body" style={{ padding: 12 }}>
-                  <VideoPanel
-                    file={file}
-                    translations={translations}
-                    font={font}
-                    currentTime={currentTime}
-                    onTimeUpdate={setCurrentTime}
+
+                  <DetailEditor
+                    fileId={fileId}
+                    translation={selectedTranslation}
+                    totalCount={translations.length}
+                    onSaved={refresh}
+                    onApproved={refresh}
+                    onUnapproved={refresh}
+                    onPrev={() => navSeg(-1)}
+                    onNext={() => navSeg(1)}
+                    onApproveAll={() => void handleApproveAll()}
                   />
                 </div>
-              </div>
-            </div>
 
-            {/* Right col — Inspector */}
-            <div className="b-col inspector">
-              <div className="panel">
-                <div className="panel-head">
-                  <div className="title">
-                    <Icon name="cog" size={12} /> 字幕設定
-                  </div>
-                </div>
-                <div className="panel-body" style={{ padding: 12 }}>
-                  <SubtitleSettingsPanel
-                    pipelineId={file?.pipeline_id ?? null}
-                    font={font}
-                    onSaved={refreshPipeline}
-                  />
-                </div>
-              </div>
-
-              <div className="panel">
-                <div className="panel-head">
-                  <div className="title">
-                    <Icon name="book" size={12} /> 詞彙表
-                  </div>
-                </div>
-                <div className="panel-body" style={{ padding: 12 }}>
-                  <GlossaryPanel glossaryId={glossaryId} />
-                </div>
-              </div>
-
-              <div className="panel">
-                <div className="panel-head">
-                  <div className="title">
-                    <Icon name="flow" size={12} /> 階段歷史
-                  </div>
-                </div>
-                <div className="panel-body" style={{ padding: 12, display: 'grid', gap: 6 }}>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => setHistoryOpenIdx(0)}
-                    style={{
-                      padding: '6px 10px',
-                      fontSize: 11,
-                      color: 'var(--text-mid)',
-                      background: 'var(--surface-2)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 6,
-                      width: '100%',
-                      textAlign: 'left',
-                    }}
-                  >
-                    開啟 stage history sidebar
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => setGlossaryApplyOpen(true)}
-                    style={{
-                      padding: '6px 10px',
-                      fontSize: 11,
-                      color: 'var(--text-mid)',
-                      background: 'var(--surface-2)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 6,
-                      width: '100%',
-                      textAlign: 'left',
-                    }}
-                  >
-                    套用詞彙表 →
-                  </button>
-                </div>
+                <TimelinePanel
+                  fileId={fileId}
+                  translations={translations}
+                  cursorIdx={cursorIdx}
+                  currentTime={currentTime}
+                  duration={duration}
+                  onSeek={(s) => videoRef.current?.seek(s)}
+                  onSelect={(i) => selectSeg(i, false)}
+                  onPrev={() => navSeg(-1)}
+                  onNext={() => navSeg(1)}
+                />
               </div>
             </div>
           </div>

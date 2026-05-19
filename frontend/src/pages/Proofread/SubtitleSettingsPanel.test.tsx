@@ -22,11 +22,10 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('SubtitleSettingsPanel', () => {
-  it('shows "No pipeline assigned" when pipelineId is null', () => {
+describe('SubtitleSettingsPanel (Bold layout)', () => {
+  it('shows "未指派 pipeline" when pipelineId is null', () => {
     render(<SubtitleSettingsPanel pipelineId={null} font={null} />);
-    fireEvent.click(screen.getByText('字幕設定'));
-    expect(screen.getByText('No pipeline assigned.')).toBeInTheDocument();
+    expect(screen.getByText(/未指派 pipeline/)).toBeInTheDocument();
   });
 
   it('debounced PATCH after 500ms change', async () => {
@@ -34,7 +33,6 @@ describe('SubtitleSettingsPanel', () => {
       new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
     render(<SubtitleSettingsPanel pipelineId="p1" font={sampleFont} />);
-    fireEvent.click(screen.getByText('字幕設定'));
     const sizeInput = screen.getByDisplayValue('35') as HTMLInputElement;
     fireEvent.change(sizeInput, { target: { value: '40' } });
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -47,8 +45,11 @@ describe('SubtitleSettingsPanel', () => {
     );
   });
 
-  it('starts collapsed (form not visible until expand)', () => {
+  it('renders all input fields when pipelineId + font are provided', () => {
     render(<SubtitleSettingsPanel pipelineId="p1" font={sampleFont} />);
-    expect(screen.queryByDisplayValue('Noto')).not.toBeInTheDocument();
+    // Family text input shows the current family value
+    expect(screen.getByDisplayValue('Noto')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('35')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('40')).toBeInTheDocument();
   });
 });

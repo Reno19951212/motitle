@@ -1,10 +1,8 @@
 // src/pages/Proofread/GlossaryPanel.tsx
+// Bold-variant glossary panel that fills `.rv-b-glossary`. Shows the active
+// pipeline's glossary entries as a compact table; supports inline add.
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { ChevronDown, ChevronRight } from 'lucide-react';
 
 interface Entry {
   source: string;
@@ -23,92 +21,113 @@ interface Props {
 }
 
 export function GlossaryPanel({ glossaryId }: Props) {
-  const [expanded, setExpanded] = useState(false);
   const [glossary, setGlossary] = useState<Glossary | null>(null);
   const [loading, setLoading] = useState(false);
-  const [newEntry, setNewEntry] = useState({ source: '', target: '' });
+  const [newSource, setNewSource] = useState('');
+  const [newTarget, setNewTarget] = useState('');
 
   useEffect(() => {
-    if (!expanded || !glossaryId) return;
+    if (!glossaryId) {
+      setGlossary(null);
+      return;
+    }
     setLoading(true);
     apiFetch<Glossary>(`/api/glossaries/${glossaryId}`)
       .then(setGlossary)
       .catch(() => setGlossary(null))
       .finally(() => setLoading(false));
-  }, [expanded, glossaryId]);
+  }, [glossaryId]);
 
   async function addEntry() {
-    if (!glossaryId || !newEntry.source || !newEntry.target) return;
+    if (!glossaryId || !newSource.trim() || !newTarget.trim()) return;
     try {
       await apiFetch(`/api/glossaries/${glossaryId}/entries`, {
         method: 'POST',
-        body: JSON.stringify({ ...newEntry, target_aliases: [] }),
+        body: JSON.stringify({
+          source: newSource.trim(),
+          target: newTarget.trim(),
+          target_aliases: [],
+        }),
       });
-      setNewEntry({ source: '', target: '' });
+      setNewSource('');
+      setNewTarget('');
       const updated = await apiFetch<Glossary>(`/api/glossaries/${glossaryId}`);
       setGlossary(updated);
     } catch {
-      /* swallow */
+      /* swallow — toast wiring in later iter */
     }
   }
 
   return (
-    <div className="border rounded">
-      <button
-        type="button"
-        onClick={() => setExpanded((b) => !b)}
-        className="w-full flex items-center justify-between p-2 text-sm font-medium hover:bg-accent/50"
-        aria-expanded={expanded}
-      >
-        <span>詞彙表對照</span>
-        {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-      </button>
-      {expanded && (
-        <div className="p-3 space-y-2 border-t">
-          {!glossaryId && (
-            <p className="text-xs text-muted-foreground">No glossary assigned to active profile.</p>
-          )}
-          {glossaryId && loading && <p className="text-xs text-muted-foreground">Loading…</p>}
-          {glossaryId && !loading && glossary && (
-            <>
-              <p className="text-xs text-muted-foreground">
-                {glossary.entries.length} entries · {glossary.name}
-              </p>
-              <div className="space-y-1 max-h-48 overflow-auto">
-                {glossary.entries.map((e, i) => (
-                  <div key={i} className="text-xs flex gap-2">
-                    <span className="font-medium">{e.source}</span>
-                    <span className="text-muted-foreground">→</span>
-                    <span>{e.target}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="space-y-1 pt-2 border-t">
-                <Label className="text-xs">Add entry</Label>
-                <div className="flex gap-1">
-                  <Input
-                    placeholder="source"
-                    value={newEntry.source}
-                    onChange={(e) => setNewEntry({ ...newEntry, source: e.target.value })}
-                    className="h-8 text-xs"
-                    aria-label="New entry source"
-                  />
-                  <Input
-                    placeholder="target"
-                    value={newEntry.target}
-                    onChange={(e) => setNewEntry({ ...newEntry, target: e.target.value })}
-                    className="h-8 text-xs"
-                    aria-label="New entry target"
-                  />
-                  <Button size="sm" onClick={addEntry} disabled={!newEntry.source || !newEntry.target}>
-                    Add
-                  </Button>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      )}
+    <div className="rv-b-glossary" data-testid="glossary-panel">
+      <div className="rv-b-glossary-head">
+        <span className="rv-b-glossary-title">詞彙表</span>
+        <span style={{ flex: 1, minWidth: 0, fontSize: 11, color: 'var(--text-mid)' }}>
+          {glossary ? glossary.name : glossaryId ? '載入中…' : '尚未指派'}
+        </span>
+      </div>
+      <div className="rv-b-glossary-body">
+        {!glossaryId && (
+          <div className="rv-b-rail-empty">未指派詞彙表至此 pipeline</div>
+        )}
+        {glossaryId && loading && <div className="rv-b-rail-empty">載入中…</div>}
+        {glossaryId && !loading && glossary && glossary.entries.length === 0 && (
+          <div className="rv-b-rail-empty">暫無條目</div>
+        )}
+        {glossaryId && !loading && glossary && glossary.entries.length > 0 && (
+          <table className="rv-b-glossary-table">
+            <thead>
+              <tr>
+                <th>原文</th>
+                <th>譯文</th>
+              </tr>
+            </thead>
+            <tbody>
+              {glossary.entries.map((e, i) => (
+                <tr key={i}>
+                  <td>{e.source}</td>
+                  <td>{e.target}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        {glossaryId && !loading && (
+          <div
+            style={{
+              borderTop: '1px solid var(--border)',
+              padding: '6px 8px',
+              display: 'flex',
+              gap: 4,
+            }}
+          >
+            <input
+              className="rv-b-glossary-select"
+              placeholder="source"
+              value={newSource}
+              onChange={(e) => setNewSource(e.target.value)}
+              aria-label="New entry source"
+              style={{ flex: 1 }}
+            />
+            <input
+              className="rv-b-glossary-select"
+              placeholder="target"
+              value={newTarget}
+              onChange={(e) => setNewTarget(e.target.value)}
+              aria-label="New entry target"
+              style={{ flex: 1 }}
+            />
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => void addEntry()}
+              disabled={!newSource.trim() || !newTarget.trim()}
+            >
+              +
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

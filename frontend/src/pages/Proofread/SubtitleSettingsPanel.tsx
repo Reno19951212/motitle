@@ -1,9 +1,8 @@
 // src/pages/Proofread/SubtitleSettingsPanel.tsx
+// Bold-variant subtitle settings panel that fills `.rv-b-subtitle-settings`.
+// PATCHes font_config on the file's pipeline via debounced save.
 import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { FontConfig } from '@/lib/schemas/pipeline';
 
 const DEBOUNCE_MS = 500;
@@ -15,7 +14,6 @@ interface Props {
 }
 
 export function SubtitleSettingsPanel({ pipelineId, font, onSaved }: Props) {
-  const [expanded, setExpanded] = useState(false);
   const [local, setLocal] = useState<FontConfig | null>(font);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -36,7 +34,7 @@ export function SubtitleSettingsPanel({ pipelineId, font, onSaved }: Props) {
         });
         onSaved?.();
       } catch {
-        /* swallow */
+        /* swallow — toast wiring later */
       }
     }, DEBOUNCE_MS);
   }
@@ -49,76 +47,104 @@ export function SubtitleSettingsPanel({ pipelineId, font, onSaved }: Props) {
   );
 
   return (
-    <div className="border rounded">
-      <button
-        type="button"
-        onClick={() => setExpanded((b) => !b)}
-        className="w-full flex items-center justify-between p-2 text-sm font-medium hover:bg-accent/50"
-        aria-expanded={expanded}
-      >
-        <span>字幕設定</span>
-        {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-      </button>
-      {expanded && (
-        <div className="p-3 space-y-3 border-t">
-          {!pipelineId && <p className="text-xs text-muted-foreground">No pipeline assigned.</p>}
-          {pipelineId && local && (
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs">Family</Label>
-                <Input
-                  value={local.family}
-                  onChange={(e) => update('family', e.target.value)}
-                  className="h-8 text-xs"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Size</Label>
-                <Input
-                  type="number"
-                  value={local.size}
-                  onChange={(e) => update('size', Number(e.target.value))}
-                  className="h-8 text-xs"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Color</Label>
-                <Input
+    <div className="rv-b-subtitle-settings" data-testid="subtitle-settings-panel">
+      <div className="rv-b-ss-head">字幕設定</div>
+      <div className="rv-b-ss-body">
+        {!pipelineId && (
+          <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>未指派 pipeline</div>
+        )}
+        {pipelineId && local && (
+          <>
+            <div className="rv-b-ss-row">
+              <label className="rv-b-ss-label" htmlFor="ssFamily">
+                字型
+              </label>
+              <input
+                id="ssFamily"
+                className="rv-b-ss-input"
+                type="text"
+                value={local.family}
+                onChange={(e) => update('family', e.target.value)}
+              />
+            </div>
+            <div className="rv-b-ss-row">
+              <label className="rv-b-ss-label" htmlFor="ssSize">
+                大小
+              </label>
+              <input
+                id="ssSize"
+                className="rv-b-ss-input"
+                type="number"
+                min={8}
+                max={120}
+                value={local.size}
+                onChange={(e) => update('size', Number(e.target.value))}
+                style={{ flex: 'none', width: 60 }}
+              />
+              <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>px</span>
+            </div>
+            <div className="rv-b-ss-row">
+              <label className="rv-b-ss-label" htmlFor="ssColor">
+                顏色
+              </label>
+              <div className="rv-b-ss-color">
+                <input
+                  id="ssColor"
+                  type="color"
                   value={local.color}
                   onChange={(e) => update('color', e.target.value)}
-                  className="h-8 text-xs"
                 />
-              </div>
-              <div>
-                <Label className="text-xs">Outline color</Label>
-                <Input
-                  value={local.outline_color}
-                  onChange={(e) => update('outline_color', e.target.value)}
-                  className="h-8 text-xs"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Outline width</Label>
-                <Input
-                  type="number"
-                  value={local.outline_width}
-                  onChange={(e) => update('outline_width', Number(e.target.value))}
-                  className="h-8 text-xs"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Margin bottom</Label>
-                <Input
-                  type="number"
-                  value={local.margin_bottom}
-                  onChange={(e) => update('margin_bottom', Number(e.target.value))}
-                  className="h-8 text-xs"
-                />
+                <span className="rv-b-ss-hex">{local.color}</span>
               </div>
             </div>
-          )}
-        </div>
-      )}
+            <div className="rv-b-ss-row">
+              <label className="rv-b-ss-label" htmlFor="ssOutlineColor">
+                輪廓色
+              </label>
+              <div className="rv-b-ss-color">
+                <input
+                  id="ssOutlineColor"
+                  type="color"
+                  value={local.outline_color}
+                  onChange={(e) => update('outline_color', e.target.value)}
+                />
+                <span className="rv-b-ss-hex">{local.outline_color}</span>
+              </div>
+            </div>
+            <div className="rv-b-ss-row">
+              <label className="rv-b-ss-label" htmlFor="ssOutlineWidth">
+                輪廓寬
+              </label>
+              <input
+                id="ssOutlineWidth"
+                className="rv-b-ss-input"
+                type="number"
+                min={0}
+                max={10}
+                value={local.outline_width}
+                onChange={(e) => update('outline_width', Number(e.target.value))}
+                style={{ flex: 'none', width: 60 }}
+              />
+            </div>
+            <div className="rv-b-ss-row">
+              <label className="rv-b-ss-label" htmlFor="ssMarginBottom">
+                底部邊距
+              </label>
+              <input
+                id="ssMarginBottom"
+                className="rv-b-ss-input"
+                type="number"
+                min={0}
+                max={200}
+                value={local.margin_bottom}
+                onChange={(e) => update('margin_bottom', Number(e.target.value))}
+                style={{ flex: 'none', width: 60 }}
+              />
+              <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>px</span>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

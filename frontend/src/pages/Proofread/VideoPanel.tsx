@@ -1,11 +1,19 @@
 // src/pages/Proofread/VideoPanel.tsx
-// Bold-variant video player + SVG subtitle overlay.
-// Exposes onTimeUpdate so the parent can drive SegmentTable active-row
-// highlighting from the playhead position.
-import { useEffect, useMemo, useRef } from 'react';
+// Bold-variant video player + SVG subtitle overlay matching the Claude
+// Designer Proofread spec (.rv-b-video wrapper). Exposes:
+//   - onTimeUpdate(s) so parent can drive SegmentRail/Timeline highlights
+//   - onDurationChange(s) so parent (TimelinePanel) knows total length
+//   - imperative seek via forwardRef
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import { SubtitleOverlay, pickSubtitleText } from './SubtitleOverlay';
 import type { FontConfig } from '@/lib/schemas/pipeline';
 import type { FileDetail, Translation } from './types';
+
+export interface VideoPanelHandle {
+  seek: (seconds: number) => void;
+  play: () => void;
+  pause: () => void;
+}
 
 interface Props {
   file: FileDetail;
@@ -13,23 +21,44 @@ interface Props {
   font: FontConfig | null;
   currentTime: number;
   onTimeUpdate: (t: number) => void;
+  onDurationChange?: (d: number) => void;
 }
 
-export function VideoPanel({ file, translations, font, currentTime, onTimeUpdate }: Props) {
+export const VideoPanel = forwardRef<VideoPanelHandle, Props>(function VideoPanel(
+  { file, translations, font, currentTime, onTimeUpdate, onDurationChange },
+  ref,
+) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  // Reset playhead when switching files. Parent owns currentTime so we just
-  // signal '0' upward. The <video src=> swap also re-fires onLoadedMetadata.
+  // Imperative API for parent (TimelinePanel region click → seek).
+  useImperativeHandle(
+    ref,
+    () => ({
+      seek: (seconds: number) => {
+        const v = videoRef.current;
+        if (v && Number.isFinite(seconds)) {
+          try {
+            v.currentTime = Math.max(0, seconds);
+          } catch {
+            /* swallow — readyState 0 */
+          }
+        }
+      },
+      play: () => {
+        const v = videoRef.current;
+        if (v) void v.play().catch(() => undefined);
+      },
+      pause: () => videoRef.current?.pause(),
+    }),
+    [],
+  );
+
+  // Reset playhead when switching files.
   useEffect(() => {
     onTimeUpdate(0);
-    // Intentionally only depends on file.id — onTimeUpdate is stable from
-    // useState setter in parent.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file.id]);
 
-  // Linear scan to find segment under currentTime (mirrors Dashboard's
-  // VideoSubtitleOverlay heuristic). 100 segments × 60Hz onTimeUpdate is
-  // ~6k ops/sec — negligible.
   const currentTranslation = useMemo(() => {
     for (const t of translations) {
       const start = t.start;
@@ -54,16 +83,7 @@ export function VideoPanel({ file, translations, font, currentTime, onTimeUpdate
   const overlayText = pickSubtitleText(currentTranslation, mode, order);
 
   return (
-    <div
-      style={{
-        position: 'relative',
-        background: '#000',
-        borderRadius: 'var(--radius-lg)',
-        overflow: 'hidden',
-        aspectRatio: '16 / 9',
-        width: '100%',
-      }}
-    >
+    <div className="rv-b-video" data-testid="video-panel">
       <video
         ref={videoRef}
         src={`/api/files/${file.id}/media`}
@@ -76,8 +96,16 @@ export function VideoPanel({ file, translations, font, currentTime, onTimeUpdate
           display: 'block',
         }}
         onTimeUpdate={(e) => onTimeUpdate(e.currentTarget.currentTime)}
+        onLoadedMetadata={(e) => {
+          const d = e.currentTarget.duration;
+          if (Number.isFinite(d) && d > 0) onDurationChange?.(d);
+        }}
+        onDurationChange={(e) => {
+          const d = e.currentTarget.duration;
+          if (Number.isFinite(d) && d > 0) onDurationChange?.(d);
+        }}
       />
       <SubtitleOverlay text={overlayText} font={font} />
     </div>
   );
-}
+});
