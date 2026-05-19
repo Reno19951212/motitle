@@ -101,3 +101,80 @@ def test_llm_profile_strips_name_whitespace(tmp_path):
     assert mgr.get(pid)["name"] == "spaced"
     mgr.update_if_owned(pid, user_id=1, is_admin=False, patch={"name": "  renamed  "})
     assert mgr.get(pid)["name"] == "renamed"
+
+
+# ============================================================
+# TranscribeProfile manager tests (T5)
+# ============================================================
+
+
+def test_transcribe_profile_accepts_qwen3_asr(tmp_path):
+    from transcribe_profiles import TranscribeProfileManager
+    mgr = TranscribeProfileManager(tmp_path)
+    pid = mgr.create({
+        "name": "Qwen3-ASR 1.7B",
+        "engine": "qwen3-asr",
+        "model_size": "1.7B",
+        "language": "zh",
+    }, user_id=1)
+    p = mgr.get(pid)
+    assert p["engine"] == "qwen3-asr"
+    assert p["model_size"] == "1.7B"
+
+
+def test_transcribe_profile_accepts_whisper(tmp_path):
+    from transcribe_profiles import TranscribeProfileManager
+    mgr = TranscribeProfileManager(tmp_path)
+    pid = mgr.create({
+        "name": "Whisper L3",
+        "engine": "whisper",
+        "model_size": "large-v3",
+        "language": "en",
+    }, user_id=1)
+    assert mgr.get(pid)["engine"] == "whisper"
+
+
+def test_transcribe_profile_rejects_unknown_engine(tmp_path):
+    from transcribe_profiles import validate_transcribe_profile
+    errors = validate_transcribe_profile({
+        "name": "x", "engine": "bogus", "language": "en",
+    })
+    assert any("engine" in e for e in errors)
+
+
+def test_transcribe_profile_rejects_unknown_language(tmp_path):
+    from transcribe_profiles import validate_transcribe_profile
+    errors = validate_transcribe_profile({
+        "name": "x", "engine": "whisper", "language": "klingon",
+    })
+    assert any("language" in e for e in errors)
+
+
+def test_transcribe_profile_initial_prompt_max_512(tmp_path):
+    from transcribe_profiles import validate_transcribe_profile
+    errors = validate_transcribe_profile({
+        "name": "x", "engine": "whisper", "language": "en",
+        "initial_prompt": "x" * 600,
+    })
+    assert any("initial_prompt" in e for e in errors)
+
+
+def test_transcribe_profile_can_view_and_immutable_fields(tmp_path):
+    """Verify the pattern-setter hardening from T3 also applies to TranscribeProfile."""
+    from transcribe_profiles import TranscribeProfileManager
+    mgr = TranscribeProfileManager(tmp_path)
+    pid = mgr.create({
+        "name": "  Whisper  ", "engine": "whisper", "language": "en",
+    }, user_id=1)
+    # name was stripped on create
+    assert mgr.get(pid)["name"] == "Whisper"
+    # updated_at set on create
+    assert mgr.get(pid)["updated_at"] >= mgr.get(pid)["created_at"]
+    # can_view honors admin/owner/shared
+    assert mgr.can_view(pid, user_id=1, is_admin=False) is True
+    assert mgr.can_view(pid, user_id=999, is_admin=True) is True
+    assert mgr.can_view(pid, user_id=2, is_admin=False) is False
+    # Malicious patch cannot escalate ownership
+    updated = mgr.update_if_owned(pid, user_id=1, is_admin=False, patch={"user_id": 2, "id": "evil"})
+    assert updated["user_id"] == 1
+    assert updated["id"] == pid
