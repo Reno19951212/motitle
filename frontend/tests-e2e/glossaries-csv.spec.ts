@@ -1,6 +1,20 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Glossaries page', () => {
+/**
+ * Legacy Glossaries spec — updated for iter 4 Bold variant.
+ *
+ * The old version asserted shadcn EntityForm dialog (heading "New Glossary",
+ * row-level Export anchors). The Bold rewrite uses inline panels in the
+ * right column and a single CSV Export anchor on the selected glossary.
+ *
+ * Intent preserved:
+ *   1. Page lists glossaries + new-glossary form exposes source_lang +
+ *      target_lang selects.
+ *   2. CSV export anchor links to /api/glossaries/<id>/export with the
+ *      glossary id in the href.
+ */
+
+test.describe('Glossaries page (Bold variant)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/login');
     await page.fill('#username', 'admin');
@@ -10,24 +24,31 @@ test.describe('Glossaries page', () => {
     test.skip(page.url().includes('/login'), 'admin login failed');
   });
 
-  test('lists glossaries + new dialog shows lang dropdowns', async ({ page }) => {
+  test('lists glossaries + new form shows lang dropdowns', async ({ page }) => {
     await page.goto('/glossaries');
-    await expect(page.getByRole('heading', { name: /Glossaries/i })).toBeVisible();
-    await page.getByRole('button', { name: /\+ New Glossary/i }).click();
-    await expect(page.getByRole('heading', { name: /New Glossary/i })).toBeVisible();
-    await expect(page.getByLabel(/Source lang/i)).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('.b-topbar .page-title')).toBeVisible();
+    await page.locator('.b-topbar .run-btn').click();
+    await expect(page.getByLabel(/Source lang/i)).toBeVisible({ timeout: 5_000 });
     await expect(page.getByLabel(/Target lang/i)).toBeVisible();
-    await page.keyboard.press('Escape');
   });
 
-  test('CSV export link contains glossary id', async ({ page }) => {
+  test('CSV export anchor contains glossary id', async ({ page }) => {
     await page.goto('/glossaries');
-    const exportLinks = page.locator('a:has-text("Export")');
-    const count = await exportLinks.count();
+    await page.waitForLoadState('networkidle');
+
+    // Need a glossary selected for the CSV export anchor to render. Try the
+    // first existing row; if none exist, skip.
+    const rows = page.locator('.profile-row');
+    const count = await rows.count();
     if (count === 0) {
-      test.skip(true, 'No glossaries in test environment — skip Export link check');
+      test.skip(true, 'No glossaries in test environment — skip Export anchor check');
     }
-    const href = await exportLinks.first().getAttribute('href');
+    await rows.first().click();
+
+    const exportLink = page.locator('a[href*="/api/glossaries/"][href*="/export"]');
+    await expect(exportLink.first()).toBeVisible({ timeout: 5_000 });
+    const href = await exportLink.first().getAttribute('href');
     expect(href).toMatch(/\/api\/glossaries\/[^/]+\/export/);
   });
 });
