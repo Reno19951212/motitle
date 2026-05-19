@@ -4,10 +4,16 @@ Stores LLM backend config (Ollama / OpenRouter / Claude) as standalone
 profiles that Translator / Refiner / Verifier engines reference via
 `llm_profile_id`.
 
-Follows v4 P1 ProfileManager pattern (per-resource lock + ownership +
-TOCTOU update/delete). This is the first of 5 v5-A1 profile manager
-modules (LLM / Transcribe / Translator / Refiner / Verifier) — pattern
-established here will be replicated by T5/T7/T9/T11.
+Follows v4 P1 ProfileManager pattern (per-resource lock + ownership + TOCTOU update/delete).
+
+Sharing semantic (v5 explicit):
+  - Profile is owned by `user_id` (always set on create).
+  - `shared: true` field grants read access to all logged-in users.
+  - Admin sees everything. Owner sees + edits. Sharing is read-only.
+
+This differs from v4 ASR/MT profile semantic (which used `user_id: None`
+as the "shared with everyone" sentinel). v5 makes the share intent explicit
+via the `shared` flag — safer and easier to audit.
 """
 from __future__ import annotations
 
@@ -17,6 +23,7 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any, Optional
+from urllib.parse import urlparse
 
 VALID_BACKENDS = {"ollama", "openrouter", "claude"}
 MAX_NAME_CHARS = 64
@@ -42,15 +49,19 @@ def validate_llm_profile(data: Any) -> list:
     name = data.get("name")
     if not isinstance(name, str) or not name.strip():
         errors.append("name required")
-    elif len(name) > MAX_NAME_CHARS:
+    elif len(name.strip()) > MAX_NAME_CHARS:
         errors.append(f"name max {MAX_NAME_CHARS} chars")
     if data.get("backend") not in VALID_BACKENDS:
         errors.append(f"backend must be in {sorted(VALID_BACKENDS)}")
     if not isinstance(data.get("model"), str) or not data["model"].strip():
         errors.append("model required (string)")
-    base_url = data.get("base_url")
-    if not isinstance(base_url, str) or not base_url.startswith(("http://", "https://")):
-        errors.append("base_url required (must start with http:// or https://)")
+    url = data.get("base_url")
+    if not isinstance(url, str) or not url.strip():
+        errors.append("base_url required (string)")
+    else:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            errors.append("base_url must be a valid http(s) URL (e.g., http://localhost:11434)")
     temp = data.get("temperature", 0.2)
     # Reject bool explicitly — `bool` is a subclass of `int` in Python, so
     # `isinstance(True, (int, float))` is True. We want temperature: True
@@ -78,9 +89,19 @@ class LLMProfileManager:
         if errors:
             raise ValueError("; ".join(errors))
         pid = str(uuid.uuid4())
-        payload = {**data, "id": pid, "user_id": user_id, "created_at": time.time()}
+        now = time.time()
+        # Defensive: strip name; force `shared` to bool; set audit fields
+        normalized = {
+            **data,
+            "name": data["name"].strip(),
+            "id": pid,
+            "user_id": user_id,
+            "shared": bool(data.get("shared", False)),
+            "created_at": now,
+            "updated_at": now,
+        }
         path = self.dir / f"{pid}.json"
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        path.write_text(json.dumps(normalized, ensure_ascii=False, indent=2), encoding="utf-8")
         return pid
 
     def get(self, pid: str) -> Optional[dict]:
@@ -104,6 +125,13 @@ class LLMProfileManager:
         p = self.get(pid)
         return p is not None and (is_admin or p.get("user_id") == user_id)
 
+    def can_view(self, pid: str, user_id: int, is_admin: bool) -> bool:
+        """Admin OR owner OR shared profile may read."""
+        p = self.get(pid)
+        if p is None:
+            return False
+        return is_admin or p.get("user_id") == user_id or bool(p.get("shared"))
+
     def update_if_owned(
         self,
         pid: str,
@@ -115,10 +143,18 @@ class LLMProfileManager:
             p = self.get(pid)
             if p is None or not (is_admin or p.get("user_id") == user_id):
                 return None
+            # Merge patch but ALWAYS preserve immutable identity / audit fields.
+            # Without this, a patch with {"user_id": <other>} could escalate ownership.
             merged = {**p, **patch}
+            merged["id"] = p["id"]
+            merged["user_id"] = p["user_id"]
+            merged["created_at"] = p.get("created_at")
+            if "name" in patch and isinstance(patch["name"], str):
+                merged["name"] = patch["name"].strip()
             errors = validate_llm_profile(merged)
             if errors:
                 raise ValueError("; ".join(errors))
+            merged["updated_at"] = time.time()
             (self.dir / f"{pid}.json").write_text(
                 json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8"
             )
