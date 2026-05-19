@@ -82,7 +82,7 @@ Gap kinds: MISSING_FIELD (mock shows data backend doesn't provide) / SHAPE_MISMA
 ---
 
 ## Batch A — Queue items [STATUS: fixed]
-**Fixed in commit**: (pending — see git log on feat/frontend-redesign)
+**Fixed in commit**: b194b17
 
 Notes:
 - `toDesignFile` now reads `uploaded_at` (Unix epoch float from `time.time()` in `backend/helpers/files.py:112`) — was reading non-existent `created_at`.
