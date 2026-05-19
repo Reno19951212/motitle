@@ -66,12 +66,15 @@ export const router = createBrowserRouter([
       // layout — no Layout shell. Same pattern as Dashboard + Proofread +
       // AsrProfiles.
       { path: 'mt_profiles', element: <MtProfiles /> },
+      // Glossaries (iter 4 of Bold redesign) renders its own full-page Bold
+      // layout — no Layout shell. Same pattern as Dashboard + Proofread +
+      // AsrProfiles + MtProfiles.
+      { path: 'glossaries', element: <Glossaries /> },
       // All other pages use the existing Layout (TopBar + SideNav)
       {
         element: <Layout />,
         children: [
           { path: 'pipelines', element: <Pipelines /> },
-          { path: 'glossaries', element: <Glossaries /> },
           {
             path: 'admin',
             element: (

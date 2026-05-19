@@ -1294,3 +1294,44 @@
   padding-top: 8px;
   border-top: 1px solid var(--border);
 }
+
+/* Iter 4 — Glossary entries sub-table + lang chip + CSV controls */
+.motitle-bold .lang-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  font-family: var(--font-mono);
+  font-size: 10px; font-weight: 700;
+  color: var(--accent-2);
+  background: var(--accent-softer);
+  border: 1px solid var(--accent-ring);
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+}
+.motitle-bold .entry-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.motitle-bold .entry-table thead th {
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 10px; font-weight: 700; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.motitle-bold .entry-table tbody tr { border-bottom: 1px solid var(--surface-2); }
+.motitle-bold .entry-table tbody tr:last-child { border-bottom: 0; }
+.motitle-bold .entry-table tbody td { padding: 6px 8px; vertical-align: middle; }
+.motitle-bold .entry-table input[type=text] {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12px;
+  outline: none;
+  transition: border-color .12s, background .12s;
+}
+.motitle-bold .entry-table input[type=text]:focus {
+  border-color: var(--accent-ring);
+  background: var(--surface);
+}
+.motitle-bold .csv-actions { display: flex; gap: 8px; align-items: center; }
