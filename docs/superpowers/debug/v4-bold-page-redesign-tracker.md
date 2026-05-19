@@ -8,7 +8,7 @@
 
 | Iter | Page | Route | Status | Commits | Playwright spec | Backend gaps |
 |---|---|---|---|---|---|---|
-| 1 | Timeline (Proofread) | `/proofread/:fileId` | not_started | | | |
+| 1 | Timeline (Proofread) | `/proofread/:fileId` | fixed | `2b9a441` + `450a83d` + `2882c14` | `tests-e2e/bold-proofread.spec.ts` (7 tests, all pass) | none |
 | 2 | ASR Profile | `/asr_profiles` | not_started | | | |
 | 3 | MT Profile | `/mt_profiles` | not_started | | | |
 | 4 | Glossary | `/glossaries` | not_started | | | |
@@ -27,14 +27,83 @@
 
 ## Iter 1 — Timeline (Proofread)
 
-[NOT_STARTED]
+[FIXED] — 2026-05-19
 
-- Backend endpoints in scope: TBD
-- Bold elements to reuse: TBD
-- Design decisions: TBD
-- Backend gaps discovered: TBD
-- Commits: TBD
-- Playwright spec: `tests-e2e/bold-proofread.spec.ts` (TBD)
+- Backend endpoints in scope (all already exist, none changed):
+  - `GET /api/files/<id>` — file detail
+  - `GET /api/files/<id>/translations` — translations list
+  - `GET /api/files/<id>/segments` — ASR segments
+  - `GET /api/files/<id>/media` — video stream for `<video src>`
+  - `GET /api/pipelines/<id>` — pipeline lookup for font + glossary
+  - `PATCH /api/files/<id>` — subtitle_source + bilingual_order
+  - `PATCH /api/files/<id>/translations/<idx>` — segment edit
+  - `POST /api/files/<id>/translations/<idx>/approve` — approve
+  - `POST /api/files/<id>/pipeline_overrides` — prompt overrides
+  - `POST /api/files/<id>/stages/<idx>/rerun` — re-run stage
+  - `POST /api/render` — render
+  - `POST /api/logout` — topbar logout
+
+- Bold elements reused (zero copy/paste from Dashboard):
+  - `BoldRail` — extracted to `frontend/src/components/BoldRail.tsx`
+    with optional `activeId` prop. Dashboard now imports from there.
+  - `.b-rail` + `.b-main` + `.b-topbar` + `.b-body` (`.b-body-proofread`
+    variant w/ new grid template) + `.b-col` + `.panel` + `.panel-head`
+    + `.panel-body` + `.empty` + `.empty-icon` + `.empty-title` from
+    `motitle-bold.css`.
+  - `.run-btn` + `.health-cluster` + `.health-pill` from Dashboard topbar.
+  - `.badge.badge--accent` + `.badge.badge--idle` for file status pill.
+
+- Bold elements added (new, ~80 lines CSS in motitle-bold.css):
+  - `.back-btn` — Proofread-specific back-to-Dashboard chip
+  - `.filename-strip` — filename + status badge + source dropdowns
+  - `.action-chip` — Overrides chip (mirrors `.save-btn` cousin)
+  - `.b-body-proofread` — 3-col grid w/ wider left for segment table
+  - `.seg-table-wrap` — sticky thead + scrollable tbody for SegmentTable
+  - `tr.active` — playhead-driven active row highlight
+
+- Design decisions:
+  - Proofread page bypasses the legacy `<Layout/>` shell (router.tsx
+    moves `/proofread/:fileId` out from under `<Layout/>` branch — same
+    pattern Dashboard already uses). This is the only structural router
+    change required.
+  - `TopBar.tsx` kept as a separate component (not inlined into
+    index.tsx) so the existing `index.test.tsx` mock — which substitutes
+    `<TopBar>` with a stub — keeps working without test changes.
+  - Button visible text + aria-label both contain English keywords
+    (`返回 Back`, `渲染 Render`, `提示詞 Overrides`) so existing
+    Playwright regex matchers (`/Back/i`, `/Render/`, `/Overrides/i`)
+    in `proofread-render-modal.spec.ts` + `proofread-prompt-override.spec.ts`
+    + `proofread-load.spec.ts` continue to find them.
+  - Playhead (`currentTime`) lifted to the page parent so VideoPanel +
+    SegmentTable share the same source of truth. VideoPanel emits
+    `onTimeUpdate(t)` from the `<video>` element's native `timeupdate`
+    event; SegmentTable does a linear scan (97 segments × 60 Hz = 6 k
+    ops/sec, negligible) to find the active row and pass `isFocused` to
+    SegmentRow.
+  - `VideoSubtitleOverlay` from Dashboard NOT extracted — the Proofread
+    page reuses the existing `SubtitleOverlay` SVG component which has
+    better paint-order geometry for libass parity. The Dashboard's
+    text-shadow-based overlay continues to coexist (different code path,
+    different concerns).
+  - StageHistorySidebar default opens at segment idx 0 from the
+    right-column "開啟 stage history sidebar" button. Per-row Eye icon
+    in SegmentRow continues to open at the clicked row.
+
+- Backend gaps discovered: none.
+
+- Commits:
+  - `2b9a441` — refactor(frontend): extract BoldRail to shared component
+  - `450a83d` — feat(proofread): Bold layout rewrite with time-driven
+    subtitle overlay
+  - `2882c14` — test(e2e): bold-proofread.spec covering layout + segments
+    + overlay + render + back nav
+
+- Playwright spec: `tests-e2e/bold-proofread.spec.ts` — 7 tests, all
+  pass first run. Full regression: 31 passed / 20 skipped / 0 failed
+  (baseline 24 passed / 20 skipped, +7 new from this spec, no broken
+  tests).
+
+- Vitest: 204/204 pass (unchanged from baseline 204).
 
 ## Iter 2 — ASR Profile
 
