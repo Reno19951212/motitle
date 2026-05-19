@@ -1,15 +1,21 @@
 // Dashboard — Bold variant redesign
 // Pixel-faithful port of /tmp/v4-design/motitle/project/variant-bold.jsx
 // This component renders a full-page layout that bypasses the parent Layout shell.
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import { useSocket } from '@/providers/SocketProvider';
 import { usePipelinePickerStore } from '@/stores/pipeline-picker';
 import type { PipelineBrokenRefs, PipelineSummary } from '@/stores/pipeline-picker';
 import { useUIStore } from '@/stores/ui';
+import { useProfileLookupStore } from '@/stores/profile-lookup';
+import type {
+  AsrProfileLookup,
+  MtProfileLookup,
+  PipelineLookup,
+} from '@/stores/profile-lookup';
 import { apiFetch, ApiError } from '@/lib/api';
-import type { FileRecord } from '@/lib/socket-events';
+import type { FileRecord, StageStatus } from '@/lib/socket-events';
 import { Icon, MoTitleStageBadge } from '@/lib/motitle-icons';
 import type { IconName } from '@/lib/motitle-icons';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -94,11 +100,6 @@ interface DesignFile {
   transcribeProgress: number;
   renderProgress: number;
   size: string;
-  language: string;
-  asrEngine: string;
-  asrModel: string;
-  mtEngine: string;
-  mtModel: string;
 }
 
 /**
@@ -174,13 +175,18 @@ function toDesignFile(
     // /api/renders/<id>, not pipeline stages). Inspector still displays the
     // value but it is no longer surfaced on queue rows.
     renderProgress: 0,
-    size: typeof f.size === 'number' ? String(f.size) : '—',
-    language: 'English → 繁體中文',
-    asrEngine: '—',
-    asrModel: '—',
-    mtEngine: '—',
-    mtModel: '—',
+    size: typeof f.size === 'number' ? formatBytes(f.size) : '—',
   };
+}
+
+// Format byte count as human readable. Mirrors small-form OS file sizes.
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  const kb = n / 1024;
+  if (kb < 1024) return `${kb.toFixed(1)} KB`;
+  const mb = kb / 1024;
+  if (mb < 1024) return `${mb.toFixed(1)} MB`;
+  return `${(mb / 1024).toFixed(2)} GB`;
 }
 
 function stageForStagePill(stage: string): { asr: string; mt: string } {
@@ -710,10 +716,7 @@ function BoldWorkbench({ file }: { file: DesignFile | null }) {
             <span className="k">已批核</span>
             {file.approved}/{file.segments}
           </div>
-          <div>
-            <span className="k">語言</span>
-            {file.language}
-          </div>
+          {/* 語言 row removed in Batch F — to be wired back via pipeline lookup in Batch E */}
         </div>
         <div className="fh-actions">
           <button
@@ -854,7 +857,228 @@ function BoldWorkbench({ file }: { file: DesignFile | null }) {
 // BoldInspector — empty state when no file selected
 // ---------------------------------------------------------------------------
 
-function BoldInspector({ file }: { file: DesignFile | null }) {
+/**
+ * Compact stage descriptor for the data-driven stages-track. Each step has:
+ *   key:       react key + s-step className contribution
+ *   label:     primary line shown under the dot (e.g. "ASR" / "MT" / "術語")
+ *   sublabel:  secondary line (e.g. "whisper · large-v3", "qwen3.5 · 35b")
+ *   stateKind: 'done' | 'active' | 'failed' | 'idle' (drives s-step + dot CSS)
+ *   pulse:     true → dot pulses (use when status='running')
+ */
+interface StagesTrackStep {
+  key: string;
+  label: string;
+  sublabel: string;
+  stateKind: 'done' | 'active' | 'failed' | 'idle';
+  pulse: boolean;
+  showCheck: boolean;
+}
+
+/** Squash threshold: more than this many MT stages collapses into one chip. */
+const MT_SQUASH_THRESHOLD = 3;
+
+/**
+ * Read stage_outputs from a file_added socket payload. Backend stores it as
+ * `Record<string, StageOutput>` (str-indexed dict, see pipeline_runner.py
+ * `_persist_stage_output`). When file_added emits, the dict comes through
+ * as-is. `/api/files` list endpoint does NOT include stage_outputs (only
+ * segment_count + approved_count), so a freshly-loaded queue will lack it
+ * until either file_added fires or the user runs the pipeline.
+ *
+ * Returns a per-stage-index lookup, normalising whichever shape arrived.
+ */
+function readPersistedStageOutputs(f: FileRecord | null | undefined): Record<number, { status?: string; stage_type?: string }> {
+  if (!f) return {};
+  const raw = (f as { stage_outputs?: unknown }).stage_outputs;
+  if (!raw) return {};
+  const out: Record<number, { status?: string; stage_type?: string }> = {};
+  if (Array.isArray(raw)) {
+    raw.forEach((item, idx) => {
+      if (item && typeof item === 'object') {
+        out[idx] = item as { status?: string; stage_type?: string };
+      }
+    });
+    return out;
+  }
+  if (typeof raw === 'object') {
+    for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+      const idx = Number(k);
+      if (Number.isFinite(idx) && v && typeof v === 'object') {
+        out[idx] = v as { status?: string; stage_type?: string };
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Build the data-driven stages-track step list from the resolved pipeline +
+ * per-file Socket.IO live state + persisted stage_outputs from the registry.
+ *
+ * Stage layout per backend pipeline_runner.py:
+ *   index 0           → ASR
+ *   index 1..N        → MT (one per `pipeline.mt_stages[]` entry)
+ *   index 1 + N       → Glossary (only if glossary_stage.enabled)
+ *
+ * "校對" and "燒字" are NOT pipeline stages and are intentionally dropped
+ * from the track — see audit doc Batch F. They live elsewhere (proofread
+ * page is the校對 surface; the workbench "匯出 →" button triggers render).
+ */
+function buildStagesTrackSteps(
+  pipeline: PipelineLookup | null | undefined,
+  liveStatus: Record<number, StageStatus> | undefined,
+  liveProgress: Record<number, number> | undefined,
+  persisted: Record<number, { status?: string; stage_type?: string }>,
+  asrProfile: AsrProfileLookup | null | undefined,
+  mtProfiles: Array<MtProfileLookup | null | undefined>,
+): StagesTrackStep[] {
+  if (!pipeline) {
+    // Fallback: when pipeline not loaded yet, show a single greyed-out ASR
+    // placeholder so the panel doesn't collapse.
+    return [
+      {
+        key: 'asr-pending',
+        label: 'ASR',
+        sublabel: '—',
+        stateKind: 'idle',
+        pulse: false,
+        showCheck: false,
+      },
+    ];
+  }
+
+  const mtStages = pipeline.mt_stages ?? [];
+  const gloss = pipeline.glossary_stage;
+  const glossEnabled = !!gloss?.enabled;
+
+  function deriveStateAt(idx: number): { stateKind: StagesTrackStep['stateKind']; pulse: boolean; showCheck: boolean } {
+    const live = liveStatus?.[idx];
+    if (live === 'failed') return { stateKind: 'failed', pulse: false, showCheck: false };
+    if (live === 'done') return { stateKind: 'done', pulse: false, showCheck: true };
+    if (live === 'running') return { stateKind: 'active', pulse: true, showCheck: false };
+    const persistStatus = persisted[idx]?.status;
+    if (persistStatus === 'done') return { stateKind: 'done', pulse: false, showCheck: true };
+    if (persistStatus === 'failed') return { stateKind: 'failed', pulse: false, showCheck: false };
+    if (persistStatus === 'running') return { stateKind: 'active', pulse: true, showCheck: false };
+    return { stateKind: 'idle', pulse: false, showCheck: false };
+  }
+
+  const steps: StagesTrackStep[] = [];
+
+  // ASR (always stage 0)
+  const asrState = deriveStateAt(0);
+  const asrSub = asrProfile
+    ? `${asrProfile.engine}${asrProfile.model_size ? ` · ${asrProfile.model_size}` : ''}`
+    : '—';
+  const asrLiveProgress = liveProgress?.[0];
+  steps.push({
+    key: 'asr',
+    label: 'ASR',
+    sublabel: asrState.stateKind === 'active' && typeof asrLiveProgress === 'number' ? `${asrLiveProgress}%` : asrSub,
+    ...asrState,
+  });
+
+  // MT stages — squash when count > threshold to keep the rail readable.
+  if (mtStages.length === 0) {
+    // no MT — show a slim placeholder chip
+    steps.push({
+      key: 'mt-empty',
+      label: 'MT',
+      sublabel: '— 無翻譯 —',
+      stateKind: 'idle',
+      pulse: false,
+      showCheck: false,
+    });
+  } else if (mtStages.length > MT_SQUASH_THRESHOLD) {
+    // Aggregate across all MT stages. Any failed → failed; any running →
+    // active; all done → done; else idle.
+    let aggState: StagesTrackStep['stateKind'] = 'idle';
+    let aggPulse = false;
+    let runningIdx = -1;
+    let doneCount = 0;
+    for (let i = 0; i < mtStages.length; i++) {
+      const idx = 1 + i;
+      const s = deriveStateAt(idx);
+      if (s.stateKind === 'failed') {
+        aggState = 'failed';
+        break;
+      }
+      if (s.stateKind === 'active') {
+        aggState = 'active';
+        aggPulse = true;
+        runningIdx = idx;
+      }
+      if (s.stateKind === 'done') doneCount++;
+    }
+    if (aggState === 'idle' && doneCount === mtStages.length) aggState = 'done';
+    const runningPct = runningIdx >= 0 ? liveProgress?.[runningIdx] : undefined;
+    steps.push({
+      key: 'mt-squashed',
+      label: `MT × ${mtStages.length}`,
+      sublabel:
+        aggState === 'active' && typeof runningPct === 'number'
+          ? `第 ${runningIdx} 段 · ${runningPct}%`
+          : aggState === 'done'
+          ? '完成'
+          : aggState === 'failed'
+          ? '失敗'
+          : `${mtStages.length} 段串接`,
+      stateKind: aggState,
+      pulse: aggPulse,
+      showCheck: aggState === 'done',
+    });
+  } else {
+    for (let i = 0; i < mtStages.length; i++) {
+      const idx = 1 + i;
+      const s = deriveStateAt(idx);
+      const prof = mtProfiles[i];
+      const baseSub = prof ? `${prof.engine}` : '—';
+      const livePct = liveProgress?.[idx];
+      steps.push({
+        key: `mt-${i}`,
+        label: mtStages.length > 1 ? `MT ${i + 1}` : 'MT',
+        sublabel: s.stateKind === 'active' && typeof livePct === 'number' ? `${livePct}%` : baseSub,
+        ...s,
+      });
+    }
+  }
+
+  // Glossary (only if enabled)
+  if (glossEnabled) {
+    const idx = 1 + mtStages.length;
+    const s = deriveStateAt(idx);
+    const count = gloss?.glossary_ids?.length ?? 0;
+    const livePct = liveProgress?.[idx];
+    steps.push({
+      key: 'glossary',
+      label: '術語',
+      sublabel: s.stateKind === 'active' && typeof livePct === 'number'
+        ? `${livePct}%`
+        : `${count} 個術語表`,
+      ...s,
+    });
+  }
+
+  return steps;
+}
+
+function BoldInspector({
+  file,
+  fileRecord,
+  pipeline,
+  asrProfile,
+  mtProfiles,
+  liveStatus,
+  liveProgress,
+}: {
+  file: DesignFile | null;
+  fileRecord: FileRecord | null;
+  pipeline: PipelineLookup | null | undefined;
+  asrProfile: AsrProfileLookup | null | undefined;
+  mtProfiles: Array<MtProfileLookup | null | undefined>;
+  liveStatus: Record<number, StageStatus> | undefined;
+  liveProgress: Record<number, number> | undefined;
+}) {
   const [tab, setTab] = useState<'transcript' | 'tuning' | 'info'>('transcript');
 
   if (!file) {
@@ -913,12 +1137,38 @@ function BoldInspector({ file }: { file: DesignFile | null }) {
 
   const pct = file.segments ? Math.round((file.approved / file.segments) * 100) : 0;
 
-  // Derive stage step states
-  const hasAsr = ['translating', 'proofreading', 'rendering', 'done'].includes(file.stage);
-  const hasMt = ['proofreading', 'rendering', 'done'].includes(file.stage);
-  const isProofreading = file.stage === 'proofreading';
-  const isDone = file.stage === 'done';
-  const isRendering = file.stage === 'rendering';
+  // Data-driven stages-track per audit Batch F: ASR + N MT + Glossary (if
+  // enabled). 校對 / 燒字 are user-driven phases, not pipeline stages, so
+  // they're dropped here and surfaced via the hint chip below.
+  const persistedStages = readPersistedStageOutputs(fileRecord);
+  const stagesSteps = buildStagesTrackSteps(
+    pipeline,
+    liveStatus,
+    liveProgress,
+    persistedStages,
+    asrProfile,
+    mtProfiles,
+  );
+  // Mark pipeline as fully done iff every step resolved to 'done'.
+  const allStagesDone = stagesSteps.length > 0 && stagesSteps.every((s) => s.stateKind === 'done');
+
+  // ASR engine/model + language for the 資訊 tab. Hide rows when the
+  // lookup hasn't resolved (undefined / null) — fills in on next render once
+  // the cache returns.
+  const asrEngineLine = asrProfile ? `${asrProfile.engine} · ${asrProfile.model_size ?? ''}` : null;
+  // MT engine line: show first stage, and "+N 段" suffix when there are more.
+  let mtEngineLine: string | null = null;
+  if (mtProfiles.length > 0 && mtProfiles[0]) {
+    const first = mtProfiles[0];
+    mtEngineLine = first.engine;
+    if (mtProfiles.length > 1) {
+      mtEngineLine += ` · +${mtProfiles.length - 1} 段`;
+    }
+  } else if (pipeline && (pipeline.mt_stages ?? []).length === 0) {
+    mtEngineLine = '—';
+  }
+  const langLine = asrProfile?.language ?? null;
+  const fontPreview = pipeline?.font_config ?? null;
 
   return (
     <div className="inspector">
@@ -935,39 +1185,37 @@ function BoldInspector({ file }: { file: DesignFile | null }) {
           <MoTitleStageBadge file={file} />
         </div>
         <div className="stages-track">
-          <div className={`s-step ${hasAsr ? 'done' : file.stage === 'transcribing' ? 'active' : 'idle'}`}>
-            <div className={`dot ${file.stage === 'transcribing' ? 'pulse' : ''}`}>
-              {hasAsr && <Icon name="check" size={9} color="#fff" />}
-            </div>
-            <div className="lb">ASR</div>
-            <div className="sb">whisper</div>
-          </div>
-          <div className={`s-link ${hasAsr ? 'done' : ''}`} />
-          <div className={`s-step ${hasMt ? 'done' : file.stage === 'translating' ? 'active' : 'idle'}`}>
-            <div className={`dot ${file.stage === 'translating' ? 'pulse' : ''}`}>
-              {hasMt && <Icon name="check" size={9} color="#fff" />}
-            </div>
-            <div className="lb">MT</div>
-            <div className="sb">ollama</div>
-          </div>
-          <div className={`s-link ${hasMt ? 'done' : isProofreading ? 'active' : ''}`} />
-          <div className={`s-step ${isDone || isRendering ? 'done' : isProofreading ? 'active' : 'idle'}`}>
-            <div className={`dot ${isProofreading ? 'pulse' : ''}`}>
-              {(isDone || isRendering) && <Icon name="check" size={9} color="#fff" />}
-            </div>
-            <div className="lb">校對</div>
-            <div className="sb">
-              {file.approved}/{file.segments}
-            </div>
-          </div>
-          <div className={`s-link ${isDone ? 'done' : isRendering ? 'active' : ''}`} />
-          <div className={`s-step ${isDone ? 'done' : isRendering ? 'active' : 'idle'}`}>
-            <div className={`dot ${isRendering ? 'pulse' : ''}`}>
-              {isDone && <Icon name="check" size={9} color="#fff" />}
-            </div>
-            <div className="lb">燒字</div>
-            <div className="sb">{isRendering ? `${file.renderProgress}%` : isDone ? '完成' : '—'}</div>
-          </div>
+          {stagesSteps.map((step, i) => {
+            // s-link sits between two s-step nodes. The link is "done" only
+            // when both this step and the previous step are completed.
+            const linkActive = i > 0 && stagesSteps[i - 1]?.stateKind === 'done';
+            return (
+              <span key={step.key} style={{ display: 'contents' }}>
+                {i > 0 && <div className={`s-link ${linkActive ? 'done' : ''}`} />}
+                <div className={`s-step ${step.stateKind}`}>
+                  <div className={`dot ${step.pulse ? 'pulse' : ''}`}>
+                    {step.showCheck && <Icon name="check" size={9} color="#fff" />}
+                  </div>
+                  <div className="lb">{step.label}</div>
+                  <div className="sb">{step.sublabel}</div>
+                </div>
+              </span>
+            );
+          })}
+        </div>
+        <div
+          style={{
+            marginTop: 10,
+            padding: '6px 10px',
+            fontSize: 11,
+            color: 'var(--text-dim)',
+            borderTop: '1px dashed var(--border)',
+            lineHeight: 1.5,
+          }}
+        >
+          {allStagesDone
+            ? '✓ 完成後可於工作台點擊「校對 →」與「匯出 →」'
+            : '校對 / 燒字 為人手步驟，完成後從工作台啟動。'}
         </div>
       </div>
 
@@ -1030,23 +1278,83 @@ function BoldInspector({ file }: { file: DesignFile | null }) {
           <div className="inspector-body subtitle-settings">
             <div className="sub-preview">
               <div className="sub-preview-label">預覽</div>
-              <div className="sub-preview-stage">
-                <div className="sub-preview-text" style={{ fontSize: '18px' }}>
+              <div
+                className="sub-preview-stage"
+                style={{
+                  background: '#000',
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  justifyContent: 'center',
+                  minHeight: 70,
+                  padding: '6px 12px',
+                }}
+              >
+                <div
+                  className="sub-preview-text"
+                  style={{
+                    fontFamily: fontPreview?.family
+                      ? `"${fontPreview.family}", system-ui, sans-serif`
+                      : undefined,
+                    color: fontPreview?.color ?? '#fff',
+                    fontSize: fontPreview ? Math.max(12, Math.round(fontPreview.size * 0.4)) : 18,
+                    WebkitTextStroke: fontPreview
+                      ? `${Math.max(0.5, fontPreview.outline_width * 0.5)}px ${fontPreview.outline_color}`
+                      : undefined,
+                    fontWeight: 600,
+                  }}
+                >
                   字幕樣式預覽
                 </div>
               </div>
             </div>
             <div className="ss-group">
-              <div className="ss-title">字幕設定</div>
-              <div style={{ fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.5 }}>
-                前往
+              <div className="ss-title">字幕設定 (唯讀)</div>
+              {fontPreview ? (
+                <dl className="info-dl">
+                  <dt>字型</dt>
+                  <dd title={fontPreview.family}>{fontPreview.family}</dd>
+                  <dt>字號</dt>
+                  <dd>{fontPreview.size}</dd>
+                  <dt>顏色</dt>
+                  <dd>
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        width: 10,
+                        height: 10,
+                        background: fontPreview.color,
+                        border: '1px solid var(--border)',
+                        marginRight: 6,
+                        verticalAlign: 'middle',
+                      }}
+                    />
+                    {fontPreview.color}
+                  </dd>
+                  <dt>輪廓</dt>
+                  <dd>
+                    {fontPreview.outline_width}px / {fontPreview.outline_color}
+                  </dd>
+                </dl>
+              ) : (
+                <div style={{ fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.5 }}>
+                  Pipeline 字型設定載入中…
+                </div>
+              )}
+              <div
+                style={{
+                  marginTop: 10,
+                  fontSize: 11,
+                  color: 'var(--text-dim)',
+                  lineHeight: 1.5,
+                }}
+              >
+                此預覽為 Pipeline 預設。需要逐檔調整？
                 <Link
                   to={`/proofread/${file.id}`}
-                  style={{ color: 'var(--accent-2)', margin: '0 4px' }}
+                  style={{ color: 'var(--accent-2)', marginLeft: 4 }}
                 >
-                  校對頁面
+                  編輯 →
                 </Link>
-                以調整字幕字型、大小、顏色及位置。
               </div>
             </div>
           </div>
@@ -1059,8 +1367,7 @@ function BoldInspector({ file }: { file: DesignFile | null }) {
               <dl className="info-dl">
                 <dt>檔名</dt>
                 <dd title={file.name}>{file.name}</dd>
-                <dt>時長</dt>
-                <dd>{file.duration}</dd>
+                {/* 時長 — 隱藏直到 backend 加 ffprobe duration 欄位 (audit Batch A) */}
                 <dt>大小</dt>
                 <dd>{file.size}</dd>
                 <dt>段數</dt>
@@ -1073,15 +1380,15 @@ function BoldInspector({ file }: { file: DesignFile | null }) {
               <div className="info-title">Pipeline</div>
               <dl className="info-dl">
                 <dt>ASR</dt>
-                <dd>
-                  {file.asrEngine} · {file.asrModel}
-                </dd>
+                <dd>{asrEngineLine ?? '—'}</dd>
                 <dt>MT</dt>
-                <dd>
-                  {file.mtEngine} · {file.mtModel}
-                </dd>
-                <dt>語言</dt>
-                <dd>{file.language}</dd>
+                <dd>{mtEngineLine ?? '—'}</dd>
+                {langLine && (
+                  <>
+                    <dt>語言</dt>
+                    <dd>{langLine}</dd>
+                  </>
+                )}
               </dl>
             </div>
           </div>
@@ -1129,16 +1436,32 @@ export default function Dashboard() {
   const pipelineId = usePipelinePickerStore((s) => s.pipelineId);
   const pushToast = useUIStore((s) => s.pushToast);
 
+  // Profile-lookup cache — Batch F shared piece for the inspector. Pipeline
+  // resolves to its full shape (asr_profile_id + mt_stages + font_config),
+  // which cascades to ASR profile + MT profile fetches below.
+  const fetchPipeline = useProfileLookupStore((s) => s.fetchPipeline);
+  const fetchAsr = useProfileLookupStore((s) => s.fetchAsr);
+  const fetchMt = useProfileLookupStore((s) => s.fetchMt);
+  const cachedPipelines = useProfileLookupStore((s) => s.pipelines);
+  const cachedAsrProfiles = useProfileLookupStore((s) => s.asrProfiles);
+  const cachedMtProfiles = useProfileLookupStore((s) => s.mtProfiles);
+
   // Sort newest first by uploaded_at (Unix epoch). Previous code read
   // `created_at` which backend never sets → undefined, causing every row to
   // resolve to 0 and the sort to be a no-op.
-  const files: DesignFile[] = Object.values(state.files)
-    .sort((a, b) => {
-      const ta = typeof a.uploaded_at === 'number' ? a.uploaded_at : 0;
-      const tb = typeof b.uploaded_at === 'number' ? b.uploaded_at : 0;
-      return tb - ta;
-    })
-    .map((f) => toDesignFile(f, state.stageProgress[f.id], state.stageStatus[f.id]));
+  const filesRaw = useMemo(
+    () =>
+      Object.values(state.files).sort((a, b) => {
+        const ta = typeof a.uploaded_at === 'number' ? a.uploaded_at : 0;
+        const tb = typeof b.uploaded_at === 'number' ? b.uploaded_at : 0;
+        return tb - ta;
+      }),
+    [state.files],
+  );
+  const files: DesignFile[] = useMemo(
+    () => filesRaw.map((f) => toDesignFile(f, state.stageProgress[f.id], state.stageStatus[f.id])),
+    [filesRaw, state.stageProgress, state.stageStatus],
+  );
 
   // Auto-select first file when files load
   useEffect(() => {
@@ -1148,9 +1471,48 @@ export default function Dashboard() {
   }, [files, selectedFileId]);
 
   const selectedFile = files.find((f) => f.id === selectedFileId) ?? null;
+  const selectedFileRecord = selectedFileId ? filesRaw.find((r) => r.id === selectedFileId) ?? null : null;
   const deleteCandidate = deleteCandidateId
     ? files.find((f) => f.id === deleteCandidateId) ?? null
     : null;
+
+  // Resolve the active pipeline (preferred: per-file pipeline_id; fall back to
+  // the dashboard-level pipelineId from the picker). Cascade fetch ASR profile
+  // + MT profiles so the inspector can render derived 引擎/模型/語言 rows.
+  const activePipelineId =
+    (selectedFileRecord && (selectedFileRecord.pipeline_id as string | null | undefined)) ||
+    pipelineId ||
+    null;
+
+  useEffect(() => {
+    if (activePipelineId) {
+      void fetchPipeline(activePipelineId);
+    }
+  }, [activePipelineId, fetchPipeline]);
+
+  const activePipeline = activePipelineId ? cachedPipelines[activePipelineId] ?? null : null;
+
+  useEffect(() => {
+    if (activePipeline?.asr_profile_id) {
+      void fetchAsr(activePipeline.asr_profile_id);
+    }
+    if (activePipeline?.mt_stages) {
+      for (const mtId of activePipeline.mt_stages) {
+        void fetchMt(mtId);
+      }
+    }
+  }, [activePipeline, fetchAsr, fetchMt]);
+
+  const asrProfile = activePipeline?.asr_profile_id
+    ? cachedAsrProfiles[activePipeline.asr_profile_id] ?? null
+    : null;
+  const mtProfiles = useMemo(
+    () => (activePipeline?.mt_stages ?? []).map((id) => cachedMtProfiles[id] ?? null),
+    [activePipeline, cachedMtProfiles],
+  );
+
+  const inspectorLiveStatus = selectedFileId ? state.stageStatus[selectedFileId] : undefined;
+  const inspectorLiveProgress = selectedFileId ? state.stageProgress[selectedFileId] : undefined;
 
   const handleRun = useCallback(async () => {
     if (!selectedFileId) {
@@ -1248,7 +1610,15 @@ export default function Dashboard() {
             <BoldWorkbench file={selectedFile} />
 
             {/* Right col: Inspector */}
-            <BoldInspector file={selectedFile} />
+            <BoldInspector
+              file={selectedFile}
+              fileRecord={selectedFileRecord}
+              pipeline={activePipeline}
+              asrProfile={asrProfile}
+              mtProfiles={mtProfiles}
+              liveStatus={inspectorLiveStatus}
+              liveProgress={inspectorLiveProgress}
+            />
           </div>
         </div>
       </div>
