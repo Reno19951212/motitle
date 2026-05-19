@@ -10,19 +10,24 @@ test.describe('Admin user management', () => {
     test.skip(page.url().includes('/login'), 'admin login failed');
   });
 
-  test('admin tab shows Users + Audit tabs', async ({ page }) => {
+  test('admin page shows Users + Audit panels', async ({ page }) => {
+    // Iter 5 Bold rewrite — Tabs replaced with side-by-side 2-col panels.
     await page.goto('/admin');
-    await expect(page.getByRole('heading', { name: /^Admin/i })).toBeVisible();
-    await expect(page.getByRole('tab', { name: 'Users' })).toBeVisible();
-    await expect(page.getByRole('tab', { name: 'Audit' })).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('.b-topbar .page-title')).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('.panel-head', { hasText: /Users/i }).first()).toBeVisible();
+    await expect(page.locator('.panel-head', { hasText: /Audit/i }).first()).toBeVisible();
   });
 
-  test('audit tab loads without error', async ({ page }) => {
+  test('audit panel loads without error', async ({ page }) => {
+    // Iter 5 Bold rewrite — Audit panel always rendered (no tab to click).
     await page.goto('/admin');
-    await page.getByRole('tab', { name: 'Audit' }).click();
-    // Should see either rows or "No audit entries yet."
-    await expect(
-      page.locator('text=/Time|No audit entries/')
-    ).toBeVisible({ timeout: 5_000 });
+    await page.waitForLoadState('networkidle');
+    const auditPanel = page.locator('.panel', { hasText: /Audit Log/i });
+    await expect(auditPanel).toBeVisible({ timeout: 5_000 });
+    // Either rows or empty-state present.
+    const rowCount = await auditPanel.locator('.audit-row').count();
+    const emptyCount = await auditPanel.locator('.empty-title').count();
+    expect(rowCount + emptyCount).toBeGreaterThan(0);
   });
 });
