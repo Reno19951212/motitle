@@ -19,7 +19,7 @@ import type {
 import { apiFetch, ApiError } from '@/lib/api';
 import type { FileRecord, StageStatus } from '@/lib/socket-events';
 import { Icon, MoTitleStageBadge } from '@/lib/motitle-icons';
-import type { IconName } from '@/lib/motitle-icons';
+import { BoldRail } from '@/components/BoldRail';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import '@/styles/motitle-bold.css';
 
@@ -197,46 +197,6 @@ function stageForStagePill(stage: string): { asr: string; mt: string } {
   if (stage === 'translating') return { asr: 'ok', mt: 'warn' };
   if (stage === 'proofreading' || stage === 'rendering' || stage === 'done') return { asr: 'ok', mt: 'ok' };
   return { asr: 'idle', mt: 'idle' };
-}
-
-// ---------------------------------------------------------------------------
-// BoldRail
-// ---------------------------------------------------------------------------
-
-const RAIL_ITEMS: Array<{ id: string; icon: IconName; label: string; href: string }> = [
-  { id: 'home',     icon: 'home',   label: '主頁',     href: '/' },
-  { id: 'files',    icon: 'film',   label: '檔案',     href: '/' },
-  { id: 'proof',    icon: 'edit',   label: '校對',     href: '/' },
-  { id: 'pipeline', icon: 'flow',   label: 'Pipeline', href: '/pipelines' },
-  { id: 'gloss',    icon: 'book',   label: '術語表',   href: '/glossaries' },
-  { id: 'lang',     icon: 'layers', label: '語言配置', href: '/' },
-];
-
-function BoldRail() {
-  return (
-    <div className="b-rail">
-      <div className="mark">M</div>
-      {RAIL_ITEMS.map((it) => (
-        <Link key={it.id} to={it.href} className={`rail-btn ${it.id === 'home' ? 'on' : ''}`}>
-          <Icon name={it.icon} size={16} />
-          <span className="tt">{it.label}</span>
-        </Link>
-      ))}
-      <div className="flex1" />
-      <button className="rail-btn" title="通知">
-        <Icon name="bell" size={16} />
-        <span className="tt">通知</span>
-      </button>
-      <button className="rail-btn" title="設定">
-        <Icon name="cog" size={16} />
-        <span className="tt">設定</span>
-      </button>
-      <button className="rail-btn" title="說明">
-        <Icon name="help" size={16} />
-        <span className="tt">說明</span>
-      </button>
-    </div>
-  );
 }
 
 /** Squash threshold: more than this many MT stages collapses into one chip. */
