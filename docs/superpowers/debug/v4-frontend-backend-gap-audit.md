@@ -218,10 +218,44 @@ Note: `broken_refs` is an **object** (`{asr_profile_id?, mt_stages?, glossary_id
 
 ---
 
-## Batch F — Inspector tabs [STATUS: not_started]
+## Batch F — Inspector tabs [STATUS: fixed]
+**Fixed in commits**: 297c1e7 (profile-lookup cache) + 9a1515f (Inspector refactor)
+
+Notes:
+- New shared cache: `frontend/src/stores/profile-lookup.ts` resolves
+  asr_profile_id / mt_profile_id / glossary_id / pipeline_id → full
+  entity dicts. Reusable for Batch B (Pipeline Strip).
+- Cache semantics: `undefined` = never requested; `null` = in-flight OR
+  4xx/network failure (NOT refetched); `<object>` = resolved.
+  `forceRefetch*()` bypasses cache after known mutations.
+- Stages-track: variable-length per `pipeline.mt_stages[]` count. ASR
+  always idx 0; MT 1..N; Glossary final (when enabled). 校對/燒字
+  dropped (not pipeline stages).
+- MT squash threshold: pipelines with >3 MT stages collapse to single
+  "MT × N" chip showing running sub-stage index.
+- Stage state derivation: live `state.stageStatus[file_id][idx]` (Batch
+  A) takes precedence over `entry.stage_outputs[idx].status` (persisted
+  on the registry; only present after a run has started).
+- 資訊 tab: ASR engine·model from cached AsrProfile (flat schema —
+  `profile.engine` + `profile.model_size`, NOT `profile.asr.engine` —
+  audit doc was outdated on that point). MT row shows first stage +
+  "+N 段" suffix. 語言 row only renders after asrProfile resolves.
+  時長 row dropped (no backend field).
+- 字幕設定 tab: read-only preview of `pipeline.font_config`. Edit link
+  routes to `/proofread/<file_id>`. Dashboard does NOT mutate
+  pipeline-level font_config (that belongs on `/pipelines`).
+- **Realtime "實時字幕" tab — DEFERRED**: still routes to proofread
+  page. Inline 20-segment preview was punted to keep this batch
+  focused on the structural stages-track + info-derivation changes.
+  Filter pills remain unhandled. Out-of-scope follow-up.
+- Workbench `語言` row temporarily removed (TS-clean shortcut after
+  dropping `DesignFile.language`). Batch E will wire it back via the
+  same lookup helper.
 
 **Affected files**:
-- `frontend/src/pages/Dashboard.tsx:689-951` (`BoldInspector`)
+- `frontend/src/stores/profile-lookup.ts` (new)
+- `frontend/src/stores/profile-lookup.test.ts` (new)
+- `frontend/src/pages/Dashboard.tsx:689-951` (`BoldInspector` rewrite)
 
 **Gaps found**:
 - **Status card `pct` works correctly** — `(approved/segments)*100`.
