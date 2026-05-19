@@ -194,10 +194,33 @@ Note: `broken_refs` is an **object** (`{asr_profile_id?, mt_stages?, glossary_id
 
 ---
 
-## Batch E — Workbench [STATUS: not_started]
+## Batch E — Workbench [STATUS: fixed]
+**Fixed in commit**: <SHA-PLACEHOLDER>
+
+Notes:
+- `<video src="/api/files/<id>/media">` now hosts the preview (session-cookie
+  auth via same-origin Vite proxy / SPA-served Flask in prod).
+- Waveform peaks fetched once per `file.id` from
+  `/api/files/<id>/waveform?bins=80` → cached in module-local
+  `waveformPeaksCache` so re-selecting the same file is instant. First call
+  on uncached audio takes 5–30s (backend caches per-file too); UI shows a
+  `正在生成波形…` placeholder during the round-trip. On fetch error the
+  strip falls back to `波形不可用` rather than the old decorative bars.
+- Player controls (▶/⏸/time/progress) bound to the `<video>` ref via the
+  standard HTML5 events (`loadedmetadata` / `timeupdate` / `play` / `pause`).
+  Clicking either the progress strip OR the waveform seeks `video.currentTime`.
+- 時長 row now reads `video.duration` (set on `loadedmetadata`); falls back
+  to waveform endpoint's duration if the codec failed to decode. Row hides
+  entirely when neither is available (no `?:??` placeholder).
+- 語言 row restored — reads `asrProfile.language` from `useProfileLookupStore`
+  via the same cascade Dashboard already set up for `BoldInspector`. Only
+  rendered after the profile resolves.
+- Codec edge case: `<video onError>` swaps in `瀏覽器無法預覽呢個格式` overlay
+  pointing users to the Proofread page (no transcoding in JS).
 
 **Affected files**:
-- `frontend/src/pages/Dashboard.tsx:490-683` (`BoldWorkbench`)
+- `frontend/src/pages/Dashboard.tsx` (`BoldWorkbench` rewrite + call-site
+  passes `asrProfile`)
 
 **Gaps found**:
 - **Filename / segment count / approved count are already correct** (when read from the right registry fields).

@@ -1,7 +1,7 @@
 // Dashboard — Bold variant redesign
 // Pixel-faithful port of /tmp/v4-design/motitle/project/variant-bold.jsx
 // This component renders a full-page layout that bypasses the parent Layout shell.
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import { useSocket } from '@/providers/SocketProvider';
@@ -658,11 +658,115 @@ function QueueItem({
 }
 
 // ---------------------------------------------------------------------------
-// BoldWorkbench — empty state when no file selected
+// BoldWorkbench — real video player + waveform (Batch E)
 // ---------------------------------------------------------------------------
 
-function BoldWorkbench({ file }: { file: DesignFile | null }) {
+/** Format seconds → "m:ss". Negative/NaN → "0:00". */
+function fmtTime(sec: number): string {
+  if (!Number.isFinite(sec) || sec < 0) return '0:00';
+  const total = Math.floor(sec);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+/** Local in-memory cache for waveform peaks (keyed by file id). Survives
+ *  re-renders inside the same tab session; not persisted (re-fetched if the
+ *  page reloads, but the backend caches per-file too — second call is fast). */
+const waveformPeaksCache: Record<string, { peaks: number[]; duration: number | null }> = {};
+
+const WAVEFORM_BINS = 80;
+
+function BoldWorkbench({
+  file,
+  asrProfile,
+}: {
+  file: DesignFile | null;
+  asrProfile: AsrProfileLookup | null;
+}) {
   const navigate = useNavigate();
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const waveformRef = useRef<HTMLDivElement | null>(null);
+
+  // Player state — sync'd via <video> events.
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [videoDuration, setVideoDuration] = useState<number | null>(null);
+  const [videoError, setVideoError] = useState(false);
+
+  // Waveform fetch state — re-fetched per file.id, cached per-tab.
+  const [peaks, setPeaks] = useState<number[] | null>(null);
+  const [peaksLoading, setPeaksLoading] = useState(false);
+
+  const fileId = file?.id ?? null;
+
+  // Reset player + waveform whenever a different file is selected.
+  useEffect(() => {
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setVideoDuration(null);
+    setVideoError(false);
+    if (!fileId) {
+      setPeaks(null);
+      setPeaksLoading(false);
+      return;
+    }
+    const cached = waveformPeaksCache[fileId];
+    if (cached) {
+      setPeaks(cached.peaks);
+      setPeaksLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setPeaks(null);
+    setPeaksLoading(true);
+    apiFetch<{ peaks: number[]; duration: number | null }>(
+      `/api/files/${encodeURIComponent(fileId)}/waveform?bins=${WAVEFORM_BINS}`,
+    )
+      .then((res) => {
+        if (cancelled) return;
+        waveformPeaksCache[fileId] = { peaks: res.peaks, duration: res.duration };
+        setPeaks(res.peaks);
+        setPeaksLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setPeaks([]);
+        setPeaksLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fileId]);
+
+  // Toggle play/pause via <video> element.
+  const handleTogglePlay = useCallback(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) {
+      void v.play();
+    } else {
+      v.pause();
+    }
+  }, []);
+
+  // Click on waveform or progress bar → seek. Uses bounding rect so the math
+  // survives any future flex/padding tweaks on the strip.
+  const handleSeekFromBar = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const v = videoRef.current;
+      if (!v) return;
+      const el = e.currentTarget;
+      const rect = el.getBoundingClientRect();
+      const dur = v.duration;
+      if (!Number.isFinite(dur) || dur <= 0) return;
+      const x = e.clientX - rect.left;
+      const ratio = Math.max(0, Math.min(1, rect.width === 0 ? 0 : x / rect.width));
+      v.currentTime = ratio * dur;
+      setCurrentTime(v.currentTime);
+    },
+    [],
+  );
 
   if (!file) {
     return (
@@ -692,6 +796,18 @@ function BoldWorkbench({ file }: { file: DesignFile | null }) {
   const tail = stem.length > TAIL + 4 ? stem.slice(-TAIL) : '';
   const ext = (file.name.match(/\.(\w+)$/) ?? [])[1]?.toUpperCase() ?? '';
 
+  // Prefer the <video>.duration (real), fall back to cached waveform duration
+  // (also real), finally hide the 時長 row when unknown.
+  const cachedDuration = file.id ? waveformPeaksCache[file.id]?.duration ?? null : null;
+  const realDuration: number | null = videoDuration ?? cachedDuration ?? null;
+  const durationLabel = realDuration != null ? fmtTime(realDuration) : null;
+  const progressPct =
+    realDuration && realDuration > 0
+      ? Math.max(0, Math.min(100, (currentTime / realDuration) * 100))
+      : 0;
+
+  const mediaUrl = `/api/files/${encodeURIComponent(file.id)}/media`;
+
   return (
     <div className="workbench">
       <div className="file-header">
@@ -704,10 +820,12 @@ function BoldWorkbench({ file }: { file: DesignFile | null }) {
           {ext && <span className="ext">{ext}</span>}
         </div>
         <div className="fh-meta">
-          <div>
-            <span className="k">時長</span>
-            {file.duration}
-          </div>
+          {durationLabel && (
+            <div>
+              <span className="k">時長</span>
+              {durationLabel}
+            </div>
+          )}
           <div>
             <span className="k">段數</span>
             {file.segments}
@@ -716,7 +834,12 @@ function BoldWorkbench({ file }: { file: DesignFile | null }) {
             <span className="k">已批核</span>
             {file.approved}/{file.segments}
           </div>
-          {/* 語言 row removed in Batch F — to be wired back via pipeline lookup in Batch E */}
+          {asrProfile?.language && (
+            <div>
+              <span className="k">語言</span>
+              {asrProfile.language}
+            </div>
+          )}
         </div>
         <div className="fh-actions">
           <button
@@ -729,31 +852,48 @@ function BoldWorkbench({ file }: { file: DesignFile | null }) {
         </div>
       </div>
 
-      {/* Video preview panel — stub */}
-      <div className="panel" style={{ minHeight: 0, display: 'grid', gridTemplateRows: '1fr auto' }}>
+      {/* Video preview panel — real <video> element + waveform strip */}
+      <div className="panel workbench-video" style={{ minHeight: 0, display: 'grid', gridTemplateRows: '1fr auto' }}>
         <div style={{ position: 'relative', background: '#000', overflow: 'hidden' }}>
-          <div
+          <video
+            ref={videoRef}
+            src={mediaUrl}
+            preload="metadata"
             style={{
               position: 'absolute',
               inset: 0,
-              background: 'linear-gradient(135deg, #1a1a2a, #0a0a14)',
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              background: '#000',
             }}
-          >
+            onLoadedMetadata={(e) => {
+              const d = e.currentTarget.duration;
+              if (Number.isFinite(d) && d > 0) setVideoDuration(d);
+            }}
+            onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+            onError={() => setVideoError(true)}
+          />
+          {videoError && (
             <div
               style={{
                 position: 'absolute',
-                top: 14,
-                left: 16,
-                fontSize: 10,
-                color: 'rgba(255,255,255,0.4)',
-                fontFamily: 'var(--font-mono)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.1em',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'rgba(255,255,255,0.7)',
+                fontSize: 12,
+                background: 'rgba(0,0,0,0.6)',
+                padding: 16,
+                textAlign: 'center',
               }}
             >
-              [ video preview · coming next phase ]
+              瀏覽器無法預覽呢個格式。請使用「校對」頁面或下載原檔。
             </div>
-          </div>
+          )}
           <div
             style={{
               position: 'absolute',
@@ -768,7 +908,11 @@ function BoldWorkbench({ file }: { file: DesignFile | null }) {
               color: '#fff',
             }}
           >
-            <div
+            <button
+              type="button"
+              className="play"
+              onClick={handleTogglePlay}
+              aria-label={isPlaying ? '暫停' : '播放'}
               style={{
                 width: 32,
                 height: 32,
@@ -778,10 +922,13 @@ function BoldWorkbench({ file }: { file: DesignFile | null }) {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                border: 'none',
+                cursor: 'pointer',
+                padding: 0,
               }}
             >
-              <Icon name="play" size={11} color="#000" />
-            </div>
+              <Icon name={isPlaying ? 'pause' : 'play'} size={11} color="#000" />
+            </button>
             <div
               style={{
                 fontFamily: 'var(--font-mono)',
@@ -789,21 +936,23 @@ function BoldWorkbench({ file }: { file: DesignFile | null }) {
                 minWidth: 110,
               }}
             >
-              00:00 / {file.duration}
+              {fmtTime(currentTime)} / {durationLabel ?? '0:00'}
             </div>
             <div
+              onClick={handleSeekFromBar}
               style={{
                 flex: 1,
                 height: 4,
                 background: 'rgba(255,255,255,0.18)',
                 borderRadius: 2,
                 overflow: 'hidden',
+                cursor: realDuration ? 'pointer' : 'default',
               }}
             >
               <div
                 style={{
                   height: '100%',
-                  width: '0%',
+                  width: `${progressPct}%`,
                   background: 'linear-gradient(90deg, var(--accent), var(--accent-2))',
                 }}
               />
@@ -822,29 +971,50 @@ function BoldWorkbench({ file }: { file: DesignFile | null }) {
         >
           <Icon name="waveform" size={13} color="var(--text-mid)" />
           <div
+            ref={waveformRef}
+            className="waveform"
+            onClick={handleSeekFromBar}
             style={{
               flex: 1,
               display: 'flex',
               gap: 2,
               alignItems: 'center',
               height: 28,
+              cursor: realDuration ? 'pointer' : 'default',
+              position: 'relative',
             }}
           >
-            {Array.from({ length: 80 }).map((_, i) => {
-              const h = 8 + Math.abs(Math.sin(i * 0.31)) * 18;
-              return (
-                <div
-                  key={i}
-                  style={{
-                    width: 3,
-                    height: h,
-                    background: 'var(--border-strong)',
-                    borderRadius: 1,
-                    flexShrink: 0,
-                  }}
-                />
-              );
-            })}
+            {peaksLoading || peaks === null ? (
+              <span className="mono dim" style={{ fontSize: 11 }}>
+                正在生成波形…
+              </span>
+            ) : peaks.length === 0 ? (
+              <span className="mono dim" style={{ fontSize: 11 }}>
+                波形不可用
+              </span>
+            ) : (
+              peaks.map((p, i) => {
+                // peaks from backend are float in [0,1]. Map to bar height
+                // 4..28 px so even quiet sections leave a visible nub.
+                const h = 4 + Math.max(0, Math.min(1, p)) * 24;
+                // Determine if this bin is "before" the playhead.
+                const playRatio =
+                  realDuration && realDuration > 0 ? currentTime / realDuration : 0;
+                const isPast = i / peaks.length < playRatio;
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      width: 3,
+                      height: h,
+                      background: isPast ? 'var(--accent-2)' : 'var(--border-strong)',
+                      borderRadius: 1,
+                      flexShrink: 0,
+                    }}
+                  />
+                );
+              })
+            )}
           </div>
           <span className="mono dim">波形預覽</span>
         </div>
@@ -1607,7 +1777,7 @@ export default function Dashboard() {
             </div>
 
             {/* Middle col: Workbench */}
-            <BoldWorkbench file={selectedFile} />
+            <BoldWorkbench file={selectedFile} asrProfile={asrProfile} />
 
             {/* Right col: Inspector */}
             <BoldInspector
