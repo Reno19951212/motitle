@@ -135,7 +135,10 @@ Gap kinds: MISSING_FIELD (mock shows data backend doesn't provide) / SHAPE_MISMA
 
 ---
 
-## Batch C — Pipeline preset dropdown [STATUS: not_started]
+## Batch C — Pipeline preset dropdown [STATUS: fixed]
+**Fixed in commit**: 774a042
+
+Note: `broken_refs` is an **object** (`{asr_profile_id?, mt_stages?, glossary_ids?}`), NOT an array. Empty `{}` means no broken refs. Helper `hasBrokenRefs()` in Dashboard.tsx checks each sub-key. Save button dropped per Option A (pipelines are edited at `/pipelines`).
 
 **Affected files**:
 - `frontend/src/pages/Dashboard.tsx:189-237` (preset section of `PipelineStrip`)
