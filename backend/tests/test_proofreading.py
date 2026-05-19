@@ -50,7 +50,9 @@ def client_with_file(tmp_path):
 
 def test_get_translations(client_with_file):
     client, file_id = client_with_file
-    resp = client.get(f"/api/files/{file_id}/translations")
+    # v5-A2 T7 — explicitly request v4 shape to verify legacy {en_text, zh_text} contract.
+    # Default response is v5 by_lang shape (see test_v5_a2_normalize.py).
+    resp = client.get(f"/api/files/{file_id}/translations?shape=v4")
     assert resp.status_code == 200
     data = resp.get_json()
     assert len(data["translations"]) == 3
@@ -83,7 +85,8 @@ def test_approve_single(client_with_file):
     client, file_id = client_with_file
     resp = client.post(f"/api/files/{file_id}/translations/1/approve")
     assert resp.status_code == 200
-    resp2 = client.get(f"/api/files/{file_id}/translations")
+    # v5-A2 T7 — verify via v4 shape (top-level status), which approve POST writes.
+    resp2 = client.get(f"/api/files/{file_id}/translations?shape=v4")
     assert resp2.get_json()["translations"][1]["status"] == "approved"
 
 
@@ -177,7 +180,8 @@ def test_get_translations_normalizes_legacy_prefix_on_read(tmp_path):
     app.config["TESTING"] = True
     try:
         with app.test_client() as c:
-            resp = c.get(f"/api/files/{fid}/translations")
+            # v5-A2 T7 — request explicit v4 shape; default is now v5 by_lang.
+            resp = c.get(f"/api/files/{fid}/translations?shape=v4")
             data = resp.get_json()
             t = data["translations"][0]
             assert t["zh_text"] == "句子過長因此被標記。"

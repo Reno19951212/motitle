@@ -506,11 +506,16 @@ def delete_file(file_id):
 @require_file_owner
 def api_get_translations(file_id):
     import app as _app
+    from translations_normalize_v5 import normalize_translations_for_v5
     with _app._registry_lock:
         entry = _app._file_registry.get(file_id)
     if not entry:
         return jsonify({"error": "File not found"}), 404
     translations = [_app._normalize_translation_for_api(t) for t in entry.get("translations", [])]
+    # v5-A2 T7 — default to v5 by_lang shape; ?shape=v4 disables normalization
+    # for legacy callers still parsing the v4 {en_text, zh_text} response.
+    if request.args.get("shape") != "v4":
+        translations = normalize_translations_for_v5(translations)
     return jsonify({"translations": translations, "file_id": file_id})
 
 
