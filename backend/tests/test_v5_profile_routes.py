@@ -277,3 +277,34 @@ def test_mt_profiles_returns_deprecation_header(monkeypatch, tmp_path):
     resp = client.get("/api/mt_profiles")
     assert resp.headers.get("Deprecation") == "true"
     assert "/api/refiner_profiles" in resp.headers.get("Link", "")
+
+
+# ============================================================
+# VerifierProfile REST blueprint tests (T12)
+# ============================================================
+
+
+def test_verifier_profiles_create(monkeypatch, tmp_path):
+    from routes.verifier_profiles import bp as v_bp
+    from verifier_profiles import VerifierProfileManager
+    import app as _app
+    monkeypatch.setattr(_app, "_verifier_profile_manager", VerifierProfileManager(tmp_path), raising=False)
+    app = _make_app_with_bp(v_bp, user_id=1, is_admin=False)
+    client = app.test_client()
+    resp = client.post("/api/verifier_profiles", json={
+        "name": "v-zh", "lang": "zh",
+        "llm_profile_id": "x",
+        "prompt_template_id": "verifier/zh_default",
+    })
+    assert resp.status_code == 201
+    assert resp.json["lang"] == "zh"
+
+
+def test_verifier_profiles_404_for_admin(monkeypatch, tmp_path):
+    from routes.verifier_profiles import bp as v_bp
+    from verifier_profiles import VerifierProfileManager
+    import app as _app
+    monkeypatch.setattr(_app, "_verifier_profile_manager", VerifierProfileManager(tmp_path), raising=False)
+    app = _make_app_with_bp(v_bp, user_id=999, is_admin=True)
+    resp = app.test_client().get("/api/verifier_profiles/missing")
+    assert resp.status_code == 404
