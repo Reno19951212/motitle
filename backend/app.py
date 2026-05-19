@@ -317,9 +317,16 @@ def _pipeline_run_handler(job, cancel_event=None):
         file_id=file_id,
         audio_path=audio_path,
         managers={
+            # v4 path
             "asr_manager": _asr_profile_manager,
             "mt_manager": _mt_profile_manager,
             "glossary_manager": _glossary_manager,
+            # v5-A2 path (PipelineRunner v5 dispatch — late-bound through this module)
+            "transcribe_profile_manager": _transcribe_profile_manager,
+            "translator_profile_manager": _translator_profile_manager,
+            "refiner_profile_manager": _refiner_profile_manager,
+            "verifier_profile_manager": _verifier_profile_manager,
+            "llm_profile_manager": _llm_profile_manager,
         },
     )
     start_from_stage = int(payload.get("start_from_stage", 0)) if isinstance(payload, dict) else 0
