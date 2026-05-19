@@ -183,3 +183,39 @@ def test_asr_profiles_returns_deprecation_header(monkeypatch, tmp_path):
     resp = client.get("/api/asr_profiles")
     assert resp.headers.get("Deprecation") == "true"
     assert "/api/transcribe_profiles" in resp.headers.get("Link", "")
+
+
+# ============================================================
+# TranslatorProfile REST blueprint tests (T8)
+# ============================================================
+
+
+def test_translator_profiles_create_get(monkeypatch, tmp_path):
+    from routes.translator_profiles import bp as tr_bp
+    from translator_profiles import TranslatorProfileManager
+    import app as _app
+    mgr = TranslatorProfileManager(tmp_path)
+    monkeypatch.setattr(_app, "_translator_profile_manager", mgr, raising=False)
+    app = _make_app_with_bp(tr_bp, user_id=1, is_admin=False)
+    client = app.test_client()
+    resp = client.post("/api/translator_profiles", json={
+        "name": "zh->en",
+        "source_lang": "zh", "target_lang": "en",
+        "llm_profile_id": "llm1",
+        "prompt_template_id": "translator/zh_to_en_default",
+    })
+    assert resp.status_code == 201
+    assert resp.json["source_lang"] == "zh"
+
+
+def test_translator_profiles_rejects_same_lang(monkeypatch, tmp_path):
+    from routes.translator_profiles import bp as tr_bp
+    from translator_profiles import TranslatorProfileManager
+    import app as _app
+    monkeypatch.setattr(_app, "_translator_profile_manager", TranslatorProfileManager(tmp_path), raising=False)
+    app = _make_app_with_bp(tr_bp, user_id=1)
+    resp = app.test_client().post("/api/translator_profiles", json={
+        "name": "bad", "source_lang": "zh", "target_lang": "zh",
+        "llm_profile_id": "x", "prompt_template_id": "y",
+    })
+    assert resp.status_code == 400
