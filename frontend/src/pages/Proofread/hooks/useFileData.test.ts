@@ -39,8 +39,8 @@ describe('useFileData', () => {
     const { result } = renderHook(() => useFileData('a'));
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.translations).toHaveLength(2);
-    expect(result.current.translations[0].en_text).toBe('第一段');
-    expect(result.current.translations[0].zh_text).toBe('第一段');
+    expect(result.current.translations[0]?.en_text).toBe('第一段');
+    expect(result.current.translations[0]?.zh_text).toBe('第一段');
   });
 
   it('sets error on file fetch failure', async () => {

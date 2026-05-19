@@ -960,6 +960,69 @@ function fmtTime(sec: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+interface SegmentPreview {
+  start: number;
+  end: number;
+  text: string;
+}
+
+/** Find the segment whose [start, end] window contains `t`. Returns -1 if none.
+ *  Linear scan (97 segments × 60Hz onTimeUpdate ≈ 6k ops/sec — negligible). */
+function findSegmentIdxAtTime(segments: SegmentPreview[], t: number): number {
+  for (let i = 0; i < segments.length; i++) {
+    const s = segments[i];
+    if (s && t >= s.start && t < s.end) return i;
+  }
+  return -1;
+}
+
+/** Subtitle overlay on top of the <video>. SVG paint-order matches the
+ *  Proofread page's SubtitleOverlay (libass-compatible stroke geometry). */
+function VideoSubtitleOverlay({
+  segments,
+  currentTime,
+}: {
+  segments: SegmentPreview[];
+  currentTime: number;
+}) {
+  const idx = findSegmentIdxAtTime(segments, currentTime);
+  if (idx < 0) return null;
+  const text = segments[idx]?.text ?? '';
+  if (!text) return null;
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: '14%',
+        textAlign: 'center',
+        pointerEvents: 'none',
+        padding: '0 24px',
+      }}
+    >
+      <span
+        style={{
+          display: 'inline-block',
+          maxWidth: '92%',
+          fontFamily: '"Noto Sans HK", "PingFang HK", system-ui, sans-serif',
+          fontSize: 'clamp(18px, 3.6vw, 36px)',
+          fontWeight: 700,
+          color: '#fff',
+          lineHeight: 1.25,
+          textShadow:
+            '2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000,' +
+            '1.4px 1.4px 0 #000, -1.4px 1.4px 0 #000,' +
+            '1.4px -1.4px 0 #000, -1.4px -1.4px 0 #000',
+          WebkitFontSmoothing: 'antialiased',
+        }}
+      >
+        {text}
+      </span>
+    </div>
+  );
+}
+
 /** Local in-memory cache for waveform peaks (keyed by file id). Survives
  *  re-renders inside the same tab session; not persisted (re-fetched if the
  *  page reloads, but the backend caches per-file too — second call is fast). */
@@ -970,9 +1033,15 @@ const WAVEFORM_BINS = 80;
 function BoldWorkbench({
   file,
   asrProfile,
+  segments,
+  currentTime,
+  onTimeUpdate,
 }: {
   file: DesignFile | null;
   asrProfile: AsrProfileLookup | null;
+  segments: SegmentPreview[];
+  currentTime: number;
+  onTimeUpdate: (t: number) => void;
 }) {
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -980,7 +1049,6 @@ function BoldWorkbench({
 
   // Player state — sync'd via <video> events.
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
   const [videoError, setVideoError] = useState(false);
 
@@ -991,9 +1059,9 @@ function BoldWorkbench({
   const fileId = file?.id ?? null;
 
   // Reset player + waveform whenever a different file is selected.
+  // currentTime is lifted — parent resets it on file change.
   useEffect(() => {
     setIsPlaying(false);
-    setCurrentTime(0);
     setVideoDuration(null);
     setVideoError(false);
     if (!fileId) {
@@ -1053,9 +1121,9 @@ function BoldWorkbench({
       const x = e.clientX - rect.left;
       const ratio = Math.max(0, Math.min(1, rect.width === 0 ? 0 : x / rect.width));
       v.currentTime = ratio * dur;
-      setCurrentTime(v.currentTime);
+      onTimeUpdate(v.currentTime);
     },
-    [],
+    [onTimeUpdate],
   );
 
   if (!file) {
@@ -1161,11 +1229,12 @@ function BoldWorkbench({
               const d = e.currentTarget.duration;
               if (Number.isFinite(d) && d > 0) setVideoDuration(d);
             }}
-            onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+            onTimeUpdate={(e) => onTimeUpdate(e.currentTarget.currentTime)}
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
             onError={() => setVideoError(true)}
           />
+          <VideoSubtitleOverlay segments={segments} currentTime={currentTime} />
           {videoError && (
             <div
               style={{
@@ -1318,12 +1387,6 @@ function BoldWorkbench({
 // (Un-defers Batch F's deferred 實時字幕 inline preview)
 // ---------------------------------------------------------------------------
 
-interface SegmentPreview {
-  start: number;
-  end: number;
-  text: string;
-}
-
 function fmtTimestamp(sec: number): string {
   const total = Math.max(0, Math.floor(sec));
   const m = Math.floor(total / 60);
@@ -1331,39 +1394,35 @@ function fmtTimestamp(sec: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-function InspectorTranscriptPreview({ fileId }: { fileId: string }) {
-  const [segs, setSegs] = useState<SegmentPreview[] | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+function InspectorTranscriptPreview({
+  segments,
+  currentTime,
+}: {
+  segments: SegmentPreview[];
+  currentTime: number;
+}) {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const activeIdx = findSegmentIdxAtTime(segments, currentTime);
 
+  // Auto-scroll the active row into the middle of the viewport. We pick the
+  // row via data-seg-idx attribute so the row → container math is robust to
+  // dynamic row heights (variable text length).
   useEffect(() => {
-    let cancelled = false;
-    setSegs(null);
-    setErr(null);
-    apiFetch<{ segments: SegmentPreview[] }>(`/api/files/${fileId}/segments`)
-      .then((r) => {
-        if (!cancelled) setSegs(r.segments ?? []);
-      })
-      .catch((e) => {
-        if (!cancelled) setErr(e instanceof Error ? e.message : 'load failed');
-      });
-    return () => { cancelled = true; };
-  }, [fileId]);
+    if (activeIdx < 0) return;
+    const container = scrollRef.current;
+    if (!container) return;
+    const row = container.querySelector<HTMLDivElement>(
+      `[data-seg-idx="${activeIdx}"]`,
+    );
+    if (!row) return;
+    const cRect = container.getBoundingClientRect();
+    const rRect = row.getBoundingClientRect();
+    const offset =
+      rRect.top - cRect.top - cRect.height / 2 + rRect.height / 2;
+    container.scrollBy({ top: offset, behavior: 'smooth' });
+  }, [activeIdx]);
 
-  if (err) {
-    return (
-      <div className="transcript-scroll">
-        <div className="empty"><div className="empty-sub">字幕載入失敗：{err}</div></div>
-      </div>
-    );
-  }
-  if (segs === null) {
-    return (
-      <div className="transcript-scroll">
-        <div className="empty"><div className="empty-sub">載入中…</div></div>
-      </div>
-    );
-  }
-  if (segs.length === 0) {
+  if (segments.length === 0) {
     return (
       <div className="transcript-scroll">
         <div className="empty"><div className="empty-sub">尚無字幕。Pipeline 完成後將顯示。</div></div>
@@ -1371,35 +1430,49 @@ function InspectorTranscriptPreview({ fileId }: { fileId: string }) {
     );
   }
 
-  const preview = segs.slice(0, 25);
-  const remaining = segs.length - preview.length;
-
   return (
-    <div className="transcript-scroll" style={{ padding: 4, fontSize: 12, lineHeight: 1.45 }}>
-      {preview.map((s, i) => (
-        <div
-          key={i}
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '50px 1fr',
-            gap: 8,
-            padding: '4px 6px',
-            borderRadius: 4,
-            background: i % 2 === 0 ? 'transparent' : 'var(--surface-2)',
-          }}
-        >
-          <span className="dim" style={{ fontSize: 10 }}>{fmtTimestamp(s.start)}</span>
-          <span>{s.text}</span>
-        </div>
-      ))}
-      {remaining > 0 && (
-        <div
-          className="dim"
-          style={{ padding: '8px 6px', fontSize: 11 }}
-        >
-          … 仲有 {remaining} 段，去校對頁睇晒
-        </div>
-      )}
+    <div
+      ref={scrollRef}
+      className="transcript-scroll"
+      style={{ padding: 4, fontSize: 12, lineHeight: 1.45, overflowY: 'auto' }}
+    >
+      {segments.map((s, i) => {
+        const isActive = i === activeIdx;
+        return (
+          <div
+            key={i}
+            data-seg-idx={i}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '50px 1fr',
+              gap: 8,
+              padding: '4px 6px',
+              borderRadius: 4,
+              background: isActive
+                ? 'var(--accent-soft)'
+                : i % 2 === 0
+                  ? 'transparent'
+                  : 'var(--surface-2)',
+              borderLeft: isActive ? '2px solid var(--accent)' : '2px solid transparent',
+              transition: 'background 120ms ease',
+            }}
+          >
+            <span
+              className="dim"
+              style={{
+                fontSize: 10,
+                color: isActive ? 'var(--accent)' : undefined,
+                fontWeight: isActive ? 700 : 400,
+              }}
+            >
+              {fmtTimestamp(s.start)}
+            </span>
+            <span style={{ color: isActive ? 'var(--text)' : undefined, fontWeight: isActive ? 600 : 400 }}>
+              {s.text}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1618,6 +1691,8 @@ function BoldInspector({
   mtProfiles,
   liveStatus,
   liveProgress,
+  segments,
+  currentTime,
 }: {
   file: DesignFile | null;
   fileRecord: FileRecord | null;
@@ -1626,6 +1701,8 @@ function BoldInspector({
   mtProfiles: Array<MtProfileLookup | null | undefined>;
   liveStatus: Record<number, StageStatus> | undefined;
   liveProgress: Record<number, number> | undefined;
+  segments: SegmentPreview[];
+  currentTime: number;
 }) {
   const [tab, setTab] = useState<'transcript' | 'tuning' | 'info'>('transcript');
 
@@ -1798,7 +1875,7 @@ function BoldInspector({
                   校對頁 →
                 </Link>
               </div>
-              <InspectorTranscriptPreview fileId={file.id} />
+              <InspectorTranscriptPreview segments={segments} currentTime={currentTime} />
             </div>
           </div>
         )}
@@ -2005,6 +2082,26 @@ export default function Dashboard() {
     ? files.find((f) => f.id === deleteCandidateId) ?? null
     : null;
 
+  // Lift currentTime + segments here so the Workbench's <video> playhead
+  // drives both the subtitle overlay (above the video) and the Inspector's
+  // 實時字幕 preview (auto-scroll + highlight current line).
+  const [currentTime, setCurrentTime] = useState(0);
+  const [segments, setSegments] = useState<SegmentPreview[]>([]);
+  useEffect(() => {
+    setCurrentTime(0);
+    setSegments([]);
+    if (!selectedFileId) return;
+    let cancelled = false;
+    apiFetch<{ segments: SegmentPreview[] }>(`/api/files/${selectedFileId}/segments`)
+      .then((r) => {
+        if (!cancelled) setSegments(r.segments ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setSegments([]);
+      });
+    return () => { cancelled = true; };
+  }, [selectedFileId]);
+
   // Resolve the active pipeline (preferred: per-file pipeline_id; fall back to
   // the dashboard-level pipelineId from the picker). Cascade fetch ASR profile
   // + MT profiles so the inspector can render derived 引擎/模型/語言 rows.
@@ -2136,7 +2233,13 @@ export default function Dashboard() {
             </div>
 
             {/* Middle col: Workbench */}
-            <BoldWorkbench file={selectedFile} asrProfile={asrProfile} />
+            <BoldWorkbench
+              file={selectedFile}
+              asrProfile={asrProfile}
+              segments={segments}
+              currentTime={currentTime}
+              onTimeUpdate={setCurrentTime}
+            />
 
             {/* Right col: Inspector */}
             <BoldInspector
@@ -2147,6 +2250,8 @@ export default function Dashboard() {
               mtProfiles={mtProfiles}
               liveStatus={inspectorLiveStatus}
               liveProgress={inspectorLiveProgress}
+              segments={segments}
+              currentTime={currentTime}
             />
           </div>
         </div>
