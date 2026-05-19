@@ -10,7 +10,7 @@
 |---|---|---|---|---|---|---|
 | 1 | Timeline (Proofread) | `/proofread/:fileId` | fixed | `2b9a441` + `450a83d` + `2882c14` | `tests-e2e/bold-proofread.spec.ts` (7 tests, all pass) | none |
 | 2 | ASR Profile | `/asr_profiles` | fixed | (this branch) — see Iter 2 section below | `tests-e2e/bold-asr-profile.spec.ts` (5 tests, all pass) | none |
-| 3 | MT Profile | `/mt_profiles` | not_started | | | |
+| 3 | MT Profile | `/mt_profiles` | fixed | `3508bb6` + `7a964d7` + (tracker) | `tests-e2e/bold-mt-profile.spec.ts` (6 tests, all pass) | none |
 | 4 | Glossary | `/glossaries` | not_started | | | |
 | 5 | Admin | `/admin` | not_started | | | |
 
@@ -188,7 +188,99 @@
 
 ## Iter 3 — MT Profile
 
-[NOT_STARTED]
+[FIXED] — 2026-05-19
+
+- Backend endpoints in scope (all already exist, none changed):
+  - `GET /api/mt_profiles` — list visible profiles (wrapped `.mt_profiles`)
+  - `POST /api/mt_profiles` — create
+  - `GET /api/mt_profiles/<id>` — single profile
+  - `PATCH /api/mt_profiles/<id>` — update (owner only)
+  - `DELETE /api/mt_profiles/<id>` — delete (owner only)
+  - `POST /api/logout` — topbar logout
+
+- Bold elements reused (zero net-new CSS for the layout itself):
+  - `BoldRail` with `activeId="mt"` — rail item already added in iter 2.
+  - `.b-rail` + `.b-main` + `.b-topbar` + `.b-body.b-body-entity` +
+    `.b-col` + `.panel` + `.panel-head` + `.panel-body` + `.empty` +
+    `.empty-icon` + `.empty-title` + `.empty-sub` from iter 1/2.
+  - `.back-btn` + `.run-btn` + `.health-cluster` + `.health-pill` +
+    `.topbar-mid` + `.topbar-actions` + `.page-title` topbar primitives.
+  - `.profile-list` + `.profile-row` + `.profile-icon` + `.profile-text`
+    + `.profile-name` + `.profile-meta` + `.profile-del` left-column
+    list patterns from iter 2.
+  - `.entity-form` + `.field-row` + `.field-grid` + `.field-checks` +
+    `.field-err` + `.form-actions` form layout from iter 2.
+  - `.btn` + `.btn-primary` + `.btn-ghost` for form action buttons.
+
+- Bold elements added (small CSS extension, ~25 lines in motitle-bold.css):
+  - `input[type=number]` joins the existing entity-form input ruleset
+    (background + border + focus state). Required because MT form has
+    3 numeric fields (temperature / batch_size / parallel_batches).
+  - `.entity-form .field-hint` — small dim-text hint paragraph (used
+    for the `{text}` placeholder note + the same-lang policy note).
+  - `.entity-form .field-code` — inline monospace chip with surface-2
+    background + border, used for the `{text}` placeholder inside the
+    hint text.
+  - `.field-grid.field-grid-3` — 3-col variant of the existing grid
+    (1fr × 3) for the temperature / batch / parallel triplet. Collapses
+    to 1col under 900px.
+
+- Other changes:
+  - Router `/mt_profiles` route moved out from under `<Layout/>` to sit
+    alongside Dashboard + Proofread + AsrProfiles (full-page Bold).
+    Same pattern iter 1 + 2 used.
+
+- Design decisions:
+  - `input_lang` change auto-mirrors `output_lang` via a `watch` +
+    `setValue` effect. MT in v4.0 is same-lang only (both the frontend
+    `MtProfileSchema.refine` and the backend `validate_mt_profile`
+    reject mismatched langs). Auto-mirror is the least surprising UX —
+    the user picks one language and the other follows. The output_lang
+    select stays editable so the schema constraint is visible to the
+    user, but in practice they never desync.
+  - Form renders inline in the right column (no modal). Same rationale
+    as iter 2: 11-field schema is too big for the modal viewport and
+    side-by-side comparison to the list is useful.
+  - Right-column empty state when nothing selected — "未選 Profile"
+    with hint to pick a row or click + 新增 Profile.
+  - Rail icon = `layers` (matches the MT semantic — multi-pass
+    polishing pipeline). The rail item already existed from iter 2;
+    only the active highlight needed updating per page.
+  - Topbar Logout chip kept (mirrors AsrProfiles topbar).
+
+- Inline-fix: `frontend/tests-e2e/verify-realtime-subtitle.spec.ts`
+  had `noUnusedLocals` errors on `FID` + `activeRows` introduced by
+  commit `10469e2` that were blocking `npm run build`. Replaced `FID`
+  with a comment and removed the unused `activeRows` locator. No test
+  intent change.
+
+- Existing `tests-e2e/mt-profiles-crud.spec.ts` needed updating — the
+  old spec asserted `+ New MT Profile` button + `<h2>New MT Profile</h2>`
+  modal heading. Bold variant uses `+ 新增 Profile` in the topbar
+  `.run-btn` + inline form (no modal). Spec updated to use Bold
+  selectors (`.b-topbar .page-title` + `.b-topbar .run-btn` +
+  `.field-code`). Test intent preserved.
+
+- Vitest: 204/204 pass (unchanged from iter 2 baseline 204). The
+  `mt-profile.test.ts` schema spec was unchanged — only the page
+  shell changed, not the schema.
+
+- Backend gaps discovered: none.
+
+- Commits:
+  - `3508bb6` — feat(mt-profiles): Bold layout rewrite (mirrors ASR
+    Profile pattern)
+  - `7a964d7` — test(e2e): bold-mt-profile.spec.ts covering CRUD +
+    back nav
+
+- Playwright spec: `tests-e2e/bold-mt-profile.spec.ts` — 6 tests, all
+  pass first run (Bold layout landmarks / rail active state / list or
+  empty state / {text} placeholder hint visible / create+read+delete
+  round-trip / back nav). Full regression: 42 passed / 20 skipped /
+  0 failed (baseline 36 passed, +6 new from this spec, no broken
+  tests).
+
+## Iter 4 — Glossary
 
 ## Iter 4 — Glossary
 
