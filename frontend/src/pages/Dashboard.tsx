@@ -6,8 +6,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import { useSocket } from '@/providers/SocketProvider';
 import { usePipelinePickerStore } from '@/stores/pipeline-picker';
+import type { PipelineBrokenRefs, PipelineSummary } from '@/stores/pipeline-picker';
 import { useUIStore } from '@/stores/ui';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, ApiError } from '@/lib/api';
 import type { FileRecord } from '@/lib/socket-events';
 import { Icon, MoTitleStageBadge } from '@/lib/motitle-icons';
 import type { IconName } from '@/lib/motitle-icons';
@@ -24,6 +25,56 @@ interface EngineProbeItem {
 
 interface EngineProbeResponse {
   engines: EngineProbeItem[];
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline broken_refs helpers (Batch C)
+// ---------------------------------------------------------------------------
+
+/** Returns true when the pipeline has any broken sub-resource references. */
+function hasBrokenRefs(p: PipelineSummary | undefined | null): boolean {
+  const br: PipelineBrokenRefs | undefined = p?.broken_refs;
+  if (!br) return false;
+  if (br.asr_profile_id) return true;
+  if (Array.isArray(br.mt_stages) && br.mt_stages.length > 0) return true;
+  if (Array.isArray(br.glossary_ids) && br.glossary_ids.length > 0) return true;
+  return false;
+}
+
+/** Build a multi-line tooltip string listing the broken refs. */
+function brokenRefsTooltip(p: PipelineSummary | undefined | null): string {
+  const br: PipelineBrokenRefs | undefined = p?.broken_refs;
+  if (!br) return '';
+  const parts: string[] = [];
+  if (br.asr_profile_id) parts.push(`ASR profile: ${br.asr_profile_id}`);
+  if (Array.isArray(br.mt_stages) && br.mt_stages.length > 0) {
+    parts.push(`MT 階段 (${br.mt_stages.length}): ${br.mt_stages.join(', ')}`);
+  }
+  if (Array.isArray(br.glossary_ids) && br.glossary_ids.length > 0) {
+    parts.push(`術語表 (${br.glossary_ids.length}): ${br.glossary_ids.join(', ')}`);
+  }
+  if (!parts.length) return '';
+  return `⚠ 此 Pipeline 引用咗你無權限睇嘅資源：\n${parts.join('\n')}`;
+}
+
+/** Inline red dot used to flag pipelines with broken refs. */
+function BrokenRefsDot({ title }: { title: string }) {
+  return (
+    <span
+      title={title}
+      aria-label="broken-refs"
+      style={{
+        display: 'inline-block',
+        width: 8,
+        height: 8,
+        borderRadius: '50%',
+        background: '#ef4444',
+        flexShrink: 0,
+        marginLeft: 6,
+        boxShadow: '0 0 0 2px rgba(239, 68, 68, 0.15)',
+      }}
+    />
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -209,6 +260,7 @@ function PipelineStrip() {
 
   const activePipeline = pipelines.find((p) => p.id === pipelineId) ?? pipelines[0];
   const activeName = activePipeline?.name ?? '新聞廣播 · TC';
+  const activeBrokenTooltip = brokenRefsTooltip(activePipeline);
 
   return (
     <div className="pipeline-strip" title="當前 Pipeline 組合">
@@ -217,7 +269,12 @@ function PipelineStrip() {
           <Icon name="flow" size={13} color="var(--accent)" />
           <div className="pp-text">
             <div className="pp-k">Pipeline</div>
-            <div className="pp-v">{activeName}</div>
+            <div className="pp-v" style={{ display: 'inline-flex', alignItems: 'center' }}>
+              {activeName}
+              {hasBrokenRefs(activePipeline) && (
+                <BrokenRefsDot title={activeBrokenTooltip} />
+              )}
+            </div>
           </div>
           <Icon name="caret" size={10} />
         </button>
@@ -228,19 +285,35 @@ function PipelineStrip() {
               尚未建立 Pipeline
             </div>
           ) : (
-            pipelines.map((p) => (
-              <button
-                key={p.id}
-                className={p.id === pipelineId ? 'on' : ''}
-                onClick={() => setPipelineId(p.id)}
-              >
-                <div className="smn-main">
-                  <span className="smn-name">{p.name}</span>
-                  {p.id === pipelineId && <span className="smn-badge">當前</span>}
-                </div>
-                {p.description && <div className="smn-desc">{p.description}</div>}
-              </button>
-            ))
+            pipelines.map((p) => {
+              const broken = hasBrokenRefs(p);
+              const brokenTip = broken ? brokenRefsTooltip(p) : '';
+              return (
+                <button
+                  key={p.id}
+                  className={p.id === pipelineId ? 'on' : ''}
+                  onClick={() => setPipelineId(p.id)}
+                  title={brokenTip || undefined}
+                >
+                  <div className="smn-main">
+                    <span className="smn-name" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                      {p.name}
+                      {broken && <BrokenRefsDot title={brokenTip} />}
+                    </span>
+                    {p.id === pipelineId && <span className="smn-badge">當前</span>}
+                  </div>
+                  {p.description && <div className="smn-desc">{p.description}</div>}
+                  {broken && (
+                    <div
+                      className="smn-desc"
+                      style={{ color: '#ef4444', marginTop: 2 }}
+                    >
+                      ⚠ 引用咗無權限睇嘅 ASR/MT/術語表資源
+                    </div>
+                  )}
+                </button>
+              );
+            })
           )}
           <div className="split-divider" />
           <Link to="/pipelines" className="smn-manage" style={{ display: 'flex', gap: 8, padding: '7px 10px', borderRadius: 6, fontSize: 13, color: 'var(--text-mid)', alignItems: 'center' }}>
@@ -377,9 +450,6 @@ function BoldTopbar({ onRun }: { onRun?: () => void }) {
       <div className="topbar-mid">
         <PipelineStrip />
         <div className="topbar-actions">
-          <button className="save-btn" title="儲存當前 Pipeline 為預設">
-            💾 儲存
-          </button>
           <button className="run-btn" title="使用當前設定執行" onClick={onRun}>
             <Icon name="play" size={11} color="#fff" /> 執行
           </button>
@@ -1026,6 +1096,8 @@ function BoldInspector({ file }: { file: DesignFile | null }) {
 export default function Dashboard() {
   const { state } = useSocket();
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const pipelineId = usePipelinePickerStore((s) => s.pipelineId);
+  const pushToast = useUIStore((s) => s.pushToast);
 
   const files: DesignFile[] = Object.values(state.files)
     .sort((a, b) => {
@@ -1044,12 +1116,33 @@ export default function Dashboard() {
 
   const selectedFile = files.find((f) => f.id === selectedFileId) ?? null;
 
+  const handleRun = useCallback(async () => {
+    if (!selectedFileId) {
+      pushToast({ title: '請先揀檔案', variant: 'destructive' });
+      return;
+    }
+    if (!pipelineId) {
+      pushToast({ title: '請先揀 Pipeline', variant: 'destructive' });
+      return;
+    }
+    try {
+      await apiFetch<{ job_id: string }>(`/api/pipelines/${pipelineId}/run`, {
+        method: 'POST',
+        body: JSON.stringify({ file_id: selectedFileId }),
+      });
+      pushToast({ title: '✅ 已排隊' });
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : String(e);
+      pushToast({ title: '排隊失敗', description: msg, variant: 'destructive' });
+    }
+  }, [selectedFileId, pipelineId, pushToast]);
+
   return (
     <div className="motitle-bold">
       <div className="bold">
         <BoldRail />
         <div className="b-main">
-          <BoldTopbar />
+          <BoldTopbar onRun={handleRun} />
           <div className="b-body">
             {/* Left col: DropHero + Queue */}
             <div className="b-col">

@@ -2,12 +2,24 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { apiFetch } from '@/lib/api';
 
+/**
+ * Backend annotates each pipeline with `broken_refs` describing sub-resource
+ * ids the requesting user cannot view (see backend/pipelines.py
+ * `annotate_broken_refs`). Empty dict `{}` means no broken refs.
+ */
+export interface PipelineBrokenRefs {
+  asr_profile_id?: string;
+  mt_stages?: string[];
+  glossary_ids?: string[];
+}
+
 export interface PipelineSummary {
   id: string;
   name: string;
   description: string;
   shared: boolean;
   user_id: number | null;
+  broken_refs?: PipelineBrokenRefs;
 }
 
 interface PickerState {
