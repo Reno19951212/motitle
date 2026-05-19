@@ -195,7 +195,7 @@ Note: `broken_refs` is an **object** (`{asr_profile_id?, mt_stages?, glossary_id
 ---
 
 ## Batch E — Workbench [STATUS: fixed]
-**Fixed in commit**: <SHA-PLACEHOLDER>
+**Fixed in commit**: 7278d12
 
 Notes:
 - `<video src="/api/files/<id>/media">` now hosts the preview (session-cookie
