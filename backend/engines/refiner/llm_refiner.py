@@ -1,0 +1,62 @@
+"""LLMRefiner — concrete RefinerEngine using an LLMEngine backend.
+
+Same-lingual polish only. Does NOT translate. For cross-lingual conversion,
+use TranslatorEngine.
+
+Validated on v5 prototype (HK clip): broadcast register polish + hallucination
+tagging (`[HALLUC]` prefix on segments LLM judges as ASR junk).
+"""
+from __future__ import annotations
+
+from typing import Callable, Optional
+
+from engines.refiner import RefinerEngine
+from engines.llm import LLMEngine
+
+
+_LABEL_PREFIXES = ("潤:", "潤色:", "Refined:", "Cleaned:", "輸出:", "輸出：")
+
+
+class LLMRefiner(RefinerEngine):
+    """Same-lingual polish using any LLMEngine backend.
+
+    One instance per (lang, style) pair (e.g., zh + broadcast-hk).
+    """
+
+    def __init__(
+        self,
+        llm: LLMEngine,
+        system_prompt: str,
+        lang: str,
+        style: str,
+    ):
+        self.llm = llm
+        self.system_prompt = system_prompt
+        self.lang = lang
+        self.style = style
+
+    def refine(
+        self,
+        segments: list,
+        *,
+        progress: Optional[Callable] = None,
+    ) -> list:
+        out: list = []
+        n = len(segments)
+        for i, seg in enumerate(segments):
+            src = (seg.get("text") or "").strip()
+            if not src:
+                out.append({"start": seg["start"], "end": seg["end"], "text": ""})
+                continue
+            refined = self.llm.call(self.system_prompt, src)
+            for prefix in _LABEL_PREFIXES:
+                if refined.startswith(prefix):
+                    refined = refined[len(prefix):].strip()
+            first_line = next(
+                (ln for ln in refined.splitlines() if ln.strip()),
+                "",
+            )
+            out.append({"start": seg["start"], "end": seg["end"], "text": first_line})
+            if progress:
+                progress(i + 1, n, first_line)
+        return out
