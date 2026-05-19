@@ -2,7 +2,38 @@
 
 **Branch base**: `feat/frontend-redesign` @ commit `10469e2`
 **Started**: 2026-05-19
+**Completed**: 2026-05-19
 **Goal**: Extend Dashboard's Bold design language to 5 remaining pages with full Playwright verification.
+
+## Final summary (Iter 5 complete — all 5 iters done)
+
+All 5 pages migrated to the Bold layout. Aggregate totals:
+
+- **Iters**: 5 of 5 [FIXED]
+- **Pages migrated**: Proofread (`/proofread/:fileId`), AsrProfiles (`/asr_profiles`),
+  MtProfiles (`/mt_profiles`), Glossaries (`/glossaries`), Admin (`/admin`)
+- **New Playwright bold-* specs**: 5 files / 31 tests total
+  - `bold-proofread.spec.ts` — 7 tests
+  - `bold-asr-profile.spec.ts` — 5 tests
+  - `bold-mt-profile.spec.ts` — 6 tests
+  - `bold-glossary.spec.ts` — 6 tests
+  - `bold-admin.spec.ts` — 7 tests
+- **Full regression at completion**: **56 passed / 19 skipped / 0 failed**
+  (baseline 24 passed before Iter 1; +32 from new bold-* specs and pre-existing
+  specs that were updated to match Bold selectors)
+- **Vitest unit tests**: 204/204 pass (unchanged across all 5 iters)
+- **Backend gaps found / fixed**: 1
+  - Iter 4: Legacy frontend was POSTing CSV import as multipart/form-data,
+    but `/api/glossaries/<id>/import` expects JSON body with `csv_content`.
+    Fixed in frontend (read file text in browser, POST JSON).
+- **Shared component extracted**: `BoldRail` (Iter 1) — now consumed by all
+  5 Bold pages with `activeId` prop and a single canonical RAIL_ITEMS catalog.
+- **Legacy `<Layout/>` shell**: now only used by `/pipelines` route. All
+  authenticated pages except Pipelines are full-page Bold (no TopBar/SideNav
+  wrapper). `Layout.tsx` itself is retained for the Pipelines page.
+- **CSS line growth**: ~280 lines added to `motitle-bold.css` across iters
+  1-5 (mostly `.b-body-entity` grid, `.profile-list`, `.entity-form`,
+  `.entry-table`, `.lang-chip`, `.csv-actions`, `.user-row .user-actions`).
 
 ## Status table
 
@@ -12,7 +43,7 @@
 | 2 | ASR Profile | `/asr_profiles` | fixed | (this branch) — see Iter 2 section below | `tests-e2e/bold-asr-profile.spec.ts` (5 tests, all pass) | none |
 | 3 | MT Profile | `/mt_profiles` | fixed | `3508bb6` + `7a964d7` + (tracker) | `tests-e2e/bold-mt-profile.spec.ts` (6 tests, all pass) | none |
 | 4 | Glossary | `/glossaries` | fixed | (this branch) — see Iter 4 section below | `tests-e2e/bold-glossary.spec.ts` (6 tests, all pass) | none |
-| 5 | Admin | `/admin` | not_started | | | |
+| 5 | Admin | `/admin` | fixed | (this branch) — see Iter 5 section below | `tests-e2e/bold-admin.spec.ts` (7 tests, all pass) | none |
 
 ## Shared reference (read once)
 
@@ -383,4 +414,105 @@
 
 ## Iter 5 — Admin
 
-[NOT_STARTED]
+[FIXED] — 2026-05-19
+
+- Backend endpoints in scope (all already exist, none changed):
+  - `GET /api/admin/users` — list (bare array, not wrapped)
+  - `POST /api/admin/users` — create (body: `{username, password, is_admin}`)
+  - `DELETE /api/admin/users/<id>` — delete (self-delete + last-admin guards
+    on backend)
+  - `POST /api/admin/users/<id>/reset-password` — body: `{new_password}` (not
+    `password` — fixed in this iter; legacy frontend was POSTing wrong field)
+  - `POST /api/admin/users/<id>/toggle-admin` — flip admin flag
+  - `GET /api/admin/audit?limit=&actor_id=` — bare array of audit rows
+  - `POST /api/logout` — topbar logout
+
+- Bold elements reused (zero net-new layout primitives):
+  - `BoldRail` with `activeId="admin"` — rail item already in catalog from
+    iter 2.
+  - `.b-rail` + `.b-main` + `.b-topbar` + `.b-body.b-body-entity` + `.b-col`
+    + `.panel` + `.panel-head` + `.panel-body` + `.empty` + `.empty-icon` +
+    `.empty-title` + `.empty-sub` from iters 1-4.
+  - `.back-btn` + `.run-btn` + `.health-cluster` + `.health-pill` +
+    `.topbar-mid` + `.topbar-actions` + `.page-title` topbar primitives.
+  - `.profile-list` + `.profile-row` + `.profile-icon` + `.profile-text` +
+    `.profile-name` + `.profile-meta` left-column list patterns.
+  - `.entity-form` + `.field-row` + `.field-checks` + `.field-err` +
+    `.field-hint` + `.form-actions` form layout from iters 2-4.
+  - `.btn` + `.btn-primary` + `.btn-ghost` + `.btn-secondary` +
+    `.btn-danger-ghost` + `.btn-sm` action buttons.
+  - `.entry-table` reused as the audit-log table (with `.audit-table`
+    modifier class for hover state).
+  - `.lang-chip` reused as inline "you" / "admin" badges on each user row
+    and as the action-name chip in each audit row.
+
+- Bold elements added (small CSS extension, ~6 lines in motitle-bold.css):
+  - `.user-row .user-actions` — flex row holding [Make admin] / [Revoke admin]
+    + [Reset PW] + [Delete] buttons, indented to align with the row's text
+    column.
+  - `.audit-table tbody tr:hover` — surface-2 hover state for audit rows
+    (purely decorative).
+  - `.audit-filters select:focus` — accent-ring outline removal on focus.
+
+- Other changes:
+  - Router `/admin` route moved out from under `<Layout/>` to sit alongside
+    Dashboard + Proofread + AsrProfiles + MtProfiles + Glossaries (full-page
+    Bold). Same pattern iters 1-4 used. **`Layout` shell now only used by
+    `/pipelines`.**
+  - Right column hosts a single Audit panel with two `<select>` filters in
+    the panel-head (actor + limit) and a scrollable `.entry-table` body.
+
+- Design decisions:
+  - Picked **Option B (2-col split)** over Option A (tabs) per the iter
+    spec hint — parallel surfaces match the rest of the Bold pages and the
+    audit log benefits from being always visible while you mutate users
+    (immediate feedback on `user.create` / `user.delete` / `user.toggle_admin`
+    rows appearing in audit).
+  - Create user form is a **dismissible inline panel** at the top of the
+    Users panel-body (toggled by the topbar `+ 新增用戶` button). Avoids
+    nesting a modal Dialog inside the Bold shell. Same UX feel as
+    AsrProfiles/MtProfiles/Glossaries inline forms but inverted: those
+    pages put the form in the right column because the form is large; the
+    Admin create form has only 3 fields, so it sits inline on the same
+    panel as the user list.
+  - Reset password is an **expandable inline form below the affected user
+    row** (toggled by the row's "Reset PW" button). Reveals a focused
+    password input + Save/Cancel pair. Keeps the user list contextually
+    visible — avoids modal stacking + matches the Bold visual rhythm.
+  - Delete uses the existing `ConfirmDialog` (shadcn-based) for the
+    irreversible action. Self-delete button is disabled with title text
+    `不能刪除自己` (the backend already 403s but we surface it visually).
+  - Audit filter is two `<select>`s in the panel-head (actor dropdown
+    populated from current users list, limit 50/100/200/500). State
+    changes trigger an automatic `refreshAudit()` via useEffect.
+  - Audit row schema: backend `actor_user_id` (not `actor_id` as the
+    legacy frontend assumed) — fixed inline. `actor_user_id === 0` is the
+    unauthenticated sentinel used by failed-login audit entries (v3.14);
+    we render it as `— (unauth)` instead of `#0`.
+  - Topbar Logout chip kept (mirrors all other Bold pages).
+
+- Existing `tests-e2e/admin-user-mgmt.spec.ts` needed updating — the old
+  spec asserted shadcn Tabs (`role=tab name="Users"` / `name="Audit"`) and
+  a `<h1>Admin</h1>` heading. Bold variant has no tabs (2-col side-by-side
+  panels) and the page-title is `管理員 Admin` inside `.b-topbar .page-title`.
+  Spec updated to assert Bold selectors (`.b-topbar .page-title` +
+  `.panel-head` text matching + scoped `.audit-row`/`.empty-title` count).
+  Test intent (Users + Audit panels load) preserved.
+
+- Vitest: 204/204 pass (unchanged from iter 4 baseline 204). No Admin
+  unit tests existed pre-iter; none added since the page is exercised
+  end-to-end via Playwright.
+
+- Backend gaps discovered: none — the legacy frontend's `password` field
+  name on the reset endpoint was a long-standing frontend bug (backend has
+  always expected `new_password`); fixed in this iter as part of the
+  rewrite.
+
+- Commits: (this branch — see git log)
+
+- Playwright spec: `tests-e2e/bold-admin.spec.ts` — 7 tests, all pass first
+  run (Bold layout landmarks / rail active state / 2-col Users+Audit
+  visible / lists existing users / audit rows or empty state /
+  create+delete round-trip / back nav). Full regression: **56 passed / 19
+  skipped / 0 failed** (baseline 49 passed before iter 5, +7 new bold-admin
+  + reframed admin-user-mgmt stayed at 2 tests, no broken tests).
