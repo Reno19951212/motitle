@@ -117,3 +117,69 @@ def test_llm_profiles_delete_only_owner(monkeypatch, tmp_path):
     resp = app1.test_client().delete(f"/api/llm_profiles/{pid}")
     assert resp.status_code == 200
     assert resp.json["deleted"] == pid
+
+
+# ============================================================
+# TranscribeProfile REST blueprint tests (T6)
+# ============================================================
+
+
+def _make_app_with_bp(bp, user_id=1, is_admin=False):
+    """Mirror of _make_app but for an arbitrary blueprint (T6 helper)."""
+    app = Flask(__name__)
+    app.config["LOGIN_DISABLED"] = True
+    app.config["TESTING"] = True
+    app.register_blueprint(bp)
+
+    from flask_login import LoginManager
+    lm = LoginManager()
+    lm.init_app(app)
+
+    class _User:
+        def __init__(self, uid, admin):
+            self.id = uid
+            self.is_admin = admin
+            self.is_authenticated = True
+            self.is_active = True
+            self.is_anonymous = False
+            def get_id(): return str(uid)
+            self.get_id = get_id
+
+    @lm.request_loader
+    def _load(request):
+        return _User(user_id, is_admin)
+
+    return app
+
+
+def test_transcribe_profiles_create_get(monkeypatch, tmp_path):
+    from routes.transcribe_profiles import bp as tr_bp
+    from transcribe_profiles import TranscribeProfileManager
+    import app as _app
+    mgr = TranscribeProfileManager(tmp_path)
+    monkeypatch.setattr(_app, "_transcribe_profile_manager", mgr, raising=False)
+    app = _make_app_with_bp(tr_bp, user_id=1, is_admin=False)
+    client = app.test_client()
+    resp = client.post("/api/transcribe_profiles", json={
+        "name": "qwen3", "engine": "qwen3-asr", "language": "zh",
+    })
+    assert resp.status_code == 201
+    assert resp.json["engine"] == "qwen3-asr"
+    pid = resp.json["id"]
+    resp2 = client.get(f"/api/transcribe_profiles/{pid}")
+    assert resp2.status_code == 200
+    assert resp2.json["name"] == "qwen3"
+
+
+def test_asr_profiles_returns_deprecation_header(monkeypatch, tmp_path):
+    """Legacy /api/asr_profiles still responds + sets Deprecation header per spec §7."""
+    import app as _app
+    from routes.asr_profiles import bp as asr_bp
+    # Wire a fake asr_profile_manager so the route doesn't crash
+    from asr_profiles import ASRProfileManager
+    monkeypatch.setattr(_app, "_asr_profile_manager", ASRProfileManager(tmp_path), raising=False)
+    app = _make_app_with_bp(asr_bp, user_id=1, is_admin=False)
+    client = app.test_client()
+    resp = client.get("/api/asr_profiles")
+    assert resp.headers.get("Deprecation") == "true"
+    assert "/api/transcribe_profiles" in resp.headers.get("Link", "")

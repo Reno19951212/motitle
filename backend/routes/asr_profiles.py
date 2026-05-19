@@ -104,3 +104,24 @@ def delete_asr_profile(profile_id):
     if not _app._asr_profile_manager.delete_if_owned(profile_id, user_id, is_admin):
         return jsonify({"error": "forbidden"}), 403
     return "", 204
+
+
+# ============================================================
+# v5-A1 deprecation: signal clients to migrate to /api/transcribe_profiles
+# ============================================================
+
+@bp.after_request
+def add_deprecation_header(response):
+    """Mark this v4 endpoint as deprecated in favor of v5 ``/api/transcribe_profiles``.
+
+    Removal scheduled for the v5-A3 cleanup phase.
+
+    Sets the IETF HTTP deprecation headers:
+      - ``Deprecation: true`` — clients should warn / migrate
+      - ``Link: <successor>; rel="successor-version"`` — points to v5 replacement
+      - ``Sunset: <date>`` — planned removal date (RFC 8594)
+    """
+    response.headers["Deprecation"] = "true"
+    response.headers["Link"] = '</api/transcribe_profiles>; rel="successor-version"'
+    response.headers["Sunset"] = "Wed, 31 Dec 2026 00:00:00 GMT"
+    return response
