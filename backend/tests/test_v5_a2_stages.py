@@ -198,3 +198,58 @@ def test_refiner_stage_uses_file_prompt_override_per_lang():
         stage.transform([{"start": 0, "end": 1, "text": "src"}], ctx)
     sent_system = fake_llm.call.call_args.args[0]
     assert sent_system == "CUSTOM ZH REFINER"
+
+
+def test_translator_stage_translates_segments():
+    from stages.v5.translator_stage import TranslatorStage
+    fake_llm = Mock()
+    fake_llm.call.return_value = "EN translation"
+    translator_profile = {
+        "id": "tr1",
+        "source_lang": "zh",
+        "target_lang": "en",
+        "llm_profile_id": "lp1",
+        "prompt_template_id": "translator/zh_to_en_default",
+    }
+    llm_profile = {"id": "lp1", "backend": "ollama", "model": "m", "base_url": "http://x"}
+    stage = TranslatorStage(translator_profile=translator_profile, llm_profile=llm_profile)
+    ctx = StageContext(
+        file_id="f1", user_id=1, pipeline_id="p1", stage_index=4,
+        cancel_event=None, progress_callback=None, pipeline_overrides={},
+    )
+    with patch("stages.v5.translator_stage.build_llm_engine", return_value=fake_llm):
+        out = stage.transform([{"start": 0, "end": 1, "text": "中文"}], ctx)
+    assert out == [{"start": 0, "end": 1, "text": "EN translation"}]
+
+
+def test_translator_stage_type_encodes_src_tgt():
+    from stages.v5.translator_stage import TranslatorStage
+    translator_profile = {"id": "tr1", "source_lang": "zh", "target_lang": "en",
+                          "llm_profile_id": "lp1", "prompt_template_id": "translator/zh_to_en_default"}
+    llm_profile = {"id": "lp1", "backend": "ollama", "model": "m", "base_url": "http://x"}
+    stage = TranslatorStage(translator_profile=translator_profile, llm_profile=llm_profile)
+    assert stage.stage_type == "translator:zh_to_en"
+    assert stage.stage_ref == "tr1"
+
+
+def test_translator_stage_uses_file_prompt_override_per_pair():
+    """File override key is `translators.<src>_to_<tgt>`."""
+    from stages.v5.translator_stage import TranslatorStage
+    fake_llm = Mock()
+    fake_llm.call.return_value = "x"
+    translator_profile = {"id": "tr1", "source_lang": "zh", "target_lang": "en",
+                          "llm_profile_id": "lp1", "prompt_template_id": "translator/zh_to_en_default"}
+    llm_profile = {"id": "lp1", "backend": "ollama", "model": "m", "base_url": "http://x"}
+    stage = TranslatorStage(translator_profile=translator_profile, llm_profile=llm_profile)
+    ctx = StageContext(
+        file_id="f1", user_id=1, pipeline_id="p1", stage_index=4,
+        cancel_event=None, progress_callback=None,
+        pipeline_overrides={"translators": {
+            "zh_to_en": "CUSTOM ZH→EN PROMPT",
+            "zh_to_ja": "irrelevant",
+        }},
+    )
+    with patch("stages.v5.translator_stage.build_llm_engine", return_value=fake_llm):
+        stage.transform([{"start": 0, "end": 1, "text": "中文"}], ctx)
+    sent_system = fake_llm.call.call_args.args[0]
+    assert sent_system == "CUSTOM ZH→EN PROMPT"
