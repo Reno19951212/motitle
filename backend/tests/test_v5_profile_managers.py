@@ -178,3 +178,69 @@ def test_transcribe_profile_can_view_and_immutable_fields(tmp_path):
     updated = mgr.update_if_owned(pid, user_id=1, is_admin=False, patch={"user_id": 2, "id": "evil"})
     assert updated["user_id"] == 1
     assert updated["id"] == pid
+
+
+# ============================================================
+# TranslatorProfile manager tests (T7)
+# ============================================================
+
+
+def test_translator_profile_valid(tmp_path):
+    from translator_profiles import TranslatorProfileManager, validate_translator_profile
+    data = {
+        "name": "ZH→EN broadcast",
+        "source_lang": "zh",
+        "target_lang": "en",
+        "llm_profile_id": "some-uuid",
+        "prompt_template_id": "translator/zh_to_en_default",
+    }
+    assert validate_translator_profile(data) == []
+    mgr = TranslatorProfileManager(tmp_path)
+    pid = mgr.create(data, user_id=1)
+    assert mgr.get(pid)["source_lang"] == "zh"
+    assert mgr.get(pid)["target_lang"] == "en"
+
+
+def test_translator_profile_rejects_same_source_target(tmp_path):
+    from translator_profiles import validate_translator_profile
+    errors = validate_translator_profile({
+        "name": "bad", "source_lang": "zh", "target_lang": "zh",
+        "llm_profile_id": "x", "prompt_template_id": "y",
+    })
+    assert any("source_lang and target_lang must differ" in e for e in errors)
+
+
+def test_translator_profile_rejects_missing_llm_profile_id(tmp_path):
+    from translator_profiles import validate_translator_profile
+    errors = validate_translator_profile({
+        "name": "x", "source_lang": "zh", "target_lang": "en",
+        "prompt_template_id": "tpl",
+    })
+    assert any("llm_profile_id" in e for e in errors)
+
+
+def test_translator_profile_rejects_unknown_lang(tmp_path):
+    from translator_profiles import validate_translator_profile
+    errors = validate_translator_profile({
+        "name": "x", "source_lang": "klingon", "target_lang": "en",
+        "llm_profile_id": "x", "prompt_template_id": "y",
+    })
+    assert any("source_lang must be in" in e for e in errors)
+
+
+def test_translator_profile_pattern_hardening(tmp_path):
+    """Verify pattern-setter hardening (immutable fields, name strip, can_view, updated_at)."""
+    from translator_profiles import TranslatorProfileManager
+    mgr = TranslatorProfileManager(tmp_path)
+    pid = mgr.create({
+        "name": "  Test  ", "source_lang": "zh", "target_lang": "en",
+        "llm_profile_id": "x", "prompt_template_id": "y",
+    }, user_id=1)
+    assert mgr.get(pid)["name"] == "Test"
+    assert mgr.can_view(pid, user_id=1, is_admin=False) is True
+    assert mgr.can_view(pid, user_id=2, is_admin=False) is False
+    assert mgr.can_view(pid, user_id=999, is_admin=True) is True
+    # Immutable id/user_id/created_at
+    updated = mgr.update_if_owned(pid, user_id=1, is_admin=False, patch={"user_id": 2, "id": "evil"})
+    assert updated["user_id"] == 1
+    assert updated["id"] == pid
