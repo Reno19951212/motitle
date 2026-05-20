@@ -389,3 +389,50 @@ def test_validate_no_warning_when_pipeline_clean():
     })
     assert errors == [], f"clean pipeline should have no errors, got {errors}"
     assert warnings == [], f"expected no warnings, got {warnings}"
+
+
+# ---- T7: end-to-end smoke — runaway LLM is bounded across all three stages ----
+
+def test_runaway_llm_output_bounded_across_engines():
+    """Simulate an LLM that ignores prompts and returns 5000 chars per call.
+    All three engines must clip the impact via R2 max_tokens + R4 meta filter +
+    R1 verifier guard + R5 flags so the user-visible segment text is bounded.
+    """
+    from engines.refiner.llm_refiner import LLMRefiner
+    from engines.translator.llm_translator import LLMTranslator
+    from engines.verifier.llm_verifier import LLMVerifier
+
+    # FakeLLMEngine: returns 5000-char content, accepts max_tokens but
+    # records what was requested so we can assert the cap reached the LLM.
+    class FakeLLM:
+        def __init__(self):
+            self.calls = []
+        def call(self, sp, up, *, temperature=0.2, max_tokens=None, timeout_sec=120.0, think=False):
+            self.calls.append({"max_tokens": max_tokens})
+            return "X" * 5000
+
+    # Refiner: input 10 chars; refiner output capped via R2 + flagged 'long' via R5
+    refiner_llm = FakeLLM()
+    rf = LLMRefiner(llm=refiner_llm, system_prompt="p", lang="zh", style="b")
+    rf_out = rf.refine([{"start": 0, "end": 1, "text": "短輸入十個字內"}])
+    # All 3 LLMs are mocked so the actual cap isn't enforced at the wire layer,
+    # but the LLM is invoked with max_tokens=200 and the output is flagged.
+    assert refiner_llm.calls[0]["max_tokens"] == 200
+    assert "long" in rf_out[0]["flags"]
+
+    # Translator: same — max_tokens=300, flagged 'long'
+    translator_llm = FakeLLM()
+    tr = LLMTranslator(llm=translator_llm, system_prompt="p", source_lang="zh", target_lang="en")
+    tr_out = tr.translate([{"start": 0, "end": 1, "text": "短輸入"}])
+    assert translator_llm.calls[0]["max_tokens"] == 300
+    assert "long" in tr_out[0]["flags"]
+
+    # Verifier: short window + 5000-char decision → R1 guard fires → primary kept
+    verifier_llm = FakeLLM()
+    vf = LLMVerifier(llm=verifier_llm, system_prompt="p", lang="en")
+    primary = [{"start": 0.0, "end": 2.0, "text": "kept"}]
+    secondary_words = [{"start": 0.1, "end": 1.0, "text": "completely different"}]
+    vf_out = vf.verify(primary, secondary_words)
+    assert verifier_llm.calls[0]["max_tokens"] == 150
+    assert vf_out[0]["text"] == "kept"  # R1 fallback
+    assert "primary_kept" in vf_out[0]["flags"]
