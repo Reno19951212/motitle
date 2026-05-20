@@ -12,6 +12,7 @@ from typing import Callable, Optional
 
 from engines.translator import TranslatorEngine
 from engines.llm import LLMEngine
+from engines._quality_flags import compute_translator_flags
 
 
 _LABEL_PREFIXES = ("EN:", "ZH:", "JA:", "KO:", "Translation:", "譯文:", "中文:")
@@ -47,7 +48,7 @@ class LLMTranslator(TranslatorEngine):
         for i, seg in enumerate(segments):
             src = (seg.get("text") or "").strip()
             if not src:
-                out.append({"start": seg["start"], "end": seg["end"], "text": ""})
+                out.append({"start": seg["start"], "end": seg["end"], "text": "", "flags": []})
                 continue
             # Refiner may emit [HALLUC] tag — strip before translating
             if src.startswith("[HALLUC]"):
@@ -60,7 +61,11 @@ class LLMTranslator(TranslatorEngine):
                 (ln for ln in translated.splitlines() if ln.strip()),
                 "",
             )
-            out.append({"start": seg["start"], "end": seg["end"], "text": first_line})
+            flags = compute_translator_flags(src, first_line)
+            out.append({
+                "start": seg["start"], "end": seg["end"],
+                "text": first_line, "flags": flags,
+            })
             if progress:
                 progress(i + 1, n, first_line)
         return out

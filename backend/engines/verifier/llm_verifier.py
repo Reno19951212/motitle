@@ -91,6 +91,8 @@ class LLMVerifier(VerifierEngine):
             qt_raw = collect_words_for_range(secondary_words, ps["start"], ps["end"])
             qt = _s2hk(qt_raw) if self.lang == "zh" else qt_raw
 
+            flags: list = []
+
             # Trivial shortcuts — no LLM call needed
             if not wt and not qt:
                 decision = "[EMPTY]"
@@ -123,8 +125,12 @@ class LLMVerifier(VerifierEngine):
                     and len(decision) > _SECONDARY_BLOAT_RATIO * max(1, len(wt))
                 ):
                     decision = wt
+                    flags.append("primary_kept")
 
-            out.append({"start": ps["start"], "end": ps["end"], "text": decision})
+            out.append({
+                "start": ps["start"], "end": ps["end"],
+                "text": decision, "flags": flags,
+            })
             if progress:
                 progress(i + 1, n, decision)
         return out

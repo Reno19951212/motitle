@@ -449,7 +449,7 @@ class PipelineRunner:
                     row["by_lang"][lang] = {
                         "text": segs[i].get("text", ""),
                         "status": "pending",
-                        "flags": [],
+                        "flags": list(segs[i].get("flags", []) or []),
                     }
             rows.append(row)
         with app_mod._registry_lock:

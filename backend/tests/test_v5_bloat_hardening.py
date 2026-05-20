@@ -137,7 +137,7 @@ def test_verifier_short_window_short_secondary_passes_through():
 
 
 def test_verifier_short_window_empty_primary_keeps_secondary():
-    """If primary is empty, R1 guard does NOT fire (no source to fall back to)."""
+    """Empty primary hits the trivial shortcut, so R1 guard is unreachable for this scenario."""
     from engines.verifier.llm_verifier import LLMVerifier
     fake_llm = Mock()
     fake_llm.call.return_value = "rescued from silence"
@@ -187,3 +187,108 @@ def test_en_refiner_prompt_has_hallucination_escape():
     sp = tmpl["system_prompt"]
     assert "[HALLUC]" in sp, "EN refiner must mention [HALLUC] marker handling"
     assert "empty string" in sp.lower(), "EN refiner must instruct LLM to output empty string on hallucination"
+
+
+# ---- R5: per-segment quality_flags populated by engines, persisted to by_lang ----
+
+def test_refiner_flags_long_when_output_exceeds_1_5x_input():
+    """Refiner output > 1.5× input chars → segment.flags contains 'long'."""
+    from engines.refiner.llm_refiner import LLMRefiner
+    fake_llm = Mock()
+    fake_llm.call.return_value = "X" * 50  # output 50 chars
+    rf = LLMRefiner(llm=fake_llm, system_prompt="p", lang="zh", style="b")
+    out = rf.refine([{"start": 0, "end": 1, "text": "輸入"}])  # input 2 chars; 50 > 1.5*2=3 → long
+    assert "long" in out[0].get("flags", [])
+
+
+def test_refiner_no_flag_when_output_within_ratio():
+    """Refiner output ≤ 1.5× input chars → flags is empty list."""
+    from engines.refiner.llm_refiner import LLMRefiner
+    fake_llm = Mock()
+    fake_llm.call.return_value = "輸入潤色"  # output 4 chars
+    rf = LLMRefiner(llm=fake_llm, system_prompt="p", lang="zh", style="b")
+    out = rf.refine([{"start": 0, "end": 1, "text": "輸入文本內容"}])  # input 6 chars; 4 ≤ 9 → no flag
+    assert out[0].get("flags", []) == []
+
+
+def test_refiner_flags_empty_recovered_when_llm_drops_content():
+    """Refiner LLM returns empty but input was non-empty → flag 'empty_recovered'."""
+    from engines.refiner.llm_refiner import LLMRefiner
+    fake_llm = Mock()
+    fake_llm.call.return_value = ""
+    rf = LLMRefiner(llm=fake_llm, system_prompt="p", lang="zh", style="b")
+    out = rf.refine([{"start": 0, "end": 1, "text": "原文"}])
+    assert "empty_recovered" in out[0].get("flags", [])
+
+
+def test_translator_flags_long_when_output_exceeds_1_5x_or_80_chars():
+    """Translator output > 1.5× input OR > 80 chars → 'long' flag."""
+    from engines.translator.llm_translator import LLMTranslator
+    fake_llm = Mock()
+    fake_llm.call.return_value = "X" * 100  # 100 chars, way over 80 hard cap
+    tr = LLMTranslator(llm=fake_llm, system_prompt="p", source_lang="en", target_lang="zh")
+    out = tr.translate([{"start": 0, "end": 1, "text": "short input"}])
+    assert "long" in out[0].get("flags", [])
+
+
+def test_verifier_flags_primary_kept_when_r1_guard_fires():
+    """Verifier R1 guard fires → 'primary_kept' flag."""
+    from engines.verifier.llm_verifier import LLMVerifier
+    fake_llm = Mock()
+    fake_llm.call.return_value = "A" * 400
+    vf = LLMVerifier(llm=fake_llm, system_prompt="p", lang="en")
+    primary = [{"start": 0.0, "end": 2.0, "text": "deleted"}]
+    secondary_words = [{"start": 0.1, "end": 0.3, "text": "different"}]
+    out = vf.verify(primary, secondary_words)
+    assert "primary_kept" in out[0].get("flags", [])
+
+
+def test_verifier_exact_3s_window_does_not_fire_r1():
+    """R1 boundary: primary window = exactly 3.0s → guard does NOT fire (strict less-than)."""
+    from engines.verifier.llm_verifier import LLMVerifier
+    fake_llm = Mock()
+    fake_llm.call.return_value = "A" * 400
+    vf = LLMVerifier(llm=fake_llm, system_prompt="p", lang="en")
+    primary = [{"start": 0.0, "end": 3.0, "text": "deleted"}]  # exactly 3.0s
+    secondary_words = [{"start": 0.1, "end": 0.3, "text": "different"}]
+    out = vf.verify(primary, secondary_words)
+    assert out[0]["text"] == "A" * 400, "exactly 3.0s should NOT trigger R1 (strict <)"
+    assert "primary_kept" not in out[0].get("flags", [])
+
+
+def test_persist_by_lang_carries_flags_from_segments():
+    """_persist_by_lang must read segs[i].get('flags', []) instead of hardcoded []."""
+    # Direct unit test of the persistence logic. We construct the runner's
+    # _persist_by_lang method's data path: when segs has flags, the row's
+    # by_lang[lang].flags must reflect them.
+    import sys
+    from unittest.mock import patch, MagicMock
+    sys.modules.setdefault("app", MagicMock())
+    from pipeline_runner import PipelineRunner
+
+    # Construct a minimal runner instance without going through __init__
+    runner = PipelineRunner.__new__(PipelineRunner)
+    runner._file_id = "test_fid"
+    runner._pipeline = {"id": "test_pid"}
+
+    by_lang = {
+        "zh": [
+            {"start": 0, "end": 1, "text": "translated", "flags": ["long"]},
+        ],
+    }
+    source_segments = [{"start": 0, "end": 1, "text": "src"}]
+
+    import app as app_mod
+    fake_registry = {"test_fid": {"id": "test_fid"}}
+    app_mod._file_registry = fake_registry
+    app_mod._registry_lock = MagicMock()
+    app_mod._registry_lock.__enter__ = lambda s: None
+    app_mod._registry_lock.__exit__ = lambda s, *a: None
+    app_mod._save_registry = MagicMock()
+
+    with patch("pipeline_runner._socketio_emit"):
+        runner._persist_by_lang(by_lang, source_lang="en", source_segments=source_segments)
+
+    rows = fake_registry["test_fid"]["translations"]
+    assert rows[0]["by_lang"]["zh"]["flags"] == ["long"], \
+        f"per-segment flags must propagate to by_lang.flags, got {rows[0]['by_lang']['zh']['flags']}"

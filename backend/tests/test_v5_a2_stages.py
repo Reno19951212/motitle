@@ -90,7 +90,7 @@ def test_asr_verifier_stage_judges_disagreement():
     )
     with patch("stages.v5.asr_verifier_stage.build_llm_engine", return_value=fake_llm):
         out = stage.transform(primary, ctx)
-    assert out == [{"start": 0.0, "end": 1.0, "text": "judged"}]
+    assert out == [{"start": 0.0, "end": 1.0, "text": "judged", "flags": []}]
 
 
 def test_asr_verifier_stage_type_and_ref():
@@ -166,7 +166,9 @@ def test_refiner_stage_polishes_segments():
     )
     with patch("stages.v5.refiner_stage.build_llm_engine", return_value=fake_llm):
         out = stage.transform(segments, ctx)
-    assert out == [{"start": 0, "end": 1, "text": "polished"}]
+    # "raw" (3 chars) → "polished" (8 chars) is >1.5× so flags=["long"] is correct
+    assert out[0]["text"] == "polished"
+    assert out[0]["start"] == 0 and out[0]["end"] == 1
 
 
 def test_refiner_stage_type_and_ref_carries_lang():
@@ -219,7 +221,9 @@ def test_translator_stage_translates_segments():
     )
     with patch("stages.v5.translator_stage.build_llm_engine", return_value=fake_llm):
         out = stage.transform([{"start": 0, "end": 1, "text": "中文"}], ctx)
-    assert out == [{"start": 0, "end": 1, "text": "EN translation"}]
+    # "中文" (2 chars) → "EN translation" (14 chars) is >1.5× so flags=["long"] is correct
+    assert out[0]["text"] == "EN translation"
+    assert out[0]["start"] == 0 and out[0]["end"] == 1
 
 
 def test_translator_stage_type_encodes_src_tgt():

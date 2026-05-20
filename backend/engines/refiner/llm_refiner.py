@@ -12,6 +12,7 @@ from typing import Callable, Optional
 
 from engines.refiner import RefinerEngine
 from engines.llm import LLMEngine
+from engines._quality_flags import compute_refiner_flags
 
 
 _LABEL_PREFIXES = ("潤:", "潤色:", "Refined:", "Cleaned:", "輸出:", "輸出：")
@@ -55,7 +56,7 @@ class LLMRefiner(RefinerEngine):
         for i, seg in enumerate(segments):
             src = (seg.get("text") or "").strip()
             if not src:
-                out.append({"start": seg["start"], "end": seg["end"], "text": ""})
+                out.append({"start": seg["start"], "end": seg["end"], "text": "", "flags": []})
                 continue
             refined = self.llm.call(self.system_prompt, src, max_tokens=200)
             for prefix in _LABEL_PREFIXES:
@@ -68,7 +69,11 @@ class LLMRefiner(RefinerEngine):
                 (ln for ln in refined.splitlines() if ln.strip()),
                 "",
             )
-            out.append({"start": seg["start"], "end": seg["end"], "text": first_line})
+            flags = compute_refiner_flags(src, first_line)
+            out.append({
+                "start": seg["start"], "end": seg["end"],
+                "text": first_line, "flags": flags,
+            })
             if progress:
                 progress(i + 1, n, first_line)
         return out
