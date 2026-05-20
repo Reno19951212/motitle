@@ -8,11 +8,15 @@ import { SocketProvider } from '@/providers/SocketProvider';
 const Login = lazy(() => import('@/pages/Login'));
 const Dashboard = lazy(() => import('@/pages/Dashboard'));
 const Pipelines = lazy(() => import('@/pages/Pipelines'));
-const AsrProfiles = lazy(() => import('@/pages/AsrProfiles'));
-const MtProfiles = lazy(() => import('@/pages/MtProfiles'));
 const Glossaries = lazy(() => import('@/pages/Glossaries'));
 const Admin = lazy(() => import('@/pages/Admin'));
 const Proofread = lazy(() => import('@/pages/Proofread'));
+// v5-A3 — 5 new profile pages (replacing legacy AsrProfiles + MtProfiles)
+const LLMProfiles = lazy(() => import('@/pages/LLMProfiles'));
+const TranscribeProfiles = lazy(() => import('@/pages/TranscribeProfiles'));
+const TranslatorProfiles = lazy(() => import('@/pages/TranslatorProfiles'));
+const RefinerProfiles = lazy(() => import('@/pages/RefinerProfiles'));
+const VerifierProfiles = lazy(() => import('@/pages/VerifierProfiles'));
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const user = useAuthStore((s) => s.user);
@@ -59,13 +63,23 @@ export const router = createBrowserRouter([
       // Bold layout — no Layout shell. Must sit outside the <Layout/> branch
       // so the b-rail + b-topbar are not nested inside TopBar + SideNav.
       { path: 'proofread/:fileId', element: <Proofread /> },
-      // AsrProfiles (iter 2 of Bold redesign) renders its own full-page Bold
-      // layout — no Layout shell. Same pattern as Dashboard + Proofread.
-      { path: 'asr_profiles', element: <AsrProfiles /> },
-      // MtProfiles (iter 3 of Bold redesign) renders its own full-page Bold
-      // layout — no Layout shell. Same pattern as Dashboard + Proofread +
-      // AsrProfiles.
-      { path: 'mt_profiles', element: <MtProfiles /> },
+      // v5-A3 — 5 new profile pages render their own full-page Bold layout —
+      // same pattern as Dashboard + Proofread.
+      { path: 'llm_profiles', element: <LLMProfiles /> },
+      { path: 'transcribe_profiles', element: <TranscribeProfiles /> },
+      { path: 'translator_profiles', element: <TranslatorProfiles /> },
+      { path: 'refiner_profiles', element: <RefinerProfiles /> },
+      { path: 'verifier_profiles', element: <VerifierProfiles /> },
+      // v5-A3 — legacy paths redirect to v5 equivalents (backward-compat for
+      // bookmarks + external links + Sunset 2026-12-31 from v5-A1 headers).
+      {
+        path: 'asr_profiles',
+        element: <Navigate to="/transcribe_profiles" replace />,
+      },
+      {
+        path: 'mt_profiles',
+        element: <Navigate to="/refiner_profiles" replace />,
+      },
       // Glossaries (iter 4 of Bold redesign) renders its own full-page Bold
       // layout — no Layout shell. Same pattern as Dashboard + Proofread +
       // AsrProfiles + MtProfiles.

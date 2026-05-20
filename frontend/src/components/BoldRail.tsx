@@ -12,14 +12,18 @@ export const RAIL_ITEMS: Array<{
   label: string;
   href: string;
 }> = [
-  { id: 'home',     icon: 'home',     label: '主頁',     href: '/' },
-  { id: 'files',    icon: 'film',     label: '檔案',     href: '/' },
-  { id: 'proof',    icon: 'edit',     label: '校對',     href: '/' },
-  { id: 'pipeline', icon: 'flow',     label: 'Pipeline', href: '/pipelines' },
-  { id: 'asr',      icon: 'waveform', label: 'ASR',      href: '/asr_profiles' },
-  { id: 'mt',       icon: 'layers',   label: 'MT',       href: '/mt_profiles' },
-  { id: 'gloss',    icon: 'book',     label: '術語表',   href: '/glossaries' },
-  { id: 'admin',    icon: 'user',     label: '管理員',   href: '/admin' },
+  { id: 'home',       icon: 'home',     label: '主頁',     href: '/' },
+  { id: 'files',      icon: 'film',     label: '檔案',     href: '/' },
+  { id: 'proof',      icon: 'edit',     label: '校對',     href: '/' },
+  { id: 'pipeline',   icon: 'flow',     label: 'Pipeline', href: '/pipelines' },
+  // v5-A3 — 5 profile pages replace the previous 2 ASR/MT entries.
+  { id: 'llm',        icon: 'cog',      label: 'LLM',        href: '/llm_profiles' },
+  { id: 'transcribe', icon: 'waveform', label: 'Transcribe', href: '/transcribe_profiles' },
+  { id: 'translator', icon: 'layers',   label: 'Translator', href: '/translator_profiles' },
+  { id: 'refiner',    icon: 'edit',     label: 'Refiner',    href: '/refiner_profiles' },
+  { id: 'verifier',   icon: 'check',    label: 'Verifier',   href: '/verifier_profiles' },
+  { id: 'gloss',      icon: 'book',     label: '術語表',     href: '/glossaries' },
+  { id: 'admin',      icon: 'user',     label: '管理員',     href: '/admin' },
 ];
 
 interface BoldRailProps {
