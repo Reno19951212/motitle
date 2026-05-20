@@ -1,385 +1,349 @@
+// src/pages/Pipelines.tsx
+// v5-A3 — Full rewrite for per-target-lang card layout. Replaces the v4 flat
+// draggable stage list with a structured editor: ASR section (Primary + optional
+// Secondary + optional Verifier), then one card per target language (each card
+// has optional translator + refiner chain).
 import { useEffect, useState } from 'react';
-import { Controller, type UseFormReturn } from 'react-hook-form';
-import type { ZodSchema } from 'zod';
+import { useNavigate } from 'react-router-dom';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuthStore } from '@/stores/auth';
-import { apiFetch } from '@/lib/api';
+import { useSocket } from '@/providers/SocketProvider';
 import {
-  PipelineSchema,
-  SUBTITLE_SOURCES,
-  BILINGUAL_ORDERS,
-  type Pipeline,
-} from '@/lib/schemas/pipeline';
-import { EntityTable } from '@/components/EntityTable';
-import { EntityForm } from '@/components/EntityForm';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { StageEditor, type MtRefOption } from '@/components/StageEditor';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
+  PipelineV5Schema, PIPELINE_V5_LANGS,
+  type PipelineV5,
+} from '@/lib/schemas/pipeline-v5';
+import type { TranscribeProfileRow } from '@/lib/schemas/transcribe-profile';
+import type { LlmProfileRow } from '@/lib/schemas/llm-profile';
+import type { TranslatorProfileRow } from '@/lib/schemas/translator-profile';
+import type { RefinerProfileRow } from '@/lib/schemas/refiner-profile';
+import * as v5 from '@/lib/api/v5';
+import { BoldRail } from '@/components/BoldRail';
+import '@/styles/motitle-bold.css';
 
-interface BrokenRefs {
-  asr_profile_id?: string;
-  mt_stages?: string[];
-  glossary_ids?: string[];
-}
+type PipelineLang = typeof PIPELINE_V5_LANGS[number];
 
-interface PipelineRow extends Pipeline {
-  id: string;
-  user_id: number | null;
-  broken_refs?: BrokenRefs;
-}
-
-function brokenRefCount(b?: BrokenRefs): number {
-  if (!b) return 0;
-  return (b.asr_profile_id ? 1 : 0) + (b.mt_stages?.length ?? 0) + (b.glossary_ids?.length ?? 0);
-}
-
-const defaults: Pipeline = {
+const defaultPipeline: PipelineV5 = {
   name: '',
-  description: '',
+  version: 5,
+  asr_primary: { transcribe_profile_id: '', source_lang: 'zh' },
+  asr_secondary: null,
+  asr_verifier: null,
+  target_languages: ['zh'],
+  refinements: { zh: [] },
+  translators: {},
+  glossary_stages: {},
+  font_config: { family: 'Noto Sans TC', color: 'white', outline_color: 'black' },
   shared: false,
-  asr_profile_id: '',
-  mt_stages: [],
-  glossary_stage: {
-    enabled: false,
-    glossary_ids: [],
-    apply_order: 'explicit',
-    apply_method: 'string-match-then-llm',
-  },
-  font_config: {
-    family: 'Noto Sans TC',
-    color: '#ffffff',
-    outline_color: '#000000',
-    size: 35,
-    outline_width: 2,
-    margin_bottom: 40,
-    subtitle_source: 'auto',
-    bilingual_order: 'source_top',
-  },
 };
 
-interface RefOptions {
-  asr: MtRefOption[];
-  mt: MtRefOption[];
-  glossary: MtRefOption[];
-}
-
 export default function Pipelines() {
-  const user = useAuthStore((s) => s.user)!;
-  const [rows, setRows] = useState<PipelineRow[]>([]);
-  const [editing, setEditing] = useState<PipelineRow | null>(null);
-  const [creating, setCreating] = useState(false);
-  const [deleting, setDeleting] = useState<PipelineRow | null>(null);
-  const [opts, setOpts] = useState<RefOptions>({ asr: [], mt: [], glossary: [] });
+  const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const clearUser = useAuthStore((s) => s.clearUser);
+  const { state: socketState } = useSocket();
 
-  async function refresh() {
-    try {
-      const { pipelines } = await apiFetch<{ pipelines: PipelineRow[] }>('/api/pipelines');
-      setRows(pipelines);
-    } catch {
-      setRows([]);
-    }
-  }
-  async function refreshOptions() {
-    try {
-      const [asrRes, mtRes, glossRes] = await Promise.all([
-        apiFetch<{ asr_profiles: Array<{ id: string; name: string }> }>('/api/asr_profiles'),
-        apiFetch<{ mt_profiles: Array<{ id: string; name: string }> }>('/api/mt_profiles'),
-        apiFetch<{ glossaries: Array<{ id: string; name: string }> }>('/api/glossaries'),
-      ]);
-      const asr = asrRes.asr_profiles;
-      const mt = mtRes.mt_profiles;
-      const gl = glossRes.glossaries;
-      setOpts({ asr, mt, glossary: gl });
-    } catch {
-      /* keep stale */
-    }
-  }
+  const [transcribes, setTranscribes] = useState<TranscribeProfileRow[]>([]);
+  const [llms, setLlms] = useState<LlmProfileRow[]>([]);
+  const [translators, setTranslators] = useState<TranslatorProfileRow[]>([]);
+  const [refiners, setRefiners] = useState<RefinerProfileRow[]>([]);
+
+  const form = useForm<PipelineV5>({
+    resolver: zodResolver(PipelineV5Schema),
+    defaultValues: defaultPipeline,
+  });
+
+  const targetLanguages = form.watch('target_languages');
+  const sourceLang = form.watch('asr_primary.source_lang');
+  const secondaryEnabled = form.watch('asr_secondary') != null;
+  const verifierEnabled = form.watch('asr_verifier') != null;
+
   useEffect(() => {
-    refresh();
-    refreshOptions();
+    Promise.all([
+      v5.getTranscribeProfiles(),
+      v5.getLlmProfiles(),
+      v5.getTranslatorProfiles(),
+      v5.getRefinerProfiles(),
+    ]).then(([tr, llm, xl, rf]) => {
+      setTranscribes(tr);
+      setLlms(llm);
+      setTranslators(xl);
+      setRefiners(rf);
+    }).catch((e) => console.error('Failed to load profiles', e));
   }, []);
 
-  const canMutate = (r: PipelineRow) => user.is_admin || r.user_id === user.id;
+  function toggleSecondary() {
+    if (secondaryEnabled) {
+      form.setValue('asr_secondary', null);
+      form.setValue('asr_verifier', null);
+    } else {
+      form.setValue('asr_secondary', { transcribe_profile_id: '', source_lang: sourceLang });
+    }
+  }
 
-  async function handleCreate(data: Pipeline) {
-    await apiFetch('/api/pipelines', { method: 'POST', body: JSON.stringify(data) });
-    setCreating(false);
-    refresh();
+  function toggleVerifier() {
+    if (verifierEnabled) {
+      form.setValue('asr_verifier', null);
+    } else {
+      form.setValue('asr_verifier', {
+        llm_profile_id: '',
+        prompt_template_id: `verifier/${sourceLang}_default`,
+      });
+    }
   }
-  async function handleEdit(data: Pipeline) {
-    if (!editing) return;
-    await apiFetch(`/api/pipelines/${editing.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    });
-    setEditing(null);
-    refresh();
+
+  function addTargetLang(lang: PipelineLang) {
+    const current = form.getValues('target_languages');
+    if (current.includes(lang)) return;
+    form.setValue('target_languages', [...current, lang]);
+    const refinements = form.getValues('refinements');
+    form.setValue('refinements', { ...refinements, [lang]: [] });
   }
-  async function handleDelete() {
-    if (!deleting) return;
-    await apiFetch(`/api/pipelines/${deleting.id}`, { method: 'DELETE' });
-    setDeleting(null);
-    refresh();
+
+  function removeTargetLang(lang: PipelineLang) {
+    const current = form.getValues('target_languages');
+    const filtered = current.filter((l) => l !== lang) as PipelineLang[];
+    form.setValue('target_languages', filtered);
+    const refinements = { ...form.getValues('refinements') };
+    delete refinements[lang];
+    form.setValue('refinements', refinements);
+    const translatorsMap = { ...form.getValues('translators') };
+    delete translatorsMap[lang];
+    form.setValue('translators', translatorsMap);
   }
+
+  function setTranslatorForLang(lang: string, profileId: string) {
+    const translatorsMap = { ...form.getValues('translators') };
+    if (profileId) {
+      translatorsMap[lang] = { translator_profile_id: profileId };
+    } else {
+      delete translatorsMap[lang];
+    }
+    form.setValue('translators', translatorsMap);
+  }
+
+  function setRefinerForLang(lang: string, profileId: string) {
+    const refinements = { ...form.getValues('refinements') };
+    refinements[lang] = profileId ? [{ refiner_profile_id: profileId }] : [];
+    form.setValue('refinements', refinements);
+  }
+
+  async function onSubmit(data: PipelineV5) {
+    try {
+      const created = await v5.createPipelineV5(data);
+      alert(`Pipeline created: ${created.id}`);
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  }
+
+  async function logout() {
+    try {
+      await fetch('/api/logout', { method: 'POST', credentials: 'include' });
+    } catch { /* swallow */ }
+    clearUser();
+    navigate('/login');
+  }
+
+  const socketConnected = socketState.connected;
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold">Pipelines</h1>
-        <Button onClick={() => setCreating(true)}>+ New Pipeline</Button>
+    <div className="motitle-bold">
+      <div className="bold">
+        <BoldRail activeId="pipeline" />
+        <div className="b-main">
+          <div className="b-topbar">
+            <div className="brand">
+              <span className="brand-mark">M</span>
+              <span className="brand-title">Pipelines (v5)</span>
+            </div>
+            <div className="health-cluster">
+              <span
+                className={`health-pill ${socketConnected ? 'ok' : 'err'}`}
+                title={socketConnected ? 'Socket.IO connected' : 'Socket.IO disconnected'}
+              >
+                {socketConnected ? 'WS' : '——'}
+              </span>
+              <span className="health-pill">{user?.username ?? ''}</span>
+              <button className="action-chip" onClick={logout}>Logout</button>
+            </div>
+          </div>
+
+          <div className="b-body" style={{ gridTemplateColumns: '1fr' }}>
+            <form onSubmit={form.handleSubmit(onSubmit)}>
+              <section className="panel">
+                <div className="panel-head">
+                  <h2>Pipeline Name</h2>
+                  <button type="submit" className="action-chip primary">Save Pipeline</button>
+                </div>
+                <input type="text" {...form.register('name')} placeholder="HK broadcast (ZH + EN)" />
+                {form.formState.errors.name && (
+                  <span className="error">{form.formState.errors.name.message}</span>
+                )}
+              </section>
+
+              <section className="panel">
+                <div className="panel-head"><h2>ASR</h2></div>
+                <label className="field">
+                  Primary Transcribe Profile
+                  <select {...form.register('asr_primary.transcribe_profile_id')}>
+                    <option value="">— select —</option>
+                    {transcribes.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name} ({t.engine}/{t.language})</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  Source Language
+                  <select {...form.register('asr_primary.source_lang')}>
+                    {PIPELINE_V5_LANGS.map((l) => <option key={l} value={l}>{l}</option>)}
+                  </select>
+                </label>
+
+                <label className="field-row">
+                  <input type="checkbox" checked={secondaryEnabled} onChange={toggleSecondary} />
+                  Enable Secondary ASR (dual-ASR cross-validation)
+                </label>
+
+                {secondaryEnabled && (
+                  <label className="field">
+                    Secondary Transcribe Profile
+                    <Controller
+                      control={form.control}
+                      name="asr_secondary.transcribe_profile_id"
+                      render={({ field }) => (
+                        <select {...field} value={field.value || ''}>
+                          <option value="">— select —</option>
+                          {transcribes.map((t) => (
+                            <option key={t.id} value={t.id}>{t.name} ({t.engine})</option>
+                          ))}
+                        </select>
+                      )}
+                    />
+                  </label>
+                )}
+
+                {secondaryEnabled && (
+                  <label className="field-row">
+                    <input type="checkbox" checked={verifierEnabled} onChange={toggleVerifier} />
+                    Enable Verifier (LLM-as-judge between primary + secondary)
+                  </label>
+                )}
+
+                {verifierEnabled && (
+                  <>
+                    <label className="field">
+                      Verifier LLM Profile
+                      <Controller
+                        control={form.control}
+                        name="asr_verifier.llm_profile_id"
+                        render={({ field }) => (
+                          <select {...field} value={field.value || ''}>
+                            <option value="">— select —</option>
+                            {llms.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                          </select>
+                        )}
+                      />
+                    </label>
+                    <label className="field">
+                      Verifier Prompt Template
+                      <Controller
+                        control={form.control}
+                        name="asr_verifier.prompt_template_id"
+                        render={({ field }) => (
+                          <input type="text" {...field} value={field.value || ''} />
+                        )}
+                      />
+                    </label>
+                  </>
+                )}
+              </section>
+
+              <section className="panel">
+                <div className="panel-head">
+                  <h2>Target Languages</h2>
+                </div>
+                <div className="lang-chip-row">
+                  {PIPELINE_V5_LANGS.map((l) => {
+                    const active = (targetLanguages as readonly string[]).includes(l);
+                    return (
+                      <button
+                        key={l}
+                        type="button"
+                        className={`action-chip ${active ? 'primary' : ''}`}
+                        onClick={() => active ? removeTargetLang(l) : addTargetLang(l)}
+                      >
+                        {l}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="lang-cards" style={{ marginTop: 16 }}>
+                  {targetLanguages.map((lang) => {
+                    const translatorValue =
+                      form.watch('translators')[lang]?.translator_profile_id ?? '';
+                    const refinerValue =
+                      form.watch('refinements')[lang]?.[0]?.refiner_profile_id ?? '';
+                    return (
+                      <div key={lang} className="panel" style={{ marginBottom: 8 }}>
+                        <div className="panel-head">
+                          <h3>{lang} 輸出{lang === sourceLang ? ' (source-lang)' : ''}</h3>
+                        </div>
+
+                        {lang !== sourceLang && (
+                          <label className="field">
+                            Translator ({sourceLang} → {lang})
+                            <select
+                              value={translatorValue}
+                              onChange={(e) => setTranslatorForLang(lang, e.target.value)}
+                            >
+                              <option value="">— select —</option>
+                              {translators
+                                .filter((t) => t.source_lang === sourceLang && t.target_lang === lang)
+                                .map((t) => (
+                                  <option key={t.id} value={t.id}>{t.name}</option>
+                                ))}
+                            </select>
+                          </label>
+                        )}
+
+                        <label className="field">
+                          Refiner ({lang} polish — optional)
+                          <select
+                            value={refinerValue}
+                            onChange={(e) => setRefinerForLang(lang, e.target.value)}
+                          >
+                            <option value="">— none —</option>
+                            {refiners
+                              .filter((r) => r.lang === lang)
+                              .map((r) => (
+                                <option key={r.id} value={r.id}>{r.name} ({r.style})</option>
+                              ))}
+                          </select>
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="panel">
+                <div className="panel-head"><h2>Font Config</h2></div>
+                <label className="field">
+                  Family<input type="text" {...form.register('font_config.family')} />
+                </label>
+                <label className="field">
+                  Color<input type="text" {...form.register('font_config.color')} />
+                </label>
+                <label className="field">
+                  Outline Color<input type="text" {...form.register('font_config.outline_color')} />
+                </label>
+              </section>
+            </form>
+          </div>
+        </div>
       </div>
-      <EntityTable
-        rows={rows}
-        columns={[
-          { header: 'Name', render: (r) => r.name },
-          {
-            header: 'Chain',
-            render: (r) =>
-              `ASR → ${r.mt_stages.length} MT → glossary${r.glossary_stage.enabled ? '*' : ''}`,
-          },
-          {
-            header: 'Health',
-            render: (r) =>
-              brokenRefCount(r.broken_refs) > 0 ? (
-                <Badge variant="destructive">{brokenRefCount(r.broken_refs)} broken ref</Badge>
-              ) : (
-                <Badge variant="outline">ok</Badge>
-              ),
-          },
-          { header: 'Shared', render: (r) => (r.shared ? 'yes' : 'no') },
-        ]}
-        onEdit={setEditing}
-        onDelete={setDeleting}
-        canEdit={canMutate}
-        canDelete={canMutate}
-      />
-      {creating && (
-        <EntityForm
-          title="New Pipeline"
-          open
-          schema={PipelineSchema as unknown as ZodSchema<Pipeline>}
-          defaultValues={defaults}
-          onCancel={() => setCreating(false)}
-          onSubmit={handleCreate}
-        >
-          {(form) => <PipelineFields form={form} opts={opts} />}
-        </EntityForm>
-      )}
-      {editing && (
-        <EntityForm
-          title="Edit Pipeline"
-          open
-          schema={PipelineSchema as unknown as ZodSchema<Pipeline>}
-          defaultValues={editing as Pipeline}
-          onCancel={() => setEditing(null)}
-          onSubmit={handleEdit}
-        >
-          {(form) => <PipelineFields form={form} opts={opts} />}
-        </EntityForm>
-      )}
-      <ConfirmDialog
-        open={!!deleting}
-        title="Delete Pipeline?"
-        description={deleting ? `Delete "${deleting.name}"? This cannot be undone.` : undefined}
-        confirmLabel="Delete"
-        onConfirm={handleDelete}
-        onCancel={() => setDeleting(null)}
-      />
-    </div>
-  );
-}
-
-function PipelineFields({
-  form,
-  opts,
-}: {
-  form: UseFormReturn<Pipeline>;
-  opts: RefOptions;
-}) {
-  const {
-    register,
-    control,
-    watch,
-    formState: { errors },
-  } = form;
-  const glossaryEnabled = watch('glossary_stage.enabled');
-
-  return (
-    <div className="grid gap-4">
-      <section className="space-y-3">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Basic</h3>
-        <div>
-          <Label htmlFor="name">Name</Label>
-          <Input id="name" {...register('name')} />
-          {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
-        </div>
-        <div>
-          <Label htmlFor="description">Description</Label>
-          <Textarea id="description" {...register('description')} />
-        </div>
-        <div>
-          <Label htmlFor="asr_profile_id">ASR Profile</Label>
-          <select
-            id="asr_profile_id"
-            {...register('asr_profile_id')}
-            className="block w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-          >
-            <option value="">— select ASR profile —</option>
-            {opts.asr.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </select>
-          {errors.asr_profile_id && (
-            <p className="text-xs text-destructive">{errors.asr_profile_id.message}</p>
-          )}
-        </div>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" {...register('shared')} /> shared
-        </label>
-      </section>
-
-      <section className="space-y-2">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          MT Polish Chain (drag to reorder, ≤8)
-        </h3>
-        <Controller
-          control={control}
-          name="mt_stages"
-          render={({ field }) => (
-            <StageEditor stages={field.value} onChange={field.onChange} options={opts.mt} />
-          )}
-        />
-      </section>
-
-      <section className="space-y-2">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Glossary Stage
-        </h3>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" {...register('glossary_stage.enabled')} /> enabled
-        </label>
-        {glossaryEnabled && (
-          <Controller
-            control={control}
-            name="glossary_stage.glossary_ids"
-            render={({ field }) => (
-              <div className="space-y-1">
-                {(field.value as string[]).map((gid, idx) => (
-                  <div key={idx} className="grid grid-cols-[1fr_auto] gap-2">
-                    <select
-                      value={gid}
-                      onChange={(e) =>
-                        field.onChange(
-                          (field.value as string[]).map((v, i) => (i === idx ? e.target.value : v))
-                        )
-                      }
-                      className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-                    >
-                      <option value="">— select glossary —</option>
-                      {opts.glossary.map((o) => (
-                        <option key={o.id} value={o.id}>
-                          {o.name}
-                        </option>
-                      ))}
-                    </select>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() =>
-                        field.onChange((field.value as string[]).filter((_, i) => i !== idx))
-                      }
-                    >
-                      ×
-                    </Button>
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => field.onChange([...(field.value as string[]), ''])}
-                >
-                  + Add glossary
-                </Button>
-              </div>
-            )}
-          />
-        )}
-      </section>
-
-      <section className="space-y-3">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Font Config</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label htmlFor="font_config_family">Family</Label>
-            <Input id="font_config_family" {...register('font_config.family')} />
-          </div>
-          <div>
-            <Label htmlFor="font_config_color">Color</Label>
-            <Input id="font_config_color" {...register('font_config.color')} placeholder="#ffffff" />
-          </div>
-          <div>
-            <Label htmlFor="font_config_outline_color">Outline color</Label>
-            <Input id="font_config_outline_color" {...register('font_config.outline_color')} placeholder="#000000" />
-          </div>
-          <div>
-            <Label htmlFor="font_config_size">Size</Label>
-            <Input id="font_config_size" type="number" min="0" {...register('font_config.size', { valueAsNumber: true })} />
-          </div>
-          <div>
-            <Label htmlFor="font_config_outline_width">Outline width</Label>
-            <Input
-              id="font_config_outline_width"
-              type="number"
-              min="0"
-              {...register('font_config.outline_width', { valueAsNumber: true })}
-            />
-          </div>
-          <div>
-            <Label htmlFor="font_config_margin_bottom">Margin bottom</Label>
-            <Input
-              id="font_config_margin_bottom"
-              type="number"
-              min="0"
-              {...register('font_config.margin_bottom', { valueAsNumber: true })}
-            />
-          </div>
-          <div>
-            <Label htmlFor="font_config_subtitle_source">Subtitle source</Label>
-            <select
-              id="font_config_subtitle_source"
-              {...register('font_config.subtitle_source')}
-              className="block w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-            >
-              {SUBTITLE_SOURCES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <Label htmlFor="font_config_bilingual_order">Bilingual order</Label>
-            <select
-              id="font_config_bilingual_order"
-              {...register('font_config.bilingual_order')}
-              className="block w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-            >
-              {BILINGUAL_ORDERS.map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }
