@@ -1,4 +1,5 @@
 """Tests for v5 segment-bloat hardening (R1-R6)."""
+import json
 import pytest
 from pathlib import Path
 from unittest.mock import Mock
@@ -155,7 +156,6 @@ def test_verifier_short_window_empty_primary_keeps_secondary():
 # ---- R3: refiner prompt templates carry length cap + hallucination escape ----
 
 def test_zh_refiner_prompt_has_length_cap():
-    import json
     with open(_ZH_REFINER_PATH) as f:
         tmpl = json.load(f)
     sp = tmpl["system_prompt"]
@@ -164,7 +164,6 @@ def test_zh_refiner_prompt_has_length_cap():
 
 
 def test_zh_refiner_prompt_has_hallucination_escape():
-    import json
     with open(_ZH_REFINER_PATH) as f:
         tmpl = json.load(f)
     sp = tmpl["system_prompt"]
@@ -174,17 +173,15 @@ def test_zh_refiner_prompt_has_hallucination_escape():
 
 
 def test_en_refiner_prompt_has_length_cap():
-    import json
     with open(_EN_REFINER_PATH) as f:
         tmpl = json.load(f)
     sp = tmpl["system_prompt"]
     assert "0.7" in sp and "1.3" in sp, "EN refiner must declare 0.7–1.3× length cap"
-    assert "Preserve length" in sp or "preserve length" in sp.lower(), \
+    assert "preserve length" in sp.lower(), \
         "EN refiner must include length-preservation rule"
 
 
 def test_en_refiner_prompt_has_hallucination_escape():
-    import json
     with open(_EN_REFINER_PATH) as f:
         tmpl = json.load(f)
     sp = tmpl["system_prompt"]
