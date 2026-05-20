@@ -767,7 +767,7 @@ function BoldTopbar({ onRun }: { onRun?: () => void }) {
 // DropHero — wired to upload handler
 // ---------------------------------------------------------------------------
 
-function DropHero() {
+function DropHero({ onUploaded }: { onUploaded?: (fileId: string) => void }) {
   const pushToast = useUIStore((s) => s.pushToast);
   const { refresh } = useSocket();
 
@@ -775,6 +775,7 @@ function DropHero() {
     async (acceptedFiles: File[]) => {
       if (!acceptedFiles.length) return;
       let anyUploaded = false;
+      let lastUploadedId: string | null = null;
       for (const file of acceptedFiles) {
         const fd = new FormData();
         fd.append('file', file);
@@ -793,6 +794,9 @@ function DropHero() {
             });
           } else {
             anyUploaded = true;
+            const body = await r.json().catch(() => ({} as { file_id?: string }));
+            const fid = (body as { file_id?: string }).file_id ?? null;
+            if (fid) lastUploadedId = fid;
             pushToast({
               title: '✅ 已上傳',
               description: `${file.name} · 撳「執行」開始處理`,
@@ -807,9 +811,10 @@ function DropHero() {
       // missed the client (e.g. polling→websocket transport upgrade race).
       if (anyUploaded) {
         await refresh();
+        if (lastUploadedId && onUploaded) onUploaded(lastUploadedId);
       }
     },
-    [pushToast, refresh]
+    [pushToast, refresh, onUploaded]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -1225,8 +1230,18 @@ function BoldWorkbench({
               background: '#000',
             }}
             onLoadedMetadata={(e) => {
-              const d = e.currentTarget.duration;
+              const v = e.currentTarget;
+              const d = v.duration;
               if (Number.isFinite(d) && d > 0) setVideoDuration(d);
+              // Force the browser to decode + paint the first frame.
+              // preload="metadata" only fetches container metadata; many
+              // browsers leave the canvas black until the user plays. Seeking
+              // to 0.01 nudges the decoder so a still frame is visible right
+              // away — important since dashboard preview is read-only and
+              // never auto-plays.
+              if (v.currentTime === 0) {
+                try { v.currentTime = 0.01; } catch { /* readyState may race */ }
+              }
             }}
             onTimeUpdate={(e) => onTimeUpdate(e.currentTarget.currentTime)}
             onPlay={() => setIsPlaying(true)}
@@ -2219,7 +2234,7 @@ export default function Dashboard() {
           <div className="b-body">
             {/* Left col: DropHero + Queue */}
             <div className="b-col">
-              <DropHero />
+              <DropHero onUploaded={setSelectedFileId} />
               <div className="panel queue-panel">
                 <div className="panel-head">
                   <div className="title">

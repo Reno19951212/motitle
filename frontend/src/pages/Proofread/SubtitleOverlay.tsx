@@ -50,9 +50,17 @@ export function SubtitleOverlay({ text, font }: Props) {
   if (!font || !text) return null;
   const f = font;
   const lines = text.split(/\n|\\N/);
-  const lineHeight = f.size * 1.2;
-  const baselineY = 1080 - f.margin_bottom;
-  const strokeWidth = f.outline_width * 2;
+  // v5 pipelines may carry a partial font_config ({family, color,
+  // outline_color} only) — coalesce numerics with sane libass-aligned defaults
+  // so the overlay still renders instead of emitting "NaN" SVG attributes.
+  const size = Number.isFinite(f.size) && f.size > 0 ? f.size : 48;
+  const marginBottom =
+    Number.isFinite(f.margin_bottom) && f.margin_bottom >= 0 ? f.margin_bottom : 60;
+  const outlineWidth =
+    Number.isFinite(f.outline_width) && f.outline_width >= 0 ? f.outline_width : 2;
+  const lineHeight = size * 1.2;
+  const baselineY = 1080 - marginBottom;
+  const strokeWidth = outlineWidth * 2;
 
   return (
     <svg
@@ -71,7 +79,7 @@ export function SubtitleOverlay({ text, font }: Props) {
         x="960"
         textAnchor="middle"
         fontFamily={f.family}
-        fontSize={f.size}
+        fontSize={size}
         fill={f.color}
         stroke={f.outline_color}
         strokeWidth={strokeWidth}
