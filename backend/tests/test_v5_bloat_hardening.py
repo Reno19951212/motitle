@@ -78,3 +78,70 @@ def test_refiner_normal_output_not_affected_by_meta_filter():
     rf = LLMRefiner(llm=fake_llm, system_prompt="p", lang="zh", style="b")
     out = rf.refine([{"start": 0, "end": 1, "text": "原文"}])
     assert out[0]["text"] == "下個月 [冠軍盃] 將會開鑼"
+
+
+# ---- R1: verifier short-window primary preference ----
+
+def test_verifier_short_window_prefers_primary_over_long_secondary():
+    """When primary timecode is <3s but secondary returns >2× longer text, keep primary."""
+    from engines.verifier.llm_verifier import LLMVerifier
+    fake_llm = Mock()
+    # LLM "chose" secondary's long text — but the guard should override.
+    fake_llm.call.return_value = "A" * 400  # 400 chars, way longer than primary
+    vf = LLMVerifier(llm=fake_llm, system_prompt="p", lang="en")
+    primary = [{"start": 0.0, "end": 2.1, "text": "deleted"}]  # 2.1s window, 7 chars
+    # Secondary words cover the same 2.1s window with much more text
+    secondary_words = [
+        {"start": 0.1, "end": 0.3, "text": "now perhaps to the eye"},
+        {"start": 0.4, "end": 0.7, "text": "not deserving"},
+        {"start": 0.8, "end": 1.5, "text": "the kind of boom"},
+    ]
+    out = vf.verify(primary, secondary_words)
+    assert out[0]["text"] == "deleted", \
+        f"Short window (2.1s) + long verifier output (400 chars) should fall back to primary 'deleted', got {out[0]['text']!r}"
+
+
+def test_verifier_long_window_keeps_llm_decision():
+    """When primary timecode is >=3s, R1 guard does not fire — keep LLM decision."""
+    from engines.verifier.llm_verifier import LLMVerifier
+    fake_llm = Mock()
+    fake_llm.call.return_value = "secondary's longer accurate text"  # 32 chars
+    vf = LLMVerifier(llm=fake_llm, system_prompt="p", lang="en")
+    primary = [{"start": 0.0, "end": 26.0, "text": "short stub"}]  # 26s window
+    secondary_words = [
+        {"start": 0.1, "end": 1.0, "text": "different content"},
+    ]
+    out = vf.verify(primary, secondary_words)
+    assert out[0]["text"] == "secondary's longer accurate text", \
+        "Long window — verifier should keep LLM decision"
+
+
+def test_verifier_short_window_short_secondary_passes_through():
+    """Short window but secondary is NOT >2× primary — LLM decision kept."""
+    from engines.verifier.llm_verifier import LLMVerifier
+    fake_llm = Mock()
+    fake_llm.call.return_value = "corrected name"  # 14 chars, not >2× primary (10 chars)
+    vf = LLMVerifier(llm=fake_llm, system_prompt="p", lang="en")
+    primary = [{"start": 0.0, "end": 2.0, "text": "Sky Field"}]  # 9 chars
+    secondary_words = [
+        {"start": 0.1, "end": 1.0, "text": "Sky Forge"},
+    ]
+    out = vf.verify(primary, secondary_words)
+    assert out[0]["text"] == "corrected name"
+
+
+def test_verifier_short_window_empty_primary_keeps_secondary():
+    """If primary is empty, R1 guard does NOT fire (no source to fall back to)."""
+    from engines.verifier.llm_verifier import LLMVerifier
+    fake_llm = Mock()
+    fake_llm.call.return_value = "rescued from silence"
+    vf = LLMVerifier(llm=fake_llm, system_prompt="p", lang="en")
+    primary = [{"start": 0.0, "end": 2.0, "text": ""}]  # empty primary
+    secondary_words = [
+        {"start": 0.1, "end": 1.0, "text": "rescued"},
+    ]
+    out = vf.verify(primary, secondary_words)
+    # When primary is empty, LLMVerifier already shortcuts to secondary text WITHOUT
+    # calling the LLM (see line 91-92). So decision is the collected secondary word
+    # text, not the fake_llm.call return.
+    assert out[0]["text"] == "rescued"

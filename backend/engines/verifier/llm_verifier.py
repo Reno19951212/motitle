@@ -34,6 +34,14 @@ except ImportError:
 
 _LABEL_PREFIXES = ("Output:", "Result:", "輸出:", "輸出：", "結果:", "結果：")
 
+# v5-A4 R1: short primary timecode + much-longer verifier text = bloat
+# pattern. Secondary ASR runs on long audio windows (10-30s) so when it's
+# substituted into a short primary slot the text-vs-timecode contract
+# breaks. Prefer primary when primary's window is short AND the decision
+# would be 2× or more longer than primary.
+_PRIMARY_PREFERENCE_WINDOW_SEC = 3.0
+_SECONDARY_BLOAT_RATIO = 2.0
+
 
 def collect_words_for_range(words: list, start: float, end: float) -> str:
     """Collect secondary ASR word tokens whose midpoint falls in [start, end).
@@ -107,6 +115,14 @@ class LLMVerifier(VerifierEngine):
                     next((ln for ln in raw.splitlines() if ln.strip()), "")
                     or "[EMPTY]"
                 )
+                # R1: short primary window + much-longer decision → prefer primary
+                window = ps["end"] - ps["start"]
+                if (
+                    wt
+                    and window < _PRIMARY_PREFERENCE_WINDOW_SEC
+                    and len(decision) > _SECONDARY_BLOAT_RATIO * max(1, len(wt))
+                ):
+                    decision = wt
 
             out.append({"start": ps["start"], "end": ps["end"], "text": decision})
             if progress:
