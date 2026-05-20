@@ -16,6 +16,15 @@ from engines.llm import LLMEngine
 
 _LABEL_PREFIXES = ("潤:", "潤色:", "Refined:", "Cleaned:", "輸出:", "輸出：")
 
+# v5-A4 R4: LLM may refuse / emit its own system-prompt error message
+# instead of polished text. When the output starts with any of these
+# meta-language prefixes we fall back to the source text rather than
+# polluting the segment with a 200-char "Sorry, I cannot..." string.
+_META_PREFIXES = (
+    "[ERROR]", "[INFO]", "[SORRY]",
+    "Sorry, ", "I cannot ", "I'm unable", "I am unable", "As an AI",
+)
+
 
 class LLMRefiner(RefinerEngine):
     """Same-lingual polish using any LLMEngine backend.
@@ -52,6 +61,9 @@ class LLMRefiner(RefinerEngine):
             for prefix in _LABEL_PREFIXES:
                 if refined.startswith(prefix):
                     refined = refined[len(prefix):].strip()
+            # R4: LLM refused / emitted meta-language → fall back to source.
+            if any(refined.startswith(p) for p in _META_PREFIXES):
+                refined = src
             first_line = next(
                 (ln for ln in refined.splitlines() if ln.strip()),
                 "",
