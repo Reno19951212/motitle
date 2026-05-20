@@ -15,15 +15,18 @@ def register_blueprints(app: Flask) -> None:
     from .fonts import bp as fonts_bp
     from .files import bp as files_bp
     from .pipelines import bp as pipelines_bp
-    from .asr_profiles import bp as asr_profiles_bp
-    from .mt_profiles import bp as mt_profiles_bp
+    # v5-A3 T10 — legacy /api/asr_profiles + /api/mt_profiles blueprints
+    # retired. Frontend has migrated to /api/transcribe_profiles +
+    # /api/refiner_profiles (v5-A1 T26). Deprecation/Sunset headers from
+    # v5-A1 served notice; removing the routes simplifies the surface area
+    # before merging v5 to main.
     from .glossaries import bp as glossaries_bp
     from .languages import bp as languages_bp
     from .prompt_templates import bp as prompt_templates_bp
     from .render import bp as render_bp
     from .engines import bp as engines_bp
     from .ollama import bp as ollama_bp
-    # v5-A1 T26 — 5 new profile blueprints (split from v4 ASR / MT profile)
+    # v5-A1 T26 — 5 new profile blueprints (replacement for v4 ASR / MT profile)
     from .llm_profiles import bp as llm_profiles_bp
     from .transcribe_profiles import bp as transcribe_profiles_bp
     from .translator_profiles import bp as translator_profiles_bp
@@ -35,8 +38,6 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(fonts_bp)
     app.register_blueprint(files_bp)
     app.register_blueprint(pipelines_bp)
-    app.register_blueprint(asr_profiles_bp)
-    app.register_blueprint(mt_profiles_bp)
     app.register_blueprint(glossaries_bp)
     app.register_blueprint(languages_bp)
     app.register_blueprint(prompt_templates_bp)

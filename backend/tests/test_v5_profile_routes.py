@@ -171,18 +171,10 @@ def test_transcribe_profiles_create_get(monkeypatch, tmp_path):
     assert resp2.json["name"] == "qwen3"
 
 
+@pytest.mark.skip(reason="v5-A3 T10: legacy /api/asr_profiles route retired; frontend uses /api/transcribe_profiles")
 def test_asr_profiles_returns_deprecation_header(monkeypatch, tmp_path):
     """Legacy /api/asr_profiles still responds + sets Deprecation header per spec §7."""
-    import app as _app
-    from routes.asr_profiles import bp as asr_bp
-    # Wire a fake asr_profile_manager so the route doesn't crash
-    from asr_profiles import ASRProfileManager
-    monkeypatch.setattr(_app, "_asr_profile_manager", ASRProfileManager(tmp_path), raising=False)
-    app = _make_app_with_bp(asr_bp, user_id=1, is_admin=False)
-    client = app.test_client()
-    resp = client.get("/api/asr_profiles")
-    assert resp.headers.get("Deprecation") == "true"
-    assert "/api/transcribe_profiles" in resp.headers.get("Link", "")
+    pass
 
 
 # ============================================================
@@ -243,40 +235,9 @@ def test_refiner_profiles_create(monkeypatch, tmp_path):
     assert resp.json["lang"] == "zh"
 
 
+@pytest.mark.skip(reason="v5-A3 T10: legacy /api/mt_profiles route retired; frontend uses /api/refiner_profiles")
 def test_mt_profiles_returns_deprecation_header(monkeypatch, tmp_path):
-    from flask import Flask
-    from flask_login import LoginManager
-    from routes.mt_profiles import bp as mt_bp
-    import app as _app
-    # Wire mt_profile_manager (v4 class is MTProfileManager — capital M-T)
-    from mt_profiles import MTProfileManager
-    monkeypatch.setattr(_app, "_mt_profile_manager", MTProfileManager(tmp_path), raising=False)
-    app = Flask(__name__)
-    app.config["LOGIN_DISABLED"] = True
-    app.config["TESTING"] = True
-    app.register_blueprint(mt_bp)
-    lm = LoginManager()
-    lm.init_app(app)
-
-    class _U:
-        def __init__(self):
-            self.id = 1
-            self.is_admin = False
-            self.is_authenticated = True
-            self.is_active = True
-            self.is_anonymous = False
-
-        def get_id(self):
-            return "1"
-
-    @lm.request_loader
-    def _load(req):
-        return _U()
-
-    client = app.test_client()
-    resp = client.get("/api/mt_profiles")
-    assert resp.headers.get("Deprecation") == "true"
-    assert "/api/refiner_profiles" in resp.headers.get("Link", "")
+    pass
 
 
 # ============================================================

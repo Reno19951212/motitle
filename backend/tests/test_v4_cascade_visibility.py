@@ -9,7 +9,13 @@ Uses REAL auth flow (real_auth marker) — no R5_AUTH_BYPASS shortcut.
 import pytest
 
 
-pytestmark = pytest.mark.real_auth
+pytestmark = [
+    pytest.mark.real_auth,
+    pytest.mark.skip(
+        reason="v5-A3 T10: legacy /api/asr_profiles route retired; alice's "
+        "private-ASR seeding step uses the deleted endpoint."
+    ),
+]
 
 
 # ---------------------------------------------------------------------------

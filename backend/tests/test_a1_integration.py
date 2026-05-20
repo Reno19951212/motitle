@@ -1,8 +1,18 @@
-"""End-to-end A1 pipeline run integration test (all stages mocked)."""
+"""End-to-end A1 pipeline run integration test (all stages mocked).
+
+v5-A3 T10: skipped — seeds v4 ASR + MT profiles via the now-deleted REST
+endpoints. The equivalent end-to-end pipeline run (with full ASR + MT stages)
+is covered by test_v5_a2_integration.py against the v5 DAG runtime.
+"""
 import json
 import pytest
 import time
 from unittest.mock import MagicMock
+
+pytestmark = pytest.mark.skip(
+    reason="v5-A3 T10: legacy /api/asr_profiles + /api/mt_profiles retired; "
+    "see test_v5_a2_integration.py for v5 DAG pipeline coverage."
+)
 
 
 @pytest.fixture
