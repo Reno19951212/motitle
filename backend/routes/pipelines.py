@@ -98,7 +98,10 @@ def create_pipeline():
     if isinstance(data, dict) and data.get("version") == 5:
         errors, warnings = validate_v5_pipeline(data)
         if errors:
-            return jsonify({"error": "; ".join(errors)}), 400
+            body = {"error": "; ".join(errors)}
+            if warnings:
+                body["warnings"] = warnings
+            return jsonify(body), 400
         refs = _collect_v5_known_refs()
         broken = v5_check_cascade_refs(data, refs)
         if broken:
@@ -169,6 +172,12 @@ def patch_pipeline(pipeline_id):
     body = dict(updated) if updated else {}
     # Surface non-blocking warnings for v5 pipelines
     if isinstance(updated, dict) and updated.get("version") == 5:
+        # NOTE: update_if_owned currently validates via the v4 schema (no v5
+        # branch yet), so any v5-specific errors are caught only at the next
+        # PATCH if at all. _errs is intentionally discarded here — we re-run
+        # validate_v5_pipeline only to extract advisory warnings for the
+        # response body. TODO: add v5 branch to PipelineManager.update_if_owned
+        # to close this gap (v5-A5 or later).
         _errs, warnings = validate_v5_pipeline(updated)
         if warnings:
             body["warnings"] = warnings

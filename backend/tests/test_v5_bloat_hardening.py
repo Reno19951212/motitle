@@ -304,15 +304,22 @@ def test_validate_returns_tuple_of_lists():
         "name": "p",
         "asr_primary": {"source_lang": "en", "transcribe_profile_id": "x"},
         "target_languages": ["en"],
-        "refinements": {"en": ["r1"]},
+        "refinements": {"en": []},
         "translators": {},
         "glossary_stages": {},
-        "font_config": {},
+        "font_config": {
+            "family": "Arial",
+            "color": "white",
+            "outline_color": "black",
+        },
     })
     assert isinstance(result, tuple) and len(result) == 2
     errors, warnings = result
     assert isinstance(errors, list)
     assert isinstance(warnings, list)
+    # A truly valid pipeline should produce empty errors + empty warnings
+    assert errors == [], f"clean pipeline should have no errors, got {errors}"
+    assert warnings == [], f"clean pipeline should have no warnings, got {warnings}"
 
 
 def test_validate_warns_on_translator_gap():
@@ -323,10 +330,14 @@ def test_validate_warns_on_translator_gap():
         "name": "p",
         "asr_primary": {"source_lang": "zh", "transcribe_profile_id": "x"},
         "target_languages": ["zh", "en"],
-        "refinements": {"zh": [], "en": []},  # empty lists are valid v5 shape
-        "translators": {},  # zh_to_en MISSING
+        "refinements": {"zh": [], "en": []},
+        "translators": {},  # zh→en MISSING
         "glossary_stages": {},
-        "font_config": {},
+        "font_config": {
+            "family": "Arial",
+            "color": "white",
+            "outline_color": "black",
+        },
     })
     # Hard error fires
     assert any("translators.en" in e for e in errors), f"expected hard error, got {errors}"
@@ -343,11 +354,17 @@ def test_validate_warns_when_source_lang_not_in_targets():
         "name": "p",
         "asr_primary": {"source_lang": "zh", "transcribe_profile_id": "x"},
         "target_languages": ["en"],
-        "refinements": {"en": ["r1"]},
-        "translators": {"zh_to_en": "tr1"},
+        "refinements": {"en": [{"refiner_profile_id": "r1"}]},
+        "translators": {"en": {"translator_profile_id": "tr1"}},
         "glossary_stages": {},
-        "font_config": {},
+        "font_config": {
+            "family": "Arial",
+            "color": "white",
+            "outline_color": "black",
+        },
     })
+    # Clean of errors — the only issue is the warning
+    assert errors == [], f"expected no hard errors, got {errors}"
     combined = " ".join(warnings)
     assert "source_lang" in combined.lower() or "zh" in combined.lower(), \
         f"expected warning about source_lang absence from targets, got warnings={warnings}"
@@ -364,6 +381,11 @@ def test_validate_no_warning_when_pipeline_clean():
         "refinements": {"en": []},
         "translators": {},
         "glossary_stages": {},
-        "font_config": {},
+        "font_config": {
+            "family": "Arial",
+            "color": "white",
+            "outline_color": "black",
+        },
     })
+    assert errors == [], f"clean pipeline should have no errors, got {errors}"
     assert warnings == [], f"expected no warnings, got {warnings}"
