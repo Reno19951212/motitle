@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useReducer, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useReducer, type ReactNode } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { useAuthStore } from '@/stores/auth';
 import { apiFetch } from '@/lib/api';
@@ -16,6 +16,11 @@ interface SocketContextValue {
    *  (e.g. DELETE /api/files/<id> success → FILE_REMOVED) since the backend
    *  has no corresponding broadcast event. */
   dispatch: (action: SocketAction) => void;
+  /** Re-fetch /api/files and BULK_FILES dispatch. Used after an upload to
+   *  guarantee the new file appears immediately even if the backend's
+   *  socketio broadcast missed the client (e.g. Socket.IO polling-to-WS
+   *  upgrade race). */
+  refresh: () => Promise<void>;
 }
 
 const SocketContext = createContext<SocketContextValue>({
@@ -23,11 +28,23 @@ const SocketContext = createContext<SocketContextValue>({
   dispatch: () => {
     /* no-op default; real value provided by SocketProvider */
   },
+  refresh: async () => {
+    /* no-op default */
+  },
 });
 
 export function SocketProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(socketReducer, initialSocketState);
   const user = useAuthStore((s) => s.user);
+
+  const refresh = useCallback(async () => {
+    try {
+      const { files } = await apiFetch<{ files: FileRecord[] }>('/api/files');
+      dispatch({ type: 'BULK_FILES', files });
+    } catch {
+      /* swallow — caller can decide whether to toast */
+    }
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -70,7 +87,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     };
   }, [user]);
 
-  return <SocketContext.Provider value={{ state, dispatch }}>{children}</SocketContext.Provider>;
+  return <SocketContext.Provider value={{ state, dispatch, refresh }}>{children}</SocketContext.Provider>;
 }
 
 export function useSocket() {

@@ -769,10 +769,12 @@ function BoldTopbar({ onRun }: { onRun?: () => void }) {
 
 function DropHero() {
   const pushToast = useUIStore((s) => s.pushToast);
+  const { refresh } = useSocket();
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
       if (!acceptedFiles.length) return;
+      let anyUploaded = false;
       for (const file of acceptedFiles) {
         const fd = new FormData();
         fd.append('file', file);
@@ -790,6 +792,7 @@ function DropHero() {
               variant: 'destructive',
             });
           } else {
+            anyUploaded = true;
             pushToast({
               title: '✅ 已上傳',
               description: `${file.name} · 撳「執行」開始處理`,
@@ -799,8 +802,14 @@ function DropHero() {
           pushToast({ title: '上傳失敗', description: String(e), variant: 'destructive' });
         }
       }
+      // Belt-and-braces: force a queue refresh after upload so the new row
+      // appears immediately even if the backend's socketio file_added broadcast
+      // missed the client (e.g. polling→websocket transport upgrade race).
+      if (anyUploaded) {
+        await refresh();
+      }
     },
-    [pushToast]
+    [pushToast, refresh]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
