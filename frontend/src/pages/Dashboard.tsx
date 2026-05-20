@@ -834,13 +834,18 @@ function QueueItem({
   onSelect,
   active,
   onDelete,
+  onRun,
+  pipelineId,
 }: {
   f: DesignFile;
   onSelect: (f: DesignFile) => void;
   active: boolean;
   onDelete: (fileId: string) => void;
+  onRun: (fileId: string) => void;
+  pipelineId: string | null;
 }) {
   const stages = stageForStagePill(f.stage);
+  const canRun = f.stage === 'idle' && !!pipelineId;
 
   return (
     <div
@@ -855,6 +860,19 @@ function QueueItem({
         />
         <span className="nm">{f.name}</span>
         <MoTitleStageBadge file={f} />
+        {canRun && (
+          <button
+            className="qi-run"
+            title="執行 Pipeline"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRun(f.id);
+            }}
+          >
+            <Icon name="play" size={10} />
+            <span style={{ fontSize: 11 }}>執行</span>
+          </button>
+        )}
         <button
           className="qi-del"
           title="刪除此檔案"
@@ -2148,6 +2166,23 @@ export default function Dashboard() {
     }
   }, [selectedFileId, pipelineId, pushToast]);
 
+  const handleRunFile = useCallback(async (fileId: string) => {
+    if (!pipelineId) {
+      pushToast({ title: '請先揀 Pipeline', variant: 'destructive' });
+      return;
+    }
+    try {
+      await apiFetch<{ job_id: string }>(`/api/pipelines/${pipelineId}/run`, {
+        method: 'POST',
+        body: JSON.stringify({ file_id: fileId }),
+      });
+      pushToast({ title: '✅ 已排隊' });
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : String(e);
+      pushToast({ title: '排隊失敗', description: msg, variant: 'destructive' });
+    }
+  }, [pipelineId, pushToast]);
+
   const handleConfirmDelete = useCallback(async () => {
     if (!deleteCandidateId) return;
     const fileId = deleteCandidateId;
@@ -2212,6 +2247,8 @@ export default function Dashboard() {
                         onSelect={(df) => setSelectedFileId(df.id)}
                         active={f.id === selectedFileId}
                         onDelete={(fileId) => setDeleteCandidateId(fileId)}
+                        onRun={handleRunFile}
+                        pipelineId={pipelineId}
                       />
                     ))
                   )}
