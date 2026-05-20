@@ -506,7 +506,10 @@ def delete_file(file_id):
 @require_file_owner
 def api_get_translations(file_id):
     import app as _app
-    from translations_normalize_v5 import normalize_translations_for_v5
+    from translations_normalize_v5 import (
+        downgrade_translations_to_v4,
+        normalize_translations_for_v5,
+    )
     with _app._registry_lock:
         entry = _app._file_registry.get(file_id)
     if not entry:
@@ -517,8 +520,14 @@ def api_get_translations(file_id):
     # zh_text directly without a ?shape query param. v5 callers (A3 frontend +
     # internal v5 consumers) opt in explicitly via ?shape=v5 to get the
     # normalized by_lang shape.
+    #
+    # When a file has been processed by a v5 pipeline (registry stores by_lang
+    # shape), the default path downgrades by flattening by_lang.zh.text →
+    # zh_text and by_lang.en.text → en_text so live v4 frontend keeps working.
     if request.args.get("shape") == "v5":
         translations = normalize_translations_for_v5(translations)
+    else:
+        translations = downgrade_translations_to_v4(translations)
     return jsonify({"translations": translations, "file_id": file_id})
 
 
