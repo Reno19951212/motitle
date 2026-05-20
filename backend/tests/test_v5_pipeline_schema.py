@@ -19,32 +19,32 @@ def test_validate_v5_minimal_valid():
         "glossary_stages": {},
         "font_config": {"family": "Noto Sans TC", "color": "white", "outline_color": "black"},
     }
-    errors = validate_v5_pipeline(data)
+    errors, _warnings = validate_v5_pipeline(data)
     assert errors == [], f"unexpected errors: {errors}"
 
 
 def test_validate_v5_missing_version():
-    errors = validate_v5_pipeline({"name": "x"})
+    errors, _warnings = validate_v5_pipeline({"name": "x"})
     assert "version must be 5" in errors
 
 
 def test_validate_v5_invalid_source_lang():
     data = {"version": 5, "name": "x", "asr_primary": {"transcribe_profile_id": "tp", "source_lang": "klingon"}}
-    errors = validate_v5_pipeline(data)
+    errors, _warnings = validate_v5_pipeline(data)
     assert any("source_lang" in e for e in errors)
 
 
 def test_validate_v5_empty_target_languages():
     data = {"version": 5, "name": "x", "asr_primary": {"transcribe_profile_id": "tp", "source_lang": "zh"},
             "target_languages": [], "refinements": {}, "font_config": {"family": "f", "color": "w", "outline_color": "b"}}
-    errors = validate_v5_pipeline(data)
+    errors, _warnings = validate_v5_pipeline(data)
     assert any("target_languages" in e for e in errors)
 
 
 def test_validate_v5_missing_font():
     data = {"version": 5, "name": "x", "asr_primary": {"transcribe_profile_id": "tp", "source_lang": "zh"},
             "target_languages": ["zh"], "refinements": {"zh": []}}
-    errors = validate_v5_pipeline(data)
+    errors, _warnings = validate_v5_pipeline(data)
     assert any("font_config" in e for e in errors)
 
 
@@ -68,7 +68,8 @@ def test_promote_v4_to_v5_minimal():
     assert v5["refinements"]["zh"][0]["refiner_profile_id"] == "mt1"
     assert v5["glossary_stages"]["zh"] == ["g1"]
     # Validator must accept the promoted result
-    assert validate_v5_pipeline(v5) == []
+    errors, _warnings = validate_v5_pipeline(v5)
+    assert errors == [], f"unexpected errors: {errors}"
 
 
 def test_validate_v5_refinements_lang_not_in_targets():
@@ -79,7 +80,7 @@ def test_validate_v5_refinements_lang_not_in_targets():
         "refinements": {"zh": [], "ja": []},  # ja not in targets
         "font_config": {"family": "f", "color": "w", "outline_color": "b"},
     }
-    errors = validate_v5_pipeline(data)
+    errors, _warnings = validate_v5_pipeline(data)
     assert any("'ja'" in e and "target_languages" in e for e in errors)
 
 
@@ -91,7 +92,7 @@ def test_validate_v5_refinements_entry_must_be_dict_with_profile_id():
         "refinements": {"zh": ["not-a-dict"]},
         "font_config": {"family": "f", "color": "w", "outline_color": "b"},
     }
-    errors = validate_v5_pipeline(data)
+    errors, _warnings = validate_v5_pipeline(data)
     assert any("refiner_profile_id" in e for e in errors)
 
 
@@ -104,7 +105,7 @@ def test_validate_v5_secondary_lang_must_match_primary():
         "refinements": {"zh": []},
         "font_config": {"family": "f", "color": "w", "outline_color": "b"},
     }
-    errors = validate_v5_pipeline(data)
+    errors, _warnings = validate_v5_pipeline(data)
     assert any("asr_secondary.source_lang" in e for e in errors)
 
 
@@ -117,7 +118,7 @@ def test_validate_v5_translator_required_for_non_source_target():
         "translators": {},  # missing en translator
         "font_config": {"family": "f", "color": "w", "outline_color": "b"},
     }
-    errors = validate_v5_pipeline(data)
+    errors, _warnings = validate_v5_pipeline(data)
     assert any("translators.en" in e for e in errors)
 
 
@@ -130,7 +131,7 @@ def test_validate_v5_translator_with_proper_shape_passes():
         "translators": {"en": {"translator_profile_id": "tr1"}},
         "font_config": {"family": "f", "color": "w", "outline_color": "b"},
     }
-    errors = validate_v5_pipeline(data)
+    errors, _warnings = validate_v5_pipeline(data)
     assert errors == [], f"unexpected errors: {errors}"
 
 
@@ -143,7 +144,7 @@ def test_validate_v5_glossary_stages_must_be_list_of_strings():
         "glossary_stages": {"zh": "not-a-list"},
         "font_config": {"family": "f", "color": "w", "outline_color": "b"},
     }
-    errors = validate_v5_pipeline(data)
+    errors, _warnings = validate_v5_pipeline(data)
     assert any("glossary_stages.zh" in e for e in errors)
 
 

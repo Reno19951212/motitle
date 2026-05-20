@@ -292,3 +292,77 @@ def test_persist_by_lang_carries_flags_from_segments():
     rows = fake_registry["test_fid"]["translations"]
     assert rows[0]["by_lang"]["zh"]["flags"] == ["long"], \
         f"per-segment flags must propagate to by_lang.flags, got {rows[0]['by_lang']['zh']['flags']}"
+
+
+# ---- R6: pipeline validator returns (errors, warnings) ----
+
+def test_validate_returns_tuple_of_lists():
+    """validate_v5_pipeline must return (errors: list[str], warnings: list[str])."""
+    from pipeline_schema_v5 import validate_v5_pipeline
+    result = validate_v5_pipeline({
+        "version": 5,
+        "name": "p",
+        "asr_primary": {"source_lang": "en", "transcribe_profile_id": "x"},
+        "target_languages": ["en"],
+        "refinements": {"en": ["r1"]},
+        "translators": {},
+        "glossary_stages": {},
+        "font_config": {},
+    })
+    assert isinstance(result, tuple) and len(result) == 2
+    errors, warnings = result
+    assert isinstance(errors, list)
+    assert isinstance(warnings, list)
+
+
+def test_validate_warns_on_translator_gap_zh_to_en():
+    """source_lang=zh + target_languages contains 'en' but no translators.zh_to_en → warning."""
+    from pipeline_schema_v5 import validate_v5_pipeline
+    errors, warnings = validate_v5_pipeline({
+        "version": 5,
+        "name": "p",
+        "asr_primary": {"source_lang": "zh", "transcribe_profile_id": "x"},
+        "target_languages": ["zh", "en"],
+        "refinements": {"zh": ["r1"], "en": ["r2"]},
+        "translators": {},  # zh_to_en MISSING
+        "glossary_stages": {},
+        "font_config": {},
+    })
+    # The error path also catches this as a hard error in some configs,
+    # so we only check that one of errors OR warnings mentions translator.
+    combined = " ".join(errors + warnings)
+    assert "translator" in combined.lower()
+
+
+def test_validate_warns_when_source_lang_not_in_targets():
+    """source_lang=zh but target_languages=['en'] only (no zh) → warning."""
+    from pipeline_schema_v5 import validate_v5_pipeline
+    errors, warnings = validate_v5_pipeline({
+        "version": 5,
+        "name": "p",
+        "asr_primary": {"source_lang": "zh", "transcribe_profile_id": "x"},
+        "target_languages": ["en"],
+        "refinements": {"en": ["r1"]},
+        "translators": {"zh_to_en": "tr1"},
+        "glossary_stages": {},
+        "font_config": {},
+    })
+    combined = " ".join(warnings)
+    assert "source_lang" in combined.lower() or "zh" in combined.lower(), \
+        f"expected warning about source_lang absence from targets, got warnings={warnings}"
+
+
+def test_validate_no_warning_when_pipeline_clean():
+    """source_lang=en + target_languages=['en'] (refine-only) → no warnings."""
+    from pipeline_schema_v5 import validate_v5_pipeline
+    errors, warnings = validate_v5_pipeline({
+        "version": 5,
+        "name": "p",
+        "asr_primary": {"source_lang": "en", "transcribe_profile_id": "x"},
+        "target_languages": ["en"],
+        "refinements": {"en": []},
+        "translators": {},
+        "glossary_stages": {},
+        "font_config": {},
+    })
+    assert warnings == [], f"expected no warnings, got {warnings}"

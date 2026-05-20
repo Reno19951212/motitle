@@ -96,7 +96,7 @@ def create_pipeline():
     # new managers (transcribe / translator / refiner / verifier / llm /
     # glossary). v4 path untouched below.
     if isinstance(data, dict) and data.get("version") == 5:
-        errors = validate_v5_pipeline(data)
+        errors, warnings = validate_v5_pipeline(data)
         if errors:
             return jsonify({"error": "; ".join(errors)}), 400
         refs = _collect_v5_known_refs()
@@ -111,7 +111,10 @@ def create_pipeline():
         # Return the v5 dict (not the bare pid). Use ``as_v5=True`` so even
         # if the storage round-trip drops the version key, the response
         # body still carries it.
-        return jsonify(mgr.get(pid, as_v5=True)), 201
+        body = dict(mgr.get(pid, as_v5=True) or {})
+        if warnings:
+            body["warnings"] = warnings
+        return jsonify(body), 201
 
     # v4 path (existing behavior, unchanged)
     try:
@@ -162,7 +165,14 @@ def patch_pipeline(pipeline_id):
         if "permission denied" in errors:
             return jsonify({"errors": errors}), 403
         return jsonify({"errors": errors}), 400
-    return jsonify(_app._pipeline_manager.get(pipeline_id)), 200
+    updated = _app._pipeline_manager.get(pipeline_id)
+    body = dict(updated) if updated else {}
+    # Surface non-blocking warnings for v5 pipelines
+    if isinstance(updated, dict) and updated.get("version") == 5:
+        _errs, warnings = validate_v5_pipeline(updated)
+        if warnings:
+            body["warnings"] = warnings
+    return jsonify(body), 200
 
 
 # ============================================================

@@ -12,11 +12,11 @@ from typing import Any
 VALID_LANGS = {"en", "zh", "ja", "ko", "yue", "fr", "de", "es", "th"}
 
 
-def validate_v5_pipeline(data: Any) -> list[str]:
-    """Return list of error strings; empty = valid."""
+def validate_v5_pipeline(data: Any) -> tuple[list[str], list[str]]:
+    """Return (errors, warnings); errors non-empty = invalid, warnings are advisory."""
     errors: list[str] = []
     if not isinstance(data, dict):
-        return ["payload must be an object"]
+        return (["payload must be an object"], [])
     if data.get("version") != 5:
         errors.append("version must be 5")
     if not isinstance(data.get("name"), str) or not data["name"].strip():
@@ -99,7 +99,36 @@ def validate_v5_pipeline(data: Any) -> list[str]:
             elif not all(isinstance(g, str) and g for g in glist):
                 errors.append(f"glossary_stages.{key} must contain only non-empty strings")
 
-    return errors
+    warnings: list[str] = []
+    primary = data.get("asr_primary") or {}
+    source_lang = primary.get("source_lang")
+    targets = data.get("target_languages") or []
+    translators = data.get("translators") or {}
+
+    # Warn if source_lang is not in target_languages — likely a misconfiguration
+    # (the user typically wants the source lang available as a target so they
+    # can read the ASR output without translation).
+    if source_lang and isinstance(targets, list) and source_lang not in targets:
+        warnings.append(
+            f"source_lang '{source_lang}' is not in target_languages {targets} — "
+            f"output for the source language will not be persisted; "
+            f"add '{source_lang}' to target_languages if you want refined source text"
+        )
+
+    # Warn for each non-source target lang that doesn't have a translator wired
+    # (using src_to_tgt key format for forward-compat with v5 translators shape).
+    if source_lang and isinstance(targets, list) and isinstance(translators, dict):
+        for t in targets:
+            if t == source_lang:
+                continue
+            key = f"{source_lang}_to_{t}"
+            if key not in translators:
+                warnings.append(
+                    f"target_languages contains '{t}' but translators.{key} is missing — "
+                    f"output for '{t}' will be empty (no cross-lingual conversion path)"
+                )
+
+    return errors, warnings
 
 
 def promote_v4_to_v5(v4: dict) -> dict:

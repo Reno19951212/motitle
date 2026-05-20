@@ -205,7 +205,7 @@ class PipelineManager:
         """
         # v5 branch — store as-is after schema validation
         if isinstance(data, dict) and data.get("version") == 5:
-            errors = validate_v5_pipeline(data)
+            errors, _warnings = validate_v5_pipeline(data)
             if errors:
                 raise ValueError("; ".join(errors))
             pid = str(uuid.uuid4())
