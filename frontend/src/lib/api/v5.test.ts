@@ -28,8 +28,8 @@ describe('v5 API client', () => {
     globalThis.fetch = originalFetch;
   });
 
-  it('getLlmProfiles GETs /api/llm_profiles with credentials', async () => {
-    fetchMock.mockResolvedValueOnce(mockFetchOnce([{ id: 'llm-1', name: 'X' }]));
+  it('getLlmProfiles GETs /api/llm_profiles with credentials and unwraps envelope', async () => {
+    fetchMock.mockResolvedValueOnce(mockFetchOnce({ profiles: [{ id: 'llm-1', name: 'X' }] }));
     const r = await v5.getLlmProfiles();
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const call = fetchMock.mock.calls[0]!;
@@ -58,12 +58,13 @@ describe('v5 API client', () => {
     expect(r).toEqual({ id: 't-1' });
   });
 
-  it('getTranslations passes shape=v5 query', async () => {
-    fetchMock.mockResolvedValueOnce(mockFetchOnce([]));
-    await v5.getTranslations('file-abc');
+  it('getTranslations passes shape=v5 query and unwraps {translations}', async () => {
+    fetchMock.mockResolvedValueOnce(mockFetchOnce({ translations: [], file_id: 'file-abc' }));
+    const r = await v5.getTranslations('file-abc');
     const call = fetchMock.mock.calls[0]!;
     const [url] = call as [string, RequestInit | undefined];
     expect(url).toBe('/api/files/file-abc/translations?shape=v5');
+    expect(r).toEqual([]);
   });
 
   it('runPipeline POSTs file_id to /api/pipelines/:id/run', async () => {
@@ -77,8 +78,34 @@ describe('v5 API client', () => {
     expect(r).toEqual({ job_id: 'j-1' });
   });
 
-  it('throws on non-ok response with error message', async () => {
-    fetchMock.mockResolvedValueOnce(mockFetchOnce({ error: 'bad' }, { ok: false, status: 400 }));
-    await expect(v5.getLlmProfiles()).rejects.toThrow();
+  it('updateLlmProfile PATCHes to /api/llm_profiles/<id>', async () => {
+    fetchMock.mockResolvedValueOnce(mockFetchOnce({ id: 'llm-1', name: 'updated' }));
+    const result = await v5.updateLlmProfile('llm-1', { name: 'updated' });
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/llm_profiles/llm-1',
+      expect.objectContaining({
+        method: 'PATCH',
+        credentials: 'include',
+        headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
+      }),
+    );
+    expect(result.id).toBe('llm-1');
+  });
+
+  it('deleteTranscribeProfile DELETEs and returns {deleted}', async () => {
+    fetchMock.mockResolvedValueOnce(mockFetchOnce({ deleted: 'tp-1' }));
+    const result = await v5.deleteTranscribeProfile('tp-1');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/transcribe_profiles/tp-1',
+      expect.objectContaining({ method: 'DELETE', credentials: 'include' }),
+    );
+    expect(result.deleted).toBe('tp-1');
+  });
+
+  it('throws on non-ok HTTP with server error message', async () => {
+    fetchMock.mockResolvedValueOnce(
+      mockFetchOnce({ error: 'validation failed' }, { ok: false, status: 400 }),
+    );
+    await expect(v5.getLlmProfiles()).rejects.toThrow(/validation failed/);
   });
 });

@@ -68,8 +68,9 @@ async function httpDelete<T>(path: string): Promise<T> {
 // LLM profiles
 // ---------------------------------------------------------------------------
 
-export function getLlmProfiles(): Promise<LlmProfileRow[]> {
-  return fetchJson<LlmProfileRow[]>('/api/llm_profiles');
+export async function getLlmProfiles(): Promise<LlmProfileRow[]> {
+  const r = await fetchJson<{ profiles: LlmProfileRow[] }>('/api/llm_profiles');
+  return r.profiles;
 }
 
 export function createLlmProfile(p: LlmProfile): Promise<LlmProfileRow> {
@@ -80,16 +81,17 @@ export function updateLlmProfile(id: string, patch: Partial<LlmProfile>): Promis
   return jsonPatch<LlmProfileRow>(`/api/llm_profiles/${id}`, patch);
 }
 
-export function deleteLlmProfile(id: string): Promise<{ ok: true }> {
-  return httpDelete<{ ok: true }>(`/api/llm_profiles/${id}`);
+export function deleteLlmProfile(id: string): Promise<{ deleted: string }> {
+  return httpDelete<{ deleted: string }>(`/api/llm_profiles/${id}`);
 }
 
 // ---------------------------------------------------------------------------
 // Transcribe profiles
 // ---------------------------------------------------------------------------
 
-export function getTranscribeProfiles(): Promise<TranscribeProfileRow[]> {
-  return fetchJson<TranscribeProfileRow[]>('/api/transcribe_profiles');
+export async function getTranscribeProfiles(): Promise<TranscribeProfileRow[]> {
+  const r = await fetchJson<{ profiles: TranscribeProfileRow[] }>('/api/transcribe_profiles');
+  return r.profiles;
 }
 
 export function createTranscribeProfile(p: TranscribeProfile): Promise<TranscribeProfileRow> {
@@ -103,16 +105,17 @@ export function updateTranscribeProfile(
   return jsonPatch<TranscribeProfileRow>(`/api/transcribe_profiles/${id}`, patch);
 }
 
-export function deleteTranscribeProfile(id: string): Promise<{ ok: true }> {
-  return httpDelete<{ ok: true }>(`/api/transcribe_profiles/${id}`);
+export function deleteTranscribeProfile(id: string): Promise<{ deleted: string }> {
+  return httpDelete<{ deleted: string }>(`/api/transcribe_profiles/${id}`);
 }
 
 // ---------------------------------------------------------------------------
 // Translator profiles
 // ---------------------------------------------------------------------------
 
-export function getTranslatorProfiles(): Promise<TranslatorProfileRow[]> {
-  return fetchJson<TranslatorProfileRow[]>('/api/translator_profiles');
+export async function getTranslatorProfiles(): Promise<TranslatorProfileRow[]> {
+  const r = await fetchJson<{ profiles: TranslatorProfileRow[] }>('/api/translator_profiles');
+  return r.profiles;
 }
 
 export function createTranslatorProfile(p: TranslatorProfile): Promise<TranslatorProfileRow> {
@@ -126,16 +129,17 @@ export function updateTranslatorProfile(
   return jsonPatch<TranslatorProfileRow>(`/api/translator_profiles/${id}`, patch);
 }
 
-export function deleteTranslatorProfile(id: string): Promise<{ ok: true }> {
-  return httpDelete<{ ok: true }>(`/api/translator_profiles/${id}`);
+export function deleteTranslatorProfile(id: string): Promise<{ deleted: string }> {
+  return httpDelete<{ deleted: string }>(`/api/translator_profiles/${id}`);
 }
 
 // ---------------------------------------------------------------------------
 // Refiner profiles
 // ---------------------------------------------------------------------------
 
-export function getRefinerProfiles(): Promise<RefinerProfileRow[]> {
-  return fetchJson<RefinerProfileRow[]>('/api/refiner_profiles');
+export async function getRefinerProfiles(): Promise<RefinerProfileRow[]> {
+  const r = await fetchJson<{ profiles: RefinerProfileRow[] }>('/api/refiner_profiles');
+  return r.profiles;
 }
 
 export function createRefinerProfile(p: RefinerProfile): Promise<RefinerProfileRow> {
@@ -149,16 +153,17 @@ export function updateRefinerProfile(
   return jsonPatch<RefinerProfileRow>(`/api/refiner_profiles/${id}`, patch);
 }
 
-export function deleteRefinerProfile(id: string): Promise<{ ok: true }> {
-  return httpDelete<{ ok: true }>(`/api/refiner_profiles/${id}`);
+export function deleteRefinerProfile(id: string): Promise<{ deleted: string }> {
+  return httpDelete<{ deleted: string }>(`/api/refiner_profiles/${id}`);
 }
 
 // ---------------------------------------------------------------------------
 // Verifier profiles
 // ---------------------------------------------------------------------------
 
-export function getVerifierProfiles(): Promise<VerifierProfileRow[]> {
-  return fetchJson<VerifierProfileRow[]>('/api/verifier_profiles');
+export async function getVerifierProfiles(): Promise<VerifierProfileRow[]> {
+  const r = await fetchJson<{ profiles: VerifierProfileRow[] }>('/api/verifier_profiles');
+  return r.profiles;
 }
 
 export function createVerifierProfile(p: VerifierProfile): Promise<VerifierProfileRow> {
@@ -172,8 +177,8 @@ export function updateVerifierProfile(
   return jsonPatch<VerifierProfileRow>(`/api/verifier_profiles/${id}`, patch);
 }
 
-export function deleteVerifierProfile(id: string): Promise<{ ok: true }> {
-  return httpDelete<{ ok: true }>(`/api/verifier_profiles/${id}`);
+export function deleteVerifierProfile(id: string): Promise<{ deleted: string }> {
+  return httpDelete<{ deleted: string }>(`/api/verifier_profiles/${id}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -199,7 +204,7 @@ export function runPipeline(
 
 export interface V5TranslationByLangEntry {
   text: string;
-  status: 'pending' | 'approved' | 'edited';
+  status: 'pending' | 'approved';
   flags: string[];
 }
 
@@ -212,6 +217,9 @@ export interface V5Translation {
   by_lang: Record<string, V5TranslationByLangEntry>;
 }
 
-export function getTranslations(fileId: string): Promise<V5Translation[]> {
-  return fetchJson<V5Translation[]>(`/api/files/${fileId}/translations?shape=v5`);
+export async function getTranslations(fileId: string): Promise<V5Translation[]> {
+  const r = await fetchJson<{ translations: V5Translation[] }>(
+    `/api/files/${fileId}/translations?shape=v5`,
+  );
+  return r.translations;
 }

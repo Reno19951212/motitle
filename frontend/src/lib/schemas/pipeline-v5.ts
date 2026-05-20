@@ -17,12 +17,12 @@ const AsrPrimarySchema = z.object({
 const AsrSecondarySchema = z.object({
   transcribe_profile_id: z.string().min(1),
   source_lang: z.enum(PIPELINE_V5_LANGS),
-}).nullable();
+}).nullable().optional();
 
 const AsrVerifierSchema = z.object({
   llm_profile_id: z.string().min(1),
   prompt_template_id: z.string().min(1),
-}).nullable();
+}).nullable().optional();
 
 const RefinementEntrySchema = z.object({
   refiner_profile_id: z.string().min(1),
