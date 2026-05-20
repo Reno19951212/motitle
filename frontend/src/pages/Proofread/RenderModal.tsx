@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -35,7 +35,12 @@ type Format = 'mp4' | 'mxf_prores' | 'mxf_xdcam_hd422';
 interface Props {
   open: boolean;
   onClose: () => void;
-  onConfirm: (options: RenderOptions) => void;
+  onConfirm: (options: RenderOptions, targetLang: string) => void;
+  // v5-A3: list of by_lang keys available for the current file (e.g. ['zh','en']).
+  // If empty, the picker renders an empty select (still functional).
+  availableLangs: string[];
+  // v5-A3: which lang to default to (source_lang or first available).
+  defaultLang: string;
 }
 
 const mp4Defaults: Mp4Options = {
@@ -132,12 +137,18 @@ function CommonFields<T extends CommonFieldsValue>({
   );
 }
 
-export function RenderModal({ open, onClose, onConfirm }: Props) {
+export function RenderModal({ open, onClose, onConfirm, availableLangs, defaultLang }: Props) {
   const [format, setFormat] = useState<Format>('mp4');
   const [mp4, setMp4] = useState<Mp4Options>(mp4Defaults);
   const [prores, setProres] = useState<ProResOptions>(proresDefaults);
   const [xdcam, setXdcam] = useState<XdcamOptions>(xdcamDefaults);
   const [error, setError] = useState<string | null>(null);
+  // v5-A3 target-lang picker — defaults to source_lang resolved upstream;
+  // resyncs whenever caller updates defaultLang (e.g. after first by_lang load).
+  const [targetLang, setTargetLang] = useState<string>(defaultLang);
+  useEffect(() => {
+    setTargetLang(defaultLang);
+  }, [defaultLang]);
 
   function patchMp4<K extends keyof Mp4Options>(key: K, value: Mp4Options[K]) {
     setMp4((p) => ({ ...p, [key]: value }));
@@ -163,7 +174,7 @@ export function RenderModal({ open, onClose, onConfirm }: Props) {
       setError(parsed.error.issues.map((i) => i.message).join('; '));
       return;
     }
-    onConfirm(parsed.data);
+    onConfirm(parsed.data, targetLang);
   }
 
   return (
@@ -173,6 +184,27 @@ export function RenderModal({ open, onClose, onConfirm }: Props) {
           <DialogTitle>Render Output</DialogTitle>
           <DialogDescription>Choose format and encoding options.</DialogDescription>
         </DialogHeader>
+        <div className="space-y-1 pb-3 border-b">
+          <Label htmlFor="rm-target-lang" className="text-xs">
+            Target Language (which lang to burn into subtitles)
+          </Label>
+          <select
+            id="rm-target-lang"
+            value={targetLang}
+            onChange={(e) => setTargetLang(e.target.value)}
+            className="block w-full h-10 rounded-md border border-input bg-background px-2 text-sm"
+          >
+            {availableLangs.length === 0 ? (
+              <option value="">(no languages available)</option>
+            ) : (
+              availableLangs.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))
+            )}
+          </select>
+        </div>
         <Tabs value={format} onValueChange={(v) => setFormat(v as Format)}>
           <TabsList>
             <TabsTrigger value="mp4">MP4</TabsTrigger>

@@ -420,9 +420,13 @@ function ProofreadInner({ fileId }: { fileId: string }) {
       <RenderModal
         open={renderOpen}
         onClose={() => setRenderOpen(false)}
-        onConfirm={(options: RenderOptions) => {
+        availableLangs={availableLangs}
+        defaultLang={sourceLang || availableLangs[0] || activeLang || 'zh'}
+        onConfirm={(options: RenderOptions, targetLang: string) => {
           setRenderOpen(false);
-          void startRender({ file_id: fileId, ...options });
+          // v5-A3 — backend /api/render accepts target_lang (passthrough); not yet in
+          // RenderOptions zod schema, so attach as extra payload field.
+          void startRender({ file_id: fileId, ...options, target_lang: targetLang });
         }}
       />
 
