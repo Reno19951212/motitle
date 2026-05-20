@@ -257,3 +257,53 @@ def test_translator_stage_uses_file_prompt_override_per_pair():
         stage.transform([{"start": 0, "end": 1, "text": "中文"}], ctx)
     sent_system = fake_llm.call.call_args.args[0]
     assert sent_system == "CUSTOM ZH→EN PROMPT"
+
+
+def test_asr_primary_stage_dedupes_cascade_and_tail_orphan():
+    """ASRPrimaryStage applies v5-A4.1 filters: cascade dedup + tail orphan."""
+    from unittest.mock import patch, MagicMock
+    from stages.v5.asr_primary_stage import ASRPrimaryStage
+
+    fake_engine = MagicMock()
+    # Simulate 賽馬 worst-case: clean 5 + cascade 3 + clean 1 + tail orphan 1
+    fake_engine.transcribe.return_value = [
+        {"start": 0.0, "end": 5.0, "text": "中文一。"},
+        {"start": 5.0, "end": 10.0, "text": "中文二。"},
+        {"start": 10.0, "end": 15.0, "text": "中文三。"},
+        {"start": 15.0, "end": 20.0, "text": "中文四。"},
+        {"start": 20.0, "end": 25.0, "text": "中文五。"},
+        {"start": 25.0, "end": 26.0, "text": "cascade,"},
+        {"start": 26.0, "end": 25.96, "text": "cascade,"},  # 0-duration repeat
+        {"start": 26.0, "end": 26.0, "text": "cascade,"},   # another repeat
+        {"start": 30.0, "end": 35.0, "text": "中文六。"},
+        {"start": 38.0, "end": 39.0, "text": "vowels"},      # tail orphan: gap 3s + pure ASCII
+    ]
+
+    stage = ASRPrimaryStage(
+        transcribe_profile={"id": "tp1", "language": "zh", "engine": "mlx-whisper"},
+        audio_path="/dev/null",
+    )
+
+    ctx = StageContext(
+        file_id="f1",
+        user_id=1,
+        pipeline_id="p1",
+        stage_index=0,
+        cancel_event=None,
+        progress_callback=None,
+        pipeline_overrides={},
+    )
+
+    with patch("stages.v5.asr_primary_stage.create_transcribe_engine", return_value=fake_engine):
+        out = stage.transform([], ctx)
+
+    texts = [s["text"] for s in out]
+    # Cascade clusters: 3 'cascade,' segments → 1 kept
+    assert texts.count("cascade,") == 1
+    # Tail orphan: 'vowels' dropped
+    assert "vowels" not in texts
+    # Clean segments preserved
+    assert "中文一。" in texts
+    assert "中文六。" in texts
+    # Final count: 5 clean + 1 cascade + 1 clean = 7
+    assert len(out) == 7

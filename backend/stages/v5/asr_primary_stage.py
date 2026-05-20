@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import List
 
+from asr.segment_utils import dedupe_cascade_repeats, filter_tail_english_orphan
 from engines.transcribe import create_transcribe_engine
 from stages import PipelineStage, StageContext
 
@@ -35,7 +36,7 @@ class ASRPrimaryStage(PipelineStage):
         language = self._profile.get("language", "auto")
         segments = engine.transcribe(self._audio_path, language=language)
         # Normalize to canonical dict shape (some engines return list of TypedDict)
-        return [
+        normalized = [
             {
                 "start": float(s["start"]),
                 "end": float(s["end"]),
@@ -43,3 +44,8 @@ class ASRPrimaryStage(PipelineStage):
             }
             for s in segments
         ]
+        # v5-A4.1: scrub cascade hallucination clusters + tail English orphans
+        # at the source so downstream verifier/refiner/persistence see clean
+        # input. Both filters are pure functions; original list unchanged.
+        deduped = dedupe_cascade_repeats(normalized)
+        return filter_tail_english_orphan(deduped)
