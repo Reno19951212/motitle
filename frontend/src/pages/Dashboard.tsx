@@ -1159,8 +1159,15 @@ function BoldWorkbench({
 
   const mediaUrl = `/api/files/${encodeURIComponent(file.id)}/media`;
 
+  // v5-A3 added an optional LangPicker as a 3rd grid child between the file
+  // header and the workbench-video panel. The base `.workbench` CSS only
+  // declares `grid-template-rows: auto 1fr` (2 rows), so without this override
+  // the LangPicker would land on the `1fr` row and the video panel would fall
+  // into an implicit `auto` row → collapse to its waveform-strip height.
+  const workbenchRows = availableLangs.length >= 1 ? 'auto auto 1fr' : 'auto 1fr';
+
   return (
-    <div className="workbench">
+    <div className="workbench" style={{ gridTemplateRows: workbenchRows }}>
       <div className="file-header">
         <div className="fh-name">
           <Icon name="film" size={16} color="var(--accent-2)" />
