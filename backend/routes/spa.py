@@ -77,6 +77,36 @@ def serve_mt_profiles_spa():
     return _serve_react_index()
 
 
+# --- v5-A3 SPA routes -------------------------------------------------------
+# Five new entity pages introduced in the v5 dual-ASR + Refiner-Translator
+# redesign. Direct browser navigation to these paths must serve index.html so
+# React Router can take over.
+
+@bp.get("/llm_profiles")
+def serve_llm_profiles_spa():
+    return _serve_react_index()
+
+
+@bp.get("/transcribe_profiles")
+def serve_transcribe_profiles_spa():
+    return _serve_react_index()
+
+
+@bp.get("/translator_profiles")
+def serve_translator_profiles_spa():
+    return _serve_react_index()
+
+
+@bp.get("/refiner_profiles")
+def serve_refiner_profiles_spa():
+    return _serve_react_index()
+
+
+@bp.get("/verifier_profiles")
+def serve_verifier_profiles_spa():
+    return _serve_react_index()
+
+
 @bp.get("/glossaries")
 def serve_glossaries_spa():
     return _serve_react_index()

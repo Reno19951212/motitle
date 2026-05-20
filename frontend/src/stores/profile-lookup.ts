@@ -179,11 +179,11 @@ export const useProfileLookupStore = create<LookupState>()((set, get) => ({
   pipelines: {},
 
   fetchAsr: (id) =>
-    cachedFetch(get().asrProfiles, id, `/api/asr_profiles/${encodeURIComponent(id)}`, (k, v) =>
+    cachedFetch(get().asrProfiles, id, `/api/transcribe_profiles/${encodeURIComponent(id)}`, (k, v) =>
       set((s) => ({ asrProfiles: { ...s.asrProfiles, [k]: v } })),
     ),
   fetchMt: (id) =>
-    cachedFetch(get().mtProfiles, id, `/api/mt_profiles/${encodeURIComponent(id)}`, (k, v) =>
+    cachedFetch(get().mtProfiles, id, `/api/refiner_profiles/${encodeURIComponent(id)}`, (k, v) =>
       set((s) => ({ mtProfiles: { ...s.mtProfiles, [k]: v } })),
     ),
   fetchGlossary: (id) =>
@@ -196,11 +196,11 @@ export const useProfileLookupStore = create<LookupState>()((set, get) => ({
     ),
 
   forceRefetchAsr: (id) =>
-    forceFetch(id, `/api/asr_profiles/${encodeURIComponent(id)}`, (k, v) =>
+    forceFetch(id, `/api/transcribe_profiles/${encodeURIComponent(id)}`, (k, v) =>
       set((s) => ({ asrProfiles: { ...s.asrProfiles, [k]: v } })),
     ),
   forceRefetchMt: (id) =>
-    forceFetch(id, `/api/mt_profiles/${encodeURIComponent(id)}`, (k, v) =>
+    forceFetch(id, `/api/refiner_profiles/${encodeURIComponent(id)}`, (k, v) =>
       set((s) => ({ mtProfiles: { ...s.mtProfiles, [k]: v } })),
     ),
   forceRefetchGlossary: (id) =>
