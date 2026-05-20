@@ -155,6 +155,58 @@ def transcribe_file():
 
 
 # ============================================================
+# POST /api/files/upload — upload ONLY (no pipeline enqueue)
+# ============================================================
+
+@bp.post("/api/files/upload")
+@login_required
+def upload_file_only():
+    """Upload a video/audio file without kicking off any pipeline.
+
+    Used by the Dashboard's drop hero so the user can preview the file in
+    the queue + workbench, then explicitly click 執行 to start the pipeline
+    via POST /api/pipelines/<pipeline_id>/run. Avoids the duplicate-enqueue
+    bug where drop + 執行 each fired a pipeline_run job.
+
+    Returns: {file_id, status: 'uploaded', filename} with HTTP 200.
+    """
+    import app as _app
+
+    if 'file' not in request.files:
+        return jsonify({'error': '未找到文件'}), 400
+
+    file = request.files['file']
+    if not file.filename:
+        return jsonify({'error': '未選擇文件'}), 400
+
+    suffix = Path(file.filename).suffix.lower()
+    if suffix not in _app.ALLOWED_EXTENSIONS:
+        return jsonify({'error': f'不支持的文件格式: {suffix}'}), 400
+
+    sid = request.form.get('sid', None)
+
+    file_id = uuid.uuid4().hex[:12]
+    stored_name = f"{file_id}{suffix}"
+    file_path = str(_app._user_upload_dir(current_user.id) / stored_name)
+    file.save(file_path)
+
+    file_size = os.path.getsize(file_path)
+    entry = _app._register_file(
+        file_id, file.filename, stored_name, file_size,
+        user_id=current_user.id, file_path=file_path,
+    )
+
+    if sid:
+        _app.socketio.emit('file_added', entry, room=sid)
+
+    return jsonify({
+        'file_id': file_id,
+        'status': 'uploaded',
+        'filename': stored_name,
+    }), 200
+
+
+# ============================================================
 # GET /api/files/<id>/media — serve original media
 # ============================================================
 
