@@ -358,6 +358,25 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### v5-A3 — Frontend Multi-Lang UI (in progress on `feat/frontend-redesign`)
+- Builds the React frontend to consume v5-A2's multi-lang backend. 5 v5 profile CRUD pages, per-target-lang Pipelines editor, multi-lang Proofread with target-lang tab switcher, RenderModal target-lang picker. Spec: [docs/superpowers/specs/2026-05-19-v5-dual-asr-refiner-translator-design.md](docs/superpowers/specs/2026-05-19-v5-dual-asr-refiner-translator-design.md) §8. Plan: [docs/superpowers/plans/2026-05-20-v5-A3-frontend-multilang-plan.md](docs/superpowers/plans/2026-05-20-v5-A3-frontend-multilang-plan.md).
+- **Schemas (T1)**: 5 v5 profile zod schemas + v5 Pipeline schema with 3 cross-field rules mirroring backend `pipeline_schema_v5.py`. ~20 vitest cases.
+- **API client (T2)** ([frontend/src/lib/api/v5.ts](frontend/src/lib/api/v5.ts)) — typed wrappers around 23 v5 REST calls; `getTranslations(fileId)` automatically passes `?shape=v5`; list endpoints unwrap `{profiles:[...]}` envelope; delete returns `{deleted: id}`.
+- **5 v5 profile pages (T3-T7)** — Bold-shell CRUD pattern from v4 AsrProfiles.tsx:
+  - LLMProfiles.tsx (NEW pattern setter)
+  - TranscribeProfiles.tsx (replaces AsrProfiles, adds qwen3-asr engine + yue/th)
+  - TranslatorProfiles.tsx (NEW cross-lingual, refines source_lang != target_lang)
+  - RefinerProfiles.tsx (replaces MtProfiles, narrowed same-lingual)
+  - VerifierProfiles.tsx (NEW LLM-as-judge)
+- **Pipelines page rewrite (T8)** — flat v4 stage list → per-target-lang card layout. ASR section (Primary + optional Secondary + optional Verifier toggles); Target Languages chip row; per-lang cards each with optional translator (non-source) + optional refiner. Client-side validation via PipelineV5Schema before submit.
+- **Proofread multi-lang (T9)** — useFileData hook fetches `?shape=v5` and derives v4-shape Translation[] for the active target lang (adapt-at-boundary, so existing consumers SegmentRow/DetailEditor/etc. keep their `zh_text`/`en_text` contract). New TargetLangTabs component switches between by_lang keys. Default activeLang = source_lang.
+- **RenderModal target-lang picker (T10)** — dropdown selects which lang to burn into subtitles; falls back to source_lang by default; passes `target_lang` field to `/api/render`.
+- **Legacy alias retirement (T10)** — `/api/asr_profiles` + `/api/mt_profiles` v4 routes deleted from backend (removed Deprecation headers, removed routes/__init__.py registrations, deleted route module files + their dedicated test files). Frontend routes `/asr_profiles` + `/mt_profiles` now redirect to v5 equivalents via React Router Navigate. AsrProfiles.tsx + MtProfiles.tsx page files retained on disk (no longer referenced by router) — can be removed in a follow-up cleanup.
+- **BoldRail update (T10)** — RAIL_ITEMS expanded from 8 → 11 entries: added LLM / Translator / Verifier; renamed ASR → Transcribe, MT → Refiner.
+- **Tests**: ~25 new vitest (schemas + API client + useFileData re-derive) + 3 new Playwright E2E specs (v5-profile-crud / v5-pipeline-builder / v5-proofread-multilang, all graceful-skip on credential mismatch). Backend baseline 876 pass + 21 skip + 14 pre-existing failures (no new regressions).
+- **Out of A3 scope**: PATCH translation route still v4-shape only (multi-lang `by_lang` edits not yet routed — TODO comment left in Proofread/index.tsx); Glossary cross-lingual UI on Pipelines page (backend v3.15 multilingual schema already supports it but Pipelines page doesn't render a multi-glossary picker yet); per-stage rerun on v5; pipeline cancel mid-stage cleanup; AsrProfiles.tsx + MtProfiles.tsx page file cleanup.
+- **V5 complete**: A1 (32 commits) + A2 (10 commits + 2 fix) + A3 (~16 commits) ≈ 60 commits land the full v5 dual-ASR + Refiner-Translator separation feature on `feat/frontend-redesign`.
+
 ### v5-A2 — Stage executor + Pipeline runner DAG (in progress on `feat/frontend-redesign`)
 - Wires v5-A1 engine ABCs + profile managers into a runtime executor that actually transcribes audio, refines per-target-lang, translates per source→target pair, and persists multi-lang results to file registry. Spec: [docs/superpowers/specs/2026-05-19-v5-dual-asr-refiner-translator-design.md](docs/superpowers/specs/2026-05-19-v5-dual-asr-refiner-translator-design.md) §4-§5. Plan: [docs/superpowers/plans/2026-05-20-v5-A2-stage-executor-plan.md](docs/superpowers/plans/2026-05-20-v5-A2-stage-executor-plan.md).
 - **Engine factory (T1)**: [backend/engines/factory.py](backend/engines/factory.py) — `build_llm_engine(llm_profile)` dispatches on `backend` field to `OllamaLLM` / `OpenRouterLLM` (Claude deferred); `load_prompt_template(template_id)` reads JSON from `backend/config/prompt_templates_v5/<category>/<name>.json`; `resolve_prompt(template_id, file_override)` picks override > template default.
