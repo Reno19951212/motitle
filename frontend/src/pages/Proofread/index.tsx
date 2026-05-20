@@ -30,6 +30,7 @@ import { GlossaryApplyModal } from './GlossaryApplyModal';
 import { GlossaryPanel } from './GlossaryPanel';
 import { SubtitleSettingsPanel } from './SubtitleSettingsPanel';
 import { RenderModal } from './RenderModal';
+import { TargetLangTabs } from './TargetLangTabs';
 import { useFileData } from './hooks/useFileData';
 import { useFilePipeline } from './hooks/useFilePipeline';
 import { useFindReplace } from './hooks/useFindReplace';
@@ -46,10 +47,26 @@ export default function Proofread() {
 }
 
 function ProofreadInner({ fileId }: { fileId: string }) {
-  const { file, translations, loading, error, refresh } = useFileData(fileId);
+  // v5-A3 — activeLang state drives which by_lang key the segment editor reads.
+  // Default 'zh' is provisional; resolved to source_lang once data loads (see effect below).
+  const [activeLang, setActiveLang] = useState<string>('zh');
+  const { file, translations, availableLangs, sourceLang, loading, error, refresh } =
+    useFileData(fileId, activeLang);
   const { font, glossaryId, refresh: refreshPipeline } = useFilePipeline(
     file?.pipeline_id ?? null,
   );
+
+  // Resolve activeLang once translations are loaded: prefer source_lang;
+  // fall back to first available lang if current activeLang isn't present.
+  useEffect(() => {
+    if (sourceLang && availableLangs.includes(sourceLang)) {
+      setActiveLang(sourceLang);
+    } else if (availableLangs.length > 0 && !availableLangs.includes(activeLang)) {
+      const first = availableLangs[0];
+      if (first) setActiveLang(first);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceLang, availableLangs.join('|')]);
   const fr = useFindReplace(translations);
   const { state: socketState } = useSocket();
 
@@ -189,6 +206,7 @@ function ProofreadInner({ fileId }: { fileId: string }) {
     const zhMuts = mutations.filter((m) => m.field === 'zh');
     for (const m of zhMuts) {
       try {
+        // TODO(v5-A3): PATCH only updates v4-shape fallback; v5 by_lang multi-lang edits not yet routed
         await apiFetch(`/api/files/${fileId}/translations/${m.idx}`, {
           method: 'PATCH',
           body: JSON.stringify({ zh_text: m.newText }),
@@ -320,6 +338,12 @@ function ProofreadInner({ fileId }: { fileId: string }) {
 
               {/* Right: top row (video + detail) + timeline */}
               <div className="rv-b-right">
+                {/* v5-A3 — target language tabs (hidden when zero langs available, e.g. ASR-only) */}
+                <TargetLangTabs
+                  availableLangs={availableLangs}
+                  activeLang={activeLang}
+                  onSelect={setActiveLang}
+                />
                 <div className="rv-b-top-row">
                   <div className="rv-b-video-col">
                     <div className="rv-b-video-wrap">

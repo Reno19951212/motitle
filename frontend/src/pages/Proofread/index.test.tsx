@@ -40,11 +40,13 @@ vi.mock('./TopBar', () => ({
   ),
 }));
 
-// useFileData — return a fixed file + translations
+// useFileData — return a fixed file + translations (v5-A3: 2-arg signature)
 vi.mock('./hooks/useFileData', () => ({
-  useFileData: () => ({
+  useFileData: (_fileId: string, _activeLang: string) => ({
     file: { id: 'f-test', original_name: 'demo.mp4', status: 'completed' },
     translations: [],
+    availableLangs: [],
+    sourceLang: null,
     loading: false,
     error: null,
     refresh: vi.fn(),

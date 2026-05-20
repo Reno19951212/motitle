@@ -35,3 +35,7 @@ export interface FileDetail {
   bilingual_order?: 'source_top' | 'target_top';
   prompt_overrides?: Record<string, unknown> | null;
 }
+
+// v5-A3 — multi-lang shape from GET /api/files/<id>/translations?shape=v5
+// Re-exported from lib/api/v5.ts for ergonomic imports inside Proofread/.
+export type { V5Translation } from '@/lib/api/v5';
