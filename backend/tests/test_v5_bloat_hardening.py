@@ -1,6 +1,11 @@
 """Tests for v5 segment-bloat hardening (R1-R6)."""
 import pytest
+from pathlib import Path
 from unittest.mock import Mock
+
+_REPO_BACKEND = Path(__file__).resolve().parent.parent  # backend/tests → backend
+_ZH_REFINER_PATH = _REPO_BACKEND / "config" / "prompt_templates_v5" / "refiner" / "zh_broadcast_hk_default.json"
+_EN_REFINER_PATH = _REPO_BACKEND / "config" / "prompt_templates_v5" / "refiner" / "en_newscast_default.json"
 
 
 # ---- R2: max_tokens cap on all three engines ----
@@ -151,7 +156,7 @@ def test_verifier_short_window_empty_primary_keeps_secondary():
 
 def test_zh_refiner_prompt_has_length_cap():
     import json
-    with open("backend/config/prompt_templates_v5/refiner/zh_broadcast_hk_default.json") as f:
+    with open(_ZH_REFINER_PATH) as f:
         tmpl = json.load(f)
     sp = tmpl["system_prompt"]
     assert "0.7" in sp and "1.3" in sp, "ZH refiner must declare 0.7–1.3× length cap"
@@ -160,7 +165,7 @@ def test_zh_refiner_prompt_has_length_cap():
 
 def test_zh_refiner_prompt_has_hallucination_escape():
     import json
-    with open("backend/config/prompt_templates_v5/refiner/zh_broadcast_hk_default.json") as f:
+    with open(_ZH_REFINER_PATH) as f:
         tmpl = json.load(f)
     sp = tmpl["system_prompt"]
     assert "[HALLUC]" in sp, "ZH refiner must mention [HALLUC] marker handling"
@@ -170,7 +175,7 @@ def test_zh_refiner_prompt_has_hallucination_escape():
 
 def test_en_refiner_prompt_has_length_cap():
     import json
-    with open("backend/config/prompt_templates_v5/refiner/en_newscast_default.json") as f:
+    with open(_EN_REFINER_PATH) as f:
         tmpl = json.load(f)
     sp = tmpl["system_prompt"]
     assert "0.7" in sp and "1.3" in sp, "EN refiner must declare 0.7–1.3× length cap"
@@ -180,7 +185,7 @@ def test_en_refiner_prompt_has_length_cap():
 
 def test_en_refiner_prompt_has_hallucination_escape():
     import json
-    with open("backend/config/prompt_templates_v5/refiner/en_newscast_default.json") as f:
+    with open(_EN_REFINER_PATH) as f:
         tmpl = json.load(f)
     sp = tmpl["system_prompt"]
     assert "[HALLUC]" in sp, "EN refiner must mention [HALLUC] marker handling"
