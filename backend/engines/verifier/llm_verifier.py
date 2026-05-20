@@ -99,7 +99,7 @@ class LLMVerifier(VerifierEngine):
                     f"Whisper: {wt}\n"
                     f"Qwen3:   {qt}"
                 )
-                raw = self.llm.call(self.system_prompt, user_prompt)
+                raw = self.llm.call(self.system_prompt, user_prompt, max_tokens=150)
                 for prefix in _LABEL_PREFIXES:
                     if raw.startswith(prefix):
                         raw = raw[len(prefix):].strip()

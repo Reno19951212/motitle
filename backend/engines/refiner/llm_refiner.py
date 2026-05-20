@@ -48,7 +48,7 @@ class LLMRefiner(RefinerEngine):
             if not src:
                 out.append({"start": seg["start"], "end": seg["end"], "text": ""})
                 continue
-            refined = self.llm.call(self.system_prompt, src)
+            refined = self.llm.call(self.system_prompt, src, max_tokens=200)
             for prefix in _LABEL_PREFIXES:
                 if refined.startswith(prefix):
                     refined = refined[len(prefix):].strip()

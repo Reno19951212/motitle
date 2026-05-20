@@ -52,7 +52,7 @@ class LLMTranslator(TranslatorEngine):
             # Refiner may emit [HALLUC] tag — strip before translating
             if src.startswith("[HALLUC]"):
                 src = src[len("[HALLUC]"):].strip()
-            translated = self.llm.call(self.system_prompt, src)
+            translated = self.llm.call(self.system_prompt, src, max_tokens=300)
             for prefix in _LABEL_PREFIXES:
                 if translated.startswith(prefix):
                     translated = translated[len(prefix):].strip()
