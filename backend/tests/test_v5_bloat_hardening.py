@@ -315,23 +315,24 @@ def test_validate_returns_tuple_of_lists():
     assert isinstance(warnings, list)
 
 
-def test_validate_warns_on_translator_gap_zh_to_en():
-    """source_lang=zh + target_languages contains 'en' but no translators.zh_to_en → warning."""
+def test_validate_warns_on_translator_gap():
+    """When a target lang has no translator wired, BOTH hard error and warning fire (warning provides human-readable text)."""
     from pipeline_schema_v5 import validate_v5_pipeline
     errors, warnings = validate_v5_pipeline({
         "version": 5,
         "name": "p",
         "asr_primary": {"source_lang": "zh", "transcribe_profile_id": "x"},
         "target_languages": ["zh", "en"],
-        "refinements": {"zh": ["r1"], "en": ["r2"]},
+        "refinements": {"zh": [], "en": []},  # empty lists are valid v5 shape
         "translators": {},  # zh_to_en MISSING
         "glossary_stages": {},
         "font_config": {},
     })
-    # The error path also catches this as a hard error in some configs,
-    # so we only check that one of errors OR warnings mentions translator.
-    combined = " ".join(errors + warnings)
-    assert "translator" in combined.lower()
+    # Hard error fires
+    assert any("translators.en" in e for e in errors), f"expected hard error, got {errors}"
+    # Warning ALSO fires with human-readable message
+    assert any("translators.en is missing" in w for w in warnings), \
+        f"expected human-readable warning about missing translator, got warnings={warnings}"
 
 
 def test_validate_warns_when_source_lang_not_in_targets():

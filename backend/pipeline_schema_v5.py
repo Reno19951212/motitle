@@ -115,16 +115,18 @@ def validate_v5_pipeline(data: Any) -> tuple[list[str], list[str]]:
             f"add '{source_lang}' to target_languages if you want refined source text"
         )
 
-    # Warn for each non-source target lang that doesn't have a translator wired
-    # (using src_to_tgt key format for forward-compat with v5 translators shape).
+    # Warn for each non-source target lang that doesn't have a translator wired.
+    # Note: this overlaps the hard-error rule above when translators key is
+    # outright missing. The warning still adds value for the future case where
+    # the manager/route layer separates a partially-validated pipeline (e.g.
+    # warnings-only mode for advisory dry-run) from a strict-error mode.
     if source_lang and isinstance(targets, list) and isinstance(translators, dict):
         for t in targets:
             if t == source_lang:
                 continue
-            key = f"{source_lang}_to_{t}"
-            if key not in translators:
+            if t not in translators:
                 warnings.append(
-                    f"target_languages contains '{t}' but translators.{key} is missing — "
+                    f"target_languages contains '{t}' but translators.{t} is missing — "
                     f"output for '{t}' will be empty (no cross-lingual conversion path)"
                 )
 
