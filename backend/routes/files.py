@@ -183,8 +183,6 @@ def upload_file_only():
     if suffix not in _app.ALLOWED_EXTENSIONS:
         return jsonify({'error': f'不支持的文件格式: {suffix}'}), 400
 
-    sid = request.form.get('sid', None)
-
     file_id = uuid.uuid4().hex[:12]
     stored_name = f"{file_id}{suffix}"
     file_path = str(_app._user_upload_dir(current_user.id) / stored_name)
@@ -196,8 +194,10 @@ def upload_file_only():
         user_id=current_user.id, file_path=file_path,
     )
 
-    if sid:
-        _app.socketio.emit('file_added', entry, room=sid)
+    # Broadcast file_added to ALL connected clients so the dashboard queue
+    # panel re-renders immediately (no sid required — pipeline_run path emits
+    # progress events later, but upload-only has no other broadcast trigger).
+    _app.socketio.emit('file_added', entry)
 
     return jsonify({
         'file_id': file_id,
