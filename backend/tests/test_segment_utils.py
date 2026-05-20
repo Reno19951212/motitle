@@ -307,3 +307,194 @@ def test_merge_no_input_no_crash():
     from asr.segment_utils import merge_short_segments
     assert merge_short_segments([], max_words_short=2, max_gap_sec=0.5,
                                  max_words_cap=12) == []
+
+
+# ---- v5-A4.1: dedupe_cascade_repeats ----
+
+def test_dedupe_cascade_empty():
+    from asr.segment_utils import dedupe_cascade_repeats
+    assert dedupe_cascade_repeats([]) == []
+
+
+def test_dedupe_cascade_single():
+    from asr.segment_utils import dedupe_cascade_repeats
+    segs = [{"start": 0.0, "end": 1.0, "text": "alone"}]
+    out = dedupe_cascade_repeats(segs)
+    assert out == segs
+
+
+def test_dedupe_cascade_collapses_zero_duration_repeats():
+    """3 consecutive zero-duration repeats → 1 kept (the first)."""
+    from asr.segment_utils import dedupe_cascade_repeats
+    segs = [
+        {"start": 0.0, "end": 1.0, "text": "first"},
+        {"start": 205.04, "end": 204.96, "text": "cascade,"},
+        {"start": 205.00, "end": 205.00, "text": "cascade,"},
+        {"start": 205.00, "end": 205.00, "text": "cascade,"},
+        {"start": 210.0, "end": 211.0, "text": "after"},
+    ]
+    out = dedupe_cascade_repeats(segs)
+    texts = [s["text"] for s in out]
+    assert texts == ["first", "cascade,", "after"]
+
+
+def test_dedupe_cascade_keeps_legitimate_long_repeats():
+    """Normal-duration repeats (speaker says same phrase twice) → kept."""
+    from asr.segment_utils import dedupe_cascade_repeats
+    segs = [
+        {"start": 0.0, "end": 1.5, "text": "go go go"},
+        {"start": 1.5, "end": 3.0, "text": "go go go"},  # 1.5s duration — legitimate
+    ]
+    out = dedupe_cascade_repeats(segs)
+    assert len(out) == 2
+
+
+def test_dedupe_cascade_keeps_non_repeats():
+    """All non-repeating segments preserved regardless of duration."""
+    from asr.segment_utils import dedupe_cascade_repeats
+    segs = [
+        {"start": 0.0, "end": 0.0, "text": "a"},
+        {"start": 0.0, "end": 0.0, "text": "b"},
+        {"start": 0.0, "end": 0.0, "text": "c"},
+    ]
+    out = dedupe_cascade_repeats(segs)
+    assert len(out) == 3
+
+
+def test_dedupe_cascade_negative_duration_repeat_dropped():
+    """Negative duration (start > end) + text repeat → dropped."""
+    from asr.segment_utils import dedupe_cascade_repeats
+    segs = [
+        {"start": 100.0, "end": 101.0, "text": "x"},
+        {"start": 205.04, "end": 204.96, "text": "x"},  # negative duration
+    ]
+    out = dedupe_cascade_repeats(segs)
+    assert len(out) == 1
+
+
+def test_dedupe_cascade_text_stripped_comparison():
+    """Comparison strips whitespace — '  hi  ' equals 'hi'."""
+    from asr.segment_utils import dedupe_cascade_repeats
+    segs = [
+        {"start": 0.0, "end": 1.0, "text": "hi"},
+        {"start": 1.0, "end": 1.0, "text": "  hi  "},
+    ]
+    out = dedupe_cascade_repeats(segs)
+    assert len(out) == 1
+
+
+def test_dedupe_cascade_immutable():
+    """Input list and its elements are not mutated."""
+    from asr.segment_utils import dedupe_cascade_repeats
+    segs = [
+        {"start": 0.0, "end": 1.0, "text": "x"},
+        {"start": 1.0, "end": 1.0, "text": "x"},
+    ]
+    original = [dict(s) for s in segs]
+    _ = dedupe_cascade_repeats(segs)
+    assert segs == original
+
+
+# ---- v5-A4.1: filter_tail_english_orphan ----
+
+def test_filter_tail_orphan_empty():
+    from asr.segment_utils import filter_tail_english_orphan
+    assert filter_tail_english_orphan([]) == []
+
+
+def test_filter_tail_orphan_single_unchanged():
+    from asr.segment_utils import filter_tail_english_orphan
+    segs = [{"start": 0.0, "end": 1.0, "text": "vowels"}]
+    out = filter_tail_english_orphan(segs)
+    assert out == segs
+
+
+def test_filter_tail_orphan_drops_vowels_after_gap():
+    """賽馬 case: Chinese segs + 3s gap + 'vowels' → 'vowels' dropped."""
+    from asr.segment_utils import filter_tail_english_orphan
+    segs = [
+        {"start": 0.0, "end": 100.0, "text": "中文內容"},
+        {"start": 100.0, "end": 261.48, "text": "更多中文。"},
+        {"start": 264.60, "end": 265.0, "text": "vowels"},
+    ]
+    out = filter_tail_english_orphan(segs)
+    texts = [s["text"] for s in out]
+    assert "vowels" not in texts
+    assert len(out) == 2
+
+
+def test_filter_tail_orphan_kept_when_no_gap():
+    """Tail English word with no gap from previous → kept."""
+    from asr.segment_utils import filter_tail_english_orphan
+    segs = [
+        {"start": 0.0, "end": 5.0, "text": "the winner is"},
+        {"start": 5.0, "end": 6.0, "text": "Pegasus"},  # gap = 0
+    ]
+    out = filter_tail_english_orphan(segs)
+    assert len(out) == 2
+
+
+def test_filter_tail_orphan_multi_word_kept():
+    """Multi-word tail → kept (not pure single ASCII word)."""
+    from asr.segment_utils import filter_tail_english_orphan
+    segs = [
+        {"start": 0.0, "end": 10.0, "text": "content"},
+        {"start": 15.0, "end": 16.0, "text": "thanks for watching"},
+    ]
+    out = filter_tail_english_orphan(segs)
+    assert len(out) == 2
+
+
+def test_filter_tail_orphan_chinese_tail_kept():
+    """Chinese tail → kept (non-ASCII)."""
+    from asr.segment_utils import filter_tail_english_orphan
+    segs = [
+        {"start": 0.0, "end": 10.0, "text": "中文"},
+        {"start": 15.0, "end": 16.0, "text": "完。"},
+    ]
+    out = filter_tail_english_orphan(segs)
+    assert len(out) == 2
+
+
+def test_filter_tail_orphan_mixed_alphanumeric_kept():
+    """Tail with digits → not pure ASCII letters → kept."""
+    from asr.segment_utils import filter_tail_english_orphan
+    segs = [
+        {"start": 0.0, "end": 10.0, "text": "content"},
+        {"start": 15.0, "end": 16.0, "text": "hello123"},
+    ]
+    out = filter_tail_english_orphan(segs)
+    assert len(out) == 2
+
+
+def test_filter_tail_orphan_boundary_exactly_10_chars_dropped():
+    """Tail = exactly 10-char pure-ASCII word with gap → dropped (≤ boundary)."""
+    from asr.segment_utils import filter_tail_english_orphan
+    segs = [
+        {"start": 0.0, "end": 10.0, "text": "content"},
+        {"start": 15.0, "end": 16.0, "text": "helloworld"},  # 10 chars
+    ]
+    out = filter_tail_english_orphan(segs)
+    assert len(out) == 1
+
+
+def test_filter_tail_orphan_over_limit_kept():
+    """Tail > max_word_chars → kept."""
+    from asr.segment_utils import filter_tail_english_orphan
+    segs = [
+        {"start": 0.0, "end": 10.0, "text": "content"},
+        {"start": 15.0, "end": 16.0, "text": "hellohelloo"},  # 11 chars
+    ]
+    out = filter_tail_english_orphan(segs)
+    assert len(out) == 2
+
+
+def test_filter_tail_orphan_immutable():
+    from asr.segment_utils import filter_tail_english_orphan
+    segs = [
+        {"start": 0.0, "end": 10.0, "text": "content"},
+        {"start": 15.0, "end": 16.0, "text": "vowels"},
+    ]
+    original = [dict(s) for s in segs]
+    _ = filter_tail_english_orphan(segs)
+    assert segs == original
