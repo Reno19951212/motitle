@@ -358,6 +358,15 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### v5-A4.1 — Cascade dedup + tail orphan filter (in progress on `feat/frontend-redesign`)
+- Quick follow-up to v5-A4 — adds two pure-function filters that scrub Whisper's cascade hallucination clusters + tail-of-clip English orphans at the ASR primary source before they propagate through verifier / refiner / persistence.
+- **Cascade dedup** ([backend/asr/segment_utils.py](backend/asr/segment_utils.py) `dedupe_cascade_repeats`): drops consecutive segments where text matches the previous kept text AND duration < 0.1s. Targets Whisper "looping" on uncertain audio — observed on 賽馬 file at segs `[52-54]` and `[64-66]` (3 zero-duration `"所以惹來了一眾網友風暴,"` and 3 zero-duration `"擊敗大熱門HIGHLAND BLINK,"`).
+- **Tail English orphan** (`filter_tail_english_orphan`): drops the trailing segment when it's a pure-ASCII single word (≤10 chars) separated from the previous segment by >2s gap. Targets Whisper tail-of-clip training-data leak — observed on 賽馬 seg `[89]` = `"vowels"` at 264.6s, 3.12s after the previous Chinese segment ended.
+- **Both filters wired** into [backend/stages/v5/asr_primary_stage.py](backend/stages/v5/asr_primary_stage.py)`.transform()` right after the normalize step. Filter order is semantically critical: dedupe must run first so the tail filter sees the real gap to legitimate Chinese content (not a zero-gap to another orphan repeat).
+- **Why ASR primary and not verifier**: the v5 verifier was designed to catch these via dual-ASR LLM-as-judge, but granularity mismatch (mlx-whisper 90 short segs vs qwen3-asr 13 mega-chunks) makes per-segment alignment unreliable → verifier silently "keeps primary" 91% on this file. Fixing at primary source bypasses the verifier ineffectiveness for these specific artifacts; the deeper verifier re-segmentation work stays Phase 5+.
+- **Tests**: 17 new pytest cases in [backend/tests/test_segment_utils.py](backend/tests/test_segment_utils.py) (8 dedup + 9 tail) + 1 integration test in [backend/tests/test_v5_a2_stages.py](backend/tests/test_v5_a2_stages.py). All passing; backend suite 931 pass / 21 skip / 14 known baseline failures (unchanged from v5-A4).
+- **Spec / Plan / Validation**: [design](docs/superpowers/specs/2026-05-20-v5-A4.1-cascade-dedup-tail-orphan-design.md) / [plan](docs/superpowers/plans/2026-05-20-v5-A4.1-cascade-dedup-tail-orphan-plan.md) / [validation](docs/superpowers/validation/v5-A4.1-validation.md)
+
 ### v5-A4 — Segment bloat hardening hotfix (in progress on `feat/frontend-redesign`)
 - 6 root causes addressed after agent-team diagnosis surfaced segments ballooning to 5-25× normal length on certain pipelines (worst case Winning Factor idx=299: 2.1s timecode → 436-char output).
 - **R1 — Verifier timecode-aware primary preference** ([backend/engines/verifier/llm_verifier.py](backend/engines/verifier/llm_verifier.py)): when primary window <3s AND LLM decision >2× primary char count → fall back to primary text + flag `primary_kept`. Closes the "secondary's long-window text substituted into primary's short slot" cascade.
