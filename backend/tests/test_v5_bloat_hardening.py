@@ -145,3 +145,43 @@ def test_verifier_short_window_empty_primary_keeps_secondary():
     # calling the LLM (see line 91-92). So decision is the collected secondary word
     # text, not the fake_llm.call return.
     assert out[0]["text"] == "rescued"
+
+
+# ---- R3: refiner prompt templates carry length cap + hallucination escape ----
+
+def test_zh_refiner_prompt_has_length_cap():
+    import json
+    with open("backend/config/prompt_templates_v5/refiner/zh_broadcast_hk_default.json") as f:
+        tmpl = json.load(f)
+    sp = tmpl["system_prompt"]
+    assert "0.7" in sp and "1.3" in sp, "ZH refiner must declare 0.7–1.3× length cap"
+    assert "保持長度" in sp or "輸出字數" in sp, "ZH refiner must include length-preservation rule"
+
+
+def test_zh_refiner_prompt_has_hallucination_escape():
+    import json
+    with open("backend/config/prompt_templates_v5/refiner/zh_broadcast_hk_default.json") as f:
+        tmpl = json.load(f)
+    sp = tmpl["system_prompt"]
+    assert "[HALLUC]" in sp, "ZH refiner must mention [HALLUC] marker handling"
+    assert "粟米片" in sp or "豆腐花" in sp, "ZH refiner must list known training-corpus garbage examples"
+    assert "空字串" in sp, "ZH refiner must instruct LLM to output empty string on hallucination"
+
+
+def test_en_refiner_prompt_has_length_cap():
+    import json
+    with open("backend/config/prompt_templates_v5/refiner/en_newscast_default.json") as f:
+        tmpl = json.load(f)
+    sp = tmpl["system_prompt"]
+    assert "0.7" in sp and "1.3" in sp, "EN refiner must declare 0.7–1.3× length cap"
+    assert "Preserve length" in sp or "preserve length" in sp.lower(), \
+        "EN refiner must include length-preservation rule"
+
+
+def test_en_refiner_prompt_has_hallucination_escape():
+    import json
+    with open("backend/config/prompt_templates_v5/refiner/en_newscast_default.json") as f:
+        tmpl = json.load(f)
+    sp = tmpl["system_prompt"]
+    assert "[HALLUC]" in sp, "EN refiner must mention [HALLUC] marker handling"
+    assert "empty string" in sp.lower(), "EN refiner must instruct LLM to output empty string on hallucination"
