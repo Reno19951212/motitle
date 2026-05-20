@@ -21,6 +21,8 @@ import type { FileRecord, StageStatus } from '@/lib/socket-events';
 import { Icon, MoTitleStageBadge } from '@/lib/motitle-icons';
 import { BoldRail } from '@/components/BoldRail';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { LangPicker } from '@/components/LangPicker';
+import { useDashboardTranslations } from '@/hooks/useDashboardTranslations';
 import '@/styles/motitle-bold.css';
 
 // ---------------------------------------------------------------------------
@@ -996,12 +998,18 @@ function BoldWorkbench({
   segments,
   currentTime,
   onTimeUpdate,
+  availableLangs,
+  activeLang,
+  onLangChange,
 }: {
   file: DesignFile | null;
   asrProfile: AsrProfileLookup | null;
   segments: SegmentPreview[];
   currentTime: number;
   onTimeUpdate: (t: number) => void;
+  availableLangs: string[];
+  activeLang: string;
+  onLangChange: (lang: string) => void;
 }) {
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -1169,6 +1177,17 @@ function BoldWorkbench({
           </button>
         </div>
       </div>
+
+      {/* Lang picker — shown only when v5 pipeline exposes multiple langs */}
+      {availableLangs.length >= 1 && (
+        <div style={{ padding: '6px 12px 0' }}>
+          <LangPicker
+            availableLangs={availableLangs}
+            activeLang={activeLang}
+            onSelect={onLangChange}
+          />
+        </div>
+      )}
 
       {/* Video preview panel — real <video> element + waveform strip */}
       <div className="panel workbench-video" style={{ minHeight: 0, display: 'grid', gridTemplateRows: '1fr auto' }}>
@@ -2046,21 +2065,36 @@ export default function Dashboard() {
   // drives both the subtitle overlay (above the video) and the Inspector's
   // 實時字幕 preview (auto-scroll + highlight current line).
   const [currentTime, setCurrentTime] = useState(0);
-  const [segments, setSegments] = useState<SegmentPreview[]>([]);
+
+  // Lang picker state — defaults to the file's source_lang once the hook
+  // resolves; we reset on file change so old lang doesn't bleed across files.
+  const [activeLang, setActiveLang] = useState<string>('zh');
   useEffect(() => {
     setCurrentTime(0);
-    setSegments([]);
-    if (!selectedFileId) return;
-    let cancelled = false;
-    apiFetch<{ segments: SegmentPreview[] }>(`/api/files/${selectedFileId}/segments`)
-      .then((r) => {
-        if (!cancelled) setSegments(r.segments ?? []);
-      })
-      .catch(() => {
-        if (!cancelled) setSegments([]);
-      });
-    return () => { cancelled = true; };
+    setActiveLang('zh');
   }, [selectedFileId]);
+
+  // Replaces the legacy /api/files/<id>/segments fetch. The hook now sources
+  // the live overlay from v5 by_lang (verifier-corrected + refined text) and
+  // falls back to /segments only when translations are empty.
+  const {
+    segments,
+    availableLangs,
+    sourceLang,
+  } = useDashboardTranslations(selectedFileId ?? null, activeLang);
+
+  // Promote source_lang to activeLang once the hook discovers it, so the
+  // first paint after a file change picks the right lang automatically.
+  useEffect(() => {
+    if (sourceLang && availableLangs.includes(sourceLang)) {
+      setActiveLang(sourceLang);
+    } else if (availableLangs.length > 0 && !availableLangs.includes(activeLang)) {
+      const first = availableLangs[0];
+      if (first) setActiveLang(first);
+    }
+    // Intentionally exclude activeLang to avoid resetting after the user picks.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceLang, availableLangs.join('|')]);
 
   // Resolve the active pipeline (preferred: per-file pipeline_id; fall back to
   // the dashboard-level pipelineId from the picker). Cascade fetch ASR profile
@@ -2199,6 +2233,9 @@ export default function Dashboard() {
               segments={segments}
               currentTime={currentTime}
               onTimeUpdate={setCurrentTime}
+              availableLangs={availableLangs}
+              activeLang={activeLang}
+              onLangChange={setActiveLang}
             />
 
             {/* Right col: Inspector */}
