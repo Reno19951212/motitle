@@ -295,3 +295,105 @@ class TestTimeAnchoredMergeStage:
         result = stage.transform(mlx_segs, ctx)
         assert len(result) == 1
         assert result[0]["text"] == "測試"
+
+
+# ---------------------------------------------------------------------------
+# Stage 1A — Qwen3PerRegionStage (T4)
+# ---------------------------------------------------------------------------
+
+class TestQwen3PerRegionStage:
+    def test_stage_type(self):
+        from stages.v6.qwen3_per_region_stage import Qwen3PerRegionStage
+        stage = Qwen3PerRegionStage({"id": "qwen3-1", "language": "Chinese"})
+        assert stage.stage_type == "qwen3_per_region"
+
+    def test_transform_takes_vad_regions_from_segments_in(self):
+        """Stage 1A receives VAD regions as segments_in (from Stage 0)."""
+        from stages.v6.qwen3_per_region_stage import Qwen3PerRegionStage
+        stage = Qwen3PerRegionStage({"language": "Chinese", "context": ""})
+        vad_regions = [{"start": 0.5, "end": 3.0}, {"start": 5.0, "end": 8.0}]
+        expected_chars = [{"start": 0.6, "end": 0.9, "text": "你好"}]
+
+        with patch.object(stage, "_engine") as mock_engine:
+            mock_engine.transcribe_regions.return_value = expected_chars
+            ctx = _make_context({"audio_path": "/fake/audio.mp4"})
+            result = stage.transform(vad_regions, ctx)
+
+        mock_engine.transcribe_regions.assert_called_once_with("/fake/audio.mp4", vad_regions)
+        assert result == expected_chars
+
+    def test_transform_returns_normalized_float_dicts(self):
+        from stages.v6.qwen3_per_region_stage import Qwen3PerRegionStage
+        stage = Qwen3PerRegionStage({"language": "Chinese"})
+        raw_chars = [{"start": "1.0", "end": "1.5", "text": "測試"}]
+        with patch.object(stage, "_engine") as mock_engine:
+            mock_engine.transcribe_regions.return_value = raw_chars
+            ctx = _make_context({"audio_path": "/fake/audio.mp4"})
+            result = stage.transform([{"start": 0.5, "end": 2.0}], ctx)
+        assert isinstance(result[0]["start"], float)
+        assert isinstance(result[0]["end"], float)
+
+    def test_engine_config_from_profile(self):
+        from stages.v6.qwen3_per_region_stage import Qwen3PerRegionStage
+        from engines.transcribe.qwen3_vad_engine import Qwen3VadEngine
+        profile = {"language": "Chinese", "context": "袁幸堯", "post_s2hk": True}
+        stage = Qwen3PerRegionStage(profile)
+        assert isinstance(stage._engine, Qwen3VadEngine)
+        assert stage._engine._language == "Chinese"
+        assert stage._engine._context == "袁幸堯"
+        assert stage._engine._post_s2hk is True
+
+
+# ---------------------------------------------------------------------------
+# Task 6 — TestV6RefinerPrompt
+# ---------------------------------------------------------------------------
+
+class TestV6RefinerPrompt:
+    """Verify v6 refiner prompt does NOT contain cascade/orphan/hallucination drop rules."""
+
+    def _load_prompt(self):
+        import json
+        from pathlib import Path
+        p = (Path(__file__).resolve().parents[1] /
+             "config/prompt_templates_v5/refiner/zh_broadcast_hk_v6.json")
+        return json.loads(p.read_text(encoding="utf-8"))
+
+    def test_prompt_file_exists(self):
+        data = self._load_prompt()
+        assert data["id"] == "refiner/zh_broadcast_hk_v6"
+
+    def test_prompt_has_no_cascade_rule(self):
+        data = self._load_prompt()
+        prompt = data["system_prompt"]
+        assert "cascade" not in prompt.lower(), "v6 prompt must not contain cascade detection"
+
+    def test_prompt_has_no_tail_orphan_rule(self):
+        data = self._load_prompt()
+        prompt = data["system_prompt"]
+        assert "tail_orphan" not in prompt.lower()
+        assert "tail orphan" not in prompt.lower()
+
+    def test_prompt_has_no_hallucination_phrase_list(self):
+        data = self._load_prompt()
+        prompt = data["system_prompt"]
+        # v5 prompt listed known bad phrases; v6 must not
+        assert "粟米片" not in prompt
+        assert "coffee shop" not in prompt
+
+    def test_prompt_has_no_secondary_field_description(self):
+        data = self._load_prompt()
+        prompt = data["system_prompt"]
+        assert '"secondary"' not in prompt, "v6 prompt must not describe secondary field"
+
+    def test_prompt_has_drop_only_for_empty_text(self):
+        """v6 prompt: drop action only for empty/noise segs, not content judgments."""
+        data = self._load_prompt()
+        prompt = data["system_prompt"]
+        # Must still support keep action
+        assert '"action": "keep"' in prompt or "keep" in prompt.lower()
+
+    def test_prompt_mentions_mid_word_cut_fix(self):
+        data = self._load_prompt()
+        prompt = data["system_prompt"]
+        # Must contain mid-word cut fix instruction
+        assert "截斷" in prompt or "mid-word" in prompt.lower() or "補全" in prompt
