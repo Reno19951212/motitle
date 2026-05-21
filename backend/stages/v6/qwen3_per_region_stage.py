@@ -29,10 +29,8 @@ class Qwen3PerRegionStage(PipelineStage):
 
     def transform(self, segments_in: List[dict], context: StageContext) -> List[dict]:
         """segments_in = VAD regions from Stage 0. Returns flat char-level segments."""
-        audio_path = (
-            context.pipeline_overrides.get("audio_path")
-            or getattr(context, "audio_path", None)
-        )
+        # Prefer direct field (T7) over pipeline_overrides workaround (backward compat)
+        audio_path = context.audio_path or context.pipeline_overrides.get("audio_path")
         if not audio_path:
             import app as _app
             with _app._registry_lock:

@@ -53,7 +53,8 @@ class SileroVadStage(PipelineStage):
         return self._profile.get("id", "vad")
 
     def transform(self, segments_in: List[dict], context: StageContext) -> List[dict]:
-        audio_path = context.pipeline_overrides.get("audio_path") or getattr(context, "audio_path", None)
+        # Prefer direct field (T7) over pipeline_overrides workaround (backward compat)
+        audio_path = context.audio_path or context.pipeline_overrides.get("audio_path")
         if audio_path is None:
             import app as _app
             with _app._registry_lock:
