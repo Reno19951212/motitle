@@ -14,7 +14,7 @@ from typing import List
 import numpy as np
 import soundfile as sf
 
-_REPO_ROOT = Path(__file__).resolve().parents[4]
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 _DEFAULT_QWEN_VENV_PYTHON = (
     _REPO_ROOT / "backend" / "scripts" / "v5_prototype" / "venv_qwen" / "bin" / "python"
 )
