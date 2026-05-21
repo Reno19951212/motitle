@@ -410,19 +410,21 @@ class TestRunV6RefinerPromptResolution:
             file_prompt="per-file custom prompt",
             pipeline_prompt="pipeline custom prompt",
         )
-        assert overrides.get("refiners.zh") == "per-file custom prompt"
+        # Nested format: {"refiners": {"zh": prompt}} — what RefinerStage.transform() reads
+        assert overrides.get("refiners", {}).get("zh") == "per-file custom prompt"
 
     def test_pipeline_prompt_overrides_template_when_no_file_override(self):
         overrides = self._run_with_overrides(
             file_prompt=None,
             pipeline_prompt="pipeline custom prompt",
         )
-        assert overrides.get("refiners.zh") == "pipeline custom prompt"
+        # Nested format: {"refiners": {"zh": prompt}} — what RefinerStage.transform() reads
+        assert overrides.get("refiners", {}).get("zh") == "pipeline custom prompt"
 
     def test_empty_override_falls_through_to_template(self):
         overrides = self._run_with_overrides(file_prompt=None, pipeline_prompt=None)
-        # When no override set, runtime_overrides for refiner.zh should be empty/absent
-        assert not overrides.get("refiners.zh")
+        # When no override set, runtime_overrides for refiner should be empty/absent
+        assert not overrides.get("refiners", {}).get("zh")
 
 
 class TestPipelineManagerRefinerPromptOverride:
@@ -474,3 +476,213 @@ class TestPipelineManagerRefinerPromptOverride:
             )
             updated = mgr.get(pipeline["id"])
             assert not updated.get("refiner_prompt_override", {}).get("zh")
+
+
+# ---------------------------------------------------------------------------
+# Fix 1: Refiner override nested key format tests (blockers)
+# ---------------------------------------------------------------------------
+
+class TestRefinerOverrideReachesRefinerStage:
+    """Fix 1: refiner_extra must be in nested format so RefinerStage.transform() sees it."""
+
+    def _run_and_capture_refiner_context_overrides(self, pipeline_prompt=None):
+        """Run v6 pipeline and capture the pipeline_overrides dict as seen by RefinerStage."""
+        pipeline = _make_v6_pipeline()
+        if pipeline_prompt is not None:
+            pipeline["refiner_prompt_override"] = {"zh": pipeline_prompt}
+
+        captured = {}
+
+        def fake_run_stage_v5(stage, segments_in, stage_index, stage_type,
+                               cancel_event=None, user_id=None, extra_overrides=None):
+            if "refiner" in (stage_type or ""):
+                # Simulate what _run_stage_v5 does: merge extra_overrides into
+                # pipeline_overrides on the StageContext. RefinerStage reads
+                # context.pipeline_overrides.get("refiners", {}).get(lang).
+                # Here we capture the merged dict that would form pipeline_overrides.
+                captured["extra_overrides"] = extra_overrides or {}
+            return (
+                {"stage_index": stage_index, "stage_type": stage_type, "status": "done",
+                 "ran_at": 0, "duration_seconds": 0, "segments": [], "quality_flags": []},
+                [{"start": 0.0, "end": 1.0, "text": "test"}],
+            )
+
+        def fake_run_stage(stage, segments_in, stage_index, stage_type, **kwargs):
+            return (
+                {"stage_index": stage_index, "stage_type": stage_type, "status": "done",
+                 "ran_at": 0, "duration_seconds": 0, "segments": [], "quality_flags": []},
+                [{"start": 0.0, "end": 1.0, "text": "test"}],
+            )
+
+        file_entry = {"prompt_overrides": {}}
+        runner = PipelineRunner(
+            pipeline=pipeline, file_id="test-file-v6",
+            audio_path="/fake/audio.mp4", managers=_fake_managers(),
+        )
+        with patch.object(runner, "_run_stage_v5", side_effect=fake_run_stage_v5), \
+             patch.object(runner, "_run_stage", side_effect=fake_run_stage), \
+             patch.object(runner, "_persist_by_lang"), \
+             patch("pipeline_runner._file_registry", {"test-file-v6": file_entry}), \
+             patch("pipeline_runner._persist_stage_output"), \
+             patch("pipeline_runner._socketio_emit"):
+            runner._run_v6(user_id=1)
+
+        return captured.get("extra_overrides", {})
+
+    def test_pipeline_refiner_override_reaches_refiner_stage_in_nested_format(self):
+        """Fix 1a: refiner_extra must use nested format {"refiners": {"zh": prompt}}
+        so that RefinerStage.transform() can read it via
+        context.pipeline_overrides.get("refiners", {}).get(lang).
+        """
+        extra = self._run_and_capture_refiner_context_overrides(
+            pipeline_prompt="custom pipeline prompt"
+        )
+        # RefinerStage reads: context.pipeline_overrides.get("refiners", {}).get("zh")
+        assert "refiners" in extra, (
+            f"extra_overrides must have nested 'refiners' key, got keys: {list(extra.keys())}"
+        )
+        assert extra["refiners"].get("zh") == "custom pipeline prompt", (
+            f"extra_overrides['refiners']['zh'] should be the prompt, got: {extra['refiners']}"
+        )
+
+    def test_file_level_refiner_override_via_app_registry_in_production_path(self):
+        """Fix 1b: file-level refiner override must fall back to app._file_registry
+        when pipeline_runner._file_registry is None (production path).
+
+        This test patches app._file_registry directly (the real app module), which is
+        what the production code does via `import app as _app_mod2`. The module-level
+        pipeline_runner._file_registry alias is kept as None to simulate production.
+        """
+        import app as app_mod
+
+        pipeline = _make_v6_pipeline()
+        captured = {}
+
+        def fake_run_stage_v5(stage, segments_in, stage_index, stage_type,
+                               cancel_event=None, user_id=None, extra_overrides=None):
+            if "refiner" in (stage_type or ""):
+                captured["extra_overrides"] = extra_overrides or {}
+            return (
+                {"stage_index": stage_index, "stage_type": stage_type, "status": "done",
+                 "ran_at": 0, "duration_seconds": 0, "segments": [], "quality_flags": []},
+                [{"start": 0.0, "end": 1.0, "text": "test"}],
+            )
+
+        def fake_run_stage(stage, segments_in, stage_index, stage_type, **kwargs):
+            return (
+                {"stage_index": stage_index, "stage_type": stage_type, "status": "done",
+                 "ran_at": 0, "duration_seconds": 0, "segments": [], "quality_flags": []},
+                [{"start": 0.0, "end": 1.0, "text": "test"}],
+            )
+
+        runner = PipelineRunner(
+            pipeline=pipeline, file_id="test-file-v6",
+            audio_path="/fake/audio.mp4", managers=_fake_managers(),
+        )
+
+        # Simulate production: module-level pipeline_runner._file_registry is None,
+        # but app._file_registry has the file entry with a refiner override.
+        # Production code does `import app as _app_mod2; _app_mod2._file_registry.get(...)`
+        app_registry_with_override = {
+            "test-file-v6": {
+                "prompt_overrides": {"refiners.zh": "file-level prompt from app registry"}
+            }
+        }
+
+        with patch.object(runner, "_run_stage_v5", side_effect=fake_run_stage_v5), \
+             patch.object(runner, "_run_stage", side_effect=fake_run_stage), \
+             patch.object(runner, "_persist_by_lang"), \
+             patch("pipeline_runner._file_registry", None), \
+             patch.object(app_mod, "_file_registry", app_registry_with_override), \
+             patch("pipeline_runner._persist_stage_output"), \
+             patch("pipeline_runner._socketio_emit"):
+            runner._run_v6(user_id=1)
+
+        extra = captured.get("extra_overrides", {})
+        # File-level override should flow through to RefinerStage in nested format
+        assert "refiners" in extra, (
+            f"File-level refiner override must reach RefinerStage via nested 'refiners' key, "
+            f"got keys: {list(extra.keys())}"
+        )
+        assert extra["refiners"].get("zh") == "file-level prompt from app registry", (
+            f"extra_overrides['refiners']['zh'] should be the file-level prompt, "
+            f"got: {extra.get('refiners')}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Fix 2: v6 pipelines can be POSTed via /api/pipelines
+# ---------------------------------------------------------------------------
+
+class TestV6PipelinePostEndpoint:
+    """Fix 2: POST /api/pipelines must accept v6 pipelines (pipeline_type='v6_vad_dual_asr')."""
+
+    def test_post_v6_pipeline_via_create_endpoint_returns_201(self):
+        """POST a v6 pipeline JSON — must return 201, not 400 from v4 schema validation.
+
+        Uses the existing test-isolated app module (conftest's _isolate_app_data ensures
+        a fresh PipelineManager is already in place and R5_AUTH_BYPASS=True is set).
+        """
+        import app as app_mod
+
+        v6_payload = {
+            "name": "Test v6 pipeline",
+            "pipeline_type": "v6_vad_dual_asr",
+            "source_lang": "zh",
+            "target_languages": ["zh"],
+            "vad": {"threshold": 0.5},
+            "asr_primary": {"transcribe_profile_id": "prof-1", "source_lang": "zh"},
+            "qwen3_asr": {"language": "Chinese", "context": "", "post_s2hk": True},
+            "refinements": {"zh": [{"refiner_profile_id": "ref-1"}]},
+            "translators": {},
+            "glossary_stages": {},
+            "font_config": {"family": "Noto Sans TC", "size": 52,
+                            "color": "white", "outline_color": "black",
+                            "outline_width": 2, "margin_bottom": 60,
+                            "subtitle_source": "auto", "bilingual_order": "source_top"},
+        }
+
+        with app_mod.app.test_client() as client:
+            resp = client.post(
+                "/api/pipelines",
+                json=v6_payload,
+                content_type="application/json",
+            )
+        assert resp.status_code == 201, (
+            f"Expected 201 for v6 pipeline POST, got {resp.status_code}: "
+            f"{resp.get_data(as_text=True)[:500]}"
+        )
+
+    def test_pipeline_manager_create_accepts_v6(self):
+        """PipelineManager.create() with pipeline_type='v6_vad_dual_asr' must succeed."""
+        import tempfile
+        from pipelines import PipelineManager
+
+        v6_data = {
+            "name": "Direct v6 test",
+            "pipeline_type": "v6_vad_dual_asr",
+            "source_lang": "zh",
+            "target_languages": ["zh"],
+            "vad": {"threshold": 0.5},
+            "asr_primary": {"transcribe_profile_id": "prof-1", "source_lang": "zh"},
+            "qwen3_asr": {"language": "Chinese", "context": "", "post_s2hk": True},
+            "refinements": {"zh": [{"refiner_profile_id": "ref-1"}]},
+            "translators": {},
+            "glossary_stages": {},
+            "font_config": {},
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            mgr = PipelineManager(config_dir=tmpdir)
+            # Should NOT raise ValueError
+            result = mgr.create(v6_data, user_id=1)
+            # Returns a string pipeline_id (like v5) or the dict — either is fine
+            # Key: no exception raised
+            assert result is not None, "create() returned None for v6 pipeline"
+            # Verify the pipeline was actually saved
+            if isinstance(result, str):
+                saved = mgr.get(result)
+            else:
+                saved = mgr.get(result["id"])
+            assert saved is not None, "Pipeline not found after create()"
+            assert saved["pipeline_type"] == "v6_vad_dual_asr"

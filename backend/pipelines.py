@@ -203,6 +203,24 @@ class PipelineManager:
         need to pass the schema — production callers should always leave
         this True.
         """
+        # v6 branch — store as-is (no separate schema validation; route handler is
+        # the gatekeeper for v6-specific rules). Returns pipeline_id string like v5.
+        if isinstance(data, dict) and data.get("pipeline_type") == "v6_vad_dual_asr":
+            pid = str(uuid.uuid4())
+            now = time.time()
+            payload = {
+                **data,
+                "id": pid,
+                "user_id": user_id,
+                "created_at": now,
+                "updated_at": now,
+            }
+            (self._dir / f"{pid}.json").write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            self._cache[pid] = payload
+            return pid
+
         # v5 branch — store as-is after schema validation
         if isinstance(data, dict) and data.get("version") == 5:
             errors, _warnings = validate_v5_pipeline(data)

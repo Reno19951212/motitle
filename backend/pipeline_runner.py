@@ -551,23 +551,30 @@ class PipelineRunner:
                 _override_key = f"refiners.{target_lang}"
                 _resolved_refiner_prompt = None
                 # Level 1: file-level override
-                _reg = _file_registry
+                # Mirror qwen3_context pattern: module-level alias first, then app fallback
+                import pipeline_runner as _self_mod2
+                _reg = _self_mod2._file_registry
                 if _reg is None:
-                    import pipeline_runner as _self_mod2
-                    _reg = _self_mod2._file_registry
-                if _reg is not None:
-                    _fentry = _reg.get(self._file_id, {})
-                    _fentry_overrides = _fentry.get("prompt_overrides") or {}
-                    _resolved_refiner_prompt = _fentry_overrides.get(_override_key) or None
+                    import app as _app_mod2
+                    with _app_mod2._registry_lock:
+                        _fentry_refiner = dict(_app_mod2._file_registry.get(self._file_id, {}))
+                else:
+                    _fentry_refiner = dict(_reg.get(self._file_id, {}))
+                _fentry_overrides = _fentry_refiner.get("prompt_overrides") or {}
+                _resolved_refiner_prompt = _fentry_overrides.get(_override_key) or None
                 if not _resolved_refiner_prompt:
                     # Level 2: pipeline-level override
                     _pipe_override = self._pipeline.get("refiner_prompt_override") or {}
                     _resolved_refiner_prompt = _pipe_override.get(target_lang) or None
                 # Level 3: template default — RefinerStage handles this automatically when
                 # no override is injected (empty/absent key in extra_overrides)
+                # RefinerStage.transform() reads:
+                #   context.pipeline_overrides.get("refiners", {}).get(lang)
+                # So we must use nested format {"refiners": {lang: prompt}}, not flat
+                # dot-notation {"refiners.zh": prompt} which RefinerStage cannot see.
                 refiner_extra: dict = {}
                 if _resolved_refiner_prompt:
-                    refiner_extra[_override_key] = _resolved_refiner_prompt
+                    refiner_extra["refiners"] = {target_lang: _resolved_refiner_prompt}
                 # -----------------------------------------
 
                 refiner_stage = RefinerStage(
