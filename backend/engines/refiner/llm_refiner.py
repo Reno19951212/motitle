@@ -59,6 +59,30 @@ class LLMRefiner(RefinerEngine):
                 out.append({"start": seg["start"], "end": seg["end"], "text": "", "flags": []})
                 continue
             refined = self.llm.call(self.system_prompt, src, max_tokens=200)
+            refined = (refined or "").strip()
+
+            # v6 hybrid JSON unwrap: if response is JSON like
+            # {"action": "keep", "text": "..."} extract the text field.
+            # Backward-compatible: non-JSON responses pass through unchanged
+            # (v5-A4 plain-text behavior).
+            if refined.startswith("{"):
+                try:
+                    import json as _json
+                    _parsed = _json.loads(refined)
+                    if isinstance(_parsed, dict) and "text" in _parsed:
+                        refined = str(_parsed.get("text") or "").strip()
+                        # If the JSON resolved to empty text (e.g. {action: drop}
+                        # with a present but empty "text" key), fall back to src.
+                        if not refined:
+                            refined = src
+                    elif isinstance(_parsed, dict):
+                        # JSON object but no "text" key (e.g. {action: drop,
+                        # reason: ...}) → treat as a drop signal, fall back to src.
+                        refined = src
+                except (_json.JSONDecodeError, ValueError):
+                    # Not JSON or malformed — leave as plain text.
+                    pass
+
             for prefix in _LABEL_PREFIXES:
                 if refined.startswith(prefix):
                     refined = refined[len(prefix):].strip()
