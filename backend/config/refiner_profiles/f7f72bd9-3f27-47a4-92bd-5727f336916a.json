@@ -1,0 +1,12 @@
+{
+  "name": "Refiner ZH broadcast-hk v6 (simplified prompt)",
+  "lang": "zh",
+  "style": "broadcast_hk_v6",
+  "llm_profile_id": "9402593c-184d-4a4d-a160-ebdf55e678e8",
+  "prompt_template_id": "refiner/zh_broadcast_hk_v6",
+  "shared": false,
+  "id": "f7f72bd9-3f27-47a4-92bd-5727f336916a",
+  "user_id": 627,
+  "created_at": 1748390400.0,
+  "updated_at": 1748390400.0
+}

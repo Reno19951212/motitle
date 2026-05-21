@@ -1,0 +1,42 @@
+{
+  "name": "[v6] Winning Factor (English)",
+  "pipeline_type": "v6_vad_dual_asr",
+  "version": 6,
+  "source_lang": "en",
+  "target_languages": ["en"],
+  "vad": {
+    "threshold": 0.5,
+    "min_speech_duration_ms": 250,
+    "max_speech_duration_s": 15,
+    "min_silence_duration_ms": 500,
+    "speech_pad_ms": 200
+  },
+  "asr_primary": {
+    "transcribe_profile_id": "18275da4-7666-4ede-a105-e22cac5d1e59",
+    "source_lang": "en"
+  },
+  "qwen3_asr": {
+    "language": "English",
+    "context": "",
+    "post_s2hk": false
+  },
+  "refinements": {
+    "en": [
+      {
+        "refiner_profile_id": "c4a8b3a1-d78a-4d79-82c9-906186358940"
+      }
+    ]
+  },
+  "translators": {},
+  "glossary_stages": [],
+  "font_config": {
+    "family": "Noto Sans",
+    "color": "white",
+    "outline_color": "black"
+  },
+  "shared": false,
+  "id": "641a77ec-a73a-4ef2-926c-e1b3992d0d3e",
+  "user_id": 627,
+  "created_at": 1748390400.0,
+  "updated_at": 1748390400.0
+}
