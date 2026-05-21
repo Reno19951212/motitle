@@ -108,6 +108,11 @@ class PipelineRunner:
 
         v5 dispatch: when pipeline.version == 5, delegate to _run_v5 (DAG).
         """
+        if self._pipeline.get("pipeline_type") == "v6_vad_dual_asr":
+            if start_from_stage != 0:
+                raise NotImplementedError("v6 resume from stage not yet supported")
+            return self._run_v6(user_id=user_id, cancel_event=cancel_event)
+
         if self._pipeline.get("version") == 5:
             if start_from_stage != 0:
                 raise NotImplementedError("v5 resume from stage not yet supported (A2 scope)")
@@ -417,6 +422,122 @@ class PipelineRunner:
             "status": "done", "duration_seconds": stage_out["duration_seconds"],
         })
         return stage_out, segments_out
+
+    # ------------------------------------------------------------------
+    # v6 DAG executor
+    # ------------------------------------------------------------------
+    def _run_v6(
+        self,
+        user_id: Optional[int],
+        cancel_event: Optional[threading.Event] = None,
+    ) -> List[StageOutput]:
+        """Execute v6 DAG: VAD → qwen3/region → mlx → merge → refiner(s) → persist.
+
+        Pipeline JSON shape (pipeline_type == "v6_vad_dual_asr"):
+          vad:         VAD params dict
+          qwen3_asr:   language / context / post_s2hk
+          asr_primary: {transcribe_profile_id, source_lang}  — mlx-whisper full audio
+          refinements: {lang: [{refiner_profile_id}]}
+          target_languages: [lang]
+        """
+        from stages.v6.silero_vad_stage import SileroVadStage
+        from stages.v6.qwen3_per_region_stage import Qwen3PerRegionStage
+        from stages.v6.time_anchored_merge_stage import TimeAnchoredMergeStage
+        from stages.v5.refiner_stage import RefinerStage
+
+        stage_outputs: List[StageOutput] = []
+        stage_index = 0
+        source_lang = self._pipeline.get("source_lang", "zh")
+        audio_path = self._audio_path
+        # Used by VAD and qwen3 stages to locate the audio file
+        audio_overrides = {"audio_path": audio_path}
+
+        # Stage 0: VAD
+        _check_cancel(cancel_event)
+        vad_stage = SileroVadStage(dict(self._pipeline.get("vad", {})))
+        vad_out, vad_regions = self._run_stage_v5(
+            stage=vad_stage, segments_in=[], stage_index=stage_index,
+            stage_type="vad", cancel_event=cancel_event, user_id=user_id,
+            extra_overrides=audio_overrides,
+        )
+        stage_outputs.append(vad_out)
+        stage_index += 1
+
+        # Stage 1A: qwen3 per-region (receives VAD regions, returns char-level segs)
+        _check_cancel(cancel_event)
+        qwen3_stage = Qwen3PerRegionStage(dict(self._pipeline.get("qwen3_asr", {})))
+        qwen3_out, qwen3_chars = self._run_stage_v5(
+            stage=qwen3_stage, segments_in=vad_regions, stage_index=stage_index,
+            stage_type="qwen3_per_region", cancel_event=cancel_event, user_id=user_id,
+            extra_overrides=audio_overrides,
+        )
+        stage_outputs.append(qwen3_out)
+        stage_index += 1
+
+        # Stage 1B: mlx-whisper full audio (time grid; text is discarded by merge stage)
+        _check_cancel(cancel_event)
+        primary_profile = self._transcribe_profile_manager.get(
+            self._pipeline["asr_primary"]["transcribe_profile_id"]
+        )
+        if primary_profile is None:
+            raise ValueError("v6: asr_primary transcribe profile not found")
+        mlx_stage = ASRPrimaryStage(primary_profile, audio_path)
+        mlx_out, mlx_segs = self._run_stage(
+            stage=mlx_stage, segments_in=[], stage_index=stage_index,
+            stage_type="asr_primary", cancel_event=cancel_event, user_id=user_id,
+        )
+        stage_outputs.append(mlx_out)
+        stage_index += 1
+
+        # Stage 2: Time-anchored merge (mlx time grid + qwen3 chars → subtitle segs)
+        _check_cancel(cancel_event)
+        merge_stage = TimeAnchoredMergeStage({})
+        merge_overrides = {"__qwen3_chars": qwen3_chars}
+        merge_out, merged_segs = self._run_stage_v5(
+            stage=merge_stage, segments_in=mlx_segs, stage_index=stage_index,
+            stage_type="time_anchored_merge", cancel_event=cancel_event, user_id=user_id,
+            extra_overrides=merge_overrides,
+        )
+        stage_outputs.append(merge_out)
+        stage_index += 1
+
+        canonical_source = merged_segs
+
+        # Stage 3+: Per target_lang refinement chain (no translator in v6 — qwen3 is sole
+        # authority; cross-lingual targets may be added in a future sub-phase)
+        by_lang: dict = {}
+        for target_lang in self._pipeline.get("target_languages", []):
+            lang_segments = list(canonical_source)
+
+            for refiner_entry in self._pipeline.get("refinements", {}).get(target_lang, []):
+                refiner_profile = self._refiner_profile_manager.get(
+                    refiner_entry["refiner_profile_id"]
+                )
+                if refiner_profile is None:
+                    raise ValueError(f"v6: refiner profile for {target_lang} not found")
+                llm_profile = self._llm_profile_manager.get(refiner_profile["llm_profile_id"])
+                if llm_profile is None:
+                    raise ValueError(f"v6: refiner's llm_profile not found ({target_lang})")
+                _check_cancel(cancel_event)
+                refiner_stage = RefinerStage(
+                    refiner_profile=refiner_profile,
+                    llm_profile=llm_profile,
+                )
+                rf_out, lang_segments = self._run_stage_v5(
+                    stage=refiner_stage, segments_in=lang_segments,
+                    stage_index=stage_index, stage_type=refiner_stage.stage_type,
+                    cancel_event=cancel_event, user_id=user_id,
+                    extra_overrides={},  # no secondary in v6
+                )
+                stage_outputs.append(rf_out)
+                stage_index += 1
+
+            by_lang[target_lang] = lang_segments
+
+        self._persist_by_lang(
+            by_lang, source_lang=source_lang, source_segments=canonical_source
+        )
+        return stage_outputs
 
     def _persist_by_lang(
         self, by_lang: dict, source_lang: str, source_segments: List[dict],
