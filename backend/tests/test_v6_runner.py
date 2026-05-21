@@ -259,3 +259,212 @@ class TestRunV6Integration:
                 f"{stage_type} must receive audio_path='/fake/audio.mp4', "
                 f"got {audio_path_seen.get(stage_type)!r}"
             )
+
+
+# ---------------------------------------------------------------------------
+# Task 12: qwen3_context 3-level resolution tests
+# ---------------------------------------------------------------------------
+
+class TestRunV6ContextResolution:
+    """Verify qwen3 context 3-level resolution in _run_v6."""
+
+    def _run_and_capture_context(self, file_context=None, pipeline_context=None):
+        pipeline = _make_v6_pipeline()
+        if pipeline_context is not None:
+            pipeline["qwen3_asr"]["context"] = pipeline_context
+
+        captured = {}
+
+        def fake_run_stage(stage, segments_in, stage_index, stage_type, **kwargs):
+            return (
+                {"stage_index": stage_index, "stage_type": stage_type,
+                 "stage_ref": "fake", "status": "done",
+                 "ran_at": 0, "duration_seconds": 0, "segments": [], "quality_flags": []},
+                [{"start": 0.0, "end": 1.0, "text": "test"}],
+            )
+
+        def fake_run_stage_v5(stage, segments_in, stage_index, stage_type,
+                              cancel_event, user_id, extra_overrides):
+            if stage_type == "qwen3_per_region":
+                # Capture the context from the stage's engine config
+                captured["context"] = getattr(stage._engine, "_context", None)
+            return (
+                {"stage_index": stage_index, "stage_type": stage_type,
+                 "stage_ref": "fake", "status": "done",
+                 "ran_at": 0, "duration_seconds": 0, "segments": [], "quality_flags": []},
+                [{"start": 0.0, "end": 1.0, "text": "test"}],
+            )
+
+        file_entry = {"prompt_overrides": {}}
+        if file_context is not None:
+            file_entry["prompt_overrides"]["qwen3_context"] = file_context
+
+        runner = PipelineRunner(
+            pipeline=pipeline, file_id="test-file-v6",
+            audio_path="/fake/audio.mp4", managers=_fake_managers(),
+        )
+        with patch.object(runner, "_run_stage", side_effect=fake_run_stage), \
+             patch.object(runner, "_run_stage_v5", side_effect=fake_run_stage_v5), \
+             patch.object(runner, "_persist_by_lang"), \
+             patch("pipeline_runner._file_registry", {"test-file-v6": file_entry}), \
+             patch("pipeline_runner._persist_stage_output"), \
+             patch("pipeline_runner._socketio_emit"):
+            runner._run_v6(user_id=1)
+
+        return captured.get("context", "")
+
+    def test_file_context_overrides_pipeline_context(self):
+        """File-level qwen3_context wins over pipeline default."""
+        ctx = self._run_and_capture_context(
+            file_context="file entity names",
+            pipeline_context="pipeline entity names",
+        )
+        assert ctx == "file entity names"
+
+    def test_pipeline_context_used_when_no_file_override(self):
+        """Pipeline-level context used when no file override."""
+        ctx = self._run_and_capture_context(
+            file_context=None,
+            pipeline_context="pipeline entity names",
+        )
+        assert ctx == "pipeline entity names"
+
+    def test_empty_string_when_neither_set(self):
+        """Empty string returned when neither file override nor pipeline default set."""
+        ctx = self._run_and_capture_context(file_context=None, pipeline_context=None)
+        assert ctx == ""
+
+
+class TestPromptOverrideValidatorQwen3Context:
+    def test_qwen3_context_is_accepted_key(self):
+        """prompt_override_validator accepts qwen3_context as a known key."""
+        from translation.prompt_override_validator import validate_prompt_overrides
+        errors = validate_prompt_overrides(
+            {"qwen3_context": "袁幸堯 史滕雷"}, field_path="prompt_overrides"
+        )
+        assert errors == [], f"Expected no errors but got: {errors}"
+
+    def test_qwen3_context_too_long_is_rejected(self):
+        """qwen3_context > 2000 chars is rejected."""
+        from translation.prompt_override_validator import validate_prompt_overrides
+        long_val = "a" * 2001
+        errors = validate_prompt_overrides(
+            {"qwen3_context": long_val}, field_path="prompt_overrides"
+        )
+        assert len(errors) > 0, "Expected an error for qwen3_context > 2000 chars"
+        assert any("2000" in e or "qwen3_context" in e for e in errors)
+
+
+# ---------------------------------------------------------------------------
+# Task 11: refiner_prompt_override — PipelineManager + _run_v6 resolution
+# ---------------------------------------------------------------------------
+
+class TestRunV6RefinerPromptResolution:
+    """Verify 3-level refiner prompt resolution in _run_v6."""
+
+    def _run_with_overrides(self, file_prompt=None, pipeline_prompt=None):
+        """Helper: build runner with specified override levels, capture resolved prompt."""
+        pipeline = _make_v6_pipeline()
+        if pipeline_prompt is not None:
+            pipeline["refiner_prompt_override"] = {"zh": pipeline_prompt}
+
+        captured = {}
+
+        def fake_run_stage_v5(stage, segments_in, stage_index, stage_type,
+                              cancel_event=None, user_id=None, extra_overrides=None):
+            if "refiner" in (stage_type or ""):
+                captured["runtime_overrides"] = extra_overrides or {}
+            return (
+                {"stage_index": stage_index, "stage_type": stage_type, "status": "done",
+                 "ran_at": 0, "duration_seconds": 0, "segments": [], "quality_flags": []},
+                [{"start": 0.0, "end": 1.0, "text": "test"}],
+            )
+
+        def fake_run_stage(stage, segments_in, stage_index, stage_type, **kwargs):
+            return (
+                {"stage_index": stage_index, "stage_type": stage_type, "status": "done",
+                 "ran_at": 0, "duration_seconds": 0, "segments": [], "quality_flags": []},
+                [{"start": 0.0, "end": 1.0, "text": "test"}],
+            )
+
+        file_entry = {"prompt_overrides": {}}
+        if file_prompt is not None:
+            file_entry["prompt_overrides"]["refiners.zh"] = file_prompt
+
+        runner = PipelineRunner(
+            pipeline=pipeline, file_id="test-file-v6",
+            audio_path="/fake/audio.mp4", managers=_fake_managers(),
+        )
+        with patch.object(runner, "_run_stage_v5", side_effect=fake_run_stage_v5), \
+             patch.object(runner, "_run_stage", side_effect=fake_run_stage), \
+             patch.object(runner, "_persist_by_lang"), \
+             patch("pipeline_runner._file_registry", {"test-file-v6": file_entry}), \
+             patch("pipeline_runner._persist_stage_output"), \
+             patch("pipeline_runner._socketio_emit"):
+            runner._run_v6(user_id=1)
+
+        return captured.get("runtime_overrides", {})
+
+    def test_file_prompt_overrides_pipeline_and_template(self):
+        overrides = self._run_with_overrides(
+            file_prompt="per-file custom prompt",
+            pipeline_prompt="pipeline custom prompt",
+        )
+        assert overrides.get("refiners.zh") == "per-file custom prompt"
+
+    def test_pipeline_prompt_overrides_template_when_no_file_override(self):
+        overrides = self._run_with_overrides(
+            file_prompt=None,
+            pipeline_prompt="pipeline custom prompt",
+        )
+        assert overrides.get("refiners.zh") == "pipeline custom prompt"
+
+    def test_empty_override_falls_through_to_template(self):
+        overrides = self._run_with_overrides(file_prompt=None, pipeline_prompt=None)
+        # When no override set, runtime_overrides for refiner.zh should be empty/absent
+        assert not overrides.get("refiners.zh")
+
+
+class TestPipelineManagerRefinerPromptOverride:
+    def test_update_if_owned_accepts_refiner_prompt_override(self):
+        """PipelineManager.update_if_owned accepts refiner_prompt_override patch field."""
+        from pipelines import PipelineManager
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            mgr = PipelineManager(config_dir=tmpdir)
+            pipeline = _make_v6_pipeline()
+            pipeline["user_id"] = 1
+            pipeline["shared"] = False
+            mgr._save(pipeline)
+            # Inject into cache manually (bypasses validation)
+            mgr._cache[pipeline["id"]] = pipeline
+
+            mgr.update_if_owned(
+                pipeline_id=pipeline["id"],
+                user_id=1,
+                is_admin=False,
+                patch={"refiner_prompt_override": {"zh": "custom prompt text"}},
+            )
+            updated = mgr.get(pipeline["id"])
+            assert updated["refiner_prompt_override"]["zh"] == "custom prompt text"
+
+    def test_update_if_owned_clears_refiner_prompt_override_with_null(self):
+        from pipelines import PipelineManager
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            mgr = PipelineManager(config_dir=tmpdir)
+            pipeline = _make_v6_pipeline()
+            pipeline["user_id"] = 1
+            pipeline["shared"] = False
+            pipeline["refiner_prompt_override"] = {"zh": "old prompt"}
+            mgr._save(pipeline)
+            # Inject into cache manually
+            mgr._cache[pipeline["id"]] = pipeline
+
+            mgr.update_if_owned(
+                pipeline_id=pipeline["id"],
+                user_id=1, is_admin=False,
+                patch={"refiner_prompt_override": {"zh": None}},
+            )
+            updated = mgr.get(pipeline["id"])
+            assert not updated.get("refiner_prompt_override", {}).get("zh")

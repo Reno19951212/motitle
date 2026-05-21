@@ -25,6 +25,12 @@ from stages.v5.refiner_stage import RefinerStage
 from stages.v5.translator_stage import TranslatorStage
 
 
+# Module-level alias used by _run_v6 for qwen3_context resolution.
+# In production this is always None and app._file_registry is used.
+# Tests patch this to inject a fake registry without importing app.
+_file_registry: Optional[dict] = None
+
+
 def _socketio_emit(event: str, payload: dict) -> None:
     """Thin wrapper around app.socketio.emit() to keep import lazy."""
     try:
@@ -464,8 +470,25 @@ class PipelineRunner:
         stage_index += 1
 
         # Stage 1A: qwen3 per-region (receives VAD regions, returns char-level segs)
+        # --- qwen3_context 3-level resolution ---
+        # Priority: file_override > pipeline_default > ""
+        qwen3_profile = dict(self._pipeline.get("qwen3_asr", {}))
+        # Resolve file-level registry (test-patchable module alias takes precedence)
+        import pipeline_runner as _self_mod
+        _registry = _self_mod._file_registry
+        if _registry is None:
+            import app as _app_mod
+            with _app_mod._registry_lock:
+                _file_entry = dict(_app_mod._file_registry.get(self._file_id, {}))
+        else:
+            _file_entry = dict(_registry.get(self._file_id, {}))
+        _file_overrides = _file_entry.get("prompt_overrides") or {}
+        _file_qwen3_ctx = _file_overrides.get("qwen3_context", "")
+        if _file_qwen3_ctx:
+            qwen3_profile["context"] = _file_qwen3_ctx
+        # -----------------------------------------
         _check_cancel(cancel_event)
-        qwen3_stage = Qwen3PerRegionStage(dict(self._pipeline.get("qwen3_asr", {})))
+        qwen3_stage = Qwen3PerRegionStage(qwen3_profile)
         qwen3_out, qwen3_chars = self._run_stage_v5(
             stage=qwen3_stage, segments_in=vad_regions, stage_index=stage_index,
             stage_type="qwen3_per_region", cancel_event=cancel_event, user_id=user_id,
@@ -519,6 +542,34 @@ class PipelineRunner:
                 if llm_profile is None:
                     raise ValueError(f"v6: refiner's llm_profile not found ({target_lang})")
                 _check_cancel(cancel_event)
+
+                # --- Refiner prompt 3-level resolution ---
+                # Priority: file_override > pipeline_override > template_default (empty)
+                # File-level override: file_registry[fid]["prompt_overrides"]["refiners.<lang>"]
+                # Pipeline-level: pipeline["refiner_prompt_override"][lang]
+                # Template default: loaded by RefinerStage.transform() from prompt_template_id
+                _override_key = f"refiners.{target_lang}"
+                _resolved_refiner_prompt = None
+                # Level 1: file-level override
+                _reg = _file_registry
+                if _reg is None:
+                    import pipeline_runner as _self_mod2
+                    _reg = _self_mod2._file_registry
+                if _reg is not None:
+                    _fentry = _reg.get(self._file_id, {})
+                    _fentry_overrides = _fentry.get("prompt_overrides") or {}
+                    _resolved_refiner_prompt = _fentry_overrides.get(_override_key) or None
+                if not _resolved_refiner_prompt:
+                    # Level 2: pipeline-level override
+                    _pipe_override = self._pipeline.get("refiner_prompt_override") or {}
+                    _resolved_refiner_prompt = _pipe_override.get(target_lang) or None
+                # Level 3: template default — RefinerStage handles this automatically when
+                # no override is injected (empty/absent key in extra_overrides)
+                refiner_extra: dict = {}
+                if _resolved_refiner_prompt:
+                    refiner_extra[_override_key] = _resolved_refiner_prompt
+                # -----------------------------------------
+
                 refiner_stage = RefinerStage(
                     refiner_profile=refiner_profile,
                     llm_profile=llm_profile,
@@ -527,7 +578,7 @@ class PipelineRunner:
                     stage=refiner_stage, segments_in=lang_segments,
                     stage_index=stage_index, stage_type=refiner_stage.stage_type,
                     cancel_event=cancel_event, user_id=user_id,
-                    extra_overrides={},  # no secondary in v6
+                    extra_overrides=refiner_extra,
                 )
                 stage_outputs.append(rf_out)
                 stage_index += 1
