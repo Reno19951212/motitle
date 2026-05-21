@@ -23,6 +23,7 @@ class StageContext:
     cancel_event: Optional[threading.Event]
     progress_callback: Optional[Callable[[int, int], None]]
     pipeline_overrides: dict = field(default_factory=dict)
+    audio_path: Optional[str] = None  # v6: preferred over pipeline_overrides["audio_path"]
 
 
 class StageOutput(TypedDict):

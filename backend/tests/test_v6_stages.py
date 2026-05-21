@@ -7,10 +7,12 @@ from stages import StageContext
 # Stage 0 — SileroVadStage
 # ---------------------------------------------------------------------------
 
-def _make_context(overrides=None):
-    # StageContext dataclass does not have an audio_path field;
-    # pass audio_path via pipeline_overrides so transform() can find it.
-    _overrides = {"audio_path": "/fake/audio.mp4"}
+def _make_context(overrides=None, audio_path=None):
+    _overrides = {}
+    # If no explicit audio_path kwarg, use pipeline_overrides workaround so
+    # existing tests continue to work unchanged.
+    if audio_path is None:
+        _overrides["audio_path"] = "/fake/audio.mp4"
     if overrides:
         _overrides.update(overrides)
     return StageContext(
@@ -18,6 +20,7 @@ def _make_context(overrides=None):
         pipeline_id="test_pipe", stage_index=0,
         cancel_event=None, progress_callback=None,
         pipeline_overrides=_overrides,
+        audio_path=audio_path,
     )
 
 
@@ -342,6 +345,30 @@ class TestQwen3PerRegionStage:
         assert stage._engine._language == "Chinese"
         assert stage._engine._context == "袁幸堯"
         assert stage._engine._post_s2hk is True
+
+
+# ---------------------------------------------------------------------------
+# StageContext audio_path field (T7)
+# ---------------------------------------------------------------------------
+
+class TestStageContextAudioPath:
+    def test_stage_context_accepts_audio_path(self):
+        from stages import StageContext
+        ctx = StageContext(
+            file_id="f1", user_id=1, pipeline_id="p1", stage_index=0,
+            cancel_event=None, progress_callback=None,
+            pipeline_overrides={}, audio_path="/tmp/test.mp4",
+        )
+        assert ctx.audio_path == "/tmp/test.mp4"
+
+    def test_stage_context_audio_path_defaults_none(self):
+        from stages import StageContext
+        ctx = StageContext(
+            file_id="f1", user_id=1, pipeline_id="p1", stage_index=0,
+            cancel_event=None, progress_callback=None,
+            pipeline_overrides={},
+        )
+        assert ctx.audio_path is None
 
 
 # ---------------------------------------------------------------------------
