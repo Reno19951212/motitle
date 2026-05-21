@@ -14,7 +14,27 @@ const KEYS = [
   'pass1_user_prompt',
 ] as const;
 type OverrideKey = (typeof KEYS)[number];
-type Overrides = Partial<Record<OverrideKey, string>>;
+
+// v6-T13 — extended keys for qwen3_context (詞庫) and refiner prompt
+const V6_KEYS = ['qwen3_context', 'refiners.zh'] as const;
+type V6OverrideKey = (typeof V6_KEYS)[number];
+
+const V6_KEY_LABELS: Record<V6OverrideKey, string> = {
+  qwen3_context: 'qwen3 Context（詞庫）',
+  'refiners.zh': 'Refiner Prompt Override（zh）',
+};
+
+const V6_KEY_ROWS: Record<V6OverrideKey, number> = {
+  qwen3_context: 3,
+  'refiners.zh': 8,
+};
+
+const V6_KEY_PLACEHOLDERS: Record<V6OverrideKey, string> = {
+  qwen3_context: '例：袁幸堯 史滕雷 HIGHLAND BLINK',
+  'refiners.zh': '（留空使用預設 refiner prompt）',
+};
+
+type Overrides = Partial<Record<OverrideKey | V6OverrideKey, string | null>>;
 
 interface Template {
   id: string;
@@ -114,10 +134,27 @@ export function PromptOverridesDrawer({ open, file, onClose, onSaved }: Props) {
           <div key={k}>
             <Label className="text-xs">{k}</Label>
             <Textarea
-              value={values[k] ?? ''}
+              value={(values[k] as string) ?? ''}
               onChange={(e) => setValues((v) => ({ ...v, [k]: e.target.value }))}
               rows={4}
               className="text-xs"
+              aria-label={k}
+            />
+          </div>
+        ))}
+
+        <hr className="my-2" />
+        <p className="text-xs text-muted-foreground mb-1">v6 欄位</p>
+
+        {V6_KEYS.map((k) => (
+          <div key={k}>
+            <Label className="text-xs">{V6_KEY_LABELS[k]}</Label>
+            <Textarea
+              value={(values[k] as string) ?? ''}
+              onChange={(e) => setValues((v) => ({ ...v, [k]: e.target.value }))}
+              rows={V6_KEY_ROWS[k]}
+              className="text-xs"
+              placeholder={V6_KEY_PLACEHOLDERS[k]}
               aria-label={k}
             />
           </div>

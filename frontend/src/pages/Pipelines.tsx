@@ -3,6 +3,7 @@
 // draggable stage list with a structured editor: ASR section (Primary + optional
 // Secondary + optional Verifier), then one card per target language (each card
 // has optional translator + refiner chain).
+// v6-T13 — Added v6 Refiner Prompt panel for pipeline_type === "v6_vad_dual_asr".
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
@@ -47,6 +48,14 @@ export default function Pipelines() {
   const [llms, setLlms] = useState<LlmProfileRow[]>([]);
   const [translators, setTranslators] = useState<TranslatorProfileRow[]>([]);
   const [refiners, setRefiners] = useState<RefinerProfileRow[]>([]);
+
+  // v6 Refiner Prompt panel — load + patch an existing v6 pipeline by ID
+  const [v6PipelineId, setV6PipelineId] = useState('');
+  const [v6Pipeline, setV6Pipeline] = useState<{ id: string; pipeline_type?: string; refiner_prompt_override?: Record<string, string | null> } | null>(null);
+  const [v6RefinerPrompt, setV6RefinerPrompt] = useState('');
+  const [v6Loading, setV6Loading] = useState(false);
+  const [v6Saving, setV6Saving] = useState(false);
+  const [v6Message, setV6Message] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   const form = useForm<PipelineV5>({
     resolver: zodResolver(PipelineV5Schema),
@@ -134,6 +143,47 @@ export default function Pipelines() {
       alert(`Pipeline created: ${created.id}`);
     } catch (e) {
       alert((e as Error).message);
+    }
+  }
+
+  async function loadV6Pipeline() {
+    if (!v6PipelineId.trim()) return;
+    setV6Loading(true);
+    setV6Message(null);
+    try {
+      const p = await v5.getPipeline(v6PipelineId.trim());
+      const typed = p as unknown as { id: string; pipeline_type?: string; refiner_prompt_override?: Record<string, string | null> };
+      if (typed.pipeline_type !== 'v6_vad_dual_asr') {
+        setV6Message({ type: 'err', text: `Pipeline type is "${typed.pipeline_type ?? 'unknown'}", not v6_vad_dual_asr` });
+        setV6Pipeline(null);
+        return;
+      }
+      setV6Pipeline(typed);
+      setV6RefinerPrompt(typed.refiner_prompt_override?.zh ?? '');
+      setV6Message({ type: 'ok', text: `Loaded: ${(p as any).name ?? p.id}` });
+    } catch (e) {
+      setV6Message({ type: 'err', text: (e as Error).message });
+      setV6Pipeline(null);
+    } finally {
+      setV6Loading(false);
+    }
+  }
+
+  async function saveV6RefinerPrompt(clear = false) {
+    if (!v6Pipeline) return;
+    setV6Saving(true);
+    setV6Message(null);
+    try {
+      const patch = { refiner_prompt_override: { zh: clear ? null : v6RefinerPrompt } };
+      const updated = await v5.patchPipeline(v6Pipeline.id, patch);
+      const typed = updated as unknown as { id: string; pipeline_type?: string; refiner_prompt_override?: Record<string, string | null> };
+      setV6Pipeline(typed);
+      setV6RefinerPrompt(typed.refiner_prompt_override?.zh ?? '');
+      setV6Message({ type: 'ok', text: clear ? 'Override cleared.' : 'Saved.' });
+    } catch (e) {
+      setV6Message({ type: 'err', text: (e as Error).message });
+    } finally {
+      setV6Saving(false);
     }
   }
 
@@ -341,6 +391,81 @@ export default function Pipelines() {
                 </label>
               </section>
             </form>
+
+            {/* v6 Refiner Prompt Panel — pipeline_type === "v6_vad_dual_asr" override editor */}
+            <section className="panel" style={{ marginTop: 24 }}>
+              <div className="panel-head">
+                <h2>v6 Refiner Prompt Override</h2>
+              </div>
+              <p style={{ fontSize: 12, color: 'var(--muted-fg, #888)', marginBottom: 8 }}>
+                載入現有 v6 pipeline，修改 refiner prompt override。
+              </p>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 8 }}>
+                <label className="field" style={{ flex: 1, marginBottom: 0 }}>
+                  Pipeline ID
+                  <input
+                    type="text"
+                    value={v6PipelineId}
+                    onChange={(e) => setV6PipelineId(e.target.value)}
+                    placeholder="e.g. abc123..."
+                    aria-label="v6 Pipeline ID input"
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); loadV6Pipeline(); } }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="action-chip"
+                  onClick={loadV6Pipeline}
+                  disabled={v6Loading || !v6PipelineId.trim()}
+                  aria-label="Load v6 pipeline"
+                >
+                  {v6Loading ? 'Loading…' : 'Load'}
+                </button>
+              </div>
+
+              {v6Message && (
+                <p style={{ fontSize: 12, color: v6Message.type === 'err' ? 'var(--danger, #e53e3e)' : 'var(--success, #38a169)', marginBottom: 8 }}>
+                  {v6Message.text}
+                </p>
+              )}
+
+              {v6Pipeline && (
+                <>
+                  <label className="field">
+                    Refiner Prompt Override (zh)
+                    <p style={{ fontSize: 11, color: 'var(--muted-fg, #888)', margin: '2px 0 4px' }}>
+                      留空則使用預設模板 (<code>zh_broadcast_hk_v6.json</code>)
+                    </p>
+                    <textarea
+                      value={v6RefinerPrompt}
+                      onChange={(e) => setV6RefinerPrompt(e.target.value)}
+                      rows={12}
+                      style={{ width: '100%', fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }}
+                      placeholder="（留空使用預設模板）"
+                      aria-label="v6 refiner prompt override textarea"
+                    />
+                  </label>
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
+                    <button
+                      type="button"
+                      className="action-chip"
+                      onClick={() => saveV6RefinerPrompt(true)}
+                      disabled={v6Saving}
+                    >
+                      Clear Override
+                    </button>
+                    <button
+                      type="button"
+                      className="action-chip primary"
+                      onClick={() => saveV6RefinerPrompt(false)}
+                      disabled={v6Saving}
+                    >
+                      {v6Saving ? 'Saving…' : 'Save Override'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </section>
           </div>
         </div>
       </div>
