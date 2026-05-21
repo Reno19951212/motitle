@@ -15,10 +15,50 @@ from __future__ import annotations
 from typing import List, Optional
 from stages import PipelineStage, StageContext
 
+# Fix D constants
+_MIN_CHAR_LEN_FOR_KEEP = 3      # segs <3 chars considered mid-word fragments
+_MAX_TIME_GAP_FOR_MERGE = 0.2   # 200ms — gap below this suggests mid-word cut
+
 
 def _midpoint(c: dict) -> float:
     s, e = float(c.get("start") or 0), float(c.get("end") or 0)
     return (s + e) / 2.0 if e > s else s
+
+
+def _merge_short_fragments(
+    segs: List[dict],
+    min_char_len: int = _MIN_CHAR_LEN_FOR_KEEP,
+    max_time_gap: float = _MAX_TIME_GAP_FOR_MERGE,
+) -> List[dict]:
+    """Merge ≤2-char segs into preceding segment when time gap is short (<0.2s).
+
+    A short gap indicates a mid-word cut by mlx-whisper at a breath/silence
+    boundary (Chinese has no word boundaries). A large gap (≥0.2s) means it
+    is a legitimate short interjection (係/啦/囉/噃 standing alone) — kept.
+
+    Decision rule:
+      - seg text length < min_char_len AND gap from prev seg < max_time_gap:
+        merge into prev: prev.end = curr.end, prev.text += curr.text
+      - else: keep as independent segment
+
+    Returns a NEW list (immutable — does not modify input dicts in place
+    except for the copies placed into `out`).
+    """
+    if not segs:
+        return list(segs)
+    out = [dict(segs[0])]
+    for curr in segs[1:]:
+        prev = out[-1]
+        curr_text = (curr.get("text") or "").strip()
+        curr_len = len(curr_text)
+        gap = float(curr.get("start", 0)) - float(prev.get("end", 0))
+        if curr_len < min_char_len and gap < max_time_gap:
+            # Mid-word fragment: absorb into preceding segment
+            prev["end"] = float(curr.get("end", prev["end"]))
+            prev["text"] = (prev.get("text", "") + curr_text).strip()
+        else:
+            out.append(dict(curr))
+    return out
 
 
 class TimeAnchoredMergeStage(PipelineStage):
@@ -37,7 +77,8 @@ class TimeAnchoredMergeStage(PipelineStage):
         """segments_in = mlx-whisper segs. qwen3 chars from context overrides."""
         qwen3_chars = list(context.pipeline_overrides.get("__qwen3_chars") or [])
         merged = self._time_anchored_merge(segments_in, qwen3_chars)
-        return self._collapse_empty_slots(merged)
+        collapsed = self._collapse_empty_slots(merged)
+        return _merge_short_fragments(collapsed)  # Fix D: absorb mid-word fragments
 
     def _time_anchored_merge(
         self, mlx_segs: List[dict], qwen3_chars: List[dict]

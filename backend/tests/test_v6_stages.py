@@ -299,6 +299,89 @@ class TestTimeAnchoredMergeStage:
         assert len(result) == 1
         assert result[0]["text"] == "測試"
 
+    # Fix D: _merge_short_fragments tests
+    def test_merge_short_fragments_combines_consecutive_2char_into_prev(self):
+        """≤2-char segments with small gap (<0.2s) merge into preceding segment."""
+        from stages.v6.time_anchored_merge_stage import _merge_short_fragments
+        segs = [
+            {"start": 0.0, "end": 1.0, "text": "係呢個女仔"},
+            {"start": 1.05, "end": 1.30, "text": "噃"},   # gap 0.05s < 0.2 → merge
+            {"start": 1.32, "end": 1.50, "text": "真"},   # gap 0.02s < 0.2 → merge
+            {"start": 1.55, "end": 2.50, "text": "係佢嘅"},
+        ]
+        out = _merge_short_fragments(segs)
+        assert len(out) == 2
+        assert out[0]["text"] == "係呢個女仔噃真"
+        assert out[0]["end"] == pytest.approx(1.50)
+        assert out[1]["text"] == "係佢嘅"
+
+    def test_merge_short_fragments_keeps_large_gap_segs_independent(self):
+        """Short seg with large gap (≥0.2s) is a legitimate short utterance, keep separate."""
+        from stages.v6.time_anchored_merge_stage import _merge_short_fragments
+        segs = [
+            {"start": 0.0, "end": 1.0, "text": "長段落"},
+            {"start": 2.0, "end": 2.30, "text": "係"},   # gap 1.0s > 0.2 → keep
+        ]
+        out = _merge_short_fragments(segs)
+        assert len(out) == 2
+        assert out[1]["text"] == "係"
+
+    def test_merge_short_fragments_4char_seg_not_merged(self):
+        """4-char segment is above threshold, not merged even with small gap."""
+        from stages.v6.time_anchored_merge_stage import _merge_short_fragments
+        segs = [
+            {"start": 0.0, "end": 1.0, "text": "前段"},
+            {"start": 1.05, "end": 1.50, "text": "四個字符"},  # 4 chars → keep
+        ]
+        out = _merge_short_fragments(segs)
+        assert len(out) == 2
+
+    def test_merge_short_fragments_empty_input(self):
+        """Empty input returns empty list without error."""
+        from stages.v6.time_anchored_merge_stage import _merge_short_fragments
+        assert _merge_short_fragments([]) == []
+
+    def test_merge_short_fragments_single_seg(self):
+        """Single segment input returns as-is."""
+        from stages.v6.time_anchored_merge_stage import _merge_short_fragments
+        segs = [{"start": 0.0, "end": 1.0, "text": "一段"}]
+        out = _merge_short_fragments(segs)
+        assert len(out) == 1
+        assert out[0]["text"] == "一段"
+
+    def test_merge_short_fragments_does_not_mutate_input(self):
+        """Immutable: original segments list unchanged after merge."""
+        from stages.v6.time_anchored_merge_stage import _merge_short_fragments
+        segs = [
+            {"start": 0.0, "end": 1.0, "text": "長段"},
+            {"start": 1.05, "end": 1.2, "text": "噃"},
+        ]
+        original_first = dict(segs[0])
+        _merge_short_fragments(segs)
+        assert segs[0] == original_first  # original unchanged
+
+    def test_transform_applies_fragment_merge_after_collapse(self):
+        """Integration: transform() calls _merge_short_fragments after _collapse_empty_slots."""
+        from stages.v6.time_anchored_merge_stage import TimeAnchoredMergeStage
+        stage = TimeAnchoredMergeStage({})
+        # MLX slots with qwen3 chars resulting in short fragments
+        mlx_segs = [
+            {"start": 0.0, "end": 1.0, "text": "x"},   # gets "係呢個女仔"
+            {"start": 1.05, "end": 1.30, "text": "x"},  # gets "噃" (1-char, gap 0.05s)
+            {"start": 1.35, "end": 2.50, "text": "x"},  # gets "係佢嘅"
+        ]
+        qwen3_chars = [
+            {"start": 0.3, "end": 0.9, "text": "係呢個女仔"},
+            {"start": 1.1, "end": 1.25, "text": "噃"},
+            {"start": 1.5, "end": 2.3, "text": "係佢嘅"},
+        ]
+        ctx = _make_context({"__qwen3_chars": qwen3_chars})
+        result = stage.transform(mlx_segs, ctx)
+        # "噃" (1-char) at gap 0.05s should have merged into "係呢個女仔"
+        assert len(result) == 2
+        assert result[0]["text"] == "係呢個女仔噃"
+        assert result[1]["text"] == "係佢嘅"
+
 
 # ---------------------------------------------------------------------------
 # Stage 1A — Qwen3PerRegionStage (T4)
