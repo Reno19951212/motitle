@@ -428,6 +428,7 @@ class TestRunV6RefinerPromptResolution:
 class TestPipelineManagerRefinerPromptOverride:
     def test_update_if_owned_accepts_refiner_prompt_override(self):
         """PipelineManager.update_if_owned accepts refiner_prompt_override patch field."""
+        import time
         from pipelines import PipelineManager
         import tempfile
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -435,6 +436,8 @@ class TestPipelineManagerRefinerPromptOverride:
             pipeline = _make_v6_pipeline()
             pipeline["user_id"] = 1
             pipeline["shared"] = False
+            pipeline["created_at"] = int(time.time())
+            pipeline["updated_at"] = int(time.time())
             mgr._save(pipeline)
             # Inject into cache manually (bypasses validation)
             mgr._cache[pipeline["id"]] = pipeline
@@ -449,6 +452,7 @@ class TestPipelineManagerRefinerPromptOverride:
             assert updated["refiner_prompt_override"]["zh"] == "custom prompt text"
 
     def test_update_if_owned_clears_refiner_prompt_override_with_null(self):
+        import time
         from pipelines import PipelineManager
         import tempfile
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -456,6 +460,8 @@ class TestPipelineManagerRefinerPromptOverride:
             pipeline = _make_v6_pipeline()
             pipeline["user_id"] = 1
             pipeline["shared"] = False
+            pipeline["created_at"] = int(time.time())
+            pipeline["updated_at"] = int(time.time())
             pipeline["refiner_prompt_override"] = {"zh": "old prompt"}
             mgr._save(pipeline)
             # Inject into cache manually
