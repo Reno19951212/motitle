@@ -41,6 +41,7 @@ export function QueueColumn({ selectedId, onSelect }: QueueColumnProps) {
         };
       }
       return toConsoleFile(file, stageProgressMap, {
+        stagePhaseMap: state.stagePhase[file.id] ?? {},
         renderStatus: state.renderStatus,
         renderProgress: state.renderProgress,
       });

@@ -8,6 +8,7 @@ export function toConsoleFile(
   file: FileRecord,
   stageProgressMap: StageProgressMap,
   options?: {
+    stagePhaseMap?: import('./derive-stage-cells').StagePhaseMap;
     renderStatus?: Record<string, 'running' | 'done' | 'failed' | 'cancelled'>;
     renderProgress?: Record<string, number>;
     nowSeconds?: number;
@@ -30,6 +31,7 @@ export function toConsoleFile(
       approved_count: typeof file.approved_count === 'number' ? file.approved_count : 0,
       segment_count: typeof file.segment_count === 'number' ? file.segment_count : 0,
       stageProgressMap,
+      stagePhaseMap: options?.stagePhaseMap,
       fileId: file.id,
       renderStatus: options?.renderStatus,
       renderProgress: options?.renderProgress,
