@@ -33,8 +33,12 @@ export function useHotkeys(map: HotkeyMap, enabled: boolean = true): void {
   useEffect(() => {
     if (!enabled) return;
     function handler(e: KeyboardEvent) {
-      if (isInteractiveTarget(e.target)) return;
-      for (const combo of eventToCombo(e)) {
+      const combos = eventToCombo(e);
+      // Esc is universal dismiss — fires even when focus is on input/textarea.
+      // Other hotkeys are skipped when the user is typing.
+      const isEsc = combos.includes('esc');
+      if (!isEsc && isInteractiveTarget(e.target)) return;
+      for (const combo of combos) {
         const fn = map[combo];
         if (fn) {
           fn(e);

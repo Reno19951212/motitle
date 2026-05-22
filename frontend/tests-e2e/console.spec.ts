@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Console page (/console)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/login');
-    await page.fill('#username', 'admin');
+    await page.fill('#username', 'admin_p3');
     await page.fill('#password', 'AdminPass1!');
     await page.click('button:has-text("Log in")');
     await expect(page).toHaveURL('/', { timeout: 10_000 });
@@ -67,11 +67,16 @@ test.describe('Console page (/console)', () => {
     await expect(page.locator('[data-testid="aside-facts"]')).toBeVisible();
   });
 
-  test('Cmd+K opens global search modal, Esc closes it', async ({ page }) => {
+  test('Ctrl/Cmd+K opens global search modal, Esc closes it', async ({ page }) => {
     await page.goto('/console?console=1');
-    await page.keyboard.press('Meta+K');
-    await expect(page.locator('[data-testid="global-search-modal"]')).toBeVisible();
+    // Wait for Console mount — useHotkeys registers via useEffect (post-mount).
+    await expect(page.locator('[data-testid="console-rail"]')).toBeVisible();
+    // Body focus + Control+K (Cmd+K is captured by Chromium for Tab Search on macOS).
+    await page.keyboard.press('Control+K');
+    // Use explicit waitFor so Playwright polls for the new modal element to
+    // appear in DOM (not just retry on a stale locator handle).
+    await page.locator('[data-testid="global-search-modal"]').waitFor({ state: 'visible', timeout: 5000 });
     await page.keyboard.press('Escape');
-    await expect(page.locator('[data-testid="global-search-modal"]')).not.toBeVisible();
+    await page.locator('[data-testid="global-search-modal"]').waitFor({ state: 'detached', timeout: 5000 });
   });
 });
