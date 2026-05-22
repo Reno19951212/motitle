@@ -132,8 +132,15 @@ def transcribe_file():
     file.save(file_path)
 
     file_size = os.path.getsize(file_path)
+    # Phase 0a Q2 — record audio/video duration via ffprobe.
+    # Originally only wired into /api/files/upload; user-visible bug was
+    # that Console drop-zone POSTs to /api/transcribe so duration_seconds
+    # was never populated for normal pipeline-triggering uploads.
+    from helpers.media import probe_duration_seconds
+    duration = probe_duration_seconds(file_path)
     entry = _app._register_file(file_id, file.filename, stored_name, file_size,
-                                user_id=current_user.id, file_path=file_path)
+                                user_id=current_user.id, file_path=file_path,
+                                duration_seconds=duration)
 
     # Notify client about the new file
     if sid:

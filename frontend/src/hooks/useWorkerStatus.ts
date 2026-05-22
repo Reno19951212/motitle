@@ -46,10 +46,15 @@ export function useWorkerStatus() {
     refresh();
   }, [socket.state.files, refresh]);
 
+  // Defensive: skip jobs with null file_name (orphan/ghost jobs from
+  // deleted files — backend annotates file_name=null when the file
+  // entry no longer exists in the registry). These would render as
+  // "處理中 (unnamed)" forever and confuse users.
+  const valid = items.filter(i => i.file_name != null);
   return {
-    activeJobs:  items.filter(i => i.status === 'running').sort((a, b) => a.position - b.position),
-    queuedJobs:  items.filter(i => i.status === 'queued').sort((a, b) => a.position - b.position),
-    erroredJobs: items.filter(i => i.status === 'failed'),
+    activeJobs:  valid.filter(i => i.status === 'running').sort((a, b) => a.position - b.position),
+    queuedJobs:  valid.filter(i => i.status === 'queued').sort((a, b) => a.position - b.position),
+    erroredJobs: valid.filter(i => i.status === 'failed'),
     loading,
     error,
   };

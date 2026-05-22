@@ -45,7 +45,7 @@ export function Workbench({ selectedFile = null }: WorkbenchProps) {
       </div>
       <MetricsBar />
       <div className="con-stage">
-        <VideoPanel fileName={fileName} />
+        <VideoPanel fileId={selectedFile?.id ?? null} fileName={fileName} />
         <TransportBar
           playing={playing}
           onTogglePlay={() => setPlaying(p => !p)}
