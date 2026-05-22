@@ -57,6 +57,7 @@ export function QueueColumn({ selectedId, onSelect }: QueueColumnProps) {
     ).length,
   }), [consoleFiles]);
 
+  const refreshFiles = useSocket().refresh;
   const onDrop = useCallback(
     async (files: File[]) => {
       if (!files.length) return;
@@ -64,11 +65,9 @@ export function QueueColumn({ selectedId, onSelect }: QueueColumnProps) {
         pushToast({ title: '請先揀 pipeline', variant: 'destructive' });
         return;
       }
-      // Only upload the first file (multiple: false)
       const formData = new FormData();
       formData.append('file', files[0]!);
       formData.append('pipeline_id', pipelineId);
-      // Use same endpoint as UploadDropzone.tsx (/api/transcribe)
       try {
         const resp = await fetch('/api/transcribe', {
           method: 'POST',
@@ -82,12 +81,17 @@ export function QueueColumn({ selectedId, onSelect }: QueueColumnProps) {
             description: String((body as { error?: string }).error ?? resp.statusText),
             variant: 'destructive',
           });
+          return;
         }
+        // Belt-and-braces refresh — backend's file_added socket event is
+        // room=sid-gated and we don't pass sid, so the page wouldn't otherwise
+        // hear about the new file until next /api/files refetch. Force one.
+        await refreshFiles();
       } catch (e) {
         pushToast({ title: '上傳失敗', description: String(e), variant: 'destructive' });
       }
     },
-    [pipelineId, pushToast]
+    [pipelineId, pushToast, refreshFiles]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
