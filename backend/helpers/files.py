@@ -88,7 +88,7 @@ def _filter_files_by_owner(registry: dict, user) -> dict:
 # Registry CRUD
 # ---------------------------------------------------------------------------
 def _register_file(file_id, original_name, stored_name, size_bytes, user_id=None,
-                   file_path=None):
+                   file_path=None, duration_seconds=None):
     """Register an uploaded file.
 
     ``user_id`` is the owner (R5 Phase 1 — required once auth lands;
@@ -96,6 +96,8 @@ def _register_file(file_id, original_name, stored_name, size_bytes, user_id=None
     may still upload anonymously). ``file_path`` is the absolute on-disk
     path (R5 Phase 1 — set when files land under per-user dirs; legacy
     entries without it fall back to UPLOAD_DIR root).
+    ``duration_seconds`` is the media duration obtained via ffprobe (Q2 —
+    None when ffprobe is unavailable or fails).
     """
     # Lazy import to avoid app.py ↔ helpers cycle at module load.
     import app as _app
@@ -108,6 +110,7 @@ def _register_file(file_id, original_name, stored_name, size_bytes, user_id=None
             "stored_name": stored_name,
             "file_path": file_path,
             "size": size_bytes,
+            "duration_seconds": duration_seconds,  # Q2: ffprobe-derived media duration
             "status": "uploaded",   # uploaded | transcribing | done | error
             "uploaded_at": time.time(),
             "segments": [],

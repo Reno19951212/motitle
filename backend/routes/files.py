@@ -190,9 +190,15 @@ def upload_file_only():
     file.save(file_path)
 
     file_size = os.path.getsize(file_path)
+
+    # Q2 — probe media duration via ffprobe; gracefully returns None on failure.
+    from helpers.media import probe_duration_seconds
+    duration = probe_duration_seconds(file_path)
+
     entry = _app._register_file(
         file_id, file.filename, stored_name, file_size,
         user_id=current_user.id, file_path=file_path,
+        duration_seconds=duration,
     )
 
     # Broadcast file_added to ALL connected clients so the dashboard queue
@@ -204,6 +210,7 @@ def upload_file_only():
         'file_id': file_id,
         'status': 'uploaded',
         'filename': stored_name,
+        'duration_seconds': duration,
     }), 200
 
 
