@@ -325,6 +325,42 @@ def edit_stage_segment(fid, stage_idx, seg_idx):
 
 
 # ============================================================
+# POST /api/pipelines/<pid>/preset_slot — Q3 endpoint
+# ============================================================
+
+@bp.post("/api/pipelines/<pid>/preset_slot")
+@login_required
+def set_pipeline_preset_slot(pid):
+    """Q3 — atomically assign a preset slot (1-4) to a pipeline, clearing any
+    sibling that previously held the same slot for the same owner."""
+    import app as _app
+
+    body = request.get_json(silent=True) or {}
+    slot = body.get("slot")
+    if slot is not None:
+        if isinstance(slot, bool) or not isinstance(slot, int):
+            return jsonify({"error": "slot must be null or int 1-4"}), 400
+        if slot < 1 or slot > 4:
+            return jsonify({"error": "slot must be in {1,2,3,4}"}), 400
+
+    user_id = getattr(current_user, "id", None)
+    is_admin = bool(getattr(current_user, "is_admin", False)) or bool(
+        _app.app.config.get("R5_AUTH_BYPASS")
+    )
+
+    ok, swapped, err = _app._pipeline_manager.set_preset_slot(
+        pid,
+        user_id=user_id,
+        is_admin=is_admin,
+        slot=slot,
+    )
+    if not ok:
+        status = 404 if err == "not found" else 403 if err == "forbidden" else 400
+        return jsonify({"error": err}), status
+    return jsonify({"ok": True, "swapped_pipeline_id": swapped}), 200
+
+
+# ============================================================
 # POST /api/files/<fid>/pipeline_overrides — A1 endpoint
 # ============================================================
 

@@ -376,6 +376,47 @@ class PipelineManager:
             self._cache.pop(pipeline_id, None)
             return True
 
+    def set_preset_slot(
+        self,
+        pipeline_id: str,
+        user_id: Optional[int],
+        is_admin: bool,
+        slot: Optional[int],
+    ):
+        """Atomically assign slot to pipeline_id, swapping any sibling holding
+        that slot for the same owner.
+
+        Returns (ok, swapped_pipeline_id, error_message).
+        """
+        if slot is not None and slot not in (1, 2, 3, 4):
+            return False, None, "slot must be null or 1-4"
+
+        # Use _PIPE_MASTER_LOCK to cover two-pipeline atomic swap (target +
+        # sibling) without risk of deadlock from acquiring two per-pipeline
+        # locks in arbitrary order.
+        with _PIPE_MASTER_LOCK:
+            target = self._cache.get(pipeline_id)
+            if target is None:
+                return False, None, "not found"
+            if not (is_admin or target.get("user_id") == user_id):
+                return False, None, "forbidden"
+
+            owner = target.get("user_id")
+            swapped = None
+            if slot is not None:
+                for pid, p in self._cache.items():
+                    if pid == pipeline_id:
+                        continue
+                    if p.get("user_id") == owner and p.get("preset_slot") == slot:
+                        p["preset_slot"] = None
+                        self._save(p)
+                        swapped = pid
+                        break
+
+            target["preset_slot"] = slot
+            self._save(target)
+            return True, swapped, None
+
     def annotate_broken_refs(self, pipeline: dict, user_id: Optional[int], is_admin: bool) -> dict:
         """Return pipeline dict with extra `broken_refs` key listing
         sub-resources the requesting user cannot view.
