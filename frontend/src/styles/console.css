@@ -265,3 +265,45 @@
 }
 .r-dot--pulse { animation: con-pulse 1.4s ease-in-out infinite; }
 .r-dot--idle  { background: var(--text-dim); }
+
+/* ============================================================
+   Preset Pills
+   ============================================================ */
+.con-presets {
+  display: flex; align-items: center; gap: 6px;
+}
+.con-presets .lbl {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-dim);
+  margin-right: 4px;
+}
+.con-presets button {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px 5px 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--text-mid);
+  cursor: pointer;
+  transition: background 120ms linear, border-color 120ms linear, color 120ms linear;
+}
+.con-presets button:disabled { opacity: 0.5; cursor: not-allowed; }
+.con-presets button:hover:not(:disabled) { color: var(--text); }
+.con-presets button.on {
+  background: var(--accent-soft);
+  border-color: var(--accent-ring);
+  color: var(--text);
+}
+.con-presets button .k {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background: var(--surface-3);
+  color: var(--text-dim);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.con-presets button.on .k {
+  background: var(--accent);
+  color: #fff;
+}
