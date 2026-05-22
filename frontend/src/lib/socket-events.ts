@@ -38,6 +38,27 @@ export interface PipelineFailedEvent {
   error: string;
 }
 
+export interface RenderStartEvent {
+  render_id: string;
+  file_id: string;
+  format?: string | null;
+  output_filename?: string | null;
+}
+
+export interface RenderProgressEvent {
+  render_id: string;
+  file_id: string;
+  percent: number;
+}
+
+export interface RenderDoneEvent {
+  render_id: string;
+  file_id: string;
+  status: 'done' | 'failed' | 'cancelled';
+  output_path?: string | null;
+  error?: string | null;
+}
+
 export type SocketAction =
   | { type: 'BULK_FILES'; files: FileRecord[] }
   | { type: 'FILE_ADDED'; file: FileRecord }
@@ -48,13 +69,18 @@ export type SocketAction =
   | { type: 'PIPELINE_COMPLETE'; ev: PipelineCompleteEvent }
   | { type: 'PIPELINE_FAILED'; ev: PipelineFailedEvent }
   | { type: 'SOCKET_CONNECTED' }
-  | { type: 'SOCKET_DISCONNECTED' };
+  | { type: 'SOCKET_DISCONNECTED' }
+  | { type: 'RENDER_START'; ev: RenderStartEvent }
+  | { type: 'RENDER_PROGRESS'; ev: RenderProgressEvent }
+  | { type: 'RENDER_DONE'; ev: RenderDoneEvent };
 
 export interface SocketState {
   files: Record<string, FileRecord>;
   stageProgress: Record<string, Record<number, number>>;
   stageStatus: Record<string, Record<number, StageStatus>>;
   connected: boolean;
+  renderProgress: Record<string, number>;
+  renderStatus: Record<string, 'running' | 'done' | 'failed' | 'cancelled'>;
 }
 
 export const initialSocketState: SocketState = {
@@ -62,6 +88,8 @@ export const initialSocketState: SocketState = {
   stageProgress: {},
   stageStatus: {},
   connected: false,
+  renderProgress: {},
+  renderStatus: {},
 };
 
 export function socketReducer(state: SocketState, action: SocketAction): SocketState {
@@ -140,6 +168,33 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
         ...state,
         files: prev ? { ...state.files, [action.ev.file_id]: { ...prev, status: 'failed' } } : state.files,
         stageStatus: { ...state.stageStatus, [action.ev.file_id]: stageStatus },
+      };
+    }
+    case 'RENDER_START': {
+      const fid = action.ev.file_id;
+      return {
+        ...state,
+        renderStatus: { ...state.renderStatus, [fid]: 'running' },
+        renderProgress: { ...state.renderProgress, [fid]: 0 },
+      };
+    }
+    case 'RENDER_PROGRESS': {
+      const fid = action.ev.file_id;
+      return {
+        ...state,
+        renderProgress: { ...state.renderProgress, [fid]: action.ev.percent },
+      };
+    }
+    case 'RENDER_DONE': {
+      const fid = action.ev.file_id;
+      const { status } = action.ev;
+      return {
+        ...state,
+        renderStatus: { ...state.renderStatus, [fid]: status },
+        renderProgress: {
+          ...state.renderProgress,
+          [fid]: status === 'done' ? 100 : (state.renderProgress[fid] ?? 0),
+        },
       };
     }
     case 'SOCKET_CONNECTED':
