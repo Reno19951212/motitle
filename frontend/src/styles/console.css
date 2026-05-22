@@ -468,3 +468,64 @@
   background: var(--accent-2);
   transition: height 200ms linear;
 }
+
+/* ============================================================
+   Workbench layout
+   ============================================================ */
+.con-work {
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+.con-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px;
+  height: 52px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-soft);
+  flex-shrink: 0;
+}
+.con-actions { display: flex; gap: 8px; }
+.con-stage {
+  flex: 1;
+  display: flex; flex-direction: column;
+  min-height: 0;
+}
+.con-bottom { flex-shrink: 0; }
+
+/* ============================================================
+   Transcript list
+   ============================================================ */
+.con-transcript {
+  overflow-y: auto;
+  max-height: 50%;
+  background: var(--bg);
+}
+.con-transcript.loading,
+.con-transcript.empty {
+  padding: 16px;
+  color: var(--text-dim);
+  font-size: 12px;
+  text-align: center;
+}
+.con-t-row {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 8px;
+  padding: 6px 16px;
+  font-size: 12px;
+  align-items: start;
+  border-bottom: 1px solid var(--surface-2);
+  transition: background 150ms ease-out;
+}
+.con-t-row:hover { background: var(--surface); }
+.con-t-row.active {
+  background: var(--accent-softer);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.con-t-row .ts {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.con-t-row .zh { color: var(--text); font-size: 13px; }
