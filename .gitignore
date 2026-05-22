@@ -74,3 +74,29 @@ backend/data/certs/
 # Private / commercially sensitive docs (client assessments, internal notes).
 # Kept local only — MUST NOT be pushed to public repo.
 docs/private/
+
+# v6 test-runtime artifacts — pipelines / profiles created by tests during execution.
+# Production v6 dependencies (referenced by tracked pipeline JSONs) are explicitly
+# committed; this pattern catches everything else.
+backend/config/asr_profiles/*.json
+!backend/config/asr_profiles/.gitkeep
+backend/config/pipelines/903b0f4a-*.json
+backend/config/pipelines/95c2bd90-*.json
+backend/config/pipelines/b49ef5d4-*.json
+backend/config/pipelines/ec2d55ba-*.json
+backend/config/translator_profiles/
+backend/config/verifier_profiles/
+backend/config/refiner_profiles/120a640e-*.json
+backend/config/refiner_profiles/e343a867-*.json
+backend/config/llm_profiles/603811c1-*.json
+backend/config/transcribe_profiles/eb5675f2-*.json
+
+# One-shot validation snapshots / debug probes (transient evidence, not durable)
+docs/superpowers/validation/*-snapshot.json
+frontend/v5a*.mjs
+frontend/v6_*.mjs
+frontend/tests-e2e/_manual-*.mjs
+frontend/tests-e2e/manual-*.spec.ts
+
+# One-shot migration / bootstrap scripts (don't track per-run)
+backend/scripts/build_v5_pipelines_zh_en.py
