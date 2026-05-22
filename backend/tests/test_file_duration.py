@@ -23,3 +23,39 @@ def test_probe_duration_returns_float_for_valid_audio(tmp_path):
     assert args[0] == "ffprobe"
     assert "-show_entries" in args
     assert "format=duration" in args
+
+
+def test_probe_duration_returns_none_on_nonzero_exit(tmp_path):
+    from helpers.media import probe_duration_seconds
+    audio = tmp_path / "broken.wav"
+    audio.write_bytes(b"\x00")
+    fake = MagicMock(returncode=1, stdout="", stderr="ffprobe: invalid")
+    with patch("helpers.media.subprocess.run", return_value=fake):
+        assert probe_duration_seconds(str(audio)) is None
+
+
+def test_probe_duration_returns_none_on_malformed_json(tmp_path):
+    from helpers.media import probe_duration_seconds
+    audio = tmp_path / "f.wav"
+    audio.write_bytes(b"\x00")
+    fake = MagicMock(returncode=0, stdout="not json")
+    with patch("helpers.media.subprocess.run", return_value=fake):
+        assert probe_duration_seconds(str(audio)) is None
+
+
+def test_probe_duration_returns_none_on_missing_duration_key(tmp_path):
+    from helpers.media import probe_duration_seconds
+    audio = tmp_path / "f.wav"
+    audio.write_bytes(b"\x00")
+    fake = MagicMock(returncode=0, stdout=json.dumps({"format": {}}))
+    with patch("helpers.media.subprocess.run", return_value=fake):
+        assert probe_duration_seconds(str(audio)) is None
+
+
+def test_probe_duration_returns_none_on_timeout(tmp_path):
+    from helpers.media import probe_duration_seconds
+    audio = tmp_path / "f.wav"
+    audio.write_bytes(b"\x00")
+    with patch("helpers.media.subprocess.run",
+               side_effect=subprocess.TimeoutExpired("ffprobe", 15)):
+        assert probe_duration_seconds(str(audio)) is None
