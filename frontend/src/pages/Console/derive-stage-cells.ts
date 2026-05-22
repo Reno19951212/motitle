@@ -8,12 +8,17 @@ export type StageProgressEntry = {
 
 export type StageProgressMap = Record<number, StageProgressEntry | undefined>;
 
+export type StagePhase = 'queued' | 'starting' | 'running';
+export type StagePhaseMap = Record<number, StagePhase | undefined>;
+
 type DeriveInput = {
   status: FileRecord['status'];
   stage_outputs: Array<{ stage_type: string; stage_ref: string }>;
   approved_count: number;
   segment_count: number;
   stageProgressMap: StageProgressMap;
+  // Lifecycle phase map (Bug 3):
+  stagePhaseMap?: StagePhaseMap;
   // Render cell inputs (Bug 2):
   fileId?: string;
   renderStatus?: Record<string, 'running' | 'done' | 'failed' | 'cancelled'>;
@@ -32,11 +37,22 @@ function classifyStage(stageType: string): 'asr' | 'mt' | 'other' {
   return 'other';
 }
 
-function deriveCellFromProgress(prog: StageProgressEntry | undefined): ConsoleStageCell {
-  if (!prog) return { state: 'idle' };
-  if (prog.status === 'failed') return { state: 'err' };
-  if (prog.status === 'done' || prog.percent === 100) return { state: 'done' };
-  if (prog.status === 'running') return { state: 'warn', percent: prog.percent };
+function deriveLifecycleCell(
+  prog: StageProgressEntry | undefined,
+  phase: StagePhase | undefined,
+): ConsoleStageCell {
+  // Terminal states win regardless of phase
+  if (prog?.status === 'failed') return { state: 'err' };
+  if (prog?.status === 'done' || prog?.percent === 100) return { state: 'done' };
+
+  // Lifecycle phase trumps absence of progress
+  if (phase === 'queued') return { state: 'queued' };
+  if (phase === 'starting') return { state: 'starting' };
+  if (phase === 'running') {
+    return { state: 'warn', percent: prog?.percent ?? 0 };
+  }
+  // Legacy fallback for files seen via BULK_FILES without phase info
+  if (prog?.status === 'running') return { state: 'warn', percent: prog.percent };
   return { state: 'idle' };
 }
 
@@ -53,7 +69,13 @@ export function deriveStageCells(input: DeriveInput): ConsoleStageCells {
     s => classifyStage(s.stage_type) === 'asr',
   );
   if (asrStageIdx >= 0) {
-    cells[0] = deriveCellFromProgress(input.stageProgressMap[asrStageIdx]);
+    cells[0] = deriveLifecycleCell(
+      input.stageProgressMap[asrStageIdx],
+      input.stagePhaseMap?.[asrStageIdx],
+    );
+  } else if (input.stagePhaseMap?.[0]) {
+    // File enqueued before stage_outputs is populated — still show queued
+    cells[0] = deriveLifecycleCell(undefined, input.stagePhaseMap[0]);
   }
 
   // Position 1 — MT
@@ -61,7 +83,10 @@ export function deriveStageCells(input: DeriveInput): ConsoleStageCells {
     s => classifyStage(s.stage_type) === 'mt',
   );
   if (mtStageIdx >= 0) {
-    cells[1] = deriveCellFromProgress(input.stageProgressMap[mtStageIdx]);
+    cells[1] = deriveLifecycleCell(
+      input.stageProgressMap[mtStageIdx],
+      input.stagePhaseMap?.[mtStageIdx],
+    );
   }
 
   // Position 2 — Proofread (derived from approved / segment counts)

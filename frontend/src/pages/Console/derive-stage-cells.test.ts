@@ -145,4 +145,76 @@ describe('deriveStageCells', () => {
     });
     expect(cells[3].state).toBe('idle');
   });
+
+  it('queued phase → state queued', () => {
+    const cells = deriveStageCells({
+      status: 'queued',
+      stage_outputs: [{ stage_type: 'asr', stage_ref: 'mlx' }],
+      approved_count: 0,
+      segment_count: 0,
+      stageProgressMap: {},
+      stagePhaseMap: { 0: 'queued' },
+    });
+    expect(cells[0].state).toBe('queued');
+  });
+
+  it('starting phase → state starting', () => {
+    const cells = deriveStageCells({
+      status: 'transcribing',
+      stage_outputs: [{ stage_type: 'asr', stage_ref: 'mlx' }],
+      approved_count: 0,
+      segment_count: 0,
+      stageProgressMap: {},
+      stagePhaseMap: { 0: 'starting' },
+    });
+    expect(cells[0].state).toBe('starting');
+  });
+
+  it('running phase with percent=47 → warn 47', () => {
+    const cells = deriveStageCells({
+      status: 'transcribing',
+      stage_outputs: [{ stage_type: 'asr', stage_ref: 'mlx' }],
+      approved_count: 0,
+      segment_count: 0,
+      stageProgressMap: { 0: { percent: 47, status: 'running' } },
+      stagePhaseMap: { 0: 'running' },
+    });
+    expect(cells[0]).toEqual({ state: 'warn', percent: 47 });
+  });
+
+  it('phase missing + prog.status running → falls through to warn', () => {
+    const cells = deriveStageCells({
+      status: 'transcribing',
+      stage_outputs: [{ stage_type: 'asr', stage_ref: 'mlx' }],
+      approved_count: 0,
+      segment_count: 0,
+      stageProgressMap: { 0: { percent: 22, status: 'running' } },
+      stagePhaseMap: {},
+    });
+    expect(cells[0].state).toBe('warn');
+  });
+
+  it('prog.status=failed short-circuits regardless of phase', () => {
+    const cells = deriveStageCells({
+      status: 'failed',
+      stage_outputs: [{ stage_type: 'asr', stage_ref: 'mlx' }],
+      approved_count: 0,
+      segment_count: 0,
+      stageProgressMap: { 0: { percent: 30, status: 'failed' } },
+      stagePhaseMap: { 0: 'starting' },
+    });
+    expect(cells[0].state).toBe('err');
+  });
+
+  it('phase clears (undefined) → falls through to idle when no prog', () => {
+    const cells = deriveStageCells({
+      status: 'uploaded',
+      stage_outputs: [],
+      approved_count: 0,
+      segment_count: 0,
+      stageProgressMap: {},
+      stagePhaseMap: {},
+    });
+    expect(cells[0].state).toBe('idle');
+  });
 });
