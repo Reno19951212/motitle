@@ -32,6 +32,19 @@ from auth.decorators import login_required
 bp = Blueprint("render", __name__)
 
 
+def _emit_render_event(event: str, payload: dict) -> None:
+    """Emit a render-lifecycle socket event. Swallows errors so the
+    render thread never dies because socketio is unavailable.
+
+    Mirrors the pattern in pipeline_runner._socketio_emit().
+    """
+    try:
+        import app as _app
+        _app.socketio.emit(event, payload)
+    except Exception:
+        pass
+
+
 # ============================================================
 # POST /api/render
 # ============================================================
@@ -178,6 +191,13 @@ def api_start_render():
     render_options_snapshot = dict(render_options)
 
     def do_render():
+        # Emit render_start before any FFmpeg work begins.
+        _emit_render_event('render_start', {
+            'render_id': render_id,
+            'file_id': file_id,
+            'format': output_format,
+            'output_filename': download_filename,
+        })
         try:
             ass_content = _app._subtitle_renderer.generate_ass(
                 translations_snapshot,
@@ -188,6 +208,12 @@ def api_start_render():
             success, ffmpeg_error = _app._subtitle_renderer.render(
                 video_path, ass_content, output_path, output_format, render_options_snapshot
             )
+            # NOTE: renderer.render() uses subprocess.run (blocking, no
+            # real-time stdout loop), so granular render_progress events are
+            # not available. We emit a single 100% progress on success to
+            # signal completion to the frontend reducer before render_done.
+            # TODO: wire incremental render_progress when FFmpeg progress
+            # parsing (e.g. -progress pipe:1) is added to renderer.render().
             with _app._render_jobs_lock:
                 job_state = _app._render_jobs.get(render_id) or {}
                 if job_state.get('cancelled'):
@@ -196,6 +222,11 @@ def api_start_render():
                 elif success:
                     _app._render_jobs[render_id] = {**job_state, "status": "completed"}
                     cleanup = False
+                    _emit_render_event('render_progress', {
+                        'render_id': render_id,
+                        'file_id': file_id,
+                        'percent': 100,
+                    })
                 else:
                     error_msg = f"FFmpeg render failed: {ffmpeg_error}" if ffmpeg_error else "FFmpeg render failed"
                     _app._render_jobs[render_id] = {**job_state, "status": "error", "error": error_msg}
@@ -222,6 +253,17 @@ def api_start_render():
                         os.remove(output_path)
                 except Exception:
                     pass
+        finally:
+            # Emit render_done in all exit paths (success, error, cancel).
+            with _app._render_jobs_lock:
+                final_job = _app._render_jobs.get(render_id) or {}
+            _emit_render_event('render_done', {
+                'render_id': render_id,
+                'file_id': file_id,
+                'status': final_job.get('status'),
+                'output_path': final_job.get('output_path'),
+                'error': final_job.get('error'),
+            })
 
     thread = threading.Thread(target=do_render)
     thread.daemon = True
