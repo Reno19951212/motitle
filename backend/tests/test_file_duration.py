@@ -7,7 +7,7 @@ import pytest
 
 
 def test_probe_duration_returns_float_for_valid_audio(tmp_path):
-    from routes.files import probe_duration_seconds
+    from helpers.media import probe_duration_seconds
     audio = tmp_path / "fake.wav"
     audio.write_bytes(b"\x00")  # content doesn't matter — ffprobe is mocked
 
@@ -15,7 +15,7 @@ def test_probe_duration_returns_float_for_valid_audio(tmp_path):
     fake_result.returncode = 0
     fake_result.stdout = json.dumps({"format": {"duration": "42.18"}})
 
-    with patch("routes.files.subprocess.run", return_value=fake_result) as run_mock:
+    with patch("helpers.media.subprocess.run", return_value=fake_result) as run_mock:
         out = probe_duration_seconds(str(audio))
 
     assert out == pytest.approx(42.18)

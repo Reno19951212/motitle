@@ -62,6 +62,42 @@ def get_media_duration(file_path: str) -> float:
     return 0
 
 
+def probe_duration_seconds(path: str) -> float | None:
+    """Run ffprobe on `path`, return duration in seconds or None on failure.
+
+    Coexists with `get_media_duration()`: the latter returns 0 on failure
+    (legacy callers), this one returns None so callers can distinguish
+    "0-second file" from "ffprobe failed". Used by the upload route to
+    populate `FileRecord.duration_seconds`.
+
+    On failure (timeout, non-zero exit, malformed JSON, missing duration
+    field, OS error) logs a warning via `print` and returns None.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "ffprobe",
+                "-v", "error",
+                "-show_entries", "format=duration",
+                "-of", "json",
+                path,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if result.returncode != 0:
+            print(f"[probe_duration_seconds] ffprobe nonzero exit for {path}: {result.stderr.strip()[:200]}")
+            return None
+        data = json.loads(result.stdout)
+        d = data.get("format", {}).get("duration")
+        return float(d) if d is not None else None
+    except (subprocess.TimeoutExpired, subprocess.SubprocessError,
+            ValueError, KeyError, OSError) as e:
+        print(f"[probe_duration_seconds] ffprobe error for {path}: {type(e).__name__}")
+        return None
+
+
 def extract_audio(video_path: str, output_path: str) -> bool:
     """Extract audio from video file using ffmpeg (mono 16 kHz PCM)."""
     try:

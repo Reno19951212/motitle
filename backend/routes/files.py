@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import uuid
 from io import BytesIO
 from pathlib import Path
@@ -25,35 +24,6 @@ from flask import Blueprint, jsonify, request, send_file
 from flask_login import current_user
 
 from auth.decorators import login_required, require_file_owner
-
-
-def probe_duration_seconds(path: str) -> float | None:
-    """Run ffprobe on `path`, return duration in seconds or None on failure.
-
-    Exceptions, non-zero exit, malformed JSON, missing duration field all
-    return None with a warning log. Never raises.
-    """
-    try:
-        result = subprocess.run(
-            [
-                "ffprobe",
-                "-v", "error",
-                "-show_entries", "format=duration",
-                "-of", "json",
-                path,
-            ],
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-        if result.returncode != 0:
-            return None
-        data = json.loads(result.stdout)
-        d = data.get("format", {}).get("duration")
-        return float(d) if d is not None else None
-    except (subprocess.TimeoutExpired, subprocess.SubprocessError,
-            ValueError, KeyError, OSError):
-        return None
 
 
 bp = Blueprint("files", __name__)
