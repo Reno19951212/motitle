@@ -134,6 +134,13 @@ def validate_pipeline(data: Any, asr_manager=None, mt_manager=None, glossary_man
     else:
         errors.extend(_validate_font(font))
 
+    slot = data.get("preset_slot")
+    if slot is not None:
+        if isinstance(slot, bool) or not isinstance(slot, int):
+            errors.append(f"preset_slot must be null or int 1-4, got {type(slot).__name__}")
+        elif slot < 1 or slot > 4:
+            errors.append(f"preset_slot must be in {{1, 2, 3, 4}}, got {slot}")
+
     return errors
 
 

@@ -99,6 +99,13 @@ def validate_v5_pipeline(data: Any) -> tuple[list[str], list[str]]:
             elif not all(isinstance(g, str) and g for g in glist):
                 errors.append(f"glossary_stages.{key} must contain only non-empty strings")
 
+    slot = data.get("preset_slot")
+    if slot is not None:
+        if isinstance(slot, bool) or not isinstance(slot, int):
+            errors.append(f"preset_slot must be null or int 1-4, got {type(slot).__name__}")
+        elif slot < 1 or slot > 4:
+            errors.append(f"preset_slot must be in {{1, 2, 3, 4}}, got {slot}")
+
     warnings: list[str] = []
     primary = data.get("asr_primary") or {}
     source_lang = primary.get("source_lang")
