@@ -44,6 +44,9 @@ export const PipelineV5Schema = z.object({
   glossary_stages: z.record(z.string(), z.array(z.string())).optional().default({}),
   font_config: FontConfigSchema,
   shared: z.boolean().default(false),
+  preset_slot: z.union([
+    z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.null()
+  ]).optional(),
 }).refine(
   (data) => {
     if (data.asr_secondary && data.asr_secondary.source_lang !== data.asr_primary.source_lang) {

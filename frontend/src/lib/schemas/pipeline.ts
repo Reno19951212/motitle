@@ -36,6 +36,9 @@ export const PipelineSchema = z.object({
   mt_stages: z.array(z.string().min(1)).max(8).default([]),
   glossary_stage: GlossaryStageSchema,
   font_config: FontConfigSchema,
+  preset_slot: z.union([
+    z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.null()
+  ]).optional(),
 });
 
 export type Pipeline = z.infer<typeof PipelineSchema>;

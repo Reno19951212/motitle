@@ -20,6 +20,7 @@ export interface PipelineSummary {
   shared: boolean;
   user_id: number | null;
   broken_refs?: PipelineBrokenRefs;
+  preset_slot?: 1 | 2 | 3 | 4 | null;   // Q3
 }
 
 interface PickerState {

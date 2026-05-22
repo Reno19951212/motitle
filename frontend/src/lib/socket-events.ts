@@ -11,6 +11,7 @@ export interface FileRecord {
   segment_count?: number;
   approved_count?: number;
   size?: number;
+  duration_seconds?: number | null;   // Q2
   [key: string]: unknown;
 }
 
