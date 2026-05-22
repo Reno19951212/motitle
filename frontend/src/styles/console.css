@@ -1,0 +1,27 @@
+/* frontend/src/styles/console.css
+ * Console scope — all rules under .console root to avoid leaking.
+ * Tokens (--bg, --accent, etc.) inherited from motitle-bold.css via
+ * the .motitle-bold ancestor (Console.tsx wraps its content in
+ * <div className="motitle-bold console">).
+ */
+
+.console {
+  display: grid;
+  grid-template-columns: 56px 360px 1fr 320px;
+  grid-template-rows: 1fr;
+  height: 100vh;
+  width: 100vw;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  overflow: hidden;
+}
+
+/* Mobile / tablet fallback — redirect handled in Console.tsx */
+@media (max-width: 1023px) {
+  .console-narrow-hint {
+    padding: 24px;
+    color: var(--text-mid);
+    text-align: center;
+  }
+}
