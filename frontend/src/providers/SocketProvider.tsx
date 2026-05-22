@@ -8,6 +8,9 @@ import {
   type SocketState,
   type SocketAction,
   type FileRecord,
+  type RenderStartEvent,
+  type RenderProgressEvent,
+  type RenderDoneEvent,
 } from '@/lib/socket-events';
 
 interface SocketContextValue {
@@ -75,12 +78,24 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     socket.on('pipeline_failed', (ev: { file_id: string; stage_idx?: number; error: string }) =>
       dispatch({ type: 'PIPELINE_FAILED', ev })
     );
+    socket.on('render_start', (ev: RenderStartEvent) => {
+      dispatch({ type: 'RENDER_START', ev });
+    });
+    socket.on('render_progress', (ev: RenderProgressEvent) => {
+      dispatch({ type: 'RENDER_PROGRESS', ev });
+    });
+    socket.on('render_done', (ev: RenderDoneEvent) => {
+      dispatch({ type: 'RENDER_DONE', ev });
+    });
 
     return () => {
       active = false;
       if (socket) {
         socket.off('connect');
         socket.off('disconnect');
+        socket.off('render_start');
+        socket.off('render_progress');
+        socket.off('render_done');
         socket.disconnect();
         socket = null;
       }
