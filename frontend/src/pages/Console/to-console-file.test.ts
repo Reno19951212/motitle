@@ -16,7 +16,7 @@ describe('toConsoleFile', () => {
   };
 
   it('normalizes FileRecord into ConsoleFile shape', () => {
-    const cf = toConsoleFile(baseFile, {}, 1716000060);
+    const cf = toConsoleFile(baseFile, {}, { nowSeconds: 1716000060 });
     expect(cf.id).toBe('f1');
     expect(cf.name).toBe('Bulletin.mp4');
     expect(cf.ext).toBe('MP4');
@@ -28,17 +28,17 @@ describe('toConsoleFile', () => {
   });
 
   it('handles null duration', () => {
-    const cf = toConsoleFile({ ...baseFile, duration_seconds: null }, {}, 1716000060);
+    const cf = toConsoleFile({ ...baseFile, duration_seconds: null }, {}, { nowSeconds: 1716000060 });
     expect(cf.formattedDuration).toBe('—');
   });
 
   it('marks errored when status === failed', () => {
-    const cf = toConsoleFile({ ...baseFile, status: 'failed' }, {}, 1716000060);
+    const cf = toConsoleFile({ ...baseFile, status: 'failed' }, {}, { nowSeconds: 1716000060 });
     expect(cf.errored).toBe(true);
   });
 
   it('uppercase extension extraction', () => {
-    const cf = toConsoleFile({ ...baseFile, original_name: 'foo.MoV' }, {}, 1716000060);
+    const cf = toConsoleFile({ ...baseFile, original_name: 'foo.MoV' }, {}, { nowSeconds: 1716000060 });
     expect(cf.ext).toBe('MOV');
   });
 });

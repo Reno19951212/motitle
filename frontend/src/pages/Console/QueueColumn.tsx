@@ -40,7 +40,10 @@ export function QueueColumn({ selectedId, onSelect }: QueueColumnProps) {
           status:  statusByIdx[idx]   ?? 'idle',
         };
       }
-      return toConsoleFile(file, stageProgressMap);
+      return toConsoleFile(file, stageProgressMap, {
+        renderStatus: state.renderStatus,
+        renderProgress: state.renderProgress,
+      });
     });
   }, [state]);
 
