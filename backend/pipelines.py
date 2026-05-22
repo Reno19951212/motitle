@@ -203,6 +203,24 @@ class PipelineManager:
         need to pass the schema — production callers should always leave
         this True.
         """
+        # v6 branch — store as-is (no separate schema validation; route handler is
+        # the gatekeeper for v6-specific rules). Returns pipeline_id string like v5.
+        if isinstance(data, dict) and data.get("pipeline_type") == "v6_vad_dual_asr":
+            pid = str(uuid.uuid4())
+            now = time.time()
+            payload = {
+                **data,
+                "id": pid,
+                "user_id": user_id,
+                "created_at": now,
+                "updated_at": now,
+            }
+            (self._dir / f"{pid}.json").write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            self._cache[pid] = payload
+            return pid
+
         # v5 branch — store as-is after schema validation
         if isinstance(data, dict) and data.get("version") == 5:
             errors, _warnings = validate_v5_pipeline(data)
@@ -312,10 +330,27 @@ class PipelineManager:
             if not self.can_edit(pipeline_id, user_id, is_admin):
                 return False, ["permission denied"]
             current = self._cache.get(pipeline_id)
+            # Extract free-form fields that bypass v4 schema validation.
+            # refiner_prompt_override: {lang: str | None} — pipeline-level refiner
+            # prompt override (v6); stored as-is, no content validation.
+            extra_fields: dict = {}
+            if "refiner_prompt_override" in patch:
+                extra_fields["refiner_prompt_override"] = patch.pop("refiner_prompt_override")
             merged = {**current, **patch}
-            errors = self.validate(merged)
-            if errors:
-                return False, errors
+            # v5/v6 pipelines use their own validators; skip the v4 schema check
+            # (v5 path: version==5; v6 path: pipeline_type present).
+            is_v5_or_v6 = (
+                merged.get("version") == 5
+                or bool(merged.get("pipeline_type"))
+            )
+            if not is_v5_or_v6:
+                errors = self.validate(merged)
+                if errors:
+                    # Restore patched key before returning so caller can inspect
+                    if extra_fields:
+                        patch["refiner_prompt_override"] = extra_fields.get("refiner_prompt_override")
+                    return False, errors
+            merged.update(extra_fields)
             merged["updated_at"] = int(time.time())
             merged["id"] = current["id"]
             merged["user_id"] = current["user_id"]

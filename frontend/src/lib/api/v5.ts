@@ -189,6 +189,17 @@ export function createPipelineV5(p: PipelineV5): Promise<PipelineV5Row> {
   return jsonPost<PipelineV5Row>('/api/pipelines', p);
 }
 
+export function patchPipeline(
+  id: string,
+  patch: Record<string, unknown>,
+): Promise<PipelineV5Row> {
+  return jsonPatch<PipelineV5Row>(`/api/pipelines/${id}`, patch);
+}
+
+export function getPipeline(id: string): Promise<PipelineV5Row> {
+  return fetchJson<PipelineV5Row>(`/api/pipelines/${id}`);
+}
+
 export function runPipeline(
   pipelineId: string,
   fileId: string,

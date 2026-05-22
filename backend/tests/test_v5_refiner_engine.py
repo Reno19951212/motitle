@@ -19,7 +19,7 @@ def test_llm_refiner_refines_per_segment():
         style="broadcast-hk",
     )
     segs = [
-        {"start": 0, "end": 1, "text": "段一"},
+        {"start": 0, "end": 1, "text": "段一文字"},  # 4 chars — avoids Fix C bypass
         {"start": 1, "end": 2, "text": "中文字幕提供"},
     ]
     out = rf.refine(segs)
@@ -44,7 +44,8 @@ def test_llm_refiner_strips_label_prefixes():
     fake_llm = Mock()
     fake_llm.call.return_value = "Refined: cleaned text"
     rf = LLMRefiner(llm=fake_llm, system_prompt="p", lang="en", style="newscast")
-    out = rf.refine([{"start": 0, "end": 1, "text": "raw"}])
+    # Use ≥4 chars to avoid Fix C short-input bypass
+    out = rf.refine([{"start": 0, "end": 1, "text": "raw input text"}])
     assert out[0]["text"] == "cleaned text"
 
 
@@ -53,7 +54,8 @@ def test_llm_refiner_takes_first_nonempty_line():
     fake_llm = Mock()
     fake_llm.call.return_value = "\n\nfirst\nsecond"
     rf = LLMRefiner(llm=fake_llm, system_prompt="p", lang="zh", style="b")
-    out = rf.refine([{"start": 0, "end": 1, "text": "原"}])
+    # Use ≥4 chars to avoid Fix C short-input bypass
+    out = rf.refine([{"start": 0, "end": 1, "text": "原始文字"}])
     assert out[0]["text"] == "first"
 
 
@@ -65,7 +67,8 @@ def test_llm_refiner_progress_callback():
     rf = LLMRefiner(llm=fake_llm, system_prompt="p", lang="zh", style="b")
     progress_calls = []
     rf.refine(
-        [{"start": 0, "end": 1, "text": "a"}, {"start": 1, "end": 2, "text": "b"}],
+        # Use ≥4 chars per segment to avoid Fix C short-input bypass
+        [{"start": 0, "end": 1, "text": "段落甲一"}, {"start": 1, "end": 2, "text": "段落乙二"}],
         progress=lambda i, n, txt: progress_calls.append((i, n, txt)),
     )
     assert progress_calls == [(1, 2, "x"), (2, 2, "x")]

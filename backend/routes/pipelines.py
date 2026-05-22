@@ -92,6 +92,17 @@ def create_pipeline():
     data = request.get_json(silent=True) or {}
     user_id = getattr(current_user, "id", None)
 
+    # v6 branch — bypass v4/v5 schema, store as-is (no separate schema validator yet)
+    if isinstance(data, dict) and data.get("pipeline_type") == "v6_vad_dual_asr":
+        mgr = _app._pipeline_manager
+        try:
+            result = mgr.create(data, user_id=user_id)
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        pid = result if isinstance(result, str) else result["id"]
+        body = dict(mgr.get(pid) or {})
+        return jsonify(body), 201
+
     # v5-A1 T25: v5 branch — validate v5 schema + cascade refs against the
     # new managers (transcribe / translator / refiner / verifier / llm /
     # glossary). v4 path untouched below.
