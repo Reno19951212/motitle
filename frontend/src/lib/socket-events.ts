@@ -38,6 +38,13 @@ export interface PipelineFailedEvent {
   error: string;
 }
 
+export interface StageStartEvent {
+  file_id: string;
+  stage_index: number;
+  stage_type: string;
+  stage_ref?: string;
+}
+
 export interface RenderStartEvent {
   render_id: string;
   file_id: string;
@@ -64,6 +71,7 @@ export type SocketAction =
   | { type: 'FILE_ADDED'; file: FileRecord }
   | { type: 'FILE_UPDATED'; file: FileRecord }
   | { type: 'FILE_REMOVED'; file_id: string }
+  | { type: 'STAGE_START'; ev: StageStartEvent }
   | { type: 'STAGE_PROGRESS'; ev: StageProgressEvent }
   | { type: 'STAGE_COMPLETE'; ev: StageCompleteEvent }
   | { type: 'PIPELINE_COMPLETE'; ev: PipelineCompleteEvent }
@@ -78,6 +86,7 @@ export interface SocketState {
   files: Record<string, FileRecord>;
   stageProgress: Record<string, Record<number, number>>;
   stageStatus: Record<string, Record<number, StageStatus>>;
+  stagePhase: Record<string, Record<number, 'queued' | 'starting' | 'running'>>;
   connected: boolean;
   renderProgress: Record<string, number>;
   renderStatus: Record<string, 'running' | 'done' | 'failed' | 'cancelled'>;
@@ -87,6 +96,7 @@ export const initialSocketState: SocketState = {
   files: {},
   stageProgress: {},
   stageStatus: {},
+  stagePhase: {},
   connected: false,
   renderProgress: {},
   renderStatus: {},
@@ -115,33 +125,65 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
         stageStatus: { ...recoveredStatus, ...state.stageStatus },
       };
     }
-    case 'FILE_ADDED':
+    case 'FILE_ADDED': {
+      const prev = state.files[action.file.id];
+      const next: SocketState = {
+        ...state,
+        files: { ...state.files, [action.file.id]: { ...prev, ...action.file } },
+      };
+      // Bug 3: New uploads with queued/uploaded status that have a pipeline_id
+      // get immediate cell-level pulse on the ASR cell (stage index 0).
+      const isPending = action.file.status === 'queued' || action.file.status === 'uploaded';
+      const hasPipeline = action.file.pipeline_id != null;
+      if (isPending && hasPipeline) {
+        next.stagePhase = {
+          ...state.stagePhase,
+          [action.file.id]: { 0: 'queued' },
+        };
+      }
+      return next;
+    }
     case 'FILE_UPDATED': {
       const prev = state.files[action.file.id];
       return { ...state, files: { ...state.files, [action.file.id]: { ...prev, ...action.file } } };
     }
     case 'FILE_REMOVED': {
       // Immutable removal: drop file entry + associated stage state.
-      const nextFiles = { ...state.files };
-      delete nextFiles[action.file_id];
-      const nextProgress = { ...state.stageProgress };
-      delete nextProgress[action.file_id];
-      const nextStatus = { ...state.stageStatus };
-      delete nextStatus[action.file_id];
+      const { [action.file_id]: _f, ...filesRest } = state.files;
+      const { [action.file_id]: _p, ...progRest } = state.stageProgress;
+      const { [action.file_id]: _s, ...statusRest } = state.stageStatus;
+      const { [action.file_id]: _ph, ...phaseRest } = state.stagePhase;
       return {
         ...state,
-        files: nextFiles,
-        stageProgress: nextProgress,
-        stageStatus: nextStatus,
+        files: filesRest,
+        stageProgress: progRest,
+        stageStatus: statusRest,
+        stagePhase: phaseRest,
+      };
+    }
+    case 'STAGE_START': {
+      const { file_id, stage_index } = action.ev;
+      const prev = state.stagePhase[file_id] ?? {};
+      return {
+        ...state,
+        stagePhase: {
+          ...state.stagePhase,
+          [file_id]: { ...prev, [stage_index]: 'starting' },
+        },
       };
     }
     case 'STAGE_PROGRESS': {
-      const fileProg = { ...(state.stageProgress[action.ev.file_id] ?? {}), [action.ev.stage_idx]: action.ev.percent };
-      const fileStatus = { ...(state.stageStatus[action.ev.file_id] ?? {}), [action.ev.stage_idx]: 'running' as const };
+      const { file_id, stage_idx, percent } = action.ev;
+      const fileProg = { ...(state.stageProgress[file_id] ?? {}), [stage_idx]: percent };
+      const fileStatus = { ...(state.stageStatus[file_id] ?? {}), [stage_idx]: 'running' as const };
+      const prevPhase = state.stagePhase[file_id] ?? {};
       return {
         ...state,
-        stageProgress: { ...state.stageProgress, [action.ev.file_id]: fileProg },
-        stageStatus: { ...state.stageStatus, [action.ev.file_id]: fileStatus },
+        stageProgress: { ...state.stageProgress, [file_id]: fileProg },
+        stageStatus: { ...state.stageStatus, [file_id]: fileStatus },
+        stagePhase: percent > 0
+          ? { ...state.stagePhase, [file_id]: { ...prevPhase, [stage_idx]: 'running' } }
+          : state.stagePhase,
       };
     }
     case 'STAGE_COMPLETE': {

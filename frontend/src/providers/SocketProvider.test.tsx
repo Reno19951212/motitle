@@ -212,4 +212,46 @@ describe('socketReducer', () => {
     expect(next.renderStatus['f1']).toBe('failed');
     expect(next.renderProgress['f1']).toBe(32);
   });
+
+  it('STAGE_START sets stagePhase[fid][idx]=starting', () => {
+    const state = { ...initialSocketState };
+    const next = socketReducer(state, {
+      type: 'STAGE_START',
+      ev: { file_id: 'f1', stage_index: 0, stage_type: 'asr_primary' },
+    });
+    expect(next.stagePhase['f1']?.[0]).toBe('starting');
+  });
+
+  it('STAGE_PROGRESS with percent>0 sets stagePhase to running', () => {
+    const state = {
+      ...initialSocketState,
+      stagePhase: { f1: { 0: 'starting' as const } },
+    };
+    const next = socketReducer(state, {
+      type: 'STAGE_PROGRESS',
+      ev: { file_id: 'f1', stage_idx: 0, percent: 15 },
+    });
+    expect(next.stagePhase['f1']?.[0]).toBe('running');
+  });
+
+  it('FILE_ADDED with status=queued sets stagePhase[fid][0]=queued', () => {
+    const state = { ...initialSocketState };
+    const next = socketReducer(state, {
+      type: 'FILE_ADDED',
+      file: {
+        id: 'f1', original_name: 'a.mp4', status: 'queued',
+        pipeline_id: 'p1',
+      } as any,
+    });
+    expect(next.stagePhase['f1']?.[0]).toBe('queued');
+  });
+
+  it('FILE_REMOVED clears stagePhase[fid]', () => {
+    const state = {
+      ...initialSocketState,
+      stagePhase: { f1: { 0: 'running' as const, 1: 'queued' as const } },
+    };
+    const next = socketReducer(state, { type: 'FILE_REMOVED', file_id: 'f1' });
+    expect(next.stagePhase['f1']).toBeUndefined();
+  });
 });
