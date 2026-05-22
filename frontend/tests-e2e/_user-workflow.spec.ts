@@ -302,25 +302,31 @@ test('comprehensive user workflow', async ({ page }) => {
   });
 
   // ─── Step 14: Space key on video ───────────────────────────────────
-  await test.step('14. Space toggles play (known: only UI state, not real <video>.play)', async () => {
+  await test.step('14. Space toggles real video play/pause', async () => {
     if (!newFileId) {
       record('14. Space play', '— skipped', 'no file');
       return;
     }
-    const ppBefore = await page.locator('[data-testid="transport-toggle"]').innerHTML();
+    // Ensure focus is on the page root, not on inputs (useHotkeys filter).
+    // page.mouse.click on a safe coordinate avoids the body-outside-viewport error.
+    await page.mouse.click(100, 100);
+    await page.waitForTimeout(200);
+
+    const videoEl = page.locator('[data-testid="video-element"]');
+    const beforePaused = await videoEl.evaluate((v: HTMLVideoElement) => v.paused).catch(() => null);
+
     await page.keyboard.press('Space');
-    await page.waitForTimeout(300);
-    const ppAfter = await page.locator('[data-testid="transport-toggle"]').innerHTML();
-    if (ppBefore !== ppAfter) {
-      const videoEl = page.locator('[data-testid="video-element"]');
-      const videoPaused = await videoEl.evaluate((v: HTMLVideoElement) => v.paused).catch(() => null);
-      if (videoPaused === false) {
-        record('14. Space play', '✓ works', 'transport icon swapped AND video is actually playing');
-      } else {
-        record('14. Space play', '⚠ partial', `transport icon swapped (UI state) BUT <video>.paused=${videoPaused} — Space does not call video.play()`);
-      }
+    // play() is async — give the browser a moment to flip paused state
+    await page.waitForTimeout(500);
+
+    const afterPaused = await videoEl.evaluate((v: HTMLVideoElement) => v.paused).catch(() => null);
+
+    if (beforePaused === true && afterPaused === false) {
+      record('14. Space play', '✓ works', 'video.paused: true → false after Space');
+    } else if (beforePaused === null) {
+      record('14. Space play', '— skipped', 'video element not found');
     } else {
-      record('14. Space play', '✗ broken', 'transport icon did not change after Space');
+      record('14. Space play', '✗ broken', `video.paused before=${beforePaused} after=${afterPaused} (expected true→false)`);
     }
   });
 
