@@ -115,3 +115,29 @@ def test_upload_records_none_duration_when_ffprobe_fails(client_with_admin):
     body = resp.get_json()
     assert "duration_seconds" in body, f"duration_seconds missing from response: {body}"
     assert body["duration_seconds"] is None
+
+
+def test_list_files_response_includes_duration_seconds(client_with_admin):
+    """Regression: GET /api/files response must project duration_seconds.
+
+    Caught in live E2E: registry had the field but /api/files's hand-curated
+    field whitelist omitted it, so the frontend FileFactsBlock + Workbench's
+    TransportBar always saw None. Now in whitelist; this test locks it in.
+    """
+    fake = MagicMock(returncode=0, stdout=json.dumps({"format": {"duration": "33.5"}}))
+    with patch("helpers.media.subprocess.run", return_value=fake):
+        up = client_with_admin.post(
+            "/api/files/upload",
+            data={"file": (io.BytesIO(b"fake video bytes"), "tracked.mp4")},
+            content_type="multipart/form-data",
+        )
+    assert up.status_code == 200
+    new_file_id = up.get_json()["file_id"]
+
+    resp = client_with_admin.get("/api/files")
+    assert resp.status_code == 200
+    files = resp.get_json()["files"]
+    matched = next((f for f in files if f["id"] == new_file_id), None)
+    assert matched is not None, f"newly uploaded file not in list: {files}"
+    assert "duration_seconds" in matched, f"projection missing: {sorted(matched.keys())}"
+    assert matched["duration_seconds"] == pytest.approx(33.5)

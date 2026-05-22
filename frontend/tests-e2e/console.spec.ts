@@ -67,6 +67,38 @@ test.describe('Console page (/console)', () => {
     await expect(page.locator('[data-testid="aside-facts"]')).toBeVisible();
   });
 
+  test('selecting a file shows its duration in FileFactsBlock + TransportBar', async ({ page }) => {
+    await page.goto('/console?console=1');
+    await expect(page.locator('[data-testid="console-rail"]')).toBeVisible();
+
+    // Click the first queue item (if any) — tolerate empty queue
+    const items = page.locator('[data-testid^="queue-item-"]');
+    const n = await items.count();
+    if (n === 0) {
+      test.skip(true, 'No files in queue to select — upload a fixture to test');
+      return;
+    }
+
+    await items.first().click();
+
+    // FileFactsBlock 時長 row — should NOT be the empty-state "未揀檔" or "—"
+    const facts = page.locator('[data-testid="aside-facts"]');
+    await expect(facts).toBeVisible();
+
+    // 時長 value is the .v cell in the row whose key is "時長"
+    const durationValue = facts.locator('.con-fact', { hasText: '時長' }).locator('.v');
+    await expect(durationValue).toBeVisible();
+    const durText = await durationValue.textContent();
+    // Should match mm:ss or h:mm:ss (NOT "—")
+    expect(durText).toMatch(/^\d+:\d{2}(:\d{2})?$/);
+
+    // TransportBar totalTime — same expectation
+    const transportTc = page.locator('[data-testid="transport-bar"] .tc');
+    await expect(transportTc).toBeVisible();
+    const tcText = await transportTc.textContent();
+    expect(tcText).toMatch(/\/ \d+:\d{2}/);  // " / mm:ss" suffix
+  });
+
   test('Ctrl/Cmd+K opens global search modal, Esc closes it', async ({ page }) => {
     await page.goto('/console?console=1');
     // Wait for Console mount — useHotkeys registers via useEffect (post-mount).

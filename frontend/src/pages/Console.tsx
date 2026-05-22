@@ -33,7 +33,7 @@ export function Console(_props: ConsoleProps) {
         <QueueColumn selectedId={selectedFileId} onSelect={setSelectedFileId} />
       </div>
       <div data-testid="console-workbench">
-        <Workbench selectedFileId={selectedFileId} />
+        <Workbench selectedFile={selectedFile} />
       </div>
       <div data-testid="console-aside">
         <AsideColumn selectedFile={selectedFile} />

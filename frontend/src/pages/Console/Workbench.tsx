@@ -6,17 +6,29 @@ import { TransportBar } from './TransportBar';
 import { TranscriptList } from './TranscriptList';
 import { Icon } from '../../lib/motitle-icons';
 import { useHotkeys } from '../../hooks/useHotkeys';
+import { formatDuration } from '../../lib/format';
+import type { FileRecord } from '../../lib/socket-events';
 
 export type WorkbenchProps = {
-  selectedFileId?: string | null;
+  selectedFile?: FileRecord | null;
 };
 
-export function Workbench({ selectedFileId = null }: WorkbenchProps) {
+export function Workbench({ selectedFile = null }: WorkbenchProps) {
   const [playing, setPlaying] = useState(false);
 
   useHotkeys({
     space: (e: KeyboardEvent) => { e.preventDefault(); setPlaying(p => !p); },
   });
+
+  const fileName =
+    typeof selectedFile?.original_name === 'string'
+      ? selectedFile.original_name
+      : undefined;
+  const durationSeconds =
+    typeof selectedFile?.duration_seconds === 'number'
+      ? selectedFile.duration_seconds
+      : null;
+  const totalTime = formatDuration(durationSeconds);
 
   return (
     <section className="con-work">
@@ -33,13 +45,14 @@ export function Workbench({ selectedFileId = null }: WorkbenchProps) {
       </div>
       <MetricsBar />
       <div className="con-stage">
-        <VideoPanel fileName={selectedFileId ?? undefined} />
+        <VideoPanel fileName={fileName} />
         <TransportBar
           playing={playing}
           onTogglePlay={() => setPlaying(p => !p)}
+          totalTime={totalTime}
         />
         <div className="con-bottom">
-          <TranscriptList fileId={selectedFileId} activeLang="zh" />
+          <TranscriptList fileId={selectedFile?.id ?? null} activeLang="zh" />
         </div>
       </div>
     </section>
