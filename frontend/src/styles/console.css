@@ -116,6 +116,21 @@
 }
 .con-q-stages i.err { background: var(--danger); }
 
+/* Bug 3 — lifecycle pulse animation for queued + starting cells.
+ * Same cadence as r-dot--pulse for visual coherence. */
+@keyframes con-cell-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 1; }
+}
+.con-q-stages i.queued {
+  background: var(--accent-soft);
+  animation: con-cell-pulse 1.4s ease-in-out infinite;
+}
+.con-q-stages i.starting {
+  background: linear-gradient(90deg, var(--warning) 5%, var(--surface-3) 5%);
+  animation: con-cell-pulse 1.4s ease-in-out infinite;
+}
+
 .con-q-item {
   padding: 11px 12px;
   border-bottom: 1px solid var(--border);
