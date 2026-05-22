@@ -1,13 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Icon } from '../../lib/motitle-icons';
+import { useVideoControl } from './video-control-context';
+import { formatDuration } from '../../lib/format';
 
-export type TransportBarProps = {
-  playing?: boolean;
-  onTogglePlay?: () => void;
-  currentTime?: string;
-  totalTime?: string;
-  scrubPercent?: number;
-};
+export type TransportBarProps = Record<string, never>;
 
 function VUMeter() {
   const [heights, setHeights] = useState<number[]>([6, 9, 12, 8, 11, 7]);
@@ -24,20 +20,37 @@ function VUMeter() {
   );
 }
 
-export function TransportBar({
-  playing = false,
-  onTogglePlay,
-  currentTime = '00:00',
-  totalTime = '00:00',
-  scrubPercent = 0,
-}: TransportBarProps) {
+export function TransportBar(_props: TransportBarProps) {
+  const { playing, currentTime, duration, toggle, seekPercent } = useVideoControl();
+
+  const totalTime = isFinite(duration) ? formatDuration(duration) : '—';
+  const currentDisplay = formatDuration(currentTime);
+  const scrubPercent = isFinite(duration) && duration > 0
+    ? Math.max(0, Math.min(100, (currentTime / duration) * 100))
+    : 0;
+
   return (
     <div className="con-transport" data-testid="transport-bar">
-      <button className="pp" onClick={onTogglePlay} data-testid="transport-toggle">
+      <button
+        className="pp"
+        onClick={() => toggle()}
+        data-testid="transport-toggle"
+      >
         <Icon name={playing ? 'pause' : 'play'} size={11} color="var(--bg)" />
       </button>
-      <span className="tc">{currentTime}<span className="total"> / {totalTime}</span></span>
-      <div className="scrub">
+      <span className="tc">
+        {currentDisplay}
+        <span className="total"> / {totalTime}</span>
+      </span>
+      <div
+        className="scrub"
+        onClick={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const pct = (e.clientX - rect.left) / rect.width;
+          seekPercent(pct);
+        }}
+        data-testid="transport-scrub"
+      >
         <i style={{ width: `${scrubPercent}%` }} />
         <b style={{ left: `${scrubPercent}%` }} />
       </div>
