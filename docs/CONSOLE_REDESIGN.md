@@ -1,0 +1,81 @@
+# Console Redesign — Delivery Summary
+
+**Branch:** `feat/phase-1-frontend-design`
+**Plan:** `docs/superpowers/plans/2026-05-22-console-redesign-plan.md` (49 atomic tasks, 11 phases)
+**Feature flag:** `VITE_CONSOLE=1` env + `?console=1` query (both required to render)
+
+## Phases shipped
+
+| Phase | Bundle | Commit |
+|---|---|---|
+| 0a Q2 ffprobe duration | 4 bundles | 351740c → ec876b4 |
+| 0b Q3 preset_slot | 2 bundles | 24f1046, d5491dd |
+| 1 Frontend foundations (css scaffold, types, format util, schema extensions) | 4 bundles | 3a2e2a2 → 12c6532 |
+| 2 Console skeleton + feature-flag route | 1 bundle | aceeabd |
+| 3 Rail component | 1 bundle | 5675351 |
+| 4 deriveStageCells + StageBar + QueueColumn + drop zone | 3 bundles | 2236b91, 045db95, a2c06ba |
+| 5 useWorkerStatus + WorkerStatus | 1 bundle | 0be1a15 |
+| 6 useHotkeys + PresetPills + MetricsBar + VideoPanel + TransportBar + TranscriptList + Workbench | 4 bundles | 5510cea → 2c5f26b |
+| 7 Aside (Pipeline + Glossary + Facts) | 1 bundle | b220eae |
+| 8 Pipelines page preset_slot dropdown | 1 bundle | 25c76e7 |
+| 9 Global hotkeys + Search modal + queue animations | 1 bundle | 8a2ace0 |
+| 10 E2E expansion + handoff (this commit) | 1 bundle | (this) |
+
+## What landed
+
+### Backend
+- `FileRecord.duration_seconds` field via ffprobe-on-upload + migration script
+- `Pipeline.preset_slot` field (1-4 or null) with per-user uniqueness + atomic swap endpoint
+- 31 new backend tests (1015 → 1046 PASS), 0 regressions
+
+### Frontend
+- 21 new files under `pages/Console/`, `hooks/`, `lib/`, `styles/`, `tests-e2e/`
+- 6 modified files (`router.tsx`, schema files, picker store, `Pipelines.tsx`, `socket-events.ts`)
+- 0 changes to `tailwind.config.ts`, `motitle-bold.css`, `Dashboard.tsx`
+- 24 new vitest cases (254 → 278 PASS), 9 Playwright E2E scenarios
+
+## How to try
+
+1. Set `VITE_CONSOLE=1` in `frontend/.env.development` (already committed).
+2. Restart dev server: `cd frontend && npm run dev:vite`.
+3. Open `http://localhost:5173/console?console=1` (logged in as admin).
+4. Try: upload via drop zone → ⌘1-4 preset switch → click queue item → ⌘K modal → Esc close.
+
+## Decision recap
+
+| # | Decision | Why |
+|---|---|---|
+| Q1 | A — Pure CSS via console.css | Existing pattern (motitle-bold.css), zero tailwind.config churn |
+| Q2 | B — Backend ffprobe + migration | Duration is core broadcast metadata, worth the backend cost |
+| Q3 | C — Backend preset_slot + uniqueness + atomic swap | Per-user persisted via PipelineManager; mirrors v3.13 R5 phase 5 lock pattern |
+| Q4 | A — Glossary list read-only | Conservative; toggle semantic ambiguous at MVP |
+| Q5 | B — Metrics bar queue real + others "—" | GPU probe defer; queue_depth derived from /api/queue length |
+| Q6 | C — Env + query both required | Production tree-shakes; dev easy to toggle |
+
+## Known limitations (deferred to future phase)
+
+- Metrics bar: ASR RT / MT tok/s / GPU% all show "—" (backend probes unimplemented).
+- VideoPanel: no real `<video>` element yet; uses placeholder safe-grid.
+- TranscriptList: read-only, no edit, single-column (sourceLang only — hook returns `{start, end, text}` shape).
+- ⌘K Global search: placeholder modal, no actual search wiring.
+- Render position (4th stage cell) always idle — needs cross-file `useActiveRenders()` hook.
+- Pipelines page has preset_slot dropdown for CREATE only — no EDIT flow yet.
+- Mobile fallback at `<1024px` redirects to `/` (Console is desktop-only per spec).
+
+## Backwards compat
+
+- `/` route untouched (existing `dashboard.spec.ts` + `bold-dashboard.spec.ts` GREEN regression)
+- All v5 profile pages untouched
+- Existing pipelines without `preset_slot` field continue to work (field defaults to null)
+- Existing files without `duration_seconds` show "—" until migration script runs
+
+## Verification
+
+- Backend: 1046 PASS / 23 failed (baseline) / 21 skipped
+- Frontend vitest: 278 PASS
+- Typecheck: 0 new errors in `src/` (6 pre-existing errors in `tests-e2e/v6-pipeline-smoke.spec.ts` are baseline)
+- Playwright console.spec.ts: 9 scenarios (parses cleanly; run with `npm run dev` started)
+
+## Plan adherence
+
+49 atomic tasks from plan executed via Subagent-Driven Development. 27 implementer dispatches (some bundling) + 8 reviewer dispatches (Phase 0 only — Phases 1-10 used controller-side review for trivial mechanical commits to conserve context). One fix loop at Phase 0a-1 (helper moved to helpers/media.py per code reviewer feedback). All 11 README acceptance criteria mapped to delivered components.
