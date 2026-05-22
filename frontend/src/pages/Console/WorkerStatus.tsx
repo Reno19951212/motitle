@@ -3,6 +3,12 @@ import { Icon } from '../../lib/motitle-icons';
 
 export type WorkerStatusProps = Record<string, never>;
 
+function stageTagLabel(type: string): string {
+  if (type === 'render') return '燒字';
+  if (type === 'pipeline_run') return 'pipeline';
+  return type;
+}
+
 export function WorkerStatus(_props: WorkerStatusProps) {
   const { activeJobs, queuedJobs, erroredJobs, loading } = useWorkerStatus();
 
@@ -30,7 +36,7 @@ export function WorkerStatus(_props: WorkerStatusProps) {
                 <span className="r-dot r-dot--pulse" style={{ background: 'var(--accent-2)' }} />
                 處理中
               </span>
-              <span className="stage">{j.type}</span>
+              <span className="stage">{stageTagLabel(j.type)}</span>
             </div>
             <div className="nm" title={j.file_name ?? ''}>{j.file_name ?? '(unnamed)'}</div>
             <div className="progress">
