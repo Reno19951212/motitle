@@ -19,6 +19,7 @@ import type { LlmProfileRow } from '@/lib/schemas/llm-profile';
 import type { TranslatorProfileRow } from '@/lib/schemas/translator-profile';
 import type { RefinerProfileRow } from '@/lib/schemas/refiner-profile';
 import * as v5 from '@/lib/api/v5';
+import { setPresetSlot } from '@/lib/api/console';
 import { BoldRail } from '@/components/BoldRail';
 import '@/styles/motitle-bold.css';
 
@@ -140,6 +141,13 @@ export default function Pipelines() {
   async function onSubmit(data: PipelineV5) {
     try {
       const created = await v5.createPipelineV5(data);
+      if (data.preset_slot != null && created?.id) {
+        try {
+          await setPresetSlot(created.id, data.preset_slot as 1 | 2 | 3 | 4);
+        } catch {
+          // Don't block the create — atomic swap is a nicety, not blocking
+        }
+      }
       alert(`Pipeline created: ${created.id}`);
     } catch (e) {
       alert((e as Error).message);

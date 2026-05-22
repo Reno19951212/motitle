@@ -61,6 +61,7 @@
 - Render position (4th stage cell) always idle — needs cross-file `useActiveRenders()` hook.
 - Pipelines page has preset_slot dropdown for CREATE only — no EDIT flow yet.
 - Mobile fallback at `<1024px` redirects to `/` (Console is desktop-only per spec).
+- Workers status polling: MetricsBar and WorkerStatus each independently poll /api/queue every 3s (2x load). Lifting to a shared context is a future optimization.
 
 ## Backwards compat
 

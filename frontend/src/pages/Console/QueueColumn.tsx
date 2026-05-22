@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useSocket } from '../../providers/SocketProvider';
 import { usePipelinePickerStore } from '../../stores/pipeline-picker';
@@ -9,13 +9,15 @@ import { toConsoleFile } from './to-console-file';
 import type { StageProgressMap } from './derive-stage-cells';
 import type { ConsoleFile } from './types';
 
-export type QueueColumnProps = Record<string, never>;
+export type QueueColumnProps = {
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+};
 
-export function QueueColumn(_props: QueueColumnProps) {
+export function QueueColumn({ selectedId, onSelect }: QueueColumnProps) {
   const { state } = useSocket();
   const pipelineId = usePipelinePickerStore((s) => s.pipelineId);
   const pushToast = useUIStore((s) => s.pushToast);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Build ConsoleFile[] from socket state.
   // state.files  → Record<string, FileRecord>  (keyed by file id)
@@ -130,7 +132,7 @@ export function QueueColumn(_props: QueueColumnProps) {
             key={f.id}
             file={f}
             active={f.id === selectedId}
-            onSelect={setSelectedId}
+            onSelect={onSelect}
           />
         ))}
       </div>
