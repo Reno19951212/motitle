@@ -75,4 +75,74 @@ describe('deriveStageCells', () => {
     });
     expect(cells[0].state).toBe('err');
   });
+
+  it('Render cell warn when renderStatus=running with percent', () => {
+    const cells = deriveStageCells({
+      status: 'done',
+      stage_outputs: [],
+      approved_count: 0,
+      segment_count: 0,
+      stageProgressMap: {},
+      fileId: 'f1',
+      renderStatus: { f1: 'running' },
+      renderProgress: { f1: 42 },
+    });
+    expect(cells[3]).toEqual({ state: 'warn', percent: 42 });
+  });
+
+  it('Render cell done when renderStatus=done', () => {
+    const cells = deriveStageCells({
+      status: 'done',
+      stage_outputs: [],
+      approved_count: 0,
+      segment_count: 0,
+      stageProgressMap: {},
+      fileId: 'f1',
+      renderStatus: { f1: 'done' },
+      renderProgress: { f1: 100 },
+    });
+    expect(cells[3].state).toBe('done');
+  });
+
+  it('Render cell err when renderStatus=failed', () => {
+    const cells = deriveStageCells({
+      status: 'done',
+      stage_outputs: [],
+      approved_count: 0,
+      segment_count: 0,
+      stageProgressMap: {},
+      fileId: 'f1',
+      renderStatus: { f1: 'failed' },
+      renderProgress: { f1: 30 },
+    });
+    expect(cells[3].state).toBe('err');
+  });
+
+  it('Render cell err when renderStatus=cancelled', () => {
+    const cells = deriveStageCells({
+      status: 'done',
+      stage_outputs: [],
+      approved_count: 0,
+      segment_count: 0,
+      stageProgressMap: {},
+      fileId: 'f1',
+      renderStatus: { f1: 'cancelled' },
+      renderProgress: { f1: 50 },
+    });
+    expect(cells[3].state).toBe('err');
+  });
+
+  it('Render cell stays idle when no render started', () => {
+    const cells = deriveStageCells({
+      status: 'done',
+      stage_outputs: [],
+      approved_count: 0,
+      segment_count: 0,
+      stageProgressMap: {},
+      fileId: 'f1',
+      renderStatus: {},
+      renderProgress: {},
+    });
+    expect(cells[3].state).toBe('idle');
+  });
 });

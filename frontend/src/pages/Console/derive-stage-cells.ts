@@ -14,6 +14,10 @@ type DeriveInput = {
   approved_count: number;
   segment_count: number;
   stageProgressMap: StageProgressMap;
+  // Render cell inputs (Bug 2):
+  fileId?: string;
+  renderStatus?: Record<string, 'running' | 'done' | 'failed' | 'cancelled'>;
+  renderProgress?: Record<string, number>;
 };
 
 function classifyStage(stageType: string): 'asr' | 'mt' | 'other' {
@@ -70,7 +74,18 @@ export function deriveStageCells(input: DeriveInput): ConsoleStageCells {
     }
   }
 
-  // Position 3 — Render (MVP: stays idle)
+  // Position 3 — Render (Bug 2: wired to render socket events)
+  if (input.fileId) {
+    const rStatus = input.renderStatus?.[input.fileId];
+    const rPercent = input.renderProgress?.[input.fileId];
+    if (rStatus === 'failed' || rStatus === 'cancelled') {
+      cells[3] = { state: 'err' };
+    } else if (rStatus === 'done') {
+      cells[3] = { state: 'done' };
+    } else if (rStatus === 'running') {
+      cells[3] = { state: 'warn', percent: rPercent ?? 0 };
+    }
+  }
 
   // Global failure short-circuit: if file-level failed and ASR cell is still idle,
   // escalate cell 0 to err (catches early failures before any stage emits progress).
