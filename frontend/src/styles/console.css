@@ -76,3 +76,59 @@
   border-radius: 0 2px 2px 0;
 }
 .con-rail .grow { flex: 1; }
+
+/* ============================================================
+   Queue items + stage bar
+   ============================================================ */
+.con-q-stages {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  margin-top: 6px;
+}
+.con-q-stages i {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-3);
+  display: block;
+}
+.con-q-stages i.done { background: var(--success); }
+.con-q-stages i.warn {
+  background: linear-gradient(
+    90deg, var(--warning) var(--p, 0%), var(--surface-3) var(--p, 0%)
+  );
+  transition: --p 300ms ease-out;
+}
+.con-q-stages i.err { background: var(--danger); }
+
+.con-q-item {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 150ms linear;
+}
+.con-q-item:hover { background: var(--surface); }
+.con-q-item.on {
+  background: var(--surface);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.con-q-row1 {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--text);
+}
+.con-q-row1 .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.con-q-row1 .ext {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+}
+.con-q-meta {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+.con-q-meta .sep { color: var(--border-strong); }
