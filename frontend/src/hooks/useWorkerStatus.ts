@@ -22,10 +22,43 @@ export function useWorkerStatus() {
 
   const refresh = useCallback(async () => {
     try {
-      const resp = await fetch('/api/queue', { credentials: 'include' });
-      if (!resp.ok) throw new Error(`${resp.status}`);
-      const body: QueueItem[] = await resp.json();
-      setItems(body);
+      const [queueResp, rendersResp] = await Promise.all([
+        fetch('/api/queue', { credentials: 'include' }),
+        fetch('/api/renders/in-progress', { credentials: 'include' }).catch(() => null),
+      ]);
+
+      if (!queueResp.ok) throw new Error(`${queueResp.status}`);
+      const queue: QueueItem[] = await queueResp.json();
+
+      // /api/renders/in-progress shape (per CLAUDE.md):
+      //   { id, file_id, file_name, status, percent, format, started_at }
+      // Map to QueueItem for unified WorkerStatus rendering.
+      type RenderInProgress = {
+        id: string;
+        file_id: string;
+        file_name: string | null;
+        status: 'running';
+        percent: number;
+        format: string;
+        started_at: number;
+      };
+      let renders: RenderInProgress[] = [];
+      if (rendersResp && rendersResp.ok) {
+        renders = await rendersResp.json().catch(() => [] as RenderInProgress[]);
+      }
+      const renderItems: QueueItem[] = renders.map((r, i) => ({
+        id: r.id,
+        file_id: r.file_id,
+        file_name: r.file_name,
+        owner_username: '—',
+        status: 'running',
+        position: queue.length + i,
+        eta_seconds: null,
+        type: 'render',
+        created_at: r.started_at,
+      }));
+
+      setItems([...queue, ...renderItems]);
       setError(null);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
