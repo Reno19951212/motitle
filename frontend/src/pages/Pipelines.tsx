@@ -390,6 +390,27 @@ export default function Pipelines() {
                   Outline Color<input type="text" {...form.register('font_config.outline_color')} />
                 </label>
               </section>
+
+              <section className="panel" data-testid="pipeline-preset-slot-field">
+                <div className="panel-head"><h2>⌘1–4 Preset Slot</h2></div>
+                <label className="field">
+                  Preset slot
+                  <select
+                    {...form.register('preset_slot', {
+                      setValueAs: (v) => (v === '' || v == null) ? null : Number(v),
+                    })}
+                  >
+                    <option value="">未指定</option>
+                    <option value="1">⌘1</option>
+                    <option value="2">⌘2</option>
+                    <option value="3">⌘3</option>
+                    <option value="4">⌘4</option>
+                  </select>
+                  <span style={{ fontSize: 11, color: 'var(--muted-fg, #888)', marginTop: 2 }}>
+                    將此 pipeline 綁定到 ⌘1–⌘4 快速鍵槽位。同一槽位只能有一個 pipeline — 選擇後舊佔用者自動解綁。
+                  </span>
+                </label>
+              </section>
             </form>
 
             {/* v6 Refiner Prompt Panel — pipeline_type === "v6_vad_dual_asr" override editor */}
