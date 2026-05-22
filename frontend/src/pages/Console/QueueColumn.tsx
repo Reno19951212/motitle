@@ -4,6 +4,7 @@ import { useSocket } from '../../providers/SocketProvider';
 import { usePipelinePickerStore } from '../../stores/pipeline-picker';
 import { useUIStore } from '../../stores/ui';
 import { QueueItem } from './QueueItem';
+import { WorkerStatus } from './WorkerStatus';
 import { toConsoleFile } from './to-console-file';
 import type { StageProgressMap } from './derive-stage-cells';
 import type { ConsoleFile } from './types';
@@ -134,11 +135,7 @@ export function QueueColumn(_props: QueueColumnProps) {
         ))}
       </div>
 
-      {/* WorkerStatus stub — fleshed in Phase 5 */}
-      <div
-        className="con-worker-placeholder"
-        data-testid="worker-status-placeholder"
-      />
+      <WorkerStatus />
     </section>
   );
 }
