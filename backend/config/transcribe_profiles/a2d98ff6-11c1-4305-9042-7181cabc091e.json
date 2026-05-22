@@ -1,0 +1,11 @@
+{
+  "name": "qwen3-asr ZH (Cantonese)",
+  "engine": "qwen3-asr",
+  "language": "zh",
+  "shared": false,
+  "model_size": "1.7B",
+  "id": "a2d98ff6-11c1-4305-9042-7181cabc091e",
+  "user_id": 5089,
+  "created_at": 1779250236.490604,
+  "updated_at": 1779250236.490604
+}

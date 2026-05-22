@@ -1,0 +1,11 @@
+{
+  "name": "mlx-whisper EN (broadcast)",
+  "engine": "mlx-whisper",
+  "language": "en",
+  "shared": false,
+  "model_size": "large-v3",
+  "id": "18275da4-7666-4ede-a105-e22cac5d1e59",
+  "user_id": 5089,
+  "created_at": 1779250236.4965498,
+  "updated_at": 1779250236.4965498
+}

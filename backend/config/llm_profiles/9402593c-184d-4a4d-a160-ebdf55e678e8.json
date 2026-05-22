@@ -1,0 +1,12 @@
+{
+  "name": "Ollama Qwen3.5 35B (v5 verifier/refiner)",
+  "backend": "ollama",
+  "model": "qwen3.5:35b-a3b-mlx-bf16",
+  "base_url": "http://localhost:11434",
+  "temperature": 0.2,
+  "shared": false,
+  "id": "9402593c-184d-4a4d-a160-ebdf55e678e8",
+  "user_id": 5089,
+  "created_at": 1779250236.485954,
+  "updated_at": 1779250236.485954
+}

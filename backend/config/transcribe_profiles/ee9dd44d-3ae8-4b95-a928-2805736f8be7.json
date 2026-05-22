@@ -1,0 +1,11 @@
+{
+  "name": "qwen3-asr EN",
+  "engine": "qwen3-asr",
+  "language": "en",
+  "shared": false,
+  "model_size": "1.7B",
+  "id": "ee9dd44d-3ae8-4b95-a928-2805736f8be7",
+  "user_id": 5089,
+  "created_at": 1779250236.498353,
+  "updated_at": 1779250236.498353
+}

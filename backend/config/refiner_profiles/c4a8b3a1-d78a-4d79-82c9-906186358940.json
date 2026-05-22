@@ -1,0 +1,12 @@
+{
+  "name": "Refiner EN newscast",
+  "lang": "en",
+  "style": "newscast",
+  "llm_profile_id": "9402593c-184d-4a4d-a160-ebdf55e678e8",
+  "prompt_template_id": "refiner/en_newscast_default",
+  "shared": false,
+  "id": "c4a8b3a1-d78a-4d79-82c9-906186358940",
+  "user_id": 5089,
+  "created_at": 1779250236.502146,
+  "updated_at": 1779250236.502146
+}
