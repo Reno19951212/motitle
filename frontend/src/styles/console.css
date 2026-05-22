@@ -25,3 +25,54 @@
     text-align: center;
   }
 }
+
+/* ============================================================
+   Rail (56px icon-only navigation)
+   ============================================================ */
+.con-rail {
+  display: flex; flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  background: var(--bg-soft);
+  border-right: 1px solid var(--border);
+  gap: 4px;
+}
+.con-rail .mark {
+  width: 32px; height: 32px;
+  display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border-radius: 8px;
+  color: #fff; font-weight: 800; font-size: 16px;
+  margin-bottom: 4px;
+}
+.con-rail .sep {
+  width: 24px; height: 1px;
+  background: var(--border);
+  margin: 4px 0 8px;
+}
+.con-rail a {
+  width: 36px; height: 36px;
+  display: grid; place-items: center;
+  color: var(--text-mid);
+  border-radius: 8px;
+  position: relative;
+  cursor: pointer;
+  transition: color 150ms ease-out, background 150ms ease-out;
+}
+.con-rail a:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+.con-rail a.on {
+  color: var(--accent-2);
+  background: var(--accent-soft);
+}
+.con-rail a.on::before {
+  content: '';
+  position: absolute;
+  left: -2px; top: 9px;
+  width: 2px; height: 18px;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+}
+.con-rail .grow { flex: 1; }
