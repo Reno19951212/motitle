@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { PresetPills } from './PresetPills';
 import { MetricsBar } from './MetricsBar';
 import { VideoPanel } from './VideoPanel';
@@ -6,29 +5,25 @@ import { TransportBar } from './TransportBar';
 import { TranscriptList } from './TranscriptList';
 import { Icon } from '../../lib/motitle-icons';
 import { useHotkeys } from '../../hooks/useHotkeys';
-import { formatDuration } from '../../lib/format';
+import { VideoControlProvider, useVideoControl } from './video-control-context';
 import type { FileRecord } from '../../lib/socket-events';
 
 export type WorkbenchProps = {
   selectedFile?: FileRecord | null;
 };
 
-export function Workbench({ selectedFile = null }: WorkbenchProps) {
-  const [playing, setPlaying] = useState(false);
+// Inner component — uses the context so MUST live inside the provider.
+function WorkbenchInner({ selectedFile }: WorkbenchProps) {
+  const { toggle } = useVideoControl();
 
   useHotkeys({
-    space: (e: KeyboardEvent) => { e.preventDefault(); setPlaying(p => !p); },
+    space: (e) => { e.preventDefault(); toggle(); },
   });
 
   const fileName =
     typeof selectedFile?.original_name === 'string'
       ? selectedFile.original_name
       : undefined;
-  const durationSeconds =
-    typeof selectedFile?.duration_seconds === 'number'
-      ? selectedFile.duration_seconds
-      : null;
-  const totalTime = formatDuration(durationSeconds);
 
   return (
     <section className="con-work">
@@ -46,15 +41,19 @@ export function Workbench({ selectedFile = null }: WorkbenchProps) {
       <MetricsBar />
       <div className="con-stage">
         <VideoPanel fileId={selectedFile?.id ?? null} fileName={fileName} />
-        <TransportBar
-          playing={playing}
-          onTogglePlay={() => setPlaying(p => !p)}
-          totalTime={totalTime}
-        />
+        <TransportBar />
         <div className="con-bottom">
           <TranscriptList fileId={selectedFile?.id ?? null} activeLang="zh" />
         </div>
       </div>
     </section>
+  );
+}
+
+export function Workbench({ selectedFile = null }: WorkbenchProps) {
+  return (
+    <VideoControlProvider>
+      <WorkbenchInner selectedFile={selectedFile ?? null} />
+    </VideoControlProvider>
   );
 }
