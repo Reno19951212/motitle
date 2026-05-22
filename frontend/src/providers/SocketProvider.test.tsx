@@ -160,4 +160,56 @@ describe('socketReducer', () => {
     const next = socketReducer(withFile, { type: 'FILE_REMOVED', file_id: 'missing' });
     expect(next.files.a?.original_name).toBe('x.mp4');
   });
+
+  it('RENDER_START sets renderStatus running + progress 0', () => {
+    const state = { ...initialSocketState };
+    const next = socketReducer(state, {
+      type: 'RENDER_START',
+      ev: { render_id: 'r1', file_id: 'f1', format: 'mp4' },
+    });
+    expect(next.renderStatus['f1']).toBe('running');
+    expect(next.renderProgress['f1']).toBe(0);
+  });
+
+  it('RENDER_PROGRESS updates percent (does not change status)', () => {
+    const state = {
+      ...initialSocketState,
+      renderStatus: { f1: 'running' as const },
+      renderProgress: { f1: 0 },
+    };
+    const next = socketReducer(state, {
+      type: 'RENDER_PROGRESS',
+      ev: { render_id: 'r1', file_id: 'f1', percent: 47 },
+    });
+    expect(next.renderStatus['f1']).toBe('running');
+    expect(next.renderProgress['f1']).toBe(47);
+  });
+
+  it('RENDER_DONE with status=done sets status + progress=100', () => {
+    const state = {
+      ...initialSocketState,
+      renderStatus: { f1: 'running' as const },
+      renderProgress: { f1: 90 },
+    };
+    const next = socketReducer(state, {
+      type: 'RENDER_DONE',
+      ev: { render_id: 'r1', file_id: 'f1', status: 'done' },
+    });
+    expect(next.renderStatus['f1']).toBe('done');
+    expect(next.renderProgress['f1']).toBe(100);
+  });
+
+  it('RENDER_DONE with status=failed preserves percent', () => {
+    const state = {
+      ...initialSocketState,
+      renderStatus: { f1: 'running' as const },
+      renderProgress: { f1: 32 },
+    };
+    const next = socketReducer(state, {
+      type: 'RENDER_DONE',
+      ev: { render_id: 'r1', file_id: 'f1', status: 'failed', error: 'oom' },
+    });
+    expect(next.renderStatus['f1']).toBe('failed');
+    expect(next.renderProgress['f1']).toBe(32);
+  });
 });
