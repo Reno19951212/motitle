@@ -269,22 +269,32 @@ test('comprehensive user workflow', async ({ page }) => {
   });
 
   // ─── Step 12: Stage bar update after time ──────────────────────────
-  await test.step('12. Stage bar reflects pipeline state', async () => {
+  await test.step('12. Stage bar shows queued/starting/warn (not idle) shortly after enqueue', async () => {
     if (!newFileId) {
       record('12. Stage bar update', '— skipped', 'no file');
       return;
     }
     const cells = page.locator(`[data-testid="queue-item-${newFileId}"] [data-testid="queue-stage-bar"] i`);
-    const classes = await cells.evaluateAll(els => els.map(el => el.className));
-    const states = classes.join(' / ');
-    if (classes.some(c => c.includes('warn'))) {
-      record('12. Stage bar update', '✓ works', `at least 1 cell in warn: ${states}`);
-    } else if (classes.some(c => c.includes('err'))) {
-      record('12. Stage bar update', '⚠ partial', `error state: ${states}`);
-    } else if (classes.every(c => c.includes('idle'))) {
-      record('12. Stage bar update', '⚠ partial', `all idle (8s in) — pipeline may have failed at queue time or not started yet`);
+
+    // Within 5 seconds, the first cell should be NOT idle (queued, starting, or warn).
+    // Allows for pipeline_stage_start latency.
+    await expect.poll(
+      async () => {
+        const cls = await cells.nth(0).getAttribute('class');
+        return cls ?? '';
+      },
+      { timeout: 5_000 }
+    ).not.toMatch(/^idle$/);
+
+    const cls = await cells.nth(0).getAttribute('class');
+    if (cls === 'queued' || cls === 'starting' || cls === 'warn') {
+      record('12. Stage bar update', '✓ works', `cell 0 class="${cls}" within 5s of enqueue`);
+    } else if (cls === 'err') {
+      record('12. Stage bar update', '⚠ partial', `cell 0 went to err (pipeline failed)`);
+    } else if (cls === 'done') {
+      record('12. Stage bar update', '✓ works', `cell 0 went to done (pipeline was fast)`);
     } else {
-      record('12. Stage bar update', '⚠ partial', `mixed states: ${states}`);
+      record('12. Stage bar update', '✗ broken', `unexpected cell 0 class: "${cls}"`);
     }
   });
 
