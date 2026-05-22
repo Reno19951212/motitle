@@ -132,3 +132,49 @@
   margin-top: 2px;
 }
 .con-q-meta .sep { color: var(--border-strong); }
+
+/* ============================================================
+   QueueColumn (Phase 4-3)
+   ============================================================ */
+.con-queue {
+  display: flex; flex-direction: column;
+  background: var(--bg-soft);
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+.con-queue-head {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.con-queue-head h2 {
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.con-queue-head .meta {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px;
+}
+.con-queue-head .meta .k { color: var(--text-dim); }
+.con-queue-head .meta .v { color: var(--text); font-family: var(--font-mono); }
+.con-drop {
+  margin: 10px;
+  padding: 14px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 150ms ease-out;
+}
+.con-drop:hover, .con-drop.on { border-color: var(--accent-ring); }
+.con-drop .t { font-size: 13px; color: var(--text); }
+.con-drop .s {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+.con-queue-list { flex: 1; overflow-y: auto; }
