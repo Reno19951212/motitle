@@ -8,6 +8,7 @@ import {
   type SocketState,
   type SocketAction,
   type FileRecord,
+  type StageStartEvent,
   type RenderStartEvent,
   type RenderProgressEvent,
   type RenderDoneEvent,
@@ -66,6 +67,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     socket.on('disconnect', () => dispatch({ type: 'SOCKET_DISCONNECTED' }));
     socket.on('file_added', (f: FileRecord) => dispatch({ type: 'FILE_ADDED', file: f }));
     socket.on('file_updated', (f: FileRecord) => dispatch({ type: 'FILE_UPDATED', file: f }));
+    socket.on('pipeline_stage_start', (ev: StageStartEvent) => {
+      dispatch({ type: 'STAGE_START', ev });
+    });
     socket.on('pipeline_stage_progress', (ev: { file_id: string; stage_idx: number; percent: number }) =>
       dispatch({ type: 'STAGE_PROGRESS', ev })
     );
@@ -93,6 +97,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       if (socket) {
         socket.off('connect');
         socket.off('disconnect');
+        socket.off('pipeline_stage_start');
         socket.off('render_start');
         socket.off('render_progress');
         socket.off('render_done');
