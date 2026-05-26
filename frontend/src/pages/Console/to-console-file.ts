@@ -4,6 +4,22 @@ import type { StageProgressMap } from './derive-stage-cells';
 import type { FileRecord } from '../../lib/socket-events';
 import type { ConsoleFile } from './types';
 
+/**
+ * The backend serialises stage_outputs as a dict keyed by string-index ("0","1",…)
+ * when stored in JSON, but older code paths or socket events may send an Array.
+ * Normalise to Array<{stage_type,stage_ref}> for deriveStageCells.
+ */
+function normalizeStageOutputs(
+  raw: FileRecord['stage_outputs'] | Record<string, { stage_type: string; stage_ref: string }>,
+): Array<{ stage_type: string; stage_ref: string }> {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  // dict shape: {"0": {...}, "1": {...}}
+  return Object.keys(raw)
+    .sort((a, b) => Number(a) - Number(b))
+    .map(k => (raw as Record<string, { stage_type: string; stage_ref: string }>)[k]!);
+}
+
 export function toConsoleFile(
   file: FileRecord,
   stageProgressMap: StageProgressMap,
@@ -27,7 +43,7 @@ export function toConsoleFile(
       : '—',
     stageCells: deriveStageCells({
       status: file.status,
-      stage_outputs: file.stage_outputs ?? [],
+      stage_outputs: normalizeStageOutputs(file.stage_outputs),
       approved_count: typeof file.approved_count === 'number' ? file.approved_count : 0,
       segment_count: typeof file.segment_count === 'number' ? file.segment_count : 0,
       stageProgressMap,
