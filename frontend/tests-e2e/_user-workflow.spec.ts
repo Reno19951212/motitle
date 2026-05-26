@@ -208,10 +208,48 @@ test('comprehensive user workflow', async ({ page }) => {
       if (valid && sized) {
         record('8. Video preview', '✓ works', `<video src="${src.split('/').slice(-3).join('/')}" ${Math.round(box!.width)}x${Math.round(box!.height)}>`);
       } else if (valid && box) {
-        record('8. Video preview', '✗ layout collapse', `box=${JSON.stringify(box)} (regression in .con-stage grid)`);
+        record('8. Video preview', '✗ broken', `layout collapse — box=${JSON.stringify(box)} (regression in .con-stage grid)`);
         throw new Error(`Video element in DOM with src ${src} but layout collapsed to ${box.width}x${box.height}. Check .con-stage grid-template-rows + .con-bottom min-height/overflow.`);
       } else {
         record('8. Video preview', '⚠ partial', `video in DOM but src="${src}"`);
+      }
+
+      // ─── 8b: Broadcast-grade subtitle overlay (Option C wire) ──────────
+      // Seek into the first segment so an active translation is picked.
+      // /api/files/<id>/translations is the data source — if the file
+      // hasn't been transcribed yet this step gracefully degrades to skip.
+      const transResp = await page.request.get(`/api/files/${newFileId}/translations`);
+      if (transResp.ok()) {
+        const raw = await transResp.json();
+        const trans: Array<{ start?: number; end?: number; zh_text?: string; en_text?: string }> =
+          Array.isArray(raw) ? raw : (raw?.translations ?? []);
+        const first = trans.find((t) => Number.isFinite(t.start) && Number.isFinite(t.end));
+        if (first && first.start !== undefined && first.end !== undefined) {
+          const mid = (first.start + first.end) / 2;
+          await videoEl.evaluate((v, t) => {
+            (v as HTMLVideoElement).currentTime = t as number;
+            v.dispatchEvent(new Event('timeupdate'));
+          }, mid);
+          await page.waitForTimeout(500);
+          const overlay = page.locator('[data-testid="subtitle-overlay"]');
+          const overlayCount = await overlay.count();
+          if (overlayCount > 0) {
+            const tspanText = await overlay.locator('tspan').allTextContents();
+            const joined = tspanText.join(' ').trim();
+            if (joined.length > 0) {
+              record('8b. Subtitle overlay', '✓ works', `tspan="${joined.slice(0, 40)}" at t=${mid.toFixed(1)}s`);
+            } else {
+              record('8b. Subtitle overlay', '⚠ partial', `overlay in DOM but tspans empty`);
+            }
+          } else {
+            record('8b. Subtitle overlay', '✗ broken', `no [data-testid="subtitle-overlay"] in DOM (Workbench wire missing?)`);
+            throw new Error('Subtitle overlay not rendered — check VideoPanel.tsx + Workbench.tsx wire to useFileTranslations + useFilePipeline.');
+          }
+        } else {
+          record('8b. Subtitle overlay', '— skipped', 'no segments with start/end');
+        }
+      } else {
+        record('8b. Subtitle overlay', '— skipped', `translations fetch ${transResp.status()}`);
       }
     }
   });
