@@ -386,7 +386,12 @@ def test_unapprove_file_not_found(client):
 # ---- in-progress renders ----
 
 def test_renders_in_progress(client, tmp_path, monkeypatch):
-    """In-progress endpoint returns active jobs, filters by file_id."""
+    """In-progress endpoint returns active jobs (flat array), filters by file_id.
+
+    Updated to match the canonical field contract:
+      - Response is a flat JSON array, NOT {'jobs': [...]}
+      - Each item uses 'id' (not 'render_id') as the job identifier
+    """
     _render_jobs["job-test-aaa"] = {
         "render_id": "job-test-aaa", "file_id": "f1", "format": "mp4",
         "status": "processing", "subtitle_source": "auto", "created_at": 0,
@@ -398,13 +403,17 @@ def test_renders_in_progress(client, tmp_path, monkeypatch):
     try:
         r = client.get("/api/renders/in-progress")
         assert r.status_code == 200
-        ids = [j["render_id"] for j in r.get_json()["jobs"]]
+        body = r.get_json()
+        assert isinstance(body, list), f"Response must be flat array, got: {body}"
+        ids = [j["id"] for j in body]           # canonical 'id' (was 'render_id')
         assert "job-test-aaa" in ids
         assert "job-test-bbb" not in ids  # filtered out (terminal status)
 
         r2 = client.get("/api/renders/in-progress?file_id=f1")
         assert r2.status_code == 200
-        ids2 = [j["render_id"] for j in r2.get_json()["jobs"]]
+        body2 = r2.get_json()
+        assert isinstance(body2, list)
+        ids2 = [j["id"] for j in body2]
         assert ids2 == ["job-test-aaa"]
     finally:
         _render_jobs.pop("job-test-aaa", None)

@@ -257,10 +257,20 @@ def api_start_render():
             # Emit render_done in all exit paths (success, error, cancel).
             with _app._render_jobs_lock:
                 final_job = _app._render_jobs.get(render_id) or {}
+            # Normalize raw job status to the frontend RenderDoneEvent contract:
+            #   'completed' → 'done'   (job success)
+            #   'error'     → 'failed' (job failure)
+            #   'cancelled' → 'cancelled' (unchanged)
+            raw_status = final_job.get('status')
+            emit_status = (
+                'done' if raw_status == 'completed'
+                else 'failed' if raw_status == 'error'
+                else raw_status  # 'cancelled' or any future value passes through
+            )
             _emit_render_event('render_done', {
                 'render_id': render_id,
                 'file_id': file_id,
-                'status': final_job.get('status'),
+                'status': emit_status,
                 'output_path': final_job.get('output_path'),
                 'error': final_job.get('error'),
             })
@@ -353,21 +363,31 @@ def api_cancel_render(render_id):
 @bp.get("/api/renders/in-progress")
 @login_required
 def api_renders_in_progress():
-    """Return all render jobs not in a terminal state, optionally filtered by file_id."""
+    """Return all render jobs not in a terminal state, optionally filtered by file_id.
+
+    Returns a FLAT JSON array (no envelope) with canonical field names that match
+    the frontend useWorkerStatus contract:
+      id, file_id, file_name, status, percent, format, started_at
+    """
     import app as _app
-    file_id = request.args.get('file_id')
+    file_id_filter = request.args.get('file_id')
     out = []
     for rid, job in _app._render_jobs.items():
-        if job.get('status') in ('done', 'error', 'cancelled'):
+        if job.get('status') in ('completed', 'done', 'error', 'failed', 'cancelled'):
             continue
-        if file_id and job.get('file_id') != file_id:
+        fid = job.get('file_id')
+        if file_id_filter and fid != file_id_filter:
             continue
+        # Look up the original filename from the file registry (best-effort).
+        file_entry = _app._file_registry.get(fid) if fid else None
+        file_name = file_entry.get('original_name') if file_entry else None
         out.append({
-            'render_id': rid,
-            'file_id': job.get('file_id'),
-            'format': job.get('format'),
+            'id': rid,                          # canonical: was 'render_id'
+            'file_id': fid,
+            'file_name': file_name,             # new: looked up from registry
             'status': job.get('status'),
-            'subtitle_source': job.get('subtitle_source'),
-            'created_at': job.get('created_at'),
+            'percent': job.get('progress', 0),  # canonical: was absent; source key is 'progress'
+            'format': job.get('format'),
+            'started_at': job.get('created_at'),  # canonical: was 'created_at'
         })
-    return jsonify({'jobs': out}), 200
+    return jsonify(out), 200
