@@ -113,16 +113,28 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
       // until the next real pipeline_stage_progress event arrives.
       const IN_PROGRESS_STATUSES = new Set(['running', 'queued']);
       const recoveredStatus: Record<string, Record<number, StageStatus>> = {};
+      // Bug 3: also seed stagePhase for freshly-queued files so deriveStageCells
+      // can show the queued pulse on cell 0 even before any stage event arrives.
+      // Mirrors the FILE_ADDED branch — only sets if no phase entry exists yet.
+      const recoveredPhase: SocketState['stagePhase'] = {};
       for (const f of action.files) {
         if (IN_PROGRESS_STATUSES.has(f.status) && !state.stageStatus[f.id]) {
           const stageIdx = Array.isArray(f.stage_outputs) ? f.stage_outputs.length : 0;
           recoveredStatus[f.id] = { [stageIdx]: 'running' };
+        }
+        // Seed queued phase pulse for brand-new files (no stage_outputs yet).
+        const isPending = f.status === 'queued' || f.status === 'uploaded';
+        const hasPipeline = f.pipeline_id != null;
+        const noStageOutputs = !Array.isArray(f.stage_outputs) || f.stage_outputs.length === 0;
+        if (isPending && hasPipeline && noStageOutputs && !state.stagePhase[f.id]) {
+          recoveredPhase[f.id] = { 0: 'queued' };
         }
       }
       return {
         ...state,
         files,
         stageStatus: { ...recoveredStatus, ...state.stageStatus },
+        stagePhase: { ...recoveredPhase, ...state.stagePhase },
       };
     }
     case 'FILE_ADDED': {

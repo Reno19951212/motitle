@@ -83,6 +83,8 @@ def list_files():
             'job_id': job_id_by_file.get(fid),  # R5 Phase 4
             'prompt_overrides': entry.get('prompt_overrides'),  # v3.18 Stage 2
             'duration_seconds': entry.get('duration_seconds'),  # Phase 0a-3 Q2
+            'pipeline_id': entry.get('pipeline_id'),  # Bug 3: queued pulse animation
+            'stage_outputs': entry.get('stage_outputs', []),  # Bug 3: derive cell indices
         })
     # Newest first
     files.sort(key=lambda f: f['uploaded_at'], reverse=True)
@@ -141,6 +143,10 @@ def transcribe_file():
     entry = _app._register_file(file_id, file.filename, stored_name, file_size,
                                 user_id=current_user.id, file_path=file_path,
                                 duration_seconds=duration)
+    # Stamp pipeline_id immediately so the frontend queue can show the queued
+    # pulse animation before the first pipeline_stage_start socket event arrives.
+    entry['pipeline_id'] = pipeline_id
+    _app._save_registry()
 
     # Notify client about the new file
     if sid:
