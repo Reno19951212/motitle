@@ -199,10 +199,17 @@ test('comprehensive user workflow', async ({ page }) => {
       const src = (await videoEl.getAttribute('src')) ?? '';
       const box = await videoEl.boundingBox();
       const valid = src.includes('/api/files/') && src.includes('/media');
-      if (valid && box && box.width > 0 && box.height > 0) {
-        record('8. Video preview', '✓ works', `<video src="${src.split('/').slice(-3).join('/')}" ${Math.round(box.width)}x${Math.round(box.height)}>`);
-      } else if (valid) {
-        record('8. Video preview', '⚠ partial', `video in DOM with src=${src.split('/').slice(-3).join('/')} but bounding box ${JSON.stringify(box)} (likely CSS layout issue)`);
+      // ≥100×100 hard threshold — previously the layout collapsed video to
+      // 0×N even with valid src + readyState=4, because .con-bottom flex-shrink:0
+      // grew to transcript scrollHeight and squeezed .con-video to 0. The fix
+      // (grid-template-rows 1fr auto minmax(0,40vh) on .con-stage) prevents
+      // regression. If height ever drops back under 100px, fail loudly.
+      const sized = box && box.width > 100 && box.height > 100;
+      if (valid && sized) {
+        record('8. Video preview', '✓ works', `<video src="${src.split('/').slice(-3).join('/')}" ${Math.round(box!.width)}x${Math.round(box!.height)}>`);
+      } else if (valid && box) {
+        record('8. Video preview', '✗ layout collapse', `box=${JSON.stringify(box)} (regression in .con-stage grid)`);
+        throw new Error(`Video element in DOM with src ${src} but layout collapsed to ${box.width}x${box.height}. Check .con-stage grid-template-rows + .con-bottom min-height/overflow.`);
       } else {
         record('8. Video preview', '⚠ partial', `video in DOM but src="${src}"`);
       }

@@ -537,17 +537,30 @@
 .con-actions { display: flex; gap: 8px; }
 .con-stage {
   flex: 1;
-  display: flex; flex-direction: column;
+  /* Grid: video (1fr) | transport (auto) | bottom (cap at 40vh).
+   * Flex column previously collapsed .con-video to 0 when .con-bottom's
+   * transcript content overflowed — flex-shrink:0 made .con-bottom
+   * grow to 2756px on long transcripts, squeezing flex:1 video to 0.
+   * Grid track minmax(0, 40vh) hard-caps .con-bottom so video keeps
+   * its share regardless of transcript length. */
+  display: grid;
+  grid-template-rows: 1fr auto minmax(0, 40vh);
   min-height: 0;
 }
-.con-bottom { flex-shrink: 0; }
+.con-bottom {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
 
 /* ============================================================
    Transcript list
    ============================================================ */
 .con-transcript {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  max-height: 50%;
   background: var(--bg);
 }
 .con-transcript.loading,
