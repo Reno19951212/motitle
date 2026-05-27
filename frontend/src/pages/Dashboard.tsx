@@ -2099,12 +2099,18 @@ export default function Dashboard() {
         method: 'POST',
         body: JSON.stringify({ file_id: selectedFileId }),
       });
+      // Optimistic — flip the row to 'queued' immediately so the user gets
+      // sub-100ms visual confirmation of the click before backend pickup.
+      dispatch({
+        type: 'STAGE_START',
+        ev: { file_id: selectedFileId, stage_index: 0, stage_type: 'asr', phase: 'queued' },
+      });
       pushToast({ title: '✅ 已排隊' });
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : String(e);
       pushToast({ title: '排隊失敗', description: msg, variant: 'destructive' });
     }
-  }, [selectedFileId, pipelineId, pushToast]);
+  }, [selectedFileId, pipelineId, pushToast, dispatch]);
 
   const handleRunFile = useCallback(async (fileId: string) => {
     if (!pipelineId) {
@@ -2116,12 +2122,16 @@ export default function Dashboard() {
         method: 'POST',
         body: JSON.stringify({ file_id: fileId }),
       });
+      dispatch({
+        type: 'STAGE_START',
+        ev: { file_id: fileId, stage_index: 0, stage_type: 'asr', phase: 'queued' },
+      });
       pushToast({ title: '✅ 已排隊' });
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : String(e);
       pushToast({ title: '排隊失敗', description: msg, variant: 'destructive' });
     }
-  }, [pipelineId, pushToast]);
+  }, [pipelineId, pushToast, dispatch]);
 
   const handleConfirmDelete = useCallback(async () => {
     if (!deleteCandidateId) return;
