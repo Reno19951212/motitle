@@ -23,7 +23,7 @@ import { BoldRail } from '@/components/BoldRail';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useDashboardTranslations } from '@/hooks/useDashboardTranslations';
 import '@/styles/motitle-bold.css';
-import type { StagePhase } from './Dashboard-pill-helpers';
+import { pillClass, pillLabel, type StagePhase } from './Dashboard-pill-helpers';
 
 // ---------------------------------------------------------------------------
 // Engine health probe types (Batch D)
@@ -252,14 +252,6 @@ function formatBytes(n: number): string {
   const mb = kb / 1024;
   if (mb < 1024) return `${mb.toFixed(1)} MB`;
   return `${(mb / 1024).toFixed(2)} GB`;
-}
-
-function stageForStagePill(stage: string): { asr: string; mt: string } {
-  if (stage === 'error') return { asr: 'err', mt: 'err' };
-  if (stage === 'transcribing') return { asr: 'warn', mt: 'idle' };
-  if (stage === 'translating') return { asr: 'ok', mt: 'warn' };
-  if (stage === 'proofreading' || stage === 'rendering' || stage === 'done') return { asr: 'ok', mt: 'ok' };
-  return { asr: 'idle', mt: 'idle' };
 }
 
 /** Squash threshold: more than this many MT stages collapses into one chip. */
@@ -919,7 +911,6 @@ function QueueItem({
   onRun: (fileId: string) => void;
   pipelineId: string | null;
 }) {
-  const stages = stageForStagePill(f.stage);
   const canRun = f.stage === 'idle' && !!pipelineId;
 
   return (
@@ -966,29 +957,13 @@ function QueueItem({
         <span>{f.uploaded}</span>
       </div>
       <div className="stage">
-        <div className={`stage-pill ${stages.asr}`}>
+        <div className={`stage-pill ${pillClass(f.asrPhase)}`}>
           <span className="lb">ASR</span>
-          <span>
-            {f.stage === 'transcribing'
-              ? `${f.transcribeProgress}%`
-              : stages.asr === 'ok'
-              ? '完成'
-              : stages.asr === 'err'
-              ? '失敗'
-              : '—'}
-          </span>
+          <span>{pillLabel(f.asrPhase, f.asrPercent)}</span>
         </div>
-        <div className={`stage-pill ${stages.mt}`}>
+        <div className={`stage-pill ${pillClass(f.mtPhase)}`}>
           <span className="lb">MT</span>
-          <span>
-            {f.stage === 'translating'
-              ? '翻譯中'
-              : stages.mt === 'ok'
-              ? '完成'
-              : stages.mt === 'err'
-              ? '失敗'
-              : '—'}
-          </span>
+          <span>{pillLabel(f.mtPhase, f.mtPercent)}</span>
         </div>
       </div>
     </div>
