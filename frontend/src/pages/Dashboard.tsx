@@ -23,6 +23,7 @@ import { BoldRail } from '@/components/BoldRail';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useDashboardTranslations } from '@/hooks/useDashboardTranslations';
 import '@/styles/motitle-bold.css';
+import type { StagePhase } from './Dashboard-pill-helpers';
 
 // ---------------------------------------------------------------------------
 // Engine health probe types (Batch D)
@@ -98,11 +99,62 @@ interface DesignFile {
   segments: number;
   approved: number;
   uploaded: string;
-  /** derived stage string for display */
+  /** derived stage string for display — kept for legacy badge / inspector */
   stage: string;
   transcribeProgress: number;
   renderProgress: number;
   size: string;
+  // New 6-phase fields — see docs/superpowers/specs/2026-05-27-queue-execution-feedback-design.md
+  asrPhase:   StagePhase;
+  asrPercent: number;
+  mtPhase:    StagePhase;
+  mtPercent:  number;
+}
+
+/**
+ * Derive the 6-phase state for a single stage index from reducer state.
+ * Terminal states (done / failed from stageStatus) take precedence — even
+ * if a stale stagePhase entry says 'running', backend telling us it's
+ * done wins. Otherwise consult stagePhase (queued / starting / running)
+ * and fall back to 'idle' if no signal is present.
+ */
+function deriveStagePhase(
+  idx: number,
+  stageProgress: Record<number, number> | undefined,
+  stageStatus: Record<number, import('@/lib/socket-events').StageStatus> | undefined,
+  stagePhase: Record<number, 'queued' | 'starting' | 'running'> | undefined,
+): { phase: StagePhase; percent: number } {
+  const status = stageStatus?.[idx];
+  if (status === 'done')   return { phase: 'done',   percent: 100 };
+  if (status === 'failed') return { phase: 'failed', percent: stageProgress?.[idx] ?? 0 };
+  const phase = stagePhase?.[idx];
+  if (phase === 'queued')   return { phase: 'queued',   percent: 0 };
+  if (phase === 'starting') return { phase: 'starting', percent: 0 };
+  if (phase === 'running')  return { phase: 'running',  percent: stageProgress?.[idx] ?? 0 };
+  return { phase: 'idle', percent: 0 };
+}
+
+/**
+ * Derive the "representative" MT phase across all stage indices >= 1.
+ * Pipelines may have multiple MT stages scheduled sequentially; show the
+ * highest-numbered stage that is still non-idle. When all MT stages are
+ * idle (or there are none), returns idle.
+ */
+function deriveMtPhase(
+  stageProgress: Record<number, number> | undefined,
+  stageStatus: Record<number, import('@/lib/socket-events').StageStatus> | undefined,
+  stagePhase: Record<number, 'queued' | 'starting' | 'running'> | undefined,
+): { phase: StagePhase; percent: number } {
+  const indices = new Set<number>();
+  for (const k of Object.keys(stageProgress ?? {})) indices.add(Number(k));
+  for (const k of Object.keys(stageStatus ?? {}))   indices.add(Number(k));
+  for (const k of Object.keys(stagePhase ?? {}))    indices.add(Number(k));
+  const mtIndices = Array.from(indices).filter(i => i >= 1).sort((a, b) => b - a);
+  for (const i of mtIndices) {
+    const d = deriveStagePhase(i, stageProgress, stageStatus, stagePhase);
+    if (d.phase !== 'idle') return d;
+  }
+  return { phase: 'idle', percent: 0 };
 }
 
 /**
@@ -111,10 +163,11 @@ interface DesignFile {
  * threaded in via `stageProgress`/`stageStatus` so we do not depend on backend
  * to set a per-record `transcribe_progress` field (it doesn't).
  */
-function toDesignFile(
+export function toDesignFile(
   f: FileRecord,
   stageProgress: Record<number, number> | undefined,
   stageStatus: Record<number, import('@/lib/socket-events').StageStatus> | undefined,
+  stagePhase: Record<number, 'queued' | 'starting' | 'running'> | undefined,
 ): DesignFile {
   // Derive stage from FileRecord.status + live per-stage Socket.IO state.
   // Note: if any MT stage_idx > 0 is 'running', we still surface 'translating'
@@ -165,6 +218,11 @@ function toDesignFile(
   // duration: deferred until backend captures via ffprobe at upload.
   // Workbench/inspector still render the field but show '?:??'; the queue
   // row no longer renders the duration span (Batch A drops it).
+
+  // 6-phase derive — see Dashboard-pill-helpers.ts for the phase machine.
+  const asr = deriveStagePhase(0, stageProgress, stageStatus, stagePhase);
+  const mt  = deriveMtPhase(stageProgress, stageStatus, stagePhase);
+
   return {
     id: f.id,
     name,
@@ -179,6 +237,10 @@ function toDesignFile(
     // value but it is no longer surfaced on queue rows.
     renderProgress: 0,
     size: typeof f.size === 'number' ? formatBytes(f.size) : '—',
+    asrPhase:   asr.phase,
+    asrPercent: asr.percent,
+    mtPhase:    mt.phase,
+    mtPercent:  mt.percent,
   };
 }
 
@@ -1957,8 +2019,9 @@ export default function Dashboard() {
     [state.files],
   );
   const files: DesignFile[] = useMemo(
-    () => filesRaw.map((f) => toDesignFile(f, state.stageProgress[f.id], state.stageStatus[f.id])),
-    [filesRaw, state.stageProgress, state.stageStatus],
+    () => filesRaw.map((f) =>
+      toDesignFile(f, state.stageProgress[f.id], state.stageStatus[f.id], state.stagePhase[f.id])),
+    [filesRaw, state.stageProgress, state.stageStatus, state.stagePhase],
   );
 
   // Auto-select first file when files load
