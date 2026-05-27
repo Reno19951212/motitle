@@ -675,6 +675,22 @@
 .motitle-bold .stage-pill.warn  { border-color: rgba(245,158,11,0.35); color: var(--warning); }
 .motitle-bold .stage-pill.idle  { }
 .motitle-bold .stage-pill.err   { border-color: rgba(239,68,68,0.35); color: var(--danger); }
+/* Phase: queued — waiting for backend worker pickup. Cyan border with
+ * a slow pulse so the row clearly signals "the request was accepted, the
+ * worker just hasn't started yet". Wired by Dashboard-pill-helpers.ts. */
+.motitle-bold .stage-pill.queued {
+  border-color: rgba(56,189,248,0.35);
+  color: var(--info);
+  animation: pulse 1.3s infinite;
+}
+/* Phase: starting — backend picked the job up, model loading / first
+ * segment not yet emitted. Amber pulsing transitional state before the
+ * first pipeline_stage_progress event flips this to plain .warn. */
+.motitle-bold .stage-pill.starting {
+  border-color: rgba(245,158,11,0.35);
+  color: var(--warning);
+  animation: pulse 1.3s infinite;
+}
 
 /* Center workbench */
 .motitle-bold .workbench { min-height: 0; display: grid; grid-template-rows: auto 1fr; gap: 14px; }
