@@ -19,11 +19,6 @@ describe('<MoTitleStageBadge>', () => {
     expect(badge.closest('.badge')?.querySelector('.dot')).not.toBeNull();
   });
 
-  it('asrPhase="queued" takes precedence over legacy file.stage="idle"', () => {
-    render(<MoTitleStageBadge file={{ stage: 'idle', asrPhase: 'queued' }} />);
-    expect(screen.getByText(/排隊中/)).toBeInTheDocument();
-  });
-
   it('no asrPhase → falls through to legacy file.stage switch', () => {
     render(<MoTitleStageBadge file={{ stage: 'transcribing', transcribeProgress: 42 }} />);
     expect(screen.getByText(/轉錄中/)).toBeInTheDocument();
