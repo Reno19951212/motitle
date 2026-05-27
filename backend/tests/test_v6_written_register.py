@@ -52,3 +52,27 @@ def test_zh_written_register_refiner_profile_loads():
     assert "書面語" in profile["name"] or "written" in profile["name"].lower()
     assert profile["shared"] is False
     assert isinstance(profile["user_id"], int)
+
+
+def test_v6_written_pipeline_has_chained_refiners():
+    """The new pipeline file exists, clones the v6 Cantonese pipeline shape,
+    and chains the existing Cantonese refiner BEFORE the new written refiner."""
+    path = CONFIG_ROOT / "pipelines" / f"{PIPELINE_UUID}.json"
+    assert path.exists(), f"Pipeline missing: {path}"
+    pipeline = json.loads(path.read_text())
+    assert pipeline["id"] == PIPELINE_UUID
+    assert pipeline["pipeline_type"] == "v6_vad_dual_asr"
+    assert pipeline["version"] == 6
+    assert pipeline["source_lang"] == "zh"
+    assert pipeline["target_languages"] == ["zh"]
+    # Same ASR primary + qwen3 config as 4696bbaa (sanity — must use the same
+    # transcribe profile so quality is identical to the Cantonese variant).
+    assert pipeline["asr_primary"]["transcribe_profile_id"] == SHARED_TRANSCRIBE_PROFILE
+    assert pipeline["qwen3_asr"]["language"] == "Chinese"
+    # Chain order is significant — Cantonese refiner FIRST, written refiner SECOND
+    refiners = pipeline["refinements"]["zh"]
+    assert len(refiners) == 2, "Pipeline must chain exactly 2 refiners (Cantonese + written)"
+    assert refiners[0]["refiner_profile_id"] == EXISTING_CANTONESE_REFINER
+    assert refiners[1]["refiner_profile_id"] == REFINER_UUID
+    # Name distinguishes from the Cantonese variant
+    assert "書面語" in pipeline["name"]

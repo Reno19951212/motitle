@@ -1,0 +1,41 @@
+{
+  "name": "[v6] 賽馬廣播 (書面語)",
+  "pipeline_type": "v6_vad_dual_asr",
+  "version": 6,
+  "source_lang": "zh",
+  "target_languages": ["zh"],
+  "vad": {
+    "threshold": 0.5,
+    "min_speech_duration_ms": 250,
+    "max_speech_duration_s": 15,
+    "min_silence_duration_ms": 500,
+    "speech_pad_ms": 200
+  },
+  "asr_primary": {
+    "transcribe_profile_id": "82338761-e6ed-47eb-b153-64789ed7327e",
+    "source_lang": "zh"
+  },
+  "qwen3_asr": {
+    "language": "Chinese",
+    "context": "袁幸堯 姚本輝 史滕雷 賈西迪 潘頓 麥道朗 艾少禮 布浩穎 尤達榮 美狼王 HIGHLAND BLINK 幸運風采 沙田馬場 悉尼城市馬場 寶馬香港打吡大賽 肯德百利錦標 亞德雷德杯 騎師 試騎 推騎 試閘 抽籤 排位 大熱門 頭馬 客艙 馬房 馬仔 香檳 打吡 香港 沙田 悉尼",
+    "post_s2hk": true
+  },
+  "refinements": {
+    "zh": [
+      { "refiner_profile_id": "f7f72bd9-3f27-47a4-92bd-5727f336916a" },
+      { "refiner_profile_id": "9dbe1aa3-fc20-44b7-ad9e-93f6cee4a3fa" }
+    ]
+  },
+  "translators": {},
+  "glossary_stages": [],
+  "font_config": {
+    "family": "Noto Sans TC",
+    "color": "white",
+    "outline_color": "black"
+  },
+  "shared": false,
+  "id": "1443afcb-198b-4821-8e64-47d02bf877f3",
+  "user_id": 627,
+  "created_at": 1779874657.732016,
+  "updated_at": 1779874657.732016
+}
