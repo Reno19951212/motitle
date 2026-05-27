@@ -92,9 +92,33 @@ export interface StageBadgeFile {
   stage: string;
   transcribeProgress?: number;
   renderProgress?: number;
+  /** Phase of stage 0 (ASR). When set, takes precedence over the legacy
+   *  `stage` field. New 6-phase model — see Dashboard-pill-helpers.ts. */
+  asrPhase?: 'idle' | 'queued' | 'starting' | 'running' | 'done' | 'failed';
+  asrPercent?: number;
 }
 
 export function MoTitleStageBadge({ file }: { file: StageBadgeFile }) {
+  // New 6-phase model takes precedence when asrPhase is set. Legacy
+  // file.stage fall-through still serves Dashboard rows that haven't been
+  // re-derived through the new toDesignFile() (graceful migration).
+  if (file.asrPhase === 'queued') {
+    return (
+      <span className="badge badge--queued">
+        <span className="dot" style={{ animation: 'pulse 1.3s infinite' }} />
+        排隊中
+      </span>
+    );
+  }
+  if (file.asrPhase === 'starting') {
+    return (
+      <span className="badge badge--processing">
+        <span className="dot" style={{ animation: 'pulse 1.3s infinite' }} />
+        準備中
+      </span>
+    );
+  }
+
   switch (file.stage) {
     case 'transcribing':
       return (
