@@ -36,9 +36,10 @@ describe('Stage status recovery on BULK_FILES (BUG-007)', () => {
       { id: 'f3', original_name: 'c.mp3', status: 'queued' } as FileRecord,
     ];
     const next = socketReducer(initialSocketState, { type: 'BULK_FILES', files });
-    // f1 (running) and f3 (queued) are in-progress → get a running entry
+    // f1 (running) → gets stageStatus='running' (actively being processed)
     expect(next.stageStatus['f1']?.[0]).toBe('running');
-    expect(next.stageStatus['f3']?.[0]).toBe('running');
+    // f3 (queued) → gets stagePhase='queued' (cyan 「已排隊」 chip), NOT stageStatus='running'
+    expect(next.stageStatus['f3']).toBeUndefined();
     // f2 (completed) should not get a running entry
     expect(next.stageStatus['f2']).toBeUndefined();
   });

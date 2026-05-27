@@ -116,7 +116,10 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
       // For files that are in-flight (status 'running' or 'queued'), mark the
       // current stage as 'running' so the UI shows an indeterminate indicator
       // until the next real pipeline_stage_progress event arrives.
-      const IN_PROGRESS_STATUSES = new Set(['running', 'queued']);
+      // 'queued' deliberately excluded — files in the worker queue (not yet
+      // picked up) should keep the cyan 「已排隊」 pulse via the stagePhase
+      // recovery branch below, not be falsely marked as stageStatus='running'.
+      const IN_PROGRESS_STATUSES = new Set(['running']);
       const recoveredStatus: Record<string, Record<number, StageStatus>> = {};
       // Bug 3: also seed stagePhase for freshly-queued files so deriveStageCells
       // can show the queued pulse on cell 0 even before any stage event arrives.

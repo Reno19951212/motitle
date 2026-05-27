@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { socketReducer, initialSocketState } from './socket-events';
+import { socketReducer, initialSocketState, type FileRecord } from './socket-events';
 
 describe('socketReducer / STAGE_START', () => {
   it('without phase, defaults to "starting" (backward-compat)', () => {
@@ -70,5 +70,40 @@ describe('socketReducer / STAGE_COMPLETE', () => {
     });
     expect(next.stageStatus.fid1?.[0]).toBe('done');
     expect(next.stageProgress.fid1?.[0]).toBe(100);
+  });
+});
+
+describe('socketReducer / BULK_FILES', () => {
+  it('status="queued" → seeds stagePhase[0]="queued", NOT stageStatus[0]="running"', () => {
+    const next = socketReducer(initialSocketState, {
+      type: 'BULK_FILES',
+      files: [
+        {
+          id: 'fid1',
+          original_name: 'a.mp4',
+          status: 'queued',
+          pipeline_id: 'p1',
+          uploaded_at: 0,
+        } as FileRecord,
+      ],
+    });
+    expect(next.stagePhase.fid1?.[0]).toBe('queued');
+    expect(next.stageStatus.fid1).toBeUndefined();
+  });
+
+  it('status="running" → seeds stageStatus[0]="running" (unchanged)', () => {
+    const next = socketReducer(initialSocketState, {
+      type: 'BULK_FILES',
+      files: [
+        {
+          id: 'fid1',
+          original_name: 'a.mp4',
+          status: 'running',
+          pipeline_id: 'p1',
+          uploaded_at: 0,
+        } as FileRecord,
+      ],
+    });
+    expect(next.stageStatus.fid1?.[0]).toBe('running');
   });
 });
