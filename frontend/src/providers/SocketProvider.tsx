@@ -70,16 +70,16 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     socket.on('pipeline_stage_start', (ev: StageStartEvent) => {
       dispatch({ type: 'STAGE_START', ev });
     });
-    socket.on('pipeline_stage_progress', (ev: { file_id: string; stage_idx: number; percent: number }) =>
+    socket.on('pipeline_stage_progress', (ev: { file_id: string; stage_index: number; percent: number }) =>
       dispatch({ type: 'STAGE_PROGRESS', ev })
     );
-    socket.on('pipeline_stage_complete', (ev: { file_id: string; stage_idx: number }) =>
+    socket.on('pipeline_stage_complete', (ev: { file_id: string; stage_index: number }) =>
       dispatch({ type: 'STAGE_COMPLETE', ev })
     );
     socket.on('pipeline_complete', (ev: { file_id: string }) =>
       dispatch({ type: 'PIPELINE_COMPLETE', ev })
     );
-    socket.on('pipeline_failed', (ev: { file_id: string; stage_idx?: number; error: string }) =>
+    socket.on('pipeline_failed', (ev: { file_id: string; stage_index?: number; error: string }) =>
       dispatch({ type: 'PIPELINE_FAILED', ev })
     );
     socket.on('render_start', (ev: RenderStartEvent) => {

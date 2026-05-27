@@ -19,13 +19,13 @@ export type StageStatus = 'idle' | 'running' | 'done' | 'failed';
 
 export interface StageProgressEvent {
   file_id: string;
-  stage_idx: number;
+  stage_index: number;
   percent: number;
 }
 
 export interface StageCompleteEvent {
   file_id: string;
-  stage_idx: number;
+  stage_index: number;
 }
 
 export interface PipelineCompleteEvent {
@@ -34,7 +34,7 @@ export interface PipelineCompleteEvent {
 
 export interface PipelineFailedEvent {
   file_id: string;
-  stage_idx?: number;
+  stage_index?: number;
   error: string;
 }
 
@@ -190,22 +190,22 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
       };
     }
     case 'STAGE_PROGRESS': {
-      const { file_id, stage_idx, percent } = action.ev;
-      const fileProg = { ...(state.stageProgress[file_id] ?? {}), [stage_idx]: percent };
-      const fileStatus = { ...(state.stageStatus[file_id] ?? {}), [stage_idx]: 'running' as const };
+      const { file_id, stage_index, percent } = action.ev;
+      const fileProg = { ...(state.stageProgress[file_id] ?? {}), [stage_index]: percent };
+      const fileStatus = { ...(state.stageStatus[file_id] ?? {}), [stage_index]: 'running' as const };
       const prevPhase = state.stagePhase[file_id] ?? {};
       return {
         ...state,
         stageProgress: { ...state.stageProgress, [file_id]: fileProg },
         stageStatus: { ...state.stageStatus, [file_id]: fileStatus },
         stagePhase: percent > 0
-          ? { ...state.stagePhase, [file_id]: { ...prevPhase, [stage_idx]: 'running' } }
+          ? { ...state.stagePhase, [file_id]: { ...prevPhase, [stage_index]: 'running' } }
           : state.stagePhase,
       };
     }
     case 'STAGE_COMPLETE': {
-      const fileProg = { ...(state.stageProgress[action.ev.file_id] ?? {}), [action.ev.stage_idx]: 100 };
-      const fileStatus = { ...(state.stageStatus[action.ev.file_id] ?? {}), [action.ev.stage_idx]: 'done' as const };
+      const fileProg = { ...(state.stageProgress[action.ev.file_id] ?? {}), [action.ev.stage_index]: 100 };
+      const fileStatus = { ...(state.stageStatus[action.ev.file_id] ?? {}), [action.ev.stage_index]: 'done' as const };
       return {
         ...state,
         stageProgress: { ...state.stageProgress, [action.ev.file_id]: fileProg },
@@ -220,8 +220,8 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
     case 'PIPELINE_FAILED': {
       const prev = state.files[action.ev.file_id];
       const stageStatus =
-        action.ev.stage_idx != null
-          ? { ...(state.stageStatus[action.ev.file_id] ?? {}), [action.ev.stage_idx]: 'failed' as const }
+        action.ev.stage_index != null
+          ? { ...(state.stageStatus[action.ev.file_id] ?? {}), [action.ev.stage_index]: 'failed' as const }
           : state.stageStatus[action.ev.file_id] ?? {};
       return {
         ...state,

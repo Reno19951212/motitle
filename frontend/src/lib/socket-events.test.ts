@@ -40,3 +40,35 @@ describe('socketReducer / STAGE_START', () => {
     expect(next.stagePhase.fid1?.[0]).toBe('queued');
   });
 });
+
+describe('socketReducer / STAGE_PROGRESS', () => {
+  it('uses stage_index — writes stageProgress + stageStatus + stagePhase', () => {
+    const next = socketReducer(initialSocketState, {
+      type: 'STAGE_PROGRESS',
+      ev: { file_id: 'fid1', stage_index: 0, percent: 27 },
+    });
+    expect(next.stageProgress.fid1?.[0]).toBe(27);
+    expect(next.stageStatus.fid1?.[0]).toBe('running');
+    expect(next.stagePhase.fid1?.[0]).toBe('running');
+  });
+
+  it('percent=0 leaves stagePhase untouched (optimistic queued persists)', () => {
+    const seeded = { ...initialSocketState, stagePhase: { fid1: { 0: 'queued' as const } } };
+    const next = socketReducer(seeded, {
+      type: 'STAGE_PROGRESS',
+      ev: { file_id: 'fid1', stage_index: 0, percent: 0 },
+    });
+    expect(next.stagePhase.fid1?.[0]).toBe('queued');
+  });
+});
+
+describe('socketReducer / STAGE_COMPLETE', () => {
+  it('uses stage_index — sets stageStatus[idx]=done + progress=100', () => {
+    const next = socketReducer(initialSocketState, {
+      type: 'STAGE_COMPLETE',
+      ev: { file_id: 'fid1', stage_index: 0 },
+    });
+    expect(next.stageStatus.fid1?.[0]).toBe('done');
+    expect(next.stageProgress.fid1?.[0]).toBe(100);
+  });
+});

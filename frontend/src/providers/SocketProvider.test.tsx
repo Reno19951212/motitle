@@ -62,7 +62,7 @@ describe('Stage status recovery on BULK_FILES (BUG-007)', () => {
     // If we already have a live progress event at stage 0 (50%), BULK_FILES should not reset it
     const withProgress = socketReducer(initialSocketState, {
       type: 'STAGE_PROGRESS',
-      ev: { file_id: 'f1', stage_idx: 0, percent: 50 },
+      ev: { file_id: 'f1', stage_index: 0, percent: 50 },
     });
     const files: FileRecord[] = [
       { id: 'f1', original_name: 'a.mp3', status: 'running' } as FileRecord,
@@ -98,7 +98,7 @@ describe('socketReducer', () => {
   it('STAGE_PROGRESS updates progress map + sets running status', () => {
     const r = socketReducer(initialSocketState, {
       type: 'STAGE_PROGRESS',
-      ev: { file_id: 'a', stage_idx: 0, percent: 25 },
+      ev: { file_id: 'a', stage_index: 0, percent: 25 },
     });
     expect(r.stageProgress.a?.[0]).toBe(25);
     expect(r.stageStatus.a?.[0]).toBe('running');
@@ -107,7 +107,7 @@ describe('socketReducer', () => {
   it('STAGE_COMPLETE sets 100 + done', () => {
     const r = socketReducer(initialSocketState, {
       type: 'STAGE_COMPLETE',
-      ev: { file_id: 'a', stage_idx: 1 },
+      ev: { file_id: 'a', stage_index: 1 },
     });
     expect(r.stageProgress.a?.[1]).toBe(100);
     expect(r.stageStatus.a?.[1]).toBe('done');
@@ -132,7 +132,7 @@ describe('socketReducer', () => {
       type: 'FILE_ADDED',
       file: { id: 'a', original_name: 'x', status: 'queued' } as FileRecord,
     });
-    const r = socketReducer(s, { type: 'PIPELINE_FAILED', ev: { file_id: 'a', stage_idx: 1, error: 'oops' } });
+    const r = socketReducer(s, { type: 'PIPELINE_FAILED', ev: { file_id: 'a', stage_index: 1, error: 'oops' } });
     expect(r.files.a?.status).toBe('failed');
     expect(r.stageStatus.a?.[1]).toBe('failed');
   });
@@ -144,7 +144,7 @@ describe('socketReducer', () => {
     });
     const withProgress = socketReducer(withFile, {
       type: 'STAGE_PROGRESS',
-      ev: { file_id: 'a', stage_idx: 0, percent: 42 },
+      ev: { file_id: 'a', stage_index: 0, percent: 42 },
     });
     const next = socketReducer(withProgress, { type: 'FILE_REMOVED', file_id: 'a' });
     expect(next.files.a).toBeUndefined();
@@ -229,7 +229,7 @@ describe('socketReducer', () => {
     };
     const next = socketReducer(state, {
       type: 'STAGE_PROGRESS',
-      ev: { file_id: 'f1', stage_idx: 0, percent: 15 },
+      ev: { file_id: 'f1', stage_index: 0, percent: 15 },
     });
     expect(next.stagePhase['f1']?.[0]).toBe('running');
   });
