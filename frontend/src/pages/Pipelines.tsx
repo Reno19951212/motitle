@@ -19,8 +19,25 @@ import type { LlmProfileRow } from '@/lib/schemas/llm-profile';
 import type { TranslatorProfileRow } from '@/lib/schemas/translator-profile';
 import type { RefinerProfileRow } from '@/lib/schemas/refiner-profile';
 import * as v5 from '@/lib/api/v5';
-import { setPresetSlot } from '@/lib/api/console';
 import { BoldRail } from '@/components/BoldRail';
+
+// Atomic preset_slot swap — POST /api/pipelines/<id>/preset_slot returns the
+// pipeline whose slot was vacated (or null). Inlined here because Console UI
+// (the original caller) has been removed; Pipelines is the only remaining
+// consumer of this endpoint.
+async function setPresetSlot(
+  pipelineId: string,
+  slot: 1 | 2 | 3 | 4 | null,
+): Promise<{ ok: true; swapped_pipeline_id: string | null }> {
+  const resp = await fetch(`/api/pipelines/${pipelineId}/preset_slot`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slot }),
+    credentials: 'include',
+  });
+  if (!resp.ok) throw new Error(`setPresetSlot ${resp.status}`);
+  return resp.json();
+}
 import '@/styles/motitle-bold.css';
 
 type PipelineLang = typeof PIPELINE_V5_LANGS[number];

@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { createBrowserRouter, Navigate, Outlet, useSearchParams } from 'react-router-dom';
+import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAuthStore } from '@/stores/auth';
 import { Layout } from '@/components/Layout';
@@ -17,8 +17,6 @@ const TranscribeProfiles = lazy(() => import('@/pages/TranscribeProfiles'));
 const TranslatorProfiles = lazy(() => import('@/pages/TranslatorProfiles'));
 const RefinerProfiles = lazy(() => import('@/pages/RefinerProfiles'));
 const VerifierProfiles = lazy(() => import('@/pages/VerifierProfiles'));
-// Phase 2 — Console feature-flagged page (VITE_CONSOLE=1 env + ?console=1 query)
-const Console = lazy(() => import('@/pages/Console').then(m => ({ default: m.Console })));
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const user = useAuthStore((s) => s.user);
@@ -31,19 +29,6 @@ function RequireAdmin({ children }: { children: ReactNode }) {
   if (!user) return <Navigate to="/login" replace />;
   if (!user.is_admin) return <Navigate to="/" replace />;
   return <>{children}</>;
-}
-
-/**
- * ConsoleGate — feature-flag guard for /console.
- * Both VITE_CONSOLE=1 env var AND ?console=1 query param must be present.
- * Missing either redirects to /.
- */
-function ConsoleGate() {
-  const [params] = useSearchParams();
-  const envEnabled = import.meta.env.VITE_CONSOLE === '1';
-  const queryEnabled = params.get('console') === '1';
-  if (!envEnabled || !queryEnabled) return <Navigate to="/" replace />;
-  return <Console />;
 }
 
 /**
@@ -85,10 +70,6 @@ export const router = createBrowserRouter([
       { path: 'translator_profiles', element: <TranslatorProfiles /> },
       { path: 'refiner_profiles', element: <RefinerProfiles /> },
       { path: 'verifier_profiles', element: <VerifierProfiles /> },
-      // Phase 2 — Console feature-flagged route (no Layout shell, same pattern
-      // as Dashboard + Proofread + v5 profile pages). ConsoleGate enforces both
-      // VITE_CONSOLE=1 env AND ?console=1 query param; missing either → /.
-      { path: 'console', element: <ConsoleGate /> },
       // v5-A3 — legacy paths redirect to v5 equivalents (backward-compat for
       // bookmarks + external links + Sunset 2026-12-31 from v5-A1 headers).
       {
@@ -120,6 +101,9 @@ export const router = createBrowserRouter([
           { path: 'pipelines', element: <Pipelines /> },
         ],
       },
+      // Catch-all — any unmatched authenticated path (including the
+      // retired /console) redirects to the Bold Dashboard at /.
+      { path: '*', element: <Navigate to="/" replace /> },
     ],
   },
 ]);
