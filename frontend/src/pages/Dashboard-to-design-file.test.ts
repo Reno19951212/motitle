@@ -42,7 +42,7 @@ describe('toDesignFile — phase derivation', () => {
     expect(d.asrPercent).toBe(27);
   });
 
-  it('ASR done + MT stage_idx=1 running 50%', () => {
+  it('ASR done + MT stage_index=1 running 50%', () => {
     const d = toDesignFile(
       baseFile,
       { 0: 100, 1: 50 },

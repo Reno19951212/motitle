@@ -198,7 +198,7 @@ export function toDesignFile(
   stagePhase: Record<number, 'queued' | 'starting' | 'running'> | undefined,
 ): DesignFile {
   // Derive stage from FileRecord.status + live per-stage Socket.IO state.
-  // Note: if any MT stage_idx > 0 is 'running', we still surface 'translating'
+  // Note: if any MT stage_index > 0 is 'running', we still surface 'translating'
   //   — improving per-MT-stage badge labels stays out of Batch A scope (see
   //   audit doc "Out of scope" follow-ups).
   let stage = 'idle';
