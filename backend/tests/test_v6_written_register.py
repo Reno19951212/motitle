@@ -34,3 +34,21 @@ def test_zh_written_register_prompt_template_loads():
     assert "的" in sp
     assert "係" in sp, "Prompt must reference 係 → 是 mapping"
     assert "是" in sp
+
+
+def test_zh_written_register_refiner_profile_loads():
+    """The new refiner profile exists, references the new template, and
+    reuses the same LLM profile as the existing Cantonese refiner."""
+    path = CONFIG_ROOT / "refiner_profiles" / f"{REFINER_UUID}.json"
+    assert path.exists(), f"Refiner profile missing: {path}"
+    profile = json.loads(path.read_text())
+    assert profile["id"] == REFINER_UUID
+    assert profile["lang"] == "zh"
+    assert profile["style"] == "written_register_v6"
+    assert profile["prompt_template_id"] == "refiner/zh_written_register_v6"
+    # Reuses same LLM as the existing Cantonese refiner — no new LLM stack
+    assert profile["llm_profile_id"] == SHARED_LLM_PROFILE
+    # Sanity: name + ownership fields present
+    assert "書面語" in profile["name"] or "written" in profile["name"].lower()
+    assert profile["shared"] is False
+    assert isinstance(profile["user_id"], int)
