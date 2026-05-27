@@ -43,6 +43,11 @@ export interface StageStartEvent {
   stage_index: number;
   stage_type: string;
   stage_ref?: string;
+  /** Optional override for the phase to write into reducer state.
+   *  Default 'starting' (backend pipeline_stage_start event path).
+   *  Set to 'queued' for the optimistic click-handler path in Dashboard so
+   *  the queue row turns cyan with zero delay between click and feedback. */
+  phase?: 'queued' | 'starting';
 }
 
 export interface RenderStartEvent {
@@ -174,13 +179,13 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
       };
     }
     case 'STAGE_START': {
-      const { file_id, stage_index } = action.ev;
+      const { file_id, stage_index, phase = 'starting' } = action.ev;
       const prev = state.stagePhase[file_id] ?? {};
       return {
         ...state,
         stagePhase: {
           ...state.stagePhase,
-          [file_id]: { ...prev, [stage_index]: 'starting' },
+          [file_id]: { ...prev, [stage_index]: phase },
         },
       };
     }
