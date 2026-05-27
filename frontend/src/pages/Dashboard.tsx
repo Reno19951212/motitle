@@ -21,7 +21,6 @@ import type { FileRecord, StageStatus } from '@/lib/socket-events';
 import { Icon, MoTitleStageBadge } from '@/lib/motitle-icons';
 import { BoldRail } from '@/components/BoldRail';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { LangPicker } from '@/components/LangPicker';
 import { useDashboardTranslations } from '@/hooks/useDashboardTranslations';
 import '@/styles/motitle-bold.css';
 
@@ -1010,84 +1009,35 @@ function VideoSubtitleOverlay({
   );
 }
 
-/** Local in-memory cache for waveform peaks (keyed by file id). Survives
- *  re-renders inside the same tab session; not persisted (re-fetched if the
- *  page reloads, but the backend caches per-file too — second call is fast). */
-const waveformPeaksCache: Record<string, { peaks: number[]; duration: number | null }> = {};
-
-const WAVEFORM_BINS = 80;
-
 function BoldWorkbench({
   file,
   asrProfile,
   segments,
   currentTime,
   onTimeUpdate,
-  availableLangs,
-  activeLang,
-  onLangChange,
 }: {
   file: DesignFile | null;
   asrProfile: AsrProfileLookup | null;
   segments: SegmentPreview[];
   currentTime: number;
   onTimeUpdate: (t: number) => void;
-  availableLangs: string[];
-  activeLang: string;
-  onLangChange: (lang: string) => void;
 }) {
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const waveformRef = useRef<HTMLDivElement | null>(null);
 
   // Player state — sync'd via <video> events.
   const [isPlaying, setIsPlaying] = useState(false);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
   const [videoError, setVideoError] = useState(false);
 
-  // Waveform fetch state — re-fetched per file.id, cached per-tab.
-  const [peaks, setPeaks] = useState<number[] | null>(null);
-  const [peaksLoading, setPeaksLoading] = useState(false);
-
   const fileId = file?.id ?? null;
 
-  // Reset player + waveform whenever a different file is selected.
+  // Reset player state whenever a different file is selected.
   // currentTime is lifted — parent resets it on file change.
   useEffect(() => {
     setIsPlaying(false);
     setVideoDuration(null);
     setVideoError(false);
-    if (!fileId) {
-      setPeaks(null);
-      setPeaksLoading(false);
-      return;
-    }
-    const cached = waveformPeaksCache[fileId];
-    if (cached) {
-      setPeaks(cached.peaks);
-      setPeaksLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setPeaks(null);
-    setPeaksLoading(true);
-    apiFetch<{ peaks: number[]; duration: number | null }>(
-      `/api/files/${encodeURIComponent(fileId)}/waveform?bins=${WAVEFORM_BINS}`,
-    )
-      .then((res) => {
-        if (cancelled) return;
-        waveformPeaksCache[fileId] = { peaks: res.peaks, duration: res.duration };
-        setPeaks(res.peaks);
-        setPeaksLoading(false);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setPeaks([]);
-        setPeaksLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
   }, [fileId]);
 
   // Toggle play/pause via <video> element.
@@ -1147,10 +1097,8 @@ function BoldWorkbench({
   const tail = stem.length > TAIL + 4 ? stem.slice(-TAIL) : '';
   const ext = (file.name.match(/\.(\w+)$/) ?? [])[1]?.toUpperCase() ?? '';
 
-  // Prefer the <video>.duration (real), fall back to cached waveform duration
-  // (also real), finally hide the 時長 row when unknown.
-  const cachedDuration = file.id ? waveformPeaksCache[file.id]?.duration ?? null : null;
-  const realDuration: number | null = videoDuration ?? cachedDuration ?? null;
+  // Use <video>.duration once metadata loads; null until then.
+  const realDuration: number | null = videoDuration ?? null;
   const durationLabel = realDuration != null ? fmtTime(realDuration) : null;
   const progressPct =
     realDuration && realDuration > 0
@@ -1159,15 +1107,8 @@ function BoldWorkbench({
 
   const mediaUrl = `/api/files/${encodeURIComponent(file.id)}/media`;
 
-  // v5-A3 added an optional LangPicker as a 3rd grid child between the file
-  // header and the workbench-video panel. The base `.workbench` CSS only
-  // declares `grid-template-rows: auto 1fr` (2 rows), so without this override
-  // the LangPicker would land on the `1fr` row and the video panel would fall
-  // into an implicit `auto` row → collapse to its waveform-strip height.
-  const workbenchRows = availableLangs.length >= 1 ? 'auto auto 1fr' : 'auto 1fr';
-
   return (
-    <div className="workbench" style={{ gridTemplateRows: workbenchRows }}>
+    <div className="workbench" style={{ gridTemplateRows: 'auto 1fr' }}>
       <div className="file-header">
         <div className="fh-name">
           <Icon name="film" size={16} color="var(--accent-2)" />
@@ -1210,19 +1151,8 @@ function BoldWorkbench({
         </div>
       </div>
 
-      {/* Lang picker — shown only when v5 pipeline exposes multiple langs */}
-      {availableLangs.length >= 1 && (
-        <div style={{ padding: '6px 12px 0' }}>
-          <LangPicker
-            availableLangs={availableLangs}
-            activeLang={activeLang}
-            onSelect={onLangChange}
-          />
-        </div>
-      )}
-
-      {/* Video preview panel — real <video> element + waveform strip */}
-      <div className="panel workbench-video" style={{ minHeight: 0, display: 'grid', gridTemplateRows: '1fr auto' }}>
+      {/* Video preview panel — real <video> element */}
+      <div className="panel workbench-video" style={{ minHeight: 0, display: 'grid', gridTemplateRows: '1fr' }}>
         <div style={{ position: 'relative', background: '#000', overflow: 'hidden' }}>
           <video
             ref={videoRef}
@@ -1338,65 +1268,6 @@ function BoldWorkbench({
               />
             </div>
           </div>
-        </div>
-        <div
-          style={{
-            borderTop: '1px solid var(--border)',
-            padding: '10px 16px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            background: 'var(--surface)',
-          }}
-        >
-          <Icon name="waveform" size={13} color="var(--text-mid)" />
-          <div
-            ref={waveformRef}
-            className="waveform"
-            onClick={handleSeekFromBar}
-            style={{
-              flex: 1,
-              display: 'flex',
-              gap: 2,
-              alignItems: 'center',
-              height: 28,
-              cursor: realDuration ? 'pointer' : 'default',
-              position: 'relative',
-            }}
-          >
-            {peaksLoading || peaks === null ? (
-              <span className="mono dim" style={{ fontSize: 11 }}>
-                正在生成波形…
-              </span>
-            ) : peaks.length === 0 ? (
-              <span className="mono dim" style={{ fontSize: 11 }}>
-                波形不可用
-              </span>
-            ) : (
-              peaks.map((p, i) => {
-                // peaks from backend are float in [0,1]. Map to bar height
-                // 4..28 px so even quiet sections leave a visible nub.
-                const h = 4 + Math.max(0, Math.min(1, p)) * 24;
-                // Determine if this bin is "before" the playhead.
-                const playRatio =
-                  realDuration && realDuration > 0 ? currentTime / realDuration : 0;
-                const isPast = i / peaks.length < playRatio;
-                return (
-                  <div
-                    key={i}
-                    style={{
-                      width: 3,
-                      height: h,
-                      background: isPast ? 'var(--accent-2)' : 'var(--border-strong)',
-                      borderRadius: 1,
-                      flexShrink: 0,
-                    }}
-                  />
-                );
-              })
-            )}
-          </div>
-          <span className="mono dim">波形預覽</span>
         </div>
       </div>
     </div>
@@ -2294,9 +2165,6 @@ export default function Dashboard() {
               segments={segments}
               currentTime={currentTime}
               onTimeUpdate={setCurrentTime}
-              availableLangs={availableLangs}
-              activeLang={activeLang}
-              onLangChange={setActiveLang}
             />
 
             {/* Right col: Inspector */}
