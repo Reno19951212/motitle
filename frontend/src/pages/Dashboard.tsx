@@ -113,24 +113,43 @@ interface DesignFile {
 
 /**
  * Derive the 6-phase state for a single stage index from reducer state.
- * Terminal states (done / failed from stageStatus) take precedence — even
- * if a stale stagePhase entry says 'running', backend telling us it's
- * done wins. Otherwise consult stagePhase (queued / starting / running)
- * and fall back to 'idle' if no signal is present.
+ *
+ * Precedence:
+ *   1. stageStatus[idx] terminal/active values (done / failed / running) win
+ *      because backend explicitly told us this state.
+ *   2. stagePhase[idx] (queued / starting / running) — optimistic + socket
+ *      events.
+ *   3. fileStatus fallback — when neither stage map has an entry for this idx,
+ *      consult file-level status. This handles the BULK_FILES reload path
+ *      where completed/failed files come in without per-stage state.
+ *   4. Otherwise idle.
  */
 function deriveStagePhase(
   idx: number,
+  fileStatus: string,
   stageProgress: Record<number, number> | undefined,
   stageStatus: Record<number, import('@/lib/socket-events').StageStatus> | undefined,
   stagePhase: Record<number, 'queued' | 'starting' | 'running'> | undefined,
 ): { phase: StagePhase; percent: number } {
   const status = stageStatus?.[idx];
-  if (status === 'done')   return { phase: 'done',   percent: 100 };
-  if (status === 'failed') return { phase: 'failed', percent: stageProgress?.[idx] ?? 0 };
+  if (status === 'done')    return { phase: 'done',    percent: 100 };
+  if (status === 'failed')  return { phase: 'failed',  percent: stageProgress?.[idx] ?? 0 };
+  if (status === 'running') return { phase: 'running', percent: stageProgress?.[idx] ?? 0 };
+
   const phase = stagePhase?.[idx];
   if (phase === 'queued')   return { phase: 'queued',   percent: 0 };
   if (phase === 'starting') return { phase: 'starting', percent: 0 };
   if (phase === 'running')  return { phase: 'running',  percent: stageProgress?.[idx] ?? 0 };
+
+  // No per-stage state — fall back to file-level status. This is the reload
+  // path: BULK_FILES does not restore stageStatus for already-completed files.
+  if (fileStatus === 'completed' || fileStatus === 'done') {
+    return { phase: 'done', percent: 100 };
+  }
+  if (fileStatus === 'failed' || fileStatus === 'error') {
+    return { phase: 'failed', percent: 0 };
+  }
+
   return { phase: 'idle', percent: 0 };
 }
 
@@ -141,6 +160,7 @@ function deriveStagePhase(
  * idle (or there are none), returns idle.
  */
 function deriveMtPhase(
+  fileStatus: string,
   stageProgress: Record<number, number> | undefined,
   stageStatus: Record<number, import('@/lib/socket-events').StageStatus> | undefined,
   stagePhase: Record<number, 'queued' | 'starting' | 'running'> | undefined,
@@ -151,8 +171,16 @@ function deriveMtPhase(
   for (const k of Object.keys(stagePhase ?? {}))    indices.add(Number(k));
   const mtIndices = Array.from(indices).filter(i => i >= 1).sort((a, b) => b - a);
   for (const i of mtIndices) {
-    const d = deriveStagePhase(i, stageProgress, stageStatus, stagePhase);
+    const d = deriveStagePhase(i, fileStatus, stageProgress, stageStatus, stagePhase);
     if (d.phase !== 'idle') return d;
+  }
+  // No per-stage state for any MT index — fall back to file status.
+  // (completed/failed states should also bubble through MT pill.)
+  if (fileStatus === 'completed' || fileStatus === 'done') {
+    return { phase: 'done', percent: 100 };
+  }
+  if (fileStatus === 'failed' || fileStatus === 'error') {
+    return { phase: 'failed', percent: 0 };
   }
   return { phase: 'idle', percent: 0 };
 }
@@ -220,8 +248,8 @@ export function toDesignFile(
   // row no longer renders the duration span (Batch A drops it).
 
   // 6-phase derive — see Dashboard-pill-helpers.ts for the phase machine.
-  const asr = deriveStagePhase(0, stageProgress, stageStatus, stagePhase);
-  const mt  = deriveMtPhase(stageProgress, stageStatus, stagePhase);
+  const asr = deriveStagePhase(0, f.status ?? '', stageProgress, stageStatus, stagePhase);
+  const mt  = deriveMtPhase(f.status ?? '', stageProgress, stageStatus, stagePhase);
 
   return {
     id: f.id,

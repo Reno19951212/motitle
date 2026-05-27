@@ -64,4 +64,46 @@ describe('toDesignFile — phase derivation', () => {
     );
     expect(d.asrPhase).toBe('failed');
   });
+
+  // Regression: BULK_FILES reload path — completed file has no per-stage state
+  it('reload path — file.status="completed" with no stageStatus/stagePhase → asr+mt done', () => {
+    const completedFile: FileRecord = { ...baseFile, status: 'completed' };
+    const d = toDesignFile(completedFile, undefined, undefined, undefined);
+    expect(d.asrPhase).toBe('done');
+    expect(d.asrPercent).toBe(100);
+    expect(d.mtPhase).toBe('done');
+    expect(d.mtPercent).toBe(100);
+  });
+
+  it('reload path — file.status="failed" with no stage state → asr+mt failed', () => {
+    const failedFile: FileRecord = { ...baseFile, status: 'failed' };
+    const d = toDesignFile(failedFile, undefined, undefined, undefined);
+    expect(d.asrPhase).toBe('failed');
+    expect(d.mtPhase).toBe('failed');
+  });
+
+  it('reload path — BULK_FILES restores stageStatus[0]="running" for in-progress', () => {
+    const runningFile: FileRecord = { ...baseFile, status: 'running' };
+    const d = toDesignFile(
+      runningFile,
+      { 0: 27 },                                  // progress restored from socket events
+      { 0: 'running' as StageStatus },            // BULK_FILES seed
+      undefined,                                  // no stagePhase yet
+    );
+    expect(d.asrPhase).toBe('running');
+    expect(d.asrPercent).toBe(27);
+  });
+
+  it('stageStatus terminal wins over file.status (refreshed state)', () => {
+    const failedFile: FileRecord = { ...baseFile, status: 'failed' };
+    // ASR succeeded but pipeline later failed (e.g., MT stage failed).
+    const d = toDesignFile(
+      failedFile,
+      { 0: 100 },
+      { 0: 'done' as StageStatus },               // ASR is DONE per backend
+      undefined,
+    );
+    // ASR pill should show DONE (stageStatus wins), not failed (file-status fallback).
+    expect(d.asrPhase).toBe('done');
+  });
 });
