@@ -2310,10 +2310,27 @@
         }
         return html;
       })();
+      const _v6PipelinesHtml = availablePipelines
+        .filter(p => p.pipeline_type === "v6_vad_dual_asr")
+        .map(p => `
+          <button ${activeKind === "pipeline_v6" && activeId === p.id ? 'class="on"' : ''}
+                  onclick="activatePipeline('${p.id}')">
+            <div class="smn-main">
+              <span class="smn-name">${escapeHtml(p.name)}</span>
+              ${activeKind === "pipeline_v6" && activeId === p.id ? '<span class="smn-badge">當前</span>' : ''}
+              <span class="smn-badge" style="background:rgba(74,158,255,0.18);color:var(--accent-2)">V6</span>
+            </div>
+            <div class="smn-desc">VAD + Qwen3-ASR + Refiner</div>
+          </button>`).join('');
       const presetMenuHtml = `
-        <div class="step-menu preset-menu" style="min-width: 260px;">
-          <div class="step-menu-head">Pipeline 預設</div>
+        <div class="step-menu preset-menu" style="min-width: 280px;">
+          <div class="step-menu-head">舊有 Profile 組合</div>
           ${_profileGroupsHtml}
+          ${_v6PipelinesHtml ? `
+            <div class="split-divider"></div>
+            <div class="step-menu-head">Dual-ASR Pipeline (V6)</div>
+            ${_v6PipelinesHtml}
+          ` : ''}
           <div class="split-divider"></div>
           <button class="smn-manage" onclick="openProfileSaveModal()"><span class="fmt-badge outline">💾</span><span class="fmt-desc">將當前設定儲存為新預設…</span></button>
           <button class="smn-manage" onclick="openProfileManageModal()"><span class="fmt-badge outline">⚙</span><span class="fmt-desc">管理預設…</span></button>
@@ -3068,11 +3085,41 @@
       // switch at any time, even while another file is transcribing/translating.
       _activatingProfile = true;
       try {
-        await fetch(`${API_BASE}/api/profiles/${id}/activate`, { method: 'POST' });
+        await fetch(`${API_BASE}/api/active`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'profile', id }),
+        });
+        await fetchMe();
         await fetchActiveProfile();
+        activePipeline = null;  // clear V6 state
+        renderAll();
         showToast('已切換 Pipeline', 'success');
       } catch (e) { showToast('切換失敗', 'error'); }
       finally { _activatingProfile = false; }
+    }
+
+    async function activatePipeline(id) {
+      if (_activatingProfile) return;
+      _activatingProfile = true;
+      try {
+        const r = await fetch(`${API_BASE}/api/active`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'pipeline_v6', id }),
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        await fetchMe();
+        await fetchActivePipeline();
+        activeProfile = null;
+        renderAll();
+        const pl = availablePipelines.find(p => p.id === id);
+        showToast(`已切換到 V6 Pipeline：${pl?.name || id}`, 'success');
+      } catch (e) {
+        showToast('切換失敗', 'error');
+      } finally {
+        _activatingProfile = false;
+      }
     }
 
     async function applyAsrModel(name) {
