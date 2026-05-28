@@ -368,6 +368,17 @@ app.config["SOCKETIO"] = socketio
 
 app.register_blueprint(queue_bp)
 
+# V6 — register pipeline + child profile blueprints
+from routes.pipelines import bp as pipelines_bp
+from routes.refiner_profiles import bp as refiner_profiles_bp
+from routes.transcribe_profiles import bp as transcribe_profiles_bp
+from routes.llm_profiles import bp as llm_profiles_bp
+
+app.register_blueprint(pipelines_bp)
+app.register_blueprint(refiner_profiles_bp)
+app.register_blueprint(transcribe_profiles_bp)
+app.register_blueprint(llm_profiles_bp)
+
 
 # Profile management
 CONFIG_DIR = Path(__file__).parent / "config"
@@ -392,6 +403,24 @@ def _init_glossary_manager(config_dir):
 
 # Language config management
 _language_config_manager = LanguageConfigManager(CONFIG_DIR)
+
+# ──────────────────────────────────────────────────────────────
+# V6 — Pipeline + child profile managers (graft from feat branch)
+# ──────────────────────────────────────────────────────────────
+from pipelines import PipelineManager
+from transcribe_profiles import TranscribeProfileManager
+from llm_profiles import LLMProfileManager
+from refiner_profiles import RefinerProfileManager
+
+_pipeline_manager = PipelineManager(CONFIG_DIR)
+_transcribe_profile_manager = TranscribeProfileManager(CONFIG_DIR)
+_llm_profile_manager = LLMProfileManager(CONFIG_DIR)
+_refiner_profile_manager = RefinerProfileManager(CONFIG_DIR)
+
+app.config["PIPELINE_MANAGER"] = _pipeline_manager
+app.config["TRANSCRIBE_PROFILE_MANAGER"] = _transcribe_profile_manager
+app.config["LLM_PROFILE_MANAGER"] = _llm_profile_manager
+app.config["REFINER_PROFILE_MANAGER"] = _refiner_profile_manager
 
 
 def _init_language_config_manager(config_dir):
