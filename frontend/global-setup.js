@@ -34,8 +34,22 @@ async function _loginAndSave(username, password, outPath) {
 }
 
 async function globalSetup() {
-  await _loginAndSave("admin", "AdminPass1!", "./playwright-auth.json");
-  await _loginAndSave("editor", "Editor2026!", "./playwright-auth-editor.json");
+  // Support env-variable overrides so CI / dev DBs with different admin
+  // usernames (e.g. 'admin_p3' on single-user dev) can still run the suite.
+  const adminUser = process.env.PROBE_USER || "admin";
+  const adminPass = process.env.PROBE_PASS || "AdminPass1!";
+  const editorUser = process.env.PROBE_EDITOR_USER || "editor";
+  const editorPass = process.env.PROBE_EDITOR_PASS || "Editor2026!";
+  await _loginAndSave(adminUser, adminPass, "./playwright-auth.json");
+  try {
+    await _loginAndSave(editorUser, editorPass, "./playwright-auth-editor.json");
+  } catch (e) {
+    // editor user may not exist in minimal dev DBs — non-fatal for specs
+    // that only need admin access. Write an empty state file so Playwright
+    // doesn't blow up on storageState: './playwright-auth-editor.json'.
+    console.warn(`[global-setup] editor login skipped: ${e.message}`);
+    require("fs").writeFileSync("./playwright-auth-editor.json", JSON.stringify({ cookies: [], origins: [] }));
+  }
 }
 
 module.exports = globalSetup;

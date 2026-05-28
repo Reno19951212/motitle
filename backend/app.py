@@ -471,6 +471,11 @@ _transcribe_profile_manager = TranscribeProfileManager(CONFIG_DIR)
 _llm_profile_manager = LLMProfileManager(CONFIG_DIR)
 _refiner_profile_manager = RefinerProfileManager(CONFIG_DIR)
 
+# Wire V6 managers into auth/decorators for require_pipeline_owner decorator.
+# asr_manager / mt_manager are None — no V6 routes use those decorators yet.
+from auth.decorators import set_v4_managers as _set_v4_managers
+_set_v4_managers(asr_manager=None, mt_manager=None, pipeline_manager=_pipeline_manager)
+
 app.config["PROFILE_MANAGER"] = _profile_manager
 app.config["PIPELINE_MANAGER"] = _pipeline_manager
 app.config["TRANSCRIBE_PROFILE_MANAGER"] = _transcribe_profile_manager
