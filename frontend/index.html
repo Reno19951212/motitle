@@ -1238,6 +1238,47 @@
     .pps-warning-chip .pps-warn-dismiss { margin-left: auto; cursor: pointer; opacity: 0.55; font-size: 14px; flex-shrink: 0; }
     .pps-warning-chip .pps-warn-dismiss:hover { opacity: 1; }
 
+    .inline-prompt-panel {
+      display: none;
+      position: fixed; top: 64px; right: 16px;
+      width: 420px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.55);
+      padding: 14px;
+      z-index: 200;
+    }
+    .inline-prompt-panel .ipp-head {
+      display: flex; justify-content: space-between;
+      font-size: 13px; font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .inline-prompt-panel .ipp-head button {
+      background: none; border: none; color: var(--text-dim);
+      font-size: 18px; cursor: pointer; padding: 0 4px;
+    }
+    .inline-prompt-panel textarea {
+      width: 100%; font-family: var(--font-mono);
+      font-size: 12px; padding: 8px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      resize: vertical;
+      box-sizing: border-box;
+    }
+    .inline-prompt-panel .ipp-foot {
+      display: flex; justify-content: space-between;
+      align-items: center; margin-top: 8px; gap: 8px;
+    }
+    .inline-prompt-panel .btn-primary {
+      background: var(--accent); color: white;
+      border: none; padding: 6px 14px;
+      border-radius: 6px; cursor: pointer;
+      font-size: 12px; font-weight: 600;
+    }
+    .inline-prompt-panel .btn-primary:hover { opacity: 0.9; }
+
   </style>
   <link rel="stylesheet" href="css/responsive.css">
 </head>
@@ -3225,6 +3266,86 @@
       }
     }
 
+    function openPromptPanelInline(key) {
+      let panel = document.getElementById('inlinePromptPanel');
+      if (!panel) {
+        panel = document.createElement('div');
+        panel.id = 'inlinePromptPanel';
+        panel.className = 'inline-prompt-panel';
+        panel.innerHTML = `
+          <div class="ipp-head">
+            <span id="ippTitle"></span>
+            <button onclick="closeInlinePromptPanel()" aria-label="關閉">×</button>
+          </div>
+          <textarea id="ippTextarea" rows="6"></textarea>
+          <div class="ipp-foot">
+            <span id="ippHint" style="font-size:11px;color:var(--text-dim);"></span>
+            <button onclick="commitInlinePrompt()" class="btn-primary">儲存到當前 Pipeline</button>
+          </div>`;
+        document.body.appendChild(panel);
+      }
+      panel._editingKey = key;
+
+      const titles = { qwen3_context: 'Qwen3 ASR Context', refiner_prompt: 'Refiner LLM Prompt' };
+      document.getElementById('ippTitle').textContent = titles[key] || key;
+
+      let initialValue = '';
+      if (key === 'qwen3_context') {
+        initialValue = activePipeline?.qwen3_asr?.context || '';
+      } else {
+        const refinerId = activePipeline?.refinements?.zh?.[0]?.refiner_profile_id;
+        if (refinerId) {
+          const rp = window._refinerProfilesCache?.[refinerId];
+          initialValue = rp?.prompt_template || '';
+        }
+      }
+      document.getElementById('ippTextarea').value = initialValue;
+      document.getElementById('ippHint').textContent =
+        '修改會即時寫入 Pipeline 設定。要 per-file override，請去 Proofread page。';
+      panel.style.display = 'block';
+    }
+
+    function closeInlinePromptPanel() {
+      const panel = document.getElementById('inlinePromptPanel');
+      if (panel) panel.style.display = 'none';
+    }
+
+    async function commitInlinePrompt() {
+      const panel = document.getElementById('inlinePromptPanel');
+      if (!panel || !activePipeline) return;
+      const key = panel._editingKey;
+      const value = document.getElementById('ippTextarea').value;
+
+      try {
+        if (key === 'qwen3_context') {
+          const r = await fetch(`${API_BASE}/api/pipelines/${activePipeline.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ qwen3_asr: { ...activePipeline.qwen3_asr, context: value } }),
+          });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        } else if (key === 'refiner_prompt') {
+          const refinerId = activePipeline.refinements?.zh?.[0]?.refiner_profile_id;
+          if (!refinerId) throw new Error('No refiner profile set on this pipeline');
+          const r = await fetch(`${API_BASE}/api/refiner_profiles/${refinerId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt_template: value }),
+          });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          // refresh refiner cache
+          await fetchRefinerProfiles();
+        }
+
+        await fetchActivePipeline();
+        renderPipelineStrip();
+        closeInlinePromptPanel();
+        showToast('已更新 Pipeline 設定', 'success');
+      } catch (e) {
+        showToast(`儲存失敗: ${e.message}`, 'error');
+      }
+    }
+
     async function applyAsrModel(name) {
       if (!activeProfile) {
         showToast('請先啟用一個 Profile', 'error');
@@ -4935,6 +5056,16 @@
       } catch (e) { _initFetchError('pipelines', e); }
     }
 
+    async function fetchRefinerProfiles() {
+      try {
+        const r = await fetch(`${API_BASE}/api/refiner_profiles`);
+        if (!r.ok) return;
+        const data = await r.json();
+        window._refinerProfilesCache = {};
+        (data.profiles || []).forEach(p => { window._refinerProfilesCache[p.id] = p; });
+      } catch (e) { _initFetchError('refiner profiles', e); }
+    }
+
     async function fetchProfiles() {
       try {
         const r = await fetch(`${API_BASE}/api/profiles`);
@@ -5030,6 +5161,7 @@
       .then(fetchActivePipeline)
       .then(fetchProfiles)
       .then(fetchPipelines)
+      .then(fetchRefinerProfiles)
       .then(fetchLanguageConfigs)
       .then(fetchGlossaries)
       .then(fetchFileList);
