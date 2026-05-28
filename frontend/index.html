@@ -2340,9 +2340,12 @@
         _profileGroupsHtml += '<div class="step-menu-section-label">共享</div>';
         _profileGroupsHtml += _sharedProfiles.map(_renderProfileButton).join('');
       }
-      const _v6PipelinesHtml = availablePipelines
-        .filter(pp => pp.pipeline_type === "v6_vad_dual_asr")
-        .map(pp => `
+      const _v6IsAvailable = window.authState?.v6_available !== false;
+      const _v6PipelinesHtml = !_v6IsAvailable
+        ? `<div style="padding:8px 12px;color:var(--text-dim);font-size:11px;">⚠ Qwen3 venv 未安裝 — 跑 setup_v6.sh</div>`
+        : availablePipelines
+            .filter(pp => pp.pipeline_type === "v6_vad_dual_asr")
+            .map(pp => `
           <button ${activeId === pp.id ? 'class="on"' : ''} onclick="activatePipeline('${pp.id}')">
             <div class="smn-main">
               <span class="smn-name">${escapeHtml(pp.name)}</span>
@@ -2454,9 +2457,12 @@
         }
         return html;
       })();
-      const _v6PipelinesHtml = availablePipelines
-        .filter(p => p.pipeline_type === "v6_vad_dual_asr")
-        .map(p => `
+      const v6Available = window.authState?.v6_available !== false;
+      const _v6PipelinesHtml = !v6Available
+        ? `<div style="padding:8px 12px;color:var(--text-dim);font-size:11px;">⚠ Qwen3 venv 未安裝 — 跑 setup_v6.sh</div>`
+        : availablePipelines
+            .filter(p => p.pipeline_type === "v6_vad_dual_asr")
+            .map(p => `
           <button ${activeKind === "pipeline_v6" && activeId === p.id ? 'class="on"' : ''}
                   onclick="activatePipeline('${p.id}')">
             <div class="smn-main">
@@ -5030,6 +5036,7 @@
         activeId   = me.active_id   || null;
         window.authState = window.authState || {};
         window.authState.user = me;
+        window.authState.v6_available = me.v6_available !== false; // default true unless explicitly false
       } catch (e) { _initFetchError('me', e); }
     }
 

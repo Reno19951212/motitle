@@ -72,6 +72,8 @@ def me():
         active_kind = "profile"
         active_id = None
 
+    v6_available = current_app.config.get("V6_AVAILABLE", False)
+
     # R5_AUTH_BYPASS: test harness bypasses @login_required but current_user
     # is AnonymousUserMixin (no id/username/is_admin). Return safe placeholders.
     if current_app.config.get("R5_AUTH_BYPASS"):
@@ -81,6 +83,7 @@ def me():
             "is_admin": True,
             "active_kind": active_kind,
             "active_id": active_id,
+            "v6_available": v6_available,
         }), 200
 
     return jsonify({
@@ -89,4 +92,5 @@ def me():
         "is_admin": current_user.is_admin,
         "active_kind": active_kind,
         "active_id": active_id,
+        "v6_available": v6_available,
     }), 200
