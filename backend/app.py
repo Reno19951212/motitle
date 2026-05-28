@@ -281,9 +281,14 @@ _jq_set_db_path(AUTH_DB_PATH)
 def _asr_handler(job, cancel_event=None):
     """R5 Phase 2 + 4 — full ASR pipeline with cooperative cancel.
 
+    V6 dispatch (Task 2.5): when file.active_kind == "pipeline_v6", delegate
+    to PipelineRunner._run_v6 (VAD → qwen3 → mlx → merge → refiner).
+    Profile path (existing): call transcribe_with_segments as before.
+
     1. Stamp registry status='transcribing' + user_id (carried from job).
-    2. Call transcribe_with_segments() — same engine path as legacy
-       do_transcribe used.
+    2a. [pipeline_v6] Load pipeline, build PipelineRunner, call _run_v6.
+    2b. [profile]     Call transcribe_with_segments() — same engine path as
+        legacy do_transcribe used.
     3. On success: persist segments / text / model / backend / asr_seconds
        to the registry, then trigger _auto_translate (registry-only
        signature — see Phase 2C).
@@ -303,6 +308,37 @@ def _asr_handler(job, cancel_event=None):
     if not audio_path:
         raise RuntimeError(f"no audio path for file {file_id}")
 
+    # V6 dispatch — pipeline_v6 files bypass transcribe_with_segments entirely.
+    # PipelineRunner._run_v6 handles all stages (VAD→qwen3→mlx→merge→refiner)
+    # and persists results directly to the file registry via _persist_by_lang.
+    # No separate MT job is enqueued — Stage 3+ refiner is inline.
+    kind = f.get("active_kind", "profile")
+    if kind == "pipeline_v6":
+        pipeline = _pipeline_manager.get(f["active_id"])
+        if pipeline is None:
+            raise RuntimeError(
+                f"Pipeline 已被刪除 (active_id={f['active_id']}), 無法執行 ASR"
+            )
+        _update_file(file_id, status='transcribing', user_id=job["user_id"])
+        from pipeline_runner import PipelineRunner
+        managers = {
+            "transcribe_profile_manager": _transcribe_profile_manager,
+            "llm_profile_manager": _llm_profile_manager,
+            "refiner_profile_manager": _refiner_profile_manager,
+        }
+        runner = PipelineRunner(pipeline, file_id, audio_path, managers)
+        try:
+            runner._run_v6(
+                user_id=job["user_id"],
+                cancel_event=cancel_event,
+            )
+        except Exception as e:
+            _update_file(file_id, status='error', error=str(e))
+            raise
+        _update_file(file_id, status='done')
+        return
+
+    # ── existing Profile path (unchanged) ──────────────────────────────
     # Status update + ownership stamp under one lock block.
     _update_file(file_id, status='transcribing', user_id=job["user_id"])
 
@@ -344,6 +380,11 @@ def _asr_handler(job, cancel_event=None):
 def _mt_handler(job, cancel_event=None):
     """R5 Phase 2 + 4 — bridge to _auto_translate with cancel_event passed through.
 
+    V6 dispatch (Task 2.5): when file.active_kind == "pipeline_v6", short-circuit
+    without calling _auto_translate. The V6 refiner stage is inline inside
+    PipelineRunner._run_v6 (enqueued by _asr_handler), so no separate MT step
+    is needed. Sets translation_status='completed' + translation_kind marker.
+
     Pulls segments from registry inside _auto_translate, so worker thread
     runs without request context. Status transitions handled by JobQueue
     (running before, done after; raise → failed).
@@ -352,6 +393,19 @@ def _mt_handler(job, cancel_event=None):
     that it can raise JobCancelled between translation engine calls when set.
     """
     file_id = job["file_id"]
+
+    # V6 files: refiner is inline — no separate translation step.
+    with _registry_lock:
+        entry = _file_registry.get(file_id, {})
+    if entry.get("active_kind") == "pipeline_v6":
+        with _registry_lock:
+            if file_id in _file_registry:
+                _file_registry[file_id]["translation_status"] = "completed"
+                _file_registry[file_id]["translation_kind"] = "pipeline_v6_inline"
+                _save_registry()
+        return
+
+    # ── existing Profile path (unchanged) ──────────────────────────────
     _auto_translate(file_id, cancel_event=cancel_event)
 
 
