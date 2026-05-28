@@ -193,6 +193,51 @@ ollama pull qwen2.5:3b
 
 ---
 
+## V6 Dual-ASR Pipeline（粵語廣播 / 多語素材）
+
+dev v3.19 加入 V6 pipeline，處理 mlx-whisper 處理唔好嘅素材（特別係粵語廣播）。架構：
+
+1. **VAD 預分段** — Silero VAD 由源頭切走靜音段，eliminate cascade hallucination
+2. **Qwen3-ASR** — 內容權威，per-region 識別，支援 entity name context（人名 / 地名提示）
+3. **mlx-whisper** — 純做時間軸 reference，text 唔輸出
+4. **Refiner LLM** — Ollama qwen3.5:35b-a3b-mlx-bf16 整理廣播風格
+
+### 啟用 V6
+
+```bash
+# 1. 安裝 main venv 嘅 silero-vad（已喺 requirements.txt）
+cd backend && source venv/bin/activate
+pip install -r requirements.txt
+
+# 2. 起 Qwen3-ASR 嘅 py3.11 subprocess venv（一次性）
+bash backend/scripts/setup_v6.sh
+
+# 3. 重啟 backend
+python app.py
+```
+
+### 點切換 V6
+
+1. Dashboard 上方 Pipeline preset 點 dropdown
+2. 揀「Dual-ASR Pipeline (V6)」section 入面嘅 `[v6] 賽馬廣播 (Cantonese)` 或 `[v6] Winning Factor (English)`
+3. Strip column 自動 swap：VAD · Qwen3 Context · 輸出 · Refiner
+4. Click「Qwen3 Context」column 改 entity name 提示；Click「Refiner」改 LLM prompt
+5. Upload 文件 → 自動行 V6 pipeline
+
+### Per-file override
+
+開 Proofread page，「自訂 Prompt」面板會自動顯示 V6 mode：兩個 textarea（Qwen3 Context + Refiner Prompt）— 改完只影響呢個 file。
+
+### 唔需要 V6？
+
+完全唔影響 — Pipeline 預設仍係 Profile 系統。冇 mlx_qwen3_asr venv 嘅機器，V6 section 自動灰咗（boot 時 `V6_AVAILABLE=False`），現有 Profile 流程全部如常運作。
+
+### 詳細設計文檔
+
+完整 spec 喺 [docs/superpowers/specs/2026-05-28-v6-dual-asr-merge-design.md](docs/superpowers/specs/2026-05-28-v6-dual-asr-merge-design.md)；feat branch 原 V6 design 喺 [docs/superpowers/specs/2026-05-21-v6-vad-dual-asr-refiner-design.md](docs/superpowers/specs/2026-05-21-v6-vad-dual-asr-refiner-design.md)。CLAUDE.md v3.19 entry 有完整 changelog。
+
+---
+
 ## 使用流程
 
 ### 1. 選擇 Profile
