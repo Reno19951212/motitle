@@ -48,3 +48,43 @@ class TestValidatePromptOverrides:
             "not a dict", "files[abc].prompt_overrides"
         )
         assert any("files[abc].prompt_overrides" in e for e in errs)
+
+
+def test_qwen3_context_key_accepted():
+    """V6 adds qwen3_context to the allowed key set."""
+    from translation.prompt_override_validator import validate_prompt_overrides
+    errors = validate_prompt_overrides({"qwen3_context": "袁幸堯 史滕雷"}, "field")
+    assert errors == []
+
+
+def test_refiner_prompt_key_accepted():
+    """V6 adds refiner_prompt to the allowed key set."""
+    from translation.prompt_override_validator import validate_prompt_overrides
+    errors = validate_prompt_overrides({"refiner_prompt": "Polish broadcast register"}, "field")
+    assert errors == []
+
+
+def test_legacy_keys_still_accepted():
+    """v3.18 4 keys must still validate cleanly."""
+    from translation.prompt_override_validator import validate_prompt_overrides
+    errors = validate_prompt_overrides({
+        "pass1_system": "a", "single_segment_system": "s",
+        "pass2_enrich_system": "e", "alignment_anchor_system": "p"
+    }, "field")
+    assert errors == []
+
+
+def test_mixed_legacy_and_v6_keys_accepted():
+    """Both old and new keys may coexist in the same dict (resolver picks per mode)."""
+    from translation.prompt_override_validator import validate_prompt_overrides
+    errors = validate_prompt_overrides({
+        "alignment_anchor_system": "a", "qwen3_context": "ctx", "refiner_prompt": "p"
+    }, "field")
+    assert errors == []
+
+
+def test_unknown_key_rejected():
+    from translation.prompt_override_validator import validate_prompt_overrides
+    errors = validate_prompt_overrides({"bogus_key": "x"}, "field")
+    assert len(errors) == 1
+    assert "bogus_key" in errors[0]
