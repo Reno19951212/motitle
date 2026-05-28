@@ -1,0 +1,12 @@
+{
+  "name": "mlx-whisper ZH (賽馬廣播)",
+  "engine": "mlx-whisper",
+  "language": "zh",
+  "shared": false,
+  "model_size": "large-v3",
+  "initial_prompt": "以下係香港賽馬新聞，繁體中文。",
+  "id": "82338761-e6ed-47eb-b153-64789ed7327e",
+  "user_id": 5089,
+  "created_at": 1779250236.488506,
+  "updated_at": 1779250236.488506
+}
