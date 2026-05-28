@@ -359,6 +359,11 @@
     }
     .pipeline-strip .step-gloss:hover { background: rgba(108,99,255,0.18); }
     .pipeline-strip .step-gloss .k { color: var(--accent); }
+    .pipeline-strip .step[data-step="vad"],
+    .pipeline-strip .step[data-step="qwen3-ctx"],
+    .pipeline-strip .step[data-step="refiner"] {
+      border-left: 2px solid var(--accent-2);
+    }
     .pipeline-strip .step .k { font-weight: 700; font-size: 10px; letter-spacing: 0.08em; color: var(--text-dim); text-transform: uppercase; }
     .pipeline-strip .step .v { font-family: var(--font-mono); font-size: 12px; color: var(--text); }
     .pipeline-strip .step .caret { color: var(--text-dim); font-size: 10px; }
@@ -2267,7 +2272,105 @@
         </div>`;
     }
 
+    function renderPipelineStripV6(el) {
+      if (!el) return;
+      const p = activePipeline || { vad: {}, qwen3_asr: {}, refinements: { zh: [{}] } };
+      const preset = p.name || '未選擇';
+
+      // Build preset menu (reuse 2-section pattern from main renderPipelineStrip)
+      const _currentUserId = window.authState?.user?.id ?? null;
+      const _sharedProfiles = availableProfiles.filter(pr => pr.user_id === null || pr.user_id === undefined);
+      const _myProfiles = _currentUserId !== null
+        ? availableProfiles.filter(pr => pr.user_id === _currentUserId) : [];
+      const _renderProfileButton = pr => `
+            <button onclick="activateProfile('${pr.id}')">
+              <div class="smn-main">
+                <span class="smn-name">${escapeHtml(pr.name || pr.id)}</span>
+              </div>
+              <div class="smn-desc">${escapeHtml(pr.asr?.model_size || '—')} · ${escapeHtml((pr.translation?.engine || '—').replace(/-cloud$/,''))}</div>
+            </button>`;
+      let _profileGroupsHtml = '';
+      if (_myProfiles.length) {
+        _profileGroupsHtml += '<div class="step-menu-section-label">我嘅</div>';
+        _profileGroupsHtml += _myProfiles.map(_renderProfileButton).join('');
+      }
+      if (_sharedProfiles.length) {
+        if (_myProfiles.length) _profileGroupsHtml += '<div class="split-divider"></div>';
+        _profileGroupsHtml += '<div class="step-menu-section-label">共享</div>';
+        _profileGroupsHtml += _sharedProfiles.map(_renderProfileButton).join('');
+      }
+      const _v6PipelinesHtml = availablePipelines
+        .filter(pp => pp.pipeline_type === "v6_vad_dual_asr")
+        .map(pp => `
+          <button ${activeId === pp.id ? 'class="on"' : ''} onclick="activatePipeline('${pp.id}')">
+            <div class="smn-main">
+              <span class="smn-name">${escapeHtml(pp.name)}</span>
+              ${activeId === pp.id ? '<span class="smn-badge">當前</span>' : ''}
+              <span class="smn-badge" style="background:rgba(74,158,255,0.18);color:var(--accent-2)">V6</span>
+            </div>
+          </button>`).join('');
+      const presetMenuHtml = `
+        <div class="step-menu preset-menu" style="min-width: 280px;">
+          <div class="step-menu-head">舊有 Profile 組合</div>
+          ${_profileGroupsHtml}
+          <div class="split-divider"></div>
+          <div class="step-menu-head">Dual-ASR Pipeline (V6)</div>
+          ${_v6PipelinesHtml}
+        </div>`;
+
+      // VAD column — read-only summary
+      const vadThr = p.vad?.threshold ?? 0.5;
+      const vadMin = (p.vad?.min_speech_duration_ms ?? 250) / 1000;
+      const vadCell = `${vadThr} · min ${vadMin.toFixed(2)}s`;
+
+      // Qwen3 context column — truncated preview
+      const ctxFull = p.qwen3_asr?.context || '';
+      const ctxCell = ctxFull ? (ctxFull.length > 18 ? ctxFull.slice(0, 18) + '…' : ctxFull) : '（無）';
+
+      // Refiner column — refiner_profile_id
+      const refinerId = p.refinements?.zh?.[0]?.refiner_profile_id;
+      const refinerCell = refinerId ? refinerId.slice(0, 8) : '未設定';
+
+      const outputFmt = window._preferredOutputFormat || 'H.264 · MP4';
+
+      el.innerHTML = `
+        <div class="pipeline-preset-wrap">
+          <button class="pipeline-preset" title="切換 Pipeline 預設">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="var(--accent)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="5" width="4" height="6" rx="1"/><rect x="11" y="5" width="4" height="6" rx="1"/><circle cx="8" cy="2" r="1.5"/><circle cx="8" cy="14" r="1.5"/><path d="M5 8h6 M8 3.5v3 M8 9.5v3"/></svg>
+            <div class="pp-text">
+              <div class="pp-k">Pipeline · V6</div>
+              <div class="pp-v">${escapeHtml(preset)}</div>
+            </div>
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+          </button>
+          ${presetMenuHtml}
+        </div>
+        <span class="sep"></span>
+        <div class="step" data-step="vad" tabindex="0">
+          <div><div class="k">VAD</div><div class="v">${escapeHtml(vadCell)}</div></div>
+        </div>
+        <span class="arrow">→</span>
+        <div class="step" data-step="qwen3-ctx" tabindex="0" onclick="openPromptPanelInline('qwen3_context')" style="cursor:pointer;">
+          <div><div class="k">Qwen3 Context</div><div class="v">${escapeHtml(ctxCell)}</div></div>
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        </div>
+        <span class="arrow">→</span>
+        <div class="step" data-step="output" tabindex="0">
+          <div><div class="k">輸出</div><div class="v">${escapeHtml(outputFmt)}</div></div>
+        </div>
+        <span class="arrow">→</span>
+        <div class="step" data-step="refiner" tabindex="0" onclick="openPromptPanelInline('refiner_prompt')" style="cursor:pointer;">
+          <div><div class="k">Refiner</div><div class="v">${escapeHtml(refinerCell)}</div></div>
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        </div>`;
+    }
+
     function renderPipelineStrip() {
+      // V6 mode renders a different column layout
+      if (activeKind === "pipeline_v6") {
+        return renderPipelineStripV6(document.getElementById('pipelineStrip'));
+      }
+
       const el = document.getElementById('pipelineStrip');
       const p = activeProfile || { asr: {}, translation: {} };
       const preset = p.name || '未選擇';
