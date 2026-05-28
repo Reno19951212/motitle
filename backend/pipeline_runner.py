@@ -31,10 +31,31 @@ from stages.v5.translator_stage import TranslatorStage
 _file_registry: Optional[dict] = None
 
 
+def _app_module():
+    """Return the *running* app module — handles being launched as __main__.
+
+    When backend is started via `python app.py`, app.py is loaded under the
+    module name '__main__'. A later `import app` triggers Python to load
+    app.py AGAIN as a separate module 'app', creating a second
+    `_file_registry` that's completely disjoint from the live one. Any V6
+    write that goes through the 'app' module silently no-ops because the
+    entry only exists in __main__'s registry.
+
+    This helper returns __main__ when it carries the registry, otherwise
+    falls back to the normal import (covers the case where another script
+    imports pipeline_runner without launching the Flask app).
+    """
+    import sys
+    main = sys.modules.get('__main__')
+    if main is not None and hasattr(main, '_file_registry') and hasattr(main, '_save_registry'):
+        return main
+    return sys.modules.get('app') or __import__('app')
+
+
 def _socketio_emit(event: str, payload: dict) -> None:
     """Thin wrapper around app.socketio.emit() to keep import lazy."""
     try:
-        import app as app_mod
+        app_mod = _app_module()
         app_mod.socketio.emit(event, payload)
     except Exception:
         pass  # Socket emit failure non-fatal
@@ -46,7 +67,7 @@ def _persist_stage_output(file_id: str, stage_output: StageOutput) -> None:
     Uses string keys for stage_outputs dict so JSON round-trip is identity-preserving
     (json.dumps converts int keys to strings anyway, so we use str() upfront).
     """
-    import app as app_mod
+    app_mod = _app_module()
     with app_mod._registry_lock:
         entry = app_mod._file_registry.get(file_id)
         if entry is None:
@@ -129,7 +150,7 @@ class PipelineRunner:
 
         # If resuming mid-pipeline, load segments from the last completed stage.
         if start_from_stage > 0:
-            import app as app_mod
+            app_mod = _app_module()
             with app_mod._registry_lock:
                 entry = app_mod._file_registry.get(self._file_id, {})
                 prior = entry.get("stage_outputs", {}).get(str(start_from_stage - 1), {})
@@ -198,7 +219,7 @@ class PipelineRunner:
             "stage_index": stage_index, "stage_type": stage_type,
         })
         # T10: load per-(file,pipeline) overrides from registry
-        import app as app_mod
+        app_mod = _app_module()
         with app_mod._registry_lock:
             file_entry = app_mod._file_registry.get(self._file_id, {})
             all_overrides = file_entry.get("pipeline_overrides", {})
@@ -379,7 +400,7 @@ class PipelineRunner:
         cancel_event, user_id, extra_overrides: dict,
     ):
         """Same as _run_stage but merges extra_overrides into context.pipeline_overrides."""
-        import app as app_mod
+        app_mod = _app_module()
         with app_mod._registry_lock:
             file_entry = app_mod._file_registry.get(self._file_id, {})
             all_overrides = file_entry.get("pipeline_overrides", {})
@@ -477,7 +498,7 @@ class PipelineRunner:
         import pipeline_runner as _self_mod
         _registry = _self_mod._file_registry
         if _registry is None:
-            import app as _app_mod
+            _app_mod = _app_module()
             with _app_mod._registry_lock:
                 _file_entry = dict(_app_mod._file_registry.get(self._file_id, {}))
         else:
@@ -555,7 +576,7 @@ class PipelineRunner:
                 import pipeline_runner as _self_mod2
                 _reg = _self_mod2._file_registry
                 if _reg is None:
-                    import app as _app_mod2
+                    _app_mod2 = _app_module()
                     with _app_mod2._registry_lock:
                         _fentry_refiner = dict(_app_mod2._file_registry.get(self._file_id, {}))
                 else:
@@ -608,7 +629,7 @@ class PipelineRunner:
             ...
         ]
         """
-        import app as app_mod
+        app_mod = _app_module()
         if not by_lang:
             return
         n = len(source_segments)
