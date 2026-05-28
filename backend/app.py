@@ -3940,6 +3940,15 @@ if __name__ == '__main__':
     print(f"結果目錄: {RESULTS_DIR}")
     print("正在啟動服務器...")
 
+    # Backfill active_kind on legacy file registry entries (idempotent)
+    try:
+        from scripts.migrate_active_kind import migrate_registry
+        n = migrate_registry(DATA_DIR / "registry.json", default_profile_id="prod-default")
+        if n > 0:
+            print(f"[migrate] backfilled active_kind on {n} legacy file entries")
+    except ImportError:
+        pass  # migration script removed/renamed
+
     # Load persisted file registry
     _file_registry.update(_load_registry())
     # Reset any in-progress translation states — they were interrupted by shutdown
