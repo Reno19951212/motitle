@@ -1741,6 +1741,13 @@
     let selectedFile = null;
     let isProcessing = false;
     let activeProfile = null;
+
+    // V6 — Dual-ASR Pipeline state (v3.19)
+    let activePipeline     = null;       // V6 pipeline object when active_kind === "pipeline_v6"
+    let activeKind         = "profile";  // "profile" | "pipeline_v6" — driven by /api/me
+    let activeId           = null;       // current active_id (profile_id or pipeline_id)
+    let availablePipelines = [];         // GET /api/pipelines result
+
     let availableProfiles = [];
     let availableLanguageConfigs = [];
     let glossaries = [];
@@ -4740,6 +4747,44 @@
       }
     }
 
+    // ============================================================
+    // V6 — fetch /api/me, /api/pipelines, /api/pipelines/<id>
+    // ============================================================
+    async function fetchMe() {
+      try {
+        const r = await fetch(`${API_BASE}/api/me`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const me = await r.json();
+        activeKind = me.active_kind || "profile";
+        activeId   = me.active_id   || null;
+        window.authState = window.authState || {};
+        window.authState.user = me;
+      } catch (e) { _initFetchError('me', e); }
+    }
+
+    async function fetchActivePipeline() {
+      if (activeKind !== "pipeline_v6" || !activeId) {
+        activePipeline = null;
+        return;
+      }
+      try {
+        const r = await fetch(`${API_BASE}/api/pipelines/${activeId}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        activePipeline = data.pipeline || data;  // tolerate either response shape
+      } catch (e) { _initFetchError('active pipeline', e); }
+    }
+
+    async function fetchPipelines() {
+      try {
+        const r = await fetch(`${API_BASE}/api/pipelines`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        availablePipelines = data.pipelines || [];
+        renderPipelineStrip();
+      } catch (e) { _initFetchError('pipelines', e); }
+    }
+
     async function fetchProfiles() {
       try {
         const r = await fetch(`${API_BASE}/api/profiles`);
@@ -4830,7 +4875,14 @@
     // Wire SVG subtitle overlay to active profile + Socket.IO updates so the
     // preview matches burnt-in libass output (font-preview.js handles styling).
     if (typeof FontPreview !== 'undefined') FontPreview.init(socket);
-    fetchActiveProfile().then(fetchProfiles).then(fetchLanguageConfigs).then(fetchGlossaries).then(fetchFileList);
+    fetchMe()
+      .then(fetchActiveProfile)
+      .then(fetchActivePipeline)
+      .then(fetchProfiles)
+      .then(fetchPipelines)
+      .then(fetchLanguageConfigs)
+      .then(fetchGlossaries)
+      .then(fetchFileList);
     renderAll();
 
     // Esc closes the topmost open modal — keyboard accessibility.
