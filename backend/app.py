@@ -467,9 +467,13 @@ from llm_profiles import LLMProfileManager
 from refiner_profiles import RefinerProfileManager
 
 _pipeline_manager = PipelineManager(CONFIG_DIR)
-_transcribe_profile_manager = TranscribeProfileManager(CONFIG_DIR)
-_llm_profile_manager = LLMProfileManager(CONFIG_DIR)
-_refiner_profile_manager = RefinerProfileManager(CONFIG_DIR)
+# Child profile managers receive the FULL subdir path (unlike PipelineManager /
+# ProfileManager which auto-append their subdir). v3.19 Phase 7 lite ran into
+# `v6: asr_primary transcribe profile not found` because Task 2.3 wired these
+# with bare CONFIG_DIR. See tests/test_v6_child_manager_subdir.py.
+_transcribe_profile_manager = TranscribeProfileManager(CONFIG_DIR / "transcribe_profiles")
+_llm_profile_manager = LLMProfileManager(CONFIG_DIR / "llm_profiles")
+_refiner_profile_manager = RefinerProfileManager(CONFIG_DIR / "refiner_profiles")
 
 # Wire V6 managers into auth/decorators for require_pipeline_owner decorator.
 # asr_manager / mt_manager are None — no V6 routes use those decorators yet.
