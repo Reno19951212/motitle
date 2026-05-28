@@ -929,25 +929,41 @@
                       <button class="btn btn-ghost btn-sm" id="promptApplyTemplateBtn" onclick="applyPromptTemplate()" disabled>套用模板</button>
                     </div>
 
-                    <details class="rv-b-prompt-section" open>
-                      <summary>對齊 anchor (alignment_anchor_system)</summary>
-                      <textarea id="promptAnchor" class="rv-b-prompt-textarea" rows="6" placeholder="留空 = 用 Profile / 系統預設" oninput="onPromptDirty()"></textarea>
-                    </details>
+                    <!-- Profile mode (v3.18): 4 MT prompt textareas -->
+                    <div class="prompt-section" data-mode="profile">
+                      <details class="rv-b-prompt-section" open>
+                        <summary>對齊 anchor (alignment_anchor_system)</summary>
+                        <textarea id="promptAnchor" class="rv-b-prompt-textarea" rows="6" placeholder="留空 = 用 Profile / 系統預設" oninput="onPromptDirty()"></textarea>
+                      </details>
 
-                    <details class="rv-b-prompt-section" open>
-                      <summary>單段翻譯 (single_segment_system)</summary>
-                      <textarea id="promptSingle" class="rv-b-prompt-textarea" rows="6" placeholder="留空 = 用 Profile / 系統預設" oninput="onPromptDirty()"></textarea>
-                    </details>
+                      <details class="rv-b-prompt-section" open>
+                        <summary>單段翻譯 (single_segment_system)</summary>
+                        <textarea id="promptSingle" class="rv-b-prompt-textarea" rows="6" placeholder="留空 = 用 Profile / 系統預設" oninput="onPromptDirty()"></textarea>
+                      </details>
 
-                    <details class="rv-b-prompt-section" open>
-                      <summary>Pass 2 加強 (pass2_enrich_system)</summary>
-                      <textarea id="promptEnrich" class="rv-b-prompt-textarea" rows="6" placeholder="留空 = 用 Profile / 系統預設" oninput="onPromptDirty()"></textarea>
-                    </details>
+                      <details class="rv-b-prompt-section" open>
+                        <summary>Pass 2 加強 (pass2_enrich_system)</summary>
+                        <textarea id="promptEnrich" class="rv-b-prompt-textarea" rows="6" placeholder="留空 = 用 Profile / 系統預設" oninput="onPromptDirty()"></textarea>
+                      </details>
 
-                    <details class="rv-b-prompt-section">
-                      <summary>批次翻譯 (pass1_system)</summary>
-                      <textarea id="promptPass1" class="rv-b-prompt-textarea" rows="6" placeholder="留空 = 用 Profile / 系統預設" oninput="onPromptDirty()"></textarea>
-                    </details>
+                      <details class="rv-b-prompt-section">
+                        <summary>批次翻譯 (pass1_system)</summary>
+                        <textarea id="promptPass1" class="rv-b-prompt-textarea" rows="6" placeholder="留空 = 用 Profile / 系統預設" oninput="onPromptDirty()"></textarea>
+                      </details>
+                    </div>
+
+                    <!-- V6 pipeline mode: 2 textareas (qwen3_context + refiner_prompt) -->
+                    <div class="prompt-section" data-mode="pipeline_v6" style="display:none;">
+                      <details class="rv-b-prompt-section" open>
+                        <summary>Qwen3 ASR Context (qwen3_context)</summary>
+                        <textarea id="promptQwen3Context" class="rv-b-prompt-textarea" rows="4" placeholder="提示 model 將會出現嘅人名 / 地名 / 術語" oninput="onPromptDirty()"></textarea>
+                      </details>
+
+                      <details class="rv-b-prompt-section" open>
+                        <summary>Refiner LLM Prompt（refiner_prompt，留空用 Pipeline 預設）</summary>
+                        <textarea id="promptRefinerPrompt" class="rv-b-prompt-textarea" rows="6" placeholder="留空 = 用 Pipeline 預設 refiner prompt" oninput="onPromptDirty()"></textarea>
+                      </details>
+                    </div>
 
                     <div class="rv-b-prompt-actions">
                       <button class="btn btn-ghost btn-sm" onclick="clearPromptOverrides()">清空</button>
@@ -1794,13 +1810,40 @@
 
     // Populate textareas from current file's prompt_overrides.
     // fileInfo is set before initPromptPanel() is called in init().
-    const po = (fileInfo && fileInfo.prompt_overrides) || {};
-    document.getElementById('promptAnchor').value = po.alignment_anchor_system || '';
-    document.getElementById('promptSingle').value = po.single_segment_system || '';
-    document.getElementById('promptEnrich').value = po.pass2_enrich_system || '';
-    document.getElementById('promptPass1').value = po.pass1_system || '';
+    showPromptPanelForFile(fileInfo);
     _promptDirty = false;
     document.getElementById('promptCommitBtn').disabled = true;
+  }
+
+  /**
+   * Show the correct prompt section based on file.active_kind and populate
+   * the textareas from file.prompt_overrides.
+   * Called from initPromptPanel() and can be re-called if fileInfo changes.
+   */
+  function showPromptPanelForFile(file) {
+    const profileSection = document.querySelector('.prompt-section[data-mode="profile"]');
+    const v6Section      = document.querySelector('.prompt-section[data-mode="pipeline_v6"]');
+    const overrides = (file && file.prompt_overrides) || {};
+
+    if (file && file.active_kind === 'pipeline_v6') {
+      if (profileSection) profileSection.style.display = 'none';
+      if (v6Section)      v6Section.style.display      = 'block';
+      document.getElementById('promptQwen3Context').value  = overrides.qwen3_context  || '';
+      document.getElementById('promptRefinerPrompt').value = overrides.refiner_prompt || '';
+      // Hide template row — templates are Profile-mode only
+      const templateRow = document.querySelector('.rv-b-prompt-row');
+      if (templateRow) templateRow.style.display = 'none';
+    } else {
+      if (profileSection) profileSection.style.display = 'block';
+      if (v6Section)      v6Section.style.display      = 'none';
+      document.getElementById('promptAnchor').value = overrides.alignment_anchor_system || '';
+      document.getElementById('promptSingle').value = overrides.single_segment_system || '';
+      document.getElementById('promptEnrich').value = overrides.pass2_enrich_system || '';
+      document.getElementById('promptPass1').value  = overrides.pass1_system || '';
+      // Ensure template row is visible
+      const templateRow = document.querySelector('.rv-b-prompt-row');
+      if (templateRow) templateRow.style.display = '';
+    }
   }
 
   function applyPromptTemplate() {
@@ -1823,10 +1866,16 @@
   }
 
   async function clearPromptOverrides() {
-    document.getElementById('promptAnchor').value = '';
-    document.getElementById('promptSingle').value = '';
-    document.getElementById('promptEnrich').value = '';
-    document.getElementById('promptPass1').value = '';
+    const isV6 = fileInfo && fileInfo.active_kind === 'pipeline_v6';
+    if (isV6) {
+      document.getElementById('promptQwen3Context').value  = '';
+      document.getElementById('promptRefinerPrompt').value = '';
+    } else {
+      document.getElementById('promptAnchor').value = '';
+      document.getElementById('promptSingle').value = '';
+      document.getElementById('promptEnrich').value = '';
+      document.getElementById('promptPass1').value  = '';
+    }
     try {
       const resp = await fetch(`${API_BASE}/api/files/${fileId}`, {
         method: 'PATCH',
@@ -1845,16 +1894,27 @@
   }
 
   async function commitPromptOverrides() {
-    const a  = document.getElementById('promptAnchor').value.trim();
-    const s  = document.getElementById('promptSingle').value.trim();
-    const e2 = document.getElementById('promptEnrich').value.trim();
-    const p1 = document.getElementById('promptPass1').value.trim();
-    const po = {
-      alignment_anchor_system: a  || null,
-      single_segment_system:   s  || null,
-      pass2_enrich_system:     e2 || null,
-      pass1_system:            p1 || null,
-    };
+    const isV6 = fileInfo && fileInfo.active_kind === 'pipeline_v6';
+    let po;
+    if (isV6) {
+      const qc = document.getElementById('promptQwen3Context').value.trim();
+      const rp = document.getElementById('promptRefinerPrompt').value.trim();
+      po = {
+        qwen3_context:  qc || null,
+        refiner_prompt: rp || null,
+      };
+    } else {
+      const a  = document.getElementById('promptAnchor').value.trim();
+      const s  = document.getElementById('promptSingle').value.trim();
+      const e2 = document.getElementById('promptEnrich').value.trim();
+      const p1 = document.getElementById('promptPass1').value.trim();
+      po = {
+        alignment_anchor_system: a  || null,
+        single_segment_system:   s  || null,
+        pass2_enrich_system:     e2 || null,
+        pass1_system:            p1 || null,
+      };
+    }
     const allNull = Object.values(po).every(v => v === null);
     const payload = allNull ? null : po;
     try {
