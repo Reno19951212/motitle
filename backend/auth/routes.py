@@ -61,8 +61,32 @@ def logout():
 @bp.get("/api/me")
 @login_required
 def me():
+    # Resolve active_kind / active_id from settings.json via ProfileManager
+    # stored in app config (v6 Task 2.6 — unified active state).
+    profile_manager = current_app.config.get("PROFILE_MANAGER")
+    if profile_manager is not None:
+        settings = profile_manager._read_settings()
+        active_kind = settings.get("active_kind", "profile")
+        active_id = settings.get("active_id") or settings.get("active_profile")
+    else:
+        active_kind = "profile"
+        active_id = None
+
+    # R5_AUTH_BYPASS: test harness bypasses @login_required but current_user
+    # is AnonymousUserMixin (no id/username/is_admin). Return safe placeholders.
+    if current_app.config.get("R5_AUTH_BYPASS"):
+        return jsonify({
+            "id": 0,
+            "username": "bypass",
+            "is_admin": True,
+            "active_kind": active_kind,
+            "active_id": active_id,
+        }), 200
+
     return jsonify({
         "id": current_user.id,
         "username": current_user.username,
         "is_admin": current_user.is_admin,
+        "active_kind": active_kind,
+        "active_id": active_id,
     }), 200

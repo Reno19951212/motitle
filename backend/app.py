@@ -471,6 +471,7 @@ _transcribe_profile_manager = TranscribeProfileManager(CONFIG_DIR)
 _llm_profile_manager = LLMProfileManager(CONFIG_DIR)
 _refiner_profile_manager = RefinerProfileManager(CONFIG_DIR)
 
+app.config["PROFILE_MANAGER"] = _profile_manager
 app.config["PIPELINE_MANAGER"] = _pipeline_manager
 app.config["TRANSCRIBE_PROFILE_MANAGER"] = _transcribe_profile_manager
 app.config["LLM_PROFILE_MANAGER"] = _llm_profile_manager
@@ -1493,6 +1494,39 @@ def api_activate_profile(profile_id):
     # Broadcast to all connected clients — all tabs should reflect the active profile change
     socketio.emit("profile_updated", {"font": profile.get("font", DEFAULT_FONT_CONFIG)})
     return response
+
+
+# ============================================================
+# Unified active resource setter (v6 Task 2.6)
+# ============================================================
+
+@app.post("/api/active")
+@login_required
+def api_set_active():
+    """Unified set-active endpoint.
+
+    Accepts { "kind": "profile" | "pipeline_v6", "id": "<uuid>" }.
+    Returns 400 for invalid kind, 404 for unknown id, 200 on success.
+
+    Both kinds share config/settings.json as the single source of truth —
+    only one resource is active at any time.
+    """
+    data = request.get_json(silent=True) or {}
+    kind = data.get("kind")
+    aid = data.get("id")
+    if kind not in ("profile", "pipeline_v6"):
+        return jsonify({"error": "invalid kind, must be 'profile' or 'pipeline_v6'"}), 400
+    if not aid:
+        return jsonify({"error": "id required"}), 400
+
+    if kind == "profile":
+        result = _profile_manager.set_active(aid)
+    else:
+        result = _pipeline_manager.set_active(aid)
+
+    if result is None:
+        return jsonify({"error": f"{kind} not found: {aid}"}), 404
+    return jsonify({"ok": True, "active": {"kind": kind, "id": aid}})
 
 
 # ============================================================

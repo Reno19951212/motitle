@@ -141,6 +141,7 @@ class PipelineManager:
     """Pipeline CRUD + cascade ref validation against ASR/MT/Glossary managers."""
 
     DIRNAME = "pipelines"
+    SETTINGS_FILENAME = "settings.json"
 
     def __init__(self, config_dir, asr_manager=None, mt_manager=None, glossary_manager=None):
         # v5-A1 T24: manager args default to None so the manager can be used
@@ -151,6 +152,7 @@ class PipelineManager:
         self._config_dir = Path(config_dir)
         self._dir = self._config_dir / self.DIRNAME
         self._dir.mkdir(parents=True, exist_ok=True)
+        self._settings_path = self._config_dir / self.SETTINGS_FILENAME
         self._asr_manager = asr_manager
         self._mt_manager = mt_manager
         self._glossary_manager = glossary_manager
@@ -368,6 +370,45 @@ class PipelineManager:
                 fpath.unlink()
             self._cache.pop(pipeline_id, None)
             return True
+
+    # ------------------------------------------------------------------
+    # Active pipeline
+    # ------------------------------------------------------------------
+
+    def set_active(self, pipeline_id: str) -> Optional[dict]:
+        """Set the active pipeline by id.
+
+        Writes active_kind='pipeline_v6' + active_id to the shared
+        config/settings.json (same file ProfileManager uses — only one
+        entity is active at a time).
+
+        Returns the pipeline dict, or None if pipeline_id is not found.
+        """
+        pipeline = self.get(pipeline_id)
+        if pipeline is None:
+            return None
+        settings = self._read_settings()
+        self._write_settings({
+            **settings,
+            "active_kind": "pipeline_v6",
+            "active_id": pipeline_id,
+        })
+        return pipeline
+
+    def _read_settings(self) -> dict:
+        try:
+            return json.loads(self._settings_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return {"active_profile": None}
+
+    def _write_settings(self, settings: dict) -> None:
+        tmp_path = self._settings_path.with_suffix(".tmp")
+        tmp_path.write_text(
+            json.dumps(settings, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        import os
+        os.replace(tmp_path, self._settings_path)
 
     def annotate_broken_refs(self, pipeline: dict, user_id: Optional[int], is_admin: bool) -> dict:
         """Return pipeline dict with extra `broken_refs` key listing
