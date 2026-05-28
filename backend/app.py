@@ -556,13 +556,39 @@ def _filter_files_by_owner(registry: dict, user) -> dict:
     }
 
 
+def _current_active_snapshot():
+    """Read settings.json once and return (active_kind, active_id) for upload-time snapshot.
+
+    Used by _register_file when caller doesn't pass explicit kwargs.
+    Backward-compat: legacy installs with only `active_profile` work.
+
+    Returns:
+        (str, str|None): (active_kind, active_id) tuple.
+            active_kind is "profile" for legacy installs, "pipeline_v6" for V6 mode.
+    """
+    settings = _profile_manager._read_settings()
+    kind = settings.get("active_kind", "profile")
+    aid = settings.get("active_id") or settings.get("active_profile")
+    return kind, aid
+
+
 def _register_file(file_id, original_name, stored_name, size_bytes, user_id=None,
-                   file_path=None):
+                   file_path=None, active_kind=None, active_id=None):
     """Register an uploaded file. user_id is the owner (R5 Phase 1 — required
     once auth lands; defaults to None for backward compatibility with any
     pre-R5 path that may still upload anonymously). file_path is the
     absolute on-disk path (R5 Phase 1 — set when files land under
-    per-user dirs; legacy entries without it fall back to UPLOAD_DIR root)."""
+    per-user dirs; legacy entries without it fall back to UPLOAD_DIR root).
+
+    active_kind / active_id snapshot the active pipeline/profile at upload
+    time (V6 Task 2.4). If not supplied, _current_active_snapshot() reads
+    settings.json so in-flight jobs are not affected when the user switches
+    active mid-upload.
+    """
+    if active_kind is None or active_id is None:
+        snap_kind, snap_aid = _current_active_snapshot()
+        active_kind = active_kind or snap_kind
+        active_id = active_id or snap_aid
     with _registry_lock:
         _file_registry[file_id] = {
             'id': file_id,
@@ -581,6 +607,8 @@ def _register_file(file_id, original_name, stored_name, size_bytes, user_id=None
             'subtitle_source': None,
             'bilingual_order': None,
             'prompt_overrides': None,   # v3.18 Stage 2: per-file MT prompt override
+            'active_kind': active_kind,  # v6 Task 2.4: snapshot at upload time
+            'active_id': active_id,      # v6 Task 2.4: snapshot at upload time
         }
         _save_registry()
     return _file_registry[file_id]
