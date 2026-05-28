@@ -292,3 +292,108 @@ def merge_short_segments(
             break
 
     return segs
+
+
+# ---------------------------------------------------------------------------
+# v5-A4.1: Cascade dedup + tail English orphan filters
+# ---------------------------------------------------------------------------
+
+_PURE_ASCII_LETTERS = re.compile(r"^[A-Za-z]+$")
+
+
+def dedupe_cascade_repeats(
+    segments: List[dict],
+    *,
+    min_duration_sec: float = 0.1,
+) -> List[dict]:
+    """Drop consecutive segments that repeat the previous text AND have
+    near-zero or negative duration.
+
+    Whisper occasionally loops on a phrase when audio is uncertain,
+    emitting 2-N copies with collapsed (or inverted) timecodes. This
+    pure-function filter drops the duplicates while preserving the first
+    occurrence.
+
+    Args:
+        segments: List of {start, end, text} dicts.
+        min_duration_sec: Duration threshold. A segment is considered
+            "collapsed" if (end - start) < this. Default 0.1s.
+
+    Returns:
+        New filtered list. Input list and its elements are not mutated.
+
+    Edge cases:
+        - Empty / single-element input → returned unchanged.
+        - Non-repeating segments → all kept regardless of duration.
+        - Long-duration legitimate repeats → kept.
+        - Comparison strips leading/trailing whitespace.
+    """
+    if len(segments) <= 1:
+        return list(segments)
+
+    result: List[dict] = []
+    last_kept_text: str = ""
+
+    for seg in segments:
+        text = (seg.get("text") or "").strip()
+        duration = float(seg.get("end", 0)) - float(seg.get("start", 0))
+
+        if text == last_kept_text and duration < min_duration_sec:
+            # Collapsed duplicate — skip
+            continue
+
+        result.append(dict(seg))
+        last_kept_text = text
+
+    return result
+
+
+def filter_tail_english_orphan(
+    segments: List[dict],
+    *,
+    max_word_chars: int = 10,
+    min_gap_sec: float = 2.0,
+) -> List[dict]:
+    """Drop the trailing segment when it is a short pure-ASCII single
+    word separated from the previous segment by a gap > min_gap_sec.
+
+    Targets Whisper's classic tail-of-clip training-data hallucination:
+    "vowels", "thanks", "subscribe", etc. — fluent fake English emitted
+    after the actual audio has ended.
+
+    Conservative: drops only when BOTH the linguistic pattern (pure
+    ASCII single word) AND the timing pattern (audible gap before)
+    match.
+
+    Args:
+        segments: List of {start, end, text} dicts.
+        max_word_chars: Max length of the orphan word (inclusive).
+            Default 10.
+        min_gap_sec: Minimum gap (last.start - prev.end) that signals
+            "audio has ended". Default 2.0s.
+
+    Returns:
+        New list — same as input minus the trailing orphan if matched.
+        Input list and its elements are not mutated.
+    """
+    if len(segments) < 2:
+        return list(segments)
+
+    tail = segments[-1]
+    prev = segments[-2]
+
+    tail_text = (tail.get("text") or "").strip()
+
+    # Must be a single pure-ASCII-letters word
+    if not _PURE_ASCII_LETTERS.match(tail_text):
+        return list(segments)
+
+    if len(tail_text) > max_word_chars:
+        return list(segments)
+
+    gap = float(tail.get("start", 0)) - float(prev.get("end", 0))
+    if gap <= min_gap_sec:
+        return list(segments)
+
+    # All conditions met — drop the tail orphan
+    return [dict(s) for s in segments[:-1]]
