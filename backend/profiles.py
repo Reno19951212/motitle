@@ -324,9 +324,11 @@ class ProfileManager:
     # ------------------------------------------------------------------
 
     def get_active(self) -> Optional[dict]:
-        """
-        Return the currently active profile, or None if none is set
-        and no profiles exist to fall back to.
+        """Return the active profile, honoring active_kind = 'profile'.
+
+        If active_kind is something else (e.g. 'pipeline_v6'), returns None —
+        that's PipelineManager's territory. Backward-compat: missing
+        active_kind falls back to legacy active_profile field.
 
         If the referenced profile file is missing (deleted externally, gitignored
         after fresh checkout, etc.), fall back to the first remaining profile
@@ -335,21 +337,30 @@ class ProfileManager:
         ASR/MT dropdowns relies on activeProfile being non-null.
         """
         settings = self._read_settings()
-        active_id = settings.get("active_profile")
+        kind = settings.get("active_kind")
+        if kind is not None and kind != "profile":
+            return None
+
+        active_id = settings.get("active_id") or settings.get("active_profile")
         if active_id:
             profile = self.get(active_id)
             if profile is not None:
                 return profile
             # Stale ID — file removed outside delete(). Try a fallback below.
 
+        # Stale ID OR no active set — fall back to first available profile
         remaining = self.list_all()
         fallback = next((p for p in remaining if p.get("id")), None)
         if fallback is None:
             if active_id:
-                self._write_settings({**settings, "active_profile": None})
+                self._write_settings({**settings, "active_kind": "profile",
+                                      "active_id": None, "active_profile": None})
             return None
 
-        self._write_settings({**settings, "active_profile": fallback["id"]})
+        self._write_settings({**settings,
+                              "active_kind": "profile",
+                              "active_id": fallback["id"],
+                              "active_profile": fallback["id"]})
         return fallback
 
     def set_active(self, profile_id: str) -> Optional[dict]:
@@ -361,9 +372,13 @@ class ProfileManager:
         profile = self.get(profile_id)
         if profile is None:
             return None
-
         settings = self._read_settings()
-        self._write_settings({**settings, "active_profile": profile_id})
+        self._write_settings({
+            **settings,
+            "active_kind": "profile",
+            "active_id": profile_id,
+            "active_profile": profile_id,   # legacy mirror
+        })
         return profile
 
     # ------------------------------------------------------------------
