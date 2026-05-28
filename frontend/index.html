@@ -3038,7 +3038,10 @@
     }
 
     async function applyGlossary(glossId) {
-      if (!activeProfile) return;
+      if (!activeProfile) {
+        showToast('請先啟用一個 Profile', 'error');
+        return;
+      }
       try {
         await fetch(`${API_BASE}/api/profiles/${activeProfile.id}`, {
           method: 'PATCH',
@@ -3066,7 +3069,10 @@
     }
 
     async function applyAsrModel(name) {
-      if (!activeProfile) return;
+      if (!activeProfile) {
+        showToast('請先啟用一個 Profile', 'error');
+        return;
+      }
       try {
         await fetch(`${API_BASE}/api/profiles/${activeProfile.id}`, {
           method: 'PATCH',
@@ -3256,7 +3262,10 @@
     }
 
     async function applyMtEngine(name) {
-      if (!activeProfile) return;
+      if (!activeProfile) {
+        showToast('請先啟用一個 Profile', 'error');
+        return;
+      }
 
       if (name === 'openrouter') {
         openOpenRouterModal();

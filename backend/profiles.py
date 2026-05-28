@@ -326,21 +326,31 @@ class ProfileManager:
     def get_active(self) -> Optional[dict]:
         """
         Return the currently active profile, or None if none is set
-        or the referenced profile no longer exists.
+        and no profiles exist to fall back to.
 
-        If the profile file was deleted externally (not via delete()), the stale
-        active_profile ID is cleared from settings.json before returning None so
-        that subsequent calls skip a redundant file-read.
+        If the referenced profile file is missing (deleted externally, gitignored
+        after fresh checkout, etc.), fall back to the first remaining profile
+        (sorted by name) and persist that choice to settings.json. This keeps
+        the Pipeline UI functional rather than silently null — clicking
+        ASR/MT dropdowns relies on activeProfile being non-null.
         """
         settings = self._read_settings()
         active_id = settings.get("active_profile")
-        if not active_id:
+        if active_id:
+            profile = self.get(active_id)
+            if profile is not None:
+                return profile
+            # Stale ID — file removed outside delete(). Try a fallback below.
+
+        remaining = self.list_all()
+        fallback = next((p for p in remaining if p.get("id")), None)
+        if fallback is None:
+            if active_id:
+                self._write_settings({**settings, "active_profile": None})
             return None
-        profile = self.get(active_id)
-        if profile is None:
-            # Profile file was deleted externally — clear the stale reference.
-            self._write_settings({**settings, "active_profile": None})
-        return profile
+
+        self._write_settings({**settings, "active_profile": fallback["id"]})
+        return fallback
 
     def set_active(self, profile_id: str) -> Optional[dict]:
         """

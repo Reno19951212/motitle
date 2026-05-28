@@ -388,6 +388,39 @@ def test_get_active_clears_stale_id_when_file_deleted_externally(tmp_path):
     )
 
 
+def test_get_active_falls_back_when_stale_with_other_profiles_available(tmp_path):
+    """Bug fix: when active_profile points to a missing file but other profiles exist,
+    get_active() must fall back to the first available profile and persist that
+    choice to settings.json.
+
+    Real-world trigger: dev-default.json is gitignored; if it goes missing
+    after a fresh checkout, settings.json still references "dev-default" and
+    Pipeline UI breaks (activeProfile=null disables ASR/MT dropdowns).
+    Auto-fallback keeps the system functional rather than silently null.
+    """
+    from profiles import ProfileManager
+    mgr = ProfileManager(tmp_path)
+
+    primary = mgr.create(dict(VALID_PROFILE, name="Primary"))
+    backup = mgr.create(dict(VALID_PROFILE, name="Backup"))
+
+    mgr.set_active(primary["id"])
+    assert mgr.get_active()["id"] == primary["id"]
+
+    (tmp_path / "profiles" / f"{primary['id']}.json").unlink()
+
+    result = mgr.get_active()
+    assert result is not None, "should fall back to a remaining profile"
+    assert result["id"] == backup["id"], (
+        "should pick the first available remaining profile (sorted by name)"
+    )
+
+    settings = mgr._read_settings()
+    assert settings.get("active_profile") == backup["id"], (
+        "settings.json should be updated to point at the new active profile"
+    )
+
+
 def test_create_and_update_profile_sets_updated_at(tmp_path):
     """L14: create() and update() must write updated_at to the profile.
 
