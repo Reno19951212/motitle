@@ -232,6 +232,18 @@ python app.py
 
 完全唔影響 — Pipeline 預設仍係 Profile 系統。冇 mlx_qwen3_asr venv 嘅機器，V6 section 自動灰咗（boot 時 `V6_AVAILABLE=False`），現有 Profile 流程全部如常運作。
 
+### V6 常見問題
+
+**V6 pipeline 跑超過 15 分鐘自動 timeout / job 變 failed**
+
+預設受 `R5_QWEN3_TIMEOUT_SEC=900`（15 分鐘）控制，超出會自動 terminate Qwen3 subprocess 並 mark job failed。15 分鐘係按 4-6 min 健康 broadcast budget × ~1.5× headroom 定，覆蓋大多數新聞 / 廣播片段。如果你嘅廣播片 routine 都過 15 分鐘，喺 `backend/.env` 加返環境變數：
+
+```bash
+R5_QWEN3_TIMEOUT_SEC=1800   # 30 分鐘
+```
+
+然後重啟 backend。配合 v3.20 嘅 concurrent-drain IPC fix（stdout/stderr 由兩個 daemon thread 即時 drain），再唔會出現 pipe-buffer 16-64 KB 撐爆引起嘅 deadlock 情況。CLAUDE.md v3.20 entry 同 [docs/superpowers/validation/2026-05-29-v6-ipc-fix-prototype-report.md](docs/superpowers/validation/2026-05-29-v6-ipc-fix-prototype-report.md) 有完整 root cause + empirical evidence。
+
 ### 詳細設計文檔
 
 完整 spec 喺 [docs/superpowers/specs/2026-05-28-v6-dual-asr-merge-design.md](docs/superpowers/specs/2026-05-28-v6-dual-asr-merge-design.md)；feat branch 原 V6 design 喺 [docs/superpowers/specs/2026-05-21-v6-vad-dual-asr-refiner-design.md](docs/superpowers/specs/2026-05-21-v6-vad-dual-asr-refiner-design.md)。CLAUDE.md v3.19 entry 有完整 changelog。

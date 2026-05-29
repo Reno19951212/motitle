@@ -3541,7 +3541,7 @@ def serve_media(file_id):
     if not media_path.exists():
         return jsonify({'error': '文件已丟失'}), 404
 
-    return send_file(str(media_path), as_attachment=False)
+    return send_file(str(media_path), as_attachment=False, conditional=True)
 
 
 @app.route('/api/files/<file_id>/waveform')

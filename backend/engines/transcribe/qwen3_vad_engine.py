@@ -6,6 +6,12 @@ v3.19 Sprint 3 B-8: _call_subprocess rewritten from subprocess.run (blocking,
 no cancel) to subprocess.Popen with a polling loop. cancel_event is threaded
 through transcribe_regions so JobQueue cancel signals terminate the subprocess
 within ~0.5 seconds instead of waiting for the full 1800s timeout.
+
+v3.20 (2026-05-29) IPC fix: poll loop replaced with two concurrent drain
+threads + wall-clock timeout. The previous pattern read stdout/stderr only
+AFTER proc.exit, which deadlocked when the child's stderr exceeded the OS
+pipe buffer (~16-64 KB). Empirical prototype evidence:
+    docs/superpowers/validation/2026-05-29-v6-ipc-fix-prototype-report.md
 """
 from __future__ import annotations
 
@@ -13,13 +19,16 @@ import json
 import os
 import subprocess
 import tempfile
+import threading
 import time
 from pathlib import Path
-from typing import List, Optional
+from typing import Callable, List, Optional, Tuple
 from threading import Event
 
-import numpy as np
-import soundfile as sf
+# numpy + soundfile are runtime deps for actual audio I/O. They are imported
+# lazily inside the methods that need them so this module can be imported by
+# the unit tests that exercise only the IPC drain helper (which has zero
+# audio/numpy surface area).
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _DEFAULT_QWEN_VENV_PYTHON = (
@@ -31,9 +40,123 @@ _DEFAULT_SUBPROCESS_SCRIPT = (
 
 _CANCEL_POLL_INTERVAL = 0.5   # seconds between cancel_event checks
 _TERMINATE_GRACE = 3.0        # seconds to wait after terminate() before kill()
+_QWEN3_TIMEOUT_SEC = int(os.environ.get("R5_QWEN3_TIMEOUT_SEC", "900"))
 
 
-def _load_audio_ffmpeg(audio_path: str, sr: int = 16000) -> np.ndarray:
+def _drain_subprocess(
+    proc: subprocess.Popen,
+    timeout_sec: int = _QWEN3_TIMEOUT_SEC,
+    cancel_event: Optional[Event] = None,
+    progress_callback: Optional[Callable[[str], None]] = None,
+) -> Tuple[bytes, bytes]:
+    """Concurrent-drain wait for a subprocess.
+
+    Spawns two daemon threads that block on ``proc.stdout.read(4096)`` and
+    ``proc.stderr.read(4096)`` so the child never deadlocks against a full
+    OS pipe buffer. Main thread polls ``cancel_event`` and a wall-clock
+    deadline every ``_CANCEL_POLL_INTERVAL`` seconds.
+
+    Returns ``(stdout_bytes, stderr_bytes)`` on normal exit.
+
+    Raises:
+        JobCancelled — when ``cancel_event`` is set. Subprocess is reaped.
+        RuntimeError — when ``timeout_sec`` wall clock elapses. Subprocess
+            is terminated then killed if necessary.
+
+    The optional ``progress_callback`` receives the decoded UTF-8 text of
+    every complete ``\\n``-terminated stderr line. Stderr is buffered in a
+    rolling tail until a newline arrives. The callback is invoked from the
+    stderr drain thread; callers must be thread-safe.
+    """
+    stdout_buf = bytearray()
+    stderr_buf = bytearray()
+    stderr_line_tail = bytearray()
+    stderr_lock = threading.Lock()
+
+    def _drain_stdout() -> None:
+        while True:
+            chunk = proc.stdout.read(4096)
+            if not chunk:
+                break
+            stdout_buf.extend(chunk)
+
+    def _drain_stderr() -> None:
+        nonlocal stderr_line_tail
+        while True:
+            chunk = proc.stderr.read(4096)
+            if not chunk:
+                # On EOF, flush any trailing partial line to the callback.
+                if progress_callback is not None and stderr_line_tail:
+                    with stderr_lock:
+                        text = bytes(stderr_line_tail).decode("utf-8", errors="replace")
+                        stderr_line_tail = bytearray()
+                    try:
+                        progress_callback(text)
+                    except Exception:
+                        pass  # best-effort
+                break
+            stderr_buf.extend(chunk)
+            if progress_callback is None:
+                continue
+            # Split complete \n-terminated lines and forward each to callback.
+            with stderr_lock:
+                stderr_line_tail.extend(chunk)
+                lines = bytes(stderr_line_tail).split(b"\n")
+                # Last element is the partial tail (or empty if chunk ended on \n).
+                stderr_line_tail = bytearray(lines[-1])
+                complete_lines = lines[:-1]
+            for raw_line in complete_lines:
+                text = raw_line.decode("utf-8", errors="replace")
+                try:
+                    progress_callback(text)
+                except Exception:
+                    pass  # best-effort — never let a bad callback kill the drain
+
+    t_out = threading.Thread(
+        target=_drain_stdout, daemon=True, name="qwen3-stdout-drain"
+    )
+    t_err = threading.Thread(
+        target=_drain_stderr, daemon=True, name="qwen3-stderr-drain"
+    )
+    t_out.start()
+    t_err.start()
+
+    deadline = time.time() + timeout_sec
+    try:
+        while proc.poll() is None:
+            if cancel_event is not None and cancel_event.is_set():
+                proc.terminate()
+                try:
+                    proc.wait(timeout=_TERMINATE_GRACE)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait()
+                from jobqueue.queue import JobCancelled
+                raise JobCancelled("Qwen3 subprocess cancelled by cancel_event")
+            if time.time() > deadline:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=_TERMINATE_GRACE)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait()
+                raise RuntimeError(
+                    f"qwen3_vad subprocess exceeded {timeout_sec}s timeout"
+                )
+            time.sleep(_CANCEL_POLL_INTERVAL)
+    finally:
+        # Always join drain threads so we don't leak file descriptors or miss
+        # the trailing bytes of stdout/stderr. Bounded by .join(timeout=5) to
+        # prefer a small leak over a hang if the child somehow froze with the
+        # pipe still open.
+        t_out.join(timeout=5)
+        t_err.join(timeout=5)
+
+    return bytes(stdout_buf), bytes(stderr_buf)
+
+
+def _load_audio_ffmpeg(audio_path: str, sr: int = 16000):
+    import numpy as np  # lazy — see module docstring
     cmd = [
         "ffmpeg", "-hide_banner", "-loglevel", "error",
         "-i", audio_path, "-ac", "1", "-ar", str(sr), "-f", "f32le", "-",
@@ -68,12 +191,18 @@ class Qwen3VadEngine:
         audio_path: str,
         vad_regions: List[dict],
         cancel_event: Optional[Event] = None,
+        progress_callback: Optional[Callable[[str], None]] = None,
     ) -> List[dict]:
         """Transcribe each VAD region. Returns flat list of {start, end, text} in absolute time.
 
         cancel_event (v3.19 Sprint 3 B-8): if supplied, the subprocess is terminated
         within _CANCEL_POLL_INTERVAL seconds of the event being set, and JobCancelled
         is raised so the caller (PipelineRunner / JobQueue) can mark the job cancelled.
+
+        progress_callback (v3.20 T7): optional callback invoked with each complete
+        stderr line from the subprocess. Best-effort — exceptions in the callback
+        are swallowed so they cannot kill the drain thread. Default ``None``
+        preserves the pre-T7 behavior (stderr buffered, only surfaced on failure).
         """
         if not vad_regions:
             return []
@@ -96,10 +225,15 @@ class Qwen3VadEngine:
                 "model": self._model,
             },
         }
-        result = self._call_subprocess(audio_path, [], payload, cancel_event=cancel_event)
+        result = self._call_subprocess(
+            audio_path, [], payload,
+            cancel_event=cancel_event,
+            progress_callback=progress_callback,
+        )
         return self._flatten_to_absolute(result, vad_regions)
 
-    def _write_region_wavs(self, audio_np: np.ndarray, regions: List[dict], tmpdir: str) -> List[str]:
+    def _write_region_wavs(self, audio_np, regions: List[dict], tmpdir: str) -> List[str]:
+        import soundfile as sf  # lazy — see module docstring
         paths = []
         for i, r in enumerate(regions):
             s = int(float(r["start"]) * 16000)
@@ -115,11 +249,17 @@ class Qwen3VadEngine:
         wav_paths: List[str],
         payload: dict,
         cancel_event: Optional[Event] = None,
+        progress_callback: Optional[Callable[[str], None]] = None,
     ) -> dict:
         """Load audio, write per-region WAVs, invoke py3.11 subprocess, return parsed result.
 
         v3.19 Sprint 3 B-8: uses Popen + polling loop instead of subprocess.run so
         that cancel_event can terminate the subprocess promptly when set.
+
+        v3.20 T3+T7: poll loop replaced with concurrent-drain pattern (see
+        ``_drain_subprocess``). Closes the macOS pipe-buffer deadlock where
+        the child's stderr stalls before stdout JSON is written. Optional
+        ``progress_callback`` forwards each stderr line as it arrives.
         """
         audio_np = _load_audio_ffmpeg(audio_path, sr=16000)
         tmpdir = tempfile.mkdtemp(prefix="vad_regions_")
@@ -139,7 +279,7 @@ class Qwen3VadEngine:
             full_payload = {**payload, "regions": filled_regions}
             stdin_bytes = json.dumps(full_payload).encode("utf-8")
 
-            # Launch subprocess with Popen so we can poll and cancel
+            # Launch subprocess with Popen so we can drain and cancel concurrently
             proc = subprocess.Popen(
                 [str(self._venv_python), str(self._subprocess_script)],
                 stdin=subprocess.PIPE,
@@ -150,30 +290,23 @@ class Qwen3VadEngine:
             proc.stdin.write(stdin_bytes)
             proc.stdin.close()
 
-            # Poll loop: check for completion or cancel every _CANCEL_POLL_INTERVAL s
-            while proc.poll() is None:
-                if cancel_event is not None and cancel_event.is_set():
-                    # Terminate subprocess gracefully, then force-kill if needed
-                    proc.terminate()
-                    try:
-                        proc.wait(timeout=_TERMINATE_GRACE)
-                    except subprocess.TimeoutExpired:
-                        proc.kill()
-                        proc.wait()
-                    from jobqueue.queue import JobCancelled
-                    raise JobCancelled("Qwen3 subprocess cancelled by cancel_event")
-                time.sleep(_CANCEL_POLL_INTERVAL)
+            # Concurrent drain + cancel/timeout. Raises JobCancelled on cancel
+            # and RuntimeError on wall-clock timeout. Returns both streams as
+            # bytes on a clean exit (rc may still be non-zero — checked below).
+            stdout_bytes, stderr_bytes = _drain_subprocess(
+                proc,
+                timeout_sec=_QWEN3_TIMEOUT_SEC,
+                cancel_event=cancel_event,
+                progress_callback=progress_callback,
+            )
 
-            # Subprocess finished — check return code
-            stdout = proc.stdout.read()
-            stderr = proc.stderr.read()
             rc = proc.returncode
             if rc != 0:
                 raise RuntimeError(
                     f"qwen3_vad subprocess failed (rc={rc}):\n"
-                    f"{stderr.decode(errors='replace')[:500]}"
+                    f"{stderr_bytes.decode(errors='replace')[:500]}"
                 )
-            return json.loads(stdout)
+            return json.loads(stdout_bytes)
         finally:
             # Ensure subprocess is cleaned up if an exception occurs mid-flight
             if proc is not None and proc.poll() is None:

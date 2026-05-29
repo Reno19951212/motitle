@@ -174,8 +174,10 @@ class TestQwen3VadEngine:
              "full_text": "", "chunks": [], "segments": [], "runtime_sec": 0.1, "error": None}
         ]}
         captured = {}
-        def capture_payload(audio_path, wav_paths, payload, cancel_event=None):
+        def capture_payload(audio_path, wav_paths, payload, cancel_event=None,
+                            progress_callback=None):
             # v3.19 Sprint 3 B-8: _call_subprocess now accepts cancel_event kwarg
+            # v3.20 T7: _call_subprocess also accepts progress_callback kwarg
             captured.update(payload)
             return fake
         with patch.object(engine, "_call_subprocess", side_effect=capture_payload):
@@ -407,8 +409,10 @@ class TestQwen3PerRegionStage:
             result = stage.transform(vad_regions, ctx)
 
         # v3.19 Sprint 3 B-8: cancel_event=None is now passed as a kwarg
+        # v3.20 T7: progress_callback is also passed (closure built in stage)
+        from unittest.mock import ANY
         mock_engine.transcribe_regions.assert_called_once_with(
-            "/fake/audio.mp4", vad_regions, cancel_event=None
+            "/fake/audio.mp4", vad_regions, cancel_event=None, progress_callback=ANY
         )
         assert result == expected_chars
 
