@@ -245,8 +245,7 @@ def run_pipeline(pipeline_id):
     job_id = _app._job_queue.enqueue(
         user_id=user_id,
         file_id=file_id,
-        job_type="pipeline_run",
-        payload={"pipeline_id": pipeline_id, "file_id": file_id},
+        job_type="asr",
     )
     return jsonify({"job_id": job_id}), 202
 
@@ -278,8 +277,7 @@ def rerun_stage(fid, stage_idx):
     job_id = _app._job_queue.enqueue(
         user_id=user_id,
         file_id=fid,
-        job_type="pipeline_run",
-        payload={"pipeline_id": pipeline_id, "file_id": fid, "start_from_stage": stage_idx},
+        job_type="asr",
     )
     return jsonify({"job_id": job_id}), 202
 

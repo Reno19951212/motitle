@@ -137,13 +137,13 @@ def transcribe_file():
     if sid:
         _app.socketio.emit('file_added', entry, room=sid)
 
-    # v4.0 A3 T4 — pipeline_run handler (v4 A1) takes over ASR+MT+glossary
-    # execution. payload carries pipeline_id + file_id per A1 contract.
+    # v4.0 A3 T4 — enqueue as 'asr' job so the existing _asr_handler worker
+    # picks it up; V6 dispatch happens inside _asr_handler via active_kind check.
+    # ('pipeline_run' was a graft artifact that the JobQueue never supported.)
     job_id = _app._job_queue.enqueue(
         user_id=current_user.id,
         file_id=file_id,
-        job_type='pipeline_run',
-        payload={'pipeline_id': pipeline_id, 'file_id': file_id},
+        job_type='asr',
     )
     return jsonify({
         'file_id': file_id,

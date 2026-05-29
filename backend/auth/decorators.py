@@ -50,7 +50,7 @@ def require_file_owner(fn):
     def wrapper(*args, **kwargs):
         if _auth_bypassed():
             return fn(*args, **kwargs)
-        file_id = kwargs.get("file_id")
+        file_id = kwargs.get("file_id") or kwargs.get("fid")
         if file_id is None and args:
             file_id = args[0]
         if file_id is None:

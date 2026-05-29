@@ -263,6 +263,78 @@ def v6_file_with_translations(tmp_path):
 
 
 @pytest.fixture
+def v6_file_with_stage_outputs(tmp_path):
+    """Insert a synthetic V6 file with stage_outputs populated.
+
+    Used by B-1 test to verify /api/files/<fid>/stages/* routes work
+    once the require_file_owner decorator accepts 'fid' kwarg.
+
+    Returns file_id.
+    """
+    try:
+        import app as app_mod
+    except ImportError:
+        pytest.skip("app module not available")
+
+    fid = f"v6-stg-{uuid.uuid4().hex[:8]}"
+
+    # Create a dummy media file
+    dummy_media = tmp_path / "data" / "uploads" / f"{fid}_test.mp4"
+    dummy_media.parent.mkdir(parents=True, exist_ok=True)
+    dummy_media.write_bytes(b"DUMMY")
+
+    stage_outputs = {
+        "2": {
+            "stage_idx": 2,
+            "status": "done",
+            "segments": [
+                {"idx": 0, "text": "original text", "start": 0.0, "end": 1.5},
+            ],
+        },
+        "4": {
+            "stage_idx": 4,
+            "status": "done",
+            "segments": [
+                {"idx": 0, "text": "original text", "start": 0.0, "end": 1.5},
+            ],
+        },
+    }
+
+    entry = {
+        "id": fid,
+        "original_name": "test.mp4",
+        "size": 1024,
+        "status": "done",
+        "uploaded_at": time.time(),
+        "user_id": None,
+        "active_kind": "pipeline_v6",
+        "active_id": "test-pipeline-v6",
+        "pipeline_id": "test-pipeline-v6",
+        "segments": [],
+        "translations": [],
+        "translation_status": "done",
+        "stage_outputs": stage_outputs,
+        "prompt_overrides": None,
+        "pipeline_overrides": {},
+        "error": None,
+        "model": None,
+        "backend": None,
+        "asr_seconds": None,
+        "translation_seconds": None,
+        "pipeline_seconds": None,
+        "file_path": str(dummy_media),
+    }
+
+    with app_mod._registry_lock:
+        app_mod._file_registry[fid] = entry
+
+    yield fid
+
+    with app_mod._registry_lock:
+        app_mod._file_registry.pop(fid, None)
+
+
+@pytest.fixture
 def get_registry_entry():
     """Return a function that looks up the current registry entry for a file_id."""
     try:

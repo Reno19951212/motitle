@@ -24,7 +24,6 @@ import pytest
 # Pattern 5 + 2 — URL arg / decorator drift
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skip(reason="Phase B finding B-1 pending review — /api/files/<fid>/stages/* routes all 400 because require_file_owner keys on 'file_id' not 'fid'")
 def test_finding_b1_stages_routes_dead(client, v6_file_with_stage_outputs):
     """B-1: Three /api/files/<fid>/... routes always 400 because the decorator
     looks for kwargs['file_id'] but the route URL uses <fid>.
@@ -46,12 +45,15 @@ def test_finding_b1_stages_routes_dead(client, v6_file_with_stage_outputs):
     assert r.status_code in (200, 202), f"rerun got {r.status_code}: {r.get_json()}"
 
     r = client.patch(
-        f"/api/files/{fid}/stages/4/segments/0",
+        f"/api/files/{fid}/stages/2/segments/0",
         json={"text": "edited"},
     )
     assert r.status_code == 200, f"edit got {r.status_code}: {r.get_json()}"
 
-    r = client.post(f"/api/files/{fid}/pipeline_overrides", json={})
+    r = client.post(
+        f"/api/files/{fid}/pipeline_overrides",
+        json={"pipeline_id": "test-pipeline-v6", "stage_index": 4, "overrides": {"foo": "bar"}},
+    )
     assert r.status_code in (200, 204), f"overrides got {r.status_code}: {r.get_json()}"
 
 
