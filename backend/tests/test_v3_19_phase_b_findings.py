@@ -137,7 +137,6 @@ def test_finding_b4_subtitle_export_empty_v6(client, v6_file_with_translations):
     assert body.strip(), "V6 TXT export should be non-empty"
 
 
-@pytest.mark.skip(reason="Phase B finding B-5 pending review — V6 PATCH /translations/<idx> writes zh_text but not by_lang.zh.text")
 def test_finding_b5_patch_misses_by_lang_v6(client, v6_file_with_translations, get_registry_entry):
     """B-5: PATCH /api/files/<id>/translations/<idx> writes zh_text but
     leaves by_lang.<lang>.text unchanged for V6.

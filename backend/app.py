@@ -2506,17 +2506,26 @@ def api_update_translation(file_id, idx):
         new_translations = list(translations)
         # Editing implies the user has reviewed the segment, so clear QA flags.
         # Length warnings will reappear on the next translation pass if still applicable.
-        new_translations[idx] = {
+        new_text = data["zh_text"]
+        updated = {
             **translations[idx],
-            "zh_text": data["zh_text"],
+            "zh_text": new_text,
             "status": "approved",
             "flags": [],
             # Manual edit becomes the new baseline; any prior glossary-apply
             # history is wiped so future glossary deletions don't revert past
             # the user's explicit edit.
-            "baseline_target": data["zh_text"],
+            "baseline_target": new_text,
             "applied_terms": [],
         }
+        # v3.19 Sprint 1 (B-5) — dual-write: also update by_lang for V6 files
+        # so by_lang.<lang>.text stays consistent with zh_text.
+        src_lang = translations[idx].get("source_lang", "zh")
+        by_lang = dict(updated.get("by_lang") or {})
+        if src_lang in by_lang:
+            by_lang[src_lang] = {**by_lang[src_lang], "text": new_text, "status": "approved"}
+            updated["by_lang"] = by_lang
+        new_translations[idx] = updated
         entry["translations"] = new_translations
         _save_registry()
         return jsonify({"translation": _normalize_translation_for_api(new_translations[idx])})
@@ -2535,7 +2544,14 @@ def api_approve_translation(file_id, idx):
             return jsonify({"error": "Translation index out of range"}), 404
         new_translations = list(translations)
         # Approving without editing keeps flags so they remain visible until corrected.
-        new_translations[idx] = {**translations[idx], "status": "approved"}
+        updated_approve = {**translations[idx], "status": "approved"}
+        # v3.19 Sprint 1 (B-5) — dual-write: mirror status to by_lang for V6 files.
+        src_lang_a = translations[idx].get("source_lang", "zh")
+        by_lang_a = dict(updated_approve.get("by_lang") or {})
+        if src_lang_a in by_lang_a:
+            by_lang_a[src_lang_a] = {**by_lang_a[src_lang_a], "status": "approved"}
+            updated_approve["by_lang"] = by_lang_a
+        new_translations[idx] = updated_approve
         entry["translations"] = new_translations
         _save_registry()
         return jsonify({"translation": _normalize_translation_for_api(new_translations[idx])})
@@ -2555,7 +2571,14 @@ def api_unapprove_translation(file_id, idx):
         if idx < 0 or idx >= len(translations):
             return jsonify({"error": "Translation index out of range"}), 400
         new_translations = list(translations)
-        new_translations[idx] = {**translations[idx], "status": "pending"}
+        updated_unapprove = {**translations[idx], "status": "pending"}
+        # v3.19 Sprint 1 (B-5) — dual-write: mirror status to by_lang for V6 files.
+        src_lang_u = translations[idx].get("source_lang", "zh")
+        by_lang_u = dict(updated_unapprove.get("by_lang") or {})
+        if src_lang_u in by_lang_u:
+            by_lang_u[src_lang_u] = {**by_lang_u[src_lang_u], "status": "pending"}
+            updated_unapprove["by_lang"] = by_lang_u
+        new_translations[idx] = updated_unapprove
         entry["translations"] = new_translations
         _save_registry()
         return jsonify({"translation": _normalize_translation_for_api(new_translations[idx])})
