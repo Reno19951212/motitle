@@ -284,6 +284,18 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 
 **`proofread.html`** — Standalone proof-reading editor. Side-by-side layout: video player (left) + segment table (right). Inline editing of Chinese translations, per-segment and bulk approval, keyboard shortcuts, format picker (MP4/MXF), render with progress polling and download.
 
+### Pipeline Progress Contract（v3.20+）
+
+統一 progress 訊號 contract，畀所有 pipeline kind（Profile / V6 / 未來）共用。詳見 [docs/superpowers/architecture/pipeline-progress-contract.md](docs/superpowers/architecture/pipeline-progress-contract.md)。
+
+**核心 invariants**：
+- 新增 pipeline kind 時，frontend `queue-panel.js` **零修改** — 全部變化集中喺 backend handler 或 adapter shim
+- Native events (`subtitle_segment`, `translation_progress`, `pipeline_stage_*`) 唔可以改 payload，只可以加 field
+- `queue_changed` 永遠 zero-payload，純 trigger refetch
+- `pipeline_progress` payload schema backward-compatible，加 field OK，改名 / 刪 field 直接 break clients
+
+**喺 backend 加新 pipeline kind 嘅 recipe**：[呢個 architecture 文件嘅 Section 9](docs/superpowers/architecture/pipeline-progress-contract.md#adding-a-new-pipeline-kind--step-by-step-recipe)。
+
 ---
 
 ## Development Guidelines
@@ -346,6 +358,18 @@ Whenever a new feature is completed or existing functionality is modified, you *
 ---
 
 ## Completed Features
+
+### v3.21 — Unified Pipeline Progress Contract + Queue Panel Real-time Bar
+- **目標**：右側 queue panel 每個 row 根據對應 file 嘅處理階段，顯示接近實時嘅 0–100% 進度條同 stage label。Architecture 必須兼容 (a) 舊有 Profile 模式、(b) V6 Dual-ASR Pipeline、(c) 任何未來新增 pipeline kind — frontend 對 pipeline 內部結構零 awareness。Spec: [docs/superpowers/specs/2026-05-29-queue-progress-prompt.md](docs/superpowers/specs/2026-05-29-queue-progress-prompt.md)。Plan: [docs/superpowers/plans/2026-05-29-queue-progress-plan.md](docs/superpowers/plans/2026-05-29-queue-progress-plan.md)。Architecture doc: [docs/superpowers/architecture/pipeline-progress-contract.md](docs/superpowers/architecture/pipeline-progress-contract.md)。
+- **新 backend module**（`backend/progress_adapter.py`）：Adapter pattern — `ProgressSnapshot` dataclass + `ProgressAdapter` class（`threading.RLock` cache + 500ms throttle）+ module-level singleton（`get_adapter()` / `init_adapter(socketio)` / `reset_adapter()`）。兩類 shim helper：Profile shims（`report_from_subtitle_segment` → `"轉錄中"`；`report_from_translation_progress` → `"翻譯中"`）；V6 shim（`report_from_v6_stage` — 5 個內部 stage 映射做單一 0–100%，`V6_STAGE_LABELS` 提供 5 個 `stage_type` → label mapping）。
+- **Backend wiring**：(a) `backend/app.py` — `init_adapter(socketio)` 喺 boot 時調用；每個 native `emit("subtitle_segment", ...)` / `emit("translation_progress", ...)` call 之後加對應 shim call。(b) `backend/pipeline_runner.py::_socketio_emit` — V6 native events (`pipeline_stage_start` / `pipeline_stage_progress` / `pipeline_stage_done`) 路由過 `report_from_v6_stage`。
+- **`/api/queue` schema 擴充**：每 row 新加 3 個 field：`progress_pct: number | null`、`stage_label: string | null`、`stage_state: 'idle' | 'active' | 'done'`。由 `get_adapter().get_snapshot(file_id)` 提供。無 snapshot 時 defaults：`null / null / 'idle'`。
+- **Frontend 改動（最小化）**：`frontend/js/queue-panel.js` 加 `socket.on('pipeline_progress')` listener、`_progressCache: Map<file_id, snapshot>`、render row 加 bar / pct 數字 / spinner UI。`frontend/index.html` 加 `.qp-bar` + `@keyframes qpSpin` CSS。其他 dashboard 邏輯完全唔郁。
+- **Tests**：11 pytest（`backend/tests/test_progress_adapter.py`）涵蓋 ProgressSnapshot、adapter throttle、Profile shims、V6 shim + label mapping、singleton lifecycle；3 pytest（`backend/tests/test_queue_progress_pct.py`）涵蓋 `/api/queue` 3 個新 field；5 Playwright（`frontend/tests/test_queue_progress.spec.js`）涵蓋 Profile ASR 0→100%、Profile MT label flip、V6 5-stage monotonic bar、cold-start reload、dummy `pipeline_v99` forward-compat（frontend 零改動）。全部 GREEN。
+- **Operator-visible 行為**：Profile 跑 1 條 video — 排隊中 spinner dot → 轉錄中 0–100% bar → 翻譯中 0–100% bar → 完成 100% 然後 row auto-hide。V6 跑 1 條 video — 排隊中 → VAD 切段中 → Qwen3 識別中 → mlx 對齊中 → Merge 中 → Refiner 校對中 → 完成。Page reload 中段：bar 即時顯示非 0（cold-start 由 `/api/queue` 提供 cached pct）。跨 tab 同步：tab A 跑緊 50%，tab B 即時見 50%。
+- **Forward-compat invariant**：加 V7 或任何未來 pipeline kind 時，frontend `queue-panel.js` 零修改，只需加 backend shim 或喺 handler 直接 call `get_adapter().report(...)`。呢個 invariant 由 `pipeline_v99` Playwright test 自動驗證。
+- **Out of scope**（明確 defer）：左側 file card 嘅 progress bar（右側 queue panel 只）；render job 進度（獨立 polling 已有）；V6 5 個 internal stage 嘅 sub-bar hover tooltip；整體 pipeline 加權 0–100%（per-state 模式已定）；`queue_changed` payload 擴充（永遠保持 zero-payload）。
+- **Files touched**：1 個 new backend module（`progress_adapter.py`）、2 個 backend modified（`app.py` ~20 LOC additive shim calls + `init_adapter`；`pipeline_runner.py` `_socketio_emit` ~15 LOC）、1 個 backend modified（`jobqueue/routes.py` 3 new fields on `/api/queue`）、1 個 frontend modified（`queue-panel.js` ~80 LOC）、1 個 frontend modified（`index.html` ~20 LOC CSS）、2 個 new test files（`test_progress_adapter.py` + `test_queue_progress_pct.py`）、1 個 new Playwright spec（`test_queue_progress.spec.js`）。10 commits on finalize-debug branch (226077a → 3bcf782)。
 
 ### v3.20 — V6 Qwen3 Subprocess IPC Hardening + Media Preload Fix
 - **Background**: 2026-05-29 用戶上傳 34.6 MB 粵語廣播片 (file `183e38257865`, gamehub) 揀 V6 `[v6] 賽馬廣播 (Cantonese)` pipeline，9 分鐘後 registry 仍 `transcribing` / `segments: []` / job DB row `status=running, attempt_count=1, error_msg=NULL`。後端 log 完全冇 V6 stage 級 stdout — pipeline 真實 hang 咗。同時用戶單一 click 觸發 80+ `/api/files/<id>/media` 206 byte-range request，製造「log 好嘈似有 bug」嘅錯覺。Incident report: [docs/superpowers/incidents/2026-05-29-v6-silent-execution-handover.md](docs/superpowers/incidents/2026-05-29-v6-silent-execution-handover.md).
