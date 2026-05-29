@@ -109,3 +109,39 @@ def test_profile_shim_translation_progress():
     )
     assert emitted[-1][1]["pct"] == 80
     assert emitted[-1][1]["stage_label"] == "翻譯中"
+
+
+# ── Task A4: V6 shim helper ───────────────────────────────────────────────────
+
+def test_v6_shim_stage_progress_5_stages():
+    """V6 has 5 internal stages; each stage's 0-100% maps to its slice of total."""
+    from progress_adapter import ProgressAdapter, report_from_v6_stage
+    emitted = []
+    adapter = ProgressAdapter(
+        emit_fn=lambda evt, p: emitted.append((evt, p)),
+        throttle_seconds=0,  # disable for test
+    )
+    # Stage 0 (VAD) at 100% → pct = 20
+    report_from_v6_stage(adapter, file_id="f1", job_id="j1",
+                         stage_index=0, stage_type="vad",
+                         stage_percent=100, total_stages=5)
+    assert emitted[-1][1]["pct"] == 20
+    # Stage 2 (mlx) at 50% → pct = 40 + 10 = 50
+    report_from_v6_stage(adapter, file_id="f1", job_id="j1",
+                         stage_index=2, stage_type="asr_align",
+                         stage_percent=50, total_stages=5)
+    assert emitted[-1][1]["pct"] == 50
+    # Stage 4 (refiner) at 100% → pct = 100, done
+    report_from_v6_stage(adapter, file_id="f1", job_id="j1",
+                         stage_index=4, stage_type="refiner",
+                         stage_percent=100, total_stages=5)
+    assert emitted[-1][1]["pct"] == 100
+
+
+def test_v6_shim_uses_stage_label_map():
+    from progress_adapter import report_from_v6_stage, V6_STAGE_LABELS
+    assert V6_STAGE_LABELS["vad"] == "VAD 切段中"
+    assert V6_STAGE_LABELS["asr_primary"] == "Qwen3 識別中"
+    assert V6_STAGE_LABELS["asr_align"] == "mlx 對齊中"
+    assert V6_STAGE_LABELS["merge"] == "Merge 中"
+    assert V6_STAGE_LABELS["refiner"] == "Refiner 校對中"

@@ -100,3 +100,37 @@ def report_from_translation_progress(adapter: ProgressAdapter, *,
         stage_label="翻譯中", stage_state="active",
         pipeline_kind="profile",
     )
+
+
+# ── V6 shim helper ────────────────────────────────────────────────────────────
+
+V6_STAGE_LABELS: Dict[str, str] = {
+    "vad": "VAD 切段中",
+    "asr_primary": "Qwen3 識別中",
+    "asr_align": "mlx 對齊中",
+    "merge": "Merge 中",
+    "refiner": "Refiner 校對中",
+}
+
+
+def report_from_v6_stage(adapter: ProgressAdapter, *,
+                         file_id: str, job_id: str,
+                         stage_index: int, stage_type: str,
+                         stage_percent: int,
+                         total_stages: int = 5) -> None:
+    """V6-mode shim: pipeline_stage_progress → pipeline_progress.
+
+    Maps stage_index + stage_percent into a single 0-100% across all
+    V6 stages. Stage i contributes [i*100/N, (i+1)*100/N) range.
+    """
+    stage_slice = 100.0 / max(1, total_stages)
+    base = stage_index * stage_slice
+    contribution = (stage_percent / 100.0) * stage_slice
+    pct = max(0, min(100, int(round(base + contribution))))
+    label = V6_STAGE_LABELS.get(stage_type, f"Stage {stage_index + 1}")
+    state = "done" if pct >= 100 else "active"
+    adapter.report(
+        file_id=file_id, job_id=job_id, pct=pct,
+        stage_label=label, stage_state=state,
+        pipeline_kind="pipeline_v6",
+    )
