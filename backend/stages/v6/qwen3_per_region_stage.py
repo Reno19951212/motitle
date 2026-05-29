@@ -41,10 +41,31 @@ class Qwen3PerRegionStage(PipelineStage):
                 f"Qwen3PerRegionStage: no audio_path for file_id={context.file_id}"
             )
 
+        # v3.20 T7: forward each subprocess stderr line as a SocketIO
+        # pipeline_stage_progress event so operators can see per-region
+        # progress in real time. Best-effort — lazily import the emit helper
+        # to avoid a hard dep cycle, and silently swallow emission failures.
+        def _line_cb(line: str) -> None:
+            try:
+                from pipeline_runner import _socketio_emit
+                _socketio_emit("pipeline_stage_progress", {
+                    "file_id": context.file_id,
+                    "pipeline_id": context.pipeline_id,
+                    "stage_index": context.stage_index,
+                    "stage_type": "qwen3_per_region",
+                    "message": line,
+                })
+            except Exception:
+                pass
+
         # v3.19 Sprint 3 B-8: thread cancel_event so Popen polling can terminate
         # the subprocess when a job cancel is requested.
+        # v3.20 T7: thread progress_callback so stderr lines reach the UI.
         chars = self._engine.transcribe_regions(
-            audio_path, segments_in, cancel_event=context.cancel_event
+            audio_path,
+            segments_in,
+            cancel_event=context.cancel_event,
+            progress_callback=_line_cb,
         )
         return [
             {
