@@ -651,6 +651,18 @@ class PipelineRunner:
                         "status": "pending",
                         "flags": list(segs[i].get("flags", []) or []),
                     }
+            # v3.19 Sprint 1 — mirror by_lang.<source_lang>.* to top-level legacy
+            # fields so /api/files/<id>/translations + subtitle exports +
+            # approve-all + render (which all still read t["zh_text"] / t["status"])
+            # work for V6 files.  Mirroring at write time (vs reading both at every
+            # site) keeps the change surface minimal and Profile-mode untouched.
+            primary_lang = source_lang  # for 賽馬 pipeline this is "zh"
+            primary = row["by_lang"].get(primary_lang)
+            if primary is not None:
+                row[f"{primary_lang}_text"] = primary.get("text", "")
+                row["status"] = primary.get("status", "pending")
+                if primary.get("flags"):
+                    row["flags"] = list(primary["flags"])
             rows.append(row)
         with app_mod._registry_lock:
             entry = app_mod._file_registry.get(self._file_id)

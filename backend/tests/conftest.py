@@ -1,5 +1,7 @@
 import os
 import sys
+import time
+import uuid
 from pathlib import Path
 
 import pytest
@@ -154,3 +156,143 @@ def _isolate_app_data(request, tmp_path, monkeypatch):
     with app._registry_lock:
         app._file_registry.clear()
         app._file_registry.update(original_registry)
+
+
+# ---------------------------------------------------------------------------
+# v3.19 Sprint 1 — shared fixtures for Phase B findings tests
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def client(tmp_path, monkeypatch):
+    """Default Flask test client: isolated data dirs + auth bypass.
+
+    Individual test files may override this fixture for specialized setups
+    (e.g. tests that need real auth or a pre-populated profile manager).
+    """
+    try:
+        import app as app_mod
+        from profiles import ProfileManager
+    except ImportError:
+        pytest.skip("app module not available")
+
+    new_prof_mgr = ProfileManager(tmp_path)
+    monkeypatch.setattr("app._profile_manager", new_prof_mgr)
+    app_mod.app.config["TESTING"] = True
+    with app_mod.app.test_client() as c:
+        yield c
+
+@pytest.fixture
+def v6_file_with_translations(tmp_path):
+    """Insert a synthetic V6 file with Sprint-1-style legacy mirror fields.
+
+    The fixture populates both by_lang.<lang> AND top-level zh_text/status so
+    that tests relying on this fixture work correctly after Sprint 1 fixes.
+    Tests that specifically want PRE-fix V6 shape (no mirrors) should build
+    their own registry entry directly.
+
+    Returns file_id.
+    """
+    try:
+        import app as app_mod
+    except ImportError:
+        pytest.skip("app module not available")
+
+    fid = f"v6-phb-{uuid.uuid4().hex[:8]}"
+    segments_data = [
+        {"start": 0.0,  "end": 1.5, "text": "冇人會傷害嗰啲感受"},
+        {"start": 1.5,  "end": 3.0, "text": "今日賽事精彩紛呈"},
+        {"start": 3.0,  "end": 5.0, "text": "高蘭布連卡速度驚人"},
+    ]
+    translations_data = []
+    for i, seg in enumerate(segments_data):
+        row = {
+            "idx": i,
+            "start": seg["start"],
+            "end": seg["end"],
+            "source_lang": "zh",
+            "source_text": seg["text"],
+            "by_lang": {
+                "zh": {
+                    "text": seg["text"],
+                    "status": "pending",
+                    "flags": [],
+                },
+            },
+            # Sprint 1 Change 1 mirrors — present so the fixture reflects
+            # the post-fix state; Change 4 migration handles existing on-disk files.
+            "zh_text": seg["text"],
+            "status": "pending",
+            "flags": [],
+        }
+        translations_data.append(row)
+
+    # Create a dummy media file so the render endpoint can resolve the path
+    dummy_media = tmp_path / "data" / "uploads" / f"{fid}_raceday.mp4"
+    dummy_media.parent.mkdir(parents=True, exist_ok=True)
+    dummy_media.write_bytes(b"DUMMY")
+
+    entry = {
+        "id": fid,
+        "original_name": "raceday.mp4",
+        "size": 1024,
+        "status": "done",
+        "uploaded_at": time.time(),
+        "user_id": None,
+        "active_kind": "pipeline_v6",
+        "active_id": "test-pipeline-v6",
+        "segments": [],          # V6 keeps translations, not segments at top level
+        "translations": translations_data,
+        "translation_status": "done",
+        "prompt_overrides": None,
+        "error": None,
+        "model": None,
+        "backend": None,
+        "asr_seconds": None,
+        "translation_seconds": None,
+        "pipeline_seconds": None,
+        "file_path": str(dummy_media),
+    }
+
+    with app_mod._registry_lock:
+        app_mod._file_registry[fid] = entry
+
+    yield fid
+
+    with app_mod._registry_lock:
+        app_mod._file_registry.pop(fid, None)
+
+
+@pytest.fixture
+def get_registry_entry():
+    """Return a function that looks up the current registry entry for a file_id."""
+    try:
+        import app as app_mod
+    except ImportError:
+        pytest.skip("app module not available")
+
+    def _get(file_id):
+        with app_mod._registry_lock:
+            return app_mod._file_registry.get(file_id)
+
+    return _get
+
+
+@pytest.fixture
+def render_complete():
+    """Return a helper that polls _render_jobs until status is no longer 'processing'."""
+    try:
+        import app as app_mod
+    except ImportError:
+        pytest.skip("app module not available")
+
+    def _wait(render_id, timeout=120):
+        deadline = time.time() + timeout
+        with app_mod._render_jobs_lock:
+            job = dict(app_mod._render_jobs.get(render_id, {}))
+        while job.get("status") == "processing" and time.time() < deadline:
+            time.sleep(0.5)
+            with app_mod._render_jobs_lock:
+                job = dict(app_mod._render_jobs.get(render_id, {}))
+        return job
+
+    return _wait

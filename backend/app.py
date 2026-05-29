@@ -3543,6 +3543,19 @@ def download_subtitle(file_id, fmt):
             'en_text':  s.get('text', '') or t.get('en_text', ''),
             'zh_text':  t.get('zh_text', ''),
         })
+    # v3.19 Sprint 1 (B-4): V6 files store translations directly without a
+    # separate segments list.  When unified is empty but translations carry
+    # timing + text (mirrored by Change 1 / Change 4 migration), build the
+    # export from translations instead so the subtitle file is non-empty.
+    if not unified and translations:
+        for t in translations:
+            unified.append({
+                'start':    t.get('start', 0),
+                'end':      t.get('end', 0),
+                'text':     t.get('source_text', '') or t.get('en_text', '') or t.get('zh_text', ''),
+                'en_text':  t.get('source_text', '') or t.get('en_text', ''),
+                'zh_text':  t.get('zh_text', ''),
+            })
 
     base_name = Path(entry['original_name']).stem
 
@@ -3964,6 +3977,15 @@ if __name__ == '__main__':
         n = migrate_registry(DATA_DIR / "registry.json", default_profile_id="prod-default")
         if n > 0:
             print(f"[migrate] backfilled active_kind on {n} legacy file entries")
+    except ImportError:
+        pass  # migration script removed/renamed
+
+    # v3.19 Sprint 1: backfill legacy mirror fields (zh_text/status) on V6 files
+    try:
+        from scripts.migrate_v6_translation_mirror import migrate_registry as migrate_v6_mirror
+        n_v6 = migrate_v6_mirror(DATA_DIR / "registry.json")
+        if n_v6 > 0:
+            print(f"[migrate] backfilled V6 translation mirror fields on {n_v6} file entries")
     except ImportError:
         pass  # migration script removed/renamed
 
