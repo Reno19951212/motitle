@@ -2839,6 +2839,31 @@ def api_start_render():
             translations = list(entry.get("segments") or [])
         if not translations:
             return jsonify({"error": "File has no transcription segments to render"}), 400
+        # v3.19 Sprint 3 B-7 — V6 zh-source files have source_lang="zh" and
+        # no EN translation; rendering source=en would burn the raw Qwen3-packed
+        # source_text dump ("HIGHLANDBLINKisa" etc.) as subtitles. Detect this
+        # early: if all V6 rows lack a real EN text field, reject with 400.
+        def _has_en_text(t: dict) -> bool:
+            if (t.get("en_text") or "").strip():
+                return True
+            if (t.get("by_lang") or {}).get("en", {}).get("text", "").strip():
+                return True
+            return False
+        if translations and all(
+            t.get("source_lang") in ("zh", "ja", "ko", "th") or not _has_en_text(t)
+            for t in translations
+            if t.get("source_lang") is not None  # only V6 rows have source_lang
+        ):
+            # Only reject when ALL rows are V6-typed and none has EN content.
+            v6_rows = [t for t in translations if t.get("source_lang") is not None]
+            if v6_rows and not any(_has_en_text(t) for t in v6_rows):
+                return jsonify({
+                    "error": (
+                        "requested subtitle_source=en but file contains no English "
+                        "translations (source_lang is zh/non-EN). "
+                        "Use subtitle_source=zh or subtitle_source=auto instead."
+                    )
+                }), 400
     else:
         if not translations:
             return jsonify({"error": "File has no translations to render"}), 400

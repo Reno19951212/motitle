@@ -263,6 +263,77 @@ def v6_file_with_translations(tmp_path):
 
 
 @pytest.fixture
+def v6_zh_source_file(tmp_path):
+    """V6 file whose source_lang is 'zh' — simulates a Cantonese broadcast file
+    where translations only have by_lang.zh populated (no EN translation).
+
+    Used by B-7 test to verify that render with subtitle_source='en' is
+    either rejected or warns rather than burning the raw Qwen3 packed dump.
+    """
+    try:
+        import app as app_mod
+    except ImportError:
+        pytest.skip("app module not available")
+
+    fid = f"v6-zh-{uuid.uuid4().hex[:8]}"
+    # source_text is a Qwen3-packed no-whitespace dump (the problematic data)
+    qwen3_dump = "HIGHLANDBLINKisaGreatHorse"
+    translations_data = [
+        {
+            "idx": 0,
+            "start": 0.0,
+            "end": 2.0,
+            "source_lang": "zh",
+            "source_text": qwen3_dump,
+            "by_lang": {
+                "zh": {
+                    "text": "高蘭布連卡係一匹好馬",
+                    "status": "approved",
+                    "flags": [],
+                },
+            },
+            "zh_text": "高蘭布連卡係一匹好馬",
+            "status": "approved",
+            "flags": [],
+        }
+    ]
+
+    dummy_media = tmp_path / "data" / "uploads" / f"{fid}_cantonese.mp4"
+    dummy_media.parent.mkdir(parents=True, exist_ok=True)
+    dummy_media.write_bytes(b"DUMMY")
+
+    entry = {
+        "id": fid,
+        "original_name": "cantonese_race.mp4",
+        "size": 2048,
+        "status": "done",
+        "uploaded_at": time.time(),
+        "user_id": None,
+        "active_kind": "pipeline_v6",
+        "active_id": "test-pipeline-v6",
+        "segments": [],
+        "translations": translations_data,
+        "translation_status": "done",
+        "prompt_overrides": None,
+        "error": None,
+        "model": None,
+        "backend": None,
+        "asr_seconds": None,
+        "translation_seconds": None,
+        "pipeline_seconds": None,
+        "file_path": str(dummy_media),
+    }
+
+    with app_mod._registry_lock:
+        app_mod._file_registry[fid] = entry
+
+    yield fid
+
+    with app_mod._registry_lock:
+        app_mod._file_registry.pop(fid, None)
+
+
+@pytest.fixture
 def v6_file_with_stage_outputs(tmp_path):
     """Insert a synthetic V6 file with stage_outputs populated.
 

@@ -204,7 +204,6 @@ def test_finding_b6_render_source_zh_empty_v6(client, v6_file_with_translations,
     _ = rid  # suppress unused-variable linter hint
 
 
-@pytest.mark.skip(reason="Phase B finding B-7 pending review — V6 zh-source file rendered with source=en burns nonsense Qwen3 dump")
 def test_finding_b7_render_source_en_for_zh_v6(client, v6_zh_source_file):
     """B-7: When a V6 file's pipeline source_lang is 'zh' but user renders
     with subtitle_source='en', the render bypasses the approval gate and
