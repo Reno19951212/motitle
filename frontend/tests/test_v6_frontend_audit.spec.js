@@ -84,4 +84,40 @@ test.describe.serial('V6 frontend audit', () => {
   });
 
   // Tasks 3, 4 will append further tests to this describe block.
+
+  test('proofread_v6_zh_edit_patches_translations', async ({ page }) => {
+    await page.goto(`${BASE}/proofread.html?file_id=${v6FileId}`);
+    await page.waitForLoadState('networkidle');
+    await page.waitForFunction(() => typeof segs !== 'undefined' && segs.length > 0);
+
+    await page.evaluate(() => {
+      if (typeof selectSegment === 'function') selectSegment(0);
+      else if (typeof setCursor === 'function') setCursor(0);
+    });
+    await page.waitForSelector('#zhInput', { state: 'attached' });
+
+    const originalZh = await page.locator('#zhInput').inputValue();
+    const probeText = originalZh + ' V6-PATCH-PROBE-' + Date.now();
+
+    const patchPromise = page.waitForResponse(r =>
+      /\/api\/files\/.+\/translations\/0\b/.test(r.url()) && r.request().method() === 'PATCH'
+    );
+
+    await page.locator('#zhInput').fill(probeText);
+    await page.locator('#zhInput').blur();
+
+    const patch = await patchPromise;
+    expect(patch.ok()).toBeTruthy();
+    const body = patch.request().postDataJSON();
+    expect(body.zh_text).toBe(probeText);
+
+    // Restore original to avoid contaminating the fixture
+    await page.evaluate(async ([fid, original]) => {
+      await fetch(`/api/files/${fid}/translations/0`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ zh_text: original }),
+      });
+    }, [v6FileId, originalZh]);
+  });
 });
