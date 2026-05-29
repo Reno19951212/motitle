@@ -25,31 +25,6 @@ import pytest
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
-def client(tmp_path, monkeypatch):
-    """Standard test client with isolated data dirs + auth bypass."""
-    import app as app_mod
-    from profiles import ProfileManager
-
-    new_prof_mgr = ProfileManager(tmp_path)
-    monkeypatch.setattr("app._profile_manager", new_prof_mgr)
-    app_mod.app.config["TESTING"] = True
-    with app_mod.app.test_client() as c:
-        yield c
-
-
-@pytest.fixture
-def get_registry_entry():
-    """Return function that reads current registry for a file_id."""
-    import app as app_mod
-
-    def _get(file_id):
-        with app_mod._registry_lock:
-            return app_mod._file_registry.get(file_id)
-
-    return _get
-
-
-@pytest.fixture
 def v6_file_with_translations(tmp_path):
     """
     Insert a synthetic V6 file into the registry with translations stored in
@@ -124,28 +99,6 @@ def v6_file_with_translations(tmp_path):
     # Cleanup
     with app_mod._registry_lock:
         app_mod._file_registry.pop(fid, None)
-
-
-@pytest.fixture
-def render_complete():
-    """
-    Return a helper that polls GET /api/renders/<rid> until done or timeout.
-
-    Usage: status = render_complete(render_id, timeout=60)
-    """
-    import app as app_mod
-
-    def _wait(render_id, timeout=120):
-        deadline = time.time() + timeout
-        with app_mod._render_jobs_lock:
-            job = app_mod._render_jobs.get(render_id, {})
-        while job.get("status") == "processing" and time.time() < deadline:
-            time.sleep(0.5)
-            with app_mod._render_jobs_lock:
-                job = app_mod._render_jobs.get(render_id, {})
-        return job
-
-    return _wait
 
 
 # ---------------------------------------------------------------------------
