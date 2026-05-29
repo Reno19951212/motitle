@@ -59,6 +59,22 @@ def _socketio_emit(event: str, payload: dict) -> None:
         app_mod.socketio.emit(event, payload)
     except Exception:
         pass  # Socket emit failure non-fatal
+    # ── unified progress contract bridge ──
+    if event in ("pipeline_stage_progress", "pipeline_stage_done"):
+        try:
+            from progress_adapter import get_adapter, report_from_v6_stage
+            stage_pct = 100 if event == "pipeline_stage_done" else int(payload.get("percent", 0))
+            report_from_v6_stage(
+                get_adapter(),
+                file_id=payload["file_id"],
+                job_id=str(payload.get("pipeline_id", "")),
+                stage_index=int(payload.get("stage_index", 0)),
+                stage_type=str(payload.get("stage_type", "")),
+                stage_percent=stage_pct,
+                total_stages=5,
+            )
+        except Exception:
+            pass
 
 
 def _persist_stage_output(file_id: str, stage_output: StageOutput) -> None:
