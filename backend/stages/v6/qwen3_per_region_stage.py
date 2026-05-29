@@ -41,7 +41,11 @@ class Qwen3PerRegionStage(PipelineStage):
                 f"Qwen3PerRegionStage: no audio_path for file_id={context.file_id}"
             )
 
-        chars = self._engine.transcribe_regions(audio_path, segments_in)
+        # v3.19 Sprint 3 B-8: thread cancel_event so Popen polling can terminate
+        # the subprocess when a job cancel is requested.
+        chars = self._engine.transcribe_regions(
+            audio_path, segments_in, cancel_event=context.cancel_event
+        )
         return [
             {
                 "start": float(c["start"]),

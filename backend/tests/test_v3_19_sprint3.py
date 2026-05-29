@@ -200,16 +200,16 @@ def test_b8_qwen3_cancel_terminates_subprocess(monkeypatch):
                     return b''
             return _FakeStderr()
 
+    import numpy as np
+    import engines.transcribe.qwen3_vad_engine as _engine_mod
+    import soundfile as _sf
+
     fake_proc = FakeProc()
     monkeypatch.setattr(_subprocess, "Popen", lambda *a, **kw: fake_proc)
-    # Also mock _load_audio_ffmpeg and related helpers
-    import numpy as np
-    monkeypatch.setattr(
-        "engines.transcribe.qwen3_vad_engine._load_audio_ffmpeg",
-        lambda *a, **kw: np.zeros(16000, dtype=np.float32),
-    )
-    import tempfile as _tempfile
-    monkeypatch.setattr(_tempfile, "mkdtemp", lambda **kw: "/tmp/fake_vad")
+    # Mock module-level helpers so _call_subprocess reaches the Popen call
+    monkeypatch.setattr(_engine_mod, "_load_audio_ffmpeg",
+                        lambda *a, **kw: np.zeros(16000, dtype=np.float32))
+    monkeypatch.setattr(_sf, "write", lambda *a, **kw: None)
 
     engine = Qwen3VadEngine()
 

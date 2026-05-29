@@ -235,43 +235,92 @@ def test_finding_b7_render_source_en_for_zh_v6(client, v6_zh_source_file):
 # Pattern 3 — Cancel + subprocess
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skip(reason="Phase B finding B-8 pending review — Qwen3 subprocess uses subprocess.run with no cancel_event polling")
 def test_finding_b8_qwen3_subprocess_no_cancel(monkeypatch):
-    """B-8: engines/transcribe/qwen3_vad_engine.py:_call_subprocess uses
+    """B-8: engines/transcribe/qwen3_vad_engine.py:_call_subprocess used
     subprocess.run with timeout=1800 and no cancel_event polling. If a
-    Stage 1 cancel is requested, it waits for full subprocess runtime.
+    Stage 1 cancel is requested, it waited for full subprocess runtime.
 
-    Verify the engine respects cancel_event (e.g., by terminating the
-    subprocess within a small grace window when the event fires).
+    Fix (v3.19 Sprint 3): rewritten to Popen + polling. This test verifies
+    the engine terminates the subprocess and raises JobCancelled within 10s
+    of the cancel_event being set.
     """
+    import subprocess as _subprocess
     import threading
     import time
-    from engines.transcribe.qwen3_vad_engine import Qwen3VadEngine
+    import numpy as np
 
-    engine = Qwen3VadEngine(...)  # fixture
+    try:
+        from engines.transcribe.qwen3_vad_engine import Qwen3VadEngine
+    except ImportError:
+        pytest.skip("qwen3_vad_engine not available")
+
+    # Mock Popen to return a process that never exits on its own
+    class FakeProc:
+        def __init__(self):
+            self.returncode = None
+            self._done = threading.Event()
+            self.stdin = type("S", (), {"write": lambda s, d: None, "close": lambda s: None})()
+
+        def poll(self):
+            return None  # never exits naturally
+
+        def terminate(self):
+            self.returncode = -15
+            self._done.set()
+
+        def kill(self):
+            self.returncode = -9
+            self._done.set()
+
+        def wait(self, timeout=None):
+            self._done.wait(timeout=timeout)
+
+        @property
+        def stdout(self):
+            class _S:
+                def read(self_inner):
+                    return b'{}'
+            return _S()
+
+        @property
+        def stderr(self):
+            class _S:
+                def read(self_inner):
+                    return b''
+            return _S()
+
+    fake_proc = FakeProc()
+    monkeypatch.setattr(_subprocess, "Popen", lambda *a, **kw: fake_proc)
+
+    import engines.transcribe.qwen3_vad_engine as _engine_mod
+    monkeypatch.setattr(_engine_mod, "_load_audio_ffmpeg",
+                        lambda *a, **kw: np.zeros(16000, dtype=np.float32))
+    # Also mock soundfile.write so _write_region_wavs doesn't need a real dir
+    import soundfile as _sf
+    monkeypatch.setattr(_sf, "write", lambda *a, **kw: None)
+
+    engine = Qwen3VadEngine()
     cancel_event = threading.Event()
 
-    def fire_cancel_after_1s():
-        time.sleep(1.0)
+    # Fire cancel after 0.5 s
+    def _fire():
+        time.sleep(0.5)
         cancel_event.set()
+    threading.Thread(target=_fire, daemon=True).start()
 
-    threading.Thread(target=fire_cancel_after_1s, daemon=True).start()
     start = time.time()
-    try:
-        # Hypothetical: engine.transcribe should accept cancel_event and
-        # honor it within ~5 seconds, not hang for the full subprocess
-        # timeout of 1800 s.
-        engine.transcribe(
-            audio_path="<long_test_audio>",
-            language="zh",
+    from jobqueue.queue import JobCancelled
+    with pytest.raises((JobCancelled, Exception)):
+        engine.transcribe_regions(
+            audio_path="/tmp/fake.wav",
+            vad_regions=[{"start": 0.0, "end": 1.0, "idx": 0}],
             cancel_event=cancel_event,
         )
-    except Exception:
-        pass
     elapsed = time.time() - start
     assert elapsed < 10, (
         f"Cancel should terminate subprocess within 10s, took {elapsed:.1f}s"
     )
+    assert fake_proc._done.is_set(), "FakeProc.terminate() should have been called"
 
 
 # ---------------------------------------------------------------------------

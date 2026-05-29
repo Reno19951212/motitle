@@ -1,6 +1,11 @@
 """Qwen3VadEngine — wraps qwen3_vad_subprocess.py for per-region transcription.
 
 Runs inside the main py3.9 venv; spawns a py3.11 subprocess for mlx_qwen3_asr.
+
+v3.19 Sprint 3 B-8: _call_subprocess rewritten from subprocess.run (blocking,
+no cancel) to subprocess.Popen with a polling loop. cancel_event is threaded
+through transcribe_regions so JobQueue cancel signals terminate the subprocess
+within ~0.5 seconds instead of waiting for the full 1800s timeout.
 """
 from __future__ import annotations
 
@@ -8,8 +13,10 @@ import json
 import os
 import subprocess
 import tempfile
+import time
 from pathlib import Path
-from typing import List
+from typing import List, Optional
+from threading import Event
 
 import numpy as np
 import soundfile as sf
@@ -21,6 +28,9 @@ _DEFAULT_QWEN_VENV_PYTHON = (
 _DEFAULT_SUBPROCESS_SCRIPT = (
     _REPO_ROOT / "backend" / "scripts" / "v5_prototype" / "qwen3_vad_subprocess.py"
 )
+
+_CANCEL_POLL_INTERVAL = 0.5   # seconds between cancel_event checks
+_TERMINATE_GRACE = 3.0        # seconds to wait after terminate() before kill()
 
 
 def _load_audio_ffmpeg(audio_path: str, sr: int = 16000) -> np.ndarray:
@@ -53,8 +63,18 @@ class Qwen3VadEngine:
         ))
         self._subprocess_script = Path(subprocess_script or str(_DEFAULT_SUBPROCESS_SCRIPT))
 
-    def transcribe_regions(self, audio_path: str, vad_regions: List[dict]) -> List[dict]:
-        """Transcribe each VAD region. Returns flat list of {start, end, text} in absolute time."""
+    def transcribe_regions(
+        self,
+        audio_path: str,
+        vad_regions: List[dict],
+        cancel_event: Optional[Event] = None,
+    ) -> List[dict]:
+        """Transcribe each VAD region. Returns flat list of {start, end, text} in absolute time.
+
+        cancel_event (v3.19 Sprint 3 B-8): if supplied, the subprocess is terminated
+        within _CANCEL_POLL_INTERVAL seconds of the event being set, and JobCancelled
+        is raised so the caller (PipelineRunner / JobQueue) can mark the job cancelled.
+        """
         if not vad_regions:
             return []
 
@@ -76,7 +96,7 @@ class Qwen3VadEngine:
                 "model": self._model,
             },
         }
-        result = self._call_subprocess(audio_path, [], payload)
+        result = self._call_subprocess(audio_path, [], payload, cancel_event=cancel_event)
         return self._flatten_to_absolute(result, vad_regions)
 
     def _write_region_wavs(self, audio_np: np.ndarray, regions: List[dict], tmpdir: str) -> List[str]:
@@ -89,10 +109,21 @@ class Qwen3VadEngine:
             paths.append(out_path)
         return paths
 
-    def _call_subprocess(self, audio_path: str, wav_paths: List[str], payload: dict) -> dict:
-        """Load audio, write per-region WAVs, invoke py3.11 subprocess, return parsed result."""
+    def _call_subprocess(
+        self,
+        audio_path: str,
+        wav_paths: List[str],
+        payload: dict,
+        cancel_event: Optional[Event] = None,
+    ) -> dict:
+        """Load audio, write per-region WAVs, invoke py3.11 subprocess, return parsed result.
+
+        v3.19 Sprint 3 B-8: uses Popen + polling loop instead of subprocess.run so
+        that cancel_event can terminate the subprocess promptly when set.
+        """
         audio_np = _load_audio_ffmpeg(audio_path, sr=16000)
         tmpdir = tempfile.mkdtemp(prefix="vad_regions_")
+        proc: Optional[subprocess.Popen] = None
         try:
             # Derive vad_regions from the stub payload entries
             regions_meta = payload.get("regions", [])
@@ -106,17 +137,51 @@ class Qwen3VadEngine:
                 for i, e in enumerate(regions_meta)
             ]
             full_payload = {**payload, "regions": filled_regions}
-            proc = subprocess.run(
+            stdin_bytes = json.dumps(full_payload).encode("utf-8")
+
+            # Launch subprocess with Popen so we can poll and cancel
+            proc = subprocess.Popen(
                 [str(self._venv_python), str(self._subprocess_script)],
-                input=json.dumps(full_payload),
-                capture_output=True, text=True, timeout=1800,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
             )
-            if proc.returncode != 0:
+            # Write input and close stdin — subprocess reads JSON from stdin
+            proc.stdin.write(stdin_bytes)
+            proc.stdin.close()
+
+            # Poll loop: check for completion or cancel every _CANCEL_POLL_INTERVAL s
+            while proc.poll() is None:
+                if cancel_event is not None and cancel_event.is_set():
+                    # Terminate subprocess gracefully, then force-kill if needed
+                    proc.terminate()
+                    try:
+                        proc.wait(timeout=_TERMINATE_GRACE)
+                    except subprocess.TimeoutExpired:
+                        proc.kill()
+                        proc.wait()
+                    from jobqueue.queue import JobCancelled
+                    raise JobCancelled("Qwen3 subprocess cancelled by cancel_event")
+                time.sleep(_CANCEL_POLL_INTERVAL)
+
+            # Subprocess finished — check return code
+            stdout = proc.stdout.read()
+            stderr = proc.stderr.read()
+            rc = proc.returncode
+            if rc != 0:
                 raise RuntimeError(
-                    f"qwen3_vad subprocess failed (rc={proc.returncode}):\n{proc.stderr}"
+                    f"qwen3_vad subprocess failed (rc={rc}):\n"
+                    f"{stderr.decode(errors='replace')[:500]}"
                 )
-            return json.loads(proc.stdout)
+            return json.loads(stdout)
         finally:
+            # Ensure subprocess is cleaned up if an exception occurs mid-flight
+            if proc is not None and proc.poll() is None:
+                try:
+                    proc.kill()
+                    proc.wait()
+                except OSError:
+                    pass
             import shutil
             shutil.rmtree(tmpdir, ignore_errors=True)
 
