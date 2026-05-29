@@ -2006,50 +2006,87 @@
   }
 
   async function loadSegments() {
-    const sResp = await fetch(`${API_BASE}/api/files/${fileId}/segments`).then(r => r.json());
-    const rawSegs = sResp.segments || [];
-    let translations = [];
-    try {
-      const tResp = await fetch(`${API_BASE}/api/files/${fileId}/translations`).then(r => r.json());
-      translations = tResp.translations || [];
-    } catch (e) {}
+    const isV6 = fileInfo && fileInfo.active_kind === 'pipeline_v6';
 
-    segs = rawSegs.map((s, i) => {
-      const t = translations[i] || {};
-      // Backend now returns structured { zh_text (clean), flags: [...] }.
-      // parseTranslationFlags() is kept as a safety net for any legacy
-      // payload still carrying [LONG] / [NEEDS REVIEW] prefixes inline.
-      const rawZh = t.zh_text || '';
-      const { clean, flags: prefixFlags } = parseTranslationFlags(rawZh);
-      const zh = clean;
-      const apiFlags = Array.isArray(t.flags) ? t.flags : [];
-      const inMs = Math.round(s.start * 1000);
-      const outMs = Math.round(s.end * 1000);
-      const durSec = (outMs - inMs) / 1000;
-      const cps = durSec > 0 ? Math.round((zh.length / durSec) * 10) / 10 : 0;
-      const flags = qaFlagsFromBackend(apiFlags, prefixFlags);
-      if (cps > 12) flags.push({ type: 'cps', msg: `CPS ${cps}（上限 12）` });
-      return {
-        idx: i,
-        id: i + 1,
-        in: inMs,
-        out: outMs,
-        tsIn: fmtMs(inMs),
-        tsOut: fmtMs(outMs),
-        duration: durSec.toFixed(1),
-        en: s.text || '',
-        zh,
-        cps,
-        approved: t.status === 'approved' || t.approved === true,
-        edited: t.edited === true,
-        flags,
-        speaker: t.speaker || null,
-        candidates: [],   // stub — backend doesn't expose yet
-        glossary: [],     // stub — backend doesn't expose yet
-        asr: null,        // stub
-        mt: null,         // stub
-      };
-    });
+    if (isV6) {
+      const tResp = await fetch(`${API_BASE}/api/files/${fileId}/translations`).then(r => r.json());
+      const translations = tResp.translations || [];
+      segs = translations.map((t, i) => {
+        const rawZh = t.zh_text || (t.by_lang && t.by_lang.zh && t.by_lang.zh.text) || '';
+        const { clean, flags: prefixFlags } = parseTranslationFlags(rawZh);
+        const zh = clean;
+        const apiFlags = Array.isArray(t.flags) ? t.flags : [];
+        const inMs = Math.round((t.start || 0) * 1000);
+        const outMs = Math.round((t.end || 0) * 1000);
+        const durSec = (outMs - inMs) / 1000;
+        const cps = durSec > 0 ? Math.round((zh.length / durSec) * 10) / 10 : 0;
+        const flags = qaFlagsFromBackend(apiFlags, prefixFlags);
+        if (cps > 12) flags.push({ type: 'cps', msg: `CPS ${cps}（上限 12）` });
+        return {
+          idx: (typeof t.idx === 'number') ? t.idx : i,
+          id: i + 1,
+          in: inMs, out: outMs,
+          tsIn: fmtMs(inMs), tsOut: fmtMs(outMs),
+          duration: durSec.toFixed(1),
+          en: t.source_text || '',
+          zh,
+          cps,
+          approved: t.status === 'approved' || t.approved === true,
+          edited: t.edited === true,
+          flags,
+          speaker: null,
+          candidates: [],
+          glossary: [],
+          asr: null,
+          mt: null,
+        };
+      });
+    } else {
+      const sResp = await fetch(`${API_BASE}/api/files/${fileId}/segments`).then(r => r.json());
+      const rawSegs = sResp.segments || [];
+      let translations = [];
+      try {
+        const tResp = await fetch(`${API_BASE}/api/files/${fileId}/translations`).then(r => r.json());
+        translations = tResp.translations || [];
+      } catch (e) {}
+
+      segs = rawSegs.map((s, i) => {
+        const t = translations[i] || {};
+        // Backend now returns structured { zh_text (clean), flags: [...] }.
+        // parseTranslationFlags() is kept as a safety net for any legacy
+        // payload still carrying [LONG] / [NEEDS REVIEW] prefixes inline.
+        const rawZh = t.zh_text || '';
+        const { clean, flags: prefixFlags } = parseTranslationFlags(rawZh);
+        const zh = clean;
+        const apiFlags = Array.isArray(t.flags) ? t.flags : [];
+        const inMs = Math.round(s.start * 1000);
+        const outMs = Math.round(s.end * 1000);
+        const durSec = (outMs - inMs) / 1000;
+        const cps = durSec > 0 ? Math.round((zh.length / durSec) * 10) / 10 : 0;
+        const flags = qaFlagsFromBackend(apiFlags, prefixFlags);
+        if (cps > 12) flags.push({ type: 'cps', msg: `CPS ${cps}（上限 12）` });
+        return {
+          idx: i,
+          id: i + 1,
+          in: inMs,
+          out: outMs,
+          tsIn: fmtMs(inMs),
+          tsOut: fmtMs(outMs),
+          duration: durSec.toFixed(1),
+          en: s.text || '',
+          zh,
+          cps,
+          approved: t.status === 'approved' || t.approved === true,
+          edited: t.edited === true,
+          flags,
+          speaker: t.speaker || null,
+          candidates: [],   // stub — backend doesn't expose yet
+          glossary: [],     // stub — backend doesn't expose yet
+          asr: null,        // stub
+          mt: null,         // stub
+        };
+      });
+    }
 
     // Overall duration fallback from last segment
     if (segs.length) {
