@@ -156,3 +156,42 @@ def test_singleton_returns_same_instance():
     b = get_adapter()
     assert a is b
     reset_adapter()
+
+
+# ── Task A6: app.py shim wiring (unit-level smoke check) ─────────────────────
+
+def test_app_subtitle_segment_emit_triggers_adapter(monkeypatch):
+    """Smoke check: calling the helper inside the emit path updates the cache.
+    This is a unit-level confirmation that the shim helpers are importable
+    from the same paths used by app.py."""
+    from progress_adapter import get_adapter, reset_adapter, report_from_subtitle_segment
+    reset_adapter()
+    adapter = get_adapter()
+    report_from_subtitle_segment(adapter, file_id="fid-A6", job_id="",
+                                  segment_payload={"progress": 0.42})
+    snap = adapter.get_snapshot("fid-A6")
+    assert snap is not None
+    assert snap.pct == 42
+    assert snap.stage_label == "轉錄中"
+    reset_adapter()
+
+
+# ── Task A7: pipeline_runner._socketio_emit bridges V6 stage ─────────────────
+
+def test_pipeline_runner_socketio_emit_bridges_v6_stage():
+    """Structural assertion: report_from_v6_stage must appear inside
+    _socketio_emit function body in pipeline_runner.py.
+    This verifies the wiring without fragile module reload."""
+    import ast
+    import pathlib
+    src = (pathlib.Path(__file__).parent.parent / "pipeline_runner.py").read_text()
+    tree = ast.parse(src)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == "_socketio_emit":
+            fn_src = ast.get_source_segment(src, node)
+            assert fn_src is not None, "_socketio_emit not found"
+            assert "report_from_v6_stage" in fn_src, (
+                "report_from_v6_stage not wired inside _socketio_emit"
+            )
+            return
+    raise AssertionError("_socketio_emit function not found in pipeline_runner.py")

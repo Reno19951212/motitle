@@ -1022,6 +1022,21 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
                 'eta_seconds': round(eta, 1) if eta is not None else None,
                 'total_duration': total_duration,
             }, room=sid)
+            # A6.1 — unified progress contract bridge
+            try:
+                from progress_adapter import get_adapter, report_from_subtitle_segment
+                report_from_subtitle_segment(
+                    get_adapter(),
+                    file_id=file_id,
+                    job_id="",
+                    segment_payload={
+                        "progress": round(progress, 4),
+                        "eta_seconds": round(eta, 1) if eta is not None else None,
+                        "total_duration": total_duration,
+                    },
+                )
+            except Exception:
+                pass  # adapter failures must NOT break ASR flow
 
         # === Profile-based ASR engine path ===
         if use_profile_engine:
@@ -3203,6 +3218,21 @@ def _auto_translate(fid: str, sid=None, cancel_event=None) -> None:
             'percent': 0,
             'elapsed_seconds': round(time.time() - translation_start, 1),
         })
+        # A6.2 — unified progress contract bridge (initial 0%)
+        try:
+            from progress_adapter import get_adapter, report_from_translation_progress
+            report_from_translation_progress(
+                get_adapter(),
+                file_id=fid,
+                job_id="",
+                translation_payload={
+                    "percent": 0,
+                    "completed": 0,
+                    "total": len(segments),
+                },
+            )
+        except Exception:
+            pass
 
         from translation import create_translation_engine
         engine = create_translation_engine(translation_config)
@@ -3241,6 +3271,21 @@ def _auto_translate(fid: str, sid=None, cancel_event=None) -> None:
                 'percent': int((completed / total) * 100) if total else 0,
                 'elapsed_seconds': round(time.time() - translation_start, 1),
             })
+            # A6.2 — unified progress contract bridge (per-batch %)
+            try:
+                from progress_adapter import get_adapter, report_from_translation_progress
+                report_from_translation_progress(
+                    get_adapter(),
+                    file_id=fid,
+                    job_id="",
+                    translation_payload={
+                        "percent": int((completed / total) * 100) if total else 0,
+                        "completed": completed,
+                        "total": total,
+                    },
+                )
+            except Exception:
+                pass
 
         parallel_batches = int(translation_config.get("parallel_batches") or 1)
         alignment_mode = str(translation_config.get("alignment_mode", "")).lower()
