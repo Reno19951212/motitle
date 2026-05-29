@@ -3415,6 +3415,8 @@ def list_files():
             'pipeline_seconds': entry.get('pipeline_seconds'),
             'job_id': job_id_by_file.get(fid),  # R5 Phase 4
             'prompt_overrides': entry.get('prompt_overrides'),  # v3.18 Stage 2
+            'active_kind': entry.get('active_kind', 'profile'),  # v3.19 Sprint 1 A-1
+            'active_id': entry.get('active_id'),                 # v3.19 Sprint 1 A-1
         })
     # Newest first
     files.sort(key=lambda f: f['uploaded_at'], reverse=True)
