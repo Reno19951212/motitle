@@ -145,3 +145,14 @@ def test_v6_shim_uses_stage_label_map():
     assert V6_STAGE_LABELS["asr_align"] == "mlx 對齊中"
     assert V6_STAGE_LABELS["merge"] == "Merge 中"
     assert V6_STAGE_LABELS["refiner"] == "Refiner 校對中"
+
+
+# ── Task A5: Singleton accessor ───────────────────────────────────────────────
+
+def test_singleton_returns_same_instance():
+    from progress_adapter import get_adapter, reset_adapter
+    reset_adapter()
+    a = get_adapter()
+    b = get_adapter()
+    assert a is b
+    reset_adapter()

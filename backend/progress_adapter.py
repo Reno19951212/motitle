@@ -134,3 +134,29 @@ def report_from_v6_stage(adapter: ProgressAdapter, *,
         stage_label=label, stage_state=state,
         pipeline_kind="pipeline_v6",
     )
+
+
+# ── Module-level singleton ────────────────────────────────────────────────────
+
+_adapter_instance: Optional[ProgressAdapter] = None
+
+
+def get_adapter() -> ProgressAdapter:
+    """Lazy singleton — app.py initialises by calling init_adapter(socketio)."""
+    global _adapter_instance
+    if _adapter_instance is None:
+        _adapter_instance = ProgressAdapter()
+    return _adapter_instance
+
+
+def init_adapter(socketio) -> ProgressAdapter:
+    """Re-initialise singleton with the real socketio.emit. Idempotent."""
+    global _adapter_instance
+    _adapter_instance = ProgressAdapter(emit_fn=socketio.emit)
+    return _adapter_instance
+
+
+def reset_adapter() -> None:
+    """For tests only."""
+    global _adapter_instance
+    _adapter_instance = None

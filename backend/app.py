@@ -162,6 +162,9 @@ CORS(app, supports_credentials=True, origins=_LAN_ORIGIN_REGEX)
 socketio = SocketIO(app, cors_allowed_origins=_is_lan_origin, async_mode='threading',
                     max_http_buffer_size=100 * 1024 * 1024)
 
+from progress_adapter import init_adapter as _init_progress_adapter
+_init_progress_adapter(socketio)
+
 # Persistent storage directory (inside project, survives restarts)
 DATA_DIR = Path(__file__).parent / "data"
 UPLOAD_DIR = DATA_DIR / "uploads"
