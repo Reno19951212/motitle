@@ -3097,6 +3097,24 @@ def _auto_translate(fid: str, sid=None, cancel_event=None) -> None:
         if not engine_name:
             return
 
+        # v3.19 Sprint 3 A-3 — surface missing credentials before wasting a
+        # worker slot. Cloud engines (openrouter) require an api_key; an empty
+        # key would cause a confusing 401 from the remote service deep inside
+        # the translation engine. Detect it early and mark the file clearly.
+        if engine_name == "openrouter":
+            api_key = (translation_config.get("api_key") or "").strip()
+            if not api_key:
+                reason = "OpenRouter api_key not set on active profile; auto-translate skipped"
+                with _registry_lock:
+                    entry = _file_registry.get(fid)
+                if entry:
+                    entry["translation_status"] = "skipped_missing_credentials"
+                    entry["translation_error"] = reason
+                    _save_registry()
+                socketio.emit("translation_skipped", {"file_id": fid, "reason": reason})
+                app.logger.warning("_auto_translate skipped for %s: %s", fid, reason)
+                return
+
         with _registry_lock:
             entry = _file_registry.get(fid)
         if not entry:
