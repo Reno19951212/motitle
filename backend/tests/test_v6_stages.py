@@ -174,7 +174,8 @@ class TestQwen3VadEngine:
              "full_text": "", "chunks": [], "segments": [], "runtime_sec": 0.1, "error": None}
         ]}
         captured = {}
-        def capture_payload(audio_path, wav_paths, payload):
+        def capture_payload(audio_path, wav_paths, payload, cancel_event=None):
+            # v3.19 Sprint 3 B-8: _call_subprocess now accepts cancel_event kwarg
             captured.update(payload)
             return fake
         with patch.object(engine, "_call_subprocess", side_effect=capture_payload):
@@ -405,7 +406,10 @@ class TestQwen3PerRegionStage:
             ctx = _make_context({"audio_path": "/fake/audio.mp4"})
             result = stage.transform(vad_regions, ctx)
 
-        mock_engine.transcribe_regions.assert_called_once_with("/fake/audio.mp4", vad_regions)
+        # v3.19 Sprint 3 B-8: cancel_event=None is now passed as a kwarg
+        mock_engine.transcribe_regions.assert_called_once_with(
+            "/fake/audio.mp4", vad_regions, cancel_event=None
+        )
         assert result == expected_chars
 
     def test_transform_returns_normalized_float_dicts(self):
