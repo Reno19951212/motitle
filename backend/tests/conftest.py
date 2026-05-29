@@ -368,3 +368,46 @@ def render_complete():
         return job
 
     return _wait
+
+
+@pytest.fixture
+def non_admin_session():
+    """A Flask test client authenticated as a non-admin user (bob_test).
+
+    Used by B-2 test to exercise the real non-admin path in list_pipelines,
+    which calls annotate_broken_refs with is_admin=False.
+
+    The fixture temporarily disables R5_AUTH_BYPASS so that the route code
+    uses the real current_user.is_admin value (False for bob_test).
+    After the fixture yields, it restores R5_AUTH_BYPASS.
+    """
+    try:
+        import app as app_mod
+        from auth.users import init_db, create_user
+    except ImportError:
+        pytest.skip("app module not available")
+
+    db = app_mod.app.config["AUTH_DB_PATH"]
+    init_db(db)
+    try:
+        create_user(db, "bob_test", "BobPass1!", is_admin=False)
+    except ValueError:
+        pass  # user already exists (created in setup or previous run)
+
+    # Temporarily disable auth bypass so is_admin=False is respected
+    original_bypass = app_mod.app.config.get("R5_AUTH_BYPASS", False)
+    original_login_disabled = app_mod.app.config.get("LOGIN_DISABLED", False)
+    app_mod.app.config["R5_AUTH_BYPASS"] = False
+    app_mod.app.config["LOGIN_DISABLED"] = False
+
+    c = app_mod.app.test_client()
+    r = c.post("/login", json={"username": "bob_test", "password": "BobPass1!"})
+    if r.status_code != 200:
+        app_mod.app.config["R5_AUTH_BYPASS"] = original_bypass
+        app_mod.app.config["LOGIN_DISABLED"] = original_login_disabled
+        pytest.fail(f"bob_test login failed: {r.status_code} {r.get_data(as_text=True)[:200]}")
+
+    yield c
+
+    app_mod.app.config["R5_AUTH_BYPASS"] = original_bypass
+    app_mod.app.config["LOGIN_DISABLED"] = original_login_disabled

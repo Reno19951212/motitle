@@ -426,21 +426,27 @@ class PipelineManager:
         if is_admin:
             out["broken_refs"] = broken
             return out
+        # v3.19 B-2: guard against None managers — PipelineManager may be
+        # constructed without asr/mt/glossary managers for V6-only use.
+        # When a manager is None, skip that ref-check (treat refs as visible).
         asr_id = pipeline.get("asr_profile_id")
-        if asr_id and not self._asr_manager.can_view(asr_id, user_id, is_admin):
-            broken["asr_profile_id"] = asr_id
-        broken_mt = [
-            mt_id for mt_id in pipeline.get("mt_stages", [])
-            if not self._mt_manager.can_view(mt_id, user_id, is_admin)
-        ]
-        if broken_mt:
-            broken["mt_stages"] = broken_mt
-        gloss_ids = pipeline.get("glossary_stage", {}).get("glossary_ids", [])
-        broken_gloss = [
-            g_id for g_id in gloss_ids
-            if not self._glossary_manager.can_view(g_id, user_id, is_admin)
-        ]
-        if broken_gloss:
-            broken["glossary_ids"] = broken_gloss
+        if asr_id and self._asr_manager is not None:
+            if not self._asr_manager.can_view(asr_id, user_id, is_admin):
+                broken["asr_profile_id"] = asr_id
+        if self._mt_manager is not None:
+            broken_mt = [
+                mt_id for mt_id in pipeline.get("mt_stages", [])
+                if not self._mt_manager.can_view(mt_id, user_id, is_admin)
+            ]
+            if broken_mt:
+                broken["mt_stages"] = broken_mt
+        if self._glossary_manager is not None:
+            gloss_ids = pipeline.get("glossary_stage", {}).get("glossary_ids", [])
+            broken_gloss = [
+                g_id for g_id in gloss_ids
+                if not self._glossary_manager.can_view(g_id, user_id, is_admin)
+            ]
+            if broken_gloss:
+                broken["glossary_ids"] = broken_gloss
         out["broken_refs"] = broken
         return out

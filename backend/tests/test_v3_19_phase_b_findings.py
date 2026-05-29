@@ -61,7 +61,6 @@ def test_finding_b1_stages_routes_dead(client, v6_file_with_stage_outputs):
 # Pattern 5 + 1 — Constructor wiring drift
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skip(reason="Phase B finding B-2 pending review — GET /api/pipelines 500s for non-admin (PipelineManager._asr_manager is None)")
 def test_finding_b2_non_admin_pipelines_500(client, non_admin_session):
     """B-2: GET /api/pipelines crashes with 500 for any non-admin user.
 
