@@ -2009,10 +2009,19 @@
     const isV6 = fileInfo && fileInfo.active_kind === 'pipeline_v6';
 
     if (isV6) {
-      const tResp = await fetch(`${API_BASE}/api/files/${fileId}/translations`).then(r => r.json());
-      const translations = tResp.translations || [];
+      let translations = [];
+      try {
+        const tResp = await fetch(`${API_BASE}/api/files/${fileId}/translations`).then(r => r.json());
+        translations = tResp.translations || [];
+      } catch (e) {
+        showToast('無法載入 V6 翻譯: ' + e.message, 'error');
+        translations = [];
+      }
       segs = translations.map((t, i) => {
-        const rawZh = t.zh_text || (t.by_lang && t.by_lang.zh && t.by_lang.zh.text) || '';
+        const srcLang = t.source_lang || 'zh';
+        const rawZh = t[`${srcLang}_text`]
+                   || (t.by_lang && t.by_lang[srcLang] && t.by_lang[srcLang].text)
+                   || '';
         const { clean, flags: prefixFlags } = parseTranslationFlags(rawZh);
         const zh = clean;
         const apiFlags = Array.isArray(t.flags) ? t.flags : [];
