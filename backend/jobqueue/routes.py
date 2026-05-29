@@ -53,11 +53,29 @@ def list_queue():
     (done/failed/cancelled) drop off the panel as soon as the worker
     transitions out of 'running' — the file card status badges carry the
     post-completion state instead. Each row is annotated with file_name
-    + owner_username.
+    + owner_username + progress fields from ProgressAdapter.
     """
+    # Import inside handler to avoid circular imports at module load time.
+    from progress_adapter import get_adapter as _get_progress_adapter
+
     db_path = _db_path or current_app.config["AUTH_DB_PATH"]
     active = list_active_jobs(db_path)
-    return jsonify(_annotate(active, db_path)), 200
+    rows = _annotate(active, db_path)
+
+    _adapter = _get_progress_adapter()
+    for row in rows:
+        fid = row.get("file_id")
+        snap = _adapter.get_snapshot(fid) if fid else None
+        if snap is not None:
+            row["progress_pct"] = snap.pct
+            row["stage_label"] = snap.stage_label
+            row["stage_state"] = snap.stage_state
+        else:
+            row["progress_pct"] = None
+            row["stage_label"] = None
+            row["stage_state"] = "idle" if row.get("status") == "queued" else None
+
+    return jsonify(rows), 200
 
 
 def _get_job_queue():
