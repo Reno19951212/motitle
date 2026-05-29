@@ -279,7 +279,6 @@ def test_finding_b8_qwen3_subprocess_no_cancel(monkeypatch):
 # Pattern 2 — More field shape drift
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skip(reason="Phase B finding B-9 pending review — /api/files approved_count undercounts V6 files")
 def test_finding_b9_approved_count_v6_undercount(client, v6_file_with_translations):
     """B-9: GET /api/files's approved_count uses t.get('status') == 'approved'
     which always returns 0 for fresh V6 files (V6 sets by_lang.zh.status).
