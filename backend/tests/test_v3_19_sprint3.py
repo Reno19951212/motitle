@@ -299,8 +299,10 @@ def test_b10_pipeline_snapshot_stored_at_upload(client, monkeypatch, tmp_path):
     # OR manually inject + check the snapshot is stored
     with app_mod._registry_lock:
         app_mod._file_registry[fid] = entry
-        # Simulate the snapshot being written at upload time
-        app_mod._snapshot_pipeline_at_upload(fid)
+
+    # Simulate the snapshot being written at upload time (outside the lock —
+    # _snapshot_pipeline_at_upload acquires the lock internally)
+    app_mod._snapshot_pipeline_at_upload(fid)
 
     try:
         with app_mod._registry_lock:

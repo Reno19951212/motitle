@@ -314,7 +314,9 @@ def _asr_handler(job, cancel_event=None):
     # No separate MT job is enqueued — Stage 3+ refiner is inline.
     kind = f.get("active_kind", "profile")
     if kind == "pipeline_v6":
-        pipeline = _pipeline_manager.get(f["active_id"])
+        # v3.19 Sprint 3 B-10: prefer upload-time snapshot over live pipeline JSON
+        # to guard against admin PATCHing the pipeline between upload and pickup.
+        pipeline = f.get("active_pipeline_snapshot") or _pipeline_manager.get(f["active_id"])
         if pipeline is None:
             raise RuntimeError(
                 f"Pipeline 已被刪除 (active_id={f['active_id']}), 無法執行 ASR"
@@ -648,6 +650,34 @@ def _current_active_snapshot():
     return kind, aid
 
 
+def _snapshot_pipeline_at_upload(file_id: str) -> None:
+    """v3.19 Sprint 3 B-10 — snapshot the current pipeline JSON into the
+    file registry entry so that a subsequent admin PATCH of the pipeline does
+    not affect in-flight jobs.
+
+    Call this immediately after inserting an entry with active_kind=
+    'pipeline_v6'. Idempotent: if the pipeline cannot be loaded (e.g. during
+    tests with a mock manager), the entry is left without the snapshot field
+    rather than raising.
+    """
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+    if not entry:
+        return
+    pipeline_id = entry.get("active_id")
+    if not pipeline_id:
+        return
+    try:
+        pipeline = _pipeline_manager.get(pipeline_id)
+        if pipeline:
+            _update_file(file_id, active_pipeline_snapshot=dict(pipeline))
+    except Exception as exc:  # pragma: no cover
+        app.logger.warning(
+            "_snapshot_pipeline_at_upload: could not snapshot pipeline %s for file %s: %s",
+            pipeline_id, file_id, exc,
+        )
+
+
 def _register_file(file_id, original_name, stored_name, size_bytes, user_id=None,
                    file_path=None, active_kind=None, active_id=None):
     """Register an uploaded file. user_id is the owner (R5 Phase 1 — required
@@ -660,6 +690,10 @@ def _register_file(file_id, original_name, stored_name, size_bytes, user_id=None
     time (V6 Task 2.4). If not supplied, _current_active_snapshot() reads
     settings.json so in-flight jobs are not affected when the user switches
     active mid-upload.
+
+    v3.19 Sprint 3 B-10: for pipeline_v6 files, the pipeline JSON is also
+    snapshot immediately into active_pipeline_snapshot so that admin PATCHes
+    between upload and worker pickup do not affect the run.
     """
     if active_kind is None or active_id is None:
         snap_kind, snap_aid = _current_active_snapshot()
@@ -685,8 +719,13 @@ def _register_file(file_id, original_name, stored_name, size_bytes, user_id=None
             'prompt_overrides': None,   # v3.18 Stage 2: per-file MT prompt override
             'active_kind': active_kind,  # v6 Task 2.4: snapshot at upload time
             'active_id': active_id,      # v6 Task 2.4: snapshot at upload time
+            'active_pipeline_snapshot': None,  # v3.19 Sprint 3 B-10: filled below for V6
         }
         _save_registry()
+    # Snapshot pipeline JSON immediately for V6 files (outside the lock to
+    # avoid deadlock if _pipeline_manager.get() acquires its own lock).
+    if active_kind == "pipeline_v6":
+        _snapshot_pipeline_at_upload(file_id)
     return _file_registry[file_id]
 
 
