@@ -717,6 +717,16 @@
     .toast.error   { border-left-color: var(--danger); }
     @keyframes toastIn { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
 
+    #enInput[readonly] {
+      background: var(--surface-2);
+      color: var(--text-mid);
+      cursor: default;
+    }
+    #enInput[readonly]:focus {
+      border-color: var(--border);
+      box-shadow: none;
+    }
+
   </style>
   <link rel="stylesheet" href="css/responsive.css">
 </head>
@@ -2267,6 +2277,8 @@
           <textarea class="rv-b-detail-input" id="enInput"
                     oninput="onEnInput()"
                     onblur="saveEnIfDirty()"
+                    ${fileInfo && fileInfo.active_kind === 'pipeline_v6' ? 'readonly' : ''}
+                    title="${fileInfo && fileInfo.active_kind === 'pipeline_v6' ? 'Qwen3 ASR 原文（V6 mode read-only — 改譯文喺 ZH 欄做）' : ''}"
                     rows="2">${escapeHtml(s.en)}</textarea>
         </div>
 
@@ -2500,6 +2512,13 @@
   async function saveEnIfDirty() {
     const ta = document.getElementById('enInput');
     if (!ta || !enDirty) return true;
+    // V6: EN is Qwen3 raw Cantonese (read-only). Skip PATCH so enDirty
+    // clears and downstream flow (Cmd+Enter approve) continues normally.
+    if (fileInfo && fileInfo.active_kind === 'pipeline_v6') {
+      enDirty = false;
+      ta.classList.remove('dirty');
+      return true;
+    }
     const s = segs[cursorIdx];
     if (!s) return true;
     const newText = ta.value.trim();

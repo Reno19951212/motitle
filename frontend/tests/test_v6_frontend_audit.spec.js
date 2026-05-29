@@ -58,5 +58,30 @@ test.describe.serial('V6 frontend audit', () => {
     expect(overlayText.length).toBeGreaterThan(0);
   });
 
-  // Tasks 2, 3, 4 will append further tests to this describe block.
+  test('proofread_v6_en_textarea_is_readonly', async ({ page }) => {
+    await page.goto(`${BASE}/proofread.html?file_id=${v6FileId}`);
+    await page.waitForLoadState('networkidle');
+
+    await page.waitForFunction(() => typeof segs !== 'undefined' && segs.length > 0);
+
+    await page.evaluate(() => {
+      if (typeof selectSegment === 'function') selectSegment(0);
+      else if (typeof setCursor === 'function') setCursor(0);
+    });
+    await page.waitForSelector('#enInput', { state: 'attached' });
+
+    const isReadOnly = await page.locator('#enInput').evaluate(el => el.readOnly === true);
+    expect(isReadOnly).toBe(true);
+
+    const tooltip = await page.locator('#enInput').getAttribute('title');
+    expect(tooltip || '').toContain('V6');
+
+    const before = await page.locator('#enInput').inputValue();
+    await page.locator('#enInput').focus();
+    await page.keyboard.type('XYZ_test_mutate_attempt');
+    const after = await page.locator('#enInput').inputValue();
+    expect(after).toBe(before);
+  });
+
+  // Tasks 3, 4 will append further tests to this describe block.
 });
