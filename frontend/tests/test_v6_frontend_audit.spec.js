@@ -83,6 +83,46 @@ test.describe.serial('V6 frontend audit', () => {
     expect(after).toBe(before);
   });
 
+  test('dashboard_v6_file_inspector_and_overlay_populated', async ({ page }) => {
+    await page.goto(BASE + '/');
+    await page.waitForLoadState('networkidle');
+    await page.waitForFunction(() => typeof activeKind !== 'undefined');
+
+    // Click the V6 file in the file list to load it into the inspector
+    await page.evaluate((fid) => {
+      if (typeof selectFile === 'function') {
+        selectFile(fid);
+      } else {
+        const card = document.querySelector(`[data-file-id="${fid}"]`);
+        if (card) card.click();
+      }
+    }, v6FileId);
+
+    // loadFileSegments should populate `segments` global
+    await page.waitForFunction(
+      () => typeof segments !== 'undefined' && segments && segments.length > 0,
+      null,
+      { timeout: 10000 }
+    );
+
+    const firstZh = await page.evaluate(() => segments[0].zh_text || '');
+    expect(firstZh.length).toBeGreaterThan(0);
+
+    // Seek video into first segment range; overlay should show text
+    const firstStart = await page.evaluate(() => segments[0].start);
+    await page.evaluate((t) => {
+      const v = document.querySelector('video');
+      if (v) { v.currentTime = t + 0.5; v.pause(); }
+    }, firstStart);
+    await page.waitForTimeout(800);
+
+    const overlayText = await page.evaluate(() => {
+      const t = document.querySelector('#subtitleSvg text') || document.querySelector('svg text');
+      return t ? (t.textContent || '').trim() : '';
+    });
+    expect(overlayText.length).toBeGreaterThan(0);
+  });
+
   // Tasks 3, 4 will append further tests to this describe block.
 
   test('proofread_v6_zh_edit_patches_translations', async ({ page }) => {

@@ -4153,6 +4153,46 @@
 
     async function loadFileSegments(id) {
       try {
+        const fileInfo = uploadedFiles[id] || {};
+        const isV6 = fileInfo.active_kind === 'pipeline_v6';
+        const isDone = (fileInfo.status === 'done');
+
+        if (isV6) {
+          // V6 path: translations is canonical. /segments returns [] for V6.
+          let trans = [];
+          try {
+            const tResp = await fetch(`${API_BASE}/api/files/${id}/translations`);
+            if (!tResp.ok) return;
+            const tData = await tResp.json();
+            trans = tData.translations || [];
+          } catch (e) { return; }
+          if (isDone && trans.length) {
+            const stripQaPrefix = (s) =>
+              (s || '').replace(/^\s*(\[LONG\]|\[NEEDS REVIEW\])\s*/g, '');
+            segments = trans.map((t) => {
+              const srcLang = t.source_lang || 'zh';
+              const refinedText = t[`${srcLang}_text`]
+                || (t.by_lang && t.by_lang[srcLang] && t.by_lang[srcLang].text)
+                || '';
+              return {
+                start: t.start,
+                end: t.end,
+                text: stripQaPrefix(refinedText) || t.source_text || '',
+                zh_text: refinedText,
+                _en_text: t.source_text || '',
+                _approved: t.status === 'approved' || t.approved === true,
+                _edited: t.edited === true,
+              };
+            });
+            renderInspectorBody();
+            const v = document.getElementById('videoPlayer');
+            if (v) updateSubtitleOverlay(v.currentTime || 0);
+            applySubtitleStyle();
+          }
+          return;
+        }
+
+        // === PROFILE PATH — preserved verbatim ===
         const resp = await fetch(`${API_BASE}/api/files/${id}/segments`);
         const data = await resp.json();
         if (data.status === 'done' && data.segments?.length) {
