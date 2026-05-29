@@ -76,3 +76,36 @@ def test_done_state_always_emits_no_throttle():
                    stage_state="done", pipeline_kind="profile")
     assert len(emitted) == 2
     assert emitted[1][1]["stage_state"] == "done"
+
+
+# ── Task A3: Profile shim helpers ─────────────────────────────────────────────
+
+def test_profile_shim_subtitle_segment():
+    """Translates subtitle_segment payload to pipeline_progress."""
+    from progress_adapter import ProgressAdapter, report_from_subtitle_segment
+    emitted = []
+    adapter = ProgressAdapter(emit_fn=lambda evt, p: emitted.append((evt, p)))
+    report_from_subtitle_segment(
+        adapter,
+        file_id="f1",
+        job_id="j1",
+        segment_payload={"progress": 0.5, "eta_seconds": 30, "total_duration": 600},
+    )
+    assert emitted[-1][1]["pct"] == 50
+    assert emitted[-1][1]["stage_label"] == "轉錄中"
+    assert emitted[-1][1]["stage_state"] == "active"
+    assert emitted[-1][1]["pipeline_kind"] == "profile"
+
+
+def test_profile_shim_translation_progress():
+    from progress_adapter import ProgressAdapter, report_from_translation_progress
+    emitted = []
+    adapter = ProgressAdapter(emit_fn=lambda evt, p: emitted.append((evt, p)))
+    report_from_translation_progress(
+        adapter,
+        file_id="f1",
+        job_id="j1",
+        translation_payload={"percent": 80, "completed": 8, "total": 10},
+    )
+    assert emitted[-1][1]["pct"] == 80
+    assert emitted[-1][1]["stage_label"] == "翻譯中"

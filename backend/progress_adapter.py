@@ -73,3 +73,30 @@ class ProgressAdapter:
         with self._lock:
             self._cache.pop(file_id, None)
             self._last_emit_at.pop(file_id, None)
+
+
+# ── Profile shim helpers ──────────────────────────────────────────────────────
+
+def report_from_subtitle_segment(adapter: ProgressAdapter, *,
+                                  file_id: str, job_id: str,
+                                  segment_payload: dict) -> None:
+    """Profile-mode shim: subtitle_segment → pipeline_progress."""
+    progress = segment_payload.get("progress", 0)
+    pct = max(0, min(100, int(round(progress * 100))))
+    adapter.report(
+        file_id=file_id, job_id=job_id, pct=pct,
+        stage_label="轉錄中", stage_state="active",
+        pipeline_kind="profile",
+    )
+
+
+def report_from_translation_progress(adapter: ProgressAdapter, *,
+                                      file_id: str, job_id: str,
+                                      translation_payload: dict) -> None:
+    """Profile-mode shim: translation_progress → pipeline_progress."""
+    pct = max(0, min(100, int(translation_payload.get("percent", 0))))
+    adapter.report(
+        file_id=file_id, job_id=job_id, pct=pct,
+        stage_label="翻譯中", stage_state="active",
+        pipeline_kind="profile",
+    )
