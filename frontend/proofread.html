@@ -1248,7 +1248,9 @@
   }
 
   function backToDashboard() {
-    location.href = 'index.html';
+    // Use root '/' not 'index.html' — backend exposes @app.get("/") but
+    // has no /index.html route, so the latter 404s.
+    location.href = '/';
   }
 
   // ============================================================
