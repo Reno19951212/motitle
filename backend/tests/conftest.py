@@ -146,6 +146,46 @@ def _isolate_app_data(request, tmp_path, monkeypatch):
         SubtitleRenderer(test_data_dir / "renders"),
     )
 
+    # v3.19 — isolate CONFIG_DIR-rooted managers so test_client() POSTs to
+    # /api/pipelines (and other manager-write routes) don't leak files into
+    # the real backend/config/<subdir>/. Without this, every run of
+    # test_v6_runner.TestV6PipelinePostEndpoint left a fresh "Test v6 pipeline"
+    # JSON in production config/pipelines/, spamming the Dashboard preset menu.
+    #
+    # Uses an "_isolated_managers_config" subdir name (not just "config") to
+    # avoid collisions with tests that themselves create tmp_path/"config".
+    test_managers_config = tmp_path / "_isolated_managers_config"
+    try:
+        from pipelines import PipelineManager
+        from transcribe_profiles import TranscribeProfileManager
+        from llm_profiles import LLMProfileManager
+        from refiner_profiles import RefinerProfileManager
+        # Each manager __init__ creates its subdir with parents=True, exist_ok=True,
+        # so we don't need to pre-create test_managers_config.
+        monkeypatch.setattr(app, "_pipeline_manager", PipelineManager(test_managers_config))
+        monkeypatch.setattr(
+            app, "_transcribe_profile_manager",
+            TranscribeProfileManager(test_managers_config / "transcribe_profiles"),
+        )
+        monkeypatch.setattr(
+            app, "_llm_profile_manager",
+            LLMProfileManager(test_managers_config / "llm_profiles"),
+        )
+        monkeypatch.setattr(
+            app, "_refiner_profile_manager",
+            RefinerProfileManager(test_managers_config / "refiner_profiles"),
+        )
+        # Re-wire the auth/decorators globals so require_pipeline_owner uses
+        # the test instance during ownership checks.
+        try:
+            from auth.decorators import set_v4_managers as _sv4
+            _sv4(asr_manager=None, mt_manager=None, pipeline_manager=app._pipeline_manager)
+        except ImportError:
+            pass
+    except ImportError:
+        # Managers not importable in this test context — non-V6 tests are fine.
+        pass
+
     # Snapshot and clear the registry under the same lock production code uses.
     with app._registry_lock:
         original_registry = app._file_registry.copy()

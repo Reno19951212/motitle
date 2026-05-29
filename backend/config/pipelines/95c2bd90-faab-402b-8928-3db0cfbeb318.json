@@ -1,0 +1,26 @@
+{
+  "id": "95c2bd90-faab-402b-8928-3db0cfbeb318",
+  "name": "中文",
+  "description": "",
+  "asr_profile_id": "2af8f65f-b532-4dea-8688-d3634e790e0e",
+  "mt_stages": [],
+  "glossary_stage": {
+    "enabled": false,
+    "glossary_ids": [],
+    "apply_order": "explicit",
+    "apply_method": "string-match-then-llm"
+  },
+  "font_config": {
+    "family": "Noto Sans TC",
+    "color": "#ffffff",
+    "outline_color": "#000000",
+    "size": 35,
+    "outline_width": 2,
+    "margin_bottom": 40,
+    "subtitle_source": "auto",
+    "bilingual_order": "source_top"
+  },
+  "user_id": null,
+  "created_at": 1779168988,
+  "updated_at": 1779168988
+}

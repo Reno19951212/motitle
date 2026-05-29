@@ -1,0 +1,35 @@
+{
+  "name": "V5 ZH 賽馬廣播 (dual-ASR + broadcast-hk refiner) [A5]",
+  "version": 5,
+  "asr_primary": {
+    "transcribe_profile_id": "82338761-e6ed-47eb-b153-64789ed7327e",
+    "source_lang": "zh"
+  },
+  "asr_secondary": {
+    "transcribe_profile_id": "a2d98ff6-11c1-4305-9042-7181cabc091e",
+    "source_lang": "zh"
+  },
+  "target_languages": [
+    "zh"
+  ],
+  "refinements": {
+    "zh": [
+      {
+        "refiner_profile_id": "e343a867-c619-4374-a36c-b2e60422dab6"
+      }
+    ]
+  },
+  "translators": {},
+  "glossary_stages": {},
+  "font_config": {
+    "family": "Noto Sans TC",
+    "color": "white",
+    "outline_color": "black"
+  },
+  "shared": false,
+  "id": "ec2d55ba-dee7-4a32-8316-e8c2327aa2d9",
+  "user_id": 5089,
+  "created_at": 1779250236.504417,
+  "updated_at": 1779250236.504417,
+  "source_lang": "zh"
+}

@@ -1,0 +1,35 @@
+{
+  "name": "V5 EN Winning Factor (dual-ASR + newscast refiner) [A5]",
+  "version": 5,
+  "asr_primary": {
+    "transcribe_profile_id": "18275da4-7666-4ede-a105-e22cac5d1e59",
+    "source_lang": "en"
+  },
+  "asr_secondary": {
+    "transcribe_profile_id": "ee9dd44d-3ae8-4b95-a928-2805736f8be7",
+    "source_lang": "en"
+  },
+  "target_languages": [
+    "en"
+  ],
+  "refinements": {
+    "en": [
+      {
+        "refiner_profile_id": "c4a8b3a1-d78a-4d79-82c9-906186358940"
+      }
+    ]
+  },
+  "translators": {},
+  "glossary_stages": {},
+  "font_config": {
+    "family": "Noto Sans",
+    "color": "white",
+    "outline_color": "black"
+  },
+  "shared": false,
+  "id": "b49ef5d4-c325-46df-acc4-03d8d6074113",
+  "user_id": 5089,
+  "created_at": 1779250236.5066922,
+  "updated_at": 1779250236.5066922,
+  "source_lang": "en"
+}

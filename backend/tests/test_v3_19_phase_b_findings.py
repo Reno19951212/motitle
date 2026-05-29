@@ -73,6 +73,34 @@ def test_finding_b2_non_admin_pipelines_500(client, non_admin_session):
     Expected: 200 with the user's visible pipelines.
     Actual: 500 Internal Server Error.
     """
+    # Seed a shared V6 pipeline directly via the isolated test PipelineManager.
+    # (Prior to v3.19 conftest isolation, the test depended on production
+    # config/pipelines/ containing the 賽馬 + Winning Factor JSONs.)
+    import app as _app_mod
+    seeded = _app_mod._pipeline_manager.create(
+        {
+            "name": "B-2 seeded shared V6 pipeline",
+            "pipeline_type": "v6_vad_dual_asr",
+            "source_lang": "zh",
+            "target_languages": ["zh"],
+            "vad": {"threshold": 0.5},
+            "asr_primary": {"transcribe_profile_id": "x", "source_lang": "zh"},
+            "qwen3_asr": {"language": "Chinese", "context": "", "post_s2hk": True},
+            "refinements": {"zh": [{"refiner_profile_id": "x"}]},
+            "translators": {},
+            "glossary_stages": {},
+            "font_config": {
+                "family": "Noto Sans TC", "size": 52,
+                "color": "white", "outline_color": "black",
+                "outline_width": 2, "margin_bottom": 60,
+                "subtitle_source": "auto", "bilingual_order": "source_top",
+            },
+            "shared": True,
+        },
+        user_id=None,  # shared pipeline (visible to all users)
+    )
+    seeded_id = seeded["id"] if isinstance(seeded, dict) else seeded
+
     r = non_admin_session.get("/api/pipelines")
     assert r.status_code == 200, (
         f"non-admin got {r.status_code} (expected 200) — "
@@ -80,10 +108,9 @@ def test_finding_b2_non_admin_pipelines_500(client, non_admin_session):
     )
     body = r.get_json()
     assert "pipelines" in body
-    # At least the shared V6 pipelines should be visible
     pipeline_ids = {p["id"] for p in body["pipelines"]}
-    assert any(pid.startswith(("4696bbaa", "641a77ec")) for pid in pipeline_ids), \
-        "non-admin should see the shared V6 pipelines"
+    assert seeded_id in pipeline_ids, \
+        "non-admin should see the seeded shared V6 pipeline"
 
 
 # ---------------------------------------------------------------------------

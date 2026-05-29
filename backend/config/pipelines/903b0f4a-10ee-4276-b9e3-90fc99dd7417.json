@@ -1,0 +1,37 @@
+{
+  "name": "A2 smoke ZH+EN",
+  "version": 5,
+  "asr_primary": {
+    "transcribe_profile_id": "eb5675f2-87ee-41f9-baec-339e99b8c730",
+    "source_lang": "zh"
+  },
+  "asr_secondary": null,
+  "asr_verifier": null,
+  "target_languages": [
+    "zh",
+    "en"
+  ],
+  "refinements": {
+    "zh": [
+      {
+        "refiner_profile_id": "120a640e-c969-42d4-be00-0009327dc412"
+      }
+    ],
+    "en": []
+  },
+  "translators": {
+    "en": {
+      "translator_profile_id": "5b317124-da2d-4e43-b37d-827e7db5afff"
+    }
+  },
+  "glossary_stages": {},
+  "font_config": {
+    "family": "Noto Sans TC",
+    "color": "white",
+    "outline_color": "black"
+  },
+  "id": "903b0f4a-10ee-4276-b9e3-90fc99dd7417",
+  "user_id": 5006,
+  "created_at": 1779233731.3224251,
+  "updated_at": 1779233731.3224251
+}
