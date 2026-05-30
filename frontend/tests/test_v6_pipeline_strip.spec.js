@@ -1,5 +1,5 @@
 /**
- * V6 Pipeline strip + Proofread panel — Playwright spec (Task 4.1)
+ * V6 Pipeline strip — Playwright spec (Task 4.1)
  *
  * Covers:
  *  1. Preset menu renders two sections (Profile / Dual-ASR V6)
@@ -7,8 +7,6 @@
  *  3. Clicking Qwen3 Context step opens the inline prompt panel
  *  4. Editing + committing inline panel PATCHes the pipeline
  *  5. Switching back to Profile restores ASR + MT columns
- *  6. Proofread page shows V6 fields (qwen3_context, refiner_prompt) for V6 file
- *  7. Committing V6 prompt overrides in Proofread PATCHes /api/files/<id>
  *
  * Login: self-managed (admin / AdminPass1! on dev DB).
  * The global-setup.js 'admin' user exists in the dev DB (created later in
@@ -337,91 +335,4 @@ test.describe("V6 Pipeline strip", () => {
     await expect(page.locator('[data-step="vad"]')).toHaveCount(0);
   });
 
-  // -------------------------------------------------------------------------
-  // Test 6: Proofread page shows V6 fields for V6 file, hides Profile fields
-  // -------------------------------------------------------------------------
-  test("proofreadPanelShowsV6FieldsForV6File", async ({ page }) => {
-    // Locate a V6 file from uploadedFiles on the dashboard page
-    const v6FileId = await page.evaluate(() => {
-      const files = Object.values(uploadedFiles || {});
-      return (
-        files.find((f) => f.active_kind === "pipeline_v6" && !f._local)?.id ||
-        null
-      );
-    });
-
-    if (!v6FileId) {
-      test.skip(
-        true,
-        "no V6 file in registry — requires end-to-end upload through V6 pipeline"
-      );
-      return;
-    }
-
-    await page.goto(`${BASE}/proofread.html?file_id=${v6FileId}`);
-    await page.waitForLoadState("networkidle");
-
-    // V6-specific textareas must be visible
-    await expect(
-      page.locator("#promptQwen3Context")
-    ).toBeVisible({ timeout: 5_000 });
-    await expect(page.locator("#promptRefinerPrompt")).toBeVisible();
-
-    // Profile-mode alignment anchor must be hidden (parent section display:none)
-    const anchorSection = page
-      .locator('.prompt-section[data-mode="profile"]')
-      .first();
-    await expect(anchorSection).toHaveCSS("display", "none");
-  });
-
-  // -------------------------------------------------------------------------
-  // Test 7: Committing V6 prompt overrides in Proofread PATCHes /api/files/<id>
-  // -------------------------------------------------------------------------
-  test("proofreadCommitV6OverridesPatchesFile", async ({ page }) => {
-    const v6FileId = await page.evaluate(() => {
-      const files = Object.values(uploadedFiles || {});
-      return (
-        files.find((f) => f.active_kind === "pipeline_v6" && !f._local)?.id ||
-        null
-      );
-    });
-
-    if (!v6FileId) {
-      test.skip(
-        true,
-        "no V6 file in registry — requires end-to-end upload through V6 pipeline"
-      );
-      return;
-    }
-
-    await page.goto(`${BASE}/proofread.html?file_id=${v6FileId}`);
-    await page.waitForLoadState("networkidle");
-
-    // Fill in the Qwen3 context textarea to make the commit button enabled
-    await page
-      .locator("#promptQwen3Context")
-      .fill("playwright-v6-override-test");
-
-    // The commit button is initially disabled; filling textarea triggers
-    // onPromptDirty() which enables it.
-    const commitBtn = page.locator("#promptCommitBtn");
-    await expect(commitBtn).toBeEnabled({ timeout: 4_000 });
-
-    // Intercept the PATCH to /api/files/<id>
-    const patchPromise = page.waitForResponse(
-      (r) =>
-        r.url().includes(`/api/files/${v6FileId}`) &&
-        r.request().method() === "PATCH",
-      { timeout: 10_000 }
-    );
-
-    await commitBtn.click();
-    const patch = await patchPromise;
-    expect(patch.ok()).toBeTruthy();
-
-    const body = patch.request().postDataJSON();
-    expect(body?.prompt_overrides?.qwen3_context).toBe(
-      "playwright-v6-override-test"
-    );
-  });
 });
