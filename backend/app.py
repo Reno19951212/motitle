@@ -3156,6 +3156,29 @@ def _resolve_prompt_override(key, file_entry, profile):
     return None
 
 
+def _select_translation_strategy(alignment_mode, use_sentence_pipeline, source_is_english):
+    """Pick the MT strategy for _auto_translate.
+
+    merge-based modes (llm-markers / sentence) assume an ENGLISH source —
+    merge_to_sentences uses pysbd English + whitespace word boundaries. For a
+    non-English source they over-merge catastrophically (2026-05-30 validation:
+    104 zh segs -> 7 'sentences', max 41-seg span) -> marker failure ->
+    off-by-one. So for non-English source we route merge-based requests to
+    single-segment 1:1 translation instead.
+
+    Returns one of: 'alignment' | 'sentence' | 'single_1to1' | 'batched'.
+    """
+    am = (alignment_mode or "").lower()
+    merge_based = am in ("llm-markers", "sentence") or bool(use_sentence_pipeline)
+    if merge_based and not source_is_english:
+        return "single_1to1"
+    if am == "llm-markers":
+        return "alignment"
+    if use_sentence_pipeline or am == "sentence":
+        return "sentence"
+    return "batched"
+
+
 def _auto_translate(fid: str, sid=None, cancel_event=None) -> None:
     """Auto-translate a file's segments using the active profile.
 
@@ -3314,7 +3337,14 @@ def _auto_translate(fid: str, sid=None, cancel_event=None) -> None:
             from jobqueue.queue import JobCancelled
             raise JobCancelled("cancelled mid-translate")
 
-        if alignment_mode == "llm-markers":
+        # 2026-05-30: route non-English source off the English-only merge+marker
+        # alignment (over-merges → off-by-one). See spec
+        # 2026-05-30-profile-samelingual-alignment-fix-design.md.
+        source_is_english = (profile.get("asr", {}).get("language", "en") == "en")
+        strategy = _select_translation_strategy(
+            alignment_mode, use_sentence_pipeline, source_is_english)
+
+        if strategy == "alignment":
             from translation.alignment_pipeline import translate_with_alignment
             translated = translate_with_alignment(
                 engine, asr_segments, glossary=glossary_entries, style=style,
@@ -3324,7 +3354,7 @@ def _auto_translate(fid: str, sid=None, cancel_event=None) -> None:
                 parallel_batches=parallel_batches,
                 custom_system_prompt=resolved_prompt_overrides["alignment_anchor_system"],
             )
-        elif use_sentence_pipeline or alignment_mode == "sentence":
+        elif strategy == "sentence":
             from translation.sentence_pipeline import translate_with_sentences
             translated = translate_with_sentences(
                 engine, asr_segments, glossary=glossary_entries, style=style,
@@ -3333,7 +3363,20 @@ def _auto_translate(fid: str, sid=None, cancel_event=None) -> None:
                 progress_callback=_emit_auto_progress,
                 parallel_batches=parallel_batches,
             )
-        else:
+        elif strategy == "single_1to1":
+            # Same-lingual bypass: force batch_size=1 → v3.8 single-segment 1:1
+            # path (each segment translated independently, keeps its own
+            # start/end → no merge/redistribute → off-by-one impossible).
+            translated = engine.translate(
+                asr_segments, glossary=glossary_entries, style=style,
+                batch_size=1,
+                temperature=trans_params["temperature"],
+                progress_callback=_emit_auto_progress,
+                parallel_batches=parallel_batches,
+                cancel_event=cancel_event,
+                prompt_overrides=resolved_prompt_overrides,
+            )
+        else:  # "batched" — unchanged default
             translated = engine.translate(
                 asr_segments, glossary=glossary_entries, style=style,
                 batch_size=trans_params["batch_size"],
