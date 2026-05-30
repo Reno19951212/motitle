@@ -84,9 +84,11 @@ class LLMRefiner(RefinerEngine):
                     import json as _json
                     _parsed = _json.loads(refined)
                     if isinstance(_parsed, dict) and "text" in _parsed:
-                        refined = str(_parsed.get("text") or "").strip()
+                        text_value = _parsed.get("text")
+                        refined = text_value.strip() if isinstance(text_value, str) else ""
                         # If the JSON resolved to empty text (e.g. {action: drop}
-                        # with a present but empty "text" key), fall back to src.
+                        # with a present but empty "text" key, or non-string value),
+                        # fall back to src.
                         if not refined:
                             refined = src
                     elif isinstance(_parsed, dict):

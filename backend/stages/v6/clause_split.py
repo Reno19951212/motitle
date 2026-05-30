@@ -11,6 +11,7 @@ mutated. Wired into pipeline_runner._run_v6 AFTER the refiner — refined text h
 punctuation; qwen3 raw does not (see validation tracker P2).
 """
 from __future__ import annotations
+import copy
 from typing import List, Tuple
 
 DEFAULT_CHAR_CAP = 24
@@ -100,10 +101,10 @@ def clause_split_segment(seg: dict, char_cap: int = DEFAULT_CHAR_CAP,
     start = float(seg.get("start") or 0.0)
     end = float(seg.get("end") or 0.0)
     if len(text) <= char_cap:
-        return [dict(seg)]
+        return [copy.deepcopy(seg)]
     lines = _pack_lines(_atomic_clauses(text), char_cap)
     if len(lines) <= 1:
-        return [dict(seg)]
+        return [copy.deepcopy(seg)]
     pieces = _proportional_pieces(lines, start, end)
     return _apply_min_dur_guard(pieces, min_dur)
 
@@ -120,7 +121,7 @@ def split_v6_aligned(source_segs: List[dict], refined_segs: List[dict],
     new_refined: List[dict] = []
     for i, refined in enumerate(refined_segs):
         src = dict(source_segs[i]) if i < len(source_segs) else {
-            "start": refined.get("start"), "end": refined.get("end"), "text": ""}
+            "start": refined.get("start") or 0.0, "end": refined.get("end") or 0.0, "text": ""}
         pieces = clause_split_segment(refined, char_cap, min_dur)
         if len(pieces) == 1:
             new_source.append(src)

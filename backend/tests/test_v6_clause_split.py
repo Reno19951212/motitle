@@ -108,6 +108,91 @@ def test_split_v6_aligned_does_not_mutate_inputs():
     assert source == s_snap and refined == r_snap
 
 
+class TestSplitV6AlignedMissingSourceTiming:
+    """BUG #2: fallback source dict must use 0.0, not None, when refined lacks timing."""
+
+    def test_no_typeerror_when_refined_lacks_timing(self):
+        """Fewer source_segs than refined_segs AND refined lacks start/end
+        → fallback source dict must use 0.0 not None → no TypeError in arithmetic."""
+        source = []  # deliberately empty — triggers the fallback dict path
+        refined = [{"text": "甲乙丙丁，戊己庚辛，壬癸子丑，寅卯辰巳，午未申酉，戌亥", "flags": []}]
+        # This must NOT raise TypeError; without the fix it does because
+        # p["end"] - p["start"] receives None - None.
+        try:
+            ns, nr = split_v6_aligned(source, refined, char_cap=12, min_dur=1.0)
+        except TypeError as exc:
+            raise AssertionError(f"split_v6_aligned raised TypeError: {exc}") from exc
+        # All source pieces must have numeric (not None) start/end.
+        # The bug was that the fallback source dict used None, causing TypeError
+        # in _apply_min_dur_guard's arithmetic.
+        for s in ns:
+            assert s["start"] is not None and s["end"] is not None, \
+                f"source piece has None timing: {s}"
+            assert isinstance(s["start"], (int, float)), f"start not numeric: {s['start']}"
+            assert isinstance(s["end"], (int, float)), f"end not numeric: {s['end']}"
+        # Refined pieces that went through the split path have start/end from pieces;
+        # passthrough (len==1) pieces mirror whatever the input had.
+        for r in nr:
+            if "start" in r:
+                assert r["start"] is not None, f"refined piece has None start: {r}"
+            if "end" in r:
+                assert r["end"] is not None, f"refined piece has None end: {r}"
+
+    def test_fallback_source_uses_zero_when_refined_has_no_timing(self):
+        """Refined seg with no start/end keys → fallback source start==0.0, end==0.0."""
+        source = []
+        refined = [{"text": "短句", "flags": []}]  # len<=cap → no split → passes through
+        ns, nr = split_v6_aligned(source, refined, char_cap=24)
+        assert ns[0]["start"] == 0.0
+        assert ns[0]["end"] == 0.0
+
+    def test_fallback_source_uses_refined_timing_when_present(self):
+        """Refined seg with valid timing → fallback source copies those values."""
+        source = []
+        refined = [{"start": 2.5, "end": 5.0, "text": "短句", "flags": []}]
+        ns, nr = split_v6_aligned(source, refined, char_cap=24)
+        assert ns[0]["start"] == 2.5
+        assert ns[0]["end"] == 5.0
+
+
+class TestClauseSplitSegmentMutability:
+    """BUG #3: clause_split_segment must not share nested mutable state with input."""
+
+    def test_short_path_does_not_share_flags_list(self):
+        """Short segment (<=cap) returns [dict(seg)] shallow copy — flags list shared.
+        After fix (deepcopy), mutating returned flags must NOT affect original."""
+        seg = {"start": 0.0, "end": 2.0, "text": "短句", "flags": ["f1"]}
+        result = clause_split_segment(seg, char_cap=24)
+        assert len(result) == 1
+        # Mutate the returned copy's flags
+        result[0]["flags"].append("mutated")
+        # Original must be unchanged
+        assert seg["flags"] == ["f1"], \
+            f"Original flags were mutated to {seg['flags']}"
+
+    def test_no_split_path_does_not_share_flags_list(self):
+        """Over-cap but no-split case (single clause, packs to 1 line) also must
+        return a deep copy so its flags list is independent."""
+        # This text is over cap but has no internal punctuation → packs to 1 line → no split
+        long_no_punct = "今集嘅區區有警就等我哋帶大家深入了解打鼓嶺分區嘅警務工作同埋"
+        seg = {"start": 0.0, "end": 6.0, "text": long_no_punct, "flags": ["orig"]}
+        result = clause_split_segment(seg, char_cap=24)
+        assert len(result) == 1
+        result[0]["flags"].append("mutated")
+        assert seg["flags"] == ["orig"], \
+            f"Original flags mutated to {seg['flags']}"
+
+    def test_words_list_not_shared(self):
+        """Any 'words' list in the segment must also not be shared with the copy."""
+        seg = {"start": 0.0, "end": 2.0, "text": "短句",
+               "flags": [], "words": [{"word": "短", "start": 0.0, "end": 1.0}]}
+        result = clause_split_segment(seg, char_cap=24)
+        assert len(result) == 1
+        if "words" in result[0]:
+            result[0]["words"].append({"word": "extra"})
+            assert len(seg["words"]) == 1, "Original words list was mutated"
+
+
 import json
 import os
 

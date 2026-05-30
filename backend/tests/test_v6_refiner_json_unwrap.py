@@ -110,6 +110,48 @@ class TestRefinerShortInputBypass:
         assert out[0]["flags"] == []
 
 
+class TestRefinerJsonNonStringText:
+    """BUG #1: text field with non-string JSON values must fall back, not stringify."""
+
+    def test_json_text_int_falls_back_to_src(self):
+        """{text: 123} → must NOT produce '123'; must fall back to source text."""
+        llm = _make_llm('{"action": "keep", "text": 123}')
+        refiner = LLMRefiner(llm=llm, system_prompt="...", lang="zh", style="b")
+        out = refiner.refine([{"start": 0, "end": 1, "text": "原始文字"}])
+        assert out[0]["text"] != "123", "integer text must not be stringified"
+        assert out[0]["text"] == "原始文字"  # fell back to source
+
+    def test_json_text_list_falls_back_to_src(self):
+        """{text: ['a','b']} → must NOT produce "['a', 'b']"; must fall back to source."""
+        llm = _make_llm('{"action": "keep", "text": ["a", "b"]}')
+        refiner = LLMRefiner(llm=llm, system_prompt="...", lang="zh", style="b")
+        out = refiner.refine([{"start": 0, "end": 1, "text": "原始文字"}])
+        assert out[0]["text"] not in ("['a', 'b']", "['a','b']"), "list text must not be stringified"
+        assert out[0]["text"] == "原始文字"
+
+    def test_json_text_dict_falls_back_to_src(self):
+        """{text: {}} → must fall back to source."""
+        llm = _make_llm('{"action": "keep", "text": {"nested": true}}')
+        refiner = LLMRefiner(llm=llm, system_prompt="...", lang="zh", style="b")
+        out = refiner.refine([{"start": 0, "end": 1, "text": "原始文字"}])
+        assert out[0]["text"] == "原始文字"
+
+    def test_json_text_none_falls_back_to_src(self):
+        """{text: null} — existing fallback via `or src` must remain in place."""
+        llm = _make_llm('{"action": "keep", "text": null}')
+        refiner = LLMRefiner(llm=llm, system_prompt="...", lang="zh", style="b")
+        out = refiner.refine([{"start": 0, "end": 1, "text": "原始文字"}])
+        # null → refined="" → the existing `if not refined: refined = src` branch
+        assert out[0]["text"] == "原始文字"
+
+    def test_json_text_valid_string_still_extracted(self):
+        """Regression: valid string text must still be extracted correctly after fix."""
+        llm = _make_llm('{"action": "keep", "text": "正常輸出"}')
+        refiner = LLMRefiner(llm=llm, system_prompt="...", lang="zh", style="b")
+        out = refiner.refine([{"start": 0, "end": 1, "text": "原始文字"}])
+        assert out[0]["text"] == "正常輸出"
+
+
 class TestRefinerMaxTokens300:
     """Fix B: max_tokens must be 300 (not the v5-A4 vintage 200)."""
 
