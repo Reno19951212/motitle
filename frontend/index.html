@@ -2065,7 +2065,10 @@
           if (kind === 'pipeline_v6') {
             if (st === 'transcribing') return { idx: 1, state: 'active' };
             if (transSt === 'translating') return { idx: 4, state: 'active' };
-            if (st === 'done' && transSt === 'done') return { idx: 4, state: 'done' };
+            // V6 has no separate MT job — the refiner is inline in the ASR job,
+            // so translation_status stays null at completion. status==='done'
+            // alone means the whole 5-stage V6 pipeline (incl. refiner) finished.
+            if (st === 'done') return { idx: 4, state: 'done' };
             if (st === 'uploaded') return { idx: 0, state: 'idle' };
             return { idx: 0, state: 'idle' };
           }

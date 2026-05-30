@@ -52,7 +52,7 @@ test.describe.serial('unified-progress step-diagram', () => {
           id: fid,
           original_name: 'test_v6_file.mp4',
           status: 'done',
-          translation_status: 'done',
+          translation_status: null,   // realistic V6 terminal state (no separate MT job)
           active_kind: 'pipeline_v6',
           uploaded_at: Date.now() / 1000,
         };
@@ -80,6 +80,44 @@ test.describe.serial('unified-progress step-diagram', () => {
     expect(text).not.toMatch(/Stage\s+\d/);
 
     // No console errors
+    expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+  });
+
+  test('completed V6 file (translation_status null) shows ALL 5 steps done', async ({ page }) => {
+    // Regression: real completed V6 files carry status='done' but
+    // translation_status=null (V6 refiner is inline — no separate MT job, so
+    // _mt_handler never sets translation_status='done'). The cold-start derive
+    // must treat status='done' alone as V6 completion. Previously it required
+    // (st==='done' && transSt==='done') and fell through to {idx:0,'idle'},
+    // rendering all 5 steps as pending ○ on a finished file.
+    const errors = [];
+    page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
+
+    await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => typeof window.renderStepDiagram === 'function', { timeout: 5000 });
+
+    const FID = 'v6-done-null-regression';
+    await page.evaluate((fid) => {
+      // Overwrite (not guard) so the realistic terminal state is deterministic,
+      // and ensure no stale live snapshot exists for this synthetic id.
+      uploadedFiles[fid] = {
+        id: fid,
+        original_name: 'completed_v6_realistic.mp4',
+        status: 'done',
+        translation_status: null,        // ← real V6 terminal state
+        active_kind: 'pipeline_v6',
+        uploaded_at: Date.now() / 1000,
+      };
+      if (window.__cardProgress) delete window.__cardProgress[fid];
+      renderQueue();
+    }, FID);
+
+    const card = page.locator(`.queue-item[data-file-id="${FID}"]`);
+    await expect(card).toBeVisible({ timeout: 3000 });
+    await expect(card.locator('.sd-step')).toHaveCount(5);
+    // All 5 steps must be marked done (✓), not pending.
+    await expect(card.locator('.sd-step.sd-done')).toHaveCount(5);
+    await expect(card.locator('.sd-step.sd-pending')).toHaveCount(0);
     expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
   });
 
