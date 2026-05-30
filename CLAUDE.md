@@ -359,6 +359,13 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### V6 字幕分句優化 — 後置標點 clause-split（2026-05-30）
+- **問題**：V6 Dual-ASR pipeline 喺連續旁白片（無自然停頓）分句過粗 — 一條 subtitle 跨幾個逗號子句（VTDown 24 段中 13 段含未斷標點、median 28 字、最長 57 字/13 秒）；廣播片（有停頓）靠 VAD/mlx 自然分句 ~99% 好。Root cause：V6 segment 邊界由 mlx-whisper 聲學分段決定，全程無標點分句。
+- **修復**：新 module `backend/stages/v6/clause_split.py`（純函數）— 喺 refiner 之後、persist 之前，將超 `char_cap`（預設 24）嘅 refined segment 喺中文標點（。！？，、；：）切原子子句、greedy 填行、proportional timing、min-duration guard（<1.0s 嘅 piece merge 返，避免閃 line）。單一超 cap 無標點子句唔切（避免 jieba-類已 reject 陷阱）。
+- **核心約束**：`_persist_by_lang` 用 index 對齊 zip canonical_source（source）+ by_lang（refined）且行 start/end 來自 source，所以 `split_v6_aligned` lockstep 擴展兩條 stream。只郁 V6 單 target_lang path；Profile/merge/refiner/VAD 唔郁。Config：pipeline JSON `clause_split` block（`enabled`/`char_cap`/`min_dur`），缺省 `enabled=true`。
+- **Validation-First**：診斷 workflow + P1（標點切句演算法，cap=24 賽馬 churn 1/83）+ P2（re-run Qwen3：時間戳逐字但無標點 → reject「逐字時間對齊」approach B，揀 proportional + guard）。整合 re-run VTDown：24→39 段、over-cap 13→3、median 28→18、無 <1s piece。證據：[validation tracker](docs/superpowers/specs/2026-05-30-v6-segmentation-validation-tracker.md)。
+- **Spec/Plan**：[spec](docs/superpowers/specs/2026-05-30-v6-segmentation-clause-split-design.md) / [plan](docs/superpowers/plans/2026-05-30-v6-segmentation-clause-split-plan.md)。
+
 ### Proofread 版面修復 — 移除自訂 Prompt 面板（2026-05-30）
 - **問題**：Proofread 影片下方嘅 `.rv-b-vid-panels` 係 2 欄固定高度 grid，但 v3.18 將「自訂 Prompt」(`#promptPanel`) 作為第 3 個 grid child 塞入，產生 implicit 第 2 行，將「詞彙表」+「字幕設定」壓扁到 ~88px（MacBook 14" 1512×982 實測），自訂 Prompt 半欄孤立。
 - **修復**：完全移除自訂 Prompt 面板（`frontend/proofread.html` 嘅 #promptPanel HTML + `.rv-b-prompt-*` CSS + 6 個 prompt JS function + 2 變量 + call site，共 296 行刪除）。grid 回復單行 2 欄，兩 panel 各佔全高（220px，字幕設定 6 行完整可見、唔 scroll）。

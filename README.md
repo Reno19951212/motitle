@@ -246,6 +246,10 @@ R5_QWEN3_TIMEOUT_SEC=1800   # 30 分鐘
 
 然後重啟 backend。配合 v3.20 嘅 concurrent-drain IPC fix（stdout/stderr 由兩個 daemon thread 即時 drain），再唔會出現 pipe-buffer 16-64 KB 撐爆引起嘅 deadlock 情況。CLAUDE.md v3.20 entry 同 [docs/superpowers/validation/2026-05-29-v6-ipc-fix-prototype-report.md](docs/superpowers/validation/2026-05-29-v6-ipc-fix-prototype-report.md) 有完整 root cause + empirical evidence。
 
+### 連續旁白自動分句（2026-05-30 新增）
+
+V6 pipeline 喺 Refiner 之後自動將過長字幕（超過 24 字）喺中文標點位置切細，避免連續旁白片（無自然停頓）出現一行跨多個子句嘅情況，同時保證每行最少 1.0 秒顯示時間、起點嚴格單調遞增。廣播片（有停頓）靠 VAD 自然分句，一般唔受影響。
+
 ### 詳細設計文檔
 
 完整 spec 喺 [docs/superpowers/specs/2026-05-28-v6-dual-asr-merge-design.md](docs/superpowers/specs/2026-05-28-v6-dual-asr-merge-design.md)；feat branch 原 V6 design 喺 [docs/superpowers/specs/2026-05-21-v6-vad-dual-asr-refiner-design.md](docs/superpowers/specs/2026-05-21-v6-vad-dual-asr-refiner-design.md)。CLAUDE.md v3.19 entry 有完整 changelog。
