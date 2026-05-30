@@ -106,3 +106,40 @@ def test_split_v6_aligned_does_not_mutate_inputs():
     s_snap, r_snap = copy.deepcopy(source), copy.deepcopy(refined)
     split_v6_aligned(source, refined, char_cap=12)
     assert source == s_snap and refined == r_snap
+
+
+import json
+import os
+
+_SEG_DIR = os.path.join(os.path.dirname(__file__), "..", "scripts", "v6_prototype", "seg_data")
+
+
+def _load_segs(name):
+    d = json.load(open(os.path.join(_SEG_DIR, f"{name}.json")))
+    items = d if isinstance(d, list) else (d.get("translations") or d.get("segments") or [])
+    out = []
+    for it in items:
+        zh = (it.get("zh_text") or (it.get("by_lang", {}).get("zh", {}) or {}).get("text") or "").strip()
+        out.append({"start": float(it["start"]), "end": float(it["end"]), "text": zh, "flags": []})
+    return out
+
+
+def test_regression_vtdown_improves_and_guards():
+    segs = _load_segs("vtdown")
+    total_pieces, over_cap = 0, 0
+    for s in segs:
+        pieces = clause_split_segment(s, char_cap=24, min_dur=1.0)
+        total_pieces += len(pieces)
+        if len(pieces) > 1:
+            assert "".join(x["text"] for x in pieces) == s["text"]
+            for p in pieces:
+                assert (p["end"] - p["start"]) >= 1.0 - 1e-6
+        over_cap += sum(1 for p in pieces if len(p["text"]) > 24)
+    assert total_pieces > len(segs)
+    assert over_cap <= 4
+
+
+def test_regression_saima_low_churn():
+    segs = _load_segs("saima")
+    churn = sum(1 for s in segs if len(clause_split_segment(s, char_cap=24, min_dur=1.0)) > 1)
+    assert churn <= 1
