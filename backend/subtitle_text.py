@@ -3,9 +3,9 @@ subtitle output (ASS burn-in, SRT, VTT, TXT, live preview)."""
 from __future__ import annotations
 
 import re
-from typing import Optional
+from typing import List, Optional
 
-VALID_SUBTITLE_SOURCES = {"auto", "en", "zh", "bilingual"}
+VALID_SUBTITLE_SOURCES = {"auto", "en", "zh", "bilingual", "first", "second"}
 VALID_BILINGUAL_ORDERS = {"en_top", "zh_top"}
 
 # QA flag prefixes left over from legacy registry data; never burn into output.
@@ -22,41 +22,66 @@ def strip_qa_prefixes(text: str) -> str:
     return _QA_PREFIX_RE.sub("", text).strip()
 
 
+def _resolve_role_text(seg: dict, field: Optional[str], legacy_fallbacks: List[str]) -> str:
+    """Return text from an explicit field or walk legacy fallback fields."""
+    if field:
+        return (seg.get(field) or "").strip()
+    for f in legacy_fallbacks:
+        v = seg.get(f)
+        if v:
+            return v.strip()
+    return ""
+
+
 def resolve_segment_text(
     seg: dict,
     mode: str = "auto",
     order: str = "en_top",
     line_break: str = "\\N",
+    *,
+    first_field: Optional[str] = None,
+    second_field: Optional[str] = None,
 ) -> str:
     """Return the text string a renderer/exporter should emit for this segment.
 
     Args:
         seg: dict with `text` or `en_text`, and optional `zh_text`.
-        mode: "auto" | "en" | "zh" | "bilingual"
+        mode: "auto" | "en" | "zh" | "bilingual" | "first" | "second"
         order: bilingual stacking — "en_top" or "zh_top"
         line_break: ASS callers pass "\\N"; SRT/VTT/TXT/preview pass "\n".
+        first_field: explicit dict key for the "first" role (default: text/en_text).
+        second_field: explicit dict key for the "second" role (default: zh_text).
 
-    Behavior:
-        - en              → always EN (even if ZH exists)
-        - zh              → ZH if non-empty, else EN (per-segment fallback)
+    Behavior (legacy modes en/zh/bilingual/auto are preserved exactly):
+        - en / first      → first-role text; falls back to second if empty
+        - zh / second     → second-role text; falls back to first if empty
         - bilingual       → both stacked; if one side empty, single line
-        - auto (default)  → ZH if non-empty, else EN (matches legacy behavior)
+        - auto (default)  → second (ZH) if non-empty, else first (EN)
     """
-    en = (seg.get("text") or seg.get("en_text") or "").strip()
-    zh = strip_qa_prefixes(seg.get("zh_text") or "")
+    first = _resolve_role_text(seg, first_field, ["text", "en_text"])
+    second = strip_qa_prefixes(_resolve_role_text(seg, second_field, ["zh_text"]))
 
-    if mode == "en":
-        return en
-    if mode == "zh":
-        return zh or en
-    if mode == "bilingual":
-        if not en:
-            return zh
-        if not zh:
-            return en
-        return f"{en}{line_break}{zh}" if order == "en_top" else f"{zh}{line_break}{en}"
-    # default + "auto"
-    return zh or en
+    m = (mode or "auto").lower()
+    # Map legacy names to role names
+    if m == "en":
+        m = "first"
+    elif m == "zh":
+        m = "second"
+
+    if m == "first":
+        return first or second
+    if m == "second":
+        return second or first
+    if m == "bilingual":
+        # Preserve exact legacy bilingual behavior: empty side → return other side
+        if not first:
+            return second
+        if not second:
+            return first
+        a, b = (first, second) if order == "en_top" else (second, first)
+        return f"{a}{line_break}{b}"
+    # default + "auto": prefer second (translation) when present, else first
+    return second or first
 
 
 def resolve_subtitle_source(
@@ -94,3 +119,39 @@ def resolve_bilingual_order(
     if prof_val in VALID_BILINGUAL_ORDERS:
         return prof_val
     return "en_top"
+
+
+def resolve_language_descriptor(
+    file_entry: Optional[dict],
+    active_cfg: Optional[dict] = None,
+) -> List[dict]:
+    """Return an ordered list of [{role, lang, label}] for a file's language tracks.
+
+    Profile pipeline: first=ASR source language (原文), second=zh (譯文).
+    V6 pipeline: first=source_lang from translations (原文); second added only
+                 when a second distinct by_lang key exists in translations.
+    """
+    entry = file_entry or {}
+    kind = entry.get("active_kind", "profile")
+    translations = entry.get("translations") or []
+
+    if kind == "pipeline_v6":
+        src = (translations[0].get("source_lang") if translations else None) or "zh"
+        langs: List[dict] = [{"role": "first", "lang": src, "label": "原文"}]
+        extra: List[str] = []
+        for row in translations:
+            for k in (row.get("by_lang") or {}):
+                if k != src and k not in extra:
+                    extra.append(k)
+        if extra:
+            langs.append({"role": "second", "lang": extra[0], "label": "譯文"})
+        return langs
+
+    # Profile (and any other kind) — first=ASR source, second=zh
+    src = "en"
+    if active_cfg and active_cfg.get("asr"):
+        src = active_cfg["asr"].get("language", "en")
+    return [
+        {"role": "first", "lang": src, "label": "原文"},
+        {"role": "second", "lang": "zh", "label": "譯文"},
+    ]
