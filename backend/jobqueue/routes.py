@@ -8,6 +8,7 @@ from jobqueue.db import (
     get_job,
     update_job_status,
     cancel_if_queued,
+    insert_retry_job,
 )
 from auth.users import get_user_by_id
 from auth.limiter import limiter
@@ -167,21 +168,24 @@ def retry_job(job_id):
         return jsonify({"error": "forbidden"}), 403
     if job["status"] != "failed":
         return jsonify({"error": "can only retry failed jobs"}), 409
-    # R6 audit S6 — honor the same poison-pill cap (R5_MAX_JOB_RETRY) the
-    # boot-recovery path already enforces. Without this, a user could
-    # manually re-spam a permanently-failing job past the cap, defeating
-    # the protection added in Phase 5 T1.5.
+    # R6 audit S6 + Bug #19 — the cap check and insert must be ONE atomic
+    # transaction. The old split (read attempt_count → compare → enqueue)
+    # let two concurrent retries both observe count < cap and both insert,
+    # bypassing the poison-pill protection from Phase 5 T1.5.
+    # insert_retry_job() wraps both steps inside BEGIN IMMEDIATE (same
+    # pattern as auth/admin.py _atomic_set_admin / _atomic_delete_user).
     import os as _os
     max_retry = int(_os.environ.get("R5_MAX_JOB_RETRY", "3"))
-    if (job.get("attempt_count") or 0) >= max_retry:
-        return jsonify({
-            "error": f"retry cap reached ({max_retry}). Investigate the failure before re-running.",
-        }), 409
-    q = _get_job_queue()
-    new_job_id = q.enqueue(
+    new_job_id = insert_retry_job(
+        db_path,
         user_id=job["user_id"],
         file_id=job["file_id"],
         job_type=job["type"],
-        parent_job_id=job["id"],  # increments attempt_count for the cap
+        parent_job_id=job["id"],
+        max_retry=max_retry,
     )
+    if new_job_id is None:
+        return jsonify({
+            "error": f"retry cap reached ({max_retry}). Investigate the failure before re-running.",
+        }), 409
     return jsonify({"ok": True, "new_job_id": new_job_id}), 200

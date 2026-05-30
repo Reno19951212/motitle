@@ -75,6 +75,70 @@ def insert_job(db_path: str, user_id: int, file_id: str, job_type: str,
         conn.close()
 
 
+def insert_retry_job(
+    db_path: str,
+    user_id: int,
+    file_id: str,
+    job_type: str,
+    parent_job_id: str,
+    max_retry: int,
+) -> Optional[str]:
+    """Atomically check the poison-pill cap and insert a retry job.
+
+    The cap check and the INSERT are executed inside a single
+    ``BEGIN IMMEDIATE`` transaction.  The cap is enforced by reading the
+    *maximum* ``attempt_count`` already recorded for any job sharing the same
+    ``(file_id, type)`` pair — not just the parent row.  This means:
+
+    * Thread A issues BEGIN IMMEDIATE, sees max=2 < 3, inserts attempt_count=3,
+      COMMITs.
+    * Thread B (held back while A held the write lock) then issues its own
+      BEGIN IMMEDIATE, sees max=3 >= 3, rolls back and returns None.
+
+    Reading only the parent's own attempt_count is NOT sufficient because the
+    parent row is never updated — both threads would see the same parent value
+    and both insert.  Using MAX over all rows for (file_id, type) means the
+    first commit raises the watermark, and the second thread sees it.
+
+    Returns the new job id on success, or ``None`` if the cap is already
+    reached (caller should return an appropriate error response).
+
+    Mirrors the ``BEGIN IMMEDIATE`` pattern from ``auth/admin.py``
+    ``_atomic_set_admin`` / ``_atomic_delete_user`` (R5 Phase 5 T2.7).
+    """
+    if job_type not in ("asr", "translate", "render"):
+        raise ValueError(f"invalid job_type: {job_type!r}")
+
+    # isolation_level=None → autocommit off; we drive transactions manually.
+    conn = sqlite3.connect(db_path, isolation_level=None)
+    conn.row_factory = sqlite3.Row
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        # Read the highest attempt_count already recorded for this
+        # (file_id, type) family.  After A commits a child at attempt_count=3,
+        # B's re-read inside its own IMMEDIATE transaction sees 3 >= max_retry
+        # and returns None without inserting.
+        max_row = conn.execute(
+            "SELECT MAX(attempt_count) AS mc FROM jobs WHERE file_id = ? AND type = ?",
+            (file_id, job_type),
+        ).fetchone()
+        current_max = max_row["mc"] if (max_row and max_row["mc"] is not None) else 1
+        if current_max >= max_retry:
+            conn.execute("ROLLBACK")
+            return None
+        new_count = current_max + 1
+        jid = uuid.uuid4().hex
+        conn.execute(
+            "INSERT INTO jobs (id, user_id, file_id, type, status, created_at, attempt_count) "
+            "VALUES (?, ?, ?, ?, 'queued', ?, ?)",
+            (jid, user_id, file_id, job_type, time.time(), new_count),
+        )
+        conn.execute("COMMIT")
+        return jid
+    finally:
+        conn.close()
+
+
 def _row_to_job(row: sqlite3.Row) -> dict:
     keys = row.keys()
     return {
