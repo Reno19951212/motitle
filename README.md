@@ -251,6 +251,10 @@ R5_QWEN3_TIMEOUT_SEC=1800   # 30 分鐘
 
 V6 pipeline 喺 Refiner 之後自動將過長字幕（超過 24 字）喺中文標點位置切細，避免連續旁白片（無自然停頓）出現一行跨多個子句嘅情況，同時保證每行最少 1.0 秒顯示時間、起點嚴格單調遞增。廣播片（有停頓）靠 VAD 自然分句，一般唔受影響。
 
+### 為 V6 影片加第二語言（2026-05-30 新增）
+
+V6 pipeline 預設只輸出一個語言（Refiner 結果 = 原文，例如粵語）。如需第二語言字幕，喺主頁揀中該條影片後，topbar pipeline strip 會顯示該片嘅語言選擇器；撳「+ 加第二語言」揀目標語言（目前支援 zh↔en），系統會用 qwen3.5 將原文翻譯做目標語言，完成後即可喺校對頁編輯、燒入、或匯出（`source=second` 取譯文、`source=bilingual` 雙語）。第二語言屬可選 —— 唔加就維持單語言輸出。
+
 ### 詳細設計文檔
 
 完整 spec 喺 [docs/superpowers/specs/2026-05-28-v6-dual-asr-merge-design.md](docs/superpowers/specs/2026-05-28-v6-dual-asr-merge-design.md)；feat branch 原 V6 design 喺 [docs/superpowers/specs/2026-05-21-v6-vad-dual-asr-refiner-design.md](docs/superpowers/specs/2026-05-21-v6-vad-dual-asr-refiner-design.md)。CLAUDE.md v3.19 entry 有完整 changelog。
