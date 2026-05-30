@@ -359,6 +359,16 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### Subsystem A — 統一進度 step-diagram（Profile + V6，序列 + file card）（2026-05-30）
+- **目標**：統一兩個 surface（右側序列 panel row + 左側 dashboard file card）+ 兩個 kind（Profile / V6）嘅進度顯示,用一個 kind-agnostic step-diagram（✓ done / ● active-fill / ○ pending）。順手修 V6 stage label live bug。
+- **Canonical 模型**：每 kind 一個有序階段清單。Profile = `轉錄→翻譯→校對`;V6 = `VAD 切段→Qwen3 識別→mlx 對齊→時間合併→Refiner 校對`。每步 state 由 `stage_index`+`stage_state`+`pct` 客戶端 derive。
+- **Backend**：`progress_adapter.py` —— `PIPELINE_STAGES` per-kind 清單;`report()` + `pipeline_progress` event + `/api/queue` rows 新增 additive field `stages:[{key,label}]` + `stage_index`（+ `/api/queue` 補 `pipeline_kind`）。**修 V6_STAGE_LABELS bug**：刪舊 dict,新 `_v6_stage_index(stage_type)` 把真 stage_type（`vad`/`qwen3_per_region`/`asr_primary`/`time_anchored_merge`/`refiner:<lang>`）map 去正確 index + label（之前 3/5 顯示「Stage N」+「Qwen3 識別」黐錯 stage）。Profile 校對 step（index 2）由 approve/unapprove/approve-all handler emit（approved/total）。`translation_status` V6 由 'completed' normalize 做 'done'（保留 translation_kind）。
+- **Frontend（零 kind branching）**：新共用 `frontend/js/step-diagram.js`（`window.renderStepDiagram(stages, stageIndex, stageState, pct)`）。`queue-panel.js`（右側 row）+ dashboard file card（左側）都用佢 render；file card 加 `pipeline_progress` listener + cold-start 由 file.status/active_kind derive → **V6 card 唔再卡 0%**。**保留 B1 語言 dropdown**（只改 card 進度區）。
+- **Invariant**：frontend render backend 畀嘅 `stages`,零 kind 判斷。forward-compat `pipeline_v99` test 通過（unknown kind 照 render）。Native events / `queue_changed` zero-payload 不變,`pipeline_progress` 只加 field。
+- **驗證**：progress_adapter + queue_progress_pct 17 pass;Playwright `test_unified_progress.spec.js` 4 pass + `test_queue_progress.spec.js` forward-compat pass;live screenshot 兩 kind × 兩 surface（Profile 3-step / V6 5-step 正確 label、零 console error）。
+- **Spec/Plan**：[spec](docs/superpowers/specs/2026-05-30-unified-progress-stepdiagram-design.md) / [plan](docs/superpowers/plans/2026-05-30-unified-progress-stepdiagram-plan.md)。
+- **OPS 提醒**：stale Xcode-framework python 會喺 `pkill -f "python app.py"`（細楷）後殘留 serve :5001 → 用 `pkill -if app.py` 或 kill PID;pytest 跑完會 reset `admin_p3` 密碼 → `update_password('data/app.db','admin_p3','AdminPass1!')` 還原。
+
 ### Subsystem B1 — per-video 雙語(第一/第二語言)統一模型（2026-05-30）
 - **目標**：統一 Profile + V6 嘅字幕語言選擇 —— 每條 video 用「第一/第二語言」role-based 模型,取代硬編碼 EN/ZH。Profile:第一=ASR 原文、第二=MT 譯文(已有 data);V6:第一=refiner 結果、第二可選(結構預留,B2 先產生)。
 - **Backend**：`subtitle_text.py` —— `resolve_segment_text(... , first_field=, second_field=)` 支援 `first`/`second`/`bilingual` mode(legacy `en→first`/`zh→second` 完全兼容);新 `resolve_language_descriptor(file_entry, active_cfg)` 回傳 `[{role,lang,label}]`。`app.py` —— `GET /api/files` 每 row 加 `languages` descriptor、新 `GET /api/files/<id>/languages`、`POST /api/render` + `GET .../subtitle.<fmt>` 用 `_role_fields_for(entry)` 計 first/second field 傳入 resolver(取代硬 zh_text 讀法 + 硬 en-on-zh-V6 400 guard 改為「first-role 全空」check)、`PATCH .../translations/<idx>` 接 optional `role`。`renderer.generate_ass` 加 first_field/second_field kwarg(default None 向後兼容)。
