@@ -6,7 +6,7 @@ const { test, expect } = require('@playwright/test');
 
 const BASE = process.env.BASE_URL || 'http://localhost:5001';
 const USER = process.env.PROBE_USER || 'admin_p3';
-const PASS = process.env.PROBE_PASS || 'AdminPass1!';
+const PASS = process.env.PROBE_PASS || 'TestPass1!';
 
 const PRIMARY_V6_FID = process.env.V6_TEST_FID || 'd159d9dbd309';
 

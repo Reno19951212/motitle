@@ -20,7 +20,7 @@ const fs = require("fs");
 
 const BASE = process.env.BASE_URL || "http://localhost:5001";
 const USER = process.env.PROBE_USER || "admin";
-const PASS = process.env.PROBE_PASS || "AdminPass1!";
+const PASS = process.env.PROBE_PASS || 'TestPass1!';
 
 // Auth storage file shared across the suite. We do a single login in
 // beforeAll and reuse the session to avoid hitting the 10 req/min rate
