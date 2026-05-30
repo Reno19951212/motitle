@@ -359,6 +359,14 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### Subsystem B1 — per-video 雙語(第一/第二語言)統一模型（2026-05-30）
+- **目標**：統一 Profile + V6 嘅字幕語言選擇 —— 每條 video 用「第一/第二語言」role-based 模型,取代硬編碼 EN/ZH。Profile:第一=ASR 原文、第二=MT 譯文(已有 data);V6:第一=refiner 結果、第二可選(結構預留,B2 先產生)。
+- **Backend**：`subtitle_text.py` —— `resolve_segment_text(... , first_field=, second_field=)` 支援 `first`/`second`/`bilingual` mode(legacy `en→first`/`zh→second` 完全兼容);新 `resolve_language_descriptor(file_entry, active_cfg)` 回傳 `[{role,lang,label}]`。`app.py` —— `GET /api/files` 每 row 加 `languages` descriptor、新 `GET /api/files/<id>/languages`、`POST /api/render` + `GET .../subtitle.<fmt>` 用 `_role_fields_for(entry)` 計 first/second field 傳入 resolver(取代硬 zh_text 讀法 + 硬 en-on-zh-V6 400 guard 改為「first-role 全空」check)、`PATCH .../translations/<idx>` 接 optional `role`。`renderer.generate_ass` 加 first_field/second_field kwarg(default None 向後兼容)。
+- **Frontend**：dashboard file-card 語言 dropdown + proofread `#proofreadSourceMode` 由 `file.languages` descriptor 動態 render(顯示實際語言名,V6 單語言時隱藏第二/雙語);`pickSubtitleText` mirror role-based。
+- **範圍 / 兼容**：零強制 storage migration(role→field 對映喺 resolver,舊 en/zh 資料照讀);legacy en/zh/auto/bilingual 行為不變(既有 test 全綠)。**B2(V6 真正產生第二語言 = translator stage)deferred**。
+- **驗證**：subtitle_text 31 + bilingual_api 24 + render/subtitle regression 180 pass(1 known v3.3 baseline);Playwright `test_bilingual_selector.spec.js` 2 pass(Profile 第一/第二/雙語、V6 單語言);live export smoke(Profile source=first→英文原文 / second→中文譯文)。
+- **Spec/Plan**：[spec](docs/superpowers/specs/2026-05-30-per-video-bilingual-design.md) / [plan](docs/superpowers/plans/2026-05-30-per-video-bilingual-plan.md);[research](docs/superpowers/research/2026-05-30-unified-progress-and-bilingual-research.md)。**Subsystem A(統一進度 step-diagram)next**（user 決定 B 先做完 confirm 再做 A）。
+
 ### 主介面 Pipeline Strip 顯示修復 — 步驟 popover（2026-05-30）
 - **問題**：MacBook 14"（1512px）topbar pipeline strip 喺 Profile + V6 兩個 mode 嘅 steps 被壓縮重疊成 garble（search+health-cluster+userChip+preset dropdown 食晒 topbar 寬度，strip overflowing，steps flex-shrink 到 ~25px 致文字溢出重疊）。
 - **修復**：strip 改為永遠 compact（preset 選擇器 + 「步驟 ▾」toggle）；完整 steps 搬入 `.pipeline-steps-popover`（`width:max-content; overflow:visible`，唔受 topbar grid 限制），撳 toggle 彈出。steps 有自然全寬唔再重疊；popover 內 `.step .v` 解除 100px cap 顯示完整值；每個 step 互動（preset 切換 / V6 qwen3·refiner inline panel / Profile ASR·MT hover 選擇）100% 保留。純前端（`index.html` CSS + `renderPipelineStrip`/`renderPipelineStripV6` + `togglePipelineSteps` + outside-click）。
