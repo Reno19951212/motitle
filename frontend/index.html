@@ -396,6 +396,17 @@
     .pipeline-strip .arrow { color: var(--text-dim); padding: 0 2px; }
     .pipeline-strip .sep { width: 1px; align-self: stretch; background: var(--border); margin: 4px 0; }
 
+    /* File-context language selector (B2 strip lang) */
+    .strip-lang-wrap { display:flex; align-items:center; gap:6px; padding:0 4px; position:relative; border-right:1px solid var(--border); }
+    .strip-lang-chip { font-size:11px; padding:3px 8px; border-radius:6px; background:var(--surface-3); color:var(--text); white-space:nowrap; }
+    .strip-lang-chip.strip-lang-adding { background:rgba(74,158,255,0.18); color:var(--accent-2); }
+    .strip-add-lang { display:inline-flex; align-items:center; gap:3px; font-size:11px; padding:3px 8px; border-radius:6px; border:1px dashed var(--border); background:transparent; color:var(--accent); cursor:pointer; white-space:nowrap; }
+    .strip-add-lang:hover { background:rgba(108,99,255,0.12); }
+    .strip-add-lang-menu { display:none; position:absolute; top:100%; left:0; margin-top:4px; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:4px; z-index:50; min-width:120px; box-shadow:0 6px 24px rgba(0,0,0,0.4); }
+    .strip-add-lang-menu.open { display:block; }
+    .strip-add-lang-menu button { display:block; width:100%; text-align:left; padding:6px 10px; border:none; background:transparent; color:var(--text); font-size:12px; border-radius:5px; cursor:pointer; }
+    .strip-add-lang-menu button:hover { background:var(--surface-3); }
+
     [data-loading="1"]::after { content: ' (載入中…)'; color: var(--text-dim); font-size: 11px; }
 
     .pipeline-preset {
@@ -2487,6 +2498,7 @@
           </button>
           ${presetMenuHtml}
         </div>
+        ${renderStripLanguageSelector()}
         <button class="pipeline-steps-toggle" onclick="togglePipelineSteps(this)" title="顯示 / 隱藏 pipeline 步驟">
           <span class="k">步驟</span>
           <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
@@ -2525,7 +2537,87 @@
           pop.classList.remove('open');
         }
       });
+      // Close add-lang menu when clicking outside
+      document.querySelectorAll('.strip-add-lang-menu.open').forEach(menu => {
+        const btn = menu.previousElementSibling;
+        if (!menu.contains(e.target) && !(btn && btn.contains(e.target))) {
+          menu.classList.remove('open');
+        }
+      });
     });
+
+    // ============================================================
+    // File-context language selector helpers (B2 — strip lang)
+    // ============================================================
+
+    // Returns HTML for the file-context language selector segment, or '' when
+    // no file is selected or the file has no languages descriptor yet.
+    function renderStripLanguageSelector() {
+      const f = activeFileId ? uploadedFiles[activeFileId] : null;
+      if (!f) return '';
+      const langs = Array.isArray(f.languages) ? f.languages : [];
+      if (!langs.length) return '';
+      const first  = langs.find(l => l.role === 'first');
+      const second = langs.find(l => l.role === 'second');
+      let chips = '';
+      if (first) {
+        chips += `<span class="strip-lang-chip" title="第一語言">第一 · ${escapeHtml(first.label || '原文')}（${escapeHtml((first.lang || '').toUpperCase())}）</span>`;
+      }
+      if (second) {
+        chips += `<span class="strip-lang-chip" title="第二語言">第二 · ${escapeHtml(second.label || '譯文')}（${escapeHtml((second.lang || '').toUpperCase())}）</span>`;
+      }
+      // "+ 加第二語言" only for V6 files that currently have just one language
+      const isV6 = f.active_kind === 'pipeline_v6';
+      const translating = !!f._addingSecondLang;
+      if (isV6 && first && !second) {
+        if (translating) {
+          chips += `<span class="strip-lang-chip strip-lang-adding">翻譯中…</span>`;
+        } else {
+          const targets = secondLangTargetsFor(first.lang);
+          chips += `<button class="strip-add-lang" onclick="toggleAddLangMenu(this)" title="加第二語言">+ 加第二語言<svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></button>`;
+          chips += `<div class="strip-add-lang-menu">` +
+            targets.map(t => `<button onclick="addSecondLanguage('${escapeHtml(f.id)}','${escapeHtml(t.lang)}')">${escapeHtml(t.label)}</button>`).join('') +
+            (targets.length ? '' : `<div style="padding:6px 10px;color:var(--text-dim);font-size:11px;">無支援方向</div>`) +
+          `</div>`;
+        }
+      }
+      if (!chips) return '';
+      return `<div class="strip-lang-wrap">${chips}</div>`;
+    }
+
+    // MVP hardcoded translation directions supported by the backend.
+    function secondLangTargetsFor(srcLang) {
+      const MAP = { zh: [{lang:'en', label:'英文 (EN)'}], en: [{lang:'zh', label:'中文 (ZH)'}] };
+      return MAP[(srcLang || '').toLowerCase()] || [];
+    }
+
+    function toggleAddLangMenu(btn) {
+      const menu = btn.parentElement.querySelector('.strip-add-lang-menu');
+      if (menu) menu.classList.toggle('open');
+    }
+
+    async function addSecondLanguage(fileId, lang) {
+      const f = uploadedFiles[fileId];
+      if (!f) return;
+      f._addingSecondLang = true;
+      renderPipelineStrip();
+      try {
+        const r = await fetch(`${API_BASE}/api/files/${encodeURIComponent(fileId)}/translate-second`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ lang }),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+        showToast(`已開始翻譯第二語言（${lang.toUpperCase()}）…`, 'info');
+        // Job runs async; queue panel / step-diagram (Subsystem A) shows progress.
+        // When done, file.languages refetches via the normal /api/files refresh → second chip appears.
+      } catch (e) {
+        f._addingSecondLang = false;
+        showToast(`加第二語言失敗：${e.message}`, 'error');
+        renderPipelineStrip();
+      }
+    }
 
     function renderPipelineStrip() {
       // V6 mode renders a different column layout
@@ -2700,6 +2792,7 @@
           </button>
           ${presetMenuHtml}
         </div>
+        ${renderStripLanguageSelector()}
         <button class="pipeline-steps-toggle" onclick="togglePipelineSteps(this)" title="顯示 / 隱藏 pipeline 步驟">
           <span class="k">步驟</span>
           <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
@@ -5163,6 +5256,12 @@
     };
     window.__renderQueue = function() { renderQueue(); };
     window.__uploadedFiles = uploadedFiles;  // reference (not a copy) for test seeding
+    // B2 test helpers — inject a synthetic file entry and refresh the strip
+    window.__injectFileAndSelectForStrip = function(fileId, fileEntry) {
+      uploadedFiles[fileId] = fileEntry;
+      activeFileId = fileId;
+      renderPipelineStrip();
+    };
 
     // ============================================================
     // API fetches
