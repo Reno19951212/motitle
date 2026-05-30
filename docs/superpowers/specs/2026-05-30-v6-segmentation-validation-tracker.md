@@ -57,3 +57,25 @@
 
 ## 已知 reject 方案(新方案須避開,workflow 抽自 line-wrap validation)
 max_new_tokens cap(94% 文字遺失)、jieba 切繁體(皇家馬德里→皇家/馬/德里)、per-cue translate、`||` markers、Direct subtitle JSON、純 LLM prompt char-cap(83% follow)。本方案為**確定式標點切句**,全部避開。
+
+---
+
+## P3 — 無標點長句嘅聲學 gap 分析（cheap，用 P2 dump）
+
+**狀態:❌ Rejected（聲學 gap 唔可靠）**
+
+腳本:[backend/scripts/v6_prototype/p3_gap_analysis.py](../../../backend/scripts/v6_prototype/p3_gap_analysis.py)。Live VTDown 切句後 3 段過 cap，其中 2 段無內部標點。睇佢哋內部逐字停頓:
+- `呢度嘅每日平均都要處理超過八萬人次嘅跨境旅客同埋車輛`:最大內部 gap **0.40s**（勉強）。
+- `當時嘅警務處處長麥景圖就喺一九四九年至一九五三年期間`:最大 **0.24s**（全段無 ≥0.3s）。
+→ 連續快速旁白根本冇自然停頓（所以 mlx 切唔開、又冇標點）。聲學 gap 切句喺呢度**唔可靠** → reject。
+
+## P4 — Refiner 補標點（Option 1）驗證（真 qwen3.5:35b，current vs augmented prompt）
+
+**狀態:✅ Validated 安全 / ⚠️ Partial effectiveness**
+
+腳本:[backend/scripts/v6_prototype/p4_refiner_punct.py](../../../backend/scripts/v6_prototype/p4_refiner_punct.py)。Augmented prompt 加一條規則:長句（>~24字）無標點時喺自然意群插「，/、」，只插標點、唔改字、唔分行。
+- **零非標點漂移（5/5）**:人名/數字/英文/粵語字全部原樣，只加標點 — 零 hallucination。
+- **無過度補標點**:短句 + 已有標點 segment 不變。
+- **Partial**:有自然子句邊界嘅 run-on（名+年份）完美切（+1 逗號 → 11+14）；連續單一謂語（每日平均都要處理…）model 保守唔加（正確 — 冇自然斷點）。
+→ 安全 + 啱方向，但唔係 100% 全清；真正連續句留低（line-wrap 兩行可接受）。
+- ⚠️ Harness bug 教訓:production `OllamaLLM` 用 `think:false`（qwen3.5 thinking model）；漏咗會返空 output。驗證測試必須對齊 production 嘅 `think` flag。
