@@ -196,6 +196,12 @@ SINGLE_SEGMENT_SYSTEM_PROMPT = (
 # removed from Pass 2 enrich prompt; anti-formulaic rule added instead.
 # Do not re-add specific idiom examples without re-running validation
 # (docs/superpowers/validation/mt-quality/).
+# 2026-05-30: Pass-2 enrich pads outputs to an unconditional ~18-char floor,
+# which bloats/hallucinates minimal source fragments (粟米片→7-10×). Skip
+# enrichment for sources shorter than this (configurable via profile
+# translation.enrich_min_src_chars).
+DEFAULT_ENRICH_MIN_SRC_CHARS = 10
+
 ENRICH_SYSTEM_PROMPT = (
     "你係香港電視廣播嘅資深字幕編輯。收到初譯後改寫增強，令譯稿達到專業廣播質素。\n\n"
     "【核心心態】\n"
@@ -438,22 +444,28 @@ class OllamaTranslationEngine(TranslationEngine):
             return pass1_results
 
         enriched_total = list(pass1_results)  # shallow copy
-        batches_meta = []
-        for i in range(0, len(segments), batch_size):
-            batches_meta.append((i, segments[i:i + batch_size],
-                                 pass1_results[i:i + batch_size]))
+        # 2026-05-30: only enrich segments whose source is long enough; short
+        # sources (minimal utterances) keep their accurate Pass-1 output —
+        # the enrich prompt's 18-char floor otherwise pads/hallucinates them.
+        min_chars = int(self._config.get("enrich_min_src_chars", DEFAULT_ENRICH_MIN_SRC_CHARS))
+        eligible = [
+            (i, segments[i], pass1_results[i])
+            for i in range(len(segments))
+            if len((segments[i].get("text") or "").strip()) >= min_chars
+        ]
 
-        for batch_start, batch_segs, batch_p1 in batches_meta:
+        for b in range(0, len(eligible), batch_size):
+            chunk = eligible[b:b + batch_size]
             try:
                 enriched_batch = self._enrich_batch(
-                    batch_segs, batch_p1, glossary, temperature,
-                    runtime_overrides=runtime_overrides,
+                    [c[1] for c in chunk], [c[2] for c in chunk],
+                    glossary, temperature, runtime_overrides=runtime_overrides,
                 )
-                for j, entry in enumerate(enriched_batch):
-                    enriched_total[batch_start + j] = entry
+                for (orig_i, _seg, _p1), entry in zip(chunk, enriched_batch):
+                    enriched_total[orig_i] = entry
             except Exception as e:
-                print(f"[enrich] batch starting {batch_start} failed: {e}", file=sys.stderr)
-                # Keep Pass 1 for this batch
+                print(f"[enrich] batch starting {b} failed: {e}", file=sys.stderr)
+                # Keep Pass 1 for this batch's segments
                 continue
 
         if progress_callback is not None and total:
