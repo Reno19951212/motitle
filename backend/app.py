@@ -4053,9 +4053,12 @@ def download_subtitle(file_id, fmt):
             'en_text':  s.get('text', '') or t.get('en_text', ''),
             'zh_text':  t.get('zh_text', ''),
         }
-        # Pass through any V6 role fields that live directly on the translation row.
+        # V6 role fields are authoritative: when the file kind designates an
+        # explicit first/second field (e.g. en_text for an on-demand second
+        # language), source it directly from the translation row so the raw
+        # source-language segment text can't shadow the real value.
         for _fld in (_exp_ff, _exp_sf):
-            if _fld and _fld not in row:
+            if _fld:
                 row[_fld] = t.get(_fld, '')
         unified.append(row)
     # v3.19 Sprint 1 (B-4): V6 files store translations directly without a
@@ -4071,9 +4074,11 @@ def download_subtitle(file_id, fmt):
                 'en_text':  t.get('source_text', '') or t.get('en_text', ''),
                 'zh_text':  t.get('zh_text', ''),
             }
-            # Pass through any V6 role fields that live directly on the translation row.
+            # V6 role fields are authoritative: source the designated first/second
+            # field directly from the translation row so the raw source-language
+            # text (source_text) can't shadow a real second-language value.
             for _fld in (_exp_ff, _exp_sf):
-                if _fld and _fld not in row:
+                if _fld:
                     row[_fld] = t.get(_fld, '')
             unified.append(row)
 

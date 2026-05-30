@@ -304,6 +304,84 @@ def test_export_srt_with_source_first_v6(client):
             _file_registry.pop(fid, None)
 
 
+def _make_v6_entry_with_second(file_id, *, source_lang="zh",
+                               source_raw="各位晚上好",      # raw ASR (no space)
+                               refined="各位 晚上好。",        # refined first track
+                               second_lang="en",
+                               second_text="Good evening, everyone."):
+    """V6 entry that already has an on-demand second language written into
+    by_lang + the {lang}_text mirror. `source_raw` is deliberately distinct
+    from both refined and second_text so a regression that lets the raw
+    source-language segment text shadow the second-language field is caught.
+    """
+    return {
+        "id": file_id,
+        "original_name": "test.mp4",
+        "stored_name": "test.mp4",
+        "size": 1000,
+        "status": "done",
+        "uploaded_at": 1700000000,
+        "active_kind": "pipeline_v6",
+        "active_id": None,
+        "segments": [],
+        "text": refined,
+        "error": None,
+        "translations": [
+            {
+                "start": 0.0, "end": 2.5,
+                "source_lang": source_lang,
+                "source_text": source_raw,
+                f"{source_lang}_text": refined,
+                "zh_text": refined,
+                f"{second_lang}_text": second_text,
+                "by_lang": {
+                    source_lang: {"text": refined, "status": "approved"},
+                    second_lang: {"text": second_text, "status": "pending"},
+                },
+                "status": "approved", "flags": [],
+            },
+        ],
+        "translation_status": "done",
+    }
+
+
+def test_export_srt_source_second_v6_returns_second_language(client):
+    """Regression: export source=second for a V6 file with an on-demand second
+    language must return the second-language text (English), NOT the raw
+    source-language segment text (source_text). Guards the export row-builder
+    where source_text could shadow the en_text role field."""
+    fid = "export-second-v6-001"
+    with _registry_lock:
+        _file_registry[fid] = _make_v6_entry_with_second(fid)
+    try:
+        resp = client.get(f"/api/files/{fid}/subtitle.srt?source=second")
+        assert resp.status_code == 200
+        body = resp.data.decode("utf-8")
+        assert "Good evening, everyone." in body          # real second language
+        assert "各位晚上好" not in body                     # raw source must NOT leak
+    finally:
+        with _registry_lock:
+            _file_registry.pop(fid, None)
+
+
+def test_export_srt_first_and_second_distinct_v6(client):
+    """V6 first=refined source, second=translation — both export correctly."""
+    fid = "export-both-v6-001"
+    with _registry_lock:
+        _file_registry[fid] = _make_v6_entry_with_second(fid)
+    try:
+        first = client.get(f"/api/files/{fid}/subtitle.srt?source=first").data.decode("utf-8")
+        second = client.get(f"/api/files/{fid}/subtitle.srt?source=second").data.decode("utf-8")
+        assert "各位 晚上好。" in first          # refined first track
+        assert "Good evening, everyone." in second
+        # bilingual carries BOTH languages
+        bil = client.get(f"/api/files/{fid}/subtitle.srt?source=bilingual").data.decode("utf-8")
+        assert "各位 晚上好。" in bil and "Good evening, everyone." in bil
+    finally:
+        with _registry_lock:
+            _file_registry.pop(fid, None)
+
+
 def test_export_srt_legacy_en_still_works(client):
     """Export SRT source=en (legacy) still returns en_text."""
     fid = "export-legacy-en-001"
