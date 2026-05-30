@@ -5,7 +5,7 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 # Re-export from the new shared resolver so existing callers keep working
 # without importing from the new module directly.
@@ -103,11 +103,15 @@ class SubtitleRenderer:
         *,
         subtitle_source: str = "auto",
         bilingual_order: str = "en_top",
+        first_field: Optional[str] = None,
+        second_field: Optional[str] = None,
     ) -> str:
         """Generate an ASS subtitle file string from segments and font config.
 
         subtitle_source: which language to emit per segment.
         bilingual_order: only used when subtitle_source == "bilingual".
+        first_field: explicit seg-dict key for the "first" role (Task 2b).
+        second_field: explicit seg-dict key for the "second" role (Task 2b).
         """
         family = font_config.get("family", DEFAULT_FONT_CONFIG["family"])
         size = font_config.get("size", DEFAULT_FONT_CONFIG["size"])
@@ -151,6 +155,8 @@ class SubtitleRenderer:
                 mode=subtitle_source,
                 order=bilingual_order,
                 line_break="\\N",
+                first_field=first_field,
+                second_field=second_field,
             ).replace("\r", "").replace("\n", "\\N")
             if not text:
                 continue  # skip empty (e.g. bilingual with both sides blank)

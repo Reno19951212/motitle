@@ -57,6 +57,7 @@ from subtitle_text import (
     resolve_segment_text,
     resolve_subtitle_source as _resolve_subtitle_source_helper,
     resolve_bilingual_order as _resolve_bilingual_order_helper,
+    resolve_language_descriptor,
     VALID_SUBTITLE_SOURCES,
     VALID_BILINGUAL_ORDERS,
 )
@@ -2550,7 +2551,8 @@ def api_translation_status(file_id):
 @require_file_owner
 def api_update_translation(file_id, idx):
     data = request.get_json()
-    if not data or "zh_text" not in data:
+    # Accept either zh_text (legacy) or text (generic role-aware field).
+    if not data or ("zh_text" not in data and "text" not in data):
         return jsonify({"error": "zh_text is required"}), 400
     # R6 audit R1 — read-modify-write under the registry lock.
     with _registry_lock:
@@ -2561,12 +2563,48 @@ def api_update_translation(file_id, idx):
         if idx < 0 or idx >= len(translations):
             return jsonify({"error": "Translation index out of range"}), 404
         new_translations = list(translations)
+
+        # Task 2b — optional `role` param.  Default (no role / legacy callers):
+        #   behave EXACTLY as before → write zh_text + dual-write by_lang[src_lang].
+        # When role='first' or role='second': write the matching field.
+        role = data.get("role")  # "first" | "second" | None
+        # Resolve the text to write: prefer explicit "text" key if provided,
+        # fall back to "zh_text" for backward-compat.
+        new_text = data.get("text") or data.get("zh_text") or ""
+
+        src_lang = translations[idx].get("source_lang", "zh")
+        kind = (entry or {}).get("active_kind", "profile")
+
+        # Determine target field based on role + kind.
+        if role is None:
+            # Legacy path: always write zh_text (+ by_lang dual-write for V6).
+            write_field = "zh_text"
+            do_by_lang_write = True
+            by_lang_key = src_lang
+        elif role == "second":
+            # Explicit second role — same as legacy default for both Profile and V6.
+            write_field = "zh_text"
+            do_by_lang_write = (kind == "pipeline_v6")
+            by_lang_key = src_lang
+        elif role == "first":
+            if kind == "pipeline_v6":
+                # V6 first = refiner source-lang field + by_lang[src_lang]
+                write_field = f"{src_lang}_text"
+                do_by_lang_write = True
+                by_lang_key = src_lang
+            else:
+                # Profile first = en_text (source text, rare manual edit)
+                write_field = "en_text"
+                do_by_lang_write = False
+                by_lang_key = None
+        else:
+            return jsonify({"error": f"Invalid role '{role}'. Must be 'first' or 'second'."}), 400
+
         # Editing implies the user has reviewed the segment, so clear QA flags.
         # Length warnings will reappear on the next translation pass if still applicable.
-        new_text = data["zh_text"]
         updated = {
             **translations[idx],
-            "zh_text": new_text,
+            write_field: new_text,
             "status": "approved",
             "flags": [],
             # Manual edit becomes the new baseline; any prior glossary-apply
@@ -2575,13 +2613,18 @@ def api_update_translation(file_id, idx):
             "baseline_target": new_text,
             "applied_terms": [],
         }
+        # Preserve legacy zh_text copy if we wrote to a different field,
+        # so downstream code that reads zh_text still gets something sensible.
+        if write_field != "zh_text" and role == "first" and kind == "pipeline_v6":
+            updated["zh_text"] = new_text
+
         # v3.19 Sprint 1 (B-5) — dual-write: also update by_lang for V6 files
-        # so by_lang.<lang>.text stays consistent with zh_text.
-        src_lang = translations[idx].get("source_lang", "zh")
-        by_lang = dict(updated.get("by_lang") or {})
-        if src_lang in by_lang:
-            by_lang[src_lang] = {**by_lang[src_lang], "text": new_text, "status": "approved"}
-            updated["by_lang"] = by_lang
+        # so by_lang.<lang>.text stays consistent with the primary field.
+        if do_by_lang_write:
+            by_lang = dict(updated.get("by_lang") or {})
+            if by_lang_key and by_lang_key in by_lang:
+                by_lang[by_lang_key] = {**by_lang[by_lang_key], "text": new_text, "status": "approved"}
+                updated["by_lang"] = by_lang
         new_translations[idx] = updated
         entry["translations"] = new_translations
         _save_registry()
@@ -2817,6 +2860,28 @@ def _resolve_bilingual_order(file_entry, profile, override=None):
     return _resolve_bilingual_order_helper(file_entry, profile, override)
 
 
+def _role_fields_for(entry: dict):
+    """Return (first_field, second_field) seg-dict keys for this file's kind.
+
+    Profile: first=legacy text/en_text (None → fallback chain), second=zh_text.
+    V6:      first=<source_lang>_text (refiner mirror), second=<other_lang>_text or None.
+    """
+    if (entry or {}).get("active_kind") == "pipeline_v6":
+        tr = entry.get("translations") or []
+        src = (tr[0].get("source_lang") if tr else None) or "zh"
+        second = None
+        for row in tr:
+            for k in (row.get("by_lang") or {}):
+                if k != src:
+                    second = f"{k}_text"
+                    break
+            if second:
+                break
+        return (f"{src}_text", second)
+    # Profile: keep legacy fallback chain for first (text/en_text)
+    return (None, "zh_text")
+
+
 @app.route('/api/render', methods=['POST'])
 @login_required
 def api_start_render():
@@ -2888,43 +2953,40 @@ def api_start_render():
     subtitle_source = _resolve_subtitle_source(entry, active_profile, src_override)
     bilingual_order = _resolve_bilingual_order(entry, active_profile, ord_override)
 
+    # Determine role→field mapping for this file's kind (Task 2b).
+    _render_first_field, _render_second_field = _role_fields_for(entry)
+
     translations = entry.get("translations") or []
     # EN-only renders can run from segments alone (no translation required).
     # All other modes still need translations.
-    if subtitle_source == "en":
+    if subtitle_source in ("en", "first"):
         if not translations:
             translations = list(entry.get("segments") or [])
         if not translations:
             return jsonify({"error": "File has no transcription segments to render"}), 400
-        # v3.19 Sprint 3 B-7 — V6 zh-source files have source_lang="zh" and
-        # no EN translation; rendering source=en would burn the raw Qwen3-packed
-        # source_text dump ("HIGHLANDBLINKisa" etc.) as subtitles. Detect this
-        # early: if all V6 rows lack a real EN text field, reject with 400.
-        def _has_en_text(t: dict) -> bool:
-            if (t.get("en_text") or "").strip():
-                return True
-            if (t.get("by_lang") or {}).get("en", {}).get("text", "").strip():
-                return True
-            return False
-        if translations and all(
-            t.get("source_lang") in ("zh", "ja", "ko", "th") or not _has_en_text(t)
-            for t in translations
-            if t.get("source_lang") is not None  # only V6 rows have source_lang
-        ):
-            # Only reject when ALL rows are V6-typed and none has EN content.
-            v6_rows = [t for t in translations if t.get("source_lang") is not None]
-            if v6_rows and not any(_has_en_text(t) for t in v6_rows):
-                return jsonify({
-                    "error": (
-                        "requested subtitle_source=en but file contains no English "
-                        "translations (source_lang is zh/non-EN). "
-                        "Use subtitle_source=zh or subtitle_source=auto instead."
-                    )
-                }), 400
+        # Task 2b — replace the hardcoded en-on-zh-V6 guard with a role-empty
+        # check: reject when the resolved "first" field has no non-empty text in
+        # ANY row (meaning the requested role truly has no content to burn in).
+        def _has_first_text(t: dict) -> bool:
+            if _render_first_field:
+                return bool((t.get(_render_first_field) or "").strip())
+            # Profile legacy: check text / en_text
+            return bool((t.get("en_text") or t.get("text") or "").strip())
+        if translations and not any(_has_first_text(t) for t in translations):
+            return jsonify({
+                "error": (
+                    f"requested subtitle_source={subtitle_source!r} but the first-role "
+                    "field has no text for any segment. "
+                    "Use subtitle_source=second, subtitle_source=zh, or subtitle_source=auto instead."
+                )
+            }), 400
     else:
+        # All non-first modes (zh, second, bilingual, auto + any unknown) require
+        # translations and approval. "en" / "first" already handled above.
         if not translations:
             return jsonify({"error": "File has no translations to render"}), 400
-        # Approval applies to ZH only.
+        # Approval check applies to ALL non-first-role renders, including auto and
+        # bilingual (same as original behavior before Task 2b).
         unapproved = [t for t in translations if t.get("status") != "approved"]
         if unapproved:
             return jsonify({"error": f"{len(unapproved)} segment(s) not yet approved. All translations must be approved before rendering."}), 400
@@ -2974,6 +3036,9 @@ def api_start_render():
     # Snapshot translations to pass into thread (immutable)
     translations_snapshot = list(translations)
     render_options_snapshot = dict(render_options)
+    # Snapshot role→field mapping so the closure captures the right values.
+    _render_ff_snap = _render_first_field
+    _render_sf_snap = _render_second_field
 
     def do_render():
         try:
@@ -2982,6 +3047,8 @@ def api_start_render():
                 font_config,
                 subtitle_source=subtitle_source,
                 bilingual_order=bilingual_order,
+                first_field=_render_ff_snap,
+                second_field=_render_sf_snap,
             )
             success, ffmpeg_error = _subtitle_renderer.render(
                 video_path, ass_content, output_path, output_format, render_options_snapshot
@@ -3593,6 +3660,17 @@ def list_files():
         translations = entry.get('translations') or []
         seg_count = len(entry.get('segments', []))
         approved_count = sum(1 for t in translations if t.get('status') == 'approved')
+
+        # Resolve active config for language descriptor.
+        # V6: use active_pipeline_snapshot stored on entry.
+        # Profile: fetch the file's profile by active_id (not the globally active one,
+        #          to correctly reflect per-file overrides).
+        kind = entry.get('active_kind', 'profile')
+        if kind == 'pipeline_v6':
+            _active_cfg = entry.get('active_pipeline_snapshot')
+        else:
+            _active_cfg = _profile_manager.get(entry.get('active_id')) if entry.get('active_id') else None
+
         files.append({
             'id': entry['id'],
             'original_name': entry['original_name'],
@@ -3611,12 +3689,36 @@ def list_files():
             'pipeline_seconds': entry.get('pipeline_seconds'),
             'job_id': job_id_by_file.get(fid),  # R5 Phase 4
             'prompt_overrides': entry.get('prompt_overrides'),  # v3.18 Stage 2
-            'active_kind': entry.get('active_kind', 'profile'),  # v3.19 Sprint 1 A-1
+            'active_kind': kind,                                 # v3.19 Sprint 1 A-1
             'active_id': entry.get('active_id'),                 # v3.19 Sprint 1 A-1
+            'languages': resolve_language_descriptor(entry, _active_cfg),  # Task 2a
         })
     # Newest first
     files.sort(key=lambda f: f['uploaded_at'], reverse=True)
     return jsonify({'files': files})
+
+
+@app.route('/api/files/<file_id>/languages', methods=['GET'])
+@require_file_owner
+def api_file_languages(file_id):
+    """Return the ordered language-role descriptor for this file (Task 2a).
+
+    Response: {"languages": [{role, lang, label}, ...]}
+    Profile files: [{first, <asr_language>, 原文}, {second, zh, 譯文}]
+    V6 files: [{first, <source_lang>, 原文}] (+ second if a second lang exists)
+    """
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+    if not entry:
+        return jsonify({'error': '文件不存在'}), 404
+
+    kind = entry.get('active_kind', 'profile')
+    if kind == 'pipeline_v6':
+        active_cfg = entry.get('active_pipeline_snapshot')
+    else:
+        active_cfg = _profile_manager.get(entry.get('active_id')) if entry.get('active_id') else None
+
+    return jsonify({'languages': resolve_language_descriptor(entry, active_cfg)})
 
 
 @app.route('/api/files/<file_id>/media')
@@ -3725,6 +3827,9 @@ def download_subtitle(file_id, fmt):
     mode = _resolve_subtitle_source(entry, active_profile, src_q)
     order = _resolve_bilingual_order(entry, active_profile, ord_q)
 
+    # Determine role→field mapping for role-aware export (Task 2b).
+    _exp_ff, _exp_sf = _role_fields_for(entry)
+
     # Build a list of unified per-segment dicts with both text + zh_text.
     segs = entry.get('segments', [])
     translations = entry.get('translations') or []
@@ -3732,31 +3837,44 @@ def download_subtitle(file_id, fmt):
     unified = []
     for i, s in enumerate(segs):
         t = tr_by_idx.get(i, {})
-        unified.append({
+        row = {
             'start': s.get('start', t.get('start', 0)),
             'end':   s.get('end',   t.get('end',   0)),
             'text':     s.get('text', '') or t.get('en_text', ''),
             'en_text':  s.get('text', '') or t.get('en_text', ''),
             'zh_text':  t.get('zh_text', ''),
-        })
+        }
+        # Pass through any V6 role fields that live directly on the translation row.
+        for _fld in (_exp_ff, _exp_sf):
+            if _fld and _fld not in row:
+                row[_fld] = t.get(_fld, '')
+        unified.append(row)
     # v3.19 Sprint 1 (B-4): V6 files store translations directly without a
     # separate segments list.  When unified is empty but translations carry
     # timing + text (mirrored by Change 1 / Change 4 migration), build the
     # export from translations instead so the subtitle file is non-empty.
     if not unified and translations:
         for t in translations:
-            unified.append({
+            row = {
                 'start':    t.get('start', 0),
                 'end':      t.get('end', 0),
                 'text':     t.get('source_text', '') or t.get('en_text', '') or t.get('zh_text', ''),
                 'en_text':  t.get('source_text', '') or t.get('en_text', ''),
                 'zh_text':  t.get('zh_text', ''),
-            })
+            }
+            # Pass through any V6 role fields that live directly on the translation row.
+            for _fld in (_exp_ff, _exp_sf):
+                if _fld and _fld not in row:
+                    row[_fld] = t.get(_fld, '')
+            unified.append(row)
 
     base_name = Path(entry['original_name']).stem
 
     def _seg_text(s):
-        return resolve_segment_text(s, mode=mode, order=order, line_break='\n')
+        return resolve_segment_text(
+            s, mode=mode, order=order, line_break='\n',
+            first_field=_exp_ff, second_field=_exp_sf,
+        )
 
     if fmt == 'txt':
         content = '\n'.join(_seg_text(s) for s in unified if _seg_text(s))
