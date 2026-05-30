@@ -79,3 +79,13 @@ max_new_tokens cap(94% 文字遺失)、jieba 切繁體(皇家馬德里→皇家/
 - **Partial**:有自然子句邊界嘅 run-on（名+年份）完美切（+1 逗號 → 11+14）；連續單一謂語（每日平均都要處理…）model 保守唔加（正確 — 冇自然斷點）。
 → 安全 + 啱方向，但唔係 100% 全清；真正連續句留低（line-wrap 兩行可接受）。
 - ⚠️ Harness bug 教訓:production `OllamaLLM` 用 `think:false`（qwen3.5 thinking model）；漏咗會返空 output。驗證測試必須對齊 production 嘅 `think` flag。
+
+## P5 — Augmented refiner prompt 全片 re-run（真 V6，兩條片）
+
+**狀態:❌ Rejected（無淨得益）— 唔 ship**
+
+臨時改 refiner template `zh_broadcast_hk_v6` 加補標點規則 → restart → re-run VTDown + 賽馬 → 量度 → revert（零 commit）。
+- **VTDown**:39 段 / 4 over-cap（現狀 39/3，無改善，屬 run-to-run boundary noise）。
+- **賽馬**:89 段 / 0 over-cap / max 啱啱 24 / 無過度補標點 → 零 regression。
+- **真正原因**（修正 subagent 嘅錯誤架構診斷 — clause-split 確實喺 refiner 之後行）：剩低 over-cap 段嘅主體係**長嘅無標點連續句**（例如 `大家好，` 後面 47 字 tail、`設計呢度嘅每日平均…` 28 字），refiner 正確噉拒絕喺連續語句中間插逗號；就算插咗 `大家好，`，4 字 leading 又會被 min_dur guard merge 返 → 51 字依然 over-cap。加標點解唔到無標點長句。
+- **裁決**:剩低 3-4 段 over-cap 係文法完整連續句、會 line-wrap 兩行，**接受**。clause-split（已 ship，over-cap 13→3）係主要勝仗。augmented prompt 無淨得益，唔 ship。
