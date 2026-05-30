@@ -7,7 +7,7 @@ import pysbd
 from typing import Callable, Dict, List, Optional, TypedDict
 
 from . import TranslatedSegment, TranslationEngine
-from .post_processor import validate_batch
+from .post_processor import validate_batch, _add_flag
 
 
 # Time-gap guard: if two adjacent ASR segments are separated by more than
@@ -262,10 +262,8 @@ def translate_with_sentences(
     results = redistribute_to_segments(merged, zh_sentences, segments)
 
     still_bad = validate_batch(results)
-    for idx in still_bad:
-        existing_flags = list(results[idx].get("flags", []))
-        if "review" not in existing_flags:
-            existing_flags.append("review")
-        results[idx] = {**results[idx], "flags": existing_flags}
-
-    return results
+    bad_set = set(still_bad)
+    return [
+        _add_flag(seg, "review") if i in bad_set else seg
+        for i, seg in enumerate(results)
+    ]

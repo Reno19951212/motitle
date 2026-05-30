@@ -236,7 +236,7 @@ def _filter_glossary_for_batch(
     joined = " ".join(batch_en_texts).lower()
     return [
         e for e in glossary.get("entries", [])
-        if e.get("source") and e["source"].lower() in joined
+        if e.get("source") and e.get("target") and e["source"].lower() in joined
     ]
 
 
@@ -443,7 +443,6 @@ class OllamaTranslationEngine(TranslationEngine):
         if not pass1_results or len(pass1_results) != len(segments):
             return pass1_results
 
-        enriched_total = list(pass1_results)  # shallow copy
         # 2026-05-30: only enrich segments whose source is long enough; short
         # sources (minimal utterances) keep their accurate Pass-1 output —
         # the enrich prompt's 18-char floor otherwise pads/hallucinates them.
@@ -454,6 +453,10 @@ class OllamaTranslationEngine(TranslationEngine):
             if len((segments[i].get("text") or "").strip()) >= min_chars
         ]
 
+        # Build a mutable dict of overrides: index → enriched entry.
+        # Only indices that succeed in the LLM call will be overridden;
+        # all others fall back to their Pass-1 entry.
+        overrides: Dict[int, TranslatedSegment] = {}
         for b in range(0, len(eligible), batch_size):
             chunk = eligible[b:b + batch_size]
             try:
@@ -462,7 +465,7 @@ class OllamaTranslationEngine(TranslationEngine):
                     glossary, temperature, runtime_overrides=runtime_overrides,
                 )
                 for (orig_i, _seg, _p1), entry in zip(chunk, enriched_batch):
-                    enriched_total[orig_i] = entry
+                    overrides[orig_i] = entry
             except Exception as e:
                 print(f"[enrich] batch starting {b} failed: {e}", file=sys.stderr)
                 # Keep Pass 1 for this batch's segments
@@ -474,7 +477,11 @@ class OllamaTranslationEngine(TranslationEngine):
             except Exception:
                 pass
 
-        return enriched_total
+        # Produce a new list — never mutate pass1_results or its elements.
+        return [
+            overrides[i] if i in overrides else p1
+            for i, p1 in enumerate(pass1_results)
+        ]
 
     def _enrich_batch(
         self,
