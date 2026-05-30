@@ -359,6 +359,14 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### Pass-2 Enrichment 短 fragment guard（2026-05-30）
+- **問題**：`translation_passes: 2` 嘅 Pass-2 enrichment 對短 source fragment 過度膨脹兼虛構（粟米片→「呢款食品係由穀物壓製而成…」7-10×）。
+- **Root cause**：`ENRICH_SYSTEM_PROMPT` 有無條件硬規則「短於 18 字嘅輸出需重寫更長」，唔知 source 長度 → minimal utterance 被迫虛構描述。隔離驗證（diag_enrich.py passes=1 vs 2）：短句(≤6字) passes=1 ratio 1.0、passes=2 ratio 6.8×。
+- **修復**：`ollama_engine.py::_enrich_pass` 加 source-length guard — 只 enrich `len(source) >= enrich_min_src_chars`（預設 10）嘅 segment，短 source 保留精準 Pass-1 輸出。Config `translation.enrich_min_src_chars`（0 = 還原舊行為全 enrich）。
+- **範圍**：只 `_enrich_pass` batching。ENRICH prompt 文字 / Pass-1 / single-segment / 其他 path 唔郁。通用改善（任何語言短 fragment 受惠）。
+- **Validation-First**：隔離診斷（diag_enrich.py）定位 Pass-2 為 bloat 源；7 unit test（stub LLM）+ integration 對比驗證短句保 Pass-1、中長句仍 enrich。
+- **Spec/Plan**：[spec](docs/superpowers/specs/2026-05-30-enrich-short-fragment-guard-design.md) / [plan](docs/superpowers/plans/2026-05-30-enrich-short-fragment-guard-plan.md)。
+
 ### Profile pipeline same-lingual 對齊修復（2026-05-30）
 - **問題**：zh→zh profile（`b877d8b5`，alignment_mode=llm-markers）處理粵語廣播片時字幕系統性 off-by-one（譯文遲 1 段出）。
 - **Root cause**：`translate_with_alignment` 內 `merge_to_sentences` 用英文 pySBD + 英文 word boundaries（**英文 source 專用**）；用喺中文 source 上辨認唔到中文句號 → over-merge（驗證：104 段 → 7 句、最大跨 41 段）→ LLM marker alignment 必敗 → time-proportion fallback 致 off-by-one。

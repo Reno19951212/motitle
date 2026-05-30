@@ -6,8 +6,12 @@ Usage:
     python3 scripts/profile_prototype/diag_enrich.py 2>&1 | grep -v "NotOpenSSL\|warnings.warn"
 
 NO registry mutation. NO backend restart needed. Reads profile config, builds
-two in-memory engine instances (passes=1 vs passes=2), runs 6 test segments,
-prints a comparison table.
+three in-memory engine instances (passes=1, passes=2, passes=2+guard), runs 6
+test segments, prints a comparison table.
+
+passes=2+guard uses enrich_min_src_chars=10 (production default) so short
+fragments (< 10 chars) keep their Pass-1 output while medium/long ones are
+still enriched.
 """
 import copy
 import json
@@ -39,11 +43,14 @@ from translation import create_translation_engine
 
 cfg_pass1 = {**translation_config_base, "translation_passes": 1}
 cfg_pass2 = {**translation_config_base, "translation_passes": 2}
+cfg_pass2g = {**translation_config_base, "translation_passes": 2, "enrich_min_src_chars": 10}
 
 engine_p1 = create_translation_engine(cfg_pass1)
 engine_p2 = create_translation_engine(cfg_pass2)
+engine_p2g = create_translation_engine(cfg_pass2g)
 print("[diag] Engine P1 (passes=1) built OK")
 print("[diag] Engine P2 (passes=2) built OK")
+print("[diag] Engine P2G (passes=2+guard, enrich_min_src_chars=10) built OK")
 print()
 
 # ── test segments ─────────────────────────────────────────────────────────────
@@ -77,37 +84,54 @@ for idx, (src, src_len) in enumerate(TEST_CASES, 1):
     )
     zh_p2 = (out_p2[0].get("zh_text") or "").strip() if out_p2 else ""
 
+    print(f"[diag] [{idx}/{total}] Translating P2G: {src!r} …", flush=True)
+    out_p2g = engine_p2g.translate(
+        [seg], glossary=[], style="formal", batch_size=1, temperature=0.1
+    )
+    zh_p2g = (out_p2g[0].get("zh_text") or "").strip() if out_p2g else ""
+
     len_p1 = len(zh_p1)
     len_p2 = len(zh_p2)
+    len_p2g = len(zh_p2g)
     ratio_p1 = round(len_p1 / src_len, 2) if src_len > 0 else 0
     ratio_p2 = round(len_p2 / src_len, 2) if src_len > 0 else 0
+    ratio_p2g = round(len_p2g / src_len, 2) if src_len > 0 else 0
     results.append({
         "src": src, "src_len": src_len,
         "zh_p1": zh_p1, "len_p1": len_p1, "ratio_p1": ratio_p1,
         "zh_p2": zh_p2, "len_p2": len_p2, "ratio_p2": ratio_p2,
+        "zh_p2g": zh_p2g, "len_p2g": len_p2g, "ratio_p2g": ratio_p2g,
         "is_short": src_len <= 6,
     })
-    print(f"         P1 ({len_p1}ch, ratio {ratio_p1}): {zh_p1}")
-    print(f"         P2 ({len_p2}ch, ratio {ratio_p2}): {zh_p2}")
+    print(f"         P1  ({len_p1}ch, ratio {ratio_p1}): {zh_p1}")
+    print(f"         P2  ({len_p2}ch, ratio {ratio_p2}): {zh_p2}")
+    print(f"         P2G ({len_p2g}ch, ratio {ratio_p2g}): {zh_p2g}")
     print()
 
 # ── print full table ──────────────────────────────────────────────────────────
-SEP = "─" * 120
+SEP = "─" * 160
 print()
-print("=" * 120)
-print("COMPARISON TABLE")
-print("=" * 120)
-header = f"{'Source':<20} {'SrcLen':>6} | {'P1 ZH':<35} {'P1Len':>5} {'P1Ratio':>7} | {'P2 ZH':<35} {'P2Len':>5} {'P2Ratio':>7}"
+print("=" * 160)
+print("COMPARISON TABLE  (★ = short fragment ≤6 chars, should be guarded in P2G column)")
+print("=" * 160)
+header = (
+    f"{'Source':<20} {'SrcLen':>6} | "
+    f"{'P1 ZH':<30} {'P1Len':>5} {'P1Ratio':>7} | "
+    f"{'P2 ZH':<30} {'P2Len':>5} {'P2Ratio':>7} | "
+    f"{'P2G ZH (guard)':<30} {'P2GLen':>6} {'P2GRatio':>8}"
+)
 print(header)
 print(SEP)
 for r in results:
     short_flag = "★" if r["is_short"] else " "
-    p1_disp = r["zh_p1"][:33] + "…" if len(r["zh_p1"]) > 35 else r["zh_p1"]
-    p2_disp = r["zh_p2"][:33] + "…" if len(r["zh_p2"]) > 35 else r["zh_p2"]
+    p1_disp  = r["zh_p1"][:28]  + "…" if len(r["zh_p1"])  > 30 else r["zh_p1"]
+    p2_disp  = r["zh_p2"][:28]  + "…" if len(r["zh_p2"])  > 30 else r["zh_p2"]
+    p2g_disp = r["zh_p2g"][:28] + "…" if len(r["zh_p2g"]) > 30 else r["zh_p2g"]
     print(
         f"{short_flag}{r['src']:<19} {r['src_len']:>6} | "
-        f"{p1_disp:<35} {r['len_p1']:>5} {r['ratio_p1']:>7.2f} | "
-        f"{p2_disp:<35} {r['len_p2']:>5} {r['ratio_p2']:>7.2f}"
+        f"{p1_disp:<30} {r['len_p1']:>5} {r['ratio_p1']:>7.2f} | "
+        f"{p2_disp:<30} {r['len_p2']:>5} {r['ratio_p2']:>7.2f} | "
+        f"{p2g_disp:<30} {r['len_p2g']:>6} {r['ratio_p2g']:>8.2f}"
     )
 print(SEP)
 
@@ -118,19 +142,46 @@ long_rows  = [r for r in results if not r["is_short"]]
 def mean(vals):
     return round(sum(vals) / len(vals), 3) if vals else 0.0
 
-mean_p1_short = mean([r["ratio_p1"] for r in short_rows])
-mean_p2_short = mean([r["ratio_p2"] for r in short_rows])
-mean_p1_long  = mean([r["ratio_p1"] for r in long_rows])
-mean_p2_long  = mean([r["ratio_p2"] for r in long_rows])
+mean_p1_short  = mean([r["ratio_p1"]  for r in short_rows])
+mean_p2_short  = mean([r["ratio_p2"]  for r in short_rows])
+mean_p2g_short = mean([r["ratio_p2g"] for r in short_rows])
+mean_p1_long   = mean([r["ratio_p1"]  for r in long_rows])
+mean_p2_long   = mean([r["ratio_p2"]  for r in long_rows])
+mean_p2g_long  = mean([r["ratio_p2g"] for r in long_rows])
 
 print()
 print("MEAN BLOAT RATIOS  (zh_len / src_len)")
-print(f"  Short (≤6 chars, n={len(short_rows)}):  passes=1 → {mean_p1_short:.3f}   passes=2 → {mean_p2_short:.3f}   Δ = {mean_p2_short - mean_p1_short:+.3f}")
-print(f"  Long  (>6 chars, n={len(long_rows)}):  passes=1 → {mean_p1_long:.3f}   passes=2 → {mean_p2_long:.3f}   Δ = {mean_p2_long - mean_p1_long:+.3f}")
+print(
+    f"  Short (≤6 chars, n={len(short_rows)}):  "
+    f"passes=1 → {mean_p1_short:.3f}   "
+    f"passes=2 → {mean_p2_short:.3f}   "
+    f"passes=2+guard → {mean_p2g_short:.3f}"
+)
+print(
+    f"  Long  (>6 chars, n={len(long_rows)}):  "
+    f"passes=1 → {mean_p1_long:.3f}   "
+    f"passes=2 → {mean_p2_long:.3f}   "
+    f"passes=2+guard → {mean_p2g_long:.3f}"
+)
+print()
+
+# ── guard effectiveness check ────────────────────────────────────────────────
+print("GUARD EFFECTIVENESS")
+guard_works_short = mean_p2g_short <= mean_p1_short * 1.3  # within 30% of P1 = guard working
+guard_keeps_long  = mean_p2g_long  >= mean_p2_long  * 0.7  # within 30% of P2 = still enriched
+
+print(
+    f"  Short frags: P2G ratio {mean_p2g_short:.3f} vs P1 ratio {mean_p1_short:.3f} → "
+    f"{'✅ GUARD WORKING (matches P1)' if guard_works_short else '❌ GUARD NOT WORKING (still bloated)'}"
+)
+print(
+    f"  Long frags:  P2G ratio {mean_p2g_long:.3f} vs P2 ratio {mean_p2_long:.3f} → "
+    f"{'✅ STILL ENRICHED' if guard_keeps_long else '⚠ ENRICHMENT REDUCED'}"
+)
 print()
 
 # ── verdict ───────────────────────────────────────────────────────────────────
-print("VERDICT")
+print("VERDICT (passes=1 vs passes=2, pre-guard behaviour)")
 p1_already_bloated = mean_p1_short >= 3.0   # 3× src already in P1 = prompt-level bloat
 p2_much_worse      = (mean_p2_short - mean_p1_short) >= 1.5  # P2 adds ≥1.5× extra
 
