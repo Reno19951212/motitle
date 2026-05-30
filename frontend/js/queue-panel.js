@@ -7,7 +7,7 @@
 // Phase C additions: per-row progress bar driven by 'pipeline_progress'
 // socket event. Cache seeded from /api/queue.progress_pct for cold-start.
 
-const _progressCache = new Map() // file_id → {pct, stage_label, stage_state, pipeline_kind}
+const _progressCache = new Map() // file_id → {pct, stage_label, stage_state, pipeline_kind, stages, stage_index}
 
 function _onPipelineProgress(payload) {
   if (!payload || !payload.file_id) return
@@ -16,6 +16,8 @@ function _onPipelineProgress(payload) {
     stage_label: payload.stage_label,
     stage_state: payload.stage_state,
     pipeline_kind: payload.pipeline_kind,
+    stages: Array.isArray(payload.stages) ? payload.stages : null,
+    stage_index: payload.stage_index != null ? payload.stage_index : null,
   })
   _patchRowProgress(payload.file_id)
 
@@ -37,6 +39,13 @@ function _patchRowProgress(fileId) {
 }
 
 function _updateRowProgressUI(row, snap) {
+  // If we have step-diagram data, replace the progress area with the diagram
+  const progressEl = row.querySelector('.qp-progress')
+  if (progressEl && snap.stages && snap.stages.length > 0 && typeof window.renderStepDiagram === 'function') {
+    progressEl.innerHTML = window.renderStepDiagram(snap.stages, snap.stage_index, snap.stage_state, snap.pct)
+    return
+  }
+  // Fallback: legacy bar/spinner/pct
   const pctEl = row.querySelector('.qp-pct')
   const barFillEl = row.querySelector('.qp-bar-fill')
   const labelEl = row.querySelector('.qp-stage-label')
@@ -105,6 +114,8 @@ function renderQueueRows(jobs) {
         stage_label: j.stage_label || null,
         stage_state: j.stage_state || 'active',
         pipeline_kind: j.pipeline_kind || null,
+        stages: Array.isArray(j.stages) ? j.stages : null,
+        stage_index: j.stage_index != null ? j.stage_index : null,
       })
     }
   })
@@ -125,6 +136,8 @@ function renderQueueRows(jobs) {
         stage_label: j.stage_label || null,
         stage_state: j.stage_state || (j.status === 'queued' ? 'idle' : null),
         pipeline_kind: j.pipeline_kind || null,
+        stages: Array.isArray(j.stages) ? j.stages : null,
+        stage_index: j.stage_index != null ? j.stage_index : null,
       }
       const isIdle = snap.stage_state === 'idle' || snap.pct === null || snap.pct === undefined
       const showBarBlock = isIdle ? 'none' : 'block'
@@ -132,6 +145,19 @@ function renderQueueRows(jobs) {
       const initialPct = snap.pct != null ? snap.pct : 0
       const initialPctText = snap.pct != null ? `${snap.pct}%` : ''
       const labelOrFallback = _escape(snap.stage_label || statusLbl)
+
+      // Build the progress area: step diagram if stages available, else legacy bar
+      const hasStages = snap.stages && snap.stages.length > 0 && typeof window.renderStepDiagram === 'function'
+      const progressAreaInner = hasStages
+        ? window.renderStepDiagram(snap.stages, snap.stage_index, snap.stage_state, snap.pct)
+        : `<span class="qp-stage-label" style="font-size:11px;color:var(--text-mid);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${labelOrFallback}</span>
+            <div class="qp-progress-line" style="display:flex;align-items:center;gap:6px;">
+              <div class="qp-bar" style="flex:1;height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;display:${showBarBlock};">
+                <div class="qp-bar-fill" style="height:100%;width:${initialPct}%;background:var(--accent);transition:width 0.3s ease;"></div>
+              </div>
+              <span class="qp-spinner" style="display:${showSpinnerInline};width:10px;height:10px;border:1.5px solid var(--text-dim);border-top-color:var(--accent);border-radius:50%;animation:qpSpin 0.8s linear infinite;flex-shrink:0;"></span>
+              <span class="qp-pct" style="font-size:11px;color:var(--accent);min-width:30px;text-align:right;">${_escape(initialPctText)}</span>
+            </div>`
 
       return `
         <div data-testid="queue-row" id="queueRow-${j.id}"
@@ -145,15 +171,8 @@ function renderQueueRows(jobs) {
           <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${_escape(
             j.file_name || j.file_id || ''
           )}">${fileLabel}</span>
-          <div class="qp-progress" style="flex:1.5;min-width:90px;display:flex;flex-direction:column;gap:2px;">
-            <span class="qp-stage-label" style="font-size:11px;color:var(--text-mid);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${labelOrFallback}</span>
-            <div class="qp-progress-line" style="display:flex;align-items:center;gap:6px;">
-              <div class="qp-bar" style="flex:1;height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;display:${showBarBlock};">
-                <div class="qp-bar-fill" style="height:100%;width:${initialPct}%;background:var(--accent);transition:width 0.3s ease;"></div>
-              </div>
-              <span class="qp-spinner" style="display:${showSpinnerInline};width:10px;height:10px;border:1.5px solid var(--text-dim);border-top-color:var(--accent);border-radius:50%;animation:qpSpin 0.8s linear infinite;flex-shrink:0;"></span>
-              <span class="qp-pct" style="font-size:11px;color:var(--accent);min-width:30px;text-align:right;">${_escape(initialPctText)}</span>
-            </div>
+          <div class="qp-progress" style="flex:1.5;min-width:90px;display:flex;flex-direction:column;gap:2px;overflow:hidden;">
+            ${progressAreaInner}
           </div>
           <span style="color:var(--text-dim);max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${_escape(
             j.owner_username || ''

@@ -754,6 +754,26 @@
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.55} }
     @keyframes qpSpin { to { transform: rotate(360deg); } }
 
+    /* Step diagram — shared by queue panel rows + file card progress area */
+    .step-diagram { display:inline-flex; align-items:center; gap:3px; min-width:0; flex-wrap:nowrap; overflow:hidden; }
+    .sd-step { display:inline-flex; align-items:center; gap:3px; min-width:0; }
+    .sd-dot { position:relative; width:14px; height:14px; border-radius:50%; flex-shrink:0;
+      display:inline-flex; align-items:center; justify-content:center; font-size:9px;
+      border:1px solid var(--border); background:var(--surface-2); color:var(--text-dim); overflow:hidden; }
+    .sd-done .sd-dot { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .sd-active .sd-dot { border-color:var(--accent); }
+    .sd-active .sd-fill { position:absolute; left:0; bottom:0; top:0; background:var(--accent); opacity:0.5; }
+    .sd-label { font-size:10px; color:var(--text-dim); white-space:nowrap; }
+    .sd-pending .sd-label { opacity:0.5; }
+    .sd-active .sd-label { color:var(--text); font-weight:600; }
+    .sd-arrow { color:var(--text-dim); font-size:9px; }
+    .qp-row .sd-step:not(.sd-active) .sd-label { display:none; }
+    /* In queue panel compact rows, hide inactive labels too */
+    [data-testid="queue-row"] .sd-step:not(.sd-active) .sd-label { display:none; }
+    /* File card step diagram: slightly larger, all labels visible on hover */
+    .queue-item .step-diagram { flex-wrap:wrap; gap:2px; }
+    .queue-item .sd-label { font-size:9.5px; }
+
     /* Inspector tabs */
     .inspector-tabs {
       display: flex;
@@ -1810,6 +1830,9 @@
     let uploadedFiles = {};
     let activeFileId = null;
     let fileProgress = {};
+    // cardProgress: per-file step-diagram data from pipeline_progress events
+    // keyed by file_id → {stages, stage_index, stage_state, pct, stage_label}
+    const cardProgress = {};
     let segments = [];
     let selectedFile = null;
     let isProcessing = false;
@@ -2013,25 +2036,47 @@
         const f = uploadedFiles[id];
         const cat = fileStatusCategory(f);
         const active = id === activeFileId;
-        const stages = stagesForFile(f);
         const dur = f.duration ? formatDuration(f.duration) : '—';
         const segCount = f.segment_count ? `${f.segment_count} 段` : '—';
         const rel = f.uploaded_at ? formatRelativeTime(f.uploaded_at) : '';
 
-        // Progress bar for in-progress
-        let progHtml = '';
-        if (cat === 'transcribing') {
-          const fp = fileProgress[id];
-          const pct = fp && fp.progress != null ? Math.round(fp.progress * 100) : 0;
-          progHtml = `<div class="q-progress"><div class="fill" style="width:${pct}%"></div></div>`;
-        } else if (cat === 'translating') {
-          const tp = f.translation_progress || {};
-          progHtml = `<div class="q-progress"><div class="fill" style="width:${tp.percent || 0}%;background:var(--warning);"></div></div>`;
+        // Step diagram — prefer live cardProgress data, fall back to cold-start derivation
+        // Cold-start: infer stages from file.active_kind + file status (labels mirror backend PIPELINE_STAGES)
+        const _COLD_STAGES = {
+          profile: [{ key: 'asr', label: '轉錄' }, { key: 'mt', label: '翻譯' }, { key: 'proofread', label: '校對' }],
+          pipeline_v6: [
+            { key: 'vad', label: 'VAD 切段' }, { key: 'qwen3', label: 'Qwen3 識別' },
+            { key: 'mlx', label: 'mlx 對齊' }, { key: 'merge', label: '時間合併' },
+            { key: 'refiner', label: 'Refiner 校對' },
+          ],
+        };
+        function _coldStageIndex(kind, st, transSt) {
+          if (kind === 'pipeline_v6') {
+            if (st === 'transcribing') return { idx: 1, state: 'active' };
+            if (transSt === 'translating') return { idx: 4, state: 'active' };
+            if (st === 'done' && transSt === 'done') return { idx: 4, state: 'done' };
+            if (st === 'uploaded') return { idx: 0, state: 'idle' };
+            return { idx: 0, state: 'idle' };
+          }
+          // profile (default)
+          if (st === 'transcribing') return { idx: 0, state: 'active' };
+          if (transSt === 'translating') return { idx: 1, state: 'active' };
+          if (st === 'done' && transSt === 'done') return { idx: 2, state: 'done' };
+          if (st === 'done') return { idx: 1, state: 'idle' };
+          return { idx: 0, state: 'idle' };
         }
-
-        const asrText = cat === 'transcribing' ? `${fileProgress[id]?.progress != null ? Math.round(fileProgress[id].progress*100) : 0}%`
-                      : stages.asr === 'ok' ? '完成' : stages.asr === 'err' ? '失敗' : '—';
-        const mtText = cat === 'translating' ? '翻譯中' : stages.mt === 'ok' ? '完成' : stages.mt === 'err' ? '失敗' : '—';
+        let cardDiagramHtml = '';
+        if (typeof window.renderStepDiagram === 'function') {
+          const live = cardProgress[id];
+          if (live && live.stages && live.stages.length > 0) {
+            cardDiagramHtml = window.renderStepDiagram(live.stages, live.stage_index, live.stage_state, live.pct);
+          } else {
+            const kind = f.active_kind || 'profile';
+            const coldStages = _COLD_STAGES[kind] || _COLD_STAGES['profile'];
+            const { idx, state } = _coldStageIndex(kind, f.status, f.translation_status);
+            cardDiagramHtml = window.renderStepDiagram(coldStages, idx, state, null);
+          }
+        }
 
         const armed = deleteArmedId === id;
         const hasPromptOverride = f.prompt_overrides && Object.values(f.prompt_overrides).some(v => v);
@@ -2058,11 +2103,7 @@
               <span style="color:var(--border-strong)">·</span>
               <span>${escapeHtml(rel)}</span>
             </div>
-            ${progHtml}
-            <div class="stage">
-              <div class="stage-pill ${stages.asr}"><span class="lb">ASR</span><span>${asrText}</span></div>
-              <div class="stage-pill ${stages.mt}"><span class="lb">MT</span><span>${mtText}</span></div>
-            </div>
+            <div class="card-step-diagram" style="margin:3px 0 2px;">${cardDiagramHtml}</div>
             ${f.status === 'error' ? `
               <div class="q-actions" onclick="event.stopPropagation()">
                 <button class="btn-secondary" id="queueRetryBtn-${id}"
@@ -5087,7 +5128,41 @@
       socket.on('profile_updated', d => {
         fetchActiveProfile();
       });
+      // pipeline_progress: update cardProgress map + refresh the affected card
+      socket.on('pipeline_progress', e => {
+        if (!e || !e.file_id) return;
+        cardProgress[e.file_id] = {
+          stages: Array.isArray(e.stages) ? e.stages : null,
+          stage_index: e.stage_index != null ? e.stage_index : null,
+          stage_state: e.stage_state || 'idle',
+          pct: e.pct,
+          stage_label: e.stage_label || null,
+        };
+        // Expose for test introspection (Task 4 Playwright)
+        window.__cardProgress = cardProgress;
+        // Re-render just the step-diagram node inside that card, avoiding a
+        // full renderQueue() DOM rebuild (which would reset scroll, focus, etc.)
+        const cardEl = document.querySelector(`#queueList .queue-item[data-file-id="${CSS.escape(e.file_id)}"]`);
+        if (cardEl) {
+          const diagramEl = cardEl.querySelector('.card-step-diagram');
+          if (diagramEl && typeof window.renderStepDiagram === 'function') {
+            const snap = cardProgress[e.file_id];
+            if (snap && snap.stages && snap.stages.length > 0) {
+              diagramEl.innerHTML = window.renderStepDiagram(snap.stages, snap.stage_index, snap.stage_state, snap.pct);
+            }
+          }
+        }
+      });
     }
+
+    // Test introspection helpers — let Playwright inject state and trigger renders
+    // without needing access to private closure variables.
+    window.__setCardProgress = function(fileId, snap) {
+      cardProgress[fileId] = snap;
+      window.__cardProgress = cardProgress;
+    };
+    window.__renderQueue = function() { renderQueue(); };
+    window.__uploadedFiles = uploadedFiles;  // reference (not a copy) for test seeding
 
     // ============================================================
     // API fetches
@@ -5499,6 +5574,8 @@
     window.closeMobileDrawer = closeMobileDrawer;
   </script>
 
+  <!-- Shared step diagram component (queue panel + file cards) -->
+  <script src="js/step-diagram.js"></script>
   <!-- R5 Phase 1 — job queue panel auto-refresh -->
   <script src="js/queue-panel.js"></script>
 
