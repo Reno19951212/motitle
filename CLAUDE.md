@@ -359,6 +359,12 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### 主介面 Pipeline Strip 顯示修復 — 步驟 popover（2026-05-30）
+- **問題**：MacBook 14"（1512px）topbar pipeline strip 喺 Profile + V6 兩個 mode 嘅 steps 被壓縮重疊成 garble（search+health-cluster+userChip+preset dropdown 食晒 topbar 寬度，strip overflowing，steps flex-shrink 到 ~25px 致文字溢出重疊）。
+- **修復**：strip 改為永遠 compact（preset 選擇器 + 「步驟 ▾」toggle）；完整 steps 搬入 `.pipeline-steps-popover`（`width:max-content; overflow:visible`，唔受 topbar grid 限制），撳 toggle 彈出。steps 有自然全寬唔再重疊；popover 內 `.step .v` 解除 100px cap 顯示完整值；每個 step 互動（preset 切換 / V6 qwen3·refiner inline panel / Profile ASR·MT hover 選擇）100% 保留。純前端（`index.html` CSS + `renderPipelineStrip`/`renderPipelineStripV6` + `togglePipelineSteps` + outside-click）。
+- **測試**：Playwright `test_pipeline_strip_popover.spec.js` 兩個 mode @1512×982（popover 開合、steps 唔重疊、值完整、撳出面收埋）。
+- **Spec/Plan**：[spec](docs/superpowers/specs/2026-05-30-pipeline-strip-popover-design.md) / [plan](docs/superpowers/plans/2026-05-30-pipeline-strip-popover-plan.md)。
+
 ### Pass-2 Enrichment 短 fragment guard（2026-05-30）
 - **問題**：`translation_passes: 2` 嘅 Pass-2 enrichment 對短 source fragment 過度膨脹兼虛構（粟米片→「呢款食品係由穀物壓製而成…」7-10×）。
 - **Root cause**：`ENRICH_SYSTEM_PROMPT` 有無條件硬規則「短於 18 字嘅輸出需重寫更長」，唔知 source 長度 → minimal utterance 被迫虛構描述。隔離驗證（diag_enrich.py passes=1 vs 2）：短句(≤6字) passes=1 ratio 1.0、passes=2 ratio 6.8×。
