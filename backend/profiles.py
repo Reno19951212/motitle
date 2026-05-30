@@ -289,8 +289,13 @@ class ProfileManager:
         profile_path.unlink()
 
         settings = self._read_settings()
-        if settings.get("active_profile") == profile_id:
-            self._write_settings({**settings, "active_profile": None})
+        if (settings.get("active_profile") == profile_id
+                or settings.get("active_id") == profile_id):
+            self._write_settings({
+                **settings,
+                "active_profile": None,
+                "active_id": None,
+            })
 
         return True
 

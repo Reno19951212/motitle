@@ -69,12 +69,19 @@ def hex_to_ass_color(hex_color: str) -> str:
 
 
 def seconds_to_ass_time(seconds: float) -> str:
-    """Convert seconds to ASS time format H:MM:SS.cc (centiseconds)."""
-    h = int(seconds // 3600)
-    m = int((seconds % 3600) // 60)
-    s = int(seconds % 60)
-    cs = int(round((seconds % 1) * 100))
-    return f"{h}:{m:02d}:{s:02d}.{cs:02d}"
+    """Convert seconds to ASS time format H:MM:SS.cc (centiseconds).
+
+    Computes total centiseconds first so that fractional rounding carry
+    propagates correctly into seconds/minutes/hours (avoids cc=100 edge case).
+    """
+    total_cs = int(round(seconds * 100))
+    cc = total_cs % 100
+    total_s = total_cs // 100
+    s = total_s % 60
+    total_m = total_s // 60
+    m = total_m % 60
+    h = total_m // 60
+    return f"{h}:{m:02d}:{s:02d}.{cc:02d}"
 
 
 def _escape_ass_path(path: str) -> str:

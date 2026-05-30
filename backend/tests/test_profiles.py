@@ -198,6 +198,30 @@ def test_delete_active_profile_clears_active(config_dir):
     assert mgr.get_active() is None
 
 
+def test_delete_active_profile_clears_both_active_fields(config_dir):
+    """BUG #23: delete() must clear BOTH active_profile AND active_id from settings."""
+    import json
+    from profiles import ProfileManager
+    mgr = ProfileManager(config_dir)
+    created = mgr.create(VALID_PROFILE)
+    mgr.set_active(created["id"])
+
+    # Confirm set_active wrote both fields
+    settings_before = json.loads((config_dir / "settings.json").read_text())
+    assert settings_before.get("active_profile") == created["id"]
+    assert settings_before.get("active_id") == created["id"]
+
+    mgr.delete(created["id"])
+
+    settings_after = json.loads((config_dir / "settings.json").read_text())
+    assert settings_after.get("active_profile") is None, (
+        "delete() must clear active_profile"
+    )
+    assert settings_after.get("active_id") is None, (
+        "delete() must also clear active_id (v3.19 dual field)"
+    )
+
+
 # ============================================================
 # API Integration Tests
 # ============================================================

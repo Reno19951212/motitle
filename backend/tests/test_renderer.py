@@ -53,6 +53,44 @@ def test_seconds_to_ass_time_hours():
     assert seconds_to_ass_time(3723.75) == "1:02:03.75"
 
 
+def test_seconds_to_ass_time_carry_into_second():
+    """Fractional part .995+ should carry into the next second, not emit cc=100."""
+    from renderer import seconds_to_ass_time
+    result = seconds_to_ass_time(1.995)
+    assert result == "0:00:02.00", f"Expected '0:00:02.00', got '{result}'"
+
+
+def test_seconds_to_ass_time_carry_into_minute():
+    from renderer import seconds_to_ass_time
+    result = seconds_to_ass_time(59.999)
+    assert result == "0:01:00.00", f"Expected '0:01:00.00', got '{result}'"
+
+
+def test_seconds_to_ass_time_carry_into_hour():
+    from renderer import seconds_to_ass_time
+    result = seconds_to_ass_time(3599.996)
+    assert result == "1:00:00.00", f"Expected '1:00:00.00', got '{result}'"
+
+
+def test_seconds_to_ass_time_plain_value():
+    from renderer import seconds_to_ass_time
+    result = seconds_to_ass_time(12.34)
+    assert result == "0:00:12.34", f"Expected '0:00:12.34', got '{result}'"
+
+
+def test_seconds_to_ass_time_cc_never_exceeds_99():
+    """cc component must always be in range 00-99."""
+    from renderer import seconds_to_ass_time
+    import re
+    pattern = re.compile(r"^\d:\d{2}:\d{2}\.(\d{2})$")
+    for frac in [0.994, 0.995, 0.996, 0.999]:
+        result = seconds_to_ass_time(frac)
+        m = pattern.match(result)
+        assert m is not None, f"Unexpected format: {result}"
+        cc = int(m.group(1))
+        assert cc <= 99, f"cc={cc} > 99 for input={frac}, result={result}"
+
+
 def test_generate_ass_structure(tmp_path):
     from renderer import SubtitleRenderer
     renderer = SubtitleRenderer(tmp_path)
