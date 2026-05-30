@@ -383,6 +383,109 @@ def _asr_handler(job, cancel_event=None):
     )
 
 
+def _translate_second_handler(job, cancel_event=None):
+    """V6 on-demand second-language translation handler.
+
+    Reads `_pending_second_lang` from the file registry, translates the
+    refined first-track (source_lang) segments into the target language using
+    TranslatorStage (same infra as _run_v5), and writes back
+    `by_lang[target]` + `<target>_text` mirror on each translation row.
+
+    Runs on the MT worker pool (job_type='translate', dispatched by
+    _mt_handler when _pending_second_lang is set).
+    """
+    import time as _time
+    from stages.v5.translator_stage import TranslatorStage
+    from stages import StageContext
+
+    file_id = job["file_id"]
+    with _registry_lock:
+        entry = dict(_file_registry.get(file_id, {}))
+    if not entry:
+        raise RuntimeError(f"file not found in registry: {file_id}")
+
+    target = entry.get("_pending_second_lang")
+    if not target:
+        raise RuntimeError(f"_pending_second_lang missing for file {file_id}")
+
+    translations = entry.get("translations") or []
+    if not translations:
+        raise RuntimeError(f"no translations to translate for file {file_id}")
+
+    src = translations[0].get("source_lang", "zh")
+    template_id = f"translator/{src}_to_{target}_default"
+
+    # Build refined source segments from first-track by_lang or mirror field
+    refined = []
+    for r in translations:
+        text = (
+            (r.get("by_lang") or {}).get(src, {}) or {}
+        ).get("text") or r.get(f"{src}_text", "") or ""
+        refined.append({"start": r["start"], "end": r["end"], "text": text})
+
+    # Build translator_profile mirroring _run_v5 shape
+    translator_profile = {
+        "id": f"adhoc_{src}_to_{target}",
+        "source_lang": src,
+        "target_lang": target,
+        "llm_profile_id": "9402593c-184d-4a4d-a160-ebdf55e678e8",
+        "prompt_template_id": template_id,
+    }
+    llm_profile = _llm_profile_manager.get("9402593c-184d-4a4d-a160-ebdf55e678e8")
+    if llm_profile is None:
+        raise RuntimeError("qwen3.5 llm_profile 9402593c not found — check llm_profiles dir")
+
+    n = len(refined)
+
+    def _progress_cb(idx: int, total: int):
+        if cancel_event and cancel_event.is_set():
+            from jobqueue.queue import JobCancelled
+            raise JobCancelled("cancelled during second-language translation")
+        pct = int((idx / total) * 100) if total else 0
+        try:
+            from progress_adapter import get_adapter, report_from_translation_progress
+            report_from_translation_progress(
+                get_adapter(),
+                file_id=file_id,
+                job_id=job.get("id", ""),
+                translation_payload={"percent": pct},
+            )
+        except Exception:
+            pass
+
+    # Minimal StageContext (no pipeline_id needed — standalone handler)
+    ctx = StageContext(
+        file_id=file_id,
+        user_id=job.get("user_id"),
+        pipeline_id="",
+        stage_index=0,
+        cancel_event=cancel_event,
+        progress_callback=lambda idx, total: _progress_cb(idx, total),
+        pipeline_overrides={},
+    )
+
+    stage = TranslatorStage(translator_profile=translator_profile, llm_profile=llm_profile)
+    out = stage.transform(refined, ctx)
+
+    # Write back by_lang[target] + <target>_text mirror
+    with _registry_lock:
+        live_translations = _file_registry.get(file_id, {}).get("translations") or []
+        for i, row in enumerate(live_translations):
+            if i >= len(out):
+                break
+            translated_text = out[i].get("text", "")
+            row.setdefault("by_lang", {})[target] = {
+                "text": translated_text,
+                "status": "pending",
+                "flags": out[i].get("flags", []),
+            }
+            row[f"{target}_text"] = translated_text
+        # Clear the pending flag so _mt_handler won't re-dispatch on retry
+        if file_id in _file_registry:
+            _file_registry[file_id].pop("_pending_second_lang", None)
+        _save_registry()
+
+
 def _mt_handler(job, cancel_event=None):
     """R5 Phase 2 + 4 — bridge to _auto_translate with cancel_event passed through.
 
@@ -390,6 +493,9 @@ def _mt_handler(job, cancel_event=None):
     without calling _auto_translate. The V6 refiner stage is inline inside
     PipelineRunner._run_v6 (enqueued by _asr_handler), so no separate MT step
     is needed. Sets translation_status='done' + translation_kind marker.
+
+    Translate-second dispatch: when _pending_second_lang is set on a V6 file,
+    delegate to _translate_second_handler.
 
     Pulls segments from registry inside _auto_translate, so worker thread
     runs without request context. Status transitions handled by JobQueue
@@ -400,9 +506,14 @@ def _mt_handler(job, cancel_event=None):
     """
     file_id = job["file_id"]
 
-    # V6 files: refiner is inline — no separate translation step.
+    # Second-language translate dispatch — check before V6 short-circuit.
     with _registry_lock:
         entry = _file_registry.get(file_id, {})
+    if entry.get("_pending_second_lang"):
+        _translate_second_handler(job, cancel_event=cancel_event)
+        return
+
+    # V6 files: refiner is inline — no separate translation step.
     if entry.get("active_kind") == "pipeline_v6":
         with _registry_lock:
             if file_id in _file_registry:
@@ -3633,6 +3744,69 @@ def re_transcribe_file(file_id):
         'job_id': job_id,
         'status': 'queued',
         'queue_position': _job_queue.position(job_id),
+    }), 202
+
+
+@app.route('/api/files/<file_id>/translate-second', methods=['POST'])
+@require_file_owner
+def translate_second_language(file_id):
+    """V6 on-demand second-language translation.
+
+    Enqueues a translate job that will call _translate_second_handler.
+    The handler uses TranslatorStage (same infra as _run_v5) to translate
+    the refined source-lang segments into the requested target language and
+    store the result as by_lang[target] + <target>_text mirror.
+
+    Body: {lang: str}  — target language code (e.g. "en", "zh")
+    Returns 202 {file_id, job_id, target_lang} on success.
+    """
+    from pathlib import Path as _LocalPath
+    data = request.get_json(silent=True) or {}
+    lang = (data.get("lang") or "").strip()
+    if not lang:
+        return jsonify({"error": "lang is required"}), 400
+
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+    if not entry:
+        return jsonify({"error": "File not found"}), 404
+
+    if entry.get("active_kind") != "pipeline_v6":
+        return jsonify({"error": "translate-second 只支援 V6 pipeline 文件"}), 400
+
+    translations = entry.get("translations") or []
+    if not translations:
+        return jsonify({"error": "No translations found — run the V6 pipeline first"}), 400
+
+    source_lang = translations[0].get("source_lang")
+    if not source_lang:
+        return jsonify({"error": "source_lang not set on translations — V6 pipeline incomplete"}), 400
+
+    if lang == source_lang:
+        return jsonify({"error": f"lang '{lang}' is the same as source_lang '{source_lang}'"}), 400
+
+    # Verify the prompt template exists before enqueueing
+    template_id = f"translator/{source_lang}_to_{lang}_default"
+    _TMPL_ROOT = _LocalPath(__file__).parent / "config" / "prompt_templates_v5"
+    category, name = template_id.split("/", 1)
+    template_path = _TMPL_ROOT / category / f"{name}.json"
+    if not template_path.exists():
+        return jsonify({"error": f"未支援嘅語言方向 {source_lang}→{lang}"}), 400
+
+    # Stash the target lang so _mt_handler can dispatch to _translate_second_handler
+    _update_file(file_id, _pending_second_lang=lang)
+
+    uid = getattr(current_user, "id", 0) or 0
+    job_id = _job_queue.enqueue(
+        user_id=uid,
+        file_id=file_id,
+        job_type='translate',
+    )
+    return jsonify({
+        "file_id": file_id,
+        "job_id": job_id,
+        "target_lang": lang,
+        "queue_position": _job_queue.position(job_id),
     }), 202
 
 
