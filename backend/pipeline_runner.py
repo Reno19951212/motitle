@@ -23,6 +23,7 @@ from stages.v5.asr_secondary_stage import ASRSecondaryStage
 from stages.v5.asr_verifier_stage import ASRVerifierStage
 from stages.v5.refiner_stage import RefinerStage
 from stages.v5.translator_stage import TranslatorStage
+from stages.v6.clause_split import split_v6_aligned, DEFAULT_CHAR_CAP, DEFAULT_MIN_DUR
 
 
 # Module-level alias used by _run_v6 for qwen3_context resolution.
@@ -628,6 +629,19 @@ class PipelineRunner:
                 stage_index += 1
 
             by_lang[target_lang] = lang_segments
+
+        # v6 clause-split (2026-05-30): split over-coarse refined segments at
+        # Chinese punctuation, keeping canonical_source index-aligned with by_lang
+        # (persist zips by index + reads start/end from source). Single target_lang
+        # only (V6 today). Spec: 2026-05-30-v6-segmentation-clause-split-design.md
+        _cs_cfg = self._pipeline.get("clause_split") or {}
+        if _cs_cfg.get("enabled", True) and len(by_lang) == 1:
+            _cs_cap = int(_cs_cfg.get("char_cap", DEFAULT_CHAR_CAP))
+            _cs_min = float(_cs_cfg.get("min_dur", DEFAULT_MIN_DUR))
+            _only_lang = next(iter(by_lang))
+            canonical_source, _refined_split = split_v6_aligned(
+                canonical_source, by_lang[_only_lang], _cs_cap, _cs_min)
+            by_lang[_only_lang] = _refined_split
 
         self._persist_by_lang(
             by_lang, source_lang=source_lang, source_segments=canonical_source
