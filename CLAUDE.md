@@ -368,7 +368,7 @@ Whenever a new feature is completed or existing functionality is modified, you *
 - **Invariant**：frontend render backend 畀嘅 `stages`,零 kind 判斷。forward-compat `pipeline_v99` test 通過（unknown kind 照 render）。Native events / `queue_changed` zero-payload 不變,`pipeline_progress` 只加 field。
 - **驗證**：progress_adapter + queue_progress_pct 17 pass;Playwright `test_unified_progress.spec.js` 4 pass + `test_queue_progress.spec.js` forward-compat pass;live screenshot 兩 kind × 兩 surface（Profile 3-step / V6 5-step 正確 label、零 console error）。
 - **Spec/Plan**：[spec](docs/superpowers/specs/2026-05-30-unified-progress-stepdiagram-design.md) / [plan](docs/superpowers/plans/2026-05-30-unified-progress-stepdiagram-plan.md)。
-- **OPS 提醒**：stale Xcode-framework python 會喺 `pkill -f "python app.py"`（細楷）後殘留 serve :5001 → 用 `pkill -if app.py` 或 kill PID;pytest 跑完會 reset `admin_p3` 密碼 → `update_password('data/app.db','admin_p3','AdminPass1!')` 還原。
+- **OPS 提醒**：stale Xcode-framework python 會喺 `pkill -f "python app.py"`（細楷）後殘留 serve :5001 → 用 `pkill -if app.py` 或 kill PID;pytest 跑完會 reset `admin_p3` 密碼 → `update_password('data/app.db','admin_p3','TestPass1!')` 還原（Playwright spec 預設 `PROBE_PASS=TestPass1!`，務必對齊呢個值，否則 fresh-login spec 會 401 失敗）。
 
 ### Subsystem B1 — per-video 雙語(第一/第二語言)統一模型（2026-05-30）
 - **目標**：統一 Profile + V6 嘅字幕語言選擇 —— 每條 video 用「第一/第二語言」role-based 模型,取代硬編碼 EN/ZH。Profile:第一=ASR 原文、第二=MT 譯文(已有 data);V6:第一=refiner 結果、第二可選(結構預留,B2 先產生)。
