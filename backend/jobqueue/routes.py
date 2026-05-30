@@ -56,13 +56,14 @@ def list_queue():
     + owner_username + progress fields from ProgressAdapter.
     """
     # Import inside handler to avoid circular imports at module load time.
-    from progress_adapter import get_adapter as _get_progress_adapter
+    from progress_adapter import get_adapter as _get_progress_adapter, PIPELINE_STAGES
 
     db_path = _db_path or current_app.config["AUTH_DB_PATH"]
     active = list_active_jobs(db_path)
     rows = _annotate(active, db_path)
 
     _adapter = _get_progress_adapter()
+    registry = current_app.config.get("FILE_REGISTRY", {})
     for row in rows:
         fid = row.get("file_id")
         snap = _adapter.get_snapshot(fid) if fid else None
@@ -70,10 +71,18 @@ def list_queue():
             row["progress_pct"] = snap.pct
             row["stage_label"] = snap.stage_label
             row["stage_state"] = snap.stage_state
+            row["stages"] = snap.stages
+            row["stage_index"] = snap.stage_index
+            row["pipeline_kind"] = snap.pipeline_kind
         else:
+            # No snapshot yet — derive kind from file registry for cold-start
+            kind = (registry.get(fid) or {}).get("active_kind", "profile") if fid else "profile"
             row["progress_pct"] = None
             row["stage_label"] = None
             row["stage_state"] = "idle" if row.get("status") == "queued" else None
+            row["stages"] = PIPELINE_STAGES.get(kind, [])
+            row["stage_index"] = 0
+            row["pipeline_kind"] = kind
 
     return jsonify(rows), 200
 

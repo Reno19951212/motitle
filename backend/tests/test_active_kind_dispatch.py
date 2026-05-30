@@ -152,7 +152,7 @@ def test_mt_handler_v6_short_circuits(app_mod):
         app_mod._mt_handler(job, cancel_event=cancel_ev)
 
     mock_at.assert_not_called()
-    assert app_mod._file_registry[fid].get("translation_status") == "completed"
+    assert app_mod._file_registry[fid].get("translation_status") == "done"
     # Cleanup
     app_mod._file_registry.pop(fid, None)
 

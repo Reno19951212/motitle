@@ -389,7 +389,7 @@ def _mt_handler(job, cancel_event=None):
     V6 dispatch (Task 2.5): when file.active_kind == "pipeline_v6", short-circuit
     without calling _auto_translate. The V6 refiner stage is inline inside
     PipelineRunner._run_v6 (enqueued by _asr_handler), so no separate MT step
-    is needed. Sets translation_status='completed' + translation_kind marker.
+    is needed. Sets translation_status='done' + translation_kind marker.
 
     Pulls segments from registry inside _auto_translate, so worker thread
     runs without request context. Status transitions handled by JobQueue
@@ -406,7 +406,7 @@ def _mt_handler(job, cancel_event=None):
     if entry.get("active_kind") == "pipeline_v6":
         with _registry_lock:
             if file_id in _file_registry:
-                _file_registry[file_id]["translation_status"] = "completed"
+                _file_registry[file_id]["translation_status"] = "done"
                 _file_registry[file_id]["translation_kind"] = "pipeline_v6_inline"
                 _save_registry()
         return
@@ -2531,6 +2531,17 @@ def api_approve_all_translations(file_id):
                 new_translations.append(t)
         entry["translations"] = new_translations
         _save_registry()
+    # Emit 校對 (proofread) progress for Profile files
+    _entry_aa = _file_registry.get(file_id) or {}
+    if _entry_aa.get("active_kind", "profile") == "profile":
+        _tr_aa = _entry_aa.get("translations") or []
+        _total_aa = len(_tr_aa) or 1
+        _approved_aa = sum(1 for t in _tr_aa if t.get("status") == "approved")
+        from progress_adapter import get_adapter
+        get_adapter().report(file_id=file_id, job_id="",
+                             pct=int(_approved_aa / _total_aa * 100),
+                             stage_state=("done" if _approved_aa >= _total_aa else "active"),
+                             pipeline_kind="profile", stage_index=2)
     return jsonify({"approved_count": count, "total": len(new_translations)})
 
 
@@ -2654,7 +2665,19 @@ def api_approve_translation(file_id, idx):
         new_translations[idx] = updated_approve
         entry["translations"] = new_translations
         _save_registry()
-        return jsonify({"translation": _normalize_translation_for_api(new_translations[idx])})
+        _resp_approve = jsonify({"translation": _normalize_translation_for_api(new_translations[idx])})
+    # Emit 校對 (proofread) progress for Profile files
+    _entry_ap = _file_registry.get(file_id) or {}
+    if _entry_ap.get("active_kind", "profile") == "profile":
+        _tr_ap = _entry_ap.get("translations") or []
+        _total_ap = len(_tr_ap) or 1
+        _approved_ap = sum(1 for t in _tr_ap if t.get("status") == "approved")
+        from progress_adapter import get_adapter
+        get_adapter().report(file_id=file_id, job_id="",
+                             pct=int(_approved_ap / _total_ap * 100),
+                             stage_state=("done" if _approved_ap >= _total_ap else "active"),
+                             pipeline_kind="profile", stage_index=2)
+    return _resp_approve
 
 
 @app.route('/api/files/<file_id>/translations/<int:idx>/unapprove', methods=['POST'])
@@ -2681,7 +2704,19 @@ def api_unapprove_translation(file_id, idx):
         new_translations[idx] = updated_unapprove
         entry["translations"] = new_translations
         _save_registry()
-        return jsonify({"translation": _normalize_translation_for_api(new_translations[idx])})
+        _resp_unapprove = jsonify({"translation": _normalize_translation_for_api(new_translations[idx])})
+    # Emit 校對 (proofread) progress for Profile files
+    _entry_ua = _file_registry.get(file_id) or {}
+    if _entry_ua.get("active_kind", "profile") == "profile":
+        _tr_ua = _entry_ua.get("translations") or []
+        _total_ua = len(_tr_ua) or 1
+        _approved_ua = sum(1 for t in _tr_ua if t.get("status") == "approved")
+        from progress_adapter import get_adapter
+        get_adapter().report(file_id=file_id, job_id="",
+                             pct=int(_approved_ua / _total_ua * 100),
+                             stage_state=("done" if _approved_ua >= _total_ua else "active"),
+                             pipeline_kind="profile", stage_index=2)
+    return _resp_unapprove
 
 
 # ============================================================

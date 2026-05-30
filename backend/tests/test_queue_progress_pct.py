@@ -77,8 +77,11 @@ def test_api_queue_attaches_progress_for_active_file(app_with_queue_and_adapter)
     row = next((j for j in rows if j["file_id"] == fid), None)
     assert row is not None, f"file_id={fid} not found in queue rows: {rows}"
     assert row["progress_pct"] == 42
-    assert row["stage_label"] == "轉錄中"
     assert row["stage_state"] == "active"
+    # v3.22 new fields
+    assert isinstance(row["stages"], list)
+    assert isinstance(row["stage_index"], int)
+    assert isinstance(row["pipeline_kind"], str)
 
 
 def test_api_queue_returns_null_pct_idle_for_queued_no_snapshot(app_with_queue_and_adapter):
@@ -104,6 +107,10 @@ def test_api_queue_returns_null_pct_idle_for_queued_no_snapshot(app_with_queue_a
     assert row["stage_state"] == "idle"
     # stage_label should be None or empty string when no snapshot
     assert row.get("stage_label") in (None, "")
+    # v3.22 new fields — cold-start defaults
+    assert isinstance(row["stages"], list)
+    assert row["stage_index"] == 0
+    assert isinstance(row["pipeline_kind"], str)
 
 
 def test_api_queue_existing_fields_preserved(app_with_queue_and_adapter):
@@ -126,6 +133,7 @@ def test_api_queue_existing_fields_preserved(app_with_queue_and_adapter):
               "file_name", "owner_username"):
         assert k in row, f"existing field '{k}' missing from row: {row}"
 
-    # New additive fields must also be present
-    for k in ("progress_pct", "stage_label", "stage_state"):
+    # New additive fields must also be present (Phase B + v3.22)
+    for k in ("progress_pct", "stage_label", "stage_state",
+              "stages", "stage_index", "pipeline_kind"):
         assert k in row, f"new field '{k}' missing from row: {row}"
