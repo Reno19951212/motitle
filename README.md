@@ -228,6 +228,8 @@ python app.py
 
 開 Proofread page，「自訂 Prompt」面板會自動顯示 V6 mode：兩個 textarea（Qwen3 Context + Refiner Prompt）— 改完只影響呢個 file。
 
+> **注意（2026-05-30）**：「自訂 Prompt」編輯入口已從校對頁（Proofread page）移除；per-file `prompt_overrides` 資料模型及 `PATCH /api/files/<id>` API 仍然保留，如需透過 API 設定 override 仍然有效。
+
 ### 唔需要 V6？
 
 完全唔影響 — Pipeline 預設仍係 Profile 系統。冇 mlx_qwen3_asr venv 嘅機器，V6 section 自動灰咗（boot 時 `V6_AVAILABLE=False`），現有 Profile 流程全部如常運作。

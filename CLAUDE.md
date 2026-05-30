@@ -359,6 +359,13 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### Proofread 版面修復 — 移除自訂 Prompt 面板（2026-05-30）
+- **問題**：Proofread 影片下方嘅 `.rv-b-vid-panels` 係 2 欄固定高度 grid，但 v3.18 將「自訂 Prompt」(`#promptPanel`) 作為第 3 個 grid child 塞入，產生 implicit 第 2 行，將「詞彙表」+「字幕設定」壓扁到 ~88px（MacBook 14" 1512×982 實測），自訂 Prompt 半欄孤立。
+- **修復**：完全移除自訂 Prompt 面板（`frontend/proofread.html` 嘅 #promptPanel HTML + `.rv-b-prompt-*` CSS + 6 個 prompt JS function + 2 變量 + call site，共 296 行刪除）。grid 回復單行 2 欄，兩 panel 各佔全高（220px，字幕設定 6 行完整可見、唔 scroll）。
+- **保留**：per-file `prompt_overrides` 資料模型 + `PATCH /api/files/<id>` + `/api/prompt_templates` API 完全不變（只移除 proofread UI 入口）；dashboard `📝 自訂` chip 保留。Backend 零改動。
+- **測試**：新增 `frontend/tests/test_proofread_layout.spec.js`（panel 移除 + 兩 panel 尺寸，2 PASS）；刪 `test_prompt_panel.spec.js`；`test_v6_pipeline_strip.spec.js` 移走 2 個 proofread-coupled test（保留 5 個 dashboard-strip test，5 PASS）。
+- **Spec/Plan**：[spec](docs/superpowers/specs/2026-05-30-proofread-panel-layout-fix-design.md) / [plan](docs/superpowers/plans/2026-05-30-proofread-panel-layout-fix-plan.md)。
+
 ### v3.21 — Unified Pipeline Progress Contract + Queue Panel Real-time Bar
 - **目標**：右側 queue panel 每個 row 根據對應 file 嘅處理階段，顯示接近實時嘅 0–100% 進度條同 stage label。Architecture 必須兼容 (a) 舊有 Profile 模式、(b) V6 Dual-ASR Pipeline、(c) 任何未來新增 pipeline kind — frontend 對 pipeline 內部結構零 awareness。Spec: [docs/superpowers/specs/2026-05-29-queue-progress-prompt.md](docs/superpowers/specs/2026-05-29-queue-progress-prompt.md)。Plan: [docs/superpowers/plans/2026-05-29-queue-progress-plan.md](docs/superpowers/plans/2026-05-29-queue-progress-plan.md)。Architecture doc: [docs/superpowers/architecture/pipeline-progress-contract.md](docs/superpowers/architecture/pipeline-progress-contract.md)。
 - **新 backend module**（`backend/progress_adapter.py`）：Adapter pattern — `ProgressSnapshot` dataclass + `ProgressAdapter` class（`threading.RLock` cache + 500ms throttle）+ module-level singleton（`get_adapter()` / `init_adapter(socketio)` / `reset_adapter()`）。兩類 shim helper：Profile shims（`report_from_subtitle_segment` → `"轉錄中"`；`report_from_translation_progress` → `"翻譯中"`）；V6 shim（`report_from_v6_stage` — 5 個內部 stage 映射做單一 0–100%，`V6_STAGE_LABELS` 提供 5 個 `stage_type` → label mapping）。
