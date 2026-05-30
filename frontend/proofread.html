@@ -949,14 +949,17 @@
 
   // Resolve segment text per subtitle source mode.
   // Mirrors backend backend/subtitle_text.py resolve_segment_text exactly.
+  // Handles role-based values: 'first' (= legacy 'en'), 'second' (= legacy 'zh').
   function pickSubtitleText(seg, mode = 'auto', order = 'en_top') {
     const en = (seg.en || seg._en_text || seg.text || '').trim();
     let zh = (seg.zh || seg.zh_text || '').trim();
     // Strip leading [long]/[review] QA markers (legacy registry data).
     zh = zh.replace(/^\s*(?:\[(?:NEEDS\s+REVIEW|long|review|LONG|REVIEW)\]\s*)+/, '').trim();
-    if (mode === 'en') return en;
-    if (mode === 'zh') return zh || en;
-    if (mode === 'bilingual') {
+    // Map role-based values to their legacy equivalents.
+    const _mode = mode === 'first' ? 'en' : mode === 'second' ? 'zh' : mode;
+    if (_mode === 'en') return en;
+    if (_mode === 'zh') return zh || en;
+    if (_mode === 'bilingual') {
       if (!en) return zh;
       if (!zh) return en;
       return order === 'en_top' ? `${en}\n${zh}` : `${zh}\n${en}`;
@@ -965,11 +968,12 @@
   }
 
   // Resolve subtitle source from a file entry, falling back to the active profile.
+  // Accepts role-based values ('first'/'second') in addition to legacy values.
   function resolveSubtitleSource(fileEntry, profile) {
     const v = (fileEntry || {}).subtitle_source;
-    if (v === 'auto' || v === 'en' || v === 'zh' || v === 'bilingual') return v;
+    if (v === 'auto' || v === 'en' || v === 'zh' || v === 'bilingual' || v === 'first' || v === 'second') return v;
     const p = ((profile || {}).font || {}).subtitle_source;
-    if (p === 'auto' || p === 'en' || p === 'zh' || p === 'bilingual') return p;
+    if (p === 'auto' || p === 'en' || p === 'zh' || p === 'bilingual' || p === 'first' || p === 'second') return p;
     return 'auto';
   }
   function resolveBilingualOrder(fileEntry, profile) {
@@ -987,18 +991,59 @@
     const srcSel = document.getElementById('proofreadSourceMode');
     const ordSel = document.getElementById('proofreadBilingualOrder');
     if (!srcSel) return;
-    srcSel.value = (fileInfo && fileInfo.subtitle_source) ? fileInfo.subtitle_source : '';
-    // Surface the effective profile-level mode in the placeholder so users see
-    // what "follow Profile" actually resolves to (matches dashboard UX).
-    const followOpt = document.getElementById('proofreadSourceModeFollow');
-    if (followOpt) {
+
+    // Rebuild options from the file's languages descriptor when available.
+    const langs = (fileInfo && Array.isArray(fileInfo.languages)) ? fileInfo.languages : [];
+    const firstLang = langs.find(l => l.role === 'first');
+    const secondLang = langs.find(l => l.role === 'second');
+    const hasDescriptor = langs.length > 0;
+
+    if (hasDescriptor) {
+      // Clear and rebuild dynamically.
+      srcSel.innerHTML = '';
+
+      // "Follow Profile" option (value = '').
+      const followOpt = document.createElement('option');
+      followOpt.value = '';
+      followOpt.id = 'proofreadSourceModeFollow';
       const p = (activeProfile && activeProfile.font && activeProfile.font.subtitle_source) || 'auto';
-      const label = ({auto:'Auto', en:'EN', zh:'ZH', bilingual:'雙語'})[p] || 'Auto';
-      followOpt.textContent = `— 跟 Profile（${label}）—`;
+      const pLabel = ({auto:'Auto', en:'EN', zh:'ZH', bilingual:'雙語', first:'第一語言', second:'第二語言'})[p] || 'Auto';
+      followOpt.textContent = `— 跟 Profile（${pLabel}）—`;
+      srcSel.appendChild(followOpt);
+
+      if (firstLang) {
+        const opt = document.createElement('option');
+        opt.value = 'first';
+        opt.textContent = `第一語言 · ${firstLang.label || '原文'}（${(firstLang.lang || '').toUpperCase()}）`;
+        srcSel.appendChild(opt);
+      }
+      if (secondLang) {
+        const opt = document.createElement('option');
+        opt.value = 'second';
+        opt.textContent = `第二語言 · ${secondLang.label || '譯文'}（${(secondLang.lang || '').toUpperCase()}）`;
+        srcSel.appendChild(opt);
+
+        const biOpt = document.createElement('option');
+        biOpt.value = 'bilingual';
+        biOpt.textContent = '雙語';
+        srcSel.appendChild(biOpt);
+      }
+    } else {
+      // Keep static options but update the "Follow Profile" label.
+      const followOpt = document.getElementById('proofreadSourceModeFollow');
+      if (followOpt) {
+        const p = (activeProfile && activeProfile.font && activeProfile.font.subtitle_source) || 'auto';
+        const label = ({auto:'Auto', en:'EN', zh:'ZH', bilingual:'雙語'})[p] || 'Auto';
+        followOpt.textContent = `— 跟 Profile（${label}）—`;
+      }
     }
+
+    srcSel.value = (fileInfo && fileInfo.subtitle_source) ? fileInfo.subtitle_source : '';
+
     if (ordSel) {
       ordSel.value = (fileInfo && fileInfo.bilingual_order) ? fileInfo.bilingual_order : 'en_top';
-      ordSel.style.display = ((fileInfo && fileInfo.subtitle_source) === 'bilingual') ? '' : 'none';
+      const curSrc = fileInfo && fileInfo.subtitle_source;
+      ordSel.style.display = (curSrc === 'bilingual') ? '' : 'none';
     }
   }
 
@@ -1031,6 +1076,8 @@
       refreshOverlay();
       showToast('已更新字幕來源', 'success');
     } catch (e) {
+      // Restore previous selection on failure.
+      selectEl.value = (fileInfo && fileInfo.subtitle_source) ? fileInfo.subtitle_source : '';
       showToast(`更新失敗: ${e.message}`, 'error');
     }
   }

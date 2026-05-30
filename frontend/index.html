@@ -1881,14 +1881,17 @@
 
     // Resolve segment text per subtitle source mode.
     // Mirrors backend backend/subtitle_text.py resolve_segment_text exactly.
+    // Handles role-based values: 'first' (= legacy 'en'), 'second' (= legacy 'zh').
     function pickSubtitleText(seg, mode = 'auto', order = 'en_top') {
       const en = (seg.en || seg._en_text || seg.text || '').trim();
       let zh = (seg.zh || seg.zh_text || '').trim();
       // Strip leading [long]/[review] QA markers (legacy registry data).
       zh = zh.replace(/^\s*(?:\[(?:NEEDS\s+REVIEW|long|review|LONG|REVIEW)\]\s*)+/, '').trim();
-      if (mode === 'en') return en;
-      if (mode === 'zh') return zh || en;
-      if (mode === 'bilingual') {
+      // Map role-based values to their legacy equivalents.
+      const _mode = mode === 'first' ? 'en' : mode === 'second' ? 'zh' : mode;
+      if (_mode === 'en') return en;
+      if (_mode === 'zh') return zh || en;
+      if (_mode === 'bilingual') {
         if (!en) return zh;
         if (!zh) return en;
         return order === 'en_top' ? `${en}\n${zh}` : `${zh}\n${en}`;
@@ -1897,11 +1900,12 @@
     }
 
     // Resolve subtitle source from a file entry, falling back to the active profile.
+    // Accepts role-based values ('first'/'second') in addition to legacy values.
     function resolveSubtitleSource(fileEntry, profile) {
       const v = (fileEntry || {}).subtitle_source;
-      if (v === 'auto' || v === 'en' || v === 'zh' || v === 'bilingual') return v;
+      if (v === 'auto' || v === 'en' || v === 'zh' || v === 'bilingual' || v === 'first' || v === 'second') return v;
       const p = ((profile || {}).font || {}).subtitle_source;
-      if (p === 'auto' || p === 'en' || p === 'zh' || p === 'bilingual') return p;
+      if (p === 'auto' || p === 'en' || p === 'zh' || p === 'bilingual' || p === 'first' || p === 'second') return p;
       return 'auto';
     }
     function resolveBilingualOrder(fileEntry, profile) {
@@ -2132,20 +2136,46 @@
       const _dlQuery = `?source=${encodeURIComponent(_dlSrc)}&order=${encodeURIComponent(_dlOrder)}`;
       const _fileSrc = f.subtitle_source || '';   // raw override (empty = follow profile)
       const _profSrc = (activeProfile?.font?.subtitle_source) || 'auto';
-      const _profLabel = ({auto:'Auto', en:'EN', zh:'ZH', bilingual:'雙語'})[_profSrc] || 'Auto';
-      const _srcLabel = ({en:'原文 (EN)', zh:'譯文 (ZH)', bilingual:'雙語對照', auto:'自動 (Auto)'})[_dlSrc] || '自動';
+      const _profLabel = ({auto:'Auto', en:'EN', zh:'ZH', bilingual:'雙語', first:'第一語言', second:'第二語言'})[_profSrc] || 'Auto';
+      const _srcLabelMap = {en:'原文 (EN)', zh:'譯文 (ZH)', bilingual:'雙語對照', auto:'自動 (Auto)', first:'第一語言', second:'第二語言'};
+      const _srcLabel = _srcLabelMap[_dlSrc] || '自動';
       const _orderLabel = _dlOrder === 'en_top' ? 'EN 上 / ZH 下' : 'ZH 上 / EN 下';
       const _on = (v) => _fileSrc === v ? 'on' : '';
+
+      // Build descriptor-driven language buttons from file.languages (if present).
+      // Falls back to legacy hardcoded EN/ZH/雙語 when descriptor is absent.
+      const _langs = Array.isArray(f.languages) ? f.languages : [];
+      const _firstLang = _langs.find(l => l.role === 'first');
+      const _secondLang = _langs.find(l => l.role === 'second');
+      const _hasDescriptor = _langs.length > 0;
+      let _langButtons = '';
+      if (_hasDescriptor) {
+        if (_firstLang) {
+          const _fl = `第一語言 · ${escapeHtml(_firstLang.label || '原文')}（${escapeHtml((_firstLang.lang || '').toUpperCase())}）`;
+          _langButtons += `<button class="${_on('first')}" onclick="setFileSubtitleSource('${f.id}', 'first')" title="顯示第一語言（${escapeHtml(_firstLang.label || '原文')}）">${_fl}</button>`;
+        }
+        if (_secondLang) {
+          const _sl = `第二語言 · ${escapeHtml(_secondLang.label || '譯文')}（${escapeHtml((_secondLang.lang || '').toUpperCase())}）`;
+          _langButtons += `<button class="${_on('second')}" onclick="setFileSubtitleSource('${f.id}', 'second')" title="顯示第二語言（${escapeHtml(_secondLang.label || '譯文')}）">${_sl}</button>`;
+          _langButtons += `<button class="${_on('bilingual')}" onclick="setFileSubtitleSource('${f.id}', 'bilingual')" title="雙語對照（兩行同顯）">雙語</button>`;
+        }
+      } else {
+        // Legacy fallback when no descriptor
+        _langButtons = `
+            <button class="${_on('en')}" onclick="setFileSubtitleSource('${f.id}', 'en')" title="只匯出英文原文">原文 EN</button>
+            <button class="${_on('zh')}" onclick="setFileSubtitleSource('${f.id}', 'zh')" title="只匯出中文譯文">譯文 ZH</button>
+            <button class="${_on('bilingual')}" onclick="setFileSubtitleSource('${f.id}', 'bilingual')" title="雙語對照（兩行同顯）">雙語</button>`;
+      }
+      _langButtons += `<button class="${_on('')}" onclick="setFileSubtitleSource('${f.id}', '')" title="跟 Profile 嘅預設">跟 Profile（${_profLabel}）</button>`;
+
+      const _showOrderRow = _dlSrc === 'bilingual' || _dlSrc === 'first' || _dlSrc === 'second';
       const subtitleMenu = `
         <div class="split-menu sub-menu" role="menu">
           <div class="split-head">字幕內容</div>
           <div class="sub-lang-seg">
-            <button class="${_on('en')}" onclick="setFileSubtitleSource('${f.id}', 'en')" title="只匯出英文原文">原文 EN</button>
-            <button class="${_on('zh')}" onclick="setFileSubtitleSource('${f.id}', 'zh')" title="只匯出中文譯文">譯文 ZH</button>
-            <button class="${_on('bilingual')}" onclick="setFileSubtitleSource('${f.id}', 'bilingual')" title="雙語對照（兩行同顯）">雙語</button>
-            <button class="${_on('')}" onclick="setFileSubtitleSource('${f.id}', '')" title="跟 Profile 嘅預設">跟 Profile（${_profLabel}）</button>
+            ${_langButtons}
           </div>
-          ${_dlSrc === 'bilingual' ? `
+          ${_showOrderRow && (_hasDescriptor ? !!_secondLang : true) ? `
           <div class="sub-order-row">
             <span class="sub-order-lab">次序</span>
             <button class="sub-order-btn ${_dlOrder==='en_top'?'on':''}" onclick="setFileBilingualOrder('${f.id}','en_top')" title="EN 上 / ZH 下">
@@ -4472,7 +4502,7 @@
         if (_v && typeof updateSubtitleOverlay === 'function') {
           updateSubtitleOverlay(_v.currentTime || 0);
         }
-        const label = ({en:'原文 EN', zh:'譯文 ZH', bilingual:'雙語', auto:'Auto'})[value] || '跟 Profile';
+        const label = ({en:'原文 EN', zh:'譯文 ZH', bilingual:'雙語', auto:'Auto', first:'第一語言', second:'第二語言'})[value] || '跟 Profile';
         showToast(`字幕來源：${label}`, 'success');
       } catch (e) {
         showToast(`更新失敗: ${e.message}`, 'error');
