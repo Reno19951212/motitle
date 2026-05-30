@@ -258,6 +258,29 @@
       min-width: 0;
     }
     .pipeline-strip .step { position: relative; }
+    .pipeline-strip { position: relative; }
+    .pipeline-strip .pipeline-preset .pp-v {
+      max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .pipeline-steps-toggle {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: none; border: 0; cursor: pointer;
+      padding: 6px 10px; border-radius: 8px; color: var(--text-mid);
+    }
+    .pipeline-steps-toggle:hover { background: var(--surface-3); color: var(--text); }
+    .pipeline-steps-toggle .k {
+      font-weight: 700; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .pipeline-steps-popover {
+      display: none;
+      position: absolute; top: 100%; left: 0; margin-top: 6px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; box-shadow: 0 16px 40px rgba(0,0,0,0.55);
+      padding: 4px 6px; z-index: 90;
+      align-items: center; gap: 2px;
+      width: max-content; max-width: 90vw; overflow: visible;
+    }
+    .pipeline-steps-popover.open { display: flex; }
     .pipeline-preset-wrap { position: relative; }
 
     /* Pipeline step dropdown */
@@ -2390,25 +2413,45 @@
           </button>
           ${presetMenuHtml}
         </div>
-        <span class="sep"></span>
-        <div class="step" data-step="vad" tabindex="0">
-          <div><div class="k">VAD</div><div class="v">${escapeHtml(vadCell)}</div></div>
-        </div>
-        <span class="arrow">→</span>
-        <div class="step" data-step="qwen3-ctx" tabindex="0" onclick="openPromptPanelInline('qwen3_context')" style="cursor:pointer;">
-          <div><div class="k">Qwen3 Context</div><div class="v">${escapeHtml(ctxCell)}</div></div>
+        <button class="pipeline-steps-toggle" onclick="togglePipelineSteps(this)" title="顯示 / 隱藏 pipeline 步驟">
+          <span class="k">步驟</span>
           <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
-        </div>
-        <span class="arrow">→</span>
-        <div class="step" data-step="output" tabindex="0">
-          <div><div class="k">輸出</div><div class="v">${escapeHtml(outputFmt)}</div></div>
-        </div>
-        <span class="arrow">→</span>
-        <div class="step" data-step="refiner" tabindex="0" onclick="openPromptPanelInline('refiner_prompt')" style="cursor:pointer;">
-          <div><div class="k">Refiner</div><div class="v">${escapeHtml(refinerCell)}</div></div>
-          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        </button>
+        <div class="pipeline-steps-popover">
+          <div class="step" data-step="vad" tabindex="0">
+            <div><div class="k">VAD</div><div class="v">${escapeHtml(vadCell)}</div></div>
+          </div>
+          <span class="arrow">→</span>
+          <div class="step" data-step="qwen3-ctx" tabindex="0" onclick="openPromptPanelInline('qwen3_context')" style="cursor:pointer;">
+            <div><div class="k">Qwen3 Context</div><div class="v">${escapeHtml(ctxCell)}</div></div>
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+          </div>
+          <span class="arrow">→</span>
+          <div class="step" data-step="output" tabindex="0">
+            <div><div class="k">輸出</div><div class="v">${escapeHtml(outputFmt)}</div></div>
+          </div>
+          <span class="arrow">→</span>
+          <div class="step" data-step="refiner" tabindex="0" onclick="openPromptPanelInline('refiner_prompt')" style="cursor:pointer;">
+            <div><div class="k">Refiner</div><div class="v">${escapeHtml(refinerCell)}</div></div>
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+          </div>
         </div>`;
     }
+
+    function togglePipelineSteps(btn) {
+      const pop = btn.parentElement.querySelector('.pipeline-steps-popover');
+      if (!pop) return;
+      pop.classList.toggle('open');
+    }
+    document.addEventListener('click', (e) => {
+      document.querySelectorAll('.pipeline-steps-popover.open').forEach(pop => {
+        const wrap = pop.parentElement;
+        const toggle = wrap.querySelector('.pipeline-steps-toggle');
+        if (!pop.contains(e.target) && !(toggle && toggle.contains(e.target))) {
+          pop.classList.remove('open');
+        }
+      });
+    });
 
     function renderPipelineStrip() {
       // V6 mode renders a different column layout
@@ -2583,44 +2626,49 @@
           </button>
           ${presetMenuHtml}
         </div>
-        <span class="sep"></span>
-        <div class="step" data-step="asr" tabindex="0">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="var(--accent-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8h1M4 5v6M6 3v10M8 6v4M10 4v8M12 7v2M14 8h0"/></svg>
-          <div><div class="k">ASR</div><div class="v">${escapeHtml(asrModel)}</div></div>
+        <button class="pipeline-steps-toggle" onclick="togglePipelineSteps(this)" title="顯示 / 隱藏 pipeline 步驟">
+          <span class="k">步驟</span>
           <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
-          ${asrMenuHtml}
-        </div>
-        <span class="arrow">→</span>
-        <div class="step" data-step="mt" tabindex="0">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="var(--accent-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2l6 3-6 3-6-3zM2 8l6 3 6-3M2 11l6 3 6-3"/></svg>
-          <div>
-            <div class="k">MT</div>
-            <div class="v">${escapeHtml(mtEngine === 'openrouter'
-              ? `OR · ${(p.translation?.openrouter_model || '未設定').split('/').pop()}`
-              : mtEngineShort)}</div>
+        </button>
+        <div class="pipeline-steps-popover">
+          <div class="step" data-step="asr" tabindex="0">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="var(--accent-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8h1M4 5v6M6 3v10M8 6v4M10 4v8M12 7v2M14 8h0"/></svg>
+            <div><div class="k">ASR</div><div class="v">${escapeHtml(asrModel)}</div></div>
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+            ${asrMenuHtml}
           </div>
-          ${mtEngine === 'openrouter' ? `
-            <button type="button" title="編輯 OpenRouter 設定 (API key / 模型)"
-              onclick="event.stopPropagation(); openOpenRouterModal();"
-              style="background:none;border:none;padding:2px 4px;margin:0 2px;cursor:pointer;color:var(--text-mid);"
-              aria-label="設定">⚙</button>
-          ` : ''}
-          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
-          ${mtMenuHtml}
-        </div>
-        <span class="arrow">→</span>
-        <div class="step" data-step="output" tabindex="0">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="var(--accent-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 6h12M2 10h12"/></svg>
-          <div><div class="k">輸出</div><div class="v">${escapeHtml(outputFmt)}</div></div>
-          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
-          ${outMenuHtml}
-        </div>
-        <span class="arrow">→</span>
-        <div class="step step-gloss" data-step="gloss" tabindex="0" title="執行時套用嘅術語表">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="var(--accent)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h4a3 3 0 013 3v8a2 2 0 00-2-2H3z M13 3H9a3 3 0 00-3 3v8a2 2 0 012-2h5z"/></svg>
-          <div><div class="k">術語表</div><div class="v">${escapeHtml(glossName)}${glossCount ? ` · ${glossCount} 條` : ''}</div></div>
-          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
-          ${glossMenuHtml}
+          <span class="arrow">→</span>
+          <div class="step" data-step="mt" tabindex="0">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="var(--accent-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2l6 3-6 3-6-3zM2 8l6 3 6-3M2 11l6 3 6-3"/></svg>
+            <div>
+              <div class="k">MT</div>
+              <div class="v">${escapeHtml(mtEngine === 'openrouter'
+                ? `OR · ${(p.translation?.openrouter_model || '未設定').split('/').pop()}`
+                : mtEngineShort)}</div>
+            </div>
+            ${mtEngine === 'openrouter' ? `
+              <button type="button" title="編輯 OpenRouter 設定 (API key / 模型)"
+                onclick="event.stopPropagation(); openOpenRouterModal();"
+                style="background:none;border:none;padding:2px 4px;margin:0 2px;cursor:pointer;color:var(--text-mid);"
+                aria-label="設定">⚙</button>
+            ` : ''}
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+            ${mtMenuHtml}
+          </div>
+          <span class="arrow">→</span>
+          <div class="step" data-step="output" tabindex="0">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="var(--accent-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 6h12M2 10h12"/></svg>
+            <div><div class="k">輸出</div><div class="v">${escapeHtml(outputFmt)}</div></div>
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+            ${outMenuHtml}
+          </div>
+          <span class="arrow">→</span>
+          <div class="step step-gloss" data-step="gloss" tabindex="0" title="執行時套用嘅術語表">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="var(--accent)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h4a3 3 0 013 3v8a2 2 0 00-2-2H3z M13 3H9a3 3 0 00-3 3v8a2 2 0 012-2h5z"/></svg>
+            <div><div class="k">術語表</div><div class="v">${escapeHtml(glossName)}${glossCount ? ` · ${glossCount} 條` : ''}</div></div>
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+            ${glossMenuHtml}
+          </div>
         </div>`;
     }
 
