@@ -359,6 +359,14 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### Profile pipeline same-lingual 對齊修復（2026-05-30）
+- **問題**：zh→zh profile（`b877d8b5`，alignment_mode=llm-markers）處理粵語廣播片時字幕系統性 off-by-one（譯文遲 1 段出）。
+- **Root cause**：`translate_with_alignment` 內 `merge_to_sentences` 用英文 pySBD + 英文 word boundaries（**英文 source 專用**）；用喺中文 source 上辨認唔到中文句號 → over-merge（驗證：104 段 → 7 句、最大跨 41 段）→ LLM marker alignment 必敗 → time-proportion fallback 致 off-by-one。
+- **修復**：新純函數 `_select_translation_strategy(alignment_mode, use_sentence_pipeline, source_is_english)`；`_auto_translate` 改用佢分流。merge-based mode（llm-markers / sentence）只喺英文 source 行；非英文 source 行 `engine.translate(batch_size=1)`（v3.8 single-segment 1:1，每段保 start/end → off-by-one 結構上不可能）。
+- **範圍**：只 `backend/app.py` 路徑選擇 + helper + tests。Engine / merge_to_sentences / alignment_pipeline / sentence_pipeline 內部、英文 EN→ZH profile（prod-default / dev-default）、V6 全部唔郁。
+- **Validation-First**：非破壞性重現確認 off-by-one；merge guard prototype 量度 over-merge（104→7 句）；單元測試 9（routing）+ 1:1 timing harness 驗證。
+- **Spec/Plan**：[spec](docs/superpowers/specs/2026-05-30-profile-samelingual-alignment-fix-design.md) / [plan](docs/superpowers/plans/2026-05-30-profile-samelingual-alignment-fix-plan.md)。
+
 ### V6 字幕分句優化 — 後置標點 clause-split（2026-05-30）
 - **問題**：V6 Dual-ASR pipeline 喺連續旁白片（無自然停頓）分句過粗 — 一條 subtitle 跨幾個逗號子句（VTDown 24 段中 13 段含未斷標點、median 28 字、最長 57 字/13 秒）；廣播片（有停頓）靠 VAD/mlx 自然分句 ~99% 好。Root cause：V6 segment 邊界由 mlx-whisper 聲學分段決定，全程無標點分句。
 - **修復**：新 module `backend/stages/v6/clause_split.py`（純函數）— 喺 refiner 之後、persist 之前，將超 `char_cap`（預設 24）嘅 refined segment 喺中文標點（。！？，、；：）切原子子句、greedy 填行、proportional timing、min-duration guard（<1.0s 嘅 piece merge 返，避免閃 line）。單一超 cap 無標點子句唔切（避免 jieba-類已 reject 陷阱）。
