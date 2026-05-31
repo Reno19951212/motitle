@@ -360,6 +360,15 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### EN→Cantonese（dev-default）改用 sentence-pipeline + 清 dead openrouter_model（2026-05-31）
+- **問題**：`dev-default`（EN→Cantonese 書面語）profile 譯 FIFA 訪談片（file `f422c01566ca`）整體質量好，但好多相鄰句子**意思重複** —— batched translate 將相鄰 EN 碎段一齊餵 LLM，LLM 逐段各自補完整句，相鄰 cue 重複介紹同一資訊（例：兩 cue 都重複「賽事/球員」context）。
+- **Root cause**：`dev-default` 用 default batched path（`use_sentence_pipeline=false`、`alignment_mode=""` → `_select_translation_strategy` 回 `"batched"`）。Batched 對英文碎段冇句界限概念 → 每段補成完整句 → 鄰段意思重疊 + padding。另 `openrouter_model:"anthropic/claude-sonnet-4.5"` 係 **dead config**（`create_translation_engine` 睇 `engine` field，`engine="qwen3.5-35b-a3b"` 行 Ollama，呢欄被忽略，仲令 UI 誤示 OpenRouter）。
+- **修復（config-only）**：`dev-default.json` translation block set `use_sentence_pipeline: true`（→ `_select_translation_strategy(am="", usp=true, src_en=true)` 回 `"sentence"`：pySBD 併英文碎段成完整句 → 整句譯一次 → 按標點/比例 `redistribute_to_segments` 返各原 ASR 段，**每 cue 收互補切片而非各自補全句**），移除 dead `openrouter_model`。engine/style/batch_size/temperature/parallel_batches/glossary 不變；無代碼邏輯改動。
+- **Validation-First（CLAUDE.md mandate 全程遵守）**：[分析報告](docs/superpowers/incidents/2026-05-31-profile-mt-adjacent-repetition-analysis.md)（root cause + 5 ranked options）→ prototype `backend/scripts/diag_sentence_pipeline.py` 用**真 Ollama qwen3.5-35b**（同 production engine）跑同一檔 → [validation tracker PASS](docs/superpowers/specs/2026-05-31-sentence-pipeline-validation-tracker.md)：鄰段重複 8.6%→0%、padding 19.8%→13.2%、over-cap 0.9%→0%、7 個已知重複對全修。User review evidence 後先 spec→實施。
+- **Live 整合驗證**（重啟 backend + activate dev-default + `POST /api/translate` re-run f422c01566ca）：106 段持久化輸出 —— 鄰段重複 **1/105 (1.0%)**（唯一一個係 keyword heuristic false-positive：#18→#20 本身係**一句英文跨 3 cue**，「賽事」自然重現兩次，讀落連續無重複，**0 真重複**）、padding **8.5%**、over-cap **0%**、empty 1.9%（邊界 case）、首 20 段 timing **0 anomaly**（`redistribute` 保留原 ASR 段 start/end → 結構上無 off-by-one）。
+- **範圍**：只 `dev-default`（現 EN→Cantonese 1 條 + 將來同類）；`prod-default` / `b877d8b5`(zh→zh) / `696ed1a3` 不變。`dev-default.json` 係 **gitignored**（api-key 安全，`.gitignore` L56）→ config flip 只落本機；commit 出 spec + CI-safe regression test（`test_dev_default_sentence_pipeline.py`，本機檔在時 4 pass、fresh checkout skip）。
+- **Spec/Plan**：[spec+plan](docs/superpowers/specs/2026-05-31-enable-sentence-pipeline-dev-default.md)。
+
 ### User 頁 — 帳戶 + 自助改密碼 + admin 用戶管理 + 審計（Task B）（2026-05-31）
 - **目標**：將現有 admin/user 後端（`/api/admin/*` + `/api/me`）做返一個好睇嘅 User 頁（取代 Task A placeholder），加自助改密碼，吸納 admin.html。
 - **新 backend endpoint**：`POST /api/me/password`（`auth/routes.py`，login_required + `@limiter.limit("10 per minute")`）—— body `{old_password,new_password}`：`verify_credentials` 驗舊密碼（錯→403 + audit `password_change_failed`）、`validate_password_strength` 驗強度（弱→400）、`update_password` + audit `password_changed`。**唯一新增 endpoint**，其餘全用現有 admin-only endpoints。屬 auth/security（非 ASR/MT → 唔涉 Validation-First）。
