@@ -1495,6 +1495,12 @@ def serve_glossary_page():
     return send_from_directory(_FRONTEND_DIR, "Glossary.html")
 
 
+@app.get("/user.html")
+@login_required
+def serve_user_page():
+    return send_from_directory(_FRONTEND_DIR, "user.html")
+
+
 @app.get("/js/<path:filename>")
 def serve_frontend_js(filename):
     return send_from_directory(str(Path(_FRONTEND_DIR) / "js"), filename)

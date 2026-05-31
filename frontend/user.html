@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MoTitle — User</title>
+  <link rel="stylesheet" href="css/responsive.css">
+  <style>
+    :root { --bg:#0e0f13; --surface-2:#1a1c22; --accent-soft:rgba(108,99,255,0.15); --accent-2:#8b85ff; --text:#e7e8ec; --text-dim:#9aa0ab; --border:#2a2d36; }
+    * { box-sizing:border-box; } body { margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"PingFang HK","Microsoft JhengHei",sans-serif; }
+    .app { display:flex; min-height:100vh; }
+    .b-rail { width:56px; flex-shrink:0; background:var(--surface-2); display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 0; border-right:1px solid var(--border); }
+    .b-rail .mark { width:32px; height:32px; border-radius:8px; background:var(--accent-soft); color:var(--accent-2); display:flex; align-items:center; justify-content:center; font-weight:800; margin-bottom:8px; }
+    .rail-btn { position:relative; width:40px; height:40px; border:none; background:transparent; color:var(--text-dim); border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; text-decoration:none; }
+    .rail-btn:hover { color:var(--text); background:var(--surface-2); }
+    .rail-btn.on { color:var(--accent-2); background:var(--accent-soft); }
+    .rail-btn .tt { position:absolute; left:48px; white-space:nowrap; background:#000; padding:3px 8px; border-radius:6px; font-size:12px; opacity:0; pointer-events:none; transition:opacity .12s; z-index:5; }
+    .rail-btn:hover .tt { opacity:1; }
+    .b-rail .flex1 { flex:1; }
+    .user-main { flex:1; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:10px; color:var(--text-dim); }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="b-rail">
+      <div class="mark" title="MoTitle">M</div>
+      <a class="rail-btn" href="/" title="主頁"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8l6-5 6 5v6H2z M6 14V9h4v5"/></svg><span class="tt">主頁</span></a>
+      <a class="rail-btn" href="/" title="檔案"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 6h12M2 10h12M5 3v10M11 3v10"/></svg><span class="tt">檔案</span></a>
+      <a class="rail-btn" href="proofread.html" title="校對"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-8 8H3v-3z"/></svg><span class="tt">校對</span></a>
+      <a class="rail-btn" href="Glossary.html" title="術語表"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h4a3 3 0 013 3v8a2 2 0 00-2-2H3z M13 3H9a3 3 0 00-3 3v8a2 2 0 012-2h5z"/></svg><span class="tt">術語表</span></a>
+      <a class="rail-btn on" href="user.html" title="User"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="5.5" r="2.75"/><path d="M2.5 14a5.5 5.5 0 0111 0"/></svg><span class="tt">User</span></a>
+      <div class="flex1"></div>
+    </aside>
+    <main class="user-main">
+      <svg width="48" height="48" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25"><circle cx="8" cy="5.5" r="2.75"/><path d="M2.5 14a5.5 5.5 0 0111 0"/></svg>
+      <div style="font-size:15px;">User 介面（建設中）</div>
+      <div style="font-size:12px;">admin / user 管理 + 個人設定將喺 Task B 加入</div>
+    </main>
+  </div>
+</body>
+</html>
