@@ -884,6 +884,22 @@ def _snapshot_pipeline_at_upload(file_id: str) -> None:
         )
 
 
+def _resnapshot_active_for_rerun(file_id):
+    """Re-run uses the CURRENTLY-selected active pipeline/profile (the strip
+    selection), not the stale upload-time snapshot. Re-snapshot the current
+    global active onto the file before the re-transcribe enqueue so the worker
+    picks up the newly-chosen pipeline.
+
+    V6: re-fills active_pipeline_snapshot with the new pipeline JSON. Profile:
+    clears the snapshot (the profile path reads the active profile directly).
+    """
+    snap_kind, snap_aid = _current_active_snapshot()
+    _update_file(file_id, active_kind=snap_kind, active_id=snap_aid,
+                 active_pipeline_snapshot=None)
+    if snap_kind == "pipeline_v6":
+        _snapshot_pipeline_at_upload(file_id)
+
+
 def _register_file(file_id, original_name, stored_name, size_bytes, user_id=None,
                    file_path=None, active_kind=None, active_id=None):
     """Register an uploaded file. user_id is the owner (R5 Phase 1 — required
@@ -3824,6 +3840,10 @@ def re_transcribe_file(file_id):
     file_path = _resolve_file_path(entry)
     if not os.path.exists(file_path):
         return jsonify({'error': '原始視頻檔案已不存在於磁碟'}), 404
+
+    # Re-run with the pipeline the user currently has selected in the strip
+    # (not the stale upload-time snapshot). See _resnapshot_active_for_rerun.
+    _resnapshot_active_for_rerun(file_id)
 
     # Reset pipeline state so the worker treats this as a fresh run.
     _update_file(
