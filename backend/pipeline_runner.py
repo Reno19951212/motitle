@@ -120,6 +120,15 @@ def _check_cancel(cancel_event: Optional[threading.Event]) -> None:
         raise JobCancelled("Pipeline cancelled by user")
 
 
+def _v6_timing_profile(profile: dict) -> dict:
+    """Return a copy of an asr_primary transcribe profile forced to
+    condition_on_previous_text=False. In V6, mlx-whisper is the TIMING track
+    only — content carryover never helps and lets a head caption hallucination
+    ('字幕由…提供') cascade across every 30s window (v3.8 cascade fix, never
+    applied to asr_primary). Pure: does not mutate the input."""
+    return {**profile, "condition_on_previous_text": False}
+
+
 class PipelineRunner:
     def __init__(self, pipeline: dict, file_id: str, audio_path: str, managers: dict):
         self._pipeline = pipeline
@@ -542,7 +551,9 @@ class PipelineRunner:
         )
         if primary_profile is None:
             raise ValueError("v6: asr_primary transcribe profile not found")
-        mlx_stage = ASRPrimaryStage(primary_profile, audio_path)
+        # D3: V6 mlx is the timing track — force condition_on_previous_text=False
+        # to stop the head-hallucination caption cascade across 30s windows.
+        mlx_stage = ASRPrimaryStage(_v6_timing_profile(primary_profile), audio_path)
         mlx_out, mlx_segs = self._run_stage(
             stage=mlx_stage, segments_in=[], stage_index=stage_index,
             stage_type="asr_primary", cancel_event=cancel_event, user_id=user_id,
@@ -552,8 +563,12 @@ class PipelineRunner:
 
         # Stage 2: Time-anchored merge (mlx time grid + qwen3 chars → subtitle segs)
         _check_cancel(cancel_event)
-        merge_stage = TimeAnchoredMergeStage({})
-        merge_overrides = {"__qwen3_chars": qwen3_chars}
+        # D2: pass VAD regions so coarse/hallucinated mlx blocks can fall back to
+        # VAD speech-region timing instead of the fake 30s window.
+        merge_stage = TimeAnchoredMergeStage({
+            "mlx_coarse_fallback_sec": self._pipeline.get("mlx_coarse_fallback_sec", 20.0),
+        })
+        merge_overrides = {"__qwen3_chars": qwen3_chars, "__vad_regions": vad_regions}
         merge_out, merged_segs = self._run_stage_v5(
             stage=merge_stage, segments_in=mlx_segs, stage_index=stage_index,
             stage_type="time_anchored_merge", cancel_event=cancel_event, user_id=user_id,
