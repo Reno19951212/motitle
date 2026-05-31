@@ -24,3 +24,9 @@ test('change-password wrong old shows error', async ({ page }) => {
   await page.click('#changePwForm button[type="submit"]');
   await expect(page.locator('#changePwMsg.err')).toBeVisible({ timeout: 4000 });
 });
+test('/admin.html redirects to /user.html', async ({ page }) => {
+  const r = await page.request.post(BASE + '/login', { data: { username: USER, password: PASS } });
+  if (!r.ok()) throw new Error(`Login failed: ${r.status()}`);
+  await page.goto(BASE + '/admin.html', { waitUntil: 'domcontentloaded' });
+  expect(page.url()).toContain('/user.html');
+});

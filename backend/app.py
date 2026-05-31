@@ -1513,12 +1513,12 @@ def serve_frontend_css(filename):
 
 @app.get("/admin.html")
 def serve_admin_page():
-    """R5 Phase 3 — admin-only page. Non-admins get 403; anonymous gets 302 to login."""
+    """Task B.3 — /admin.html absorbed into /user.html; redirect preserving auth guards."""
     if not current_user.is_authenticated:
         return redirect("/login.html")
     if not current_user.is_admin:
         return jsonify({"error": "admin only"}), 403
-    return send_from_directory(_FRONTEND_DIR, "admin.html")
+    return redirect("/user.html")
 
 
 # ============================================================
