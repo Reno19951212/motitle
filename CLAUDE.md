@@ -360,6 +360,15 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### V6 mlx 時間軸幻覺修復 — D3 cond=False + D2 VAD fallback（2026-05-31）
+- **問題**：V6 粵語片（reproducer `de603727d3f8`「賽後兩點晚」）頭段字幕嚴重錯位 —— 字幕 #0 顯示 0.0s 但實際語音 7.88s 先講（早 7.88s）。Root cause（由持久化 `stage_outputs` 證實）：mlx-whisper（V6 timing 權威）hallucinate「字幕由 Amara.org 社群提供」+ 每 30s 一格 block；因 `condition_on_previous_text=True`（asr_primary profile 從未收過 v3.8 cascade fix）令幻覺 **cascade** 落頭 150s（5 × 30s 塊）。time-anchored merge 盲信呢啲塊，clause_split 再按字數比例切 → 字幕時間係「30s 塊內比例」嘅假時間。Qwen3 本身有準逐字時間（「今」@7.88s）但被丟棄。Incident: [docs/superpowers/incidents/2026-05-31-v6-cantonese-mlx-timing-misalignment.md](docs/superpowers/incidents/2026-05-31-v6-cantonese-mlx-timing-misalignment.md)。
+- **修復（只 V6；Profile/V5 零影響）**：
+  - **D3** — `backend/pipeline_runner.py` 新 module-level helper `_v6_timing_profile(profile)` 回傳 `{**profile, "condition_on_previous_text": False}`；`_run_v6` 用佢包 `primary_profile` 先建 `ASRPrimaryStage`。V6 mlx 係純 timing track，carryover 永遠唔需要 → 打斷 caption cascade。
+  - **D2** — `backend/stages/v6/time_anchored_merge_stage.py`：`transform` 多讀 `context.pipeline_overrides["__vad_regions"]`；`_time_anchored_merge` 對 coarse mlx 段（dur ≥ `mlx_coarse_fallback_sec`，預設 `_COARSE_SEC_DEFAULT=20.0s`）改行新 `_vad_fallback()` —— 用覆蓋該段嘅 VAD 區間做 slots、Qwen3 字按 timestamp bucket（gap 字歸最近 slot；無 VAD 覆蓋退回 Qwen3 首尾字 span）。健康段（<20s）路徑**逐 byte 不變**。`_run_v6` merge_overrides 加 `__vad_regions`（stage 0 VAD 輸出）+ 傳 `mlx_coarse_fallback_sec`（pipeline JSON 可 override）。
+- **Validation-First（全程遵守）**：先 prototype 量化驗證（`backend/scripts/v6_prototype/diag_mlx_timing.py`：cond=True 4 段全 30s 幻覺 → cond=False 40 段 median 2.24s；`diag_mlx_detect_fallback.py`：detector flag 5 塊/150s、healthy 零誤報、Qwen3「今」@7.88s）→ tracker → user confirm → brainstorm → spec → plan → 落代碼。整合 re-run（862s production V6）：**字幕 #0 由 0.0→7.80s、mlx coarse 塊 5→1、median 30s→2.14s、頭段改 VAD-aligned 邊界、detector 零誤報**。Tracker（含整合結果）: [docs/superpowers/specs/2026-05-31-v6-mlx-timing-validation-tracker.md](docs/superpowers/specs/2026-05-31-v6-mlx-timing-validation-tracker.md)。
+- **測試**：`test_v6_merge_vad_fallback.py` 5（coarse→VAD 重切、healthy 逐 byte 不變、無 VAD→Qwen3-span、VAD 缺失唔 crash、gap 字歸最近）+ `test_v6_timing_profile.py` 2（cond=False override + 不可變）。整合 re-run PASS。Regression：v6/merge/timing/runner/subtitle/bilingual 288 pass，7 pre-existing（5 v6_second_language full-suite isolation + 2 b7 B1-stale），零新增。
+- **Spec/Plan**：[spec](docs/superpowers/specs/2026-05-31-v6-mlx-timing-fix-design.md) / [plan](docs/superpowers/plans/2026-05-31-v6-mlx-timing-fix-plan.md)。Commits：`592e3eb`+`b6bb4cf`（T1 D2 merge）→ `2602ac7`（T2 D3）。
+
 ### 全專案 Bug 審計 + 22 個修復（2026-05-31）
 - **方法**：multi-agent workflow（8 個唯讀 finder 按子系統 fan-out → dedup → 逐個 candidate 對抗式驗證）。30 個 candidate → **25 confirmed / 5 refuted**。完整報告：[docs/superpowers/audits/2026-05-31-project-bug-audit.md](docs/superpowers/audits/2026-05-31-project-bug-audit.md)。User 確認後修 22 個（skip 3 個：#7 ASR 空段過濾、#6 redistribute off-by-one —— 兩個受 Validation-First 管制留待單獨驗證；#10 bilingual_order 命名語意當 cosmetic）。
 - **修復（每個 TDD RED→GREEN，Sonnet 實作 + Opus 逐個覆核 diff）**：
