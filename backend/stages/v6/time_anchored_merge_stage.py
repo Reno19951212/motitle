@@ -90,8 +90,7 @@ class TimeAnchoredMergeStage(PipelineStage):
         vad_regions: Optional[List[dict]] = None,
     ) -> List[dict]:
         out = []
-        n = len(mlx_segs)
-        for i, m in enumerate(mlx_segs):
+        for m in mlx_segs:
             ws = float(m["start"])
             we = float(m["end"])
             chars_in = [c for c in qwen3_chars if ws <= _midpoint(c) < we]
@@ -100,14 +99,9 @@ class TimeAnchoredMergeStage(PipelineStage):
                 # Re-time using overlapping VAD speech regions instead of the fake window.
                 out.extend(self._vad_fallback(ws, we, chars_in, vad_regions or []))
             else:
-                # Healthy mlx segment: use actual char end for non-last segments so that
-                # _merge_short_fragments does not incorrectly absorb short-text trailing segs
-                # across zero-gap mlx slot boundaries.  Last segment keeps the mlx end time.
-                is_last = (i == n - 1)
-                seg_end = float(chars_in[-1]["end"]) if chars_in and not is_last else we
                 out.append({
                     "start": ws,
-                    "end": seg_end,
+                    "end": we,
                     "text": "".join(c.get("text", "") for c in chars_in).strip(),
                 })
         return out

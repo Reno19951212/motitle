@@ -38,7 +38,9 @@ def test_healthy_blocks_unchanged():
     with_vad = stage.transform(mlx, _ctx(chars, vad))
     without_vad = stage.transform(mlx, _ctx(chars, None))
     assert with_vad == without_vad
-    assert [s["text"] for s in with_vad] == ["甲乙", "丙"]
+    # Original Fix-D behavior: the 1-char "丙" is absorbed across the zero-gap
+    # mlx slot boundary by _merge_short_fragments → a single segment.
+    assert [s["text"] for s in with_vad] == ["甲乙丙"]
 
 
 def test_no_vad_coverage_falls_back_to_qwen3_span():
