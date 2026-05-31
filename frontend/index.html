@@ -2570,18 +2570,31 @@
       //      so first/second are visible BEFORE any upload. The pre-pick is held
       //      in window._v6PendingSecondLang and applied to the next upload.
       const f = activeFileId ? uploadedFiles[activeFileId] : null;
+      // Build languages from the active V6 pipeline (source_lang) + an optional
+      // pre-selected second language (file-level or pipeline-level pending).
+      const _v6PipelineLangs = (preLang) => {
+        const src = (activePipeline && activePipeline.source_lang) || 'zh';
+        const arr = [{ role: 'first', lang: src, label: '原文' }];
+        const sec = preLang || window._v6PendingSecondLang;
+        if (sec && sec !== src) arr.push({ role: 'second', lang: sec, label: '譯文' });
+        return arr;
+      };
       let langs, isV6, ctxFileId, translating;
       if (f) {
-        langs = Array.isArray(f.languages) ? f.languages : [];
-        isV6 = f.active_kind === 'pipeline_v6';
+        const fileLangs = Array.isArray(f.languages) ? f.languages : [];
+        // A file uploaded with V6 selected may have no active_kind yet (optimistic
+        // upload entry) — treat it as V6 while the V6 pipeline is active.
+        isV6 = f.active_kind === 'pipeline_v6' || (activeKind === 'pipeline_v6' && !f.active_kind);
         ctxFileId = f.id;
         translating = !!f._addingSecondLang;
+        // A freshly-uploaded V6 file's descriptor isn't populated until /api/files
+        // refreshes — fall back to the pipeline's languages (+ this file's
+        // pre-selected second) so the selector stays usable right after upload too.
+        langs = fileLangs.some(l => l.role === 'first')
+          ? fileLangs
+          : (isV6 && activePipeline ? _v6PipelineLangs(f.second_lang_preselect) : fileLangs);
       } else if (activeKind === 'pipeline_v6' && activePipeline) {
-        const src = activePipeline.source_lang || 'zh';
-        langs = [{ role: 'first', lang: src, label: '原文' }];
-        if (window._v6PendingSecondLang && window._v6PendingSecondLang !== src) {
-          langs.push({ role: 'second', lang: window._v6PendingSecondLang, label: '譯文' });
-        }
+        langs = _v6PipelineLangs(null);
         isV6 = true;
         ctxFileId = '';        // empty → addSecondLanguage stores a pipeline-level pre-pick
         translating = false;
@@ -2651,7 +2664,10 @@
         if (data.preselected) {
           // Unprocessed file: second lang stored for auto-trigger after V6 completes.
           // It's not translating yet — clear the spinner so the chip (not 翻譯中…) shows.
+          // Mirror the pre-selection onto the frontend file object so the 第二 chip
+          // shows immediately (before the next /api/files refresh).
           f._addingSecondLang = false;
+          f.second_lang_preselect = lang;
           renderPipelineStrip();
           showToast(`已預選第二語言（${lang.toUpperCase()}）— V6 處理完成後會自動翻譯`, 'info');
         } else {

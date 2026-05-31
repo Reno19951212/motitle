@@ -190,4 +190,31 @@ test.describe.serial('pipeline-strip language selector', () => {
     expect(await page.evaluate(() => window._v6PendingSecondLang)).toBe('en');
     await expect(strip.locator('.strip-add-lang')).toHaveCount(0);
   });
+
+  // -------------------------------------------------------------------------
+  // Test 6: POST-UPLOAD — a freshly-uploaded V6 file (optimistic entry with no
+  // languages/active_kind yet) must STILL show the selector (falls back to the
+  // active pipeline), and a second language can be added after upload too.
+  // -------------------------------------------------------------------------
+  test('v6_post_upload_file_without_descriptor_still_shows_selector', async ({ page }) => {
+    await gotoAndWait(page);
+    await page.evaluate(() => {
+      activeKind = 'pipeline_v6';
+      activePipeline = { id: 'p-test', name: '[v6] test', source_lang: 'zh' };
+      // optimistic upload entry — NO languages, NO active_kind (mirrors index.html upload)
+      uploadedFiles['fresh-x'] = { id: 'fresh-x', original_name: 'new.mp4', status: 'transcribing', uploaded_at: Date.now()/1000 };
+      activeFileId = 'fresh-x';
+      window._v6PendingSecondLang = null;
+      renderPipelineStrip();
+    });
+    const strip = page.locator('#pipelineStrip');
+    await expect(strip.locator('.strip-lang-chip', { hasText: '第一' })).toBeVisible({ timeout: 5000 });
+    await expect(strip.locator('.strip-add-lang')).toBeVisible();
+
+    // Add EN after upload — stub the endpoint as preselected (file unprocessed).
+    await page.route('**/translate-second', r => r.fulfill({ status: 202, contentType: 'application/json', body: JSON.stringify({ file_id: 'fresh-x', target_lang: 'en', preselected: true }) }));
+    await page.evaluate(() => addSecondLanguage('fresh-x', 'en'));
+    await expect(strip.locator('.strip-lang-chip', { hasText: '第二' })).toBeVisible({ timeout: 5000 });
+    expect(await page.evaluate(() => uploadedFiles['fresh-x'].second_lang_preselect)).toBe('en');
+  });
 });
