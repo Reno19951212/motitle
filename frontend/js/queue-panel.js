@@ -106,17 +106,31 @@ function renderQueueRows(jobs) {
     return
   }
 
-  // Seed progress cache from /api/queue payload (cold-start)
+  // Seed progress cache from /api/queue. The backend resets its snapshot at
+  // each job-start, so the server is authoritative for the *stage*: when the
+  // stage or pipeline_kind changes (a new/different job for this file) we
+  // overwrite the stale in-memory entry. Within the same stage we keep the
+  // higher pct so the 3s poll never drags a live socket update backwards (and
+  // still advances when no socket is connected). Without this, re-running a
+  // file showed the *previous* job's stage because the cache was preferred
+  // over the fresh server value.
   jobs.forEach((j) => {
-    if (j.progress_pct !== null && j.progress_pct !== undefined) {
-      _progressCache.set(j.file_id, {
-        pct: j.progress_pct,
-        stage_label: j.stage_label || null,
-        stage_state: j.stage_state || 'active',
-        pipeline_kind: j.pipeline_kind || null,
-        stages: Array.isArray(j.stages) ? j.stages : null,
-        stage_index: j.stage_index != null ? j.stage_index : null,
-      })
+    if (!j.file_id) return
+    const srv = {
+      pct: j.progress_pct != null ? j.progress_pct : null,
+      stage_label: j.stage_label || null,
+      stage_state: j.stage_state || (j.status === 'queued' ? 'idle' : 'active'),
+      pipeline_kind: j.pipeline_kind || null,
+      stages: Array.isArray(j.stages) ? j.stages : null,
+      stage_index: j.stage_index != null ? j.stage_index : null,
+    }
+    const prev = _progressCache.get(j.file_id)
+    const stageChanged =
+      !prev ||
+      prev.stage_index !== srv.stage_index ||
+      prev.pipeline_kind !== srv.pipeline_kind
+    if (stageChanged || (srv.pct != null && (prev.pct == null || srv.pct > prev.pct))) {
+      _progressCache.set(j.file_id, srv)
     }
   })
 
@@ -144,7 +158,11 @@ function renderQueueRows(jobs) {
       const showSpinnerInline = isIdle ? 'inline-block' : 'none'
       const initialPct = snap.pct != null ? snap.pct : 0
       const initialPctText = snap.pct != null ? `${snap.pct}%` : ''
-      const labelOrFallback = _escape(snap.stage_label || statusLbl)
+      // Stage label for the legacy (no step-diagram) progress area. Do NOT
+      // fall back to the status text — the row now has a dedicated status
+      // column, so a fallback would render the status twice (e.g. "排隊 … 排隊"
+      // on a queued render row).
+      const labelOrFallback = _escape(snap.stage_label || '')
 
       // Build the progress area: step diagram if stages available, else legacy bar
       const hasStages = snap.stages && snap.stages.length > 0 && typeof window.renderStepDiagram === 'function'
@@ -159,33 +177,40 @@ function renderQueueRows(jobs) {
               <span class="qp-pct" style="font-size:11px;color:var(--accent);min-width:30px;text-align:right;">${_escape(initialPctText)}</span>
             </div>`
 
+      const cancelBtn = showCancel
+        ? `<button data-testid="queue-cancel" id="queueCancelBtn-${j.id}"
+                   onclick="cancelJob('${j.id}')" title="取消"
+                   style="background:none;border:0;color:var(--text-dim);cursor:pointer;padding:0 2px;flex-shrink:0;">×</button>`
+        : ''
+      // Two-line row: the queue panel is only ~278px wide. A single flex line
+      // forced the status text to wrap vertically ("進/行/中") and crushed the
+      // owner to "a…". Line 1 carries identity (pos / type / filename / owner /
+      // ×); line 2 carries the step-diagram + a nowrap status, each with room
+      // to render correctly (incl. the 5-stage V6 diagram).
       return `
         <div data-testid="queue-row" id="queueRow-${j.id}"
              data-file-id="${_escape(j.file_id || '')}"
              data-job-status="${j.status}"
-             style="display:flex;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:12px;align-items:center;opacity:${opacity};">
-          <span style="color:var(--text-dim);min-width:14px;text-align:right;">${
-            isActive ? '#' + (j.position + 1) : '·'
-          }</span>
-          <span style="color:var(--text-mid);min-width:42px;">${typeLbl}</span>
-          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${_escape(
-            j.file_name || j.file_id || ''
-          )}">${fileLabel}</span>
-          <div class="qp-progress" style="flex:1.5;min-width:90px;display:flex;flex-direction:column;gap:2px;overflow:hidden;">
-            ${progressAreaInner}
+             style="display:flex;flex-direction:column;gap:3px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:12px;opacity:${opacity};">
+          <div style="display:flex;gap:6px;align-items:center;min-width:0;">
+            <span style="color:var(--text-dim);min-width:14px;text-align:right;flex-shrink:0;">${
+              isActive ? '#' + (j.position + 1) : '·'
+            }</span>
+            <span style="color:var(--text-mid);flex-shrink:0;">${typeLbl}</span>
+            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${_escape(
+              j.file_name || j.file_id || ''
+            )}">${fileLabel}</span>
+            <span style="color:var(--text-dim);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0;" title="${_escape(
+              j.owner_username || ''
+            )}">${_escape(j.owner_username || '')}</span>
+            ${cancelBtn}
           </div>
-          <span style="color:var(--text-dim);max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${_escape(
-            j.owner_username || ''
-          )}">${_escape(j.owner_username || '')}</span>
-          <span style="color:${statusColor};">${statusLbl}</span>
-          ${
-            showCancel
-              ? `<button data-testid="queue-cancel" id="queueCancelBtn-${j.id}"
-                       onclick="cancelJob('${j.id}')"
-                       title="取消"
-                       style="background:none;border:0;color:var(--text-dim);cursor:pointer;padding:0 2px;">×</button>`
-              : ''
-          }
+          <div style="display:flex;gap:6px;align-items:center;min-width:0;">
+            <div class="qp-progress" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;overflow:hidden;">
+              ${progressAreaInner}
+            </div>
+            <span style="color:${statusColor};white-space:nowrap;flex-shrink:0;">${statusLbl}</span>
+          </div>
         </div>
       `
     })

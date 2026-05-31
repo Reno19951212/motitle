@@ -282,6 +282,31 @@ _jq_init_db(AUTH_DB_PATH)
 _jq_set_db_path(AUTH_DB_PATH)
 
 
+def _reset_progress_for_job(file_id, job_id, pipeline_kind, stage_index):
+    """Reset the progress adapter to a job's first stage when it starts.
+
+    The adapter caches one snapshot per file_id and is otherwise never
+    invalidated, so re-running a file that previously finished a *different*
+    stage (e.g. re-transcribe a translated file) made /api/queue serve the
+    prior job's terminal snapshot — the queue row briefly showed e.g. "翻譯
+    100%" for a just-started ASR job. Clearing + seeding the current job's
+    first stage fixes the displayed stage immediately; the first real progress
+    event then advances it. Progress reporting must never break the job, hence
+    the broad guard.
+    """
+    try:
+        from progress_adapter import get_adapter
+        adapter = get_adapter()
+        adapter.clear(file_id)
+        adapter.report(
+            file_id=file_id, job_id=job_id or "", pct=0,
+            stage_state="active", pipeline_kind=pipeline_kind,
+            stage_index=stage_index,
+        )
+    except Exception:
+        pass
+
+
 def _asr_handler(job, cancel_event=None):
     """R5 Phase 2 + 4 — full ASR pipeline with cooperative cancel.
 
@@ -317,6 +342,15 @@ def _asr_handler(job, cancel_event=None):
     # and persists results directly to the file registry via _persist_by_lang.
     # No separate MT job is enqueued — Stage 3+ refiner is inline.
     kind = f.get("active_kind", "profile")
+
+    # Reset the progress adapter to THIS job's first stage (轉錄 for profile,
+    # VAD for V6 — both stage_index 0) so the queue row never shows a previous
+    # job's lingering stage. See _reset_progress_for_job.
+    _reset_progress_for_job(
+        file_id, job.get("id", ""),
+        "pipeline_v6" if kind == "pipeline_v6" else "profile", 0,
+    )
+
     if kind == "pipeline_v6":
         # v3.19 Sprint 3 B-10: prefer upload-time snapshot over live pipeline JSON
         # to guard against admin PATCHing the pipeline between upload and pickup.
@@ -436,6 +470,11 @@ def _translate_second_handler(job, cancel_event=None):
     translations = entry.get("translations") or []
     if not translations:
         raise RuntimeError(f"no translations to translate for file {file_id}")
+
+    # Reset the adapter to 翻譯 (this handler reports via the profile stage-1
+    # shim) so the row doesn't briefly show the V6 ASR job's stale refiner
+    # snapshot before the first translation-progress callback fires.
+    _reset_progress_for_job(file_id, job.get("id", ""), "profile", 1)
 
     src = translations[0].get("source_lang", "zh")
     template_id = f"translator/{src}_to_{target}_default"
@@ -570,7 +609,11 @@ def _mt_handler(job, cancel_event=None):
                 _save_registry()
         return
 
-    # ── existing Profile path (unchanged) ──────────────────────────────
+    # ── existing Profile path ──────────────────────────────────────────
+    # Seed the adapter to stage 1 (翻譯) so a manual re-translate of an
+    # already-transcribed file shows 翻譯 immediately instead of the prior
+    # ASR job's lingering 轉錄 snapshot (same staleness class as _asr_handler).
+    _reset_progress_for_job(file_id, job.get("id", ""), "profile", 1)
     _auto_translate(file_id, cancel_event=cancel_event)
 
 

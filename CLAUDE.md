@@ -360,6 +360,17 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### 工作隊列 panel 顯示修復 — 狀態直行斷字 + 跨 job stale stage（2026-05-31）
+- **問題**（Playwright 主頁實地觀察）：右側「工作隊列」panel 只 ~278px 闊，每個 job row 喺單一 flex line 塞 7 欄（#位置 / 類型 / 檔名 / step-diagram / 擁有者 / 狀態 / ×）。空間不足 → **(Bug 1)** 狀態文字「進行中」冇 `white-space:nowrap`/`flex-shrink:0`，被逐隻字壓成直行「進／行／中」，擁有者 `admin_p3` 擠成 `a…`、檔名幾乎睇唔到（任何進行中 job 都中）；**(Bug 2)** re-transcribe 一個之前譯完嘅檔，row 一開頭顯示「轉錄 ✓ 完成 → 翻譯 ● 進行中」（上一個 translate job 嘅殘留 stage），其實 ASR 啱啱開始。
+- **Root cause**：
+  - Bug 1 — 純 layout，row 欄太多 + 狀態/擁有者 span 缺 nowrap/shrink 控制。
+  - Bug 2 — **後端** `progress_adapter`（per `file_id` cache）同**前端** `queue-panel.js::_progressCache`（module-level Map）都**冇喺新 job 開始時失效**。Raw `/api/queue` 證實：新 `type=asr` job t+0 回 `stage_label='翻譯' stage_index=1 pct=100`（上個 job 嘅 terminal snapshot），持續 4+ 秒（成個 audio-extraction 階段）。前端 `renderQueueRows` 仲**優先用 in-memory cache 多過 `/api/queue` 權威值**。屬 display/telemetry（非 ASR/MT engine → 唔涉 Validation-First）。
+- **修復**：
+  - **後端**（`app.py`）：新 helper `_reset_progress_for_job(file_id, job_id, pipeline_kind, stage_index)` → `get_adapter().clear()` + seed 該 job 第一個 stage（pct=0, active）。喺 `_asr_handler`（stage 0：profile 轉錄 / V6 VAD）、`_mt_handler` profile path（stage 1 翻譯）、`_translate_second_handler`（stage 1）三個 job 入口 call。broad guard，progress 報告永不阻斷 job。
+  - **前端**（`queue-panel.js`）：(a) row 改 **2-line layout** —— line 1 身份（位置/類型/檔名/擁有者/×），line 2 step-diagram + `nowrap` 狀態，各有足夠空間（含 V6 5-stage diagram）。(b) seed loop 改 **server-authoritative**：stage / pipeline_kind 變（新 job）即 overwrite stale cache；同 stage 內保留較高 pct（poll 唔會將 live socket 進度拉返轉頭，亦兼容無 socket）。(c) 順手修 legacy（無 step-diagram，如 render job）path 嘅 stage-label 唔再 fallback 去狀態文字（之前 render queued row 出「排隊 … 排隊」重複）。
+- **驗證**：Playwright 主頁實地 reproduce（login → enqueue job → 逐秒截 #queuePanel）確認兩 bug；修後 raw `/api/queue` t+0 = `轉錄/stage 0/pct 0`（非 翻譯/100）；matrix 截圖（V6 5-stage + profile + queued render 三 row 疊）全部狀態單行、擁有者完整、diagram 唔 clip、零 console error。Tests：新 `test_queue_panel_display.spec.js` 4（@1512 + @mobile 390 狀態唔 wrap / server stage 蓋 stale cache / 同 stage pct 唔倒退）+ 新 `test_queue_progress_reset.py` 4（helper clear+seed 語意）；regression：既有 queue Playwright 10 + progress backend 17 全 PASS，零新增。
+- **範圍**：純 `app.py`（adapter reset 接駁）+ `queue-panel.js`（layout + cache）+ tests；無 API schema / engine / 其他頁改動。
+
 ### EN→Cantonese（dev-default）改用 sentence-pipeline + 清 dead openrouter_model（2026-05-31）
 - **問題**：`dev-default`（EN→Cantonese 書面語）profile 譯 FIFA 訪談片（file `f422c01566ca`）整體質量好，但好多相鄰句子**意思重複** —— batched translate 將相鄰 EN 碎段一齊餵 LLM，LLM 逐段各自補完整句，相鄰 cue 重複介紹同一資訊（例：兩 cue 都重複「賽事/球員」context）。
 - **Root cause**：`dev-default` 用 default batched path（`use_sentence_pipeline=false`、`alignment_mode=""` → `_select_translation_strategy` 回 `"batched"`）。Batched 對英文碎段冇句界限概念 → 每段補成完整句 → 鄰段意思重疊 + padding。另 `openrouter_model:"anthropic/claude-sonnet-4.5"` 係 **dead config**（`create_translation_engine` 睇 `engine` field，`engine="qwen3.5-35b-a3b"` 行 Ollama，呢欄被忽略，仲令 UI 誤示 OpenRouter）。
