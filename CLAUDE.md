@@ -360,6 +360,16 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### User 頁 — 帳戶 + 自助改密碼 + admin 用戶管理 + 審計（Task B）（2026-05-31）
+- **目標**：將現有 admin/user 後端（`/api/admin/*` + `/api/me`）做返一個好睇嘅 User 頁（取代 Task A placeholder），加自助改密碼，吸納 admin.html。
+- **新 backend endpoint**：`POST /api/me/password`（`auth/routes.py`，login_required + `@limiter.limit("10 per minute")`）—— body `{old_password,new_password}`：`verify_credentials` 驗舊密碼（錯→403 + audit `password_change_failed`）、`validate_password_strength` 驗強度（弱→400）、`update_password` + audit `password_changed`。**唯一新增 endpoint**，其餘全用現有 admin-only endpoints。屬 auth/security（非 ASR/MT → 唔涉 Validation-First）。
+- **`frontend/user.html`**：app shell（5-item rail，User active）+ 3 角色分區 —— `#accountSection`（恆顯：username + 角色 badge，由 `/api/me`；改密碼 form）、`#userMgmtSection`（admin only：list/create/delete/reset-pw/toggle-admin，重用 `/api/admin/users`）、`#auditSection`（admin only：`/api/admin/audit`）。`#userMgmtSection`/`#auditSection` 由 `is_admin` gate（非 admin 隱藏且唔 call admin endpoint）。
+- **`frontend/js/user.js`**（新）：`loadMe()` boot + 改密碼 submit + 重用（自 admin.js 搬入）嘅 loadUsers/deleteUser/resetPassword/toggleAdmin/loadAudit + create-form。DOM id 同舊 admin 一致（`adminUserList`/`adminAuditList`/`adminUserCreateForm`）。
+- **admin.html 吸納**：`backend/app.py::serve_admin_page` 由 serve 改 `redirect("/user.html")`（保留 anonymous→login / 非-admin→403 guard）；刪 `frontend/admin.html` + `frontend/js/admin.js`；`index.html` 嘅 `#adminLink` + `#mobileDrawerAdminLink` href 改 `/user.html`。Profiles/Glossaries 唔搬（有自己頁面）。
+- **測試**：`test_change_password.py` 4（成功改+真生效 / 舊錯 403 / 弱 400 / 缺欄 400）；Playwright `test_user_page.spec.js` 3（admin 見 3 區 + 用戶列表 / 改密碼舊錯顯示 error / `/admin.html`→`/user.html` redirect）。整合：4 backend + 10 Playwright（含 unified_sidebar 7，`/admin.html` 經 redirect 落 user.html 照過）全 PASS。
+- **範圍外**：email/頭像/其他 user profile 欄位（users 表只 username/is_admin/created_at）；Profiles/Glossaries 管理；語言配置搬入（仍喺 topbar 齒輪）。
+- **Spec/Plan**：[spec](docs/superpowers/specs/2026-05-31-user-page-design.md) / [plan](docs/superpowers/plans/2026-05-31-user-page-plan.md)。Commits：`f3c59e3`（T1 endpoint）→ `9c9fa33`（T2 user.html+user.js）→ `7d99bc6`（T3 redirect+移除 admin）。
+
 ### 統一左側欄 — 5-item rail（Task A）（2026-05-31）
 - **目標**：所有頁最左 rail 統一為剛好 5 個 nav item：**主頁 / 檔案 / 校對 / 術語表 / User**。之前各頁 rail 唔一致（index 仲有 Pipeline + 語言 + 服務狀態齒輪）。
 - **移除項去向（功能不失）**：Pipeline → 靠頂部 pipeline strip（已存在）；語言（語言配置）→ rail 移除、trigger 搬去 index topbar 新 `#settingsGearBtn`「⚙ 設定」（onclick `openLangConfigManageModal()`，開語言配置管理 modal）；服務狀態/restart → rail 移除（`restartService()` function 保留）。
