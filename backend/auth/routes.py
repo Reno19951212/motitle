@@ -2,9 +2,10 @@
 from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 
-from auth.users import verify_credentials, get_user_by_id
+from auth.users import verify_credentials, get_user_by_id, update_password
 from auth.audit import log_audit
 from auth.limiter import limiter
+from auth.passwords import validate_password_strength
 
 
 bp = Blueprint("auth", __name__)
@@ -94,3 +95,27 @@ def me():
         "active_id": active_id,
         "v6_available": v6_available,
     }), 200
+
+
+@bp.post("/api/me/password")
+@login_required
+@limiter.limit("10 per minute")
+def change_own_password():
+    data = request.get_json(silent=True) or {}
+    old = data.get("old_password") or ""
+    new = data.get("new_password") or ""
+    if not old or not new:
+        return jsonify({"error": "old_password and new_password required"}), 400
+    db = current_app.config["AUTH_DB_PATH"]
+    if verify_credentials(db, current_user.username, old) is None:
+        log_audit(db, actor_id=current_user.id, action="password_change_failed",
+                  target_kind="user", target_id=str(current_user.id))
+        return jsonify({"error": "舊密碼唔啱"}), 403
+    try:
+        validate_password_strength(new)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    update_password(db, current_user.username, new)
+    log_audit(db, actor_id=current_user.id, action="password_changed",
+              target_kind="user", target_id=str(current_user.id))
+    return jsonify({"ok": True}), 200
