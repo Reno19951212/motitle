@@ -320,10 +320,17 @@ def _asr_handler(job, cancel_event=None):
     if kind == "pipeline_v6":
         # v3.19 Sprint 3 B-10: prefer upload-time snapshot over live pipeline JSON
         # to guard against admin PATCHing the pipeline between upload and pickup.
-        pipeline = f.get("active_pipeline_snapshot") or _pipeline_manager.get(f["active_id"])
+        # Bug #21/#15: use f.get("active_id") so missing/None active_id raises a
+        # clear RuntimeError (with file_id in msg) instead of KeyError.
+        pipeline_id = f.get("active_id")
+        if not pipeline_id and not f.get("active_pipeline_snapshot"):
+            raise RuntimeError(
+                f"V6 file {file_id} has no active_id — cannot dispatch to pipeline"
+            )
+        pipeline = f.get("active_pipeline_snapshot") or _pipeline_manager.get(pipeline_id)
         if pipeline is None:
             raise RuntimeError(
-                f"Pipeline 已被刪除 (active_id={f['active_id']}), 無法執行 ASR"
+                f"Pipeline 已被刪除 (active_id={pipeline_id}, file_id={file_id}), 無法執行 ASR"
             )
         _update_file(file_id, status='transcribing', user_id=job["user_id"])
         from pipeline_runner import PipelineRunner
@@ -465,23 +472,40 @@ def _translate_second_handler(job, cancel_event=None):
     )
 
     stage = TranslatorStage(translator_profile=translator_profile, llm_profile=llm_profile)
-    out = stage.transform(refined, ctx)
+    # Bug #12: wrap in try/finally so _pending_second_lang is ALWAYS cleared,
+    # even if transform() raises. The exception still propagates (not swallowed).
+    try:
+        out = stage.transform(refined, ctx)
+    except Exception:
+        # Clear the pending flag before re-raising so _mt_handler won't
+        # re-dispatch to _translate_second_handler on a retry attempt.
+        with _registry_lock:
+            if file_id in _file_registry:
+                _file_registry[file_id].pop("_pending_second_lang", None)
+                _save_registry()
+        raise
 
-    # Write back by_lang[target] + <target>_text mirror
+    # Write back by_lang[target] + <target>_text mirror.
+    # Bug #20: build NEW row dicts (immutable rebuild) instead of mutating
+    # the live dicts in place via row.setdefault / row[key] = value.
     with _registry_lock:
         live_translations = _file_registry.get(file_id, {}).get("translations") or []
+        new_translations = []
         for i, row in enumerate(live_translations):
-            if i >= len(out):
-                break
-            translated_text = out[i].get("text", "")
-            row.setdefault("by_lang", {})[target] = {
-                "text": translated_text,
-                "status": "pending",
-                "flags": out[i].get("flags", []),
-            }
-            row[f"{target}_text"] = translated_text
-        # Clear the pending flag so _mt_handler won't re-dispatch on retry
+            if i < len(out):
+                translated_text = out[i].get("text", "")
+                new_by_lang = {**(row.get("by_lang") or {}), target: {
+                    "text": translated_text,
+                    "status": "pending",
+                    "flags": out[i].get("flags", []),
+                }}
+                new_row = {**row, "by_lang": new_by_lang, f"{target}_text": translated_text}
+            else:
+                new_row = dict(row)
+            new_translations.append(new_row)
         if file_id in _file_registry:
+            _file_registry[file_id]["translations"] = new_translations
+            # Clear the pending flag so _mt_handler won't re-dispatch on retry
             _file_registry[file_id].pop("_pending_second_lang", None)
         _save_registry()
 
@@ -506,15 +530,21 @@ def _mt_handler(job, cancel_event=None):
     """
     file_id = job["file_id"]
 
-    # Second-language translate dispatch — check before V6 short-circuit.
+    # Bug #22: snapshot both decision-fields atomically under the lock so we
+    # branch on a consistent view. The long handlers (_translate_second_handler,
+    # _auto_translate) are called OUTSIDE the lock.
     with _registry_lock:
-        entry = _file_registry.get(file_id, {})
-    if entry.get("_pending_second_lang"):
+        _entry_snap = _file_registry.get(file_id, {})
+        _pending_lang = _entry_snap.get("_pending_second_lang")
+        _active_kind = _entry_snap.get("active_kind")
+
+    # Second-language translate dispatch — check before V6 short-circuit.
+    if _pending_lang:
         _translate_second_handler(job, cancel_event=cancel_event)
         return
 
     # V6 files: refiner is inline — no separate translation step.
-    if entry.get("active_kind") == "pipeline_v6":
+    if _active_kind == "pipeline_v6":
         with _registry_lock:
             if file_id in _file_registry:
                 _file_registry[file_id]["translation_status"] = "done"
@@ -3137,12 +3167,19 @@ def api_start_render():
         if unapproved:
             return jsonify({"error": f"{len(unapproved)} segment(s) not yet approved. All translations must be approved before rendering."}), 400
 
-    # Count segments where ZH would be required but is empty (warn user).
-    # Bilingual mode also relies on ZH — segments missing ZH degrade to single-line EN.
+    # Count segments where the second-role field is empty (warn user).
+    # Bug #8: use the resolved _render_second_field instead of hardcoding zh_text.
+    # For Profile files _render_second_field == "zh_text" so behaviour is unchanged.
+    # For V6 files the second field may be e.g. "en_text".
+    # Fall back to zh_text when _render_second_field is None (profile legacy path).
     warning_missing_zh = 0
-    if subtitle_source in ("zh", "bilingual"):
+    if subtitle_source in ("zh", "second", "bilingual"):
         for t in translations:
-            if not (t.get("zh_text") or "").strip():
+            field_value = (
+                t.get(_render_second_field) if _render_second_field
+                else (t.get("zh_text") or "")
+            )
+            if not (field_value or "").strip():
                 warning_missing_zh += 1
 
     render_id = uuid.uuid4().hex[:12]
@@ -3423,12 +3460,13 @@ def _auto_translate(fid: str, sid=None, cancel_event=None) -> None:
             api_key = (translation_config.get("api_key") or "").strip()
             if not api_key:
                 reason = "OpenRouter api_key not set on active profile; auto-translate skipped"
+                # Bug #13: mutations + _save_registry() must be INSIDE the lock.
                 with _registry_lock:
                     entry = _file_registry.get(fid)
-                if entry:
-                    entry["translation_status"] = "skipped_missing_credentials"
-                    entry["translation_error"] = reason
-                    _save_registry()
+                    if entry:
+                        entry["translation_status"] = "skipped_missing_credentials"
+                        entry["translation_error"] = reason
+                        _save_registry()
                 socketio.emit("translation_skipped", {"file_id": fid, "reason": reason})
                 app.logger.warning("_auto_translate skipped for %s: %s", fid, reason)
                 return
@@ -3766,36 +3804,49 @@ def translate_second_language(file_id):
     if not lang:
         return jsonify({"error": "lang is required"}), 400
 
+    # Phase 1 (under lock): validate all entry fields + check collision + set
+    #   _pending_second_lang atomically (Bug #14 TOCTOU, Bug #11 collision).
+    # Phase 2 (outside lock): enqueue the job (the blocking DB write must not
+    #   run while holding _registry_lock).
     with _registry_lock:
         entry = _file_registry.get(file_id)
-    if not entry:
-        return jsonify({"error": "File not found"}), 404
+        if not entry:
+            return jsonify({"error": "File not found"}), 404
 
-    if entry.get("active_kind") != "pipeline_v6":
-        return jsonify({"error": "translate-second 只支援 V6 pipeline 文件"}), 400
+        # Bug #14: all field reads happen INSIDE the lock (no TOCTOU).
+        if entry.get("active_kind") != "pipeline_v6":
+            return jsonify({"error": "translate-second 只支援 V6 pipeline 文件"}), 400
 
-    translations = entry.get("translations") or []
-    if not translations:
-        return jsonify({"error": "No translations found — run the V6 pipeline first"}), 400
+        translations = entry.get("translations") or []
+        if not translations:
+            return jsonify({"error": "No translations found — run the V6 pipeline first"}), 400
 
-    source_lang = translations[0].get("source_lang")
-    if not source_lang:
-        return jsonify({"error": "source_lang not set on translations — V6 pipeline incomplete"}), 400
+        source_lang = translations[0].get("source_lang")
+        if not source_lang:
+            return jsonify({"error": "source_lang not set on translations — V6 pipeline incomplete"}), 400
 
-    if lang == source_lang:
-        return jsonify({"error": f"lang '{lang}' is the same as source_lang '{source_lang}'"}), 400
+        if lang == source_lang:
+            return jsonify({"error": f"lang '{lang}' is the same as source_lang '{source_lang}'"}), 400
 
-    # Verify the prompt template exists before enqueueing
-    template_id = f"translator/{source_lang}_to_{lang}_default"
-    _TMPL_ROOT = _LocalPath(__file__).parent / "config" / "prompt_templates_v5"
-    category, name = template_id.split("/", 1)
-    template_path = _TMPL_ROOT / category / f"{name}.json"
-    if not template_path.exists():
-        return jsonify({"error": f"未支援嘅語言方向 {source_lang}→{lang}"}), 400
+        # Bug #11: concurrent collision guard — if a translate-second is already
+        # in-progress for this file, reject immediately.
+        if entry.get("_pending_second_lang"):
+            return jsonify({"error": "此檔案已有第二語言翻譯進行中"}), 409
 
-    # Stash the target lang so _mt_handler can dispatch to _translate_second_handler
-    _update_file(file_id, _pending_second_lang=lang)
+        # Verify the prompt template exists (FS check inside lock is acceptable
+        # since it is a read-only path stat).
+        template_id = f"translator/{source_lang}_to_{lang}_default"
+        _TMPL_ROOT = _LocalPath(__file__).parent / "config" / "prompt_templates_v5"
+        category, tmpl_name = template_id.split("/", 1)
+        template_path = _TMPL_ROOT / category / f"{tmpl_name}.json"
+        if not template_path.exists():
+            return jsonify({"error": f"未支援嘅語言方向 {source_lang}→{lang}"}), 400
 
+        # Atomically stash the target lang (still inside lock).
+        _file_registry[file_id]["_pending_second_lang"] = lang
+        _save_registry()
+
+    # Phase 2: enqueue outside the lock (blocking DB write).
     uid = getattr(current_user, "id", 0) or 0
     job_id = _job_queue.enqueue(
         user_id=uid,
