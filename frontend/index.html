@@ -4299,6 +4299,12 @@
       if (f && f._local) {
         btn.disabled = false;
         btn.title = '上傳並轉錄此檔案';
+      } else if (f && !f._local && (f.status === 'done' || f.status === 'error')) {
+        // Completed (or errored) file selected — allow re-running it with the
+        // pipeline currently selected in the strip (backend re-snapshots the
+        // active pipeline on /transcribe).
+        btn.disabled = false;
+        btn.title = '用當前 Pipeline 重新執行此檔案（會清掉現有 segments、譯文、批核狀態）';
       } else {
         btn.disabled = true;
         btn.title = '請先選擇或上傳檔案';
@@ -4537,6 +4543,16 @@
     }
 
     async function startTranscription() {
+      // Re-run path: a completed (or errored) already-uploaded file is selected
+      // and there is no pending new upload. Re-run uses the pipeline currently
+      // selected in the strip — the backend re-snapshots the active pipeline on
+      // /transcribe (see _resnapshot_active_for_rerun).
+      if (!selectedFile && activeFileId) {
+        const af = uploadedFiles[activeFileId];
+        if (af && !af._local && (af.status === 'done' || af.status === 'error')) {
+          return rerunPipeline(activeFileId);
+        }
+      }
       if (!selectedFile || isProcessing) return;
       if (!socket?.connected) { showToast('請先連接到服務器', 'error'); return; }
 
