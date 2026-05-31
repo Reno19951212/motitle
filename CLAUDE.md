@@ -360,6 +360,15 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### 完成檔 re-run 用當前揀緊嘅 pipeline + 執行掣可按（2026-05-31）
+- **問題**：完成咗嘅片想換另一條 pipeline 再跑 —— 頂部 strip「執行」掣（`#runBtn`）灰咗㩒唔到；而且 re-run（`POST /api/files/<id>/transcribe`）用返**上傳時 snapshot 嘅舊 pipeline**，唔跟 strip 新揀嘅。
+- **修復（dispatch/UX，唔涉 ASR/MT engine → 唔涉 Validation-First）**：
+  - **Backend** `app.py` 新 helper `_resnapshot_active_for_rerun(file_id)` —— re-transcribe enqueue 前，將 file 嘅 `active_kind`/`active_id`/`active_pipeline_snapshot` **重新 snapshot 成當前 global active**（`_current_active_snapshot` + V6 行 `_snapshot_pipeline_at_upload`）。`re_transcribe_file` 喺 reset 前 call 佢。咁 re-run（頂部執行掣 **同** file card「🔄 重新執行」都行同一 route）即用新揀嘅 pipeline。
+  - **Frontend** `index.html`：`updateRunButton()` 對 `status==='done'`/`'error'` 嘅選中檔 enable `#runBtn`（tooltip「用當前 Pipeline 重新執行…」）；`startTranscription()` 對完成檔分流去 `rerunPipeline(activeFileId)`（待上傳新檔路徑不變）。
+- **驗證**：backend `test_rerun_resnapshot.py` 2（V6→V6 re-snapshot + snapshot 重填、V6→profile clear snapshot）；Playwright `test_rerun_selected_pipeline.spec.js` 3（完成檔 enable / processing 中 disable / 完成檔㩒執行打 re-transcribe）。Live：完成檔 active_id `1443afcb(書面語)`→ 揀 `4696bbaa(口語)` re-run → active_id + on-disk snapshot 即 flip 做口語。零新 regression。
+- **Spec/Plan**：[spec](docs/superpowers/specs/2026-05-31-rerun-with-selected-pipeline-design.md) / [plan](docs/superpowers/plans/2026-05-31-rerun-with-selected-pipeline-plan.md)。
+- **範圍外**：per-file pipeline override（脫離 global active）、mid-process re-run、queue panel 內 re-run 掣。
+
 ### V6 粵語書面語 pipeline — two-pass chained refiner（2026-05-31）
 - **目標**：新增獨立可揀 V6 pipeline「[v6] 賽馬廣播 (書面語)」輸出**現代正式繁體書面語**，取代口語化粵語輸出；**唔影響**現有口語 pipeline。User 拍板 dial：阿拉伯數字、現代正式書面語（禁過度文言/公文腔、保成語）、接受 clause_split 自動切。
 - **架構（config-only，零 Python 改動）**：`pipeline_runner._run_v6` 嘅 `refinements[zh]` loop 已支援鏈式 → 新 pipeline `refinements.zh = [口語 refiner f7f72bd9, 書面語 register refiner 9dbe1aa3]`。Pass 2 收 pass 1 已清理嘅粵語，淨係 flip register。`pipeline_runner.py:588` loop 逐個執行、`_persist_by_lang` 寫 `by_lang[zh]`、clause_split 收尾。
