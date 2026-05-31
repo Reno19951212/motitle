@@ -85,26 +85,28 @@ def insert_retry_job(
 ) -> Optional[str]:
     """Atomically check the poison-pill cap and insert a retry job.
 
-    The cap check and the INSERT are executed inside a single
-    ``BEGIN IMMEDIATE`` transaction.  The cap is enforced by reading the
-    *maximum* ``attempt_count`` already recorded for any job sharing the same
-    ``(file_id, type)`` pair — not just the parent row.  This means:
+    The cap is scoped to the **retry chain of the specific parent job**, not
+    the whole ``(file_id, type)`` family.  Inside a single ``BEGIN IMMEDIATE``
+    transaction we:
 
-    * Thread A issues BEGIN IMMEDIATE, sees max=2 < 3, inserts attempt_count=3,
-      COMMITs.
-    * Thread B (held back while A held the write lock) then issues its own
-      BEGIN IMMEDIATE, sees max=3 >= 3, rolls back and returns None.
+      1. read the parent's ``attempt_count`` (k),
+      2. reject (return None) if ``k >= max_retry``,
+      3. INSERT the child at ``attempt_count = k + 1``,
+      4. bump the parent's ``attempt_count`` to ``k + 1`` — consuming a cap
+         slot so a concurrent OR repeated retry of the SAME failed job sees
+         the higher count and is bounded by the cap.
 
-    Reading only the parent's own attempt_count is NOT sufficient because the
-    parent row is never updated — both threads would see the same parent value
-    and both insert.  Using MAX over all rows for (file_id, type) means the
-    first commit raises the watermark, and the second thread sees it.
+    Why parent-scoped, not ``MAX(attempt_count)`` over (file_id, type):
+    a ``MAX`` over the whole family is a *lifetime* cap that wrongly blocks a
+    fresh job chain (e.g. a re-transcribe of the same file) once any earlier
+    chain reached the cap.  Reading the specific parent keeps the cap per
+    retry-chain.  Concurrency safety comes from ``BEGIN IMMEDIATE`` serializing
+    the read+bump: two simultaneous retries of a job one-below-cap let exactly
+    one through (it bumps the parent to the cap; the other then sees ``>= cap``).
 
-    Returns the new job id on success, or ``None`` if the cap is already
-    reached (caller should return an appropriate error response).
-
-    Mirrors the ``BEGIN IMMEDIATE`` pattern from ``auth/admin.py``
-    ``_atomic_set_admin`` / ``_atomic_delete_user`` (R5 Phase 5 T2.7).
+    Returns the new job id on success, or ``None`` if the cap is reached
+    (or the parent no longer exists).  Mirrors the ``BEGIN IMMEDIATE`` pattern
+    from ``auth/admin.py`` ``_atomic_set_admin`` (R5 Phase 5 T2.7).
     """
     if job_type not in ("asr", "translate", "render"):
         raise ValueError(f"invalid job_type: {job_type!r}")
@@ -114,24 +116,29 @@ def insert_retry_job(
     conn.row_factory = sqlite3.Row
     try:
         conn.execute("BEGIN IMMEDIATE")
-        # Read the highest attempt_count already recorded for this
-        # (file_id, type) family.  After A commits a child at attempt_count=3,
-        # B's re-read inside its own IMMEDIATE transaction sees 3 >= max_retry
-        # and returns None without inserting.
-        max_row = conn.execute(
-            "SELECT MAX(attempt_count) AS mc FROM jobs WHERE file_id = ? AND type = ?",
-            (file_id, job_type),
+        prow = conn.execute(
+            "SELECT attempt_count FROM jobs WHERE id = ?",
+            (parent_job_id,),
         ).fetchone()
-        current_max = max_row["mc"] if (max_row and max_row["mc"] is not None) else 1
-        if current_max >= max_retry:
+        if prow is None:
             conn.execute("ROLLBACK")
             return None
-        new_count = current_max + 1
+        parent_count = prow["attempt_count"] or 1
+        if parent_count >= max_retry:
+            conn.execute("ROLLBACK")
+            return None
+        new_count = parent_count + 1
         jid = uuid.uuid4().hex
         conn.execute(
             "INSERT INTO jobs (id, user_id, file_id, type, status, created_at, attempt_count) "
             "VALUES (?, ?, ?, ?, 'queued', ?, ?)",
             (jid, user_id, file_id, job_type, time.time(), new_count),
+        )
+        # Consume a cap slot on the parent so repeat/concurrent retries of the
+        # same failed job can't bypass the cap (parent row is the chain counter).
+        conn.execute(
+            "UPDATE jobs SET attempt_count = ? WHERE id = ?",
+            (new_count, parent_job_id),
         )
         conn.execute("COMMIT")
         return jid
