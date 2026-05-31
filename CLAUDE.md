@@ -360,6 +360,15 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### 統一左側欄 — 5-item rail（Task A）（2026-05-31）
+- **目標**：所有頁最左 rail 統一為剛好 5 個 nav item：**主頁 / 檔案 / 校對 / 術語表 / User**。之前各頁 rail 唔一致（index 仲有 Pipeline + 語言 + 服務狀態齒輪）。
+- **移除項去向（功能不失）**：Pipeline → 靠頂部 pipeline strip（已存在）；語言（語言配置）→ rail 移除、trigger 搬去 index topbar 新 `#settingsGearBtn`「⚙ 設定」（onclick `openLangConfigManageModal()`，開語言配置管理 modal）；服務狀態/restart → rail 移除（`restartService()` function 保留）。
+- **覆蓋頁**：`index.html`（rail 修剪 + User link + topbar 設定齒輪；主頁/檔案/校對 in-page data-route 不變）、`proofread.html` / `Glossary.html`（rail 換 canonical 5-item cross-page-link，當前頁 active）、`admin.html`（本來無 rail/shell → 加最小 `.admin-shell` flex + `.b-rail`，現有 tabs/panels 原封 wrap 入 `.admin-content`，id/JS 全保留）。新 `frontend/user.html` placeholder（5-item rail，User active；`GET /user.html` login-required 靜態 route，跟 serve_glossary_page pattern）。
+- **架構**：vanilla HTML 無 build step → 每頁 inline 同一套 rail markup（canonical SVG/順序/`.tt` label 一致），只差 active class + in-page-route(index) vs cross-page-link(其他頁)。後端只加一條靜態 route，零 API/邏輯改動。`login.html` 無 rail 不變。
+- **測試**：`frontend/tests/test_unified_sidebar.spec.js` 7 pass —— 5 頁各斷言 rail 剛好 5 item（主頁/檔案/校對/術語表/User 順序）+ active + 無 Pipeline/語言/服務狀態；`user.html` 200；index topbar 設定齒輪開語言配置。
+- **範圍外（Task B）**：User 頁實際內容（admin/user 管理 frontend，後端 `/api/admin/*` + auth 已有）+ 個人設定 + 語言配置正式搬入 User 設定區 + admin.html 吸納入 User 頁。
+- **Spec/Plan**：[spec](docs/superpowers/specs/2026-05-31-unified-sidebar-design.md) / [plan](docs/superpowers/plans/2026-05-31-unified-sidebar-plan.md)。Commits：`a93d5ee`（T1 user.html+route+spec）→ `01b5048`（T2 index+gear）→ `f6e71cf`（T3 proofread）→ `f1d0349`（T4 glossary）→ `f834161`（T5 admin）。
+
 ### V6 mlx 時間軸幻覺修復 — D3 cond=False + D2 VAD fallback（2026-05-31）
 - **問題**：V6 粵語片（reproducer `de603727d3f8`「賽後兩點晚」）頭段字幕嚴重錯位 —— 字幕 #0 顯示 0.0s 但實際語音 7.88s 先講（早 7.88s）。Root cause（由持久化 `stage_outputs` 證實）：mlx-whisper（V6 timing 權威）hallucinate「字幕由 Amara.org 社群提供」+ 每 30s 一格 block；因 `condition_on_previous_text=True`（asr_primary profile 從未收過 v3.8 cascade fix）令幻覺 **cascade** 落頭 150s（5 × 30s 塊）。time-anchored merge 盲信呢啲塊，clause_split 再按字數比例切 → 字幕時間係「30s 塊內比例」嘅假時間。Qwen3 本身有準逐字時間（「今」@7.88s）但被丟棄。Incident: [docs/superpowers/incidents/2026-05-31-v6-cantonese-mlx-timing-misalignment.md](docs/superpowers/incidents/2026-05-31-v6-cantonese-mlx-timing-misalignment.md)。
 - **修復（只 V6；Profile/V5 零影響）**：
