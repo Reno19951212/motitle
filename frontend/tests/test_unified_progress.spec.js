@@ -260,6 +260,45 @@ test.describe.serial('unified-progress step-diagram', () => {
   });
 
   // -------------------------------------------------------------------------
+  // Bug A regression: completed V6 file (status='done', translation_status=null)
+  // must show '✓ 完成' badge, NOT '待翻譯'.
+  // V6 has NO separate MT job so translation_status stays null at completion.
+  // The stageBadgeHtml default: branch must check active_kind to disambiguate.
+  // -------------------------------------------------------------------------
+  test('completed V6 file (translation_status=null) shows 完成 badge not 待翻譯', async ({ page }) => {
+    const errors = [];
+    page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
+
+    await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => typeof window.renderStepDiagram === 'function', { timeout: 5000 });
+
+    const FID = 'v6-badge-bug-a-test';
+    await page.evaluate((fid) => {
+      // Seed a V6 file that is fully done (status='done', translation_status=null)
+      // This is the realistic V6 terminal state: refiner is inline, no separate MT job.
+      uploadedFiles[fid] = {
+        id: fid,
+        original_name: 'v6_done_badge_test.mp4',
+        status: 'done',
+        translation_status: null,   // V6 never sets this to 'done'
+        active_kind: 'pipeline_v6',
+        uploaded_at: Date.now() / 1000,
+      };
+      renderQueue();
+    }, FID);
+
+    const card = page.locator(`.queue-item[data-file-id="${FID}"]`);
+    await expect(card).toBeVisible({ timeout: 3000 });
+
+    // Must show '完成' badge
+    const badgeText = await card.locator('.badge').innerText();
+    expect(badgeText).toContain('完成');
+    expect(badgeText).not.toContain('待翻譯');
+
+    expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+  });
+
+  // -------------------------------------------------------------------------
   // Bug #16 regression: stage_index=null + stage_state='done' must NOT mark
   // all steps done (false-all-done).  The null guard in step-diagram.js:8
   // prevents null >= N-1 from evaluating truthy.

@@ -349,6 +349,24 @@ def _asr_handler(job, cancel_event=None):
             _update_file(file_id, status='error', error=str(e))
             raise
         _update_file(file_id, status='done')
+
+        # Bug B: if the user pre-selected a second language before processing,
+        # auto-trigger it now that the refiner output exists.  Reuse the B2 flow:
+        # move second_lang_preselect → _pending_second_lang + enqueue translate job
+        # → _mt_handler → _translate_second_handler.
+        with _registry_lock:
+            _pre = (_file_registry.get(file_id) or {}).get("second_lang_preselect")
+        if _pre:
+            with _registry_lock:
+                if file_id in _file_registry:
+                    _file_registry[file_id]["_pending_second_lang"] = _pre
+                    _file_registry[file_id].pop("second_lang_preselect", None)
+                    _save_registry()
+            _job_queue.enqueue(
+                user_id=job["user_id"],
+                file_id=file_id,
+                job_type='translate',
+            )
         return
 
     # ── existing Profile path (unchanged) ──────────────────────────────
@@ -3805,9 +3823,10 @@ def translate_second_language(file_id):
         return jsonify({"error": "lang is required"}), 400
 
     # Phase 1 (under lock): validate all entry fields + check collision + set
-    #   _pending_second_lang atomically (Bug #14 TOCTOU, Bug #11 collision).
-    # Phase 2 (outside lock): enqueue the job (the blocking DB write must not
-    #   run while holding _registry_lock).
+    #   _pending_second_lang (processed) or second_lang_preselect (unprocessed)
+    #   atomically (Bug #14 TOCTOU, Bug #11 collision).
+    # Phase 2 (outside lock): enqueue the job for the processed path only
+    #   (the blocking DB write must not run while holding _registry_lock).
     with _registry_lock:
         entry = _file_registry.get(file_id)
         if not entry:
@@ -3818,20 +3837,30 @@ def translate_second_language(file_id):
             return jsonify({"error": "translate-second 只支援 V6 pipeline 文件"}), 400
 
         translations = entry.get("translations") or []
-        if not translations:
-            return jsonify({"error": "No translations found — run the V6 pipeline first"}), 400
+        is_processed = bool(translations and entry.get("status") == "done")
 
-        source_lang = translations[0].get("source_lang")
+        # Determine source_lang: from translations (processed) or pipeline config (unprocessed).
+        if translations:
+            source_lang = translations[0].get("source_lang")
+        else:
+            # Unprocessed file — try to get source_lang from the pipeline snapshot or manager.
+            snapshot = entry.get("active_pipeline_snapshot") or {}
+            source_lang = snapshot.get("source_lang")
+            if not source_lang:
+                pipeline_id = entry.get("active_id")
+                if pipeline_id:
+                    try:
+                        pipeline_obj = _pipeline_manager.get(pipeline_id)
+                        if pipeline_obj:
+                            source_lang = pipeline_obj.get("source_lang")
+                    except Exception:
+                        pass
+
         if not source_lang:
-            return jsonify({"error": "source_lang not set on translations — V6 pipeline incomplete"}), 400
+            return jsonify({"error": "pipeline source language unknown — cannot validate direction"}), 400
 
         if lang == source_lang:
             return jsonify({"error": f"lang '{lang}' is the same as source_lang '{source_lang}'"}), 400
-
-        # Bug #11: concurrent collision guard — if a translate-second is already
-        # in-progress for this file, reject immediately.
-        if entry.get("_pending_second_lang"):
-            return jsonify({"error": "此檔案已有第二語言翻譯進行中"}), 409
 
         # Verify the prompt template exists (FS check inside lock is acceptable
         # since it is a read-only path stat).
@@ -3842,11 +3871,25 @@ def translate_second_language(file_id):
         if not template_path.exists():
             return jsonify({"error": f"未支援嘅語言方向 {source_lang}→{lang}"}), 400
 
+        if not is_processed:
+            # Unprocessed: store the pre-selection for auto-trigger after V6 completes.
+            _file_registry[file_id]["second_lang_preselect"] = lang
+            _save_registry()
+            return jsonify({
+                "file_id": file_id,
+                "target_lang": lang,
+                "preselected": True,
+            }), 202
+
+        # Processed path: Bug #11 concurrent collision guard.
+        if entry.get("_pending_second_lang"):
+            return jsonify({"error": "此檔案已有第二語言翻譯進行中"}), 409
+
         # Atomically stash the target lang (still inside lock).
         _file_registry[file_id]["_pending_second_lang"] = lang
         _save_registry()
 
-    # Phase 2: enqueue outside the lock (blocking DB write).
+    # Phase 2: enqueue outside the lock (blocking DB write) — processed path only.
     uid = getattr(current_user, "id", 0) or 0
     job_id = _job_queue.enqueue(
         user_id=uid,

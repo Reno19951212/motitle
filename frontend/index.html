@@ -2008,9 +2008,16 @@
           return `<span class="badge badge--error">✕ 錯誤</span>`;
         case 'pending':
           return `<span class="badge badge--idle">待上傳</span>`;
-        default:
-          if (f.translation_status === 'done') return `<span class="badge badge--done-solid">✓ 完成</span>`;
+        default: {
+          // V6 files have no separate MT job (refiner is inline), so
+          // translation_status stays null even at full completion.
+          // Check active_kind to correctly identify a done V6 file.
+          const _done = f.active_kind === 'pipeline_v6'
+            ? (f.status === 'done')
+            : (f.translation_status === 'done');
+          if (_done) return `<span class="badge badge--done-solid">✓ 完成</span>`;
           return `<span class="badge badge--queued"><span class="dot"></span> 待翻譯</span>`;
+        }
       }
     }
 
@@ -2612,7 +2619,12 @@
         });
         const data = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
-        showToast(`已開始翻譯第二語言（${lang.toUpperCase()}）…`, 'info');
+        if (data.preselected) {
+          // Unprocessed file: second lang stored for auto-trigger after V6 completes.
+          showToast(`已預選第二語言（${lang.toUpperCase()}）— V6 處理完成後會自動翻譯`, 'info');
+        } else {
+          showToast(`已開始翻譯第二語言（${lang.toUpperCase()}）…`, 'info');
+        }
         // Job runs async; queue panel / step-diagram (Subsystem A) shows progress.
         // When done, file.languages refetches via the normal /api/files refresh → second chip appears.
       } catch (e) {

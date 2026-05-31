@@ -136,15 +136,30 @@ def resolve_language_descriptor(
     translations = entry.get("translations") or []
 
     if kind == "pipeline_v6":
-        src = (translations[0].get("source_lang") if translations else None) or "zh"
+        # Derive source_lang: prefer translations[0].source_lang (processed file),
+        # then active_cfg.source_lang (fresh file from pipeline config), then "zh".
+        src = (translations[0].get("source_lang") if translations else None)
+        if not src and active_cfg:
+            src = active_cfg.get("source_lang")
+        src = src or "zh"
+
         langs: List[dict] = [{"role": "first", "lang": src, "label": "原文"}]
+
+        # Collect second lang from by_lang keys in existing translations.
         extra: List[str] = []
         for row in translations:
             for k in (row.get("by_lang") or {}):
                 if k != src and k not in extra:
                     extra.append(k)
+
         if extra:
             langs.append({"role": "second", "lang": extra[0], "label": "譯文"})
+        elif not extra:
+            # No real by_lang second lang yet — surface the pre-selection if any.
+            pre = entry.get("second_lang_preselect")
+            if pre and pre != src:
+                langs.append({"role": "second", "lang": pre, "label": "譯文"})
+
         return langs
 
     # Profile (and any other kind) — first=ASR source, second=zh
