@@ -360,6 +360,14 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### V6 粵語書面語 pipeline — two-pass chained refiner（2026-05-31）
+- **目標**：新增獨立可揀 V6 pipeline「[v6] 賽馬廣播 (書面語)」輸出**現代正式繁體書面語**，取代口語化粵語輸出；**唔影響**現有口語 pipeline。User 拍板 dial：阿拉伯數字、現代正式書面語（禁過度文言/公文腔、保成語）、接受 clause_split 自動切。
+- **架構（config-only，零 Python 改動）**：`pipeline_runner._run_v6` 嘅 `refinements[zh]` loop 已支援鏈式 → 新 pipeline `refinements.zh = [口語 refiner f7f72bd9, 書面語 register refiner 9dbe1aa3]`。Pass 2 收 pass 1 已清理嘅粵語，淨係 flip register。`pipeline_runner.py:588` loop 逐個執行、`_persist_by_lang` 寫 `by_lang[zh]`、clause_split 收尾。
+- **新檔**：prompt template `config/prompt_templates_v5/refiner/zh_written_register_v6.json`（嘅→的/係→是/咗→了…、保阿拉伯數字、byte 保專名、禁文言虛詞 惟/縱/乃 + 公文腔、保成語、0.8–1.3× 長度、輸出 `{action:keep,text}`）+ refiner profile `9dbe1aa3`（`user_id:null`，reuse LLM `9402593c` qwen3.5-35b）+ pipeline `1443afcb`（clone 自口語 `4696bbaa`，`user_id:null`）。移植自 feat branch `ac96d75`/`43d614d`/`42bc3d1`（`user_id` 627→null、鬆 test assertion）。
+- **Validation-First（全程）**：prototype（120 真實口語段，真 Ollama qwen3.5-35b）殘餘 marker 16.63→0.13/100、專名 100%、no-op 0.8%。**整合 re-run（真片 賽後兩點晚 283MB 端到端、560s、337 段）**：source 口語 13.32 → output 書面語 **0.07 markers/100**、over-cap **1.5%**（低過口語 1.8% baseline）、empty 0、阿拉伯數字保留（`135`→「負重 135 磅」）、`stage_outputs` 6 key 證實雙 refiner 執行；口語 pipeline byte-identical（git collateral + regression test）。Tracker：[docs/superpowers/specs/2026-05-31-v6-written-register-validation-tracker.md](docs/superpowers/specs/2026-05-31-v6-written-register-validation-tracker.md)。
+- **測試**：`backend/tests/test_v6_written_register.py` 4（template/refiner/pipeline-chain + 口語 regression guard）。Spec/Plan：[spec](docs/superpowers/specs/2026-05-31-v6-written-register-design.md) / [plan](docs/superpowers/plans/2026-05-31-v6-written-register-plan.md)。
+- **範圍外**：單-pass、EN pipeline、>2 refiner、register flag、per-file 口語↔書面語 toggle。
+
 ### 工作隊列 panel 顯示修復 — 狀態直行斷字 + 跨 job stale stage（2026-05-31）
 - **問題**（Playwright 主頁實地觀察）：右側「工作隊列」panel 只 ~278px 闊，每個 job row 喺單一 flex line 塞 7 欄（#位置 / 類型 / 檔名 / step-diagram / 擁有者 / 狀態 / ×）。空間不足 → **(Bug 1)** 狀態文字「進行中」冇 `white-space:nowrap`/`flex-shrink:0`，被逐隻字壓成直行「進／行／中」，擁有者 `admin_p3` 擠成 `a…`、檔名幾乎睇唔到（任何進行中 job 都中）；**(Bug 2)** re-transcribe 一個之前譯完嘅檔，row 一開頭顯示「轉錄 ✓ 完成 → 翻譯 ● 進行中」（上一個 translate job 嘅殘留 stage），其實 ASR 啱啱開始。
 - **Root cause**：
