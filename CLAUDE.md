@@ -360,6 +360,18 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### 全專案 Bug 審計 + 22 個修復（2026-05-31）
+- **方法**：multi-agent workflow（8 個唯讀 finder 按子系統 fan-out → dedup → 逐個 candidate 對抗式驗證）。30 個 candidate → **25 confirmed / 5 refuted**。完整報告：[docs/superpowers/audits/2026-05-31-project-bug-audit.md](docs/superpowers/audits/2026-05-31-project-bug-audit.md)。User 確認後修 22 個（skip 3 個：#7 ASR 空段過濾、#6 redistribute off-by-one —— 兩個受 Validation-First 管制留待單獨驗證；#10 bilingual_order 命名語意當 cosmetic）。
+- **修復（每個 TDD RED→GREEN，Sonnet 實作 + Opus 逐個覆核 diff）**：
+  - **V6 健壯性**（`b51a0bf`）：`llm_refiner.py` 拒絕非字串 JSON `text`（之前 `str()` 化 int/list 變垃圾字幕）；`clause_split.py::split_v6_aligned` fallback timing 用 `0.0`（之前 `None` → 算 duration TypeError）；`clause_split_segment` 短句 `copy.deepcopy`（之前共享 nested `flags`/`words`）。
+  - **翻譯**（`d61e66e`）：`_filter_glossary_for_batch` 要求 entry 同時有 `source` + `target`（之前缺 `target` → 下游 KeyError）；`_enrich_pass` + `sentence_pipeline` 改 functional 重建（不可變，輸出不變）。
+  - **渲染 / profiles**（`f192a6b`）：`seconds_to_ass_time` 改先算 total centiseconds 令進位正確傳遞（之前 `.995` → cc=100 無效 ASS）；`ProfileManager.delete` 清埋 `active_id`。
+  - **jobqueue retry cap**（`5de7a08` → `3651c1d` 修正）：retry 嘅 cap 檢查 + insert 必須喺一個 `BEGIN IMMEDIATE` 交易（之前 read-check-insert 分開 → 並發 retry 繞過 poison-pill cap）。**Opus 覆核捉到 A4 第一版用 `MAX(attempt_count) over (file_id,type)` 係 lifetime cap，會錯誤封鎖 re-transcribe + 整爛 `test_queue_retry`** → 改成讀特定 parent job 嘅 `attempt_count` + 原子 bump（chain-scoped，無跨 chain 累積）。
+  - **app.py 並發/registry/crash-guard 一組**（`fec45d0`，9 個 bug）：V6 ASR dispatch `active_id` null → 清楚 RuntimeError（非 KeyError）；`_auto_translate` 嘅 status/error 寫入移入 `_registry_lock`；`warning_missing_zh` 數真正 second-role field（V6 `en_text`）而非硬讀 `zh_text`；`translate-second` endpoint 全部驗證讀取入鎖（TOCTOU）+ 已有 pending 時回 409（per-file 序列化）；`_translate_second_handler` transform 失敗時清 `_pending_second_lang`（避免 re-dispatch loop）+ 不可變重建 translation rows；`_mt_handler` 原子 snapshot 決策欄位再喺鎖外 dispatch。
+  - **前端**（`7f8fadd`）：`renderStepDiagram` 加 `stageIndex != null` guard（null 唔再誤判全完成）；`translation_progress` `percent===100` set `translation_status='done'`（之前要 reload 先 done）；find-replace 嘅 approved 狀態取自後端 response（非硬編 `true`）；`unapproveSegment` 改 immutable `segs.map`。
+- **驗證**：每個修復喺隔離環境 GREEN；後端完整 suite `1123 passed / 23 failed`（23 個全部 pre-existing：14 已記錄 baseline + 2 B1 stale `b7` + 7 full-suite 共用-db 隔離雜訊，全部單獨跑綠 —— 零新增 regression）；前端 `unified_progress` 6/6。
+- **已知遺留（非今次範圍）**：2 個 `test_v3_19 b7_render_source_en_for_zh_v6` 係 B1 改 en-on-zh-V6 guard 之後嘅 stale test（測緊已移除嘅 hard-400 行為），留待單獨更新。
+
 ### Subsystem A — 統一進度 step-diagram（Profile + V6，序列 + file card）（2026-05-30）
 - **目標**：統一兩個 surface（右側序列 panel row + 左側 dashboard file card）+ 兩個 kind（Profile / V6）嘅進度顯示,用一個 kind-agnostic step-diagram（✓ done / ● active-fill / ○ pending）。順手修 V6 stage label live bug。
 - **Canonical 模型**：每 kind 一個有序階段清單。Profile = `轉錄→翻譯→校對`;V6 = `VAD 切段→Qwen3 識別→mlx 對齊→時間合併→Refiner 校對`。每步 state 由 `stage_index`+`stage_state`+`pct` 客戶端 derive。
