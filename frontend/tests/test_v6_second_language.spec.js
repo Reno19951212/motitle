@@ -164,4 +164,30 @@ test.describe.serial('pipeline-strip language selector', () => {
     await expect(spinnerChip).toBeVisible({ timeout: 5000 });
     await expect(spinnerChip).toContainText('翻譯中');
   });
+
+  // -------------------------------------------------------------------------
+  // Test 5: PIPELINE-LEVEL — V6 active, NO file selected → strip shows the
+  // pipeline's first language + "加第二語言" before any upload; pre-picking a
+  // second language reflects it as a chip (carried to the next upload).
+  // -------------------------------------------------------------------------
+  test('v6_pipeline_level_shows_first_and_prepick_second_without_file', async ({ page }) => {
+    await gotoAndWait(page);
+    await page.evaluate(() => {
+      activeKind = 'pipeline_v6';
+      activePipeline = { id: 'p-test', name: '[v6] test', source_lang: 'zh' };
+      activeFileId = null;
+      window._v6PendingSecondLang = null;
+      renderPipelineStrip();
+    });
+    const strip = page.locator('#pipelineStrip');
+    // First language chip + add-second button visible WITHOUT any file.
+    await expect(strip.locator('.strip-lang-chip', { hasText: '第一' })).toBeVisible({ timeout: 5000 });
+    await expect(strip.locator('.strip-add-lang')).toBeVisible();
+
+    // Pre-pick EN at pipeline level (no file) → stored + reflected as 第二 chip.
+    await page.evaluate(() => addSecondLanguage('', 'en'));
+    await expect(strip.locator('.strip-lang-chip', { hasText: '第二' })).toBeVisible({ timeout: 5000 });
+    expect(await page.evaluate(() => window._v6PendingSecondLang)).toBe('en');
+    await expect(strip.locator('.strip-add-lang')).toHaveCount(0);
+  });
 });

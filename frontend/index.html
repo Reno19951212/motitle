@@ -2563,9 +2563,31 @@
     // Returns HTML for the file-context language selector segment, or '' when
     // no file is selected or the file has no languages descriptor yet.
     function renderStripLanguageSelector() {
+      // Two sources for the language tracks shown in the strip:
+      //  (a) a selected file → its per-file descriptor (file.languages), or
+      //  (b) NO file selected but V6 is the active pipeline → the pipeline's
+      //      own languages (source_lang from config + a pipeline-level pre-pick),
+      //      so first/second are visible BEFORE any upload. The pre-pick is held
+      //      in window._v6PendingSecondLang and applied to the next upload.
       const f = activeFileId ? uploadedFiles[activeFileId] : null;
-      if (!f) return '';
-      const langs = Array.isArray(f.languages) ? f.languages : [];
+      let langs, isV6, ctxFileId, translating;
+      if (f) {
+        langs = Array.isArray(f.languages) ? f.languages : [];
+        isV6 = f.active_kind === 'pipeline_v6';
+        ctxFileId = f.id;
+        translating = !!f._addingSecondLang;
+      } else if (activeKind === 'pipeline_v6' && activePipeline) {
+        const src = activePipeline.source_lang || 'zh';
+        langs = [{ role: 'first', lang: src, label: '原文' }];
+        if (window._v6PendingSecondLang && window._v6PendingSecondLang !== src) {
+          langs.push({ role: 'second', lang: window._v6PendingSecondLang, label: '譯文' });
+        }
+        isV6 = true;
+        ctxFileId = '';        // empty → addSecondLanguage stores a pipeline-level pre-pick
+        translating = false;
+      } else {
+        return '';
+      }
       if (!langs.length) return '';
       const first  = langs.find(l => l.role === 'first');
       const second = langs.find(l => l.role === 'second');
@@ -2576,9 +2598,7 @@
       if (second) {
         chips += `<span class="strip-lang-chip" title="第二語言">第二 · ${escapeHtml(second.label || '譯文')}（${escapeHtml((second.lang || '').toUpperCase())}）</span>`;
       }
-      // "+ 加第二語言" only for V6 files that currently have just one language
-      const isV6 = f.active_kind === 'pipeline_v6';
-      const translating = !!f._addingSecondLang;
+      // "+ 加第二語言" only for V6 with just one language (file or pipeline-level)
       if (isV6 && first && !second) {
         if (translating) {
           chips += `<span class="strip-lang-chip strip-lang-adding">翻譯中…</span>`;
@@ -2586,7 +2606,7 @@
           const targets = secondLangTargetsFor(first.lang);
           chips += `<button class="strip-add-lang" onclick="toggleAddLangMenu(this)" title="加第二語言">+ 加第二語言<svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></button>`;
           chips += `<div class="strip-add-lang-menu">` +
-            targets.map(t => `<button onclick="addSecondLanguage('${escapeHtml(f.id)}','${escapeHtml(t.lang)}')">${escapeHtml(t.label)}</button>`).join('') +
+            targets.map(t => `<button onclick="addSecondLanguage('${escapeHtml(ctxFileId)}','${escapeHtml(t.lang)}')">${escapeHtml(t.label)}</button>`).join('') +
             (targets.length ? '' : `<div style="padding:6px 10px;color:var(--text-dim);font-size:11px;">無支援方向</div>`) +
           `</div>`;
         }
@@ -2607,6 +2627,15 @@
     }
 
     async function addSecondLanguage(fileId, lang) {
+      if (!fileId) {
+        // Pipeline-level pre-pick (no file uploaded yet) — remember it; the next
+        // upload applies it as the file's second_lang_preselect, which is
+        // auto-translated once V6 finishes the refiner.
+        window._v6PendingSecondLang = lang;
+        renderPipelineStrip();
+        showToast(`已設定第二語言（${lang.toUpperCase()}）— upload 片並跑完 V6 後會自動翻譯`, 'info');
+        return;
+      }
       const f = uploadedFiles[fileId];
       if (!f) return;
       f._addingSecondLang = true;
@@ -2621,6 +2650,9 @@
         if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
         if (data.preselected) {
           // Unprocessed file: second lang stored for auto-trigger after V6 completes.
+          // It's not translating yet — clear the spinner so the chip (not 翻譯中…) shows.
+          f._addingSecondLang = false;
+          renderPipelineStrip();
           showToast(`已預選第二語言（${lang.toUpperCase()}）— V6 處理完成後會自動翻譯`, 'info');
         } else {
           showToast(`已開始翻譯第二語言（${lang.toUpperCase()}）…`, 'info');
@@ -4530,6 +4562,13 @@
         activeFileId = data.file_id;
         selectedFile = null;
         document.getElementById('fileInput').value = '';
+        // Bug B: carry a pipeline-level pre-picked second language onto the new
+        // V6 file (stored as second_lang_preselect → auto-translated after V6).
+        if (window._v6PendingSecondLang && activeKind === 'pipeline_v6') {
+          const _pre = window._v6PendingSecondLang;
+          window._v6PendingSecondLang = null;
+          addSecondLanguage(data.file_id, _pre);
+        }
         renderAll();
         loadMediaPreview(data.file_id);
         showToast('文件上傳成功，開始轉錄...', 'success');
