@@ -1,0 +1,12 @@
+{
+  "id": "9dbe1aa3-fc20-44b7-ad9e-93f6cee4a3fa",
+  "name": "Refiner ZH 書面語 register conversion v6",
+  "lang": "zh",
+  "style": "written_register_v6",
+  "llm_profile_id": "9402593c-184d-4a4d-a160-ebdf55e678e8",
+  "prompt_template_id": "refiner/zh_written_register_v6",
+  "shared": false,
+  "user_id": null,
+  "created_at": 1779874657.732016,
+  "updated_at": 1779874657.732016
+}
