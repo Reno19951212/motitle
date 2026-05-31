@@ -2389,7 +2389,7 @@
   async function unapproveSegment(idx) {
     const r = await fetch(`${API_BASE}/api/files/${fileId}/translations/${idx}/unapprove`, { method: 'POST' });
     if (!r.ok) { showToast('取消批核失敗', 'error'); return; }
-    if (segs[idx]) segs[idx].approved = false;
+    segs = segs.map((seg, i) => i === idx ? { ...seg, approved: false } : seg);
     renderProgress();
     renderSegList();
     renderWaveformRegions();
@@ -2525,7 +2525,8 @@
         body: JSON.stringify({ zh_text: newZh }),
       });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      segs = segs.map((seg, i) => i === s.idx ? { ...seg, zh: newZh, approved: true, edited: true } : seg);
+      const data = await r.json();
+      segs = segs.map((seg, i) => i === s.idx ? { ...seg, zh: newZh, approved: data.translation?.status === 'approved', edited: true } : seg);
       fbSearch();
       showToast('已取代', 'success');
     } catch (e) {
@@ -2566,7 +2567,8 @@
           }
           continue;
         }
-        segs = segs.map((seg, i) => i === s.idx ? { ...seg, zh: newZh, approved: true, edited: true } : seg);
+        const repData = await r.json();
+        segs = segs.map((seg, i) => i === s.idx ? { ...seg, zh: newZh, approved: repData.translation?.status === 'approved', edited: true } : seg);
         count++;
       } catch (e) {
         failCount++;

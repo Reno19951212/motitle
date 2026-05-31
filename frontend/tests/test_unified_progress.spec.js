@@ -259,4 +259,63 @@ test.describe.serial('unified-progress step-diagram', () => {
     expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
   });
 
+  // -------------------------------------------------------------------------
+  // Bug #16 regression: stage_index=null + stage_state='done' must NOT mark
+  // all steps done (false-all-done).  The null guard in step-diagram.js:8
+  // prevents null >= N-1 from evaluating truthy.
+  // -------------------------------------------------------------------------
+  test('null stage_index with stage_state=done does NOT false-all-done', async ({ page }) => {
+    const errors = [];
+    page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
+
+    await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => typeof window.renderStepDiagram === 'function', { timeout: 5000 });
+
+    const FID = 'null-idx-bug16-regression';
+
+    // Seed a V6 file in uploadedFiles
+    await page.evaluate((fid) => {
+      uploadedFiles[fid] = {
+        id: fid,
+        original_name: 'null_idx_test.mp4',
+        status: 'transcribing',
+        translation_status: null,
+        active_kind: 'pipeline_v6',
+        uploaded_at: Date.now() / 1000,
+      };
+      renderQueue();
+    }, FID);
+
+    const card = page.locator(`.queue-item[data-file-id="${FID}"]`);
+    await expect(card).toBeVisible({ timeout: 3000 });
+
+    // Inject a pipeline_progress snapshot with stage_index=null + stage_state='done'
+    // (simulates a backend event where stage_index is omitted/null but state is done)
+    await page.waitForFunction(() => typeof window.__setCardProgress === 'function', { timeout: 5000 });
+    await page.evaluate((fid) => {
+      window.__setCardProgress(fid, {
+        stages: [
+          { key: 'vad', label: 'VAD 切段' },
+          { key: 'qwen3', label: 'Qwen3 識別' },
+          { key: 'mlx', label: 'mlx 對齊' },
+          { key: 'merge', label: '時間合併' },
+          { key: 'refiner', label: 'Refiner 校對' },
+        ],
+        stage_index: null,   // ← the null that triggered the bug
+        stage_state: 'done',
+        pct: 100,
+        stage_label: '完成',
+      });
+      renderQueue();
+    }, FID);
+
+    await expect(card.locator('.sd-step')).toHaveCount(5);
+    // With stage_index=null the guard makes allDone=false, so 0 steps are sd-done
+    // (they render as sd-pending since no stageIndex to compare against).
+    await expect(card.locator('.sd-step.sd-done')).toHaveCount(0);
+
+    // No console errors
+    expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+  });
+
 });

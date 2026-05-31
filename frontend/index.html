@@ -5204,6 +5204,7 @@
           const f = uploadedFiles[d.file_id];
           f.translation_progress = { completed: d.completed, total: d.total, percent: d.percent };
           if (d.percent < 100) f.translation_status = 'translating';
+          else if (d.percent === 100) f.translation_status = 'done';
           renderProgressOnly();  // skip transcript DOM rebuild — see renderProgressOnly()
         }
       });

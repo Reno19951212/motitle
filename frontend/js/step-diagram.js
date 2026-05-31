@@ -5,7 +5,7 @@
 (function () {
   function renderStepDiagram(stages, stageIndex, stageState, pct) {
     if (!Array.isArray(stages) || stages.length === 0) return '';
-    const allDone = stageState === 'done' && stageIndex >= stages.length - 1;
+    const allDone = stageState === 'done' && stageIndex != null && stageIndex >= stages.length - 1;
     return '<div class="step-diagram">' + stages.map((s, i) => {
       let cls, fill = '';
       if (allDone || i < stageIndex) cls = 'done';
