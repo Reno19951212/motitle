@@ -57,9 +57,10 @@ def test_current_active_snapshot_reads_settings_v6_mode(tmp_path, monkeypatch):
     tmp_pm = profiles_module.ProfileManager(tmp_config)
     monkeypatch.setattr(app_module, "_profile_manager", tmp_pm)
 
-    kind, aid = app_module._current_active_snapshot()
+    kind, aid, output_languages = app_module._current_active_snapshot()
     assert kind == "pipeline_v6"
     assert aid == "v6-id-123"
+    assert output_languages == []
 
 
 def test_current_active_snapshot_fallback_to_legacy_field(tmp_path, monkeypatch):
@@ -75,6 +76,7 @@ def test_current_active_snapshot_fallback_to_legacy_field(tmp_path, monkeypatch)
     tmp_pm = profiles_module.ProfileManager(tmp_config)
     monkeypatch.setattr(app_module, "_profile_manager", tmp_pm)
 
-    kind, aid = app_module._current_active_snapshot()
+    kind, aid, output_languages = app_module._current_active_snapshot()
     assert kind == "profile"
     assert aid == "dev-default"
+    assert output_languages == []

@@ -841,19 +841,23 @@ def _filter_files_by_owner(registry: dict, user) -> dict:
 
 
 def _current_active_snapshot():
-    """Read settings.json once and return (active_kind, active_id) for upload-time snapshot.
+    """Read settings.json once and return (active_kind, active_id, output_languages)
+    for upload-time snapshot.
 
     Used by _register_file when caller doesn't pass explicit kwargs.
     Backward-compat: legacy installs with only `active_profile` work.
+    Missing 'output_languages' safely defaults to [] (never raises).
 
     Returns:
-        (str, str|None): (active_kind, active_id) tuple.
-            active_kind is "profile" for legacy installs, "pipeline_v6" for V6 mode.
+        (str, str|None, list): (active_kind, active_id, output_languages) tuple.
+            active_kind is "profile" for legacy installs, "pipeline_v6" for V6 mode,
+            "output_lang" for the multi-language output pipeline.
     """
     settings = _profile_manager._read_settings()
     kind = settings.get("active_kind", "profile")
     aid = settings.get("active_id") or settings.get("active_profile")
-    return kind, aid
+    output_languages = settings.get("output_languages", [])
+    return kind, aid, output_languages
 
 
 def _snapshot_pipeline_at_upload(file_id: str) -> None:
@@ -893,9 +897,10 @@ def _resnapshot_active_for_rerun(file_id):
     V6: re-fills active_pipeline_snapshot with the new pipeline JSON. Profile:
     clears the snapshot (the profile path reads the active profile directly).
     """
-    snap_kind, snap_aid = _current_active_snapshot()
+    snap_kind, snap_aid, snap_output_languages = _current_active_snapshot()
     _update_file(file_id, active_kind=snap_kind, active_id=snap_aid,
-                 active_pipeline_snapshot=None)
+                 active_pipeline_snapshot=None,
+                 output_languages=snap_output_languages)
     if snap_kind == "pipeline_v6":
         _snapshot_pipeline_at_upload(file_id)
 
@@ -917,8 +922,9 @@ def _register_file(file_id, original_name, stored_name, size_bytes, user_id=None
     snapshot immediately into active_pipeline_snapshot so that admin PATCHes
     between upload and worker pickup do not affect the run.
     """
+    snap_output_languages: list = []
     if active_kind is None or active_id is None:
-        snap_kind, snap_aid = _current_active_snapshot()
+        snap_kind, snap_aid, snap_output_languages = _current_active_snapshot()
         active_kind = active_kind or snap_kind
         active_id = active_id or snap_aid
     with _registry_lock:
@@ -942,6 +948,7 @@ def _register_file(file_id, original_name, stored_name, size_bytes, user_id=None
             'active_kind': active_kind,  # v6 Task 2.4: snapshot at upload time
             'active_id': active_id,      # v6 Task 2.4: snapshot at upload time
             'active_pipeline_snapshot': None,  # v3.19 Sprint 3 B-10: filled below for V6
+            'output_languages': list(snap_output_languages),  # T1: output_lang snapshot
         }
         _save_registry()
     # Snapshot pipeline JSON immediately for V6 files (outside the lock to
