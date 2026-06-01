@@ -2794,6 +2794,14 @@
         return renderPipelineStripV6(document.getElementById('pipelineStrip'));
       }
 
+      // T10: ARCHIVED — pipeline strip preset-selection hiding for output_lang files.
+      // The strip shows the GLOBAL active pipeline (profile/V6), which is still used
+      // for re-running existing profile/V6 files. Hiding it per-file active_kind risks
+      // breaking V6 strip tests and existing-file display (the strip ignores file kind).
+      // The V6/MT preset-menu UI is documented as "remaining UI to retire" in
+      // docs/superpowers/archived/ARCHIVE_MT_V6_DESIGN.md §2.8.
+      // reTranslateFile is guarded separately (see below in this file).
+
       const el = document.getElementById('pipelineStrip');
       const p = activeProfile || { asr: {}, translation: {} };
       const preset = p.name || '未選擇';
@@ -4907,6 +4915,15 @@
     }
 
     async function reTranslateFile(id) {
+      // T10: output_lang files use ASR-only pipeline — no MT step exists.
+      // Calling /api/translate would be a no-op (backend short-circuits in _mt_handler).
+      // Show a friendly toast instead of silently hitting the endpoint.
+      // CODE RETAINED — remove this guard to re-enable MT translate for the file.
+      const _f = uploadedFiles[id];
+      if (_f && _f.active_kind === 'output_lang') {
+        showToast('Output-Language Pipeline 不需要翻譯步驟 — 直接到校對頁即可', 'info');
+        return;
+      }
       try {
         const resp = await fetch(`${API_BASE}/api/translate`, {
           method: 'POST', headers: {'Content-Type': 'application/json'},
