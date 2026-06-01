@@ -784,6 +784,9 @@
     /* File card step diagram: slightly larger, all labels visible on hover */
     .queue-item .step-diagram { flex-wrap:wrap; gap:2px; }
     .queue-item .sd-label { font-size:9.5px; }
+    /* Live stage label + streaming caption on the card during processing */
+    .card-stage-label { font-size:10px; color:var(--accent); margin:3px 0 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .card-live-caption { font-size:11px; color:var(--text-mid); margin:2px 0 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:0.92; }
 
     /* Inspector tabs */
     .inspector-tabs {
@@ -1843,6 +1846,25 @@
     // cardProgress: per-file step-diagram data from pipeline_progress events
     // keyed by file_id → {stages, stage_index, stage_state, pct, stage_label}
     const cardProgress = {};
+    // cardSubtitle: per-file live streaming caption text (pipeline_segment for V6
+    // final refiner; subtitle_segment for Profile ASR active file).
+    const cardSubtitle = {};
+    // Update (or create) the live-caption line on a file card without a full
+    // renderQueue() rebuild (avoids scroll/focus reset during streaming).
+    function _updateCardCaption(fileId, text) {
+      const cardEl = document.querySelector(`#queueList .queue-item[data-file-id="${CSS.escape(fileId)}"]`);
+      if (!cardEl) return;
+      let capEl = cardEl.querySelector('.card-live-caption');
+      if (!capEl) {
+        capEl = document.createElement('div');
+        capEl.className = 'card-live-caption';
+        const anchor = cardEl.querySelector('.card-step-diagram');
+        if (anchor) anchor.insertAdjacentElement('afterend', capEl);
+        else cardEl.appendChild(capEl);
+      }
+      capEl.textContent = text;
+      capEl.title = text;
+    }
     let segments = [];
     let selectedFile = null;
     let isProcessing = false;
@@ -2098,6 +2120,15 @@
           }
         }
 
+        // Live stage label + streaming caption — only while the file is processing.
+        const _isProcessing = f.status === 'transcribing' || f.translation_status === 'translating';
+        const _sl = cardProgress[id];
+        const _stageLabelHtml = (_isProcessing && _sl && _sl.stage_label)
+          ? `<div class="card-stage-label">${escapeHtml(_sl.stage_label)}${_sl.pct != null ? ` ${_sl.pct}%` : ''}</div>` : '';
+        const _capSnap = cardSubtitle[id];
+        const _capHtml = (_isProcessing && _capSnap && _capSnap.text)
+          ? `<div class="card-live-caption" title="${escapeHtml(_capSnap.text)}">${escapeHtml(_capSnap.text)}</div>` : '';
+
         const armed = deleteArmedId === id;
         const hasPromptOverride = f.prompt_overrides && Object.values(f.prompt_overrides).some(v => v);
         const promptChip = hasPromptOverride
@@ -2124,6 +2155,7 @@
               <span>${escapeHtml(rel)}</span>
             </div>
             <div class="card-step-diagram" style="margin:3px 0 2px;">${cardDiagramHtml}</div>
+            ${_stageLabelHtml}${_capHtml}
             ${f.status === 'error' ? `
               <div class="q-actions" onclick="event.stopPropagation()">
                 <button class="btn-secondary" id="queueRetryBtn-${id}"
@@ -5259,6 +5291,12 @@
           totalDuration: seg.total_duration,
           eta: seg.eta_seconds,
         };
+        // Profile ASR live caption: subtitle_segment has no file_id, so attribute
+        // it to the active (transcribing) file's card.
+        if (seg && seg.text) {
+          cardSubtitle[activeFileId] = { text: seg.text };
+          _updateCardCaption(activeFileId, seg.text);
+        }
         renderProgressOnly();  // skip transcript DOM rebuild — see renderProgressOnly()
       });
       socket.on('transcription_complete', d => {
@@ -5266,6 +5304,7 @@
           uploadedFiles[d.file_id].status = 'done';
           uploadedFiles[d.file_id].segment_count = d.segment_count;
           delete fileProgress[d.file_id];
+          delete cardSubtitle[d.file_id];
           renderAll();
           if (d.file_id === activeFileId) loadFileSegments(d.file_id);
         }
@@ -5296,6 +5335,7 @@
           uploadedFiles[d.file_id].translation_seconds = d.translation_seconds;
           uploadedFiles[d.file_id].pipeline_seconds = d.total_seconds;
           uploadedFiles[d.file_id].translation_status = 'done';
+          delete cardSubtitle[d.file_id];
           // Translation just finished — segments[] in DOM may now contain
           // stale zh_text. If this is the active file, refetch segments so
           // the transcript + overlay show the final translations. Full
@@ -5330,7 +5370,18 @@
               diagramEl.innerHTML = window.renderStepDiagram(snap.stages, snap.stage_index, snap.stage_state, snap.pct);
             }
           }
+          // live stage-label (name + pct) on the card, mirroring the queue panel
+          const slEl = cardEl.querySelector('.card-stage-label');
+          if (slEl && e.stage_label) slEl.textContent = e.stage_label + (e.pct != null ? ` ${e.pct}%` : '');
         }
+      });
+      // pipeline_segment: live streaming caption. V6 final refiner emits each
+      // refined segment's text → show it on that file's card.
+      socket.on('pipeline_segment', e => {
+        if (!e || !e.file_id || !e.text) return;
+        cardSubtitle[e.file_id] = { text: e.text, idx: e.idx, total: e.total };
+        window.__cardSubtitle = cardSubtitle;
+        _updateCardCaption(e.file_id, e.text);
       });
     }
 
@@ -5339,6 +5390,10 @@
     window.__setCardProgress = function(fileId, snap) {
       cardProgress[fileId] = snap;
       window.__cardProgress = cardProgress;
+    };
+    window.__setCardSubtitle = function(fileId, snap) {
+      cardSubtitle[fileId] = snap;
+      window.__cardSubtitle = cardSubtitle;
     };
     window.__renderQueue = function() { renderQueue(); };
     window.__uploadedFiles = uploadedFiles;  // reference (not a copy) for test seeding
