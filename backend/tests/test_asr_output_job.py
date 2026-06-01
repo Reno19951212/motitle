@@ -79,3 +79,60 @@ def test_migration_idempotent(tmp_path):
     db = str(tmp_path / "j.db"); init_jobs_table(db); init_jobs_table(db)  # twice, no error
     jid = insert_job(db, user_id=1, file_id="f", job_type="asr_output")
     assert get_job(db, jid)["type"] == "asr_output"
+
+
+# ---------------------------------------------------------------------------
+# T3 fix: output_language must propagate through both retry paths
+# ---------------------------------------------------------------------------
+
+def test_boot_recovery_child_inherits_output_language(tmp_path):
+    """insert_job with parent_job_id must inherit output_language from parent
+    when the caller does not supply an explicit value (mirrors queue.py boot
+    recovery which only passes parent_job_id, not output_language)."""
+    from jobqueue.db import init_jobs_table, insert_job, get_job
+    db = str(tmp_path / "j.db")
+    init_jobs_table(db)
+    parent = insert_job(db, user_id=1, file_id="f", job_type="asr_output",
+                        output_language="yue")
+    # Boot recovery re-enqueues as a child via parent_job_id (mirrors queue.py).
+    child = insert_job(db, user_id=1, file_id="f", job_type="asr_output",
+                       parent_job_id=parent)
+    assert get_job(db, child)["output_language"] == "yue"
+
+
+def test_explicit_output_language_overrides_parent_inheritance(tmp_path):
+    """An explicit output_language arg takes precedence over the parent's value."""
+    from jobqueue.db import init_jobs_table, insert_job, get_job
+    db = str(tmp_path / "j.db")
+    init_jobs_table(db)
+    parent = insert_job(db, user_id=1, file_id="f", job_type="asr_output",
+                        output_language="yue")
+    child = insert_job(db, user_id=1, file_id="f", job_type="asr_output",
+                       parent_job_id=parent, output_language="en")
+    assert get_job(db, child)["output_language"] == "en"
+
+
+def test_retry_job_inherits_output_language(tmp_path):
+    """insert_retry_job must carry output_language from the parent (failed) job
+    into the retry child — mirrors routes.py retry_job path."""
+    from jobqueue.db import (
+        init_jobs_table, insert_job, get_job,
+        update_job_status, insert_retry_job,
+    )
+    db = str(tmp_path / "j.db")
+    init_jobs_table(db)
+    # Create a failed parent asr_output job that has output_language set.
+    parent = insert_job(db, user_id=1, file_id="f", job_type="asr_output",
+                        output_language="en")
+    update_job_status(db, parent, "failed", error_msg="boom")
+    # Retry via insert_retry_job exactly as routes.py does.
+    child = insert_retry_job(
+        db,
+        user_id=1,
+        file_id="f",
+        job_type="asr_output",
+        parent_job_id=parent,
+        max_retry=3,
+    )
+    assert child is not None, "insert_retry_job returned None (cap hit?)"
+    assert get_job(db, child)["output_language"] == "en"

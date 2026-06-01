@@ -66,6 +66,14 @@ def _drop_stale_type_check(conn: sqlite3.Connection) -> None:
     """Idempotently rebuild `jobs` without the `type` CHECK if a stale one
     exists. After rebuild the DDL no longer contains 'CHECK(type IN', so this
     is a no-op on subsequent runs and on fresh DBs created by the new _SCHEMA.
+
+    Note: the PRAGMA table_info-based reconstruction omits ALL CHECK
+    constraints from the new table DDL — this intentionally also drops the
+    ``status`` CHECK (``CHECK(status IN …)``).  That is acceptable because
+    status values are validated app-side in ``update_job_status`` before every
+    write, so the DB-level CHECK would be redundant.  Column reconstruction
+    assumes a single-column PRIMARY KEY (``id TEXT PRIMARY KEY``); composite
+    PKs are not present in the jobs schema and are not handled.
     """
     row = conn.execute(
         "SELECT sql FROM sqlite_master WHERE type='table' AND name='jobs'"
@@ -138,6 +146,10 @@ def insert_job(db_path: str, user_id: int, file_id: str, job_type: str,
         parent = get_job(db_path, parent_job_id)
         if parent is not None:
             attempt_count = (parent.get("attempt_count") or 1) + 1
+            # Inherit output_language from the parent unless the caller
+            # supplied an explicit value (explicit arg wins).
+            if output_language is None:
+                output_language = parent.get("output_language")
     conn = get_connection(db_path)
     try:
         conn.execute(
@@ -193,7 +205,7 @@ def insert_retry_job(
     try:
         conn.execute("BEGIN IMMEDIATE")
         prow = conn.execute(
-            "SELECT attempt_count FROM jobs WHERE id = ?",
+            "SELECT attempt_count, output_language FROM jobs WHERE id = ?",
             (parent_job_id,),
         ).fetchone()
         if prow is None:
@@ -204,11 +216,14 @@ def insert_retry_job(
             conn.execute("ROLLBACK")
             return None
         new_count = parent_count + 1
+        # Inherit output_language from the parent row so a recovered/retried
+        # asr_output job does not lose its language setting.
+        inherited_language = prow["output_language"]
         jid = uuid.uuid4().hex
         conn.execute(
-            "INSERT INTO jobs (id, user_id, file_id, type, status, created_at, attempt_count) "
-            "VALUES (?, ?, ?, ?, 'queued', ?, ?)",
-            (jid, user_id, file_id, job_type, time.time(), new_count),
+            "INSERT INTO jobs (id, user_id, file_id, type, status, created_at, attempt_count, output_language) "
+            "VALUES (?, ?, ?, ?, 'queued', ?, ?, ?)",
+            (jid, user_id, file_id, job_type, time.time(), new_count, inherited_language),
         )
         # Consume a cap slot on the parent so repeat/concurrent retries of the
         # same failed job can't bypass the cap (parent row is the chain counter).
