@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   id TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL,
   file_id TEXT NOT NULL,
-  type TEXT NOT NULL CHECK(type IN ('asr', 'asr_output', 'translate', 'render')),
+  type TEXT NOT NULL,  -- job-type validity enforced Python-side in insert_job; no CHECK to avoid rebuild-on-add
   status TEXT NOT NULL CHECK(status IN ('queued', 'running', 'done', 'failed', 'cancelled')),
   created_at REAL NOT NULL,
   started_at REAL,
@@ -52,7 +52,76 @@ def init_jobs_table(db_path: str) -> None:
             "ALTER TABLE jobs ADD COLUMN output_language TEXT"
         )
     conn.commit()
+    # T3 output-lang: rebuild the table WITHOUT the legacy `type` CHECK when a
+    # stale one is present. SQLite can't ALTER a CHECK constraint, and the live
+    # data/app.db was created by an older schema whose CHECK omits 'asr_output'
+    # — inserting one would raise IntegrityError. We reconstruct the table from
+    # PRAGMA table_info (which naturally omits ALL CHECK constraints), preserving
+    # every existing column (incl. drifted ones like `payload`) and every row.
+    _drop_stale_type_check(conn)
     conn.close()
+
+
+def _drop_stale_type_check(conn: sqlite3.Connection) -> None:
+    """Idempotently rebuild `jobs` without the `type` CHECK if a stale one
+    exists. After rebuild the DDL no longer contains 'CHECK(type IN', so this
+    is a no-op on subsequent runs and on fresh DBs created by the new _SCHEMA.
+    """
+    row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='jobs'"
+    ).fetchone()
+    jobs_sql = row[0] if row else None
+    if not jobs_sql or "CHECK(type IN" not in jobs_sql:
+        return  # fresh DB or already migrated → idempotent no-op
+
+    # Reconstruct column definitions verbatim from the existing schema so we
+    # preserve EVERY column (incl. drifted ones). PRAGMA table_info gives the
+    # column list with no CHECK constraints — exactly what we want to drop.
+    info = conn.execute("PRAGMA table_info(jobs)").fetchall()
+    col_names = [r[1] for r in info]
+    col_defs = []
+    for r in info:
+        # r = (cid, name, type, notnull, dflt_value, pk)
+        name, ctype, notnull, dflt_value, pk = r[1], r[2], r[3], r[4], r[5]
+        parts = [name, ctype]
+        if notnull:
+            parts.append("NOT NULL")
+        if dflt_value is not None:
+            # dflt_value from PRAGMA is already SQL-literal-formatted.
+            parts.append("DEFAULT {}".format(dflt_value))
+        if pk:
+            parts.append("PRIMARY KEY")
+        col_defs.append(" ".join(parts))
+
+    cols_csv = ", ".join(col_names)
+    # foreign_keys is OFF by default in sqlite3, but set it defensively around
+    # the table rename so the DROP/RENAME can't trip any FK action.
+    fk_prev = conn.execute("PRAGMA foreign_keys").fetchone()[0]
+    conn.execute("PRAGMA foreign_keys=OFF")
+    try:
+        conn.execute("BEGIN")
+        conn.execute(
+            "CREATE TABLE jobs__migrated ({})".format(", ".join(col_defs))
+        )
+        conn.execute(
+            "INSERT INTO jobs__migrated ({cols}) SELECT {cols} FROM jobs".format(
+                cols=cols_csv
+            )
+        )
+        conn.execute("DROP TABLE jobs")
+        conn.execute("ALTER TABLE jobs__migrated RENAME TO jobs")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_jobs_user_status ON jobs(user_id, status)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON jobs(status, created_at)"
+        )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+    finally:
+        conn.execute("PRAGMA foreign_keys={}".format("ON" if fk_prev else "OFF"))
 
 
 def insert_job(db_path: str, user_id: int, file_id: str, job_type: str,
