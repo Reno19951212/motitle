@@ -1953,9 +1953,14 @@
       list.innerHTML = '<div class="rv-b-rail-empty">未有段落</div>';
       return;
     }
+    // output_lang: the list row summary shows the FIRST output language (always
+    // present). For a single-language file s.zh (the 2nd lang) is empty, so the
+    // legacy `s.zh || '(未翻譯)'` would render '(未翻譯)' for every row.
+    const isOutputLang = fileInfo && fileInfo.active_kind === 'output_lang';
     list.innerHTML = segs.map((s, i) => {
       const cur = i === cursorIdx ? 'cur' : '';
       const ap = s.approved ? 'ap' : '';
+      const rowText = isOutputLang ? (s.en || s.zh || '(未翻譯)') : (s.zh || '(未翻譯)');
       const flagsHtml = s.flags.slice(0, 2).map(f => {
         const color = f.type === 'review' || f.type.startsWith('low-') || f.type === 'untranslated' ? 'rose' : 'amber';
         return `<span class="qa-flag qa-flag-${color}" title="${escapeHtml(f.msg || '')}">${flagLabel(f.type)}</span>`;
@@ -1964,7 +1969,7 @@
         <div class="rv-b-rail-item ${cur} ${ap}" data-idx="${i}" onclick="setCursor(${i})">
           <div class="rv-b-rail-num">${s.id}</div>
           <div class="rv-b-rail-ts">${escapeHtml(s.tsIn)}</div>
-          <div class="rv-b-rail-text">${escapeHtml(s.zh || '(未翻譯)')}</div>
+          <div class="rv-b-rail-text">${escapeHtml(rowText)}</div>
           <div class="rv-b-rail-flags">
             ${flagsHtml}
             ${s.approved ? '<span class="rv-b-rail-ok">✓</span>' : ''}

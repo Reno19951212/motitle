@@ -157,6 +157,14 @@ async function stubApiForFile(page, fileStub, translationsStub) {
     });
   });
 
+  // /api/fonts — font-preview.js falls back to http://localhost:5001 when the
+  // page's API_BASE isn't visible to it, so an un-stubbed /api/fonts fetch goes
+  // cross-origin (no cookie) → 401 → auth.js redirects to /login. Stub it (any
+  // host) so the page never leaves cross-origin. Empty list = no @font-face.
+  await page.route('**/api/fonts', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+  });
+
   // /api/profiles/active — return minimal profile to avoid null errors
   await page.route('**/api/profiles/active', async (route) => {
     if (route.request().method() !== 'GET') { await route.continue(); return; }
@@ -311,6 +319,29 @@ test.describe.serial('output_lang proofread editor', () => {
     const body = patch.request().postDataJSON();
     expect(body.text).toBe(newText);
     expect(body.role).toBe('second');
+  });
+
+  // ————————————————————————————
+  // Test 6 (Bug 3): single-output left list row shows the FIRST language,
+  // not '(未翻譯)'. The legacy row text was s.zh (= 2nd lang, empty when single).
+  // ————————————————————————————
+  test('segList row shows first-language text for single-output (not 未翻譯)', async ({ page }) => {
+    await openProofreadWithStub(page, STUB_FILE_SINGLE, STUB_TRANSLATIONS_SINGLE);
+    const rowText = await page.locator('#segList .rv-b-rail-item').first()
+      .locator('.rv-b-rail-text').textContent();
+    expect(rowText).toContain('今日天氣係咁㗎喎');   // first (only) language
+    expect(rowText).not.toContain('未翻譯');
+  });
+
+  // ————————————————————————————
+  // Test 7 (Bug 3): dual-output left list row summarises with the first language
+  // (consistent primary-track summary, not the 2nd language).
+  // ————————————————————————————
+  test('segList row summarises with first language for dual-output', async ({ page }) => {
+    await openProofreadWithStub(page, STUB_FILE_DUAL, STUB_TRANSLATIONS_DUAL);
+    const rowText = await page.locator('#segList .rv-b-rail-item').first()
+      .locator('.rv-b-rail-text').textContent();
+    expect(rowText).toContain('今日天氣係咁㗎喎');   // first language (yue)
   });
 
 });

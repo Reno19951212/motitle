@@ -4601,8 +4601,10 @@
               end: t.end,
               // Overlay/inspector primary = first output language.
               text: stripQaPrefix(firstText) || firstText,
-              zh_text: firstText,          // legacy readers (overlay/export) read first-lang text
-              _en_text: firstText,         // keep en/zh readers consistent for output_lang
+              // Second output language (empty when only one was selected) → the
+              // transcript-list 2nd line + bilingual overlay hide automatically.
+              zh_text: secondText || '',
+              _en_text: firstText,         // first output language (always present)
               _approved: t.status === 'approved' || t.approved === true,
               _edited: t.edited === true,
             };
