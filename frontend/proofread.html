@@ -2086,11 +2086,16 @@
     const cpsFirstHtml = isOutputLang
       ? `<div class="spacer"></div><span class="rv-b-detail-cps ${cpsOver}">CPS <b>${s.cps}</b> / 12</span>`
       : '';
-    // output_lang 時第二語言 CPS
+    // output_lang 時第二語言 CPS（output_lang 有第二語言才顯示）
     const cpsSecondOver = (isOutputLang && s._cpsSecond > 12) ? 'over' : '';
-    const cpsSecondHtml = isOutputLang && showZhField
+    const secondCpsHtml = (isOutputLang && showZhField)
       ? `<div class="spacer"></div><span class="rv-b-detail-cps ${cpsSecondOver}">CPS <b>${s._cpsSecond}</b> / 12</span>`
-      : (!isOutputLang ? `<div class="spacer"></div><span class="rv-b-detail-cps ${cpsOver}">CPS <b>${s.cps}</b> / 12</span>` : '');
+      : '';
+    // legacy（profile/V6）：ZH 欄顯示主 CPS（行為不變）
+    const legacyCpsHtml = !isOutputLang
+      ? `<div class="spacer"></div><span class="rv-b-detail-cps ${cpsOver}">CPS <b>${s.cps}</b> / 12</span>`
+      : '';
+    const cpsSecondHtml = isOutputLang ? secondCpsHtml : legacyCpsHtml;
 
     el.innerHTML = `
       <div class="rv-b-detail-head">

@@ -280,4 +280,37 @@ test.describe.serial('output_lang proofread editor', () => {
     expect(body.role).toBe('first');
   });
 
+  // ————————————————————————————
+  // Test 5: saveEditIfDirty (zhInput) for output_lang PATCHes /translations with role:second
+  // ————————————————————————————
+  test('editing zhInput PATCHes /translations with role:second for output_lang', async ({ page }) => {
+    await openProofreadWithStub(page, STUB_FILE_DUAL, STUB_TRANSLATIONS_DUAL);
+
+    // Intercept PATCH to /translations/0
+    const patchPromise = page.waitForResponse(
+      r => /\/api\/files\/.+\/translations\/0\b/.test(r.url()) && r.request().method() === 'PATCH',
+      { timeout: 8000 }
+    );
+
+    // Stub the PATCH response
+    await page.route(`**/api/files/${STUB_FID}/translations/0`, async (route) => {
+      if (route.request().method() !== 'PATCH') { await route.continue(); return; }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ translation: { status: 'pending' } }),
+      });
+    });
+
+    const newText = 'The weather looks really nice today';
+    await page.locator('#zhInput').fill(newText);
+    await page.locator('#zhInput').blur();
+
+    const patch = await patchPromise;
+    expect(patch.ok()).toBeTruthy();
+    const body = patch.request().postDataJSON();
+    expect(body.text).toBe(newText);
+    expect(body.role).toBe('second');
+  });
+
 });
