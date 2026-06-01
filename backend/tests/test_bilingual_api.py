@@ -625,3 +625,38 @@ def test_patch_translation_missing_text_returns_400(client):
     finally:
         with _registry_lock:
             _file_registry.pop(fid, None)
+
+
+# ---------------------------------------------------------------------------
+# T6 — _role_fields_for: output_lang branch
+# ---------------------------------------------------------------------------
+
+
+def test_role_fields_output_lang_two():
+    """output_lang with two languages → (first_text, second_text)."""
+    first, second = _role_fields_for({"active_kind": "output_lang", "output_languages": ["yue", "en"]})
+    assert first == "yue_text"
+    assert second == "en_text"
+
+
+def test_role_fields_output_lang_first_only():
+    """output_lang with only one language → (first_text, None)."""
+    first, second = _role_fields_for({"active_kind": "output_lang", "output_languages": ["zh"]})
+    assert first == "zh_text"
+    assert second is None
+
+
+def test_role_fields_profile_and_v6_unchanged():
+    """Existing profile and v6 branches must be byte-identical to pre-T6."""
+    # Profile
+    p_first, p_second = _role_fields_for({"active_kind": "profile"})
+    assert p_first is None
+    assert p_second == "zh_text"
+    # V6
+    v6_entry = {
+        "active_kind": "pipeline_v6",
+        "translations": [{"source_lang": "zh", "by_lang": {"zh": {}, "en": {}}}],
+    }
+    v_first, v_second = _role_fields_for(v6_entry)
+    assert v_first == "zh_text"
+    assert v_second == "en_text"

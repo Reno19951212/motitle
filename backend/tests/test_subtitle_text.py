@@ -249,3 +249,39 @@ def test_descriptor_v6_source_lang_fallback():
     }
     d = resolve_language_descriptor(entry)
     assert d[0]["lang"] == "zh"
+
+
+# resolve_language_descriptor — output_lang pipeline
+
+
+def test_descriptor_output_lang_two():
+    d = resolve_language_descriptor({"active_kind": "output_lang", "output_languages": ["yue", "en"]})
+    assert d == [
+        {"role": "first", "lang": "yue", "label": "口語廣東話"},
+        {"role": "second", "lang": "en", "label": "英文"},
+    ]
+
+
+def test_descriptor_output_lang_first_only():
+    d = resolve_language_descriptor({"active_kind": "output_lang", "output_languages": ["zh"]})
+    assert d == [{"role": "first", "lang": "zh", "label": "中文書面語"}]
+
+
+def test_descriptor_output_lang_ja():
+    d = resolve_language_descriptor({"active_kind": "output_lang", "output_languages": ["ja", "en"]})
+    assert d[0] == {"role": "first", "lang": "ja", "label": "日文"}
+
+
+def test_descriptor_output_lang_empty_returns_empty():
+    assert resolve_language_descriptor({"active_kind": "output_lang", "output_languages": []}) == []
+
+
+def test_descriptor_profile_and_v6_unchanged():
+    # Profile branch unchanged
+    assert resolve_language_descriptor({"active_kind": "profile"})[0]["label"] == "原文"
+    # V6 branch still derives 原文/譯文
+    v6 = resolve_language_descriptor({
+        "active_kind": "pipeline_v6",
+        "translations": [{"source_lang": "zh", "by_lang": {"zh": {"text": "x"}, "en": {"text": "y"}}}],
+    })
+    assert v6[0]["label"] == "原文" and v6[1]["label"] == "譯文"

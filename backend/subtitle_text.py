@@ -8,6 +8,14 @@ from typing import List, Optional
 VALID_SUBTITLE_SOURCES = {"auto", "en", "zh", "bilingual", "first", "second"}
 VALID_BILINGUAL_ORDERS = {"en_top", "zh_top"}
 
+# Human-readable labels for output_lang language codes.
+OUTPUT_LANG_LABELS = {
+    "yue": "口語廣東話",
+    "zh": "中文書面語",
+    "en": "英文",
+    "ja": "日文",
+}
+
 # QA flag prefixes left over from legacy registry data; never burn into output.
 # Matches [LONG], [long], [REVIEW], [review], [NEEDS REVIEW] — possibly stacked.
 _QA_PREFIX_RE = re.compile(
@@ -134,6 +142,14 @@ def resolve_language_descriptor(
     entry = file_entry or {}
     kind = entry.get("active_kind", "profile")
     translations = entry.get("translations") or []
+
+    if kind == "output_lang":
+        outs = entry.get("output_languages") or []
+        roles = ["first", "second"]
+        return [
+            {"role": roles[i], "lang": lang, "label": OUTPUT_LANG_LABELS.get(lang, lang)}
+            for i, lang in enumerate(outs[:2])
+        ]
 
     if kind == "pipeline_v6":
         # Derive source_lang: prefer translations[0].source_lang (processed file),

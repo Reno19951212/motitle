@@ -3306,9 +3306,16 @@ def _resolve_bilingual_order(file_entry, profile, override=None):
 def _role_fields_for(entry: dict):
     """Return (first_field, second_field) seg-dict keys for this file's kind.
 
-    Profile: first=legacy text/en_text (None → fallback chain), second=zh_text.
-    V6:      first=<source_lang>_text (refiner mirror), second=<other_lang>_text or None.
+    Profile:     first=legacy text/en_text (None → fallback chain), second=zh_text.
+    V6:          first=<source_lang>_text (refiner mirror), second=<other_lang>_text or None.
+    output_lang: first=<outs[0]>_text, second=<outs[1]>_text or None.
     """
+    if (entry or {}).get("active_kind") == "output_lang":
+        outs = (entry or {}).get("output_languages") or []
+        if not outs:
+            return (None, None)
+        return (f"{outs[0]}_text", f"{outs[1]}_text" if len(outs) > 1 else None)
+
     if (entry or {}).get("active_kind") == "pipeline_v6":
         tr = entry.get("translations") or []
         src = (tr[0].get("source_lang") if tr else None) or "zh"
