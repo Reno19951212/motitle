@@ -111,4 +111,17 @@ test.describe.serial('output_lang home transcript list (Bug 2)', () => {
     await expect(row.locator('.t-zh')).toHaveText('The weather is like this today'); // second lang
   });
 
+  test('single output language → video overlay shows ONE line even in bilingual mode', async ({ page }) => {
+    // Subtitle-source 'bilingual' on a single-language file used to stack the
+    // first language twice (firstText\nfirstText) because the overlay fell back
+    // to the first language when zh_text was empty. output_lang now passes zh
+    // through unchanged → bilingual collapses to the single present language.
+    const single = { ...FILE_SINGLE, id: 'rt-ol-single-bi', subtitle_source: 'bilingual' };
+    await loadInTranscript(page, single, TRANS_SINGLE);
+    await page.evaluate(() => updateSubtitleOverlay(2.0));   // inside segment 0 [1.0,4.0)
+    const lines = await page.locator('#subtitleSvgText tspan').allTextContents();
+    expect(lines.length).toBe(1);
+    expect(lines[0]).toBe('今日天氣係咁㗎喎');
+  });
+
 });

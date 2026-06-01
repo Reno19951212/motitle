@@ -4480,9 +4480,13 @@
         const file = uploadedFiles[activeFileId] || null;
         const mode = resolveSubtitleSource(file, activeProfile);
         const order = resolveBilingualOrder(file, activeProfile);
+        // output_lang: zh_text is authoritative (empty = no second language). Do
+        // NOT fall back to the first language, or bilingual mode would stack the
+        // first output language twice for a single-output-language file.
+        const isOL = file && file.active_kind === 'output_lang';
         FontPreview.updateText(pickSubtitleText({
           en: s._en_text || s.text,
-          zh: s.zh_text || (s._en_text ? s.text : ''),
+          zh: isOL ? (s.zh_text || '') : (s.zh_text || (s._en_text ? s.text : '')),
         }, mode, order));
       } else {
         FontPreview.updateText('');
