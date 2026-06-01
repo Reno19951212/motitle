@@ -1767,9 +1767,66 @@
   }
 
   async function loadSegments() {
+    const isOutputLang = fileInfo && fileInfo.active_kind === 'output_lang';
     const isV6 = fileInfo && fileInfo.active_kind === 'pipeline_v6';
 
-    if (isV6) {
+    if (isOutputLang) {
+      // output_lang 模式：第一/第二輸出語言，直接由 translations + languages descriptor 建立 segs[]
+      let langs = (fileInfo && Array.isArray(fileInfo.languages)) ? fileInfo.languages : [];
+      if (!langs.length) {
+        try {
+          const lr = await fetch(`${API_BASE}/api/files/${fileId}/languages`).then(r => r.json());
+          langs = lr.languages || [];
+        } catch (e) {}
+      }
+      const firstL = (langs[0] && langs[0].lang) || 'yue';
+      const secondL = langs[1] && langs[1].lang;  // may be undefined
+
+      let translations = [];
+      try {
+        const tResp = await fetch(`${API_BASE}/api/files/${fileId}/translations`).then(r => r.json());
+        translations = tResp.translations || [];
+      } catch (e) {
+        showToast('無法載入輸出語言翻譯: ' + e.message, 'error');
+        translations = [];
+      }
+
+      segs = translations.map((t, i) => {
+        const firstText = t[`${firstL}_text`]
+                       || (t.by_lang && t.by_lang[firstL] && t.by_lang[firstL].text)
+                       || '';
+        const secondText = secondL
+          ? (t[`${secondL}_text`] || (t.by_lang && t.by_lang[secondL] && t.by_lang[secondL].text) || '')
+          : '';
+        const inMs = Math.round((t.start || 0) * 1000);
+        const outMs = Math.round((t.end || 0) * 1000);
+        const durSec = (outMs - inMs) / 1000;
+        const cpsFirst = durSec > 0 ? Math.round((firstText.length / durSec) * 10) / 10 : 0;
+        const apiFlags = Array.isArray(t.flags) ? t.flags : [];
+        const flags = qaFlagsFromBackend(apiFlags, []);
+        if (cpsFirst > 12) flags.push({ type: 'cps', msg: `CPS ${cpsFirst}（上限 12）` });
+        return {
+          idx: (typeof t.idx === 'number') ? t.idx : i,
+          id: i + 1,
+          in: inMs, out: outMs,
+          tsIn: fmtMs(inMs), tsOut: fmtMs(outMs),
+          duration: durSec.toFixed(1),
+          en: firstText,       // 第一輸出語言 → enInput（頂部欄位）
+          zh: secondText,      // 第二輸出語言 → zhInput（底部欄位；無第二語言時為空字串）
+          cps: cpsFirst,       // 主 CPS = 第一語言
+          _cpsSecond: secondL && durSec > 0 ? Math.round((secondText.length / durSec) * 10) / 10 : 0,
+          _hasSecond: !!secondL,
+          approved: t.status === 'approved' || t.approved === true,
+          edited: t.edited === true,
+          flags,
+          speaker: null,
+          candidates: [],
+          glossary: [],
+          asr: null,
+          mt: null,
+        };
+      });
+    } else if (isV6) {
       let translations = [];
       try {
         const tResp = await fetch(`${API_BASE}/api/files/${fileId}/translations`).then(r => r.json());
@@ -1861,6 +1918,12 @@
     // Overall duration fallback from last segment
     if (segs.length) {
       totalMs = Math.max(totalMs, segs[segs.length - 1].out + 2000);
+    }
+
+    // output_lang 模式：詞彙表套用係 MT 概念，隱藏套用掣（只保留 view-only 詞彙表）
+    const applyBtn = document.getElementById('glossaryApplyBtn');
+    if (applyBtn) {
+      applyBtn.style.display = (fileInfo && fileInfo.active_kind === 'output_lang') ? 'none' : '';
     }
 
     renderSegList();
@@ -1989,6 +2052,14 @@
   // ============================================================
   // Rendering — detail panel
   // ============================================================
+  // Helper: 取得 output_lang 模式嘅第一/第二語言 descriptor label
+  function _outputLangLabel(role) {
+    if (!fileInfo || !Array.isArray(fileInfo.languages)) return null;
+    const entry = fileInfo.languages.find(l => l.role === role);
+    if (!entry) return null;
+    return `${entry.label || entry.lang} · ${(entry.lang || '').toUpperCase()}`;
+  }
+
   function renderDetail() {
     const el = document.getElementById('detailPanel');
     if (cursorIdx == null || !segs[cursorIdx]) {
@@ -1998,6 +2069,28 @@
     const s = segs[cursorIdx];
     const cpsOver = s.cps > 12 ? 'over' : '';
     const confStub = '<span class="conf-bar conf-stub"><span class="conf-track"><span class="conf-fill"></span></span><span class="conf-num">—</span></span>';
+
+    // output_lang 模式：決定欄位標籤 + readonly 狀態 + 是否顯示第二語言欄位
+    const isOutputLang = fileInfo && fileInfo.active_kind === 'output_lang';
+    const enLabel = isOutputLang
+      ? (_outputLangLabel('first') || '第一語言')
+      : '原文 · EN';
+    const zhLabel = isOutputLang
+      ? (_outputLangLabel('second') || '第二語言')
+      : '譯文 · ZH';
+    const enReadonly = (!isOutputLang) && fileInfo && fileInfo.active_kind === 'pipeline_v6';
+    const enTitle = enReadonly ? 'Qwen3 ASR 原文（V6 mode read-only — 改譯文喺 ZH 欄做）' : '';
+    // 有第二語言才顯示 zhInput 欄位（output_lang 單語言時隱藏）
+    const showZhField = !isOutputLang || (s._hasSecond === true);
+    // output_lang 時第一語言也顯示 CPS
+    const cpsFirstHtml = isOutputLang
+      ? `<div class="spacer"></div><span class="rv-b-detail-cps ${cpsOver}">CPS <b>${s.cps}</b> / 12</span>`
+      : '';
+    // output_lang 時第二語言 CPS
+    const cpsSecondOver = (isOutputLang && s._cpsSecond > 12) ? 'over' : '';
+    const cpsSecondHtml = isOutputLang && showZhField
+      ? `<div class="spacer"></div><span class="rv-b-detail-cps ${cpsSecondOver}">CPS <b>${s._cpsSecond}</b> / 12</span>`
+      : (!isOutputLang ? `<div class="spacer"></div><span class="rv-b-detail-cps ${cpsOver}">CPS <b>${s.cps}</b> / 12</span>` : '');
 
     el.innerHTML = `
       <div class="rv-b-detail-head">
@@ -2022,30 +2115,30 @@
       <div class="rv-b-detail-body">
         <div class="rv-b-detail-field">
           <div class="rv-b-detail-label">
-            <span>原文 · EN</span>
+            <span>${escapeHtml(enLabel)}</span>
             ${confStub}
+            ${cpsFirstHtml}
           </div>
           <textarea class="rv-b-detail-input" id="enInput"
                     oninput="onEnInput()"
                     onblur="saveEnIfDirty()"
-                    ${fileInfo && fileInfo.active_kind === 'pipeline_v6' ? 'readonly' : ''}
-                    title="${fileInfo && fileInfo.active_kind === 'pipeline_v6' ? 'Qwen3 ASR 原文（V6 mode read-only — 改譯文喺 ZH 欄做）' : ''}"
+                    ${enReadonly ? 'readonly' : ''}
+                    title="${escapeHtml(enTitle)}"
                     rows="2">${escapeHtml(s.en)}</textarea>
         </div>
 
-        <div class="rv-b-detail-field">
+        ${showZhField ? `<div class="rv-b-detail-field">
           <div class="rv-b-detail-label">
-            <span>譯文 · ZH</span>
+            <span>${escapeHtml(zhLabel)}</span>
             ${confStub}
-            <div class="spacer"></div>
-            <span class="rv-b-detail-cps ${cpsOver}">CPS <b>${s.cps}</b> / 12</span>
+            ${cpsSecondHtml}
           </div>
           <textarea class="rv-b-detail-input" id="zhInput"
                     oninput="onZhInput()"
                     onkeydown="onZhKey(event)"
                     onblur="saveEditIfDirty()"
                     rows="2">${escapeHtml(s.zh)}</textarea>
-        </div>
+        </div>` : ''}
 
         <div class="rv-b-detail-field">
           <div class="rv-b-detail-label">
@@ -2208,7 +2301,11 @@
     // Live-update CPS label without full re-render
     const durSec = (s.out - s.in) / 1000;
     const cps = durSec > 0 ? Math.round((ta.value.length / durSec) * 10) / 10 : 0;
-    const cpsEl = document.querySelector('.rv-b-detail-cps b');
+    // output_lang: zhInput 係第二語言，CPS label 係第二個 .rv-b-detail-cps 元素
+    // 其他模式（profile/V6）：只有一個 .rv-b-detail-cps，querySelector 拎第一個即可
+    const isOutputLang = fileInfo && fileInfo.active_kind === 'output_lang';
+    const cpsEls = document.querySelectorAll('.rv-b-detail-cps b');
+    const cpsEl = isOutputLang ? cpsEls[cpsEls.length - 1] : cpsEls[0];
     if (cpsEl) {
       cpsEl.textContent = cps;
       cpsEl.parentElement.classList.toggle('over', cps > 12);
@@ -2237,6 +2334,29 @@
     const s = segs[cursorIdx];
     if (!s) return true;
     const newText = ta.value.trim();
+    // output_lang: 第二語言儲存到 /translations/<idx> with role:"second"
+    if (fileInfo && fileInfo.active_kind === 'output_lang') {
+      try {
+        const r = await fetch(`${API_BASE}/api/files/${fileId}/translations/${s.idx}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: newText, role: 'second' }),
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        s.zh = newText;
+        s.edited = true;
+        // 重算第二語言 CPS
+        const dur = (s.out - s.in) / 1000;
+        s._cpsSecond = dur > 0 ? Math.round((newText.length / dur) * 10) / 10 : 0;
+        dirty = false;
+        ta.classList.remove('dirty');
+        return true;
+      } catch (e) {
+        showToast(`儲存第二語言失敗: ${e.message}`, 'error');
+        return false;
+      }
+    }
+    // profile / V6 模式：用 zh_text 欄位
     try {
       const r = await fetch(`${API_BASE}/api/files/${fileId}/translations/${s.idx}`, {
         method: 'PATCH',
@@ -2263,8 +2383,7 @@
   async function saveEnIfDirty() {
     const ta = document.getElementById('enInput');
     if (!ta || !enDirty) return true;
-    // V6: EN is Qwen3 raw Cantonese (read-only). Skip PATCH so enDirty
-    // clears and downstream flow (Cmd+Enter approve) continues normally.
+    // V6: EN 係 Qwen3 原始粵語（read-only），跳過 PATCH，清 enDirty 讓下游流程繼續。
     if (fileInfo && fileInfo.active_kind === 'pipeline_v6') {
       enDirty = false;
       ta.classList.remove('dirty');
@@ -2273,6 +2392,30 @@
     const s = segs[cursorIdx];
     if (!s) return true;
     const newText = ta.value.trim();
+    // output_lang: 第一語言儲存到 /translations/<idx> with role:"first"
+    if (fileInfo && fileInfo.active_kind === 'output_lang') {
+      try {
+        const r = await fetch(`${API_BASE}/api/files/${fileId}/translations/${s.idx}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: newText, role: 'first' }),
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        s.en = newText;
+        // 重算第一語言 CPS
+        const dur = (s.out - s.in) / 1000;
+        s.cps = dur > 0 ? Math.round((newText.length / dur) * 10) / 10 : 0;
+        s.flags = s.flags.filter(f => f.type !== 'cps');
+        if (s.cps > 12) s.flags.push({ type: 'cps', msg: `CPS ${s.cps}` });
+        enDirty = false;
+        ta.classList.remove('dirty');
+        return true;
+      } catch (e) {
+        showToast(`儲存第一語言失敗: ${e.message}`, 'error');
+        return false;
+      }
+    }
+    // profile 模式：儲存到 /segments/<idx>
     try {
       const r = await fetch(`${API_BASE}/api/files/${fileId}/segments/${s.idx}`, {
         method: 'PATCH',
