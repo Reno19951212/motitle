@@ -1062,7 +1062,8 @@ def _resnapshot_active_for_rerun(file_id):
 
 
 def _register_file(file_id, original_name, stored_name, size_bytes, user_id=None,
-                   file_path=None, active_kind=None, active_id=None):
+                   file_path=None, active_kind=None, active_id=None,
+                   output_languages=None):
     """Register an uploaded file. user_id is the owner (R5 Phase 1 — required
     once auth lands; defaults to None for backward compatibility with any
     pre-R5 path that may still upload anonymously). file_path is the
@@ -1077,9 +1078,18 @@ def _register_file(file_id, original_name, stored_name, size_bytes, user_id=None
     v3.19 Sprint 3 B-10: for pipeline_v6 files, the pipeline JSON is also
     snapshot immediately into active_pipeline_snapshot so that admin PATCHes
     between upload and worker pickup do not affect the run.
+
+    T7 output_lang: when output_languages is provided (not None), the entry
+    forces active_kind='output_lang', active_id='output_lang', and stores the
+    language list. When None → existing snapshot behavior byte-identical.
     """
     snap_output_languages: list = []
-    if active_kind is None or active_id is None:
+    if output_languages is not None:
+        # T7 output_lang: per-upload language list overrides snapshot completely.
+        active_kind = "output_lang"
+        active_id = "output_lang"
+        snap_output_languages = list(output_languages)
+    elif active_kind is None or active_id is None:
         snap_kind, snap_aid, snap_output_languages = _current_active_snapshot()
         active_kind = active_kind or snap_kind
         active_id = active_id or snap_aid
@@ -2994,8 +3004,32 @@ def api_update_translation(file_id, idx):
         src_lang = translations[idx].get("source_lang", "zh")
         kind = (entry or {}).get("active_kind", "profile")
 
-        # Determine target field based on role + kind.
-        if role is None:
+        # T7 output_lang: role→field mapping uses output_languages list.
+        # Takes precedence when kind=='output_lang', before profile/V6 branches.
+        if kind == "output_lang":
+            _outs_patch = (entry or {}).get("output_languages") or []
+            if role is None or role == "first":
+                if _outs_patch:
+                    write_field = f"{_outs_patch[0]}_text"
+                    do_by_lang_write = True
+                    by_lang_key = _outs_patch[0]
+                else:
+                    write_field = "zh_text"
+                    do_by_lang_write = False
+                    by_lang_key = None
+            elif role == "second":
+                if len(_outs_patch) > 1:
+                    write_field = f"{_outs_patch[1]}_text"
+                    do_by_lang_write = True
+                    by_lang_key = _outs_patch[1]
+                else:
+                    write_field = "zh_text"
+                    do_by_lang_write = False
+                    by_lang_key = None
+            else:
+                return jsonify({"error": f"Invalid role '{role}'. Must be 'first' or 'second'."}), 400
+        # Determine target field based on role + kind (profile/V6 paths unchanged).
+        elif role is None:
             # Legacy path: always write zh_text (+ by_lang dual-write for V6).
             write_field = "zh_text"
             do_by_lang_write = True
@@ -3064,12 +3098,23 @@ def api_approve_translation(file_id, idx):
         new_translations = list(translations)
         # Approving without editing keeps flags so they remain visible until corrected.
         updated_approve = {**translations[idx], "status": "approved"}
-        # v3.19 Sprint 1 (B-5) — dual-write: mirror status to by_lang for V6 files.
-        src_lang_a = translations[idx].get("source_lang", "zh")
-        by_lang_a = dict(updated_approve.get("by_lang") or {})
-        if src_lang_a in by_lang_a:
-            by_lang_a[src_lang_a] = {**by_lang_a[src_lang_a], "status": "approved"}
-            updated_approve["by_lang"] = by_lang_a
+        # T7 output_lang: mirror approved status to ALL by_lang keys (no source_lang).
+        # V6/profile: mirror only to src_lang (existing behavior).
+        _kind_ap = (entry or {}).get("active_kind", "profile")
+        if _kind_ap == "output_lang":
+            _by_lang_ap = updated_approve.get("by_lang") or {}
+            if _by_lang_ap:
+                updated_approve["by_lang"] = {
+                    k: {**v, "status": "approved"}
+                    for k, v in _by_lang_ap.items()
+                }
+        else:
+            # v3.19 Sprint 1 (B-5) — dual-write: mirror status to by_lang for V6 files.
+            src_lang_a = translations[idx].get("source_lang", "zh")
+            by_lang_a = dict(updated_approve.get("by_lang") or {})
+            if src_lang_a in by_lang_a:
+                by_lang_a[src_lang_a] = {**by_lang_a[src_lang_a], "status": "approved"}
+                updated_approve["by_lang"] = by_lang_a
         new_translations[idx] = updated_approve
         entry["translations"] = new_translations
         _save_registry()
@@ -3103,12 +3148,23 @@ def api_unapprove_translation(file_id, idx):
             return jsonify({"error": "Translation index out of range"}), 400
         new_translations = list(translations)
         updated_unapprove = {**translations[idx], "status": "pending"}
-        # v3.19 Sprint 1 (B-5) — dual-write: mirror status to by_lang for V6 files.
-        src_lang_u = translations[idx].get("source_lang", "zh")
-        by_lang_u = dict(updated_unapprove.get("by_lang") or {})
-        if src_lang_u in by_lang_u:
-            by_lang_u[src_lang_u] = {**by_lang_u[src_lang_u], "status": "pending"}
-            updated_unapprove["by_lang"] = by_lang_u
+        # T7 output_lang: mirror pending status to ALL by_lang keys (no source_lang).
+        # V6/profile: mirror only to src_lang (existing behavior).
+        _kind_ua = (entry or {}).get("active_kind", "profile")
+        if _kind_ua == "output_lang":
+            _by_lang_ua = updated_unapprove.get("by_lang") or {}
+            if _by_lang_ua:
+                updated_unapprove["by_lang"] = {
+                    k: {**v, "status": "pending"}
+                    for k, v in _by_lang_ua.items()
+                }
+        else:
+            # v3.19 Sprint 1 (B-5) — dual-write: mirror status to by_lang for V6 files.
+            src_lang_u = translations[idx].get("source_lang", "zh")
+            by_lang_u = dict(updated_unapprove.get("by_lang") or {})
+            if src_lang_u in by_lang_u:
+                by_lang_u[src_lang_u] = {**by_lang_u[src_lang_u], "status": "pending"}
+                updated_unapprove["by_lang"] = by_lang_u
         new_translations[idx] = updated_unapprove
         entry["translations"] = new_translations
         _save_registry()
@@ -3981,6 +4037,26 @@ def transcribe_file():
 
     sid = request.form.get('sid', None)
 
+    # T7 output_lang: parse optional output_languages form field.
+    _upload_output_languages = None
+    _raw_output_langs = request.form.get('output_languages')
+    if _raw_output_langs is not None:
+        try:
+            _parsed_langs = json.loads(_raw_output_langs)
+        except (ValueError, TypeError):
+            return jsonify({"error": "output_languages must be a JSON array"}), 400
+        if not isinstance(_parsed_langs, list):
+            return jsonify({"error": "output_languages must be a JSON array"}), 400
+        _SUPPORTED_OUTPUT_LANGS = {"yue", "zh", "en", "ja"}
+        for _lang in _parsed_langs:
+            if not isinstance(_lang, str) or not _lang:
+                return jsonify({"error": "unsupported output language"}), 400
+            if _lang not in _SUPPORTED_OUTPUT_LANGS:
+                return jsonify({"error": "unsupported output language"}), 400
+        if not (1 <= len(_parsed_langs) <= 2):
+            return jsonify({"error": "output_languages must contain 1 or 2 entries"}), 400
+        _upload_output_languages = _parsed_langs
+
     # Generate a unique file id and save (R5 Phase 1: per-user dir layout)
     file_id = uuid.uuid4().hex[:12]
     stored_name = f"{file_id}{suffix}"
@@ -3989,7 +4065,8 @@ def transcribe_file():
 
     file_size = os.path.getsize(file_path)
     entry = _register_file(file_id, file.filename, stored_name, file_size,
-                           user_id=current_user.id, file_path=file_path)
+                           user_id=current_user.id, file_path=file_path,
+                           output_languages=_upload_output_languages)
 
     # Notify client about the new file
     if sid:
@@ -4081,6 +4158,36 @@ def translate_second_language(file_id):
     lang = (data.get("lang") or "").strip()
     if not lang:
         return jsonify({"error": "lang is required"}), 400
+
+    # T7 output_lang branch: validate + mutate registry under lock, then
+    # enqueue OUTSIDE the lock (blocking DB write must not hold _registry_lock).
+    _output_lang_ready = False
+    with _registry_lock:
+        _ol_entry = _file_registry.get(file_id)
+        if _ol_entry and _ol_entry.get("active_kind") == "output_lang":
+            outs = list(_ol_entry.get("output_languages") or [])
+            if not outs:
+                return jsonify({"error": "output_lang file has no output_languages"}), 400
+            _SUPPORTED_OUTPUT_LANGS_SECOND = {"yue", "zh", "en", "ja"}
+            if lang not in _SUPPORTED_OUTPUT_LANGS_SECOND:
+                return jsonify({"error": f"unsupported output language '{lang}'"}), 400
+            if lang in outs:
+                return jsonify({"error": f"'{lang}' already an output language"}), 400
+            # Append as the (second) output language so the descriptor surfaces it.
+            outs.append(lang)
+            _file_registry[file_id]["output_languages"] = outs
+            _save_registry()
+            _output_lang_ready = True
+    if _output_lang_ready:
+        uid_ol = getattr(current_user, "id", 0) or 0
+        job_id_ol = _job_queue.enqueue(
+            user_id=uid_ol,
+            file_id=file_id,
+            job_type='asr_output',
+            output_language=lang,
+        )
+        return jsonify({"file_id": file_id, "job_id": job_id_ol,
+                        "target_lang": lang}), 202
 
     # Phase 1 (under lock): validate all entry fields + check collision + set
     #   _pending_second_lang (processed) or second_lang_preselect (unprocessed)
