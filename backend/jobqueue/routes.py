@@ -77,11 +77,20 @@ def list_queue():
             row["pipeline_kind"] = snap.pipeline_kind
         else:
             # No snapshot yet — derive kind from file registry for cold-start
-            kind = (registry.get(fid) or {}).get("active_kind", "profile") if fid else "profile"
+            fentry = (registry.get(fid) or {}) if fid else {}
+            kind = fentry.get("active_kind", "profile")
             row["progress_pct"] = None
             row["stage_label"] = None
             row["stage_state"] = "idle" if row.get("status") == "queued" else None
-            row["stages"] = PIPELINE_STAGES.get(kind, [])
+            stages = PIPELINE_STAGES.get(kind, [])
+            # output_lang: slice the canonical 2-stage list to the real language
+            # count so a queued single-language job shows ONE step on cold-start
+            # (mirrors ProgressAdapter.report once the first event arrives).
+            if kind == "output_lang":
+                _n = len(fentry.get("output_languages") or [])
+                if _n:
+                    stages = stages[:max(1, _n)]
+            row["stages"] = stages
             row["stage_index"] = 0
             row["pipeline_kind"] = kind
 

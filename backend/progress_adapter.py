@@ -84,8 +84,15 @@ class ProgressAdapter:
     def report(self, *, file_id: str, job_id: str, pct: Optional[int],
                stage_state: str, pipeline_kind: str,
                stage_index: int = 0,
-               stage_label: Optional[str] = None) -> None:
+               stage_label: Optional[str] = None,
+               num_output_langs: Optional[int] = None) -> None:
         stages = PIPELINE_STAGES.get(pipeline_kind, [])
+        # output_lang: a file may have 1 OR 2 output languages. Slice the
+        # canonical 2-stage list to the actual count so a single-language job
+        # shows ONE "轉錄第一語言" step instead of a phantom second step.
+        # Slicing builds a new list — the shared PIPELINE_STAGES is never mutated.
+        if pipeline_kind == "output_lang" and num_output_langs is not None:
+            stages = stages[:max(1, num_output_langs)]
         if stage_label is None:
             stage_label = (stages[stage_index]["label"]
                            if 0 <= stage_index < len(stages)

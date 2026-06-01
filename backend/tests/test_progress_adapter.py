@@ -304,3 +304,50 @@ def test_transcribe_with_segments_has_progress_kind_params():
     assert "progress_stage_index" in sig.parameters, "progress_stage_index param missing"
     assert sig.parameters["progress_kind"].default == "profile"
     assert sig.parameters["progress_stage_index"].default == 0
+
+
+# ── output_lang single-vs-dual stage count fix ───────────────────────────────
+# A file may select 1 OR 2 output languages. The step-diagram must reflect the
+# real count — a single-language job must NOT show a phantom "轉錄第二語言" step.
+
+def test_output_lang_single_language_shows_one_stage():
+    """num_output_langs=1 → output_lang snapshot carries exactly ONE stage."""
+    from progress_adapter import ProgressAdapter
+    a = ProgressAdapter(emit_fn=lambda e, p: None, throttle_seconds=0)
+    a.report(file_id="f1", job_id="", pct=0, stage_state="active",
+             pipeline_kind="output_lang", stage_index=0, num_output_langs=1)
+    snap = a.get_snapshot("f1")
+    assert len(snap.stages) == 1
+    assert snap.stages[0]["key"] == "asr_first"
+    assert snap.stage_label == "轉錄第一語言"
+
+
+def test_output_lang_two_languages_shows_two_stages():
+    """num_output_langs=2 → both stages present; stage 1 label intact."""
+    from progress_adapter import ProgressAdapter
+    a = ProgressAdapter(emit_fn=lambda e, p: None, throttle_seconds=0)
+    a.report(file_id="f2", job_id="", pct=0, stage_state="active",
+             pipeline_kind="output_lang", stage_index=1, num_output_langs=2)
+    snap = a.get_snapshot("f2")
+    assert [s["key"] for s in snap.stages] == ["asr_first", "asr_second"]
+    assert snap.stage_label == "轉錄第二語言"
+
+
+def test_output_lang_without_count_keeps_canonical_two():
+    """num_output_langs=None (legacy/unknown) → canonical 2-stage list (back-compat)."""
+    from progress_adapter import ProgressAdapter
+    a = ProgressAdapter(emit_fn=lambda e, p: None, throttle_seconds=0)
+    a.report(file_id="f3", job_id="", pct=0, stage_state="active",
+             pipeline_kind="output_lang", stage_index=0)
+    snap = a.get_snapshot("f3")
+    assert len(snap.stages) == 2
+
+
+def test_num_output_langs_ignored_for_non_output_lang():
+    """num_output_langs must only affect output_lang — profile stays byte-identical."""
+    from progress_adapter import ProgressAdapter
+    a = ProgressAdapter(emit_fn=lambda e, p: None, throttle_seconds=0)
+    a.report(file_id="f4", job_id="", pct=0, stage_state="active",
+             pipeline_kind="profile", stage_index=0, num_output_langs=1)
+    snap = a.get_snapshot("f4")
+    assert len(snap.stages) == 3  # profile canonical unchanged

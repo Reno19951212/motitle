@@ -283,7 +283,8 @@ _jq_init_db(AUTH_DB_PATH)
 _jq_set_db_path(AUTH_DB_PATH)
 
 
-def _reset_progress_for_job(file_id, job_id, pipeline_kind, stage_index):
+def _reset_progress_for_job(file_id, job_id, pipeline_kind, stage_index,
+                            num_output_langs=None):
     """Reset the progress adapter to a job's first stage when it starts.
 
     The adapter caches one snapshot per file_id and is otherwise never
@@ -294,6 +295,10 @@ def _reset_progress_for_job(file_id, job_id, pipeline_kind, stage_index):
     first stage fixes the displayed stage immediately; the first real progress
     event then advances it. Progress reporting must never break the job, hence
     the broad guard.
+
+    num_output_langs (output_lang only): the number of selected output
+    languages, so the seeded step-diagram shows 1 step for a single-language
+    job and 2 for a dual-language one (see ProgressAdapter.report).
     """
     try:
         from progress_adapter import get_adapter
@@ -302,7 +307,7 @@ def _reset_progress_for_job(file_id, job_id, pipeline_kind, stage_index):
         adapter.report(
             file_id=file_id, job_id=job_id or "", pct=0,
             stage_state="active", pipeline_kind=pipeline_kind,
-            stage_index=stage_index,
+            stage_index=stage_index, num_output_langs=num_output_langs,
         )
     except Exception:
         pass
@@ -409,7 +414,13 @@ def _run_output_lang_second(file_id, job, audio_path, cancel_event):
     if not target:
         raise RuntimeError(f"asr_output job for {file_id} has no output_language")
 
-    _reset_progress_for_job(file_id, job.get("id", ""), "output_lang", 1)
+    # Second pass only runs for dual-language files, so seed a 2-step diagram
+    # at stage 1. Read the real count so a corrupted single-lang entry can't
+    # produce an out-of-range stage_index.
+    with _registry_lock:
+        _outs2 = list((_file_registry.get(file_id) or {}).get("output_languages") or [])
+    _reset_progress_for_job(file_id, job.get("id", ""), "output_lang", 1,
+                            num_output_langs=max(2, len(_outs2)))
 
     res2 = transcribe_with_segments(
         audio_path,
@@ -492,7 +503,12 @@ def _asr_handler(job, cancel_event=None):
         _adapter_kind = "output_lang"
     else:
         _adapter_kind = "profile"
-    _reset_progress_for_job(file_id, job.get("id", ""), _adapter_kind, 0)
+    # output_lang: seed the diagram with the real language count so a
+    # single-language file shows ONE step, not a phantom 轉錄第二語言.
+    _seed_num_langs = (len(f.get("output_languages") or [])
+                       if _adapter_kind == "output_lang" else None)
+    _reset_progress_for_job(file_id, job.get("id", ""), _adapter_kind, 0,
+                            num_output_langs=_seed_num_langs)
 
     # Output-language FIRST pass — bypass transcribe_with_segments' profile
     # default; _run_output_lang drives the fixed mlx large-v3 engine per

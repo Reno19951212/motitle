@@ -113,6 +113,44 @@ def test_api_queue_returns_null_pct_idle_for_queued_no_snapshot(app_with_queue_a
     assert isinstance(row["pipeline_kind"], str)
 
 
+def test_api_queue_output_lang_single_coldstart_one_stage(app_with_queue_and_adapter):
+    """Cold-start (no snapshot): a single-language output_lang job shows ONE stage."""
+    app, db, insert_job, _ = app_with_queue_and_adapter
+
+    fid = "f-ol-single"
+    insert_job(db, user_id=1, file_id=fid, job_type="asr")
+    app.config["FILE_REGISTRY"] = {
+        fid: {"active_kind": "output_lang", "output_languages": ["yue"]},
+    }
+
+    c = app.test_client()
+    c.post("/login", json={"username": "alice", "password": "TestPass1!"})
+    rows = json.loads(c.get("/api/queue").data)
+    row = next((j for j in rows if j["file_id"] == fid), None)
+    assert row is not None
+    assert row["pipeline_kind"] == "output_lang"
+    assert len(row["stages"]) == 1
+    assert row["stages"][0]["key"] == "asr_first"
+
+
+def test_api_queue_output_lang_dual_coldstart_two_stages(app_with_queue_and_adapter):
+    """Cold-start: a dual-language output_lang job keeps BOTH stages."""
+    app, db, insert_job, _ = app_with_queue_and_adapter
+
+    fid = "f-ol-dual"
+    insert_job(db, user_id=1, file_id=fid, job_type="asr")
+    app.config["FILE_REGISTRY"] = {
+        fid: {"active_kind": "output_lang", "output_languages": ["yue", "en"]},
+    }
+
+    c = app.test_client()
+    c.post("/login", json={"username": "alice", "password": "TestPass1!"})
+    rows = json.loads(c.get("/api/queue").data)
+    row = next((j for j in rows if j["file_id"] == fid), None)
+    assert row is not None
+    assert [s["key"] for s in row["stages"]] == ["asr_first", "asr_second"]
+
+
 def test_api_queue_existing_fields_preserved(app_with_queue_and_adapter):
     """The new 3 fields are additive — all existing fields still present."""
     app, db, insert_job, _ = app_with_queue_and_adapter
