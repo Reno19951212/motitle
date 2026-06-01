@@ -1926,6 +1926,12 @@
     let isProcessing = false;
     let activeProfile = null;
 
+    // T8 — output-language pipeline: the languages chosen in the upload popup.
+    // [] = legacy (profile/V6) upload; ["yue"] or ["yue","en"] = output_lang pipeline.
+    // Cleared after a successful POST /api/transcribe and on clearPending().
+    let pendingOutputLangs = [];
+    let _olPreviewUrl = null;  // object URL for the popup's <video> preview (revoked on close)
+
     // V6 — Dual-ASR Pipeline state (v3.19)
     let activePipeline     = null;       // V6 pipeline object when active_kind === "pipeline_v6"
     let activeKind         = "profile";  // "profile" | "pipeline_v6" — driven by /api/me
@@ -2144,8 +2150,21 @@
             { key: 'mlx', label: 'mlx 對齊' }, { key: 'merge', label: '時間合併' },
             { key: 'refiner', label: 'Refiner 校對' },
           ],
+          // T8 — output-language pipeline: Whisper runs once per output language.
+          output_lang: [
+            { key: 'asr1', label: '轉錄第一語言' }, { key: 'asr2', label: '轉錄第二語言' },
+          ],
         };
         function _coldStageIndex(kind, st, transSt) {
+          if (kind === 'output_lang') {
+            // Single ASR job drives both languages; the queue panel + live
+            // pipeline_progress provide the precise per-stage index. Cold-start
+            // only needs a coarse active/done so the card doesn't read as idle.
+            if (st === 'transcribing' || transSt === 'translating') return { idx: 0, state: 'active' };
+            if (st === 'done') return { idx: 1, state: 'done' };
+            if (st === 'uploaded') return { idx: 0, state: 'idle' };
+            return { idx: 0, state: 'idle' };
+          }
           if (kind === 'pipeline_v6') {
             if (st === 'transcribing') return { idx: 1, state: 'active' };
             if (transSt === 'translating') return { idx: 4, state: 'active' };
@@ -4527,7 +4546,67 @@
       try {
         const fileInfo = uploadedFiles[id] || {};
         const isV6 = fileInfo.active_kind === 'pipeline_v6';
+        const isOutputLang = fileInfo.active_kind === 'output_lang';
         const isDone = (fileInfo.status === 'done');
+
+        if (isOutputLang) {
+          // Output-language path: translations is canonical. Rows carry
+          // by_lang.<lang>.{text,status,flags} + a {lang}_text mirror. There is
+          // no source_lang field — first/second langs come from the file's
+          // `languages` descriptor (fall back to /languages, then by_lang keys).
+          let trans = [];
+          try {
+            const tResp = await fetch(`${API_BASE}/api/files/${id}/translations`);
+            if (!tResp.ok) return;
+            const tData = await tResp.json();
+            trans = tData.translations || [];
+          } catch (e) { return; }
+          if (!(isDone && trans.length)) return;
+
+          // Resolve the first / second output language codes.
+          let langs = Array.isArray(fileInfo.languages) ? fileInfo.languages.map(l => l.lang) : [];
+          if (!langs.length) {
+            try {
+              const lResp = await fetch(`${API_BASE}/api/files/${id}/languages`);
+              if (lResp.ok) {
+                const lData = await lResp.json();
+                langs = (lData.languages || []).map(l => l.lang);
+              }
+            } catch (e) {}
+          }
+          if (!langs.length) {
+            // Last resort — read keys off the first row's by_lang.
+            const bl = (trans[0] && trans[0].by_lang) || {};
+            langs = Object.keys(bl);
+          }
+          const first = langs[0];
+          const second = langs[1] || null;
+          const stripQaPrefix = (s) =>
+            (s || '').replace(/^\s*(\[LONG\]|\[NEEDS REVIEW\])\s*/g, '');
+          const pick = (t, lang) =>
+            (lang && (t[`${lang}_text`] || (t.by_lang && t.by_lang[lang] && t.by_lang[lang].text))) || '';
+          segments = trans.map((t) => {
+            const firstText = pick(t, first);
+            const secondText = second ? pick(t, second) : '';
+            return {
+              start: t.start,
+              end: t.end,
+              // Overlay/inspector primary = first output language.
+              text: stripQaPrefix(firstText) || firstText,
+              zh_text: firstText,          // legacy readers (overlay/export) read first-lang text
+              _en_text: firstText,         // keep en/zh readers consistent for output_lang
+              _first_text: firstText,
+              _second_text: secondText,
+              _approved: t.status === 'approved' || t.approved === true,
+              _edited: t.edited === true,
+            };
+          });
+          renderInspectorBody();
+          const v = document.getElementById('videoPlayer');
+          if (v) updateSubtitleOverlay(v.currentTime || 0);
+          applySubtitleStyle();
+          return;
+        }
 
         if (isV6) {
           // V6 path: translations is canonical. /segments returns [] for V6.
@@ -4619,15 +4698,85 @@
       };
       activeFileId = '__pending__';
       renderAll();
+      // T8 — after a NEW local file is picked, prompt for output languages
+      // before uploading. Re-runs of completed files never reach here.
+      openOutputLangModal(file);
     }
 
     function clearPending() {
       selectedFile = null;
+      pendingOutputLangs = [];
       const input = document.getElementById('fileInput');
       if (input) input.value = '';
       delete uploadedFiles['__pending__'];
       if (activeFileId === '__pending__') activeFileId = null;
       renderAll();
+    }
+
+    // ============================================================
+    // T8 — Output-language upload popup
+    // ============================================================
+    function _formatNow() {
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    function openOutputLangModal(file) {
+      if (!file) return;
+      // Populate the left-side preview + metadata.
+      const video = document.getElementById('olPreviewVideo');
+      if (video) {
+        if (_olPreviewUrl) { try { URL.revokeObjectURL(_olPreviewUrl); } catch (_) {} }
+        _olPreviewUrl = URL.createObjectURL(file);
+        video.src = _olPreviewUrl;
+      }
+      const nameEl = document.getElementById('olFileName');
+      if (nameEl) nameEl.textContent = file.name;
+      const timeEl = document.getElementById('olUploadTime');
+      if (timeEl) timeEl.textContent = _formatNow();
+      const sizeEl = document.getElementById('olFileSize');
+      if (sizeEl) sizeEl.textContent = `${(file.size / 1024 / 1024).toFixed(1)} MB`;
+      const warn = document.getElementById('olWarn');
+      if (warn) { warn.style.display = 'none'; warn.textContent = ''; }
+      // Reset selects to defaults.
+      const first = document.getElementById('olFirstLang');
+      if (first) first.value = 'yue';
+      const second = document.getElementById('olSecondLang');
+      if (second) second.value = '';
+      _openModalWithFocus('olOverlay', document.getElementById('runBtn'));
+    }
+
+    function closeOutputLangModal() {
+      _closeModalRestoreFocus('olOverlay');
+      const video = document.getElementById('olPreviewVideo');
+      if (video) { video.pause(); video.removeAttribute('src'); video.load(); }
+      if (_olPreviewUrl) { try { URL.revokeObjectURL(_olPreviewUrl); } catch (_) {} _olPreviewUrl = null; }
+    }
+
+    // 取消 — abandon this upload entirely.
+    function cancelOutputLangModal() {
+      closeOutputLangModal();
+      clearPending();
+    }
+
+    // 開始處理 — collect languages, store in state, then start the upload.
+    function confirmOutputLangModal() {
+      const firstEl = document.getElementById('olFirstLang');
+      const secondEl = document.getElementById('olSecondLang');
+      const first = firstEl ? firstEl.value : '';
+      const second = secondEl ? secondEl.value : '';
+      if (!first) {
+        const warn = document.getElementById('olWarn');
+        if (warn) { warn.textContent = '請揀第一輸出語言'; warn.style.display = 'block'; }
+        return;
+      }
+      const langs = [first];
+      // Second is optional; skip 「無」(empty) and any duplicate of the first.
+      if (second && second !== first) langs.push(second);
+      pendingOutputLangs = langs;
+      closeOutputLangModal();
+      startTranscription();
     }
 
     async function startTranscription() {
@@ -4642,12 +4791,24 @@
         }
       }
       if (!selectedFile || isProcessing) return;
+      // T8 — a fresh local file must go through the output-language popup first.
+      // If the run button (or Cmd+Enter) fires before languages are chosen,
+      // re-open the popup instead of doing a legacy upload.
+      if (!pendingOutputLangs.length && !document.getElementById('olOverlay')?.classList.contains('open')) {
+        openOutputLangModal(selectedFile);
+        return;
+      }
       if (!socket?.connected) { showToast('請先連接到服務器', 'error'); return; }
 
       isProcessing = true;
       const formData = new FormData();
       formData.append('file', selectedFile);
       formData.append('sid', currentSid);
+      // T8 — when the user picked output languages in the popup, force the
+      // output_lang pipeline. Absent → legacy profile/V6 behaviour (unchanged).
+      if (Array.isArray(pendingOutputLangs) && pendingOutputLangs.length) {
+        formData.append('output_languages', JSON.stringify(pendingOutputLangs));
+      }
 
       try {
         const resp = await fetch(`${API_BASE}/api/transcribe`, { method: 'POST', body: formData });
@@ -4670,6 +4831,9 @@
         if (data.error) throw new Error(data.error);
 
         delete uploadedFiles['__pending__'];
+        // T8 — reflect the chosen pipeline kind on the new card so the
+        // cold-start step-diagram + segment loader pick the right branch.
+        const _usedOutputLangs = Array.isArray(pendingOutputLangs) && pendingOutputLangs.length;
         uploadedFiles[data.file_id] = {
           id: data.file_id,
           original_name: selectedFile.name,
@@ -4677,9 +4841,11 @@
           status: 'transcribing',
           segment_count: 0,
           uploaded_at: Date.now() / 1000,
+          active_kind: _usedOutputLangs ? 'output_lang' : (activeKind || 'profile'),
         };
         activeFileId = data.file_id;
         selectedFile = null;
+        pendingOutputLangs = [];
         document.getElementById('fileInput').value = '';
         // Bug B: carry a pipeline-level pre-picked second language onto the new
         // V6 file (stored as second_lang_preselect → auto-translated after V6).
@@ -5666,6 +5832,7 @@
       // Don't intercept when user is typing in a textarea (multi-line edit).
       if (e.target && e.target.tagName === 'TEXTAREA') return;
       const closers = [
+        ['olOverlay', () => cancelOutputLangModal()],
         ['renderOverlay', closeRenderModal],
         ['orOverlay', () => _closeModalRestoreFocus('orOverlay')],
         ['ppsOverlay', () => closeProfileSaveModal()],
@@ -5827,6 +5994,68 @@
       <div class="or-foot" style="display:flex;justify-content:space-between;gap:8px;padding:12px 20px;">
         <button class="or-btn" onclick="openProfileSaveModal()">+ 新增預設</button>
         <button class="or-btn" onclick="closeProfileManageModal()">關閉</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- T8 — Output-language upload popup (shown after a new file is selected) -->
+  <div class="or-overlay" id="olOverlay">
+    <div class="or-modal" style="width: 720px; max-width: 92vw;">
+      <div class="or-head">
+        <span>處理設定 — 揀輸出語言</span>
+        <button class="or-close" onclick="closeOutputLangModal()" aria-label="關閉">&times;</button>
+      </div>
+      <div class="or-body" style="padding: 0;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
+          <!-- LEFT: video preview + file meta -->
+          <div style="padding:16px 18px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:10px;">
+            <div style="background:#000;border-radius:8px;overflow:hidden;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;">
+              <video id="olPreviewVideo" muted preload="metadata" controls
+                     style="width:100%;height:100%;object-fit:contain;background:#000;"></video>
+            </div>
+            <div style="font-size:13px;font-weight:600;word-break:break-all;" id="olFileName">—</div>
+            <div style="font-size:11px;color:var(--text-dim);line-height:1.7;">
+              <div>上傳時間：<span id="olUploadTime">—</span></div>
+              <div>檔案大小：<span id="olFileSize">—</span></div>
+            </div>
+          </div>
+          <!-- RIGHT: language dropdowns -->
+          <div style="padding:16px 18px;display:flex;flex-direction:column;gap:14px;">
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+              <span style="font-weight:600;">影片來源語言 <span style="color:var(--text-dim);font-weight:400;">（僅作標記，不影響處理）</span></span>
+              <select id="olSourceLang" class="or-input">
+                <option value="zh">中文</option>
+                <option value="en">英文</option>
+                <option value="ja">日文</option>
+                <option value="other">其他</option>
+              </select>
+            </label>
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+              <span style="font-weight:600;">目標輸出第一語言 <span style="color:var(--danger);">*</span></span>
+              <select id="olFirstLang" class="or-input">
+                <option value="yue">口語廣東話</option>
+                <option value="zh">中文書面語</option>
+                <option value="en">英文</option>
+                <option value="ja">日文</option>
+              </select>
+            </label>
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+              <span style="font-weight:600;">目標輸出第二語言 <span style="color:var(--text-dim);font-weight:400;">（可選）</span></span>
+              <select id="olSecondLang" class="or-input">
+                <option value="">無</option>
+                <option value="yue">口語廣東話</option>
+                <option value="zh">中文書面語</option>
+                <option value="en">英文</option>
+                <option value="ja">日文</option>
+              </select>
+            </label>
+            <div id="olWarn" style="display:none;font-size:11px;color:var(--danger);"></div>
+          </div>
+        </div>
+      </div>
+      <div class="or-foot" style="display:flex;justify-content:flex-end;gap:8px;padding:12px 20px;">
+        <button class="or-btn" id="olCancelBtn" onclick="cancelOutputLangModal()">取消</button>
+        <button class="or-btn primary" id="olStartBtn" onclick="confirmOutputLangModal()">開始處理</button>
       </div>
     </div>
   </div>
