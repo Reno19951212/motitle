@@ -130,13 +130,20 @@ class ProgressAdapter:
 
 def report_from_subtitle_segment(adapter: ProgressAdapter, *,
                                   file_id: str, job_id: str,
-                                  segment_payload: dict) -> None:
-    """Profile-mode shim: subtitle_segment → pipeline_progress (stage 0 = 轉錄)."""
+                                  segment_payload: dict,
+                                  pipeline_kind: str = "profile",
+                                  stage_index: int = 0) -> None:
+    """Shim: subtitle_segment → pipeline_progress.
+
+    Defaults (pipeline_kind="profile", stage_index=0) preserve the existing
+    profile-ASR behavior byte-identically.  Pass explicit values for other
+    pipeline kinds (e.g. output_lang stage 0 or stage 1).
+    """
     progress = segment_payload.get("progress", 0)
     pct = max(0, min(100, int(round(progress * 100))))
     adapter.report(
         file_id=file_id, job_id=job_id, pct=pct,
-        stage_state="active", pipeline_kind="profile", stage_index=0,
+        stage_state="active", pipeline_kind=pipeline_kind, stage_index=stage_index,
     )
 
 

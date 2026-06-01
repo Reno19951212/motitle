@@ -255,3 +255,52 @@ def test_profile_shims_stage_index():
     report_from_translation_progress(a, file_id="f", job_id="",
                                      translation_payload={"percent": 40})
     assert ev[-1]["stage_index"] == 1 and ev[-1]["stage_label"] == "翻譯"
+
+
+# ── output_lang fix: report_from_subtitle_segment kind/stage passthrough ──────
+
+def test_report_from_subtitle_segment_respects_pipeline_kind():
+    """Explicit output_lang/0 → snapshot carries it; default path stays profile/0."""
+    from progress_adapter import ProgressAdapter, report_from_subtitle_segment
+    ev = []
+    a = ProgressAdapter(emit_fn=lambda e, p: ev.append(p), throttle_seconds=0)
+
+    # explicit output_lang kind
+    report_from_subtitle_segment(a, file_id="f1", job_id="",
+                                 segment_payload={"progress": 0.5},
+                                 pipeline_kind="output_lang", stage_index=0)
+    snap1 = a.get_snapshot("f1")
+    assert snap1.pipeline_kind == "output_lang"
+    assert snap1.stage_index == 0
+    assert snap1.stage_label == "轉錄第一語言"
+
+    # explicit output_lang kind, second stage
+    report_from_subtitle_segment(a, file_id="f1b", job_id="",
+                                 segment_payload={"progress": 0.5},
+                                 pipeline_kind="output_lang", stage_index=1)
+    snap1b = a.get_snapshot("f1b")
+    assert snap1b.pipeline_kind == "output_lang"
+    assert snap1b.stage_index == 1
+    assert snap1b.stage_label == "轉錄第二語言"
+
+    # default path — must remain profile/0 (byte-identical)
+    report_from_subtitle_segment(a, file_id="f2", job_id="",
+                                 segment_payload={"progress": 0.5})
+    snap2 = a.get_snapshot("f2")
+    assert snap2.pipeline_kind == "profile"
+    assert snap2.stage_index == 0
+
+
+def test_transcribe_with_segments_has_progress_kind_params():
+    """transcribe_with_segments must accept progress_kind and progress_stage_index."""
+    import importlib
+    import inspect
+    import os
+    os.environ.setdefault("R5_AUTH_BYPASS", "1")
+    import app as _a
+    importlib.reload(_a)
+    sig = inspect.signature(_a.transcribe_with_segments)
+    assert "progress_kind" in sig.parameters, "progress_kind param missing"
+    assert "progress_stage_index" in sig.parameters, "progress_stage_index param missing"
+    assert sig.parameters["progress_kind"].default == "profile"
+    assert sig.parameters["progress_stage_index"].default == 0

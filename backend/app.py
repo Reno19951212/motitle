@@ -362,6 +362,8 @@ def _run_output_lang(file_id, job, audio_path, cancel_event):
             job_user_id=job["user_id"],
             cancel_event=cancel_event,
             asr_profile_override=_output_lang_asr_override(),
+            progress_kind="output_lang",
+            progress_stage_index=0,
             **_whisper_params_for_lang(first),
         )
     except Exception as e:
@@ -415,6 +417,8 @@ def _run_output_lang_second(file_id, job, audio_path, cancel_event):
         job_user_id=job["user_id"],
         cancel_event=cancel_event,
         asr_profile_override=_output_lang_asr_override(),
+        progress_kind="output_lang",
+        progress_stage_index=1,
         **_whisper_params_for_lang(target),
     )
     segs2 = (res2 or {}).get("segments") or []
@@ -1341,7 +1345,9 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
                               file_id: str = None, job_user_id: int = None,
                               cancel_event=None, lang_override: str = None,
                               task_override: str = None, s2hk_override: bool = None,
-                              asr_profile_override: dict = None):
+                              asr_profile_override: dict = None,
+                              progress_kind: str = "profile",
+                              progress_stage_index: int = 0):
     """
     Transcribe audio/video file and emit segments with timestamps.
     If an active profile exists with whisper engine, uses the profile's ASR engine.
@@ -1443,6 +1449,8 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
                         "eta_seconds": round(eta, 1) if eta is not None else None,
                         "total_duration": total_duration,
                     },
+                    pipeline_kind=progress_kind,
+                    stage_index=progress_stage_index,
                 )
             except Exception:
                 pass  # adapter failures must NOT break ASR flow
