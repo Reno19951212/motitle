@@ -63,6 +63,18 @@ test("_updateCardCaption live-updates the caption without a full re-render", asy
   expect(cap).toContain("live 串流文字");
 });
 
+test("_applyCardProgress live-updates the stage-label (poll/socket shared path)", async ({ page }) => {
+  await page.goto(BASE + "/");
+  await page.waitForSelector("#queueList", { timeout: 8000 });
+  await seed(page, "transcribing");
+  await page.evaluate(() => _applyCardProgress("f-rt", {
+    stages: [{ key: "qwen3", label: "Qwen3 識別" }], stage_index: 0,
+    stage_state: "active", pct: 55, stage_label: "Qwen3 識別" }));
+  const txt = await page.locator('.queue-item[data-file-id="f-rt"] .card-stage-label').textContent();
+  expect(txt).toContain("Qwen3 識別");
+  expect(txt).toContain("55%");
+});
+
 test("caption is NOT shown once the file is done", async ({ page }) => {
   await page.goto(BASE + "/");
   await page.waitForSelector("#queueList", { timeout: 8000 });

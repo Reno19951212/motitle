@@ -1882,6 +1882,45 @@
       capEl.textContent = text;
       capEl.title = text;
     }
+    // Apply a progress snapshot to a card: cache it + live-patch the
+    // step-diagram and stage-label. Shared by the pipeline_progress socket
+    // listener AND the /api/queue poll (the socket event does not reliably
+    // reach the dashboard — the adapter cache via /api/queue is authoritative).
+    function _applyCardProgress(fileId, snap) {
+      if (!fileId || !snap) return;
+      cardProgress[fileId] = snap;
+      window.__cardProgress = cardProgress;
+      const cardEl = document.querySelector(`#queueList .queue-item[data-file-id="${CSS.escape(fileId)}"]`);
+      if (cardEl) {
+        const diagramEl = cardEl.querySelector('.card-step-diagram');
+        if (diagramEl && typeof window.renderStepDiagram === 'function' && snap.stages && snap.stages.length > 0) {
+          diagramEl.innerHTML = window.renderStepDiagram(snap.stages, snap.stage_index, snap.stage_state, snap.pct);
+        }
+      }
+      if (snap.stage_label) {
+        _updateCardStageLabel(fileId, snap.stage_label + (snap.pct != null ? ` ${snap.pct}%` : ''));
+      }
+    }
+    // Poll /api/queue (active jobs) and live-update each matching card's
+    // stage-diagram + label. Fallback that makes the 序列 cards real-time
+    // regardless of pipeline_progress socket delivery.
+    async function _pollCardProgress() {
+      try {
+        const r = await fetch(`${API_BASE}/api/queue`, { credentials: 'same-origin' });
+        if (!r.ok) return;
+        const rows = await r.json();
+        (Array.isArray(rows) ? rows : []).forEach((row) => {
+          if (!row || !row.file_id) return;
+          _applyCardProgress(row.file_id, {
+            stages: Array.isArray(row.stages) ? row.stages : null,
+            stage_index: row.stage_index != null ? row.stage_index : null,
+            stage_state: row.stage_state || 'active',
+            pct: row.progress_pct,
+            stage_label: row.stage_label || null,
+          });
+        });
+      } catch (e) { /* silent — poll is best-effort */ }
+    }
     let segments = [];
     let selectedFile = null;
     let isProcessing = false;
@@ -5367,32 +5406,13 @@
       // pipeline_progress: update cardProgress map + refresh the affected card
       socket.on('pipeline_progress', e => {
         if (!e || !e.file_id) return;
-        cardProgress[e.file_id] = {
+        _applyCardProgress(e.file_id, {
           stages: Array.isArray(e.stages) ? e.stages : null,
           stage_index: e.stage_index != null ? e.stage_index : null,
           stage_state: e.stage_state || 'idle',
           pct: e.pct,
           stage_label: e.stage_label || null,
-        };
-        // Expose for test introspection (Task 4 Playwright)
-        window.__cardProgress = cardProgress;
-        // Re-render just the step-diagram node inside that card, avoiding a
-        // full renderQueue() DOM rebuild (which would reset scroll, focus, etc.)
-        const cardEl = document.querySelector(`#queueList .queue-item[data-file-id="${CSS.escape(e.file_id)}"]`);
-        if (cardEl) {
-          const diagramEl = cardEl.querySelector('.card-step-diagram');
-          if (diagramEl && typeof window.renderStepDiagram === 'function') {
-            const snap = cardProgress[e.file_id];
-            if (snap && snap.stages && snap.stages.length > 0) {
-              diagramEl.innerHTML = window.renderStepDiagram(snap.stages, snap.stage_index, snap.stage_state, snap.pct);
-            }
-          }
-        }
-        // live stage-label (name + pct) on the card, mirroring the queue panel.
-        // Create-if-missing (renderQueue may not re-run between V6 stages).
-        if (e.stage_label) {
-          _updateCardStageLabel(e.file_id, e.stage_label + (e.pct != null ? ` ${e.pct}%` : ''));
-        }
+        });
       });
       // pipeline_segment: live streaming caption. V6 final refiner emits each
       // refined segment's text → show it on that file's card.
@@ -5402,6 +5422,13 @@
         window.__cardSubtitle = cardSubtitle;
         _updateCardCaption(e.file_id, e.text);
       });
+      // The pipeline_progress socket event does NOT reliably reach the dashboard
+      // (only the queue panel survives via its own /api/queue poll). Poll the
+      // adapter cache here too so the 序列 cards update live.
+      if (window.__cardPollTimer == null) {
+        window.__cardPollTimer = setInterval(_pollCardProgress, 3000);
+        _pollCardProgress();
+      }
     }
 
     // Test introspection helpers — let Playwright inject state and trigger renders
