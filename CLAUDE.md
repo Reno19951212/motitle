@@ -360,6 +360,16 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### 序列 file card 實時化 — live 階段名+% + 字幕串流（2026-06-01）
+- **目標**：工作隊列 panel 有實時進度，序列 file card 唔夠實時。User 要 card 顯示 (1) live 階段名+%（似 queue panel），(2) 字幕文字即時流出 —— **V6 主力**改 backend 邊跑邊 emit。
+- **Backend（telemetry/emit only，唔改 refiner/ASR/MT 輸出 → 唔涉 Validation-First）**：`LLMRefiner.refine` 本身已 per-segment 回呼 refined text，但 `RefinerStage` 之前掉咗。修：`StageContext` 加 `segment_callback`；`RefinerStage.transform` forward 每段 text；`pipeline_runner._make_segment_callback` emit 新 additive event **`pipeline_segment`** `{file_id, idx, total, text, lang}`；`_run_stage_v5` 加 `segment_emit`；`_run_v6` **只為最後一個 refiner** 開（書面語 chain 串 pass-2 書面語）。現有 `pipeline_progress`/`pipeline_stage_*` contract 不變。
+- **Frontend（`index.html`）**：card 加 `.card-stage-label`（處理緊時由 `cardProgress` 顯示「階段名 pct%」）+ `.card-live-caption`（串流文字）。新 `cardSubtitle` map + `_updateCardCaption()` live 更新；listener `pipeline_segment`（by file_id）+ `subtitle_segment`（Profile ASR，無 file_id → active 檔）；`pipeline_progress` 順埋更新 stage-label；完成（`transcription_complete`/`pipeline_timing`）清 caption。card 只喺 `status==='transcribing' || translation_status==='translating'` 顯示。
+- **時序 nuance**：文字喺**最後 refiner stage** 先串（VAD→Qwen3→mlx→合併之後）；串流係 refiner 逐段（clause_split 前）—— live preview 用。`subtitle_segment` 無 file_id → Profile 串流只歸 active 檔。
+- **測試**：backend `test_pipeline_segment_emit.py` 5（LLMRefiner 傳 text / StageContext field / RefinerStage forward / _run_stage_v5 segment_emit 開關）+ Playwright `test_card_realtime.spec.js` 4（stage-label / caption render / live update / done 唔顯示）。`test_v6_runner` fake 簽名 +`**kwargs`。零新 regression。
+- **Spec/Plan**：[spec](docs/superpowers/specs/2026-06-01-sequence-card-realtime-design.md) / [plan](docs/superpowers/plans/2026-06-01-sequence-card-realtime-plan.md)。
+- **新 WebSocket event**：`pipeline_segment`（server→client，V6 最後 refiner 逐段 emit refined 文字 → card live caption）。
+- **範圍外**：早串 Qwen3 原始 region 文字、clause_split 後精準 cue 串流、多用戶 subtitle_segment file_id、inspector status-card 統一。
+
 ### 完成檔 re-run 用當前揀緊嘅 pipeline + 執行掣可按（2026-05-31）
 - **問題**：完成咗嘅片想換另一條 pipeline 再跑 —— 頂部 strip「執行」掣（`#runBtn`）灰咗㩒唔到；而且 re-run（`POST /api/files/<id>/transcribe`）用返**上傳時 snapshot 嘅舊 pipeline**，唔跟 strip 新揀嘅。
 - **修復（dispatch/UX，唔涉 ASR/MT engine → 唔涉 Validation-First）**：
