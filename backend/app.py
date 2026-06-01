@@ -1173,7 +1173,8 @@ def _resolve_whisper_task(task_override):
 def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str = None,
                               file_id: str = None, job_user_id: int = None,
                               cancel_event=None, lang_override: str = None,
-                              task_override: str = None, s2hk_override: bool = None):
+                              task_override: str = None, s2hk_override: bool = None,
+                              asr_profile_override: dict = None):
     """
     Transcribe audio/video file and emit segments with timestamps.
     If an active profile exists with whisper engine, uses the profile's ASR engine.
@@ -1193,7 +1194,7 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
             if entry is not None:
                 entry['user_id'] = job_user_id
                 _save_registry()
-    profile = _profile_manager.get_active()
+    profile = asr_profile_override if asr_profile_override is not None else _profile_manager.get_active()
     use_profile_engine = (
         profile is not None
         and bool(profile.get("asr", {}).get("engine"))
@@ -1282,8 +1283,12 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
         # === Profile-based ASR engine path ===
         if use_profile_engine:
             from asr import create_asr_engine
-            engine = create_asr_engine(profile["asr"])
-            language = profile["asr"].get("language", "en")
+            asr_cfg = profile["asr"]
+            if task_override is not None:
+                # immutable: new dict, engine reads task from config; never mutate profile["asr"]
+                asr_cfg = {**asr_cfg, "task": task_override}
+            engine = create_asr_engine(asr_cfg)
+            language = lang_override if lang_override is not None else profile["asr"].get("language", "en")
             raw_segments = engine.transcribe(audio_path, language=language)
 
             # Post-process segments with language config

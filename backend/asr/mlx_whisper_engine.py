@@ -38,7 +38,7 @@ class MlxWhisperEngine(ASREngine):
         kwargs = {
             "path_or_hf_repo": self._repo,
             "language": language,
-            "task": "transcribe",
+            "task": self._config.get("task", "transcribe"),
             "condition_on_previous_text": condition_on_previous_text,
             "word_timestamps": word_timestamps,
             "verbose": False,
