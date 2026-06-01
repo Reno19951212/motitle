@@ -307,6 +307,130 @@ def _reset_progress_for_job(file_id, job_id, pipeline_kind, stage_index):
         pass
 
 
+def _whisper_params_for_lang(lang):
+    """Map an output language to transcribe_with_segments override kwargs.
+
+    yue/zh → force language + s2hk (Traditional HK); ja → force language;
+    en → Whisper translate task (always outputs English).
+    """
+    if lang in ("yue", "zh"):
+        return {"lang_override": lang, "task_override": "transcribe", "s2hk_override": True}
+    if lang == "ja":
+        return {"lang_override": "ja", "task_override": "transcribe", "s2hk_override": None}
+    if lang == "en":
+        return {"lang_override": None, "task_override": "translate", "s2hk_override": None}
+    # default: force the language, no s2hk
+    return {"lang_override": lang, "task_override": "transcribe", "s2hk_override": None}
+
+
+def _output_lang_asr_override():
+    """Return a FRESH override dict for the output-language ASR pass.
+
+    mlx large-v3 with condition_on_previous_text=False (the validated engine;
+    cond=False breaks the head-hallucination cascade loop). A new dict is built
+    per call so no downstream mutation can leak into a shared module global.
+    """
+    return {"asr": {
+        "engine": "mlx-whisper",
+        "model_size": "large-v3",
+        "condition_on_previous_text": False,
+    }}
+
+
+def _run_output_lang(file_id, job, audio_path, cancel_event):
+    """Output-language ASR — FIRST pass (primary language).
+
+    Transcribes the first requested output language via the fixed mlx large-v3
+    engine, builds translation rows from the result, and (if a second language
+    is requested) enqueues an asr_output job for it.
+    """
+    from output_lang_persist import build_output_translations
+
+    with _registry_lock:
+        outs = list((_file_registry.get(file_id) or {}).get("output_languages") or [])
+    if not outs:
+        raise RuntimeError(f"output_lang file {file_id} has no output_languages — misconfigured")
+
+    _update_file(file_id, status='transcribing', user_id=job["user_id"])
+
+    first = outs[0]
+    res1 = transcribe_with_segments(
+        audio_path,
+        file_id=file_id,
+        job_user_id=job["user_id"],
+        cancel_event=cancel_event,
+        asr_profile_override=_output_lang_asr_override(),
+        **_whisper_params_for_lang(first),
+    )
+    if not res1 or not res1.get("segments"):
+        _update_file(file_id, status='error', error='output-lang transcribe returned empty')
+        raise RuntimeError(f"output-lang first-pass transcribe returned empty for {file_id}")
+
+    segs1 = res1["segments"]
+    rows = build_output_translations(segs1, [(first, segs1)])
+
+    _update_file(
+        file_id,
+        status='done',
+        translation_status='done',
+        translation_kind='output_lang',
+        translations=rows,
+        segments=segs1,
+        text=res1.get("text", ""),
+        model=res1.get("model"),
+        backend=res1.get("backend"),
+    )
+
+    if len(outs) > 1:
+        _job_queue.enqueue(
+            user_id=job["user_id"],
+            file_id=file_id,
+            job_type='asr_output',
+            output_language=outs[1],
+        )
+
+
+def _run_output_lang_second(file_id, job, audio_path, cancel_event):
+    """Output-language ASR — SECOND pass (additional language).
+
+    Transcribes the requested second language via the fixed mlx large-v3 engine
+    and merges the result into the existing translation rows immutably (mirror of
+    _translate_second_handler): new by_lang[target] entry + <target>_text mirror,
+    NEW row dicts under the registry lock, first-language text preserved.
+    """
+    target = job.get("output_language")
+    if not target:
+        raise RuntimeError(f"asr_output job for {file_id} has no output_language")
+
+    _reset_progress_for_job(file_id, job.get("id", ""), "output_lang", 1)
+
+    res2 = transcribe_with_segments(
+        audio_path,
+        file_id=file_id,
+        job_user_id=job["user_id"],
+        cancel_event=cancel_event,
+        asr_profile_override=_output_lang_asr_override(),
+        **_whisper_params_for_lang(target),
+    )
+    segs2 = (res2 or {}).get("segments") or []
+
+    with _registry_lock:
+        live_translations = _file_registry.get(file_id, {}).get("translations") or []
+        new_translations = []
+        for i, row in enumerate(live_translations):
+            text2 = segs2[i].get("text", "") if i < len(segs2) else ""
+            new_by_lang = {**(row.get("by_lang") or {}), target: {
+                "text": text2,
+                "status": "pending",
+                "flags": [],
+            }}
+            new_row = {**row, "by_lang": new_by_lang, f"{target}_text": text2}
+            new_translations.append(new_row)
+        if file_id in _file_registry:
+            _file_registry[file_id]["translations"] = new_translations
+            _save_registry()
+
+
 def _asr_handler(job, cancel_event=None):
     """R5 Phase 2 + 4 — full ASR pipeline with cooperative cancel.
 
@@ -337,6 +461,13 @@ def _asr_handler(job, cancel_event=None):
     if not audio_path:
         raise RuntimeError(f"no audio path for file {file_id}")
 
+    # Output-language SECOND pass — an asr_output job carries the additional
+    # language to merge into existing translation rows. Handle it FIRST so it
+    # never falls into the first-pass / profile / V6 branches below.
+    if job.get("type") == "asr_output":
+        _run_output_lang_second(file_id, job, audio_path, cancel_event)
+        return
+
     # V6 dispatch — pipeline_v6 files bypass transcribe_with_segments entirely.
     # PipelineRunner._run_v6 handles all stages (VAD→qwen3→mlx→merge→refiner)
     # and persists results directly to the file registry via _persist_by_lang.
@@ -344,12 +475,22 @@ def _asr_handler(job, cancel_event=None):
     kind = f.get("active_kind", "profile")
 
     # Reset the progress adapter to THIS job's first stage (轉錄 for profile,
-    # VAD for V6 — both stage_index 0) so the queue row never shows a previous
-    # job's lingering stage. See _reset_progress_for_job.
-    _reset_progress_for_job(
-        file_id, job.get("id", ""),
-        "pipeline_v6" if kind == "pipeline_v6" else "profile", 0,
-    )
+    # VAD for V6, 轉錄第一語言 for output_lang — all stage_index 0) so the queue
+    # row never shows a previous job's lingering stage. See _reset_progress_for_job.
+    if kind == "pipeline_v6":
+        _adapter_kind = "pipeline_v6"
+    elif kind == "output_lang":
+        _adapter_kind = "output_lang"
+    else:
+        _adapter_kind = "profile"
+    _reset_progress_for_job(file_id, job.get("id", ""), _adapter_kind, 0)
+
+    # Output-language FIRST pass — bypass transcribe_with_segments' profile
+    # default; _run_output_lang drives the fixed mlx large-v3 engine per
+    # requested language and persists rows directly.
+    if kind == "output_lang":
+        _run_output_lang(file_id, job, audio_path, cancel_event)
+        return
 
     if kind == "pipeline_v6":
         # v3.19 Sprint 3 B-10: prefer upload-time snapshot over live pipeline JSON
@@ -606,6 +747,17 @@ def _mt_handler(job, cancel_event=None):
             if file_id in _file_registry:
                 _file_registry[file_id]["translation_status"] = "done"
                 _file_registry[file_id]["translation_kind"] = "pipeline_v6_inline"
+                _save_registry()
+        return
+
+    # Output-language files: the ASR passes ARE the output — no MT step.
+    # The output_lang ASR path never enqueues a translate job, but a manual
+    # /api/translate or rerun must not fall through into _auto_translate.
+    if _active_kind == "output_lang":
+        with _registry_lock:
+            if file_id in _file_registry:
+                _file_registry[file_id]["translation_status"] = "done"
+                _file_registry[file_id]["translation_kind"] = "output_lang"
                 _save_registry()
         return
 

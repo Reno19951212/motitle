@@ -44,6 +44,10 @@ PIPELINE_STAGES: Dict[str, List[Dict[str, str]]] = {
         {"key": "merge",   "label": "時間合併"},
         {"key": "refiner", "label": "Refiner 校對"},
     ],
+    "output_lang": [
+        {"key": "asr_first",  "label": "轉錄第一語言"},
+        {"key": "asr_second", "label": "轉錄第二語言"},
+    ],
 }
 
 _V6_STAGE_INDEX: Dict[str, int] = {
