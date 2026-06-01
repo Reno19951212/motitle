@@ -80,7 +80,7 @@ class JobQueue:
                 new_jid = insert_job(db_path, o["user_id"], o["file_id"], o["type"],
                                      parent_job_id=o["id"])
                 retry_jids.add(new_jid)
-                if o["type"] == "asr":
+                if o["type"] in ("asr", "asr_output"):
                     self._asr_q.put(new_jid)
                 elif o["type"] in ("translate", "render"):
                     self._mt_q.put(new_jid)
@@ -98,7 +98,7 @@ class JobQueue:
             logging.getLogger(__name__).warning(
                 "Reloading %d 'queued' jobs from DB into worker queue", len(stale_queued))
             for j in stale_queued:
-                if j["type"] == "asr":
+                if j["type"] in ("asr", "asr_output"):
                     self._asr_q.put(j["id"])
                 elif j["type"] in ("translate", "render"):
                     self._mt_q.put(j["id"])
@@ -115,12 +115,13 @@ class JobQueue:
             pass
 
     def enqueue(self, user_id: int, file_id: str, job_type: str,
-                parent_job_id=None) -> str:
+                parent_job_id=None, output_language: Optional[str] = None) -> str:
         # parent_job_id propagates attempt_count = parent + 1 (used by manual
         # retry + boot-recovery orphan retry, both bound by R5_MAX_JOB_RETRY).
         jid = insert_job(self._db_path, user_id, file_id, job_type,
-                         parent_job_id=parent_job_id)
-        if job_type == "asr":
+                         parent_job_id=parent_job_id,
+                         output_language=output_language)
+        if job_type in ("asr", "asr_output"):
             self._asr_q.put(jid)
         elif job_type in ("translate", "render"):
             self._mt_q.put(jid)

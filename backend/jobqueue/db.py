@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   id TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL,
   file_id TEXT NOT NULL,
-  type TEXT NOT NULL CHECK(type IN ('asr', 'translate', 'render')),
+  type TEXT NOT NULL CHECK(type IN ('asr', 'asr_output', 'translate', 'render')),
   status TEXT NOT NULL CHECK(status IN ('queued', 'running', 'done', 'failed', 'cancelled')),
   created_at REAL NOT NULL,
   started_at REAL,
@@ -45,16 +45,23 @@ def init_jobs_table(db_path: str) -> None:
         conn.execute(
             "ALTER TABLE jobs ADD COLUMN attempt_count INTEGER NOT NULL DEFAULT 1"
         )
+    # T3 output-lang: backfill output_language column on databases created
+    # before T3 (CREATE TABLE IF NOT EXISTS skips the new column).
+    if "output_language" not in cols:
+        conn.execute(
+            "ALTER TABLE jobs ADD COLUMN output_language TEXT"
+        )
     conn.commit()
     conn.close()
 
 
 def insert_job(db_path: str, user_id: int, file_id: str, job_type: str,
-               parent_job_id: Optional[str] = None) -> str:
+               parent_job_id: Optional[str] = None,
+               output_language: Optional[str] = None) -> str:
     """Insert a queued job. If `parent_job_id` is given (re-enqueue from
     boot recovery), inherit attempt_count + 1 from the parent so the
     poison-pill cap can stop re-enqueue loops."""
-    if job_type not in ("asr", "translate", "render"):
+    if job_type not in ("asr", "asr_output", "translate", "render"):
         raise ValueError(f"invalid job_type: {job_type!r}")
     jid = uuid.uuid4().hex
     attempt_count = 1
@@ -65,9 +72,9 @@ def insert_job(db_path: str, user_id: int, file_id: str, job_type: str,
     conn = get_connection(db_path)
     try:
         conn.execute(
-            "INSERT INTO jobs (id, user_id, file_id, type, status, created_at, attempt_count) "
-            "VALUES (?, ?, ?, ?, 'queued', ?, ?)",
-            (jid, user_id, file_id, job_type, time.time(), attempt_count),
+            "INSERT INTO jobs (id, user_id, file_id, type, status, created_at, attempt_count, output_language) "
+            "VALUES (?, ?, ?, ?, 'queued', ?, ?, ?)",
+            (jid, user_id, file_id, job_type, time.time(), attempt_count, output_language),
         )
         conn.commit()
         return jid
@@ -108,7 +115,7 @@ def insert_retry_job(
     (or the parent no longer exists).  Mirrors the ``BEGIN IMMEDIATE`` pattern
     from ``auth/admin.py`` ``_atomic_set_admin`` (R5 Phase 5 T2.7).
     """
-    if job_type not in ("asr", "translate", "render"):
+    if job_type not in ("asr", "asr_output", "translate", "render"):
         raise ValueError(f"invalid job_type: {job_type!r}")
 
     # isolation_level=None → autocommit off; we drive transactions manually.
@@ -160,6 +167,8 @@ def _row_to_job(row: sqlite3.Row) -> dict:
         "error_msg": row["error_msg"],
         # R5 Phase 5 T1.5: tolerate pre-Phase-5 rows that pre-date ALTER.
         "attempt_count": row["attempt_count"] if "attempt_count" in keys else 1,
+        # T3 output-lang: tolerate pre-T3 rows that pre-date ALTER.
+        "output_language": row["output_language"] if "output_language" in keys else None,
     }
 
 
