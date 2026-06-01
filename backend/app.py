@@ -1160,9 +1160,20 @@ def extract_audio(video_path: str, output_path: str) -> bool:
         return False
 
 
+def _resolve_whisper_task(task_override):
+    """Resolve the Whisper `task` for transcription.
+
+    Returns the override when supplied (e.g. "translate"), otherwise the
+    historical default "transcribe". Keeps the None-default path byte-identical
+    to the pre-override behavior.
+    """
+    return task_override or "transcribe"
+
+
 def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str = None,
                               file_id: str = None, job_user_id: int = None,
-                              cancel_event=None):
+                              cancel_event=None, lang_override: str = None,
+                              task_override: str = None, s2hk_override: bool = None):
     """
     Transcribe audio/video file and emit segments with timestamps.
     If an active profile exists with whisper engine, uses the profile's ASR engine.
@@ -1192,6 +1203,10 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
     transcribe_language = 'zh'
     if profile:
         transcribe_language = profile.get("asr", {}).get("language", "zh")
+    # Output-language pipeline may force a specific Whisper language; when the
+    # override is None the resolved value above is preserved byte-identically.
+    if lang_override is not None:
+        transcribe_language = lang_override
 
     if not use_profile_engine:
         model, backend = get_model(model_size, backend='auto')
@@ -1290,8 +1305,9 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
                 max_words_cap=asr_params["max_words_per_segment"],
             )
             # Whisper's Chinese mode emits Simplified Chinese. Convert to
-            # Traditional (HK style) when the language config enables it.
-            if asr_params.get("simplified_to_traditional"):
+            # Traditional (HK style) when the language config enables it, or
+            # when the output-language pipeline forces it via s2hk_override.
+            if asr_params.get("simplified_to_traditional") or s2hk_override:
                 from asr.cn_convert import convert_segments_s2t
                 raw_segments = convert_segments_s2t(raw_segments, mode="s2hk")
 
@@ -1329,7 +1345,7 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
             seg_iter, info = model.transcribe(
                 audio_path,
                 language=transcribe_language,
-                task='transcribe',
+                task=_resolve_whisper_task(task_override),
                 word_timestamps=True,
                 initial_prompt=initial_prompt,
             )
@@ -1399,7 +1415,7 @@ def transcribe_with_segments(file_path: str, model_size: str = 'small', sid: str
             result = model.transcribe(
                 audio_path,
                 language=transcribe_language,
-                task='transcribe',
+                task=_resolve_whisper_task(task_override),
                 verbose=False,
                 word_timestamps=True,
                 initial_prompt=initial_prompt_openai,
