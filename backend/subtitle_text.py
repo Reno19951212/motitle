@@ -16,6 +16,9 @@ OUTPUT_LANG_LABELS = {
     "ja": "日文",
 }
 
+# Frozenset of all supported output language codes (deduplicated from OUTPUT_LANG_LABELS).
+SUPPORTED_OUTPUT_LANGS: frozenset = frozenset(OUTPUT_LANG_LABELS)
+
 # QA flag prefixes left over from legacy registry data; never burn into output.
 # Matches [LONG], [long], [REVIEW], [review], [NEEDS REVIEW] — possibly stacked.
 _QA_PREFIX_RE = re.compile(

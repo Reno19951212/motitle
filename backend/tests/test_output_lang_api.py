@@ -8,6 +8,7 @@ Covers:
   E. _role_fields_for + resolve_segment_text correctness (no route change)
 """
 import importlib
+import io
 import json
 import sys
 import os
@@ -40,9 +41,14 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr("app._profile_manager", ProfileManager(tmp_path))
     app.config["TESTING"] = True
     app.config["R5_AUTH_BYPASS"] = True
+    # LOGIN_DISABLED makes flask_login @login_required pass through (anonymous
+    # user), while R5_AUTH_BYPASS makes our @require_file_owner wrappers skip
+    # the ownership check.  Both are needed to reach route logic in tests.
+    app.config["LOGIN_DISABLED"] = True
     with app.test_client() as c:
         yield c
     app.config.pop("R5_AUTH_BYPASS", None)
+    app.config.pop("LOGIN_DISABLED", None)
 
 
 def _make_output_lang_entry(file_id, outs=None):
@@ -410,26 +416,33 @@ class TestPatchTranslationOutputLang:
             with _registry_lock:
                 _file_registry.pop(fid, None)
 
-    def test_patch_no_role_legacy_writes_zh_text(self, client, monkeypatch):
-        """PATCH no role on output_lang (legacy path) → writes zh_text."""
+    def test_patch_no_role_defaults_to_first_output_lang(self, client, monkeypatch):
+        """PATCH no role on output_lang (single-lang yue) → writes yue_text, not zh_text."""
         fid = "patch-ol-003"
         monkeypatch.setattr("app._save_registry", lambda: None)
         monkeypatch.setattr("app._reset_progress_for_job", lambda *a, **kw: None)
 
         # Use a single-language output_lang entry (yue only)
         entry = _make_output_lang_entry(fid, outs=["yue"])
-        # Add zh_text to row for legacy compat check
-        entry["translations"][0]["zh_text"] = "舊字段。"
         with _registry_lock:
             _file_registry[fid] = entry
         try:
+            new_text = "更新後的廣東話文字。"
             resp = client.patch(
                 f"/api/files/{fid}/translations/0",
-                json={"zh_text": "新字段。"},
+                json={"text": new_text},
                 content_type="application/json",
             )
-            # Legacy path (no role) must still work
             assert resp.status_code == 200, resp.get_data(as_text=True)
+
+            # The no-role path for output_lang writes outs[0]_text (= yue_text),
+            # NOT zh_text — because the output_lang branch resolves the first
+            # output language as the target field regardless of role.
+            with _registry_lock:
+                updated = _file_registry.get(fid) or {}
+            row = updated.get("translations", [{}])[0]
+            assert row.get("yue_text") == new_text, row
+            assert row.get("by_lang", {}).get("yue", {}).get("text") == new_text, row
         finally:
             with _registry_lock:
                 _file_registry.pop(fid, None)
@@ -494,3 +507,79 @@ class TestRoleFieldsForOutputLang:
         }
         text = resolve_segment_text(seg, mode="second", first_field="yue_text", second_field="en_text")
         assert text == "Good evening.", text
+
+
+# ---------------------------------------------------------------------------
+# F — /api/transcribe output_languages HTTP-layer validation
+# ---------------------------------------------------------------------------
+
+def _mp(output_languages_raw):
+    """Build multipart form data with a tiny file + the output_languages field."""
+    return {
+        "file": (io.BytesIO(b"x"), "clip.mp4"),
+        "output_languages": output_languages_raw,
+    }
+
+
+class TestTranscribeOutputLangValidation:
+    """F: /api/transcribe rejects malformed output_languages at the HTTP layer.
+
+    The 400 paths all fire BEFORE file.save() / current_user.id, so they are
+    safe under R5_AUTH_BYPASS.  The file extension (.mp4) is in ALLOWED_EXTENSIONS
+    so the request reaches the output_languages validation, not the extension check.
+    """
+
+    def test_transcribe_rejects_malformed_output_languages_json(self, client):
+        """Non-JSON string → 400 with 'output_languages must be a JSON array'."""
+        r = client.post(
+            "/api/transcribe",
+            data=_mp("not json"),
+            content_type="multipart/form-data",
+        )
+        assert r.status_code == 400, r.get_data(as_text=True)
+        body = r.get_json() or {}
+        assert "output_languages" in body.get("error", "").lower(), body
+
+    def test_transcribe_rejects_non_array_output_languages(self, client):
+        """JSON string (not array) → 400."""
+        r = client.post(
+            "/api/transcribe",
+            data=_mp('"yue"'),
+            content_type="multipart/form-data",
+        )
+        assert r.status_code == 400, r.get_data(as_text=True)
+        body = r.get_json() or {}
+        assert "output_languages" in body.get("error", "").lower(), body
+
+    def test_transcribe_rejects_unsupported_output_language(self, client):
+        """Lang code not in {yue,zh,en,ja} → 400 with 'unsupported output language'."""
+        r = client.post(
+            "/api/transcribe",
+            data=_mp('["ko"]'),
+            content_type="multipart/form-data",
+        )
+        assert r.status_code == 400, r.get_data(as_text=True)
+        body = r.get_json() or {}
+        assert "unsupported" in body.get("error", "").lower(), body
+
+    def test_transcribe_rejects_empty_output_languages_list(self, client):
+        """Empty array [] → 400 (must have 1-2 entries)."""
+        r = client.post(
+            "/api/transcribe",
+            data=_mp("[]"),
+            content_type="multipart/form-data",
+        )
+        assert r.status_code == 400, r.get_data(as_text=True)
+        body = r.get_json() or {}
+        assert "output_languages" in body.get("error", "").lower(), body
+
+    def test_transcribe_rejects_three_output_languages(self, client):
+        """Three-element array → 400 (max is 2)."""
+        r = client.post(
+            "/api/transcribe",
+            data=_mp('["yue","en","ja"]'),
+            content_type="multipart/form-data",
+        )
+        assert r.status_code == 400, r.get_data(as_text=True)
+        body = r.get_json() or {}
+        assert "output_languages" in body.get("error", "").lower(), body

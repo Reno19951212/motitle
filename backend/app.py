@@ -60,6 +60,7 @@ from subtitle_text import (
     resolve_language_descriptor,
     VALID_SUBTITLE_SOURCES,
     VALID_BILINGUAL_ORDERS,
+    SUPPORTED_OUTPUT_LANGS,
 )
 
 # Try to import faster-whisper for better performance
@@ -4047,11 +4048,10 @@ def transcribe_file():
             return jsonify({"error": "output_languages must be a JSON array"}), 400
         if not isinstance(_parsed_langs, list):
             return jsonify({"error": "output_languages must be a JSON array"}), 400
-        _SUPPORTED_OUTPUT_LANGS = {"yue", "zh", "en", "ja"}
         for _lang in _parsed_langs:
             if not isinstance(_lang, str) or not _lang:
                 return jsonify({"error": "unsupported output language"}), 400
-            if _lang not in _SUPPORTED_OUTPUT_LANGS:
+            if _lang not in SUPPORTED_OUTPUT_LANGS:
                 return jsonify({"error": "unsupported output language"}), 400
         if not (1 <= len(_parsed_langs) <= 2):
             return jsonify({"error": "output_languages must contain 1 or 2 entries"}), 400
@@ -4168,8 +4168,7 @@ def translate_second_language(file_id):
             outs = list(_ol_entry.get("output_languages") or [])
             if not outs:
                 return jsonify({"error": "output_lang file has no output_languages"}), 400
-            _SUPPORTED_OUTPUT_LANGS_SECOND = {"yue", "zh", "en", "ja"}
-            if lang not in _SUPPORTED_OUTPUT_LANGS_SECOND:
+            if lang not in SUPPORTED_OUTPUT_LANGS:
                 return jsonify({"error": f"unsupported output language '{lang}'"}), 400
             if lang in outs:
                 return jsonify({"error": f"'{lang}' already an output language"}), 400
