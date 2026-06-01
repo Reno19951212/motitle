@@ -40,6 +40,20 @@ test("card renders streaming caption from cardSubtitle while processing", async 
   expect(cap).toContain("今晚第五場賽事");
 });
 
+test("_updateCardStageLabel creates the stage-label node on demand (live, no re-render)", async ({ page }) => {
+  await page.goto(BASE + "/");
+  await page.waitForSelector("#queueList", { timeout: 8000 });
+  await seed(page, "transcribing");
+  // No cardProgress at render time → no .card-stage-label node yet; the live
+  // updater must create it (mirrors the pipeline_progress listener path).
+  const before = await page.locator('.queue-item[data-file-id="f-rt"] .card-stage-label').count();
+  await page.evaluate(() => _updateCardStageLabel("f-rt", "VAD 切段 10%"));
+  const txt = await page.locator('.queue-item[data-file-id="f-rt"] .card-stage-label').textContent();
+  expect(before).toBe(0);
+  expect(txt).toContain("VAD 切段");
+  expect(txt).toContain("10%");
+});
+
 test("_updateCardCaption live-updates the caption without a full re-render", async ({ page }) => {
   await page.goto(BASE + "/");
   await page.waitForSelector("#queueList", { timeout: 8000 });

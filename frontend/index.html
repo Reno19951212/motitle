@@ -1849,6 +1849,22 @@
     // cardSubtitle: per-file live streaming caption text (pipeline_segment for V6
     // final refiner; subtitle_segment for Profile ASR active file).
     const cardSubtitle = {};
+    // Update (or create) the live stage-label on a card without a full
+    // renderQueue() rebuild — renderQueue may not re-run between V6 stages, so
+    // the node must be created on demand for the label to appear live.
+    function _updateCardStageLabel(fileId, text) {
+      const cardEl = document.querySelector(`#queueList .queue-item[data-file-id="${CSS.escape(fileId)}"]`);
+      if (!cardEl) return;
+      let slEl = cardEl.querySelector('.card-stage-label');
+      if (!slEl) {
+        slEl = document.createElement('div');
+        slEl.className = 'card-stage-label';
+        const anchor = cardEl.querySelector('.card-step-diagram');
+        if (anchor) anchor.insertAdjacentElement('afterend', slEl);
+        else cardEl.appendChild(slEl);
+      }
+      slEl.textContent = text;
+    }
     // Update (or create) the live-caption line on a file card without a full
     // renderQueue() rebuild (avoids scroll/focus reset during streaming).
     function _updateCardCaption(fileId, text) {
@@ -1858,7 +1874,8 @@
       if (!capEl) {
         capEl = document.createElement('div');
         capEl.className = 'card-live-caption';
-        const anchor = cardEl.querySelector('.card-step-diagram');
+        // Keep caption below the stage-label if present, else after the diagram.
+        const anchor = cardEl.querySelector('.card-stage-label') || cardEl.querySelector('.card-step-diagram');
         if (anchor) anchor.insertAdjacentElement('afterend', capEl);
         else cardEl.appendChild(capEl);
       }
@@ -5370,9 +5387,11 @@
               diagramEl.innerHTML = window.renderStepDiagram(snap.stages, snap.stage_index, snap.stage_state, snap.pct);
             }
           }
-          // live stage-label (name + pct) on the card, mirroring the queue panel
-          const slEl = cardEl.querySelector('.card-stage-label');
-          if (slEl && e.stage_label) slEl.textContent = e.stage_label + (e.pct != null ? ` ${e.pct}%` : '');
+        }
+        // live stage-label (name + pct) on the card, mirroring the queue panel.
+        // Create-if-missing (renderQueue may not re-run between V6 stages).
+        if (e.stage_label) {
+          _updateCardStageLabel(e.file_id, e.stage_label + (e.pct != null ? ` ${e.pct}%` : ''));
         }
       });
       // pipeline_segment: live streaming caption. V6 final refiner emits each
