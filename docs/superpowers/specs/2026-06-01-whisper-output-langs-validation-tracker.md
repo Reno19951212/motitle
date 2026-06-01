@@ -78,4 +78,8 @@ Harness `backend/scripts/integ_output_lang.py`（live HTTP API，clean-restart b
 
 **Backend regression（pytest）**：output_lang + shared-code 子系統（output_lang/transcribe_override/persist/subtitle_text/bilingual_api/asr_output/progress_adapter/register_file）**135 passed / 0 failed**。render/v6/queue/proofreading 子系統全部在 isolation 下綠（queue_retry 5、v6 58、render 104/1）；唯一 fail = v3.3 已知 `test_ass_filter_escapes_colon_in_path`（macOS tmpdir colon-escape baseline）。零新增 regression。
 
-**已知 minor（非 blocker）**：(1) 轉錄期間 progress shim 仍報 `profile` kind（`report_from_subtitle_segment` hardcode）→ queue bar 顯示「轉錄中」可用但 step-diagram 暫顯 profile 3-step（_reset 已 seed output_lang）；(2) `/api/files` row 未 echo raw `output_languages` 欄（descriptor `languages` 已有，frontend 用 descriptor → 無影響）；(3) V6 pipeline-strip spec 4 fail 係 v3.20 popover redesign 既有 stale（早於本 branch baseline，非本次 regression）。
+**進度 kind 修復（commit `90b6e2d`，最終 review APPROVED）**：`transcribe_with_segments` + `report_from_subtitle_segment` 加 `progress_kind`/`stage_index`（default profile/0 → byte-identical），`_run_output_lang`(0)/`_run_output_lang_second`(1) 傳 output_lang → 轉錄期間 step-diagram 正確顯示 output_lang 2-step。
+
+**已知 minor（非 blocker）**：(1) `/api/files` row 未 echo raw `output_languages` 欄（descriptor `languages` 已有，frontend 用 descriptor → 無影響）；(2) **雙語並排只係近似 cross-language 對齊** —— 兩個獨立 Whisper pass（如 yue-transcribe vs en-translate）各自分句，`_run_output_lang_second` 按 index merge：單語言輸出時間軸完美，並排雙語逐句唔保證對應（個別 row en 可能空）；緊密雙語對齊需另一設計（已封存嘅 MT 逐段譯）；(3) V6 pipeline-strip spec 4 fail 係 v3.20 popover redesign 既有 stale（早於本 branch baseline，非本次 regression）；(4) find/replace radio label「搜 EN/ZH」未泛化（搜尋功能正常）。
+
+**最終全 branch review（Opus，eb5455e..HEAD）：READY TO MERGE，零 blocker** —— end-to-end coherence ✅、legacy path byte-identical ✅、live `data/app.db` PRAGMA integrity_check=ok（7165 jobs，CHECK 已 drop、payload/output_language column 在）✅、immutability + B2 mirror ✅。
