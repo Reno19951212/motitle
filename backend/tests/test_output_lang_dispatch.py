@@ -60,6 +60,27 @@ def test_asr_handler_output_lang_first_pass(app_mod, monkeypatch):
             app_mod._file_registry.pop(fid, None)
 
 
+def test_run_output_lang_first_pass_error_marks_status_error(app_mod, monkeypatch):
+    fid = "t-ol-err"
+
+    def boom(audio, **kw):
+        raise RuntimeError("mlx engine crashed")
+
+    monkeypatch.setattr(app_mod, "transcribe_with_segments", boom)
+    monkeypatch.setattr(app_mod, "_resolve_file_path", lambda f: "/tmp/x.wav")
+    with app_mod._registry_lock:
+        app_mod._file_registry[fid] = {"id": fid, "active_kind": "output_lang", "output_languages": ["yue"]}
+    try:
+        import pytest as _pt
+        with _pt.raises(RuntimeError):
+            app_mod._asr_handler({"file_id": fid, "id": "j", "user_id": 1, "type": "asr"})
+        assert app_mod._file_registry[fid]["status"] == "error"
+        assert "mlx engine crashed" in (app_mod._file_registry[fid].get("error") or "")
+    finally:
+        with app_mod._registry_lock:
+            app_mod._file_registry.pop(fid, None)
+
+
 def test_asr_handler_output_lang_second_pass_merges(app_mod, monkeypatch):
     fid = "t-ol-run2"
 

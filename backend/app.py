@@ -354,14 +354,18 @@ def _run_output_lang(file_id, job, audio_path, cancel_event):
     _update_file(file_id, status='transcribing', user_id=job["user_id"])
 
     first = outs[0]
-    res1 = transcribe_with_segments(
-        audio_path,
-        file_id=file_id,
-        job_user_id=job["user_id"],
-        cancel_event=cancel_event,
-        asr_profile_override=_output_lang_asr_override(),
-        **_whisper_params_for_lang(first),
-    )
+    try:
+        res1 = transcribe_with_segments(
+            audio_path,
+            file_id=file_id,
+            job_user_id=job["user_id"],
+            cancel_event=cancel_event,
+            asr_profile_override=_output_lang_asr_override(),
+            **_whisper_params_for_lang(first),
+        )
+    except Exception as e:
+        _update_file(file_id, status='error', error=str(e))
+        raise
     if not res1 or not res1.get("segments"):
         _update_file(file_id, status='error', error='output-lang transcribe returned empty')
         raise RuntimeError(f"output-lang first-pass transcribe returned empty for {file_id}")
