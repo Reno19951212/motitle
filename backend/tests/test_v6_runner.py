@@ -138,7 +138,7 @@ class TestRunV6Integration:
             )
 
         def fake_run_stage_v5(stage, segments_in, stage_index, stage_type,
-                              cancel_event, user_id, extra_overrides):
+                              cancel_event, user_id, extra_overrides, **kwargs):
             stage_types_called.append(stage_type)
             return (
                 {
@@ -194,7 +194,7 @@ class TestRunV6Integration:
             )
 
         def fake_run_stage_v5(stage, segments_in, stage_index, stage_type,
-                              cancel_event, user_id, extra_overrides):
+                              cancel_event, user_id, extra_overrides, **kwargs):
             if stage_type == "time_anchored_merge":
                 merge_extra_overrides_seen.update(extra_overrides)
             # Return qwen3_result for qwen3_per_region so it propagates to merge
@@ -236,7 +236,7 @@ class TestRunV6Integration:
             )
 
         def fake_run_stage_v5(stage, segments_in, stage_index, stage_type,
-                              cancel_event, user_id, extra_overrides):
+                              cancel_event, user_id, extra_overrides, **kwargs):
             if stage_type in ("vad", "qwen3_per_region"):
                 audio_path_seen[stage_type] = extra_overrides.get("audio_path")
             return (
@@ -284,7 +284,7 @@ class TestRunV6ContextResolution:
             )
 
         def fake_run_stage_v5(stage, segments_in, stage_index, stage_type,
-                              cancel_event, user_id, extra_overrides):
+                              cancel_event, user_id, extra_overrides, **kwargs):
             if stage_type == "qwen3_per_region":
                 # Capture the context from the stage's engine config
                 captured["context"] = getattr(stage._engine, "_context", None)
@@ -371,7 +371,7 @@ class TestRunV6RefinerPromptResolution:
         captured = {}
 
         def fake_run_stage_v5(stage, segments_in, stage_index, stage_type,
-                              cancel_event=None, user_id=None, extra_overrides=None):
+                              cancel_event=None, user_id=None, extra_overrides=None, **kwargs):
             if "refiner" in (stage_type or ""):
                 captured["runtime_overrides"] = extra_overrides or {}
             return (
@@ -494,7 +494,7 @@ class TestRefinerOverrideReachesRefinerStage:
         captured = {}
 
         def fake_run_stage_v5(stage, segments_in, stage_index, stage_type,
-                               cancel_event=None, user_id=None, extra_overrides=None):
+                               cancel_event=None, user_id=None, extra_overrides=None, **kwargs):
             if "refiner" in (stage_type or ""):
                 # Simulate what _run_stage_v5 does: merge extra_overrides into
                 # pipeline_overrides on the StageContext. RefinerStage reads
@@ -559,7 +559,7 @@ class TestRefinerOverrideReachesRefinerStage:
         captured = {}
 
         def fake_run_stage_v5(stage, segments_in, stage_index, stage_type,
-                               cancel_event=None, user_id=None, extra_overrides=None):
+                               cancel_event=None, user_id=None, extra_overrides=None, **kwargs):
             if "refiner" in (stage_type or ""):
                 captured["extra_overrides"] = extra_overrides or {}
             return (

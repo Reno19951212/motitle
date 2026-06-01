@@ -24,6 +24,10 @@ class StageContext:
     progress_callback: Optional[Callable[[int, int], None]]
     pipeline_overrides: dict = field(default_factory=dict)
     audio_path: Optional[str] = None  # v6: preferred over pipeline_overrides["audio_path"]
+    # v6 live-caption streaming: when set, RefinerStage forwards each refined
+    # segment's text (idx, total, text, lang) so the runner can emit a
+    # pipeline_segment event. None = no per-segment text streaming.
+    segment_callback: Optional[Callable[[int, int, str, str], None]] = None
 
 
 class StageOutput(TypedDict):

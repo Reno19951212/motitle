@@ -47,7 +47,12 @@ class RefinerStage(PipelineStage):
             style=self._refiner_profile.get("style", "broadcast"),
         )
         progress_cb = None
-        if context.progress_callback is not None:
-            def progress_cb(idx: int, total: int, _txt: str):
-                context.progress_callback(idx, total)
+        if context.progress_callback is not None or context.segment_callback is not None:
+            def progress_cb(idx: int, total: int, txt: str):
+                if context.progress_callback is not None:
+                    context.progress_callback(idx, total)
+                # v6 live-caption: forward the refined segment text so the runner
+                # can stream it (pipeline_segment). Only wired for the final refiner.
+                if context.segment_callback is not None:
+                    context.segment_callback(idx, total, txt, self._lang)
         return refiner.refine(segments_in, progress=progress_cb)

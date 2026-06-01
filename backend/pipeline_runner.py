@@ -114,6 +114,19 @@ def _make_progress_callback(file_id: str, pipeline_id: str, stage_index: int, st
     return cb
 
 
+def _make_segment_callback(file_id: str, pipeline_id: str):
+    """Build a per-segment callback that emits the refined text live so the
+    frontend can stream it onto the file card (V6 final-refiner streaming).
+    Additive event — does not touch the pipeline_progress/stage contract."""
+    def cb(idx: int, total: int, text: str, lang: str) -> None:
+        _socketio_emit("pipeline_segment", {
+            "file_id": file_id, "pipeline_id": pipeline_id,
+            "idx": idx, "total": total, "text": text, "lang": lang,
+        })
+
+    return cb
+
+
 def _check_cancel(cancel_event: Optional[threading.Event]) -> None:
     if cancel_event is not None and cancel_event.is_set():
         from jobqueue.queue import JobCancelled
@@ -423,9 +436,14 @@ class PipelineRunner:
 
     def _run_stage_v5(
         self, stage, segments_in, stage_index, stage_type,
-        cancel_event, user_id, extra_overrides: dict,
+        cancel_event, user_id, extra_overrides: dict, segment_emit: bool = False,
     ):
-        """Same as _run_stage but merges extra_overrides into context.pipeline_overrides."""
+        """Same as _run_stage but merges extra_overrides into context.pipeline_overrides.
+
+        segment_emit=True wires a segment_callback so the stage (RefinerStage)
+        streams each refined segment's text via the pipeline_segment event —
+        used for the final refiner so the file card shows a live caption.
+        """
         app_mod = _app_module()
         with app_mod._registry_lock:
             file_entry = app_mod._file_registry.get(self._file_id, {})
@@ -443,6 +461,8 @@ class PipelineRunner:
             progress_callback=_make_progress_callback(
                 self._file_id, self._pipeline["id"], stage_index, stage_type),
             pipeline_overrides=overrides_for_this_pipeline,
+            segment_callback=(_make_segment_callback(self._file_id, self._pipeline["id"])
+                              if segment_emit else None),
         )
         start_t = time.time()
         try:
@@ -585,7 +605,8 @@ class PipelineRunner:
         for target_lang in self._pipeline.get("target_languages", []):
             lang_segments = list(canonical_source)
 
-            for refiner_entry in self._pipeline.get("refinements", {}).get(target_lang, []):
+            _refiner_entries = self._pipeline.get("refinements", {}).get(target_lang, [])
+            for _ri, refiner_entry in enumerate(_refiner_entries):
                 refiner_profile = self._refiner_profile_manager.get(
                     refiner_entry["refiner_profile_id"]
                 )
@@ -639,6 +660,8 @@ class PipelineRunner:
                     stage_index=stage_index, stage_type=refiner_stage.stage_type,
                     cancel_event=cancel_event, user_id=user_id,
                     extra_overrides=refiner_extra,
+                    # Stream the final refiner's per-segment text (live card caption).
+                    segment_emit=(_ri == len(_refiner_entries) - 1),
                 )
                 stage_outputs.append(rf_out)
                 stage_index += 1
