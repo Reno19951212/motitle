@@ -83,3 +83,15 @@ Harness `backend/scripts/integ_output_lang.py`（live HTTP API，clean-restart b
 **已知 minor（非 blocker）**：(1) `/api/files` row 未 echo raw `output_languages` 欄（descriptor `languages` 已有，frontend 用 descriptor → 無影響）；(2) **雙語並排只係近似 cross-language 對齊** —— 兩個獨立 Whisper pass（如 yue-transcribe vs en-translate）各自分句，`_run_output_lang_second` 按 index merge：單語言輸出時間軸完美，並排雙語逐句唔保證對應（個別 row en 可能空）；緊密雙語對齊需另一設計（已封存嘅 MT 逐段譯）；(3) V6 pipeline-strip spec 4 fail 係 v3.20 popover redesign 既有 stale（早於本 branch baseline，非本次 regression）；(4) find/replace radio label「搜 EN/ZH」未泛化（搜尋功能正常）。
 
 **最終全 branch review（Opus，eb5455e..HEAD）：READY TO MERGE，零 blocker** —— end-to-end coherence ✅、legacy path byte-identical ✅、live `data/app.db` PRAGMA integrity_check=ok（7165 jobs，CHECK 已 drop、payload/output_language column 在）✅、immutability + B2 mirror ✅。
+
+## ★★★ Post-T11 顯示修復 — single-language 誤顯示為 dual（2026-06-01，branch `worktree-fix-output-lang-single-display`）
+User 報三個顯示 bug：揀**淨第一輸出語言**（冇第二）時，三個 surface 仍當有兩種語言。Root cause 全部自己核實（systematic-debugging）；popup 邏輯本身正確（單語言真係送 1 個 `output_languages`）→ 三個係獨立顯示 bug，**冇上游根因**。
+
+| Bug | Surface | Root cause | 修復 |
+|---|---|---|---|
+| 1 | 工作隊列序列 step-diagram | `progress_adapter.PIPELINE_STAGES["output_lang"]` 硬編碼 2-stage，snapshot（`report`）+ cold-start（`jobqueue/routes.py`）兩路都無視語言數 | `report()` 加 `num_output_langs` 按實際數切（`[:max(1,n)]`）；`_reset_progress_for_job`/`_asr_handler`(`len(outs)`)/`_run_output_lang_second`(`max(2,len)`)/queue cold-start 傳語言數。profile/v6 default None → byte-identical |
+| 2 | 主頁右邊「實時字幕」transcript inspector list | `loadFileSegments` 對每段 `zh_text=_en_text=firstText`（鏡 first 落 second），`.t-en`+`.t-zh` 無條件顯示 → 兩行同語言 | `zh_text = secondText \|\| ''`（單語言空 → `.t-zh` guard 自動隱藏；雙語顯示兩個不同語言）|
+| 2b | 主頁影片 overlay（bilingual mode）| overlay fallback `zh: s.zh_text \|\| (s._en_text ? s.text : '')`，單語言 + 字幕來源=雙語 → first 疊兩次 | output_lang 唔 fallback（`zh: s.zh_text \|\| ''`）；profile/V6 保留 legacy fallback |
+| 3 | Proofread 左 segment list | row text `s.zh \|\| '(未翻譯)'`，output_lang 單語言 `s.zh`（第二）為空 → 成個 list「(未翻譯)」 | output_lang 改 `s.en \|\| s.zh \|\| '(未翻譯)'`（顯示第一/必有語言）；非 output_lang byte-identical |
+
+**驗證**：backend +6 unit（`test_progress_adapter` 單→1/雙→2/profile 不變）+2 cold-start（`test_queue_progress_pct`）；frontend Playwright `test_output_lang_proofread`（+2 list-row，共 7 pass）、新 `test_output_lang_realtime_list`（單一行 / 雙兩語 / overlay bilingual 一行，3 pass）、`test_output_lang_upload` 6 pass regression。touched backend test 檔隔離全綠（142）。對抗式 review 4 agent：3 確認 fixes-correct，1 個誤讀主 checkout 舊代碼（false alarm，已 rebut：worktree `zh_text: secondText` 存在、主 checkout count=0），佢提示嘅 overlay bilingual edge 已補修（2b）。Commits：`fa2b300`(Bug1)→`1e88176`(Bug2+3)→`12449ca`(Bug2b overlay)。**未 push / 未 merge**。
