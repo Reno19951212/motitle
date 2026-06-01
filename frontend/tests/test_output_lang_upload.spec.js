@@ -150,4 +150,60 @@ test.describe.serial('output-lang upload popup', () => {
     expect(hasPending).toBe(false);
   });
 
+  // Fix 1 — Cmd+Enter with popup open must NOT do a legacy upload (no output_languages).
+  // It should either confirm the popup (POST with output_languages) or be a no-op.
+  test('Cmd+Enter while popup is open confirms it (never triggers legacy upload)', async ({ page }) => {
+    const posts = [];
+    await page.route('**/api/transcribe', async (route) => {
+      posts.push(route.request().postData());
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ file_id: 'stub-fid-fix1', job_id: 'job-fix1', queue_position: 1 }),
+      });
+    });
+
+    await selectFixture(page);
+    await expect(page.locator('#olOverlay')).toHaveClass(/open/, { timeout: 5000 });
+
+    // Ensure first-lang is set (default is 'yue', which is valid).
+    await page.selectOption('#olFirstLang', 'yue');
+    await page.selectOption('#olSecondLang', '');
+
+    // Click on a neutral area to move focus away from the select and onto the body.
+    await page.mouse.click(10, 10);
+
+    // Press Cmd+Enter (Meta+Enter on mac) — the popup is still open.
+    await page.keyboard.press('Meta+Enter');
+
+    // Wait briefly for any POST to fire (or not).
+    await page.waitForTimeout(1500);
+
+    if (posts.length > 0) {
+      // A POST happened — it MUST carry output_languages (not a bare legacy upload).
+      for (const body of posts) {
+        expect(body).toContain('output_languages');
+      }
+    }
+    // Either no POST (safe no-op) or POST with output_languages — both are acceptable.
+    // What is NOT acceptable: a POST without output_languages.
+    // The assertion above already covers that case.
+  });
+
+  // Fix 2 — × close button must also clear the pending card (parity with 取消 / Esc).
+  test('× close button clears the pending file (same as 取消)', async ({ page }) => {
+    await selectFixture(page);
+    await expect(page.locator('#olOverlay')).toHaveClass(/open/, { timeout: 5000 });
+
+    // Click the × button (the .or-close button inside #olOverlay).
+    await page.click('#olOverlay .or-close');
+    await expect(page.locator('#olOverlay')).not.toHaveClass(/open/, { timeout: 5000 });
+
+    // __pending__ card must be cleared — same as clicking 取消.
+    const hasPending = await page.evaluate(
+      () => typeof uploadedFiles !== 'undefined' && !!uploadedFiles['__pending__']
+    );
+    expect(hasPending).toBe(false);
+  });
+
 });

@@ -4595,8 +4595,6 @@
               text: stripQaPrefix(firstText) || firstText,
               zh_text: firstText,          // legacy readers (overlay/export) read first-lang text
               _en_text: firstText,         // keep en/zh readers consistent for output_lang
-              _first_text: firstText,
-              _second_text: secondText,
               _approved: t.status === 'approved' || t.approved === true,
               _edited: t.edited === true,
             };
@@ -4792,8 +4790,10 @@
       }
       if (!selectedFile || isProcessing) return;
       // T8 — a fresh local file must go through the output-language popup first.
-      // If the run button (or Cmd+Enter) fires before languages are chosen,
-      // re-open the popup instead of doing a legacy upload.
+      // If the Run button fires before languages are chosen (popup not yet open),
+      // open the popup. Cmd+Enter while the popup is OPEN is intercepted by the
+      // global keydown handler above and routes to confirmOutputLangModal() — it
+      // will never reach this code with the popup already open.
       if (!pendingOutputLangs.length && !document.getElementById('olOverlay')?.classList.contains('open')) {
         openOutputLangModal(selectedFile);
         return;
@@ -5790,6 +5790,12 @@
       }
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault();
+        // If the output-lang popup is open, confirm it (Enter = 開始處理).
+        // Do NOT fall through to a legacy upload without output_languages.
+        if (document.getElementById('olOverlay')?.classList.contains('open')) {
+          confirmOutputLangModal();
+          return;
+        }
         startTranscription();
       }
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -6003,7 +6009,7 @@
     <div class="or-modal" style="width: 720px; max-width: 92vw;">
       <div class="or-head">
         <span>處理設定 — 揀輸出語言</span>
-        <button class="or-close" onclick="closeOutputLangModal()" aria-label="關閉">&times;</button>
+        <button class="or-close" onclick="cancelOutputLangModal()" aria-label="關閉">&times;</button>
       </div>
       <div class="or-body" style="padding: 0;">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
@@ -6021,6 +6027,9 @@
           </div>
           <!-- RIGHT: language dropdowns -->
           <div style="padding:16px 18px;display:flex;flex-direction:column;gap:14px;">
+            <!-- olSourceLang: display-only metadata, NOT sent to the backend or persisted.
+                 Source language detection is handled by Whisper; this field is purely informational
+                 and does not affect the output-language pipeline. -->
             <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
               <span style="font-weight:600;">影片來源語言 <span style="color:var(--text-dim);font-weight:400;">（僅作標記，不影響處理）</span></span>
               <select id="olSourceLang" class="or-input">
