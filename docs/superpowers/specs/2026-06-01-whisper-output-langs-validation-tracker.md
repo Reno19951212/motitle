@@ -61,3 +61,21 @@ Prototype `backend/scripts/diag_whisper_full_quality.py`；全文存 `/tmp/wfull
 **結論（推翻「Whisper 做唔到口語」）**：Whisper Large v3 `language=yue` 真正輸出口語廣東話（嘅/係/點/睇/哋/唔/好）。
 **最終 mapping（全部純 Whisper，零 MT/Qwen3）**：口語=`yue`+s2hk ✅｜書面=`zh`+s2hk ✅｜英文=`translate` ✅｜日文=`ja` ⚠️marginal。
 （注意：yue 仍偶有短重複，靠 segment_utils dedup 清。）
+
+## ★★ T11 整合驗證 — real dual-Whisper-pass 全鏈路（2026-06-01）✅ PASS
+Harness `backend/scripts/integ_output_lang.py`（live HTTP API，clean-restart backend :5001）。真檔 `香港警察結業會操（中文語音）.mp4`（2.4min 粵語），`POST /api/transcribe` + `output_languages=["yue","en"]` → 等兩個 Whisper pass。
+
+| 驗證項 | 結果 |
+|---|---|
+| 第一 pass（yue + s2hk）| 46 段，`by_lang.yue.text`=「今晚我**好**高興**同埋好**榮幸」— 真口語粵語 marker + 繁體 HK（榮幸）✅ |
+| 第二 pass（en, `task=translate` via `asr_output` job）| `by_lang.en.text`=「The Los Angeles Police…」乾淨英文 ✅（內容有 Whisper translate 小幻覺但語言正確）|
+| 持久化 | `by_lang.{yue,en}` + authoritative `yue_text`/`en_text` mirror 一致 ✅ |
+| descriptor `/languages` | `[{first,yue,口語廣東話},{second,en,英文}]` ✅ |
+| status | `done`（first pass 後 status=done + 自動 enqueue 第二 pass asr_output）✅ |
+| export | `source=first`→粵語 SRT、`source=second`→英文 SRT ✅ |
+
+**結論**：整條 dual-Whisper-pass output_lang pipeline（T1-T7 backend）端到端實證通過 —— `transcribe_with_segments` lang/task/s2hk override 真正抵達 mlx engine、`asr_profile_override` 強制 mlx large-v3、s2hk 轉繁、`build_output_translations` by_lang + mirror、`_run_output_lang` + `_run_output_lang_second`（asr_output 第二 pass）、descriptor、role-fields、export 全部正確。
+
+**Backend regression（pytest）**：output_lang + shared-code 子系統（output_lang/transcribe_override/persist/subtitle_text/bilingual_api/asr_output/progress_adapter/register_file）**135 passed / 0 failed**。render/v6/queue/proofreading 子系統全部在 isolation 下綠（queue_retry 5、v6 58、render 104/1）；唯一 fail = v3.3 已知 `test_ass_filter_escapes_colon_in_path`（macOS tmpdir colon-escape baseline）。零新增 regression。
+
+**已知 minor（非 blocker）**：(1) 轉錄期間 progress shim 仍報 `profile` kind（`report_from_subtitle_segment` hardcode）→ queue bar 顯示「轉錄中」可用但 step-diagram 暫顯 profile 3-step（_reset 已 seed output_lang）；(2) `/api/files` row 未 echo raw `output_languages` 欄（descriptor `languages` 已有，frontend 用 descriptor → 無影響）；(3) V6 pipeline-strip spec 4 fail 係 v3.20 popover redesign 既有 stale（早於本 branch baseline，非本次 regression）。
