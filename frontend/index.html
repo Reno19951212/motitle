@@ -1930,6 +1930,11 @@
     // [] = legacy (profile/V6) upload; ["yue"] or ["yue","en"] = output_lang pipeline.
     // Cleared after a successful POST /api/transcribe and on clearPending().
     let pendingOutputLangs = [];
+    // Cross-language routing: source language is AUTHORITATIVE (drives backend routing);
+    // script selects 繁體/簡體 for Chinese output. Captured in confirmOutputLangModal(),
+    // appended to /api/transcribe FormData only when output languages are chosen.
+    let pendingSourceLanguage = 'yue';
+    let pendingScript = 'trad';
     let _olPreviewUrl = null;  // object URL for the popup's <video> preview (revoked on close)
 
     // V6 — Dual-ASR Pipeline state (v3.19)
@@ -4834,6 +4839,8 @@
       // Second is optional; skip 「無」(empty) and any duplicate of the first.
       if (second && second !== first) langs.push(second);
       pendingOutputLangs = langs;
+      pendingSourceLanguage = (document.getElementById('olSourceLang') || {}).value || 'yue';
+      pendingScript = (document.getElementById('olScript') || {}).value || 'trad';
       closeOutputLangModal();
       startTranscription();
     }
@@ -4869,6 +4876,9 @@
       // output_lang pipeline. Absent → legacy profile/V6 behaviour (unchanged).
       if (Array.isArray(pendingOutputLangs) && pendingOutputLangs.length) {
         formData.append('output_languages', JSON.stringify(pendingOutputLangs));
+        // Cross-language routing: source language is AUTHORITATIVE; script picks 繁/簡.
+        formData.append('source_language', pendingSourceLanguage);
+        formData.append('script', pendingScript);
       }
 
       try {
@@ -6097,16 +6107,15 @@
           </div>
           <!-- RIGHT: language dropdowns -->
           <div style="padding:16px 18px;display:flex;flex-direction:column;gap:14px;">
-            <!-- olSourceLang: display-only metadata, NOT sent to the backend or persisted.
-                 Source language detection is handled by Whisper; this field is purely informational
-                 and does not affect the output-language pipeline. -->
+            <!-- olSourceLang: AUTHORITATIVE source language for cross-language routing.
+                 Sent to the backend as source_language when output languages are chosen. -->
             <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-              <span style="font-weight:600;">影片來源語言 <span style="color:var(--text-dim);font-weight:400;">（僅作標記，不影響處理）</span></span>
+              <span style="font-weight:600;">影片來源語言</span>
               <select id="olSourceLang" class="or-input">
-                <option value="zh">中文</option>
+                <option value="yue">粵語</option>
+                <option value="cmn">普通話</option>
                 <option value="en">英文</option>
                 <option value="ja">日文</option>
-                <option value="other">其他</option>
               </select>
             </label>
             <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
@@ -6114,6 +6123,7 @@
               <select id="olFirstLang" class="or-input">
                 <option value="yue">口語廣東話</option>
                 <option value="zh">中文書面語</option>
+                <option value="cmn">普通話</option>
                 <option value="en">英文</option>
                 <option value="ja">日文</option>
               </select>
@@ -6124,8 +6134,16 @@
                 <option value="">無</option>
                 <option value="yue">口語廣東話</option>
                 <option value="zh">中文書面語</option>
+                <option value="cmn">普通話</option>
                 <option value="en">英文</option>
                 <option value="ja">日文</option>
+              </select>
+            </label>
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+              <span style="font-weight:600;">中文字體</span>
+              <select id="olScript" class="or-input">
+                <option value="trad">繁體</option>
+                <option value="simp">簡體</option>
               </select>
             </label>
             <div id="olWarn" style="display:none;font-size:11px;color:var(--danger);"></div>
