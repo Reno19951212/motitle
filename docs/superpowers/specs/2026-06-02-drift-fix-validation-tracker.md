@@ -68,6 +68,20 @@ O1 只修咗雙語**匯出/燒入**（`aligned_bilingual`，1:1）。校對頁 +
 
 > **gap ④ 已 closed**（普通話 + 日文 內容片實證,見上表）。
 
+## ★ User 方案補驗（2026-06-02）— 綁內容 ASR + 1:1 MT（qwen3.5）+ en→zh refiner 取捨
+
+**User 拍板**：凡有跨語言輸出嘅片 → 第一軌綁內容語言 ASR（準時間）+ 其餘 1:1 MT（**維持 qwen3.5:35b**）；純中文輸出照舊。**等於 B 收窄至「有跨語言輸出」嘅片**。
+**Prototype**：`backend/scripts/crosslang_prototype/en_zh_quality_validation.py`（WF 英文 formal，en base → zh `MT-only` vs `MT+書面語 refine`）。2-lens workflow 評審（fidelity vs register）。
+
+**結果**：
+- **drift ✅**：base=zh_mt=zh_refine=42，1:1 全等 → 再確認方案結構零 drift。
+- **en→zh：raw MT 勝（唔行 refiner）** —— fidelity lens MT-only 4/5 vs refine 3/5;register lens 相反（refine 4 vs MT 2,因 MT 偶漏粵語 係/嘅）。**關鍵不對稱裁決用 raw MT**：refiner 嘅價值係清粵語口語,但**英文源無粵語可清** → qwen3.5 MT 本身已書面語（~25/42 乾淨）→ refiner「自由發揮」破壞 25 個正確 cue（`智慧大道→智道` 截馬名、`draw→起跑表現` 誤譯、`latest→最後一役`、改騎師名、捏造疑問句、虛構「較為出色」),**且救唔到真正錯嘅硬 cue**（refiner 睇唔到英文）。MT 偶發粵語洩漏應喺 **MT prompt 源頭**（指定繁體書面語）修,唔係事後 refine。
+- **★ 證實 `derive_mode` 設計正確**：`en→zh`/`ja→zh`=`mt`（不 refine,本驗證確認啱）;`yue→zh`/`cmn→zh`=`refine`（中文源有粵語/口語可清,B 驗證確認啱）。**refiner gating = 按源語言,derive_mode 已經做啱**,唔使新機制。
+- **over-cap ~25%（zh cue >24 字,繼承英文 grid）**：timeline/grid 問題,唔影響 MT-vs-refine。處理:雙語並排保 1:1 + line-wrap;**單一中文輸出用中文標點 clause-split**（V6 嗰套:proportional timing + min-dur guard）。
+- **★ 真正剩低嘅質量槓桿 = glossary 專名注入**（馬名 `烈焰悟空/火熱悟空/火燄悟空` 三種寫法、騎師 `何秉舜/何秉皓` 唔一致、`Endured/Family Jewel` 留英文）+ MT prompt 書面語指示。屬上游 MT 質量,與 drift 正交。
+
+**淨結論：User 方案 ✅ Validated。** 英文/日文片:綁內容 ASR base + qwen3.5 1:1 MT,**MT prompt 指定繁體書面語、唔開 refiner**;中文源 → zh 行 refiner（derive_mode 已正確）;單語輸出加 clause-split 解 over-cap;glossary 馬名注入為後續質量槓桿（v2）。比 full B 更簡（英文源連 refiner 都唔使）。
+
 ## 待 user review 後入 brainstorm→spec→plan
 B 架構 ✅ 可行。spec 必帶上述 5 硬要求。範圍外（仍 v1 限制）：en/zh 碎句 fragment-MT 上文質量（neighbour-context,v2）。
 
