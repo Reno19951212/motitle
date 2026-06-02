@@ -115,6 +115,19 @@ User 加 source 粵語/普通話拆分、output 普通話/簡體;提供普通話
 - `粵語→中文書面語/普通話`：Whisper 直出 `zh` ✅（Whisper 'zh' 食慣粵音→中文字幕，5/4/5）
 - `普通話→口語廣東話`：Whisper 直出 `yue` ❌（force-yue 落 Mandarin 音唔會轉粵語口語）→ 要 ASR(zh)+MT(zh→yue)
 
+## ★★★★ 整合驗證（2026-06-02，build 後端到端，:5002 真片）✅ OK
+Harness `backend/scripts/crosslang_prototype/integ_crosslang.py`，逐路由格真 Whisper+MT：
+
+| Case | 輸出 | 方法 | 結果 |
+|---|---|---|---|
+| 警察(粵) yue→[yue,en] trad | yue | whisper-direct | `今晚我好高興同埋好榮幸`（真粵語繁體）✅ |
+| | en | asr_mt(粵→英) | `I am very happy and honored tonight.`（乾淨）✅ |
+| **阿土(普) cmn→[yue,cmn] trad** | **yue** | **asr_mt(普→粵)** | `哈囉各位，係 NASA 嘅 NASA。`（**真粵語 係/嘅 — cross-dialect nuance 生產確認**）✅ |
+| | cmn | whisper-direct | `HOLA各位,NASA的NASA`（普通話 raw，的）✅ |
+| Harry Kane(英) en→[zh] **simp** | zh | asr_mt(英→中)+refiner+t2s | `恭喜，任务完成，晋级十六强。`（**簡體** + 正確，非 force-zh 嘅「16分」）✅ |
+
+全部 status=done、descriptor langs 正確、`by_lang`+mirror 持久化正確。**結論：cross-language 路由（whisper-direct / asr+mt）、cross-dialect（普→粵真粵語）、繁/簡 OpenCC、書面語 refiner、descriptor/export 全部端到端通過。** Backend regression 16 檔隔離全綠（172 tests，零 regression）。
+
 ## 最終路由表（證據敲定）
 | 輸出語言 | Whisper 直出 條件（內容 audio）| 否則 → ASR(內容)+MT | 後處理 |
 |---|---|---|---|
