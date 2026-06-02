@@ -343,6 +343,14 @@ def _output_lang_asr_override():
     }}
 
 
+def _make_ollama_llm_call():
+    """Build a (system, user) -> str LLM client bound to the production MT model
+    (Ollama qwen3.5:35b-a3b-mlx-bf16), reused for cross-lang MT + the 書面語 refiner."""
+    from translation.ollama_engine import OllamaTranslationEngine
+    eng = OllamaTranslationEngine({"engine": "qwen3.5-35b-a3b"})
+    return lambda system, user: eng._call_ollama(system, user, 0.3)
+
+
 def _run_output_lang(file_id, job, audio_path, cancel_event):
     """Output-language ASR — FIRST pass (primary language).
 
