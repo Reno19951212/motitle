@@ -22,6 +22,19 @@
 
 **已知（非 blocker）**：(1) cue 邊界 = Whisper 原生分句(較長、有時切半句)→ 個別 1:1 段帶 fragment-MT 痕跡(無上文);生產加 neighbour context 可順。(2) 雙語 cue 較長 → 燒入要 line-wrap。
 
+## ★★ Multi-clip + 全片 drift check（2026-06-02）✅ 零 drift
+`backend/scripts/crosslang_prototype/o1_multiclip_prototype.py`。3 種內容語言、含**成條 9.5min Winning Factor**：
+
+| 片 | base→outs | cues | 對齊 | 時間軸單調 | 空段 |
+|---|---|---|---|---|---|
+| WF 全條（英→en+zh MT）| en | 134 | 完美 1:1 ✅ | ✅ | 0/0 |
+| 警察 全條（粵→yue+zh refiner）| yue | 46 | ✅ | ✅ | 0/0 |
+| 阿土 150s（普→cmn+en MT）| zh | 114 | ✅ | ✅ | 0/0 |
+
+**後段無 drift 實證（WF 最尾 cue @9:28–9:38）**：`Well that's it from the…`↔`而家係本週《贏家因素》嘅最後一節`、`luck on Saturday. We'll see you next time.`↔`星期六祝你好運，下次再見。` —— 去到全片最尾兩種語言仍逐 cue 對齊、時間軸一致。**結構上不可能 drift**（cue i 兩語言共用 base cue i 嘅 start/end；MT/refiner/passthrough/OpenCC 全 1:1，count 每步保持 → base==out1==out2）。SRT 證據：`/tmp/o1_{WF_full,police_full,ato_150}.srt`。
+
+register 轉換實證（粵→書面）：`今晚我好高興同埋好榮幸`→`本人今宵深感高興與榮幸`。
+
 ## 建議 build 方向（待拍板）
 - 統一模型:output_lang 一個 **content-language base ASR** → 所有輸出語言由佢 1:1 衍生(transcribe-passthrough / MT / refiner)→ 全部共用 cue。
 - 雙語匯出/render 用 1:1 base 對齊版;單語言匯出用各自 clause-split 版。
