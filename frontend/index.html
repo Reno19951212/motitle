@@ -4347,6 +4347,53 @@
         body.innerHTML = '<div style="padding:40px 16px;text-align:center;color:var(--text-dim);font-size:12px;">選擇檔案以查看資訊</div>';
         return;
       }
+
+      // Build-Whisper (output_lang) workflow: show the chosen output languages +
+      // per-pass Whisper processing time instead of the MT-centric Pipeline rows.
+      // Old Profile / V6 pipelines fall through to the legacy layout below.
+      if (f.active_kind === 'output_lang') {
+        const langs = Array.isArray(f.languages) ? f.languages : [];
+        const second = langs[1];
+        const firstLabel = langs[0] ? (langs[0].label || langs[0].lang) : '—';
+        const secondLabel = second ? (second.label || second.lang) : '無';
+        const firstSec = f.asr_seconds;
+        const secondSec = f.asr_output_second_seconds;
+        const firstTime = firstSec != null ? formatDuration(firstSec) : '—';
+        const secondTime = (secondSec != null) ? formatDuration(secondSec) : '—';
+        const haveTotal = firstSec != null || (second && secondSec != null);
+        const totalSec = (firstSec != null ? firstSec : 0) + (second && secondSec != null ? secondSec : 0);
+        const totalTime = haveTotal ? formatDuration(totalSec) : '—';
+        const olSize = f.size ? `${(f.size/1024/1024).toFixed(1)} MB` : '—';
+
+        body.innerHTML = `
+          <div class="info-group">
+            <div class="info-title">檔案</div>
+            <dl class="info-dl">
+              <dt>檔名</dt><dd title="${escapeHtml(f.original_name)}">${escapeHtml(f.original_name)}</dd>
+              <dt>時長</dt><dd>${f.duration ? formatDuration(f.duration) : '—'}</dd>
+              <dt>大小</dt><dd>${olSize}</dd>
+              <dt>段數</dt><dd>${f.segment_count || 0}</dd>
+              <dt>上傳</dt><dd>${escapeHtml(formatRelativeTime(f.uploaded_at) || '—')}</dd>
+            </dl>
+          </div>
+          <div class="info-group">
+            <div class="info-title">輸出語言</div>
+            <dl class="info-dl">
+              <dt>第一語言</dt><dd>${escapeHtml(firstLabel)}</dd>
+              <dt>第二語言</dt><dd>${escapeHtml(secondLabel)}</dd>
+            </dl>
+          </div>
+          <div class="info-group">
+            <div class="info-title">處理時間</div>
+            <dl class="info-dl">
+              <dt>第一語言</dt><dd>${firstTime}</dd>
+              ${second ? `<dt>第二語言</dt><dd>${secondTime}</dd>` : ''}
+              <dt>總計</dt><dd>${totalTime}</dd>
+            </dl>
+          </div>`;
+        return;
+      }
+
       const asrEngine = activeProfile?.asr?.engine || f.backend || 'whisper';
       const asrModel = f.model || activeProfile?.asr?.model_size || '—';
       const mtEngine = f.translation_engine || activeProfile?.translation?.engine || '—';

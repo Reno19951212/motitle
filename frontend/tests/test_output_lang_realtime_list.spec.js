@@ -111,6 +111,48 @@ test.describe.serial('output_lang home transcript list (Bug 2)', () => {
     await expect(row.locator('.t-zh')).toHaveText('The weather is like this today'); // second lang
   });
 
+  test('資訊 tab shows output languages + processing time for DUAL output_lang', async ({ page }) => {
+    const dual = { ...FILE_DUAL, id: 'rt-info-dual', asr_seconds: 42.5, asr_output_second_seconds: 18.3 };
+    await loadInTranscript(page, dual, TRANS_DUAL);
+    await page.evaluate(() => switchTab('info'));
+    const body = await page.locator('#inspectorBody').innerText();
+    expect(body).toContain('輸出語言');
+    expect(body).toContain('口語廣東話');   // 第一語言
+    expect(body).toContain('英文');         // 第二語言
+    expect(body).toContain('處理時間');
+    // output_lang replaces the MT-centric Pipeline rows — no 'MT' label here.
+    expect(body).not.toContain('MT');
+  });
+
+  test('資訊 tab shows 第二語言 = 無 for SINGLE output_lang', async ({ page }) => {
+    const single = { ...FILE_SINGLE, id: 'rt-info-single', asr_seconds: 30.0 };
+    await loadInTranscript(page, single, TRANS_SINGLE);
+    await page.evaluate(() => switchTab('info'));
+    const body = await page.locator('#inspectorBody').innerText();
+    expect(body).toContain('輸出語言');
+    expect(body).toContain('口語廣東話');
+    expect(body).toContain('第二語言');
+    expect(body).toContain('無');
+  });
+
+  test('資訊 tab does NOT show 輸出語言 for an old Profile file', async ({ page }) => {
+    const prof = {
+      id: 'rt-info-profile', original_name: 'profile.mp4', status: 'done',
+      active_kind: 'profile', translation_status: 'done',
+      languages: [{ role: 'first', lang: 'en', label: '原文' }, { role: 'second', lang: 'zh', label: '譯文' }],
+    };
+    // Profile files don't use the output_lang transcript path; just open + switch tab.
+    await stub(page, prof, { translations: [] });
+    const r = await page.request.post(BASE + '/login', { data: { username: USER, password: PASS } });
+    if (!r.ok()) throw new Error(`Login failed: ${r.status()}`);
+    await page.goto(BASE + '/');
+    await page.waitForSelector('#inspectorBody', { timeout: 8000 });
+    await page.evaluate((f) => { uploadedFiles[f.id] = f; activeFileId = f.id; switchTab('info'); }, prof);
+    const body = await page.locator('#inspectorBody').innerText();
+    expect(body).not.toContain('輸出語言');   // Build-Whisper-only section absent
+    expect(body).toContain('MT');             // legacy Pipeline group still shown
+  });
+
   test('single output language → video overlay shows ONE line even in bilingual mode', async ({ page }) => {
     // Subtitle-source 'bilingual' on a single-language file used to stack the
     // first language twice (firstText\nfirstText) because the overlay fell back

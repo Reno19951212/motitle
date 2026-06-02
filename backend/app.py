@@ -360,6 +360,7 @@ def _run_output_lang(file_id, job, audio_path, cancel_event):
     _update_file(file_id, status='transcribing', user_id=job["user_id"])
 
     first = outs[0]
+    _first_start = time.time()
     try:
         res1 = transcribe_with_segments(
             audio_path,
@@ -391,6 +392,8 @@ def _run_output_lang(file_id, job, audio_path, cancel_event):
         text=res1.get("text", ""),
         model=res1.get("model"),
         backend=res1.get("backend"),
+        # First-language Whisper pass wall-clock — surfaced in the 資訊 tab.
+        asr_seconds=round(time.time() - _first_start, 1),
     )
 
     if len(outs) > 1:
@@ -422,6 +425,7 @@ def _run_output_lang_second(file_id, job, audio_path, cancel_event):
     _reset_progress_for_job(file_id, job.get("id", ""), "output_lang", 1,
                             num_output_langs=max(2, len(_outs2)))
 
+    _second_start = time.time()
     res2 = transcribe_with_segments(
         audio_path,
         file_id=file_id,
@@ -433,6 +437,7 @@ def _run_output_lang_second(file_id, job, audio_path, cancel_event):
         **_whisper_params_for_lang(target),
     )
     segs2 = (res2 or {}).get("segments") or []
+    _second_seconds = round(time.time() - _second_start, 1)
 
     with _registry_lock:
         live_translations = _file_registry.get(file_id, {}).get("translations") or []
@@ -448,6 +453,9 @@ def _run_output_lang_second(file_id, job, audio_path, cancel_event):
             new_translations.append(new_row)
         if file_id in _file_registry:
             _file_registry[file_id]["translations"] = new_translations
+            # Second-language Whisper pass wall-clock — 資訊 tab sums it with
+            # asr_seconds (first pass) for the total processing time.
+            _file_registry[file_id]["asr_output_second_seconds"] = _second_seconds
             _save_registry()
 
 
@@ -4378,6 +4386,7 @@ def list_files():
             'translation_status': entry.get('translation_status'),
             'translation_engine': entry.get('translation_engine'),
             'asr_seconds': entry.get('asr_seconds'),
+            'asr_output_second_seconds': entry.get('asr_output_second_seconds'),  # output_lang 2nd pass
             'translation_seconds': entry.get('translation_seconds'),
             'pipeline_seconds': entry.get('pipeline_seconds'),
             'job_id': job_id_by_file.get(fid),  # R5 Phase 4
