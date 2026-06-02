@@ -351,6 +351,48 @@ def _make_ollama_llm_call():
     return lambda system, user: eng._call_ollama(system, user, 0.3)
 
 
+def _produce_output_lang(audio_path, source_language, output_lang, script,
+                         cancel_event, content_asr_cache):
+    """Produce one output language's segments via the routed method + post-processing.
+
+    content_asr_cache: dict shared across a file's output languages — the content-
+    language ASR (MT source) is transcribed once and reused for every cross output.
+    Returns a list of {start,end,text} segments (by_lang shape upstream).
+    """
+    from output_lang_router import route_output, whisper_direct_params, content_asr_lang
+    from translation import crosslang_mt
+    import output_lang_postprocess as olp
+
+    method = route_output(source_language, output_lang)
+    if method == "whisper":
+        res = transcribe_with_segments(
+            audio_path, cancel_event=cancel_event,
+            asr_profile_override=_output_lang_asr_override(),
+            progress_kind="output_lang", progress_stage_index=0,
+            **whisper_direct_params(output_lang))
+        base = (res or {}).get("segments") or []
+    else:
+        if "segments" not in content_asr_cache:
+            cres = transcribe_with_segments(
+                audio_path, cancel_event=cancel_event,
+                asr_profile_override=_output_lang_asr_override(),
+                progress_kind="output_lang", progress_stage_index=0,
+                lang_override=content_asr_lang(source_language), task_override="transcribe")
+            content_asr_cache["segments"] = (cres or {}).get("segments") or []
+        base = crosslang_mt.translate_segments(
+            content_asr_cache["segments"], source_language, output_lang, _make_ollama_llm_call())
+
+    if output_lang in ("yue", "zh", "cmn"):
+        if method == "asr_mt":
+            base = olp.clause_split_all(base, char_cap=18)
+        if output_lang == "zh":
+            base = olp.formal_refine(base, _make_ollama_llm_call())
+        base = olp.apply_script(base, script)
+    elif output_lang == "ja" and method == "asr_mt":
+        base = olp.clause_split_all(base, char_cap=18)
+    return base
+
+
 def _run_output_lang(file_id, job, audio_path, cancel_event):
     """Output-language ASR — FIRST pass (primary language).
 
