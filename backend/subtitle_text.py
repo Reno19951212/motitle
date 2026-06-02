@@ -12,6 +12,7 @@ VALID_BILINGUAL_ORDERS = {"en_top", "zh_top"}
 OUTPUT_LANG_LABELS = {
     "yue": "口語廣東話",
     "zh": "中文書面語",
+    "cmn": "普通話",
     "en": "英文",
     "ja": "日文",
 }

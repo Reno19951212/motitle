@@ -285,3 +285,16 @@ def test_descriptor_profile_and_v6_unchanged():
         "translations": [{"source_lang": "zh", "by_lang": {"zh": {"text": "x"}, "en": {"text": "y"}}}],
     })
     assert v6[0]["label"] == "原文" and v6[1]["label"] == "譯文"
+
+
+def test_output_lang_labels_includes_mandarin():
+    from subtitle_text import OUTPUT_LANG_LABELS, SUPPORTED_OUTPUT_LANGS
+    assert OUTPUT_LANG_LABELS["cmn"] == "普通話"
+    assert "cmn" in SUPPORTED_OUTPUT_LANGS
+
+
+def test_descriptor_labels_mandarin_output():
+    from subtitle_text import resolve_language_descriptor
+    entry = {"active_kind": "output_lang", "output_languages": ["cmn", "en"]}
+    d = resolve_language_descriptor(entry)
+    assert d[0]["lang"] == "cmn" and d[0]["label"] == "普通話"
