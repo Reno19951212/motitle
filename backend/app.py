@@ -4592,48 +4592,58 @@ def download_subtitle(file_id, fmt):
     # Determine role→field mapping for role-aware export (Task 2b).
     _exp_ff, _exp_sf = _role_fields_for(entry)
 
-    # Build a list of unified per-segment dicts with both text + zh_text.
-    segs = entry.get('segments', [])
-    translations = entry.get('translations') or []
-    tr_by_idx = {t.get('seg_idx', i): t for i, t in enumerate(translations)}
-    unified = []
-    for i, s in enumerate(segs):
-        t = tr_by_idx.get(i, {})
-        row = {
-            'start': s.get('start', t.get('start', 0)),
-            'end':   s.get('end',   t.get('end',   0)),
-            'text':     s.get('text', '') or t.get('en_text', ''),
-            'en_text':  s.get('text', '') or t.get('en_text', ''),
-            'zh_text':  t.get('zh_text', ''),
-        }
-        # V6 role fields are authoritative: when the file kind designates an
-        # explicit first/second field (e.g. en_text for an on-demand second
-        # language), source it directly from the translation row so the raw
-        # source-language segment text can't shadow the real value.
-        for _fld in (_exp_ff, _exp_sf):
-            if _fld:
-                row[_fld] = t.get(_fld, '')
-        unified.append(row)
-    # v3.19 Sprint 1 (B-4): V6 files store translations directly without a
-    # separate segments list.  When unified is empty but translations carry
-    # timing + text (mirrored by Change 1 / Change 4 migration), build the
-    # export from translations instead so the subtitle file is non-empty.
-    if not unified and translations:
-        for t in translations:
+    # O1: paired bilingual reads the 1:1-aligned view when present (perfect alignment).
+    aligned_bi = entry.get("aligned_bilingual")
+    _use_aligned = (mode == "bilingual" and bool(aligned_bi))
+    _desc = resolve_language_descriptor(entry, active_profile) if _use_aligned else []
+    _use_aligned = _use_aligned and len(_desc) >= 2
+
+    if _use_aligned:
+        from output_lang_aligned import aligned_rows_for_export
+        unified = aligned_rows_for_export(aligned_bi, _desc[0]["lang"], _desc[1]["lang"], _exp_ff, _exp_sf)
+    else:
+        # Build a list of unified per-segment dicts with both text + zh_text.
+        segs = entry.get('segments', [])
+        translations = entry.get('translations') or []
+        tr_by_idx = {t.get('seg_idx', i): t for i, t in enumerate(translations)}
+        unified = []
+        for i, s in enumerate(segs):
+            t = tr_by_idx.get(i, {})
             row = {
-                'start':    t.get('start', 0),
-                'end':      t.get('end', 0),
-                'text':     t.get('source_text', '') or t.get('en_text', '') or t.get('zh_text', ''),
-                'en_text':  t.get('source_text', '') or t.get('en_text', ''),
+                'start': s.get('start', t.get('start', 0)),
+                'end':   s.get('end',   t.get('end',   0)),
+                'text':     s.get('text', '') or t.get('en_text', ''),
+                'en_text':  s.get('text', '') or t.get('en_text', ''),
                 'zh_text':  t.get('zh_text', ''),
             }
-            # V6 role fields are authoritative: source the designated first/second
-            # field directly from the translation row so the raw source-language
-            # text (source_text) can't shadow a real second-language value.
+            # V6 role fields are authoritative: when the file kind designates an
+            # explicit first/second field (e.g. en_text for an on-demand second
+            # language), source it directly from the translation row so the raw
+            # source-language segment text can't shadow the real value.
             for _fld in (_exp_ff, _exp_sf):
                 if _fld:
                     row[_fld] = t.get(_fld, '')
             unified.append(row)
+        # v3.19 Sprint 1 (B-4): V6 files store translations directly without a
+        # separate segments list.  When unified is empty but translations carry
+        # timing + text (mirrored by Change 1 / Change 4 migration), build the
+        # export from translations instead so the subtitle file is non-empty.
+        if not unified and translations:
+            for t in translations:
+                row = {
+                    'start':    t.get('start', 0),
+                    'end':      t.get('end', 0),
+                    'text':     t.get('source_text', '') or t.get('en_text', '') or t.get('zh_text', ''),
+                    'en_text':  t.get('source_text', '') or t.get('en_text', ''),
+                    'zh_text':  t.get('zh_text', ''),
+                }
+                # V6 role fields are authoritative: source the designated first/second
+                # field directly from the translation row so the raw source-language
+                # text (source_text) can't shadow a real second-language value.
+                for _fld in (_exp_ff, _exp_sf):
+                    if _fld:
+                        row[_fld] = t.get(_fld, '')
+                unified.append(row)
 
     base_name = Path(entry['original_name']).stem
 
