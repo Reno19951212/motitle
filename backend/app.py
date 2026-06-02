@@ -3628,7 +3628,18 @@ def api_start_render():
     font_config = active_profile.get("font", DEFAULT_FONT_CONFIG) if active_profile else DEFAULT_FONT_CONFIG
 
     # Snapshot translations to pass into thread (immutable)
-    translations_snapshot = list(translations)
+    # O1: paired bilingual renders the 1:1-aligned view when present.
+    aligned_bi = entry.get("aligned_bilingual")
+    if subtitle_source == "bilingual" and aligned_bi:
+        from output_lang_aligned import aligned_rows_for_export
+        _desc = resolve_language_descriptor(entry, active_profile)
+        if len(_desc) >= 2:
+            translations_snapshot = aligned_rows_for_export(
+                aligned_bi, _desc[0]["lang"], _desc[1]["lang"], _render_first_field, _render_second_field)
+        else:
+            translations_snapshot = list(translations)
+    else:
+        translations_snapshot = list(translations)
     render_options_snapshot = dict(render_options)
     # Snapshot role→field mapping so the closure captures the right values.
     _render_ff_snap = _render_first_field
