@@ -35,19 +35,15 @@ def test_mt_handler_short_circuits_output_lang(app_mod, monkeypatch):
 
 def test_asr_handler_output_lang_first_pass(app_mod, monkeypatch):
     fid = "t-ol-run"
-
-    def fake_tws(audio, **kw):
-        assert kw["asr_profile_override"]["asr"]["engine"] == "mlx-whisper"
-        assert kw["lang_override"] == "yue" and kw["task_override"] == "transcribe" and kw["s2hk_override"] is True
-        return {"text": "今晚", "segments": [{"id": 0, "start": 0, "end": 1, "text": "今晚嘅賽事"}],
-                "model": "large-v3", "backend": "mlx"}
-
-    monkeypatch.setattr(app_mod, "transcribe_with_segments", fake_tws)
+    monkeypatch.setattr(app_mod, "_produce_output_lang",
+                        lambda audio, src, out, script, ce, cache: [{"start": 0, "end": 1, "text": "今晚嘅賽事"}])
     monkeypatch.setattr(app_mod, "_resolve_file_path", lambda f: "/tmp/x.wav")
     enq = []
     monkeypatch.setattr(app_mod._job_queue, "enqueue", lambda **k: enq.append(k))
     with app_mod._registry_lock:
-        app_mod._file_registry[fid] = {"id": fid, "active_kind": "output_lang", "output_languages": ["yue", "en"]}
+        app_mod._file_registry[fid] = {"id": fid, "active_kind": "output_lang",
+                                       "source_language": "yue", "script": "trad",
+                                       "output_languages": ["yue", "en"]}
     try:
         app_mod._asr_handler({"file_id": fid, "id": "j", "user_id": 1, "type": "asr"})
         e = app_mod._file_registry[fid]
@@ -83,17 +79,13 @@ def test_run_output_lang_first_pass_error_marks_status_error(app_mod, monkeypatc
 
 def test_asr_handler_output_lang_second_pass_merges(app_mod, monkeypatch):
     fid = "t-ol-run2"
-
-    def fake_tws(audio, **kw):
-        assert kw["task_override"] == "translate"   # en → translate
-        return {"text": "Tonight", "segments": [{"id": 0, "start": 0, "end": 1, "text": "Tonight's race"}],
-                "model": "large-v3", "backend": "mlx"}
-
-    monkeypatch.setattr(app_mod, "transcribe_with_segments", fake_tws)
+    monkeypatch.setattr(app_mod, "_produce_output_lang",
+                        lambda audio, src, out, script, ce, cache: [{"start": 0, "end": 1, "text": "Tonight's race"}])
     monkeypatch.setattr(app_mod, "_resolve_file_path", lambda f: "/tmp/x.wav")
     with app_mod._registry_lock:
         app_mod._file_registry[fid] = {
-            "id": fid, "active_kind": "output_lang", "output_languages": ["yue", "en"],
+            "id": fid, "active_kind": "output_lang", "source_language": "yue", "script": "trad",
+            "output_languages": ["yue", "en"],
             "translations": [{"idx": 0, "start": 0, "end": 1,
                               "by_lang": {"yue": {"text": "今晚嘅賽事", "status": "pending", "flags": []}},
                               "yue_text": "今晚嘅賽事", "status": "pending"}]}
