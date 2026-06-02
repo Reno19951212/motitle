@@ -1107,7 +1107,7 @@ def _resnapshot_active_for_rerun(file_id):
 
 def _register_file(file_id, original_name, stored_name, size_bytes, user_id=None,
                    file_path=None, active_kind=None, active_id=None,
-                   output_languages=None):
+                   output_languages=None, source_language=None, script=None):
     """Register an uploaded file. user_id is the owner (R5 Phase 1 — required
     once auth lands; defaults to None for backward compatibility with any
     pre-R5 path that may still upload anonymously). file_path is the
@@ -1159,6 +1159,8 @@ def _register_file(file_id, original_name, stored_name, size_bytes, user_id=None
             'active_id': active_id,      # v6 Task 2.4: snapshot at upload time
             'active_pipeline_snapshot': None,  # v3.19 Sprint 3 B-10: filled below for V6
             'output_languages': list(snap_output_languages),  # T1: output_lang snapshot
+            'source_language': source_language,  # T7: authoritative cross-lang routing
+            'script': script or 'trad',          # T7: trad | simp (default trad)
         }
         _save_registry()
     # Snapshot pipeline JSON immediately for V6 files (outside the lock to
@@ -1307,6 +1309,10 @@ if WHISPER_STREAMING_AVAILABLE:
             print(f"Streaming session stopped for {self.sid}")
 
 ALLOWED_EXTENSIONS = {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.mxf', '.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg'}
+
+# Cross-language routing (output_lang mode): authoritative source language of the
+# media. Used together with `script` (trad/simp) to drive per-pass Whisper config.
+_SUPPORTED_SOURCE_LANGS = {"yue", "cmn", "en", "ja"}
 
 
 def get_model(model_size='small', backend='auto'):
@@ -4104,6 +4110,17 @@ def transcribe_file():
             return jsonify({"error": "output_languages must contain 1 or 2 entries"}), 400
         _upload_output_languages = _parsed_langs
 
+    # T7 cross-language routing: source_language + script are only meaningful in
+    # output_lang mode (i.e. when output_languages is provided). They drive the
+    # authoritative per-pass Whisper config downstream.
+    _src_lang = request.form.get('source_language')
+    _script = request.form.get('script') or 'trad'
+    if _upload_output_languages is not None:
+        if _src_lang not in _SUPPORTED_SOURCE_LANGS:
+            return jsonify({"error": "source_language must be one of yue/cmn/en/ja"}), 400
+        if _script not in {"trad", "simp"}:
+            return jsonify({"error": "script must be trad or simp"}), 400
+
     # Generate a unique file id and save (R5 Phase 1: per-user dir layout)
     file_id = uuid.uuid4().hex[:12]
     stored_name = f"{file_id}{suffix}"
@@ -4113,7 +4130,8 @@ def transcribe_file():
     file_size = os.path.getsize(file_path)
     entry = _register_file(file_id, file.filename, stored_name, file_size,
                            user_id=current_user.id, file_path=file_path,
-                           output_languages=_upload_output_languages)
+                           output_languages=_upload_output_languages,
+                           source_language=_src_lang, script=_script)
 
     # Notify client about the new file
     if sid:
