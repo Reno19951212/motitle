@@ -473,6 +473,33 @@ def _run_output_lang_second(file_id, job, audio_path, cancel_event):
             _file_registry[file_id]["asr_output_second_seconds"] = round(time.time() - _second_start, 1)
             _save_registry()
 
+    # O1: build the 1:1-aligned bilingual view (for paired bilingual export/render).
+    # Single-language by_lang above is unchanged. Broad-guarded — never break the job.
+    try:
+        with _registry_lock:
+            e = _file_registry.get(file_id) or {}
+            outs2 = list(e.get("output_languages") or [])
+            src2 = e.get("source_language") or "yue"
+            scr2 = e.get("script") or "trad"
+            base2 = e.get("content_asr_segments")
+        if len(outs2) >= 2:
+            from output_lang_router import content_asr_lang
+            from output_lang_aligned import build_aligned_bilingual
+            if not base2:
+                bres = transcribe_with_segments(
+                    audio_path, cancel_event=cancel_event,
+                    asr_profile_override=_output_lang_asr_override(),
+                    progress_kind="output_lang", progress_stage_index=1,
+                    lang_override=content_asr_lang(src2), task_override="transcribe")
+                base2 = (bres or {}).get("segments") or []
+            aligned = build_aligned_bilingual(base2, outs2, src2, scr2, _make_ollama_llm_call())
+            with _registry_lock:
+                if file_id in _file_registry:
+                    _file_registry[file_id]["aligned_bilingual"] = aligned
+                    _save_registry()
+    except Exception:
+        pass  # aligned view is best-effort; single-language output already persisted
+
 
 def _asr_handler(job, cancel_event=None):
     """R5 Phase 2 + 4 — full ASR pipeline with cooperative cancel.
