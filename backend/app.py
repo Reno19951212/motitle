@@ -396,116 +396,81 @@ def _produce_output_lang(audio_path, source_language, output_lang, script,
 def _run_output_lang(file_id, job, audio_path, cancel_event):
     """Output-language ASR — FIRST pass (primary language).
 
-    Transcribes the first requested output language via the fixed mlx large-v3
-    engine, builds translation rows from the result, and (if a second language
-    is requested) enqueues an asr_output job for it.
+    Routes the first requested output language per-output (whisper-direct vs
+    ASR+MT) via _produce_output_lang, builds translation rows from the result,
+    and (if a second language is requested) enqueues an asr_output job for it.
+    The content-language ASR is transcribed once and cached on the file entry
+    so the second output language can reuse it without re-running ASR.
     """
     from output_lang_persist import build_output_translations
-
     with _registry_lock:
-        outs = list((_file_registry.get(file_id) or {}).get("output_languages") or [])
+        entry = _file_registry.get(file_id) or {}
+        outs = list(entry.get("output_languages") or [])
+        source_language = entry.get("source_language") or "yue"
+        script = entry.get("script") or "trad"
     if not outs:
         raise RuntimeError(f"output_lang file {file_id} has no output_languages — misconfigured")
-
     _update_file(file_id, status='transcribing', user_id=job["user_id"])
 
     first = outs[0]
+    content_cache: dict = {}
     _first_start = time.time()
     try:
-        res1 = transcribe_with_segments(
-            audio_path,
-            file_id=file_id,
-            job_user_id=job["user_id"],
-            cancel_event=cancel_event,
-            asr_profile_override=_output_lang_asr_override(),
-            progress_kind="output_lang",
-            progress_stage_index=0,
-            **_whisper_params_for_lang(first),
-        )
+        segs1 = _produce_output_lang(audio_path, source_language, first, script, cancel_event, content_cache)
     except Exception as e:
         _update_file(file_id, status='error', error=str(e))
         raise
-    if not res1 or not res1.get("segments"):
-        _update_file(file_id, status='error', error='output-lang transcribe returned empty')
-        raise RuntimeError(f"output-lang first-pass transcribe returned empty for {file_id}")
+    if not segs1:
+        _update_file(file_id, status='error', error='output-lang produced empty')
+        raise RuntimeError(f"output-lang first pass empty for {file_id}")
 
-    segs1 = res1["segments"]
     rows = build_output_translations(segs1, [(first, segs1)])
-
-    _update_file(
-        file_id,
-        status='done',
-        translation_status='done',
-        translation_kind='output_lang',
-        translations=rows,
-        segments=segs1,
-        text=res1.get("text", ""),
-        model=res1.get("model"),
-        backend=res1.get("backend"),
-        # First-language Whisper pass wall-clock — surfaced in the 資訊 tab.
-        asr_seconds=round(time.time() - _first_start, 1),
-    )
+    _update_file(file_id, status='done', translation_status='done', translation_kind='output_lang',
+                 translations=rows, segments=segs1, text=" ".join(s["text"] for s in segs1),
+                 asr_seconds=round(time.time() - _first_start, 1))
+    if content_cache.get("segments"):
+        _update_file(file_id, content_asr_segments=content_cache["segments"])
 
     if len(outs) > 1:
-        _job_queue.enqueue(
-            user_id=job["user_id"],
-            file_id=file_id,
-            job_type='asr_output',
-            output_language=outs[1],
-        )
+        _job_queue.enqueue(user_id=job["user_id"], file_id=file_id,
+                           job_type='asr_output', output_language=outs[1])
 
 
 def _run_output_lang_second(file_id, job, audio_path, cancel_event):
     """Output-language ASR — SECOND pass (additional language).
 
-    Transcribes the requested second language via the fixed mlx large-v3 engine
-    and merges the result into the existing translation rows immutably (mirror of
-    _translate_second_handler): new by_lang[target] entry + <target>_text mirror,
-    NEW row dicts under the registry lock, first-language text preserved.
+    Routes the requested second output language per-output (whisper-direct vs
+    ASR+MT) via _produce_output_lang, reusing the cached content-language ASR
+    from the first pass when present, and merges the result into the existing
+    translation rows immutably (mirror of _translate_second_handler): new
+    by_lang[target] entry + <target>_text mirror, NEW row dicts under the
+    registry lock, first-language text preserved.
     """
     target = job.get("output_language")
     if not target:
         raise RuntimeError(f"asr_output job for {file_id} has no output_language")
-
-    # Second pass only runs for dual-language files, so seed a 2-step diagram
-    # at stage 1. Read the real count so a corrupted single-lang entry can't
-    # produce an out-of-range stage_index.
     with _registry_lock:
-        _outs2 = list((_file_registry.get(file_id) or {}).get("output_languages") or [])
+        entry = _file_registry.get(file_id) or {}
+        outs = list(entry.get("output_languages") or [])
+        source_language = entry.get("source_language") or "yue"
+        script = entry.get("script") or "trad"
+        cached = entry.get("content_asr_segments")
     _reset_progress_for_job(file_id, job.get("id", ""), "output_lang", 1,
-                            num_output_langs=max(2, len(_outs2)))
-
+                            num_output_langs=max(2, len(outs)))
+    content_cache = {"segments": cached} if cached else {}
     _second_start = time.time()
-    res2 = transcribe_with_segments(
-        audio_path,
-        file_id=file_id,
-        job_user_id=job["user_id"],
-        cancel_event=cancel_event,
-        asr_profile_override=_output_lang_asr_override(),
-        progress_kind="output_lang",
-        progress_stage_index=1,
-        **_whisper_params_for_lang(target),
-    )
-    segs2 = (res2 or {}).get("segments") or []
-    _second_seconds = round(time.time() - _second_start, 1)
+    segs2 = _produce_output_lang(audio_path, source_language, target, script, cancel_event, content_cache)
 
     with _registry_lock:
-        live_translations = _file_registry.get(file_id, {}).get("translations") or []
-        new_translations = []
-        for i, row in enumerate(live_translations):
+        live = _file_registry.get(file_id, {}).get("translations") or []
+        new_rows = []
+        for i, row in enumerate(live):
             text2 = segs2[i].get("text", "") if i < len(segs2) else ""
-            new_by_lang = {**(row.get("by_lang") or {}), target: {
-                "text": text2,
-                "status": "pending",
-                "flags": [],
-            }}
-            new_row = {**row, "by_lang": new_by_lang, f"{target}_text": text2}
-            new_translations.append(new_row)
+            new_by_lang = {**(row.get("by_lang") or {}), target: {"text": text2, "status": "pending", "flags": []}}
+            new_rows.append({**row, "by_lang": new_by_lang, f"{target}_text": text2})
         if file_id in _file_registry:
-            _file_registry[file_id]["translations"] = new_translations
-            # Second-language Whisper pass wall-clock — 資訊 tab sums it with
-            # asr_seconds (first pass) for the total processing time.
-            _file_registry[file_id]["asr_output_second_seconds"] = _second_seconds
+            _file_registry[file_id]["translations"] = new_rows
+            _file_registry[file_id]["asr_output_second_seconds"] = round(time.time() - _second_start, 1)
             _save_registry()
 
 
