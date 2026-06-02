@@ -97,9 +97,38 @@ Harness `backend/scripts/crosslang_prototype/diag_crosslang.py`。原始 JSON：
 - 1:1 MT 無上文 → 個別關鍵詞誤譯（檢閱官→censor、生涯→卡里亞）；生產 sentence-pipeline 會修。
 - ASR+MT over_cap% 偏高（承繼內容語言 ASR 段長 + 跨語言膨脹）→ 需 clause-split（似 V6）調節，非 blocker。
 
+## ★★★ v2 再驗證（2026-06-02）— 普通話來源 + 新輸出變量
+User 加 source 粵語/普通話拆分、output 普通話/簡體;提供普通話片 `阿土爆旋陀螺（普通話語音）`（80s）。Harness `diag_crosslang_v2.py`，結果 `/tmp/crosslang_mando.json`。
+**片性質**：休閒打機內容、英文 loanword(NASA/HOLA)+術語(包箱/軍標)→ ASR 本身有錯，絕對 judge 分偏低(2/3/4)，**但 A vs B 相對比較有效**。
+
+| 驗證項 | 結果 |
+|---|---|
+| Whisper 語言碼 | `zh`=chinese(訓練偏 Mandarin)、`yue`=cantonese;**無獨立 mandarin 碼 → 普通話=`zh`、粵語=`yue`** ✅ |
+| 普通話來源 ASR(`zh`) | 56 段，母語轉錄正常(`我是阿神，我們今天要來玩`) ✅ |
+| **★ 普→口語廣東話** | A Whisper 直出 force-`yue`：`我是阿神,我們今天要來玩`（**仍係普通話、非粵語**）❌；B ASR(zh)+MT(zh→yue)：`我係阿神，而家我哋要嚟玩啦`（**真粵語口語**）✅ → **必須 ASR+MT** |
+| 普→英文(ASR+MT) | `I'm A-Shen, and today we're going to play.` 乾淨 ✅ |
+| 普→日文(ASR+MT) | `私はアシンです。今日私たちは遊びます。` 自然 ✅ |
+| 普通話 raw vs 中文書面語(+refiner) | raw `我們今天要來玩` → refined `本人為阿神，今日將進行遊戲`（本人/今日/進行）→ **register 確有別** ✅ |
+| 簡體 script | Whisper `zh` native script **唔穩定**（呢片 native 出繁體 們/來）→ **繁/簡必須明確 OpenCC(s2hk / t2s)**，唔靠 native ⚠️ |
+
+**關鍵 routing 修正（不對稱，要 dialect-level 唔係 family-level）**：
+- `粵語→中文書面語/普通話`：Whisper 直出 `zh` ✅（Whisper 'zh' 食慣粵音→中文字幕，5/4/5）
+- `普通話→口語廣東話`：Whisper 直出 `yue` ❌（force-yue 落 Mandarin 音唔會轉粵語口語）→ 要 ASR(zh)+MT(zh→yue)
+
+## 最終路由表（證據敲定）
+| 輸出語言 | Whisper 直出 條件（內容 audio）| 否則 → ASR(內容)+MT | 後處理 |
+|---|---|---|---|
+| 口語廣東話 yue | **內容=粵語** | MT(→粵口語) | OpenCC 繁/簡 |
+| 中文書面語 zh | 內容=粵語 **或** 普通話 | MT(→中文) | **+formal refiner(V6)** → OpenCC 繁/簡 |
+| 普通話 zh | 內容=粵語 **或** 普通話 | MT(→中文) | OpenCC 繁/簡（raw，無 refiner）|
+| 英文 en | 內容=英文 | MT(→英文) | — |
+| 日文 ja | 內容=日文 | MT(→日文) | — |
+
+→ 規則：**Whisper 直出 當「該輸出方言嘅 Whisper 轉錄喺該內容音上得到目標」**（yue 限粵語內容；zh 收粵+普；en/ja 限同語言內容）。其餘（含粵↔普 cross-dialect）→ ASR+MT。繁/簡永遠明確 OpenCC。中文書面語永遠加 V6 formal refiner。
+
 ## 下一步（待 user 拍板）
-證據支持落實路由規則。確認後 → brainstorm→spec→plan→build：
-- `olSourceLang` 由純標記改**權威**驅動路由（user 已選）。
-- Per-output-language dispatch：每個輸出語言獨立判斷 same→Whisper / cross→ASR(內容)+MT(→輸出)。
-- 新 MT 方向 template（zh→ja、en→ja、en→yue、ja→zh、ja→yue、ja→en）+ 用 sentence-pipeline 提質。
-- Cross 輸出加 clause-split 控制段長。
+證據支持落實。確認最終路由表後 → spec→plan→build：
+- `olSourceLang` 改**權威**(粵語/普通話/英文/日文)驅動路由。
+- 輸出 = 語言 dropdown(口語廣東話/中文書面語/普通話/英文/日文)+ 繁/簡 toggle。
+- Per-output dispatch 按上表;cross 用 Ollama qwen3.5 single-segment + generic 參數化 cross-lang prompt;中文書面語加 V6 refiner;繁/簡 OpenCC;cross 輸出加 clause-split 控段長。
+- 範圍外(v2)：glossary 專名注入、sentence-pipeline 上文。
