@@ -360,6 +360,19 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### Cross-language 輸出路由 — Whisper 直出 + ASR+MT 混合 + 普通話/簡體（2026-06-02）
+- **目標**：output_lang 之前全部 Whisper force-language 直出，輸出語言 ≠ 內容語言時崩壞（死 loop、幻覺、中日混合、碎段爆炸、誤譯）。改成按「內容語言 vs 輸出語言」**自動路由**：同方言 Whisper 直出（質量/分句最佳），跨語言/跨方言用「內容 ASR + MT→輸出」。新增 source 粵/普 拆分、output 普通話、繁/簡 toggle。
+- **Validation-First（全程）**：全 matrix（3 內容 × 4-6 輸出）+ 普通話 v2 再驗證，量化證據敲定路由表。Whisper-direct cross-language 一致崩壞；ASR+MT（naive 1:1）一致勝出。**關鍵不對稱**：`粵→中文書面語` Whisper-direct(`zh`) 得（5/4/5），但 `普通話→口語廣東話` Whisper force-`yue` 唔轉粵語（仍出普通話）→ 必須 ASR(zh)+MT(zh→yue)。Tracker：[docs/superpowers/specs/2026-06-02-crosslang-routing-validation-tracker.md](docs/superpowers/specs/2026-06-02-crosslang-routing-validation-tracker.md)；spec/plan：[design](docs/superpowers/specs/2026-06-02-crosslang-routing-design.md) / [plan](docs/superpowers/plans/2026-06-02-crosslang-routing-plan.md)。
+- **路由規則**：`route_output(source_language, output_lang)` → `whisper` iff 該輸出方言嘅 Whisper 轉錄喺該內容音上得到目標：`yue` 限粵語內容；`zh`/`cmn` 收粵+普；`en`/`ja` 限同語言內容；其餘 → `asr_mt`。Whisper 直出**唔再用 translate task**（時好時壞、爆 loop）—— `→英文` 跨語言一律 ASR+MT。
+- **語言模型**：來源 `source_language`（**權威**）∈ {yue 粵語, cmn 普通話, en 英文, ja 日文}；輸出 dropdown {yue 口語廣東話, zh 中文書面語, cmn 普通話, en 英文, ja 日文} + **繁/簡 `script`** toggle（中文輸出，OpenCC s2hk/t2s，**永遠明確** —— Whisper 'zh' native script 不穩定）。3 個正交維度：方言（Whisper lang）× 語體（中文書面語=加 V6 formal refiner、普通話=raw）× 字體（OpenCC）。
+- **中文輸出可組合 pipeline**：`base（Whisper 直出 或 ASR+MT）→ [clause_split 若 asr_mt] → [V6 formal refiner 若 zh] → OpenCC 繁/簡`。
+- **新模組（純函數 + 注入式）**：`backend/output_lang_router.py`（route_output / whisper_direct_params / content_asr_lang）；`backend/translation/crosslang_mt.py`（generic 參數化 cross-lang MT，per-segment 1:1，注入 llm_call）；`backend/output_lang_postprocess.py`（apply_script / clause_split_all / formal_refine，重用 cn_convert + v6 clause_split + V6 refiner prompt）。
+- **Dispatch（架構 A，app.py）**：`_make_ollama_llm_call()`（綁 Ollama qwen3.5:35b）+ `_produce_output_lang(audio, source_language, output_lang, script, cancel_event, content_asr_cache)`（路由 + 內容 ASR 整片只跑一次跨輸出共享 + 後處理鏈）。`_run_output_lang` / `_run_output_lang_second` 改用之，per-output 獨立路由（一條片可 first=Whisper、second=ASR+MT）。`by_lang` + `{lang}_text` mirror data model **不變** → descriptor/資訊 tab/proofread/export/render/overlay 零改 shape。
+- **REST**：`POST /api/transcribe` 加 form field `source_language`（∈{yue,cmn,en,ja}，output_lang mode 必）+ `script`（trad/simp，default trad）；驗證失敗 400。file entry 新增 `source_language` / `script` / `content_asr_segments`（cross 共享 cache）。`subtitle_text.OUTPUT_LANG_LABELS` 加 `cmn`=普通話。
+- **前端**：上傳 popup 來源 dropdown 改 粵語/普通話/英文/日文（權威）；輸出 dropdown 加普通話；新增中文字體 繁/簡 toggle（`#olScript`）；confirm 送 `source_language`+`script`。
+- **整合驗證 ✅**：真片逐路由格端到端（`integ_crosslang.py`）—— 粵→粵(direct)+英(asr_mt)、**普→粵(asr_mt，真粵語「係/嘅」)**+普(direct)、英→中(asr_mt+refiner)簡體（任务/晋级）。全 status=done。Backend regression 16 檔隔離 172 pass、frontend output_lang Playwright 20 pass、零 regression（profile/V6/B1/B2/現有 output_lang 不變）。執行：Subagent-Driven（Sonnet 機械 + Opus judgment/review，每 task two-stage review）。
+- **範圍外（v2）**：glossary 專名注入（cross-lang MT 見專名誤譯）、MT sentence-pipeline 上文、中文書面語 ASR(yue)+refiner vs Whisper-zh+refiner fidelity 取捨。
+
 ### 輸出語言 Pipeline — 純 Whisper 雙語輸出（取代 MT，封存 V6）（2026-06-01）
 - **目標**：將「原文 / 譯文（MT 翻譯）」概念換成 **「輸出第一語言 / 輸出第二語言」**，純由 **OpenAI Whisper Large v3（mlx-whisper）多 pass** 驅動，**撤除 MT 翻譯 + DUAL ASR v6**（封存不刪）。User 揀片後彈 popup 選輸出語言；主頁實時 + Proofread 全部改用 first/second 輸出語言。
 - **新 `active_kind="output_lang"`**：`_asr_handler` 分流，唔行 `_run_v6` DAG、唔 enqueue MT translate job。每個選定輸出語言**各跑一次** `transcribe_with_segments`（第一語言一次、第二語言 enqueue 多一個 `asr_output` job），各自帶 language/task/s2hk override，行**現有 Profile ASR 路徑（mlx-whisper large-v3）**。復用 B1/B2 `by_lang` + first/second role 資料模型 → descriptor/export/render/overlay 下游零改 shape。
