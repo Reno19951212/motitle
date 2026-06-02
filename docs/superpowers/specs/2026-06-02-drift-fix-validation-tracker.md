@@ -82,6 +82,16 @@ O1 只修咗雙語**匯出/燒入**（`aligned_bilingual`，1:1）。校對頁 +
 
 **淨結論：User 方案 ✅ Validated。** 英文/日文片:綁內容 ASR base + qwen3.5 1:1 MT,**MT prompt 指定繁體書面語、唔開 refiner**;中文源 → zh 行 refiner（derive_mode 已正確）;單語輸出加 clause-split 解 over-cap;glossary 馬名注入為後續質量槓桿（v2）。比 full B 更簡（英文源連 refiner 都唔使）。
 
+## ★ MT prompt 優化（2026-06-02，workflow，qwen3.5 維持）
+
+**問題**：en→zh MT 偶爾漏粵語（`我係/喺/嘅`）。**根因**：crosslang_mt `_MT_SYS` 本身**用粵語寫**（「你係…嘅…嚟」）→ prime qwen3.5 漏粵語。
+**Workflow**（6 author + run + judge + synth，`wz6it8x3j`）：6 個不同策略 prompt × qwen3.5 跑 20-cue WF 樣本評審。
+**結果**：**全部 6 個候選都 0/20 漏粵語（baseline 2/20）** —— 證實「prompt 改用書面語寫 + 粵語 blocklist」根治洩漏。Winner = **`checklist`**（leak 0 / fid 4 / register 5 / fluency 5 / 專名 3 / overall 4）。Prompt 原文：`docs/superpowers/specs/2026-06-02-mt-prompt-winner-checklist.txt`。
+**整合 re-run（全片 282 cue，39fea）**：winner prompt → **0/282 漏粵語**（vs 舊 prompt b70ce 多處 `我係/喺`）。
+**Full-run 捉到一個 bug（Validation-First 價值）**：checklist 嘅 few-shot 示例人名「艾登(Eden)」**bleed** 落 `I'm Alan Aitken`→`我是艾登`。修：示例去走人名 + 加「示例只示範語體,實際專名據實翻譯」guard → re-run `I'm Alan Aitken`→`我是艾力堅`（正確）、0/282 維持。
+**建議最終 prompt**：checklist 骨幹 + additive（術語表 handicap→讓賽/gate→檔位/Group One→一級賽；數字硬規則阿拉伯數字 + 禁文言）。
+**剩低（prompt 鎖唔死）**：專名一致（馬名 烈焰/烈火/火舞悟空 搖擺、`艾力堅` 非官方譯名）→ 必須 glossary 注入（v2）。
+
 ## 待 user review 後入 brainstorm→spec→plan
 B 架構 ✅ 可行。spec 必帶上述 5 硬要求。範圍外（仍 v1 限制）：en/zh 碎句 fragment-MT 上文質量（neighbour-context,v2）。
 
