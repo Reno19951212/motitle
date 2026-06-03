@@ -419,12 +419,13 @@ def _run_output_lang(file_id, job, audio_path, cancel_event):
         outs = list(entry.get("output_languages") or [])
         source_language = entry.get("source_language") or "yue"
         script = entry.get("script") or "trad"
+        mt_style = entry.get("mt_style") or "generic"
     if not outs:
         raise RuntimeError(f"output_lang file {file_id} has no output_languages — misconfigured")
     _update_file(file_id, status='transcribing', user_id=job["user_id"])
 
     if _is_cross_language(source_language, outs):
-        _run_output_lang_cross(file_id, job, audio_path, cancel_event, outs, source_language, script)
+        _run_output_lang_cross(file_id, job, audio_path, cancel_event, outs, source_language, script, mt_style)
         return
 
     first = outs[0]
@@ -451,7 +452,7 @@ def _run_output_lang(file_id, job, audio_path, cancel_event):
                            job_type='asr_output', output_language=outs[1])
 
 
-def _run_output_lang_cross(file_id, job, audio_path, cancel_event, outs, source_language, script):
+def _run_output_lang_cross(file_id, job, audio_path, cancel_event, outs, source_language, script, mt_style="generic"):
     """Cross-language FIRST pass: ONE content-language ASR base -> derive every output
     1:1 (passthrough/MT/refine) -> single shared grid. No 2nd job, no index-merge."""
     from output_lang_persist import build_output_translations
@@ -472,7 +473,7 @@ def _run_output_lang_cross(file_id, job, audio_path, cancel_event, outs, source_
         if _OL_FAMILY.get(source_language) == "zh":
             base = olp.clause_split_all(base, char_cap=18)
         llm = _make_ollama_llm_call()
-        derived = {o: derive_aligned_output(base, source_language, o, script, llm) for o in outs}
+        derived = {o: derive_aligned_output(base, source_language, o, script, llm, style=mt_style) for o in outs}
         rows = build_output_translations(base, [(o, derived[o]) for o in outs])
         aligned = [{"start": base[i]["start"], "end": base[i]["end"],
                     "by_lang": {o: (derived[o][i].get("text", "") if i < len(derived[o]) else "") for o in outs}}
@@ -504,6 +505,7 @@ def _run_output_lang_second(file_id, job, audio_path, cancel_event):
         outs = list(entry.get("output_languages") or [])
         source_language = entry.get("source_language") or "yue"
         script = entry.get("script") or "trad"
+        mt_style = entry.get("mt_style") or "generic"
         cached = entry.get("content_asr_segments")
         _ol_base = entry.get("content_asr_segments") or []
         _ol_live = entry.get("translations") or []
@@ -517,7 +519,7 @@ def _run_output_lang_second(file_id, job, audio_path, cancel_event):
     if _is_cross_language(source_language, outs) and _ol_base and len(_ol_base) == len(_ol_live):
         _reset_progress_for_job(file_id, job.get("id", ""), "output_lang", 1,
                                 num_output_langs=max(2, len(outs)))
-        _run_output_lang_second_cross(file_id, target, source_language, script)
+        _run_output_lang_second_cross(file_id, target, source_language, script, mt_style)
         return
     _reset_progress_for_job(file_id, job.get("id", ""), "output_lang", 1,
                             num_output_langs=max(2, len(outs)))
@@ -565,7 +567,7 @@ def _run_output_lang_second(file_id, job, audio_path, cancel_event):
         pass  # aligned view is best-effort; single-language output already persisted
 
 
-def _run_output_lang_second_cross(file_id, target, source_language, script):
+def _run_output_lang_second_cross(file_id, target, source_language, script, mt_style="generic"):
     """Cross-language on-demand add: derive `target` 1:1 from the cached content base
     and append it to translations + aligned_bilingual on the SAME grid (no index-merge)."""
     from output_lang_aligned import derive_aligned_output
@@ -574,7 +576,7 @@ def _run_output_lang_second_cross(file_id, target, source_language, script):
         base = list(entry.get("content_asr_segments") or [])
     if not base:
         raise RuntimeError(f"cross second pass: no content_asr_segments for {file_id}")
-    seg2 = derive_aligned_output(base, source_language, target, script, _make_ollama_llm_call())
+    seg2 = derive_aligned_output(base, source_language, target, script, _make_ollama_llm_call(), style=mt_style)
     with _registry_lock:
         if file_id not in _file_registry:
             return
@@ -1226,7 +1228,8 @@ def _resnapshot_active_for_rerun(file_id):
 
 def _register_file(file_id, original_name, stored_name, size_bytes, user_id=None,
                    file_path=None, active_kind=None, active_id=None,
-                   output_languages=None, source_language=None, script=None):
+                   output_languages=None, source_language=None, script=None,
+                   mt_style=None):
     """Register an uploaded file. user_id is the owner (R5 Phase 1 — required
     once auth lands; defaults to None for backward compatibility with any
     pre-R5 path that may still upload anonymously). file_path is the
@@ -1280,6 +1283,7 @@ def _register_file(file_id, original_name, stored_name, size_bytes, user_id=None
             'output_languages': list(snap_output_languages),  # T1: output_lang snapshot
             'source_language': source_language,  # T7: authoritative cross-lang routing
             'script': script or 'trad',          # T7: trad | simp (default trad)
+            'mt_style': mt_style or 'generic',   # Phase 2: cross-lang MT domain style
         }
         _save_registry()
     # Snapshot pipeline JSON immediately for V6 files (outside the lock to
@@ -4245,11 +4249,14 @@ def transcribe_file():
     # authoritative per-pass Whisper config downstream.
     _src_lang = request.form.get('source_language')
     _script = request.form.get('script') or 'trad'
+    _mt_style = request.form.get('mt_style') or 'generic'
     if _upload_output_languages is not None:
         if _src_lang not in _SUPPORTED_SOURCE_LANGS:
             return jsonify({"error": "source_language must be one of yue/cmn/en/ja"}), 400
         if _script not in {"trad", "simp"}:
             return jsonify({"error": "script must be trad or simp"}), 400
+        if _mt_style not in {"racing", "sportsnews", "generic"}:
+            _mt_style = "generic"
 
     # Generate a unique file id and save (R5 Phase 1: per-user dir layout)
     file_id = uuid.uuid4().hex[:12]
@@ -4261,7 +4268,8 @@ def transcribe_file():
     entry = _register_file(file_id, file.filename, stored_name, file_size,
                            user_id=current_user.id, file_path=file_path,
                            output_languages=_upload_output_languages,
-                           source_language=_src_lang, script=_script)
+                           source_language=_src_lang, script=_script,
+                           mt_style=_mt_style)
 
     # Notify client about the new file
     if sid:
