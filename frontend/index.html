@@ -1953,30 +1953,77 @@
       if (snap.stage_label) {
         _updateCardStageLabel(fileId, snap.stage_label + (snap.pct != null ? ` ${snap.pct}%` : ''));
       }
+      // Live status BADGE from the authoritative /api/queue snapshot — so the file-list
+      // 轉錄狀態 syncs with the backend like the queue panel, not waiting for the
+      // (unreliable on dashboard) file_updated socket. Only while actively running;
+      // completion re-renders the badge from the real file status.
+      if (cardEl && snap.stage_state === 'active' && snap.stage_label) {
+        const badge = cardEl.querySelector('.qh .badge');
+        if (badge) {
+          badge.className = 'badge badge--processing';
+          badge.innerHTML = `<span class="dot" style="animation:pulse 1.3s infinite"></span> ${_escapeHtmlSafe(snap.stage_label)}${snap.pct != null ? ` ${snap.pct}%` : ''}`;
+        }
+      }
     }
-    // Poll /api/queue (active jobs) and live-update each matching card's
-    // stage-diagram + label. Fallback that makes the 序列 cards real-time
-    // regardless of pipeline_progress socket delivery.
+    function _escapeHtmlSafe(s) {
+      return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    }
+    // Tracks which file_ids had an active (running/queued) job last poll, so completion
+    // (a job that left /api/queue) can be detected and the real file status refreshed.
+    let _prevActiveJobFiles = new Set();
+    // Poll /api/queue and live-update each card's stage-diagram, label, status badge,
+    // AND the topbar per-language progress (#topProgress) — all from the authoritative
+    // queue snapshot, mirroring the queue panel's live model. On job completion, refresh
+    // /api/files for the final status. Robust to unreliable dashboard sockets.
     async function _pollCardProgress() {
       try {
         const r = await fetch(`${API_BASE}/api/queue`, { credentials: 'same-origin' });
         if (!r.ok) return;
         const rows = await r.json();
+        const nowActive = new Set();
         let _activeTouched = false;
         (Array.isArray(rows) ? rows : []).forEach((row) => {
           if (!row || !row.file_id) return;
-          _applyCardProgress(row.file_id, {
+          const fid = row.file_id;
+          _applyCardProgress(fid, {
             stages: Array.isArray(row.stages) ? row.stages : null,
             stage_index: row.stage_index != null ? row.stage_index : null,
             stage_state: row.stage_state || 'active',
             pct: row.progress_pct,
             stage_label: row.stage_label || null,
           });
+          const jobActive = row.status === 'running' || row.status === 'queued';
+          if (jobActive) nowActive.add(fid);
+          // Per-target-language live progress for #topProgress. Backend has no per-language
+          // field → synthesize from the overall job pct (each target language reflects the
+          // job's progress). Real lang_progress wins if the backend ever provides it.
           if (Array.isArray(row.lang_progress)) {
-            langProgress[row.file_id] = row.lang_progress;
-            if (row.file_id === activeFileId) _activeTouched = true;
+            langProgress[fid] = row.lang_progress;
+          } else if (jobActive && row.progress_pct != null) {
+            const langs = (uploadedFiles[fid] && Array.isArray(uploadedFiles[fid].languages)) ? uploadedFiles[fid].languages : [];
+            const ordered = [langs.find(l => l && l.role === 'first'), langs.find(l => l && l.role === 'second')].filter(Boolean);
+            const count = (ordered.length ? ordered : langs).slice(0, 2).length || 1;
+            langProgress[fid] = Array.from({ length: count }, () => ({ pct: row.progress_pct, state: row.stage_state || 'active' }));
           }
+          if (fid === activeFileId) _activeTouched = true;
         });
+        // Completion: a file that HAD an active job but no longer does just finished →
+        // drop its synthesized progress + refresh authoritative status from /api/files.
+        let completed = false;
+        _prevActiveJobFiles.forEach(fid => { if (!nowActive.has(fid)) { completed = true; delete langProgress[fid]; } });
+        _prevActiveJobFiles = nowActive;
+        if (completed) {
+          try {
+            const fr = await fetch(`${API_BASE}/api/files`, { credentials: 'same-origin' });
+            if (fr.ok) {
+              const files = await fr.json();
+              (Array.isArray(files) ? files : []).forEach(f => {
+                if (f && f.id) { if (uploadedFiles[f.id]) Object.assign(uploadedFiles[f.id], f); else uploadedFiles[f.id] = f; }
+              });
+              if (typeof renderAll === 'function') renderAll();
+            }
+          } catch (_) { /* best-effort */ }
+        }
         if (_activeTouched && typeof renderStatusCard === 'function') renderStatusCard();
       } catch (e) { /* silent — poll is best-effort */ }
     }
