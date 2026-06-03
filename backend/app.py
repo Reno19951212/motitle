@@ -393,6 +393,17 @@ def _produce_output_lang(audio_path, source_language, output_lang, script,
     return base
 
 
+_OL_FAMILY = {"yue": "zh", "cmn": "zh", "zh": "zh", "en": "en", "ja": "ja"}
+
+
+def _is_cross_language(source_language, output_languages):
+    """True iff any output language's family differs from the content language's
+    family (zh = {yue,cmn,zh}, en, ja). Cross-language files use the bound-base
+    single-pass derive; same-family files keep the legacy per-output path."""
+    sf = _OL_FAMILY.get(source_language)
+    return any(_OL_FAMILY.get(o) != sf for o in (output_languages or []))
+
+
 def _run_output_lang(file_id, job, audio_path, cancel_event):
     """Output-language ASR — FIRST pass (primary language).
 
