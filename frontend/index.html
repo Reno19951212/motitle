@@ -4792,6 +4792,29 @@
       return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
 
+    // 第一輸出語言 = 來源語言（忠實 track），硬鎖。
+    // 例外：粵語來源可揀「口語廣東話 / 中文書面語」兩者（都係粵語內容嘅忠實表述）。
+    // 第二輸出語言維持自由（翻譯位）。後端本身支援所有組合 — 呢個純前端引導 + 約束。
+    const OL_FIRST_BY_SOURCE = {
+      en:  [['en', '英文']],
+      cmn: [['cmn', '普通話']],
+      ja:  [['ja', '日文']],
+      yue: [['yue', '口語廣東話'], ['zh', '中文書面語']],
+    };
+    function syncFirstLangToSource() {
+      const srcEl = document.getElementById('olSourceLang');
+      const first = document.getElementById('olFirstLang');
+      if (!first) return;
+      const src = (srcEl && srcEl.value) || 'yue';
+      const opts = OL_FIRST_BY_SOURCE[src] || OL_FIRST_BY_SOURCE.yue;
+      const prev = first.value;
+      first.innerHTML = opts.map(([v, label]) => `<option value="${v}">${label}</option>`).join('');
+      // 粵語切換 口語↔書面語 時保留用戶上次選擇；其餘情況跳第一個。
+      first.value = opts.some(([v]) => v === prev) ? prev : opts[0][0];
+      // 單一選項（英/普/日）→ 硬鎖（disabled）；粵語兩選項 → 可揀。
+      first.disabled = opts.length < 2;
+    }
+
     function openOutputLangModal(file) {
       if (!file) return;
       // Populate the left-side preview + metadata.
@@ -4809,11 +4832,10 @@
       if (sizeEl) sizeEl.textContent = `${(file.size / 1024 / 1024).toFixed(1)} MB`;
       const warn = document.getElementById('olWarn');
       if (warn) { warn.style.display = 'none'; warn.textContent = ''; }
-      // Reset selects to defaults.
-      const first = document.getElementById('olFirstLang');
-      if (first) first.value = 'yue';
+      // Reset 第二語言 default；第一語言由 source 約束（鎖定規則）。
       const second = document.getElementById('olSecondLang');
       if (second) second.value = '';
+      syncFirstLangToSource();
       _openModalWithFocus('olOverlay', document.getElementById('runBtn'));
     }
 
@@ -6119,7 +6141,7 @@
                  Sent to the backend as source_language when output languages are chosen. -->
             <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
               <span style="font-weight:600;">影片來源語言</span>
-              <select id="olSourceLang" class="or-input">
+              <select id="olSourceLang" class="or-input" onchange="syncFirstLangToSource()">
                 <option value="yue">粵語</option>
                 <option value="cmn">普通話</option>
                 <option value="en">英文</option>

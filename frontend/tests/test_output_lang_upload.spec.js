@@ -64,11 +64,14 @@ test.describe.serial('output-lang upload popup', () => {
     await expect(page.locator('#olFirstLang')).toBeVisible();
     await expect(page.locator('#olSecondLang')).toBeVisible();
 
-    // First output language select exposes the 4 codes.
+    // First-language lock: the popup opens with the default source = 粵語, so the
+    // first output language is constrained to 口語廣東話 / 中文書面語 only (no en/ja).
     const firstVals = await page.locator('#olFirstLang option').evaluateAll(
       (opts) => opts.map((o) => o.value)
     );
-    expect(firstVals).toEqual(expect.arrayContaining(['yue', 'zh', 'en', 'ja']));
+    expect(firstVals).toEqual(expect.arrayContaining(['yue', 'zh']));
+    expect(firstVals).not.toContain('en');  // 鎖定：粵語 source 唔出英文做第一語言
+    expect(firstVals).not.toContain('ja');
     expect(firstVals).not.toContain('');  // no 「無」 on the required first select
 
     // Second output language select exposes the 4 codes + 「無」 (empty value).

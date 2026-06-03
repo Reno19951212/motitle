@@ -24,11 +24,15 @@ test('popup has 粵語/普通話 source + 普通話 output + 繁簡 toggle, conf
   await page.evaluate(() => {
     selectedFile = new File([new Uint8Array([1])], 'clip.mp4', { type: 'video/mp4' });
     document.getElementById('olSourceLang').value = 'cmn';
-    document.getElementById('olFirstLang').value = 'yue';
     document.getElementById('olScript').value = 'simp';
+    // openOutputLangModal runs syncFirstLangToSource(): 普通話 source 硬鎖第一語言 = cmn.
     openOutputLangModal(selectedFile);
-    confirmOutputLangModal();
   });
+  // First-language lock: 普通話 source disables the first select + forces cmn.
+  expect(await page.locator('#olFirstLang').isDisabled()).toBe(true);
+  expect(await page.locator('#olFirstLang').inputValue()).toBe('cmn');
+  await page.evaluate(() => confirmOutputLangModal());
   await expect.poll(() => posted, { timeout: 3000 }).not.toBeNull();
   expect(posted).toContain('source_language');
+  expect(posted).toContain('cmn');  // 第一語言鎖定 = 普通話 source
 });

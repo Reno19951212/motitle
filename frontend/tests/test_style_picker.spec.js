@@ -36,7 +36,8 @@ test('upload confirm sends mt_style in FormData with no ReferenceError', async (
   await page.setInputFiles('#fileInput', { name: 'clip.mp4', mimeType: 'video/mp4', buffer: Buffer.from('fake') });
   await page.waitForSelector('#olStartBtn', { state: 'visible' });
   await page.selectOption('#olSourceLang', 'en');
-  await page.selectOption('#olFirstLang', 'en');
+  // First-language lock: 英文 source auto-locks first output = 英文 (select disabled);
+  // no manual selectOption('#olFirstLang') — it would fail on the disabled element.
   await page.selectOption('#olSecondLang', 'zh').catch(() => {});
   await page.selectOption('#mtStyle', 'racing');
   await page.click('#olStartBtn');
