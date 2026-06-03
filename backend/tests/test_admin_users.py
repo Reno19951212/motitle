@@ -156,6 +156,41 @@ def test_admin_users_reset_password_changes_hash(admin_client):
     delete_user(db, "rp_p3")
 
 
+def test_admin_users_reset_password_weak_returns_400_not_500(admin_client):
+    # Regression: a weak password made update_password raise ValueError which was
+    # uncaught -> raw 500. It must now be a clean 400 with a JSON error message.
+    import app as app_module
+    from auth.users import create_user, get_user_by_username, delete_user
+    db = app_module.app.config["AUTH_DB_PATH"]
+    try:
+        create_user(db, "rpw_p3", "OldPass1!", is_admin=False)
+    except ValueError:
+        from auth.users import update_password as _upw
+        _upw(db, "rpw_p3", "OldPass1!")
+    target = get_user_by_username(db, "rpw_p3")
+    try:
+        r = admin_client.post(f"/api/admin/users/{target['id']}/reset-password",
+                              json={"new_password": "123"})
+        assert r.status_code == 400
+        assert r.get_json().get("error")  # a human-facing message, not an empty body
+    finally:
+        delete_user(db, "rpw_p3")
+
+
+def test_admin_users_create_weak_password_returns_400_not_409(admin_client):
+    # Weak password on create must be 400 (validation), not 409 (collision).
+    from auth.users import delete_user, get_user_by_username
+    import app as app_module
+    db = app_module.app.config["AUTH_DB_PATH"]
+    r = admin_client.post("/api/admin/users",
+                          json={"username": "cw_weak_p3", "password": "123"})
+    assert r.status_code == 400
+    assert r.get_json().get("error")
+    # ensure no user leaked
+    if get_user_by_username(db, "cw_weak_p3"):
+        delete_user(db, "cw_weak_p3")
+
+
 def test_admin_users_toggle_admin_flips_flag(admin_client):
     import app as app_module
     from auth.users import create_user, get_user_by_username, delete_user

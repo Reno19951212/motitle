@@ -15,6 +15,18 @@ from auth.audit import log_audit
 bp = Blueprint("admin", __name__)
 
 
+def _friendly_pw_error(msg: str) -> str:
+    """Map a password-strength ValueError message to a user-facing Chinese string."""
+    low = msg.lower()
+    if "at least" in low:
+        return "密碼至少需要 8 個字元"
+    if "too common" in low:
+        return "密碼太常見，請使用更強的密碼"
+    if "empty" in low:
+        return "密碼不能為空"
+    return msg
+
+
 # R5 Phase 5 T2.7 — atomic guards.
 #
 # The check-then-write pattern (count_admins → UPDATE/DELETE) was vulnerable
@@ -107,8 +119,12 @@ def create_user_route():
     try:
         new_id = create_user(db, username, password, is_admin=is_admin)
     except ValueError as e:
-        # Username collision — message contains "exists" per Phase 1 B5 spec
-        return jsonify({"error": str(e)}), 409
+        msg = str(e)
+        # Username collision (message contains "exists" per Phase 1 B5) → 409;
+        # weak/empty password (validate_password_strength) → 400, not 409.
+        if "exist" in msg.lower():
+            return jsonify({"error": "使用者名稱已存在"}), 409
+        return jsonify({"error": _friendly_pw_error(msg)}), 400
     log_audit(db, actor_id=current_user.id, action="user.create",
               target_kind="user", target_id=str(new_id),
               details={"username": username, "is_admin": is_admin})
@@ -149,7 +165,11 @@ def reset_password_route(user_id):
     target = get_user_by_id(db, user_id)
     if not target:
         return jsonify({"error": "not found"}), 404
-    update_password(db, target["username"], new_pw)
+    try:
+        update_password(db, target["username"], new_pw)
+    except ValueError as e:
+        # Weak/empty password → clean 400 instead of an unhandled 500.
+        return jsonify({"error": _friendly_pw_error(str(e))}), 400
     log_audit(db, actor_id=current_user.id, action="user.reset_password",
               target_kind="user", target_id=str(user_id))
     return jsonify({"ok": True}), 200
