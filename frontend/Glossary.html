@@ -501,8 +501,8 @@
        'on' since this is the glossary page; others link back to Dashboard. -->
   <aside class="b-rail">
     <div class="mark" title="MoTitle">M</div>
-    <a class="rail-btn" href="/" title="主頁"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8l6-5 6 5v6H2z M6 14V9h4v5"/></svg><span class="tt">主頁</span></a>
-    <a class="rail-btn" href="/" title="檔案"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 6h12M2 10h12M5 3v10M11 3v10"/></svg><span class="tt">檔案</span></a>
+    <a class="rail-btn" href="index.html" title="主頁"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8l6-5 6 5v6H2z M6 14V9h4v5"/></svg><span class="tt">主頁</span></a>
+    <a class="rail-btn" href="Files.html" title="檔案"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 6h12M2 10h12M5 3v10M11 3v10"/></svg><span class="tt">檔案</span></a>
     <a class="rail-btn" href="proofread.html" title="校對"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-8 8H3v-3z"/></svg><span class="tt">校對</span></a>
     <a class="rail-btn on" href="Glossary.html" title="術語表"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h4a3 3 0 013 3v8a2 2 0 00-2-2H3z M13 3H9a3 3 0 00-3 3v8a2 2 0 012-2h5z"/></svg><span class="tt">術語表</span></a>
     <a class="rail-btn" href="user.html" title="User"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="5.5" r="2.75"/><path d="M2.5 14a5.5 5.5 0 0111 0"/></svg><span class="tt">User</span></a>
@@ -515,7 +515,7 @@
 
       <!-- Header: breadcrumb + variant toggle -->
       <div class="gl-header">
-        <a class="gl-back" href="/">
+        <a class="gl-back" href="index.html">
           <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M7 4l-4 4 4 4"/></svg>
           Dashboard
         </a>
@@ -657,7 +657,7 @@
 <div class="toast" id="toast" role="status"></div>
 
 <script>
-  const API_BASE = 'http://localhost:5001';
+  const API_BASE = '';
 
   /* Per-glossary color palette — deterministic by id hash so the same
      glossary always gets the same accent across reloads. */
