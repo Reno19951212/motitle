@@ -65,3 +65,23 @@ v2 重跑：事實上 0、策騎誤用 0、賽馬術語 6、粵語洩漏 0、馬
 - 人名 glossary（G 條）只列常見 HKJC 名 + 明文「名單外保留英文」防 overfit。
 - sportsnews / generic style 未動（只優化 racing）。
 - 未 re-run 全 282 段真片（18 cue 已足夠辨別 prompt 質量；如要可 full re-run `8d7323fe2493` 確認 production 規模）。
+
+## ✅ Production-scale 確認（全 282 段真檔 re-run，2026-06-03）
+
+用 ship 咗嘅新 racing.txt 跑真檔 Winning Factor 全 282 段（en base 同 `8d7323fe`/`39fea` 一致），三方對比：
+
+| version | 賽馬術語 | 音譯中點(鬼佬名) | 粵語洩漏 | 空譯 | 過長(>40字) |
+|---|---|---|---|---|---|
+| **★ new racing** | **58** | 3 | 0 | 0 | 0 |
+| old racing（檔1，user 讚） | 31 | 3 | 0 | 0 | 0 |
+| generic（檔2，user 用緊） | 4 | 9 | 0 | 0 | 0 |
+
+**專名一致性（同一實體出現幾多種寫法，1 = 完美）**：
+
+| 實體 | new racing | old檔1 | generic檔2 |
+|---|---|---|---|
+| Amazing Partners | **1**（一致）| 2（drift）| 2 |
+| Blazing Wukong | **1** | 2（烈悟空/烈火悟空）| 1 |
+| Bulb General | **1** | 2 | 1 |
+
+**結論**：新 racing prompt 喺全檔規模係**每條軸最佳** —— 賽馬語體最濃（58，~2× 舊 racing、14× generic）、專名零 drift（唯一三個實體全部 1 種寫法，**連 user 讚嘅檔1 都有 drift**）、零粵語洩漏/空譯/過長。樣本見新版仲修正咗檔1 嘅 idiom 誤譯（`race by any means` 檔1「這並非一場輕鬆的賽事」❌ → 新版「不惜一切手段競逐」✅）同檔1 嘅虛構馬名（Bob General 檔1「寶將」❌ → 新版「Bob General」✅）。全檔輸出存檔：[new_racing_full_282.json](../validation/racing-mt-opt-2026-06-03/new_racing_full_282.json)。
