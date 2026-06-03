@@ -2012,7 +2012,15 @@
         let completed = false;
         _prevActiveJobFiles.forEach(fid => { if (!nowActive.has(fid)) { completed = true; delete langProgress[fid]; } });
         _prevActiveJobFiles = nowActive;
-        if (completed) {
+        // Also refresh when an active file is still missing its `languages` descriptor —
+        // a just-uploaded file has no descriptor until /api/files runs, and #topProgress
+        // needs it to know the first/second target-language bars. Bounded: stops once loaded.
+        let needDescriptor = false;
+        nowActive.forEach(fid => {
+          const f = uploadedFiles[fid];
+          if (!f || !Array.isArray(f.languages) || f.languages.length === 0) needDescriptor = true;
+        });
+        if (completed || needDescriptor) {
           try {
             const fr = await fetch(`${API_BASE}/api/files`, { credentials: 'same-origin' });
             if (fr.ok) {

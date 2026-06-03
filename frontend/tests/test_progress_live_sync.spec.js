@@ -44,3 +44,29 @@ test('poll-driven: #topProgress + card badge update live from an active /api/que
   await expect(badge).toContainText('轉錄');
   await expect(badge).toContainText('42%');
 });
+
+test('poll loads missing languages descriptor → #topProgress shows bars for in-flight upload', async ({ page }) => {
+  await page.goto(`${BASE}/login.html`);
+  await page.fill('#loginUsername','admin_p3'); await page.fill('#loginPassword',PASS);
+  await page.click('#loginSubmit'); await page.waitForURL(`${BASE}/`);
+  await page.waitForFunction(() => typeof _pollCardProgress === 'function', { timeout: 10000 });
+
+  // A just-uploaded file: present in uploadedFiles but WITHOUT a languages descriptor yet.
+  await page.evaluate(() => {
+    uploadedFiles['__desc_test__'] = { id:'__desc_test__', original_name:'d.mp4', status:'transcribing', active_kind:'output_lang' };
+    activeFileId = '__desc_test__'; renderQueue();
+  });
+  // queue has an active job for it (no languages in the row)…
+  await page.route('**/api/queue', r => r.fulfill({ status:200, contentType:'application/json',
+    body: JSON.stringify([{ id:'j', file_id:'__desc_test__', status:'running', progress_pct:60, stage_label:'轉錄', stage_state:'active', stages:[{key:'a',label:'轉錄'}], stage_index:0 }]) }));
+  // …and /api/files supplies the descriptor (as the backend would).
+  await page.route('**/api/files', r => r.fulfill({ status:200, contentType:'application/json',
+    body: JSON.stringify([{ id:'__desc_test__', original_name:'d.mp4', status:'transcribing', active_kind:'output_lang',
+      languages:[{role:'first',lang:'zh',label:'中文書面語'},{role:'second',lang:'en',label:'英文'}] }]) }));
+
+  await page.evaluate(() => _pollCardProgress());      // poll: detects missing descriptor → fetches /api/files
+  await page.evaluate(() => _pollCardProgress());      // next poll: descriptor present → bars render at 60%
+
+  await expect(page.locator('#topProgress .tp-lang')).toHaveCount(2);
+  await expect(page.locator('#topProgress .tp-pct').first()).toContainText('60%');
+});
