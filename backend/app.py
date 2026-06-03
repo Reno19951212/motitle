@@ -4250,13 +4250,13 @@ def transcribe_file():
     _src_lang = request.form.get('source_language')
     _script = request.form.get('script') or 'trad'
     _mt_style = request.form.get('mt_style') or 'generic'
+    if _mt_style not in {"racing", "sportsnews", "generic"}:
+        _mt_style = "generic"
     if _upload_output_languages is not None:
         if _src_lang not in _SUPPORTED_SOURCE_LANGS:
             return jsonify({"error": "source_language must be one of yue/cmn/en/ja"}), 400
         if _script not in {"trad", "simp"}:
             return jsonify({"error": "script must be trad or simp"}), 400
-        if _mt_style not in {"racing", "sportsnews", "generic"}:
-            _mt_style = "generic"
 
     # Generate a unique file id and save (R5 Phase 1: per-user dir layout)
     file_id = uuid.uuid4().hex[:12]
