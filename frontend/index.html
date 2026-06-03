@@ -4841,6 +4841,7 @@
       pendingOutputLangs = langs;
       pendingSourceLanguage = (document.getElementById('olSourceLang') || {}).value || 'yue';
       pendingScript = (document.getElementById('olScript') || {}).value || 'trad';
+      const pendingMtStyle = (document.getElementById('mtStyle') || {}).value || 'generic';
       closeOutputLangModal();
       startTranscription();
     }
@@ -4879,6 +4880,7 @@
         // Cross-language routing: source language is AUTHORITATIVE; script picks 繁/簡.
         formData.append('source_language', pendingSourceLanguage);
         formData.append('script', pendingScript);
+        formData.append('mt_style', pendingMtStyle);
       }
 
       try {
@@ -6144,6 +6146,14 @@
               <select id="olScript" class="or-input">
                 <option value="trad">繁體</option>
                 <option value="simp">簡體</option>
+              </select>
+            </label>
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+              <span style="font-weight:600;">翻譯風格</span>
+              <select id="mtStyle" class="or-input">
+                <option value="generic" selected>通用</option>
+                <option value="sportsnews">體育新聞</option>
+                <option value="racing">馬會賽馬</option>
               </select>
             </label>
             <div id="olWarn" style="display:none;font-size:11px;color:var(--danger);"></div>
