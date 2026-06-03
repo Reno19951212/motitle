@@ -61,8 +61,7 @@ test('poll loads missing languages descriptor → #topProgress shows bars for in
     body: JSON.stringify([{ id:'j', file_id:'__desc_test__', status:'running', progress_pct:60, stage_label:'轉錄', stage_state:'active', stages:[{key:'a',label:'轉錄'}], stage_index:0 }]) }));
   // …and /api/files supplies the descriptor (as the backend would).
   await page.route('**/api/files', r => r.fulfill({ status:200, contentType:'application/json',
-    body: JSON.stringify([{ id:'__desc_test__', original_name:'d.mp4', status:'transcribing', active_kind:'output_lang',
-      languages:[{role:'first',lang:'zh',label:'中文書面語'},{role:'second',lang:'en',label:'英文'}] }]) }));
+    body: JSON.stringify({ files: [{ id:'__desc_test__', original_name:'d.mp4', status:'transcribing', active_kind:'output_lang', languages:[{role:'first',lang:'zh',label:'中文書面語'},{role:'second',lang:'en',label:'英文'}] }] }) }));
 
   await page.evaluate(() => _pollCardProgress());      // poll: detects missing descriptor → fetches /api/files
   await page.evaluate(() => _pollCardProgress());      // next poll: descriptor present → bars render at 60%

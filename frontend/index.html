@@ -2024,8 +2024,10 @@
           try {
             const fr = await fetch(`${API_BASE}/api/files`, { credentials: 'same-origin' });
             if (fr.ok) {
-              const files = await fr.json();
-              (Array.isArray(files) ? files : []).forEach(f => {
+              const payload = await fr.json();
+              // /api/files returns { files: [...] } (not a bare array).
+              const files = Array.isArray(payload) ? payload : (payload && Array.isArray(payload.files) ? payload.files : []);
+              files.forEach(f => {
                 if (f && f.id) { if (uploadedFiles[f.id]) Object.assign(uploadedFiles[f.id], f); else uploadedFiles[f.id] = f; }
               });
               if (typeof renderAll === 'function') renderAll();
