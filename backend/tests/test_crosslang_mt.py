@@ -33,7 +33,9 @@ def test_build_prompt_targets():
     assert "口語廣東話" in build_mt_system_prompt("cmn", "yue")
     assert "日本語" in build_mt_system_prompt("yue", "ja")
     assert "繁體中文書面語" in build_mt_system_prompt("en", "zh")
-    assert "普通話書面中文" in build_mt_system_prompt("en", "cmn")
+    # en->cmn now routes to the style template (default generic), which is a written-Chinese
+    # template (繁體中文書面語); _MT_TARGET_NAME["cmn"] ("普通話書面中文") no longer appears
+    assert "繁體中文書面語" in build_mt_system_prompt("en", "cmn")
 
 
 def test_translate_does_not_mutate_input():

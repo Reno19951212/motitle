@@ -3,6 +3,7 @@
 Per-segment 1:1 translation (preserves segmentation + start/end). The LLM client
 is injected (production: Ollama qwen3.5:35b via OllamaTranslationEngine._call_ollama).
 """
+import os
 import re
 from typing import Callable, Dict, List
 
@@ -32,8 +33,25 @@ _LEAK_RE = re.compile(r"粵語口語廣播字幕|請輸入.{0,12}(轉換|翻譯)
 _THINK_RE = re.compile(r"<think>.*?</think>", re.S)
 _LABEL_RE = re.compile(r"^(譯文|翻譯|Translation|出力)[:：]\s*")
 
+# Style prompt support (Phase 2 — 2026-06-03)
+_STYLE_DIR = os.path.join(os.path.dirname(__file__), "..", "config", "mt_style_prompts")
+STYLE_LABELS: Dict[str, str] = {"racing": "馬會賽馬", "sportsnews": "體育新聞", "generic": "通用"}
+DEFAULT_STYLE = "generic"
+_STYLE_CACHE: Dict[str, str] = {}
 
-def build_mt_system_prompt(source_language: str, output_lang: str) -> str:
+
+def _load_style_prompt(style: str) -> str:
+    if style not in STYLE_LABELS:
+        style = DEFAULT_STYLE
+    if style not in _STYLE_CACHE:
+        with open(os.path.join(_STYLE_DIR, f"{style}.txt"), encoding="utf-8") as fh:
+            _STYLE_CACHE[style] = fh.read().strip()
+    return _STYLE_CACHE[style]
+
+
+def build_mt_system_prompt(source_language: str, output_lang: str, style: str = "generic") -> str:
+    if source_language == "en" and output_lang in ("zh", "cmn"):
+        return _load_style_prompt(style)
     extra = _ZH_WRITTEN_RULES if output_lang in ("zh", "cmn") else ""
     return _MT_SYS.format(src=_SRC_NAME.get(source_language, source_language),
                           tgt=_MT_TARGET_NAME.get(output_lang, output_lang),
@@ -47,12 +65,13 @@ def _clean(raw: str) -> str:
 
 
 def translate_segments(content_segments: List[dict], source_language: str,
-                       output_lang: str, llm_call: Callable[[str, str], str]) -> List[dict]:
+                       output_lang: str, llm_call: Callable[[str, str], str],
+                       style: str = "generic") -> List[dict]:
     """1:1 MT of content segments -> output language. New list; inputs untouched.
 
     Guard: an empty or prompt-leaked LLM reply falls back to the SOURCE text so a
     pathological cue never ships (never empty, never the prompt template)."""
-    sysp = build_mt_system_prompt(source_language, output_lang)
+    sysp = build_mt_system_prompt(source_language, output_lang, style)
     out: List[dict] = []
     for s in content_segments:
         txt = (s.get("text") or "").strip()
