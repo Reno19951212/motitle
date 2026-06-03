@@ -113,21 +113,24 @@ def test_run_output_lang_first_pass_error_marks_status_error(app_mod, monkeypatc
 
 
 def test_asr_handler_output_lang_second_pass_merges(app_mod, monkeypatch):
+    # Same-family input (yue source, zh second) keeps the LEGACY index-merge
+    # second-pass path. Cross-language inputs now route to the derive-from-base
+    # branch (covered in test_crosslang_phase1_dispatch).
     fid = "t-ol-run2"
     monkeypatch.setattr(app_mod, "_produce_output_lang",
-                        lambda audio, src, out, script, ce, cache: [{"start": 0, "end": 1, "text": "Tonight's race"}])
+                        lambda audio, src, out, script, ce, cache: [{"start": 0, "end": 1, "text": "今晚的賽事"}])
     monkeypatch.setattr(app_mod, "_resolve_file_path", lambda f: "/tmp/x.wav")
     with app_mod._registry_lock:
         app_mod._file_registry[fid] = {
             "id": fid, "active_kind": "output_lang", "source_language": "yue", "script": "trad",
-            "output_languages": ["yue", "en"],
+            "output_languages": ["yue", "zh"],
             "translations": [{"idx": 0, "start": 0, "end": 1,
                               "by_lang": {"yue": {"text": "今晚嘅賽事", "status": "pending", "flags": []}},
                               "yue_text": "今晚嘅賽事", "status": "pending"}]}
     try:
-        app_mod._asr_handler({"file_id": fid, "id": "j2", "user_id": 1, "type": "asr_output", "output_language": "en"})
+        app_mod._asr_handler({"file_id": fid, "id": "j2", "user_id": 1, "type": "asr_output", "output_language": "zh"})
         r = app_mod._file_registry[fid]["translations"][0]
-        assert r["by_lang"]["en"]["text"] == "Tonight's race" and r["en_text"] == "Tonight's race"
+        assert r["by_lang"]["zh"]["text"] == "今晚的賽事" and r["zh_text"] == "今晚的賽事"
         assert r["by_lang"]["yue"]["text"] == "今晚嘅賽事"   # first preserved
     finally:
         with app_mod._registry_lock:

@@ -505,6 +505,9 @@ def _run_output_lang_second(file_id, job, audio_path, cancel_event):
         source_language = entry.get("source_language") or "yue"
         script = entry.get("script") or "trad"
         cached = entry.get("content_asr_segments")
+    if _is_cross_language(source_language, outs):
+        _run_output_lang_second_cross(file_id, target, source_language, script)
+        return
     _reset_progress_for_job(file_id, job.get("id", ""), "output_lang", 1,
                             num_output_langs=max(2, len(outs)))
     content_cache = {"segments": cached} if cached else {}
@@ -549,6 +552,34 @@ def _run_output_lang_second(file_id, job, audio_path, cancel_event):
                     _save_registry()
     except Exception:
         pass  # aligned view is best-effort; single-language output already persisted
+
+
+def _run_output_lang_second_cross(file_id, target, source_language, script):
+    """Cross-language on-demand add: derive `target` 1:1 from the cached content base
+    and append it to translations + aligned_bilingual on the SAME grid (no index-merge)."""
+    from output_lang_aligned import derive_aligned_output
+    with _registry_lock:
+        entry = _file_registry.get(file_id) or {}
+        base = list(entry.get("content_asr_segments") or [])
+    if not base:
+        raise RuntimeError(f"cross second pass: no content_asr_segments for {file_id}")
+    seg2 = derive_aligned_output(base, source_language, target, script, _make_ollama_llm_call())
+    with _registry_lock:
+        if file_id not in _file_registry:
+            return
+        cur = _file_registry[file_id].get("translations") or []
+        new_rows = []
+        for i, row in enumerate(cur):
+            t = seg2[i].get("text", "") if i < len(seg2) else ""
+            nbl = {**(row.get("by_lang") or {}), target: {"text": t, "status": "pending", "flags": []}}
+            new_rows.append({**row, "by_lang": nbl, f"{target}_text": t})
+        cur_al = _file_registry[file_id].get("aligned_bilingual") or []
+        new_al = [{**c, "by_lang": {**(c.get("by_lang") or {}),
+                                    target: (seg2[i].get("text", "") if i < len(seg2) else "")}}
+                  for i, c in enumerate(cur_al)]
+        _file_registry[file_id]["translations"] = new_rows
+        _file_registry[file_id]["aligned_bilingual"] = new_al
+        _save_registry()
 
 
 def _asr_handler(job, cancel_event=None):
