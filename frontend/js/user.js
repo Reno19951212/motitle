@@ -1,4 +1,10 @@
 // frontend/js/user.js — User page: account + change-password + (admin) user mgmt + audit.
+
+// Password policy (must match backend auth/passwords.validate_password_strength):
+// at least 8 characters, and not one of the common-password blocklist.
+const PW_MIN_LEN = 8;
+const PW_RULE = '密碼規則：至少 8 個字元，且不能是常見密碼（例如 password、12345678、qwerty）';
+
 async function loadMe() {
   const r = await fetch('/api/me', { credentials: 'same-origin' });
   if (!r.ok) { window.location.href = '/login.html'; return; }
@@ -53,14 +59,19 @@ async function deleteUser(id, username) {
   loadUsers();
 }
 async function resetPassword(id, username) {
-  const pw = prompt(`輸入新密碼 (${username})：`);
-  if (!pw) return;
+  const pw = prompt(`為「${username}」設定新密碼\n\n${PW_RULE}`);
+  if (pw === null) return;                       // 取消
+  if (pw.length < PW_MIN_LEN) { alert(`密碼太短（少於 ${PW_MIN_LEN} 個字元），未有更改。\n\n${PW_RULE}`); return; }
   const r = await fetch(`/api/admin/users/${id}/reset-password`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
     body: JSON.stringify({ new_password: pw }),
   });
-  if (!r.ok) { const e = await r.json().catch(()=>({})); alert('失敗：' + (e.error || `HTTP ${r.status}`)); return; }
-  alert('密碼已重設');
+  if (!r.ok) {
+    const e = await r.json().catch(()=>({}));
+    alert(`重設失敗，密碼未有更改：${e.error || `HTTP ${r.status}`}\n\n${PW_RULE}`);
+    return;
+  }
+  alert(`「${username}」密碼已成功重設，請用新密碼登入。`);
 }
 async function toggleAdmin(id) {
   const r = await fetch(`/api/admin/users/${id}/toggle-admin`, { method: 'POST', credentials: 'same-origin' });
@@ -80,11 +91,13 @@ async function loadAudit() {
 document.getElementById('adminUserCreateForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const fd = new FormData(e.target);
+  const pw = fd.get('password') || '';
+  if (pw.length < PW_MIN_LEN) { alert(`密碼太短（少於 ${PW_MIN_LEN} 個字元）。\n\n${PW_RULE}`); return; }
   const r = await fetch('/api/admin/users', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-    body: JSON.stringify({ username: fd.get('username'), password: fd.get('password'), is_admin: fd.get('is_admin') === 'on' }),
+    body: JSON.stringify({ username: fd.get('username'), password: pw, is_admin: fd.get('is_admin') === 'on' }),
   });
-  if (!r.ok) { const er = await r.json().catch(()=>({})); alert('建立失敗：' + (er.error || r.status)); return; }
+  if (!r.ok) { const er = await r.json().catch(()=>({})); alert(`建立失敗：${er.error || r.status}\n\n${PW_RULE}`); return; }
   e.target.reset(); loadUsers();
 });
 window.deleteUser = deleteUser; window.resetPassword = resetPassword; window.toggleAdmin = toggleAdmin;

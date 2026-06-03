@@ -203,6 +203,7 @@
                 <div class="pw-title">更改密碼 · Change Password</div>
                 <input type="password" name="old_password" placeholder="舊密碼" autocomplete="current-password" required>
                 <input type="password" name="new_password" placeholder="新密碼（≥8 字）" autocomplete="new-password" required>
+                <div class="pw-rule-hint" style="width:100%;font-size:11px;color:var(--text-dim);line-height:1.4;">密碼規則：至少 8 個字元，且不能是常見密碼（如 password、12345678、qwerty）</div>
                 <button type="submit" class="btn-primary">更新密碼</button>
                 <span id="changePwMsg" class="pw-msg"></span>
               </form>
@@ -216,6 +217,7 @@
                 <input name="password" type="password" placeholder="密碼（≥8 字）" required>
                 <label class="chk"><input type="checkbox" name="is_admin"> 管理員</label>
                 <button type="submit" class="btn-primary" data-testid="admin-user-create-submit">新增用戶</button>
+                <div class="pw-rule-hint" style="width:100%;font-size:11px;color:var(--text-dim);line-height:1.4;">密碼規則：至少 8 個字元，且不能是常見密碼（如 password、12345678、qwerty）</div>
               </form>
               <table class="utable">
                 <thead>
