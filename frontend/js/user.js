@@ -4,6 +4,8 @@ async function loadMe() {
   if (!r.ok) { window.location.href = '/login.html'; return; }
   const me = await r.json();
   document.getElementById('accountUsername').textContent = me.username || '—';
+  const chip = document.getElementById('userChipName');
+  if (chip) chip.textContent = me.username || '—';
   const badge = document.getElementById('accountRole');
   badge.textContent = me.is_admin ? '管理員' : '用戶';
   badge.className = 'role-badge ' + (me.is_admin ? 'role-admin' : 'role-user');
