@@ -32,12 +32,13 @@ test('英文 / 普通話 / 日文 source 硬鎖第一語言 = source (select dis
 test('粵語 source 例外：第一語言可揀 口語廣東話 / 中文書面語 (enabled)', async ({ page }) => {
   await openPopup(page);
   await page.selectOption('#olSourceLang', 'yue');
-  expect(await firstOpts(page)).toEqual(['yue', 'zh']);            // the two Cantonese-faithful forms
+  expect(await firstOpts(page)).toEqual(['zh', 'yue']);           // 書面語 first (default), 口語 second
+  expect(await page.locator('#olFirstLang').inputValue()).toBe('zh');  // 粵語預設 = 中文書面語
   expect(await page.locator('#olFirstLang').isDisabled()).toBe(false);
-  await page.selectOption('#olFirstLang', 'zh');                   // 書面語 selectable
-  expect(await page.locator('#olFirstLang').inputValue()).toBe('zh');
-  await page.selectOption('#olFirstLang', 'yue');                  // 口語 selectable
+  await page.selectOption('#olFirstLang', 'yue');                 // 口語 selectable
   expect(await page.locator('#olFirstLang').inputValue()).toBe('yue');
+  await page.selectOption('#olFirstLang', 'zh');                  // 書面語 selectable
+  expect(await page.locator('#olFirstLang').inputValue()).toBe('zh');
 });
 
 test('切換 source 即時重套鎖定（粵語→英文鎖 en，英文→粵語還原可揀）', async ({ page }) => {
@@ -49,7 +50,8 @@ test('切換 source 即時重套鎖定（粵語→英文鎖 en，英文→粵語
   expect(await page.locator('#olFirstLang').isDisabled()).toBe(true);
   expect(await page.locator('#olFirstLang').inputValue()).toBe('en');
   await page.selectOption('#olSourceLang', 'yue');                 // back to 粵語
-  expect(await firstOpts(page)).toEqual(['yue', 'zh']);
+  expect(await firstOpts(page)).toEqual(['zh', 'yue']);
+  expect(await page.locator('#olFirstLang').inputValue()).toBe('zh');  // 還原預設書面語
   expect(await page.locator('#olFirstLang').isDisabled()).toBe(false);
 });
 

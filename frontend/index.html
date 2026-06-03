@@ -4799,7 +4799,7 @@
       en:  [['en', '英文']],
       cmn: [['cmn', '普通話']],
       ja:  [['ja', '日文']],
-      yue: [['yue', '口語廣東話'], ['zh', '中文書面語']],
+      yue: [['zh', '中文書面語'], ['yue', '口語廣東話']],   // 粵語預設中文書面語，可改口語
     };
     function syncFirstLangToSource() {
       const srcEl = document.getElementById('olSourceLang');
@@ -4807,10 +4807,8 @@
       if (!first) return;
       const src = (srcEl && srcEl.value) || 'yue';
       const opts = OL_FIRST_BY_SOURCE[src] || OL_FIRST_BY_SOURCE.yue;
-      const prev = first.value;
       first.innerHTML = opts.map(([v, label]) => `<option value="${v}">${label}</option>`).join('');
-      // 粵語切換 口語↔書面語 時保留用戶上次選擇；其餘情況跳第一個。
-      first.value = opts.some(([v]) => v === prev) ? prev : opts[0][0];
+      first.value = opts[0][0];   // 預設 = 第一個選項（粵語 → 中文書面語）
       // 單一選項（英/普/日）→ 硬鎖（disabled）；粵語兩選項 → 可揀。
       first.disabled = opts.length < 2;
     }
