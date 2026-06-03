@@ -1150,6 +1150,11 @@
     .or-key-status { font-size: 11px; color: var(--text-dim); }
     .or-key-status.ok { color: var(--success); }
 
+    /* Upload popup (olOverlay) — comfortable sizing (design skeleton-swap) */
+    #olOverlay label > span { font-size: 13px; }
+    #olOverlay .or-input { font-size: 13.5px; padding: 9px 11px; }
+    #olOverlay .or-btn { padding: 8px 18px; font-size: 13px; }
+
     /* Render options modal — reuses .or-overlay pattern for consistency */
     .rm-fmt-row {
       display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
@@ -1367,7 +1372,7 @@
       <aside class="b-rail" id="bRail">
         <div class="mark" title="MoTitle">M</div>
         <button class="rail-btn on" data-route="home"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8l6-5 6 5v6H2z M6 14V9h4v5"/></svg><span class="tt">主頁</span></button>
-        <button class="rail-btn" data-route="files"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 6h12M2 10h12M5 3v10M11 3v10"/></svg><span class="tt">檔案</span></button>
+        <a class="rail-btn" data-route="files" href="Files.html" title="檔案"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 6h12M2 10h12M5 3v10M11 3v10"/></svg><span class="tt">檔案</span></a>
         <button class="rail-btn" data-route="proof" onclick="jumpToProofread()"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-8 8H3v-3z"/></svg><span class="tt">校對</span></button>
         <a class="rail-btn" data-route="gloss" href="Glossary.html" title="術語表"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h4a3 3 0 013 3v8a2 2 0 00-2-2H3z M13 3H9a3 3 0 00-3 3v8a2 2 0 012-2h5z"/></svg><span class="tt">術語表</span></a>
         <a class="rail-btn" href="user.html" title="User"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="5.5" r="2.75"/><path d="M2.5 14a5.5 5.5 0 0111 0"/></svg><span class="tt">User</span></a>
