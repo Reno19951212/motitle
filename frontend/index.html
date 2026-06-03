@@ -765,6 +765,67 @@
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.55} }
     @keyframes qpSpin { to { transform: rotate(360deg); } }
 
+    /* Per-target-language processing progress bars (status card) */
+    .lang-prog-list { display: flex; flex-direction: column; gap: 16px; }
+    .lp-empty { font-size: 12px; color: var(--text-dim); text-align: center; padding: 6px 0 2px; }
+    .lang-prog { display: flex; flex-direction: column; gap: 7px; }
+    .lp-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+    .lp-name { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; }
+    .lp-lang { font-size: 11px; font-weight: 500; color: var(--text-dim); font-family: var(--font-mono); margin-left: 6px; }
+    .lp-pct { font-size: 12.5px; font-weight: 700; font-family: var(--font-mono); color: var(--accent-2); }
+    .lp-bar { position: relative; height: 8px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
+    .lp-fill {
+      position: relative; height: 100%; width: 0; border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      transition: width 0.6s cubic-bezier(.4,0,.2,1);
+    }
+    .lang-prog.idle .lp-pct { color: var(--text-dim); }
+    .lang-prog.done .lp-fill { background: var(--success); }
+    .lang-prog.done .lp-pct { color: #4ade80; }
+    .lang-prog.error .lp-fill { background: var(--danger); width: 100% !important; opacity: .35; }
+    .lang-prog.error .lp-pct { color: var(--danger); }
+    /* moving sheen while a language is actively processing */
+    .lang-prog.active .lp-fill::after {
+      content: ""; position: absolute; inset: 0;
+      background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.35) 50%, rgba(255,255,255,0) 100%);
+      background-size: 200% 100%;
+      animation: lpSheen 1.5s linear infinite;
+    }
+    @keyframes lpSheen { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+    @media (prefers-reduced-motion: reduce) { .lang-prog.active .lp-fill::after { animation: none; } }
+
+    /* Topbar processing-progress strip (replaces the old pipeline strip) */
+    .topbar-progress {
+      flex: 1; min-width: 0; overflow: hidden;
+      display: flex; align-items: center; gap: 12px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 6px 12px;
+      height: 38px;
+    }
+    .tp-head { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); white-space: nowrap; flex-shrink: 0; }
+    .tp-empty { font-size: 12px; color: var(--text-dim); }
+    .tp-langs { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
+    .tp-lang { display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; }
+    .tp-name { font-size: 11px; font-weight: 600; color: var(--text); white-space: nowrap; flex-shrink: 0; }
+    .tp-code { font-size: 10px; font-weight: 500; color: var(--text-dim); font-family: var(--font-mono); margin-left: 5px; }
+    .tp-bar { position: relative; flex: 1; min-width: 28px; height: 6px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
+    .tp-fill { position: relative; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width 0.6s cubic-bezier(.4,0,.2,1); }
+    .tp-pct { font-size: 11px; font-weight: 700; font-family: var(--font-mono); color: var(--accent-2); white-space: nowrap; flex-shrink: 0; min-width: 32px; text-align: right; }
+    .tp-lang.idle .tp-pct { color: var(--text-dim); }
+    .tp-lang.done .tp-fill { background: var(--success); }
+    .tp-lang.done .tp-pct { color: #4ade80; }
+    .tp-lang.error .tp-fill { background: var(--danger); width: 100% !important; opacity: .35; }
+    .tp-lang.error .tp-pct { color: var(--danger); }
+    .tp-lang.active .tp-fill::after {
+      content: ""; position: absolute; inset: 0;
+      background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.35) 50%, rgba(255,255,255,0) 100%);
+      background-size: 200% 100%; animation: lpSheen 1.5s linear infinite;
+    }
+    @media (max-width: 1500px) { .tp-code { display: none; } }
+    @media (max-width: 1280px) { .tp-head { display: none; } }
+
     /* Step diagram — shared by queue panel rows + file card progress area */
     .step-diagram { display:inline-flex; align-items:center; gap:3px; min-width:0; flex-wrap:nowrap; overflow:hidden; }
     .sd-step { display:inline-flex; align-items:center; gap:3px; min-width:0; }
@@ -1394,7 +1455,10 @@
           </div>
 
           <div class="topbar-mid">
-            <div class="pipeline-strip" id="pipelineStrip" title="當前 Pipeline 組合"></div>
+            <div class="topbar-progress" id="topProgress" title="處理進度">
+              <span class="tp-head">處理進度</span>
+              <span class="tp-empty">未選擇檔案</span>
+            </div>
             <div class="topbar-actions">
               <button class="save-btn" title="儲存為 Pipeline 預設">💾 儲存</button>
               <button class="run-btn" id="runBtn" onclick="startTranscription()" title="使用當前設定執行上傳或翻譯" disabled>
@@ -1491,25 +1555,6 @@
 
           <!-- Inspector -->
           <div class="inspector">
-            <div class="panel status-card" id="statusCard">
-              <div class="status-card-head">
-                <div>
-                  <div class="sc-k">處理進度</div>
-                  <div class="sc-v" id="scPercent">—<span class="u">%</span></div>
-                </div>
-                <span class="badge badge--idle" id="scBadge">待處理</span>
-              </div>
-              <div class="stages-track" id="stagesTrack">
-                <div class="s-step idle"><div class="dot"></div><div class="lb">ASR</div><div class="sb">—</div></div>
-                <div class="s-link"></div>
-                <div class="s-step idle"><div class="dot"></div><div class="lb">MT</div><div class="sb">—</div></div>
-                <div class="s-link"></div>
-                <div class="s-step idle"><div class="dot"></div><div class="lb">校對</div><div class="sb">—</div></div>
-                <div class="s-link"></div>
-                <div class="s-step idle"><div class="dot"></div><div class="lb">燒字</div><div class="sb">—</div></div>
-              </div>
-            </div>
-
             <div class="panel inspector-tabs-panel">
               <div class="inspector-tabs" id="inspectorTabs">
                 <button class="on" data-tab="transcript">
@@ -1851,6 +1896,9 @@
     // cardProgress: per-file step-diagram data from pipeline_progress events
     // keyed by file_id → {stages, stage_index, stage_state, pct, stage_label}
     const cardProgress = {};
+    // langProgress: per-file per-target-language progress from /api/queue
+    // (realtime). file_id → [{ role, label, lang, pct, state }, ...]
+    const langProgress = {};
     // cardSubtitle: per-file live streaming caption text (pipeline_segment for V6
     // final refiner; subtitle_segment for Profile ASR active file).
     const cardSubtitle = {};
@@ -1914,6 +1962,7 @@
         const r = await fetch(`${API_BASE}/api/queue`, { credentials: 'same-origin' });
         if (!r.ok) return;
         const rows = await r.json();
+        let _activeTouched = false;
         (Array.isArray(rows) ? rows : []).forEach((row) => {
           if (!row || !row.file_id) return;
           _applyCardProgress(row.file_id, {
@@ -1923,7 +1972,12 @@
             pct: row.progress_pct,
             stage_label: row.stage_label || null,
           });
+          if (Array.isArray(row.lang_progress)) {
+            langProgress[row.file_id] = row.lang_progress;
+            if (row.file_id === activeFileId) _activeTouched = true;
+          }
         });
+        if (_activeTouched && typeof renderStatusCard === 'function') renderStatusCard();
       } catch (e) { /* silent — poll is best-effort */ }
     }
     let segments = [];
@@ -2425,82 +2479,72 @@
         </div>`;
     }
 
+    // Map the active file's target languages → progress rows. Live per-language
+    // progress comes from the /api/queue poll (langProgress[fileId]); otherwise a
+    // coarse value is derived from the file's status so done/idle files still read.
+    function langProgressRows(f) {
+      const langs = Array.isArray(f.languages) ? f.languages : [];
+      const ordered = [langs.find(l => l.role === 'first'), langs.find(l => l.role === 'second')].filter(Boolean);
+      const list = ordered.length ? ordered : langs.slice(0, 2);
+      const live = langProgress[f.id];
+      const cat = fileStatusCategory(f);
+      return list.map((l, idx) => {
+        let pct, state;
+        const lv = live && live[idx];
+        if (lv && lv.pct != null) {
+          pct = Math.round(lv.pct);
+          state = lv.state || (pct >= 100 ? 'done' : 'active');
+        } else if (cat === 'done') { pct = 100; state = 'done'; }
+        else if (cat === 'error') { pct = 0; state = 'error'; }
+        else if (cat === 'transcribing') {
+          const fp = fileProgress[f.id];
+          const p = fp && fp.progress != null ? Math.round(fp.progress * 100) : (f.transcribeProgress || 0);
+          pct = idx === 0 ? p : 0; state = idx === 0 ? 'active' : 'idle';
+        } else if (cat === 'translating') {
+          const tp = f.translation_progress || {};
+          pct = idx === 0 ? 100 : Math.round(tp.percent || 0);
+          state = idx === 0 ? 'done' : 'active';
+        } else { pct = 0; state = 'idle'; }
+        return { label: l.label || (idx === 0 ? '原文' : '譯文'), lang: (l.lang || '').toUpperCase(), pct, state };
+      });
+    }
+
     function renderStatusCard() {
+      const el = document.getElementById('topProgress');
+      if (!el) return;
       const f = activeFileId ? uploadedFiles[activeFileId] : null;
-      const scPercent = document.getElementById('scPercent');
-      const scBadge = document.getElementById('scBadge');
-      const track = document.getElementById('stagesTrack');
 
       if (!f) {
-        scPercent.innerHTML = '—<span class="u">%</span>';
-        scBadge.outerHTML = '<span class="badge badge--idle" id="scBadge">待處理</span>';
-        track.innerHTML = `
-          <div class="s-step idle"><div class="dot"></div><div class="lb">ASR</div><div class="sb">—</div></div>
-          <div class="s-link"></div>
-          <div class="s-step idle"><div class="dot"></div><div class="lb">MT</div><div class="sb">—</div></div>
-          <div class="s-link"></div>
-          <div class="s-step idle"><div class="dot"></div><div class="lb">校對</div><div class="sb">—</div></div>
-          <div class="s-link"></div>
-          <div class="s-step idle"><div class="dot"></div><div class="lb">燒字</div><div class="sb">—</div></div>`;
+        el.innerHTML = '<span class="tp-head">處理進度</span><span class="tp-empty">未選擇檔案</span>';
+        el.dataset.sig = '';
         return;
       }
 
-      const approved = f.approved_count != null ? f.approved_count : 0;
-      const total = f.segment_count || 0;
-      const cat = fileStatusCategory(f);
-      let pct = 0;
-      if (cat === 'transcribing') {
-        const fp = fileProgress[f.id];
-        pct = fp && fp.progress != null ? Math.round(fp.progress * 30) : 0; // ASR occupies first 30%
-      } else if (cat === 'translating') {
-        const tp = f.translation_progress || {};
-        pct = 30 + Math.round((tp.percent || 0) * 0.35);
-      } else if (cat === 'done') {
-        const approvedRatio = total > 0 ? approved / total : 0;
-        pct = 65 + Math.round(approvedRatio * 35);
-      } else if (cat === 'error') {
-        pct = 0;
+      const rows = langProgressRows(f);
+      // Rebuild structure only when the file or language count changes; otherwise
+      // patch widths/percent in place so the CSS width transition animates.
+      const sig = f.id + ':' + rows.length;
+      if (el.dataset.sig !== sig) {
+        el.dataset.sig = sig;
+        el.innerHTML =
+          '<span class="tp-head">處理進度</span>' +
+          '<div class="tp-langs">' +
+          rows.map((r, i) => `
+            <div class="tp-lang ${r.state}" data-idx="${i}" title="${i === 0 ? '第一目標語言' : '第二目標語言'} · ${escapeHtml(r.label)} · ${escapeHtml(r.lang)}">
+              <span class="tp-name">${i === 0 ? '第一' : '第二'}<span class="tp-code">${escapeHtml(r.lang)}</span></span>
+              <div class="tp-bar"><div class="tp-fill" style="width:${r.pct}%"></div></div>
+              <span class="tp-pct">${r.pct}%</span>
+            </div>`).join('') +
+          '</div>';
+      } else {
+        rows.forEach((r, i) => {
+          const item = el.querySelector(`.tp-lang[data-idx="${i}"]`);
+          if (!item) return;
+          item.className = `tp-lang ${r.state}`;
+          const pctEl = item.querySelector('.tp-pct'); if (pctEl) pctEl.textContent = r.pct + '%';
+          const fillEl = item.querySelector('.tp-fill'); if (fillEl) fillEl.style.width = r.pct + '%';
+        });
       }
-
-      scPercent.innerHTML = `${pct}<span class="u">%</span>`;
-      document.getElementById('scBadge').outerHTML = stageBadgeHtml(f).replace('<span class="badge', '<span id="scBadge" class="badge');
-
-      // Stage states: done | active | idle
-      const asrDone = cat !== 'transcribing' && cat !== 'pending' && cat !== 'error';
-      const mtDone = f.translation_status === 'done';
-      const mtActive = cat === 'translating';
-      const asrActive = cat === 'transcribing';
-      const proofActive = cat === 'done' && !mtDone ? false : cat === 'done' && mtDone && approved < total;
-      const proofDone = cat === 'done' && mtDone && approved >= total && total > 0;
-      const renderIdle = !proofDone;
-
-      const asrModel = f.model || activeProfile?.asr?.model_size || '—';
-      const mtEngine = f.translation_engine || activeProfile?.translation?.engine || '—';
-
-      track.innerHTML = `
-        <div class="s-step ${asrDone ? 'done' : asrActive ? 'active' : 'idle'}">
-          <div class="dot ${asrActive ? 'pulse' : ''}">${asrDone ? '✓' : ''}</div>
-          <div class="lb">ASR</div>
-          <div class="sb">${escapeHtml(asrModel)}</div>
-        </div>
-        <div class="s-link ${asrDone ? 'done' : asrActive ? 'active' : ''}"></div>
-        <div class="s-step ${mtDone ? 'done' : mtActive ? 'active' : 'idle'}">
-          <div class="dot ${mtActive ? 'pulse' : ''}">${mtDone ? '✓' : ''}</div>
-          <div class="lb">MT</div>
-          <div class="sb">${escapeHtml(mtEngine)}</div>
-        </div>
-        <div class="s-link ${mtDone ? 'done' : mtActive ? 'active' : ''}"></div>
-        <div class="s-step ${proofDone ? 'done' : proofActive ? 'active' : 'idle'}">
-          <div class="dot ${proofActive ? 'pulse' : ''}">${proofDone ? '✓' : ''}</div>
-          <div class="lb">校對</div>
-          <div class="sb">${approved}/${total}</div>
-        </div>
-        <div class="s-link ${proofDone ? 'done' : proofActive ? 'active' : ''}"></div>
-        <div class="s-step idle">
-          <div class="dot"></div>
-          <div class="lb">燒字</div>
-          <div class="sb">—</div>
-        </div>`;
     }
 
     // Placeholder option lists when backend doesn't provide them (MVP parity with design).
@@ -2814,6 +2858,7 @@
       // reTranslateFile is guarded separately (see below in this file).
 
       const el = document.getElementById('pipelineStrip');
+      if (!el) return;  // pipeline strip removed from topbar — nothing to render
       const p = activeProfile || { asr: {}, translation: {} };
       const preset = p.name || '未選擇';
       const asrModel = p.asr?.model_size || '—';
