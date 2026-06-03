@@ -32,6 +32,9 @@ _LEAK_RE = re.compile(r"粵語口語廣播字幕|請輸入.{0,12}(轉換|翻譯)
 
 _THINK_RE = re.compile(r"<think>.*?</think>", re.S)
 _LABEL_RE = re.compile(r"^(譯文|翻譯|Translation|出力)[:：]\s*")
+# Subtitle cleanup: strip a trailing ellipsis run (…/……/.../。。。) the model adds
+# to "open" fragments — looks like a bug on screen since cues are shown one-by-one.
+_TRAIL_ELLIPSIS_RE = re.compile(r"(?:…|\.{2,}|．{2,}|。{2,})+\s*$")
 
 # Style prompt support (Phase 2 — 2026-06-03)
 _STYLE_DIR = os.path.join(os.path.dirname(__file__), "..", "config", "mt_style_prompts")
@@ -61,7 +64,8 @@ def build_mt_system_prompt(source_language: str, output_lang: str, style: str = 
 def _clean(raw: str) -> str:
     out = _THINK_RE.sub("", raw or "").strip()
     out = _LABEL_RE.sub("", out).strip()
-    return out.splitlines()[0].strip() if out else ""
+    out = out.splitlines()[0].strip() if out else ""
+    return _TRAIL_ELLIPSIS_RE.sub("", out).rstrip() if out else ""
 
 
 def translate_segments(content_segments: List[dict], source_language: str,

@@ -29,6 +29,16 @@ def test_translate_strips_think_and_label_prefix():
     assert out[0]["text"] == "こんにちは"
 
 
+def test_translate_strips_trailing_ellipsis_but_keeps_period():
+    # Subtitles show cues one-by-one, so a trailing …/……/... the model adds to
+    # "open" fragments looks like a bug on screen. _clean strips it, but a normal
+    # sentence-ending 。 must survive.
+    segs = [{"start": float(i), "end": float(i + 1), "text": t} for i, t in enumerate("abc")]
+    outs = iter(["在中段稍微……", "他當時…", "正常一句。"])
+    res = translate_segments(segs, "en", "zh", lambda s, u: next(outs))
+    assert [r["text"] for r in res] == ["在中段稍微", "他當時", "正常一句。"]
+
+
 def test_build_prompt_targets():
     assert "口語廣東話" in build_mt_system_prompt("cmn", "yue")
     assert "日本語" in build_mt_system_prompt("yue", "ja")
