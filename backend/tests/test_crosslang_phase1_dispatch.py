@@ -59,3 +59,23 @@ def test_same_family_first_pass_uses_legacy(monkeypatch):
     finally:
         with _app._registry_lock:
             _app._file_registry.pop(fid, None)
+
+
+def test_cross_language_first_pass_error_marks_status(monkeypatch):
+    import pytest
+    fid = "f-cross-err"
+    def boom(*a, **k):
+        raise RuntimeError("asr boom")
+    monkeypatch.setattr(_app, "transcribe_with_segments", boom)
+    with _app._registry_lock:
+        _app._file_registry[fid] = {"id": fid, "active_kind": "output_lang",
+                                    "source_language": "yue", "script": "trad",
+                                    "output_languages": ["zh", "en"]}
+    try:
+        with pytest.raises(Exception):
+            _app._run_output_lang(fid, {"user_id": 1, "id": "j1"}, "a.wav", None)
+        assert _app._file_registry[fid]["status"] == "error"
+        assert _app._file_registry[fid].get("error")
+    finally:
+        with _app._registry_lock:
+            _app._file_registry.pop(fid, None)
