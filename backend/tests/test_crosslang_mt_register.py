@@ -31,6 +31,16 @@ def test_translate_prompt_leak_falls_back_to_source():
     assert out[0]["text"] == "OK"
 
 
+def test_leak_guard_does_not_false_positive_on_legit_text():
+    base = [{"start": 0, "end": 1, "text": "Enter your password"},
+            {"start": 1, "end": 2, "text": "The system prompt was clear"}]
+    out = cm.translate_segments(base, "en", "zh",
+                                lambda s, u: {"Enter your password": "請輸入您的密碼",
+                                              "The system prompt was clear": "這是系統提示音"}[u])
+    assert out[0]["text"] == "請輸入您的密碼"      # legit, must NOT fall back
+    assert out[1]["text"] == "這是系統提示音"      # legit, must NOT fall back
+
+
 def test_translate_normal_passthrough():
     base = [{"start": 0, "end": 1, "text": "你好"}, {"start": 1, "end": 2, "text": "再見"}]
     out = cm.translate_segments(base, "yue", "en", lambda s, u: {"你好": "Hi", "再見": "Bye"}[u])

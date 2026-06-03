@@ -27,7 +27,7 @@ _MT_SYS = ("你是專業廣播字幕翻譯員，負責將用戶提供的單句{s
            "規則：貼近廣播口播、自然流暢；不得加入原文沒有的資訊或領域術語；保留專有名詞；"
            "輸出一行，只輸出譯文本身，不加任何解釋或標籤。{extra}")
 
-_LEAK_RE = re.compile(r"請輸入|需要轉換|粵語口語廣播字幕|系統提示|system prompt", re.IGNORECASE)
+_LEAK_RE = re.compile(r"粵語口語廣播字幕|請輸入.{0,12}(轉換|翻譯)|^系統提示|^system prompt", re.IGNORECASE)
 
 _THINK_RE = re.compile(r"<think>.*?</think>", re.S)
 _LABEL_RE = re.compile(r"^(譯文|翻譯|Translation|出力)[:：]\s*")
