@@ -38,3 +38,24 @@ def test_translate_segments_threads_style():
     cm.translate_segments([{"start": 0, "end": 1, "text": "the boys played well"}],
                           "en", "zh", fake, style="racing")
     assert "賽馬" in seen["sysp"]
+
+
+def test_derive_aligned_threads_style_for_mt():
+    import output_lang_aligned as ola
+    seen = {}
+    def fake(sysp, user):
+        seen["sysp"] = sysp
+        return "X"
+    ola.derive_aligned_output([{"start": 0, "end": 1, "text": "the boys"}], "en", "zh", "trad",
+                              fake, style="racing")
+    assert "賽馬" in seen["sysp"]   # en->zh is derive_mode "mt"; racing style threaded into MT prompt
+
+
+def test_derive_aligned_default_style_is_generic():
+    import output_lang_aligned as ola
+    seen = {}
+    def fake(sysp, user):
+        seen["sysp"] = sysp
+        return "X"
+    ola.derive_aligned_output([{"start": 0, "end": 1, "text": "the boys"}], "en", "zh", "trad", fake)
+    assert "賽馬" not in seen["sysp"]   # default generic -> no racing framing
