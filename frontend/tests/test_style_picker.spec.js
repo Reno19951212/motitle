@@ -4,9 +4,9 @@ const PROBE_PASS = process.env.PROBE_PASS || 'TestPass1!';
 
 test('upload popup has 翻譯風格 style picker with 3 options default 通用', async ({ page }) => {
   await page.goto(`${BASE}/login.html`);
-  await page.fill('#username', 'admin_p3');
-  await page.fill('#password', PROBE_PASS);
-  await page.click('button[type="submit"]');
+  await page.fill('#loginUsername', 'admin_p3');
+  await page.fill('#loginPassword', PROBE_PASS);
+  await page.click('#loginSubmit');
   await page.waitForURL(`${BASE}/`);
   const sel = page.locator('#mtStyle');
   await expect(sel).toHaveCount(1);

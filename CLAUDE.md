@@ -360,6 +360,16 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 ## Completed Features
 
+### Style-picker Phase 2 — 翻譯風格選擇器（馬會賽馬 / 體育新聞 / 通用）（2026-06-03）
+- **問題**：Phase 1 嘅 en→zh MT prompt 係單一通用版,但賽馬片想主動補賽馬詞、非賽馬片唔想被注入賽馬詞（驗證見 FIFA 足球被 racing-framed prompt 注「the boys→騎師」）。
+- **方案**：upload pop-up 加「翻譯風格」dropdown（3 style → MT prompt template）。`mt_style ∈ {racing 馬會賽馬, sportsnews 體育新聞, generic 通用}`,**default generic**。3 個 prompt 全部 production qwen3.5 實證（[drift-fix tracker](docs/superpowers/specs/2026-06-02-drift-fix-validation-tracker.md)）。
+- **套用範圍**：style template 係 **en→繁中書面語**,只對 **`source=en` 且 `output∈{zh,cmn}`（英文/英→中文書面語 MT）**生效；其餘 pair（ja→zh、yue→en…）+ 非 MT 路徑（refine/passthrough）行 Phase 1 既有 prompt,**不受 style 影響**。
+- **架構（純 wiring,prompt 已驗證）**：`config/mt_style_prompts/{racing,sportsnews,generic}.txt`；`crosslang_mt.build_mt_system_prompt(source,out,style)` en→zh/cmn 回 style template、否則 Phase 1；`translate_segments` + `derive_aligned_output` 加 `style`（向後兼容 default generic = Phase 1）。`mt_style` 由 upload form → `_register_file` 存 entry → `_run_output_lang_cross` + `_run_output_lang_second_cross` 讀傳落 derive（boundary always-coerce 無效→generic + read-site `entry.get or generic` + `_load_style_prompt` coerce = triple safety）。
+- **前端**：`index.html` upload pop-up `#mtStyle` dropdown（3 option,default 通用）+ confirm 送 `mt_style`。
+- **整合驗證 ✅（真 qwen3.5,live :5001）**：FIFA 足球片 `mt_style=generic` → **racing_terms=0**（`the boys→這些男孩`）;`mt_style=racing` → racing_terms=4（`the boys→各位騎師`,style 容許）;兩者 0 漏粵語。Playwright dropdown 3 option + default generic PASS。Backend regression 13 檔 144 pass,Phase 1 + V6/Profile 零 regression。執行：Subagent-Driven（Sonnet T1/T2/T4 + Opus T3/全 review,每 task two-stage review + fix loop）。
+- **新**：`crosslang_mt.{STYLE_LABELS,DEFAULT_STYLE,_load_style_prompt}`;`mt_style` form/entry field。spec/plan：[design](docs/superpowers/specs/2026-06-03-style-picker-phase2-design.md) / [plan](docs/superpowers/plans/2026-06-03-style-picker-phase2-plan.md)。
+- **範圍外（v2）**：glossary 專名注入;日文/中文內容 style-aware prompt;style 影響 refine 路徑;en→cmn 真普通話詞彙區分（現用 en→繁中 template + OpenCC glyph）。
+
 ### Cross-language drift-fix Phase 1 — 單 pass 綁 base 1:1 衍生 + MT register（2026-06-03）
 - **問題**：跨語言 output_lang 雙語**顯示**（校對頁/主頁）系統性 drift —— `_run_output_lang_second` `segs2[i]→live[i]` 純 index-merge，第二語言由**獨立轉錄**硬塞入第一語言 grid（兩條分句唔同 → 錯位）；加 `粵→zh` whisper-direct 開頭幻覺「字幕由 Amara.org」；MT prompt 用粵語寫 prime qwen3.5 漏粵語（我係/喺）。O1 嘅 `aligned_bilingual` 雖 1:1 但只用於 export，顯示仍讀 drifted by_lang。
 - **修復（單一真源）**：跨語言（family rule，`_is_cross_language`：zh={yue,cmn,zh}/en/ja，任一輸出家族 ≠ 內容 → 跨）改**單 pass 綁 base** —— 內容 ASR **轉一次**做共享 base（中文家族先 `clause_split`），每輸出 `derive_aligned_output` **1:1 衍生**（passthrough/MT/refine，`derive_mode` 已驗證 en/ja→zh raw MT、yue/cmn→zh refine），喺**同一 grid** 砌 `translations`(by_lang) + `aligned_bilingual` + `segments` + `content_asr_segments`。**刪走 index-merge + 第二 job**（`_run_output_lang_cross`）；on-demand 加語言由 cached base 1:1 衍生 append（`_run_output_lang_second_cross`，gate 於 base 存在且 grid 長度相符,否則 fall legacy）。**同家族單語言中文行返舊路 byte-不變;V6/Profile 完全唔郁。**
