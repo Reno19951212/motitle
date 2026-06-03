@@ -1,91 +1,248 @@
 <!DOCTYPE html>
-<html lang="zh-HK">
+<html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MoTitle — User</title>
-  <link rel="stylesheet" href="css/responsive.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MoTitle — 帳戶 User</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
-    :root { --bg:#0e0f13; --surface-2:#1a1c22; --accent-soft:rgba(108,99,255,0.15); --accent-2:#8b85ff; --text:#e7e8ec; --text-dim:#9aa0ab; --border:#2a2d36; }
-    * { box-sizing:border-box; } body { margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"PingFang HK","Microsoft JhengHei",sans-serif; }
-    .app { display:flex; min-height:100vh; }
-    .b-rail { width:56px; flex-shrink:0; background:var(--surface-2); display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 0; border-right:1px solid var(--border); }
-    .b-rail .mark { width:32px; height:32px; border-radius:8px; background:var(--accent-soft); color:var(--accent-2); display:flex; align-items:center; justify-content:center; font-weight:800; margin-bottom:8px; }
-    .rail-btn { position:relative; width:40px; height:40px; border:none; background:transparent; color:var(--text-dim); border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; text-decoration:none; }
-    .rail-btn:hover { color:var(--text); background:var(--surface-2); }
-    .rail-btn.on { color:var(--accent-2); background:var(--accent-soft); }
-    .rail-btn .tt { position:absolute; left:48px; white-space:nowrap; background:#000; padding:3px 8px; border-radius:6px; font-size:12px; opacity:0; pointer-events:none; transition:opacity .12s; z-index:5; }
-    .rail-btn:hover .tt { opacity:1; }
-    .b-rail .flex1 { flex:1; }
-    .user-main { align-items:flex-start; justify-content:flex-start; padding:24px; overflow-y:auto; }
-    .upage { width:100%; max-width:880px; display:flex; flex-direction:column; gap:18px; }
-    .ucard { background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:18px 20px; }
-    .ucard h2 { margin:0 0 12px; font-size:15px; }
-    .ucard-head { display:flex; align-items:center; justify-content:space-between; }
-    .acct-row { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
-    .acct-name { font-size:16px; font-weight:600; color:var(--text); }
-    .role-badge { font-size:11px; padding:2px 10px; border-radius:999px; }
-    .role-admin { background:rgba(108,99,255,0.18); color:var(--accent-2); }
-    .role-user { background:#2a2d36; color:var(--text-dim); }
-    .pw-form, .create-form { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-    .pw-title { font-size:12px; color:var(--text-dim); width:100%; margin-bottom:2px; }
-    .pw-form input, .create-form input { background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:7px 10px; font-size:13px; }
-    .btn-primary { background:var(--accent-2); color:#0e0f13; border:none; border-radius:8px; padding:7px 14px; font-weight:600; cursor:pointer; font-size:13px; }
-    .chk { font-size:12px; color:var(--text-dim); display:flex; align-items:center; gap:4px; }
-    .pw-msg { font-size:12px; } .pw-msg.ok { color:#36d399; } .pw-msg.err { color:#f87171; }
-    .utable { width:100%; border-collapse:collapse; margin-top:10px; font-size:12.5px; }
-    .utable th, .utable td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--border); }
-    .utable th { color:var(--text-dim); font-weight:600; }
-    .utable .btn-secondary { background:#2a2d36; color:var(--text); border:none; border-radius:6px; padding:4px 8px; cursor:pointer; font-size:11px; margin-right:4px; }
-    .utable .btn-danger { background:rgba(239,68,68,0.18); color:#f87171; border:none; border-radius:6px; padding:4px 8px; cursor:pointer; font-size:11px; }
+    /* ============================================================
+       帳戶 User — MoTitle design-system skin.
+       DOM ids that js/user.js drives are ALL preserved:
+         #accountUsername #accountRole #changePwForm #changePwMsg
+         #adminUserCreateForm #adminUserList #adminAuditList
+         #userMgmtSection #auditSection
+       ============================================================ */
+    :root {
+      --bg: #0a0a0f; --bg-soft: #0f0f18; --surface: #13131a; --surface-2: #1a1a24; --surface-3: #222232;
+      --border: #2a2a3d; --border-strong: #35354d;
+      --text: #e6e6f0; --text-mid: #a8a8bf; --text-dim: #6e6e85;
+      --accent: #6c63ff; --accent-2: #a78bfa; --accent-soft: rgba(108,99,255,0.12); --accent-softer: rgba(108,99,255,0.06); --accent-ring: rgba(108,99,255,0.35);
+      --success: #22c55e; --warning: #f59e0b; --danger: #ef4444; --info: #38bdf8;
+      --radius-sm: 6px; --radius: 10px; --radius-lg: 14px;
+      --shadow-sm: 0 1px 0 rgba(255,255,255,0.03), 0 2px 8px rgba(0,0,0,0.25);
+      --shadow: 0 12px 40px rgba(0,0,0,0.45);
+      --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Microsoft JhengHei', 'PingFang TC', 'Noto Sans TC', system-ui, sans-serif;
+      --font-mono: ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font-ui); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; overflow: hidden; }
+    button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+    input, select { font: inherit; color: inherit; }
+    a { color: inherit; text-decoration: none; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+    .mono { font-family: var(--font-mono); }
+
+    /* ── shell identical to index.html / Files.html ── */
+    .app { display: flex; flex-direction: column; height: 100vh; background: var(--bg); overflow: hidden; }
+    .bold { display: grid; grid-template-columns: 64px 1fr; height: 100%; min-height: 0; background: var(--bg); }
+
+    /* ── left rail ── */
+    .b-rail { background: var(--bg-soft); border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding: 14px 0; gap: 8px; }
+    .b-rail .mark { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 15px; margin-bottom: 10px; }
+    .rail-btn { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); position: relative; }
+    .rail-btn:hover { color: var(--text); background: var(--surface-2); }
+    .rail-btn.on { color: var(--accent-2); background: var(--accent-soft); }
+    .rail-btn.on::before { content: ""; position: absolute; left: -14px; top: 10px; bottom: 10px; width: 3px; border-radius: 2px; background: var(--accent); }
+    .rail-btn .tt { position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%); background: var(--surface); color: var(--text); padding: 4px 10px; border-radius: 6px; font-size: 11px; white-space: nowrap; border: 1px solid var(--border); opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 5; }
+    .rail-btn:hover .tt { opacity: 1; }
+    .b-rail .flex1 { flex: 1; }
+
+    /* ── main column ── */
+    .b-main { display: grid; grid-template-rows: auto 1fr; min-height: 0; min-width: 0; }
+
+    /* ── topbar ── */
+    .b-topbar { display: grid; grid-template-columns: auto minmax(0,1fr) auto auto; align-items: center; gap: 12px; padding: 10px 18px; background: var(--surface); border-bottom: 1px solid var(--border); min-width: 0; }
+    .b-topbar .search { display: flex; align-items: center; gap: 8px; padding: 7px 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; color: var(--text-mid); font-size: 13px; min-width: 200px; max-width: 280px; }
+    .kbd { display: inline-flex; align-items: center; padding: 2px 6px; font-family: var(--font-mono); font-size: 11px; color: var(--text-mid); background: var(--surface-2); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; line-height: 1; }
+    @media (max-width: 1400px) { .b-topbar .search .kbd { display: none; } }
+    .page-id { display: flex; align-items: center; gap: 9px; min-width: 0; }
+    .page-id .pi-ic { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent-2); flex: 0 0 30px; }
+    .page-id .pi-t { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
+    .page-id .pi-s { font-size: 11px; color: var(--text-dim); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+    .health-cluster { display: flex; align-items: center; gap: 6px; }
+    .hpill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface-2); white-space: nowrap; }
+    .hpill .led { width: 7px; height: 7px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 3px rgba(34,197,94,0.18); }
+    .hpill .hk { font-size: 9px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; color: var(--text-dim); }
+    .hpill .hv { font-size: 10.5px; color: var(--text-mid); font-family: var(--font-mono); }
+    @media (max-width: 1100px) { .hpill { display: none; } }
+    .user-chip { display: inline-flex; align-items: center; gap: 8px; padding: 5px 13px; border: 1px solid var(--border); border-radius: 14px; font-size: 12px; color: var(--text-mid); }
+
+    /* ── page body ── */
+    .user-main { min-height: 0; min-width: 0; overflow: auto; padding: 24px 26px 44px; }
+    .upage { max-width: 940px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+
+    /* ── page heading ── */
+    .u-head .h-title { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+    .u-head .h-sub { font-size: 13px; color: var(--text-dim); margin-top: 2px; }
+
+    /* ── cards — .ucard used by js toggled sections ── */
+    .ucard { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+    .ucard[hidden] { display: none; }
+    .ucard > h2, .ucard-head { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--border); font-size: 14px; font-weight: 700; margin: 0; }
+    .ucard-head h2 { margin: 0; font-size: 14px; font-weight: 700; }
+    .ucard > h2::before, .ucard-head::before { content: ""; width: 4px; height: 16px; border-radius: 2px; background: linear-gradient(var(--accent), var(--accent-2)); flex: 0 0 4px; }
+
+    /* ── account identity ── */
+    #accountSection { padding: 0; }
+    .acct-row { display: flex; align-items: center; gap: 16px; padding: 18px; }
+    .acct-row > svg { width: 54px; height: 54px; border-radius: 14px; padding: 12px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; flex: 0 0 54px; }
+    .acct-name { font-size: 18px; font-weight: 700; color: var(--text); }
+    .role-badge { display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; padding: 3px 11px; border-radius: 999px; letter-spacing: 0.03em; margin-left: 2px; }
+    .role-admin { background: var(--accent-soft); color: var(--accent-2); border: 1px solid var(--accent-ring); }
+    .role-user { background: rgba(168,168,191,0.12); color: var(--text-mid); border: 1px solid var(--border); }
+
+    /* ── forms ── */
+    .pw-form, .create-form { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 16px 18px; border-top: 1px solid var(--border); }
+    .pw-title { font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); width: 100%; margin-bottom: 2px; }
+    .pw-form input, .create-form input { background: var(--surface-2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 9px 12px; font-size: 13px; min-width: 160px; }
+    .pw-form input:focus, .create-form input:focus { border-color: var(--accent); outline: none; }
+    .btn-primary { display: inline-flex; align-items: center; gap: 7px; background: var(--accent); color: #fff; border: 1px solid var(--accent); border-radius: 8px; padding: 9px 16px; font-weight: 600; cursor: pointer; font-size: 13px; transition: background .15s; }
+    .btn-primary:hover { background: #5b52e0; }
+    .chk { font-size: 12.5px; color: var(--text-mid); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+    .chk input { accent-color: var(--accent); }
+    .pw-msg { font-size: 12.5px; font-weight: 600; }
+    .pw-msg.ok { color: #4ade80; }
+    .pw-msg.err { color: var(--danger); }
+
+    /* ── tables (users / audit) ── */
+    .utable { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .utable thead th { text-align: left; font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); padding: 11px 18px; border-bottom: 1px solid var(--border); background: var(--bg-soft); white-space: nowrap; }
+    .utable tbody td { padding: 11px 18px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .utable tbody tr:last-child td { border-bottom: 0; }
+    .utable tbody tr:hover { background: var(--surface-2); }
+    .utable td:first-child { font-family: var(--font-mono); color: var(--text-dim); font-size: 12px; }
+    .utable .btn-secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 7px; padding: 5px 10px; cursor: pointer; font-size: 11.5px; font-weight: 600; margin-right: 5px; transition: border-color .12s, background .12s; }
+    .utable .btn-secondary:hover { border-color: var(--border-strong); background: var(--surface-3); }
+    .utable .btn-danger { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.3); border-radius: 7px; padding: 5px 10px; cursor: pointer; font-size: 11.5px; font-weight: 600; }
+    .utable .btn-danger:hover { background: rgba(239,68,68,0.2); }
+    .utable pre { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); margin: 0; }
   </style>
 </head>
 <body>
   <div class="app">
-    <aside class="b-rail">
-      <div class="mark" title="MoTitle">M</div>
-      <a class="rail-btn" href="/" title="主頁"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8l6-5 6 5v6H2z M6 14V9h4v5"/></svg><span class="tt">主頁</span></a>
-      <a class="rail-btn" href="/" title="檔案"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 6h12M2 10h12M5 3v10M11 3v10"/></svg><span class="tt">檔案</span></a>
-      <a class="rail-btn" href="proofread.html" title="校對"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-8 8H3v-3z"/></svg><span class="tt">校對</span></a>
-      <a class="rail-btn" href="Glossary.html" title="術語表"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h4a3 3 0 013 3v8a2 2 0 00-2-2H3z M13 3H9a3 3 0 00-3 3v8a2 2 0 012-2h5z"/></svg><span class="tt">術語表</span></a>
-      <a class="rail-btn on" href="user.html" title="User"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="5.5" r="2.75"/><path d="M2.5 14a5.5 5.5 0 0111 0"/></svg><span class="tt">User</span></a>
-      <div class="flex1"></div>
-    </aside>
-    <main class="user-main">
-      <div class="upage">
-        <section class="ucard" id="accountSection">
-          <h2>我的帳戶</h2>
-          <div class="acct-row">
-            <svg width="34" height="34" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25"><circle cx="8" cy="5.5" r="2.75"/><path d="M2.5 14a5.5 5.5 0 0111 0"/></svg>
-            <span class="acct-name" id="accountUsername">—</span>
-            <span class="role-badge" id="accountRole">—</span>
+    <div class="bold">
+      <!-- ── left rail (canonical 5-item) ── -->
+      <aside class="b-rail">
+        <div class="mark" title="MoTitle">M</div>
+        <a class="rail-btn" href="index.html" title="主頁">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8l6-5 6 5v6H2z M6 14V9h4v5"/></svg>
+          <span class="tt">主頁</span>
+        </a>
+        <a class="rail-btn" href="Files.html" title="檔案">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 6h12M2 10h12M5 3v10M11 3v10"/></svg>
+          <span class="tt">檔案</span>
+        </a>
+        <a class="rail-btn" href="proofread.html" title="校對">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-8 8H3v-3z"/></svg>
+          <span class="tt">校對</span>
+        </a>
+        <a class="rail-btn" href="Glossary.html" title="術語表">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h4a3 3 0 013 3v8a2 2 0 00-2-2H3z M13 3H9a3 3 0 00-3 3v8a2 2 0 012-2h5z"/></svg>
+          <span class="tt">術語表</span>
+        </a>
+        <a class="rail-btn on" href="user.html" title="User">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="5.5" r="2.75"/><path d="M2.5 14a5.5 5.5 0 0111 0"/></svg>
+          <span class="tt">User</span>
+        </a>
+        <div class="flex1"></div>
+      </aside>
+
+      <!-- ── main content ── -->
+      <div class="b-main">
+        <!-- topbar -->
+        <div class="b-topbar">
+          <div class="page-id">
+            <span class="pi-ic">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="5.5" r="2.75"/><path d="M2.5 14a5.5 5.5 0 0111 0"/></svg>
+            </span>
+            <div>
+              <div class="pi-t">帳戶</div>
+              <div class="pi-s">Account</div>
+            </div>
           </div>
-          <form id="changePwForm" class="pw-form">
-            <div class="pw-title">改密碼</div>
-            <input type="password" name="old_password" placeholder="舊密碼" autocomplete="current-password" required>
-            <input type="password" name="new_password" placeholder="新密碼（≥8 字）" autocomplete="new-password" required>
-            <button type="submit" class="btn-primary">更新密碼</button>
-            <span id="changePwMsg" class="pw-msg"></span>
-          </form>
-        </section>
-        <section class="ucard" id="userMgmtSection" hidden>
-          <div class="ucard-head"><h2>用戶管理</h2></div>
-          <form id="adminUserCreateForm" class="create-form">
-            <input name="username" placeholder="新用戶名" required>
-            <input name="password" type="password" placeholder="密碼（≥8 字）" required>
-            <label class="chk"><input type="checkbox" name="is_admin"> 管理員</label>
-            <button type="submit" class="btn-primary" data-testid="admin-user-create-submit">新增用戶</button>
-          </form>
-          <table class="utable"><thead><tr><th>ID</th><th>用戶名</th><th>管理員</th><th>建立時間</th><th>操作</th></tr></thead>
-            <tbody id="adminUserList"></tbody></table>
-        </section>
-        <section class="ucard" id="auditSection" hidden>
-          <div class="ucard-head"><h2>審計日誌</h2></div>
-          <table class="utable"><thead><tr><th>時間</th><th>操作者</th><th>動作</th><th>對象</th><th>詳情</th></tr></thead>
-            <tbody id="adminAuditList"></tbody></table>
-        </section>
+          <div class="search">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="4"/><path d="M10 10l3 3"/></svg>
+            <span>搜尋檔案、術語、Profile…</span>
+            <span style="margin-left:auto;" class="kbd">⌘K</span>
+          </div>
+          <div class="health-cluster">
+            <span class="hpill"><span class="led"></span><span class="hk">Whisper</span><span class="hv">mlx-whisper</span></span>
+            <span class="hpill"><span class="led"></span><span class="hk">Cloud</span><span class="hv">qwen3.5</span></span>
+          </div>
+          <span class="user-chip"><span id="userChipName">—</span></span>
+        </div>
+
+        <!-- scrollable content -->
+        <main class="user-main">
+          <div class="upage">
+
+            <!-- page heading -->
+            <div class="u-head">
+              <div class="h-title">帳戶</div>
+              <div class="h-sub">管理你的帳戶、用戶同操作紀錄 · Account &amp; administration</div>
+            </div>
+
+            <!-- ── My Account (always visible) ── -->
+            <section class="ucard" id="accountSection">
+              <h2>我的帳戶</h2>
+              <div class="acct-row">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25"><circle cx="8" cy="5.5" r="2.75"/><path d="M2.5 14a5.5 5.5 0 0111 0"/></svg>
+                <div>
+                  <span class="acct-name" id="accountUsername">—</span>
+                  <span class="role-badge" id="accountRole">—</span>
+                </div>
+              </div>
+              <form id="changePwForm" class="pw-form">
+                <div class="pw-title">更改密碼 · Change Password</div>
+                <input type="password" name="old_password" placeholder="舊密碼" autocomplete="current-password" required>
+                <input type="password" name="new_password" placeholder="新密碼（≥8 字）" autocomplete="new-password" required>
+                <button type="submit" class="btn-primary">更新密碼</button>
+                <span id="changePwMsg" class="pw-msg"></span>
+              </form>
+            </section>
+
+            <!-- ── User Management (admin only, shown by js/user.js) ── -->
+            <section class="ucard" id="userMgmtSection" hidden>
+              <div class="ucard-head"><h2>用戶管理 · User Management</h2></div>
+              <form id="adminUserCreateForm" class="create-form">
+                <input name="username" placeholder="新用戶名" required>
+                <input name="password" type="password" placeholder="密碼（≥8 字）" required>
+                <label class="chk"><input type="checkbox" name="is_admin"> 管理員</label>
+                <button type="submit" class="btn-primary" data-testid="admin-user-create-submit">新增用戶</button>
+              </form>
+              <table class="utable">
+                <thead>
+                  <tr><th>ID</th><th>用戶名</th><th>管理員</th><th>建立時間</th><th>操作</th></tr>
+                </thead>
+                <tbody id="adminUserList"></tbody>
+              </table>
+            </section>
+
+            <!-- ── Audit Log (admin only, shown by js/user.js) ── -->
+            <section class="ucard" id="auditSection" hidden>
+              <div class="ucard-head"><h2>審計日誌 · Audit Log</h2></div>
+              <table class="utable">
+                <thead>
+                  <tr><th>時間</th><th>操作者</th><th>動作</th><th>對象</th><th>詳情</th></tr>
+                </thead>
+                <tbody id="adminAuditList"></tbody>
+              </table>
+            </section>
+
+          </div>
+        </main>
       </div>
-    </main>
+    </div>
   </div>
+
+  <!-- real backend wiring — DO NOT swap for mock -->
   <script src="js/user.js"></script>
 </body>
 </html>
