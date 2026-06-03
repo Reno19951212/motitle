@@ -17,7 +17,13 @@ const PASS = process.env.PROBE_PASS || 'TestPass1!';
 
 test.use({ storageState: undefined });
 
-test.describe.serial('pipeline-strip language selector', () => {
+// OBSOLETE UI: the pipeline strip (first/second language chips + 「加第二語言」 button) was
+// removed from the topbar when the per-language processing-progress display (#topProgress)
+// replaced it. The backend POST /api/files/<id>/translate-second endpoint is retained
+// (covered by backend tests/test_v6_second_language.py); only this strip-based UI entry
+// point is gone. Skipped (not deleted) so it can be restored if the add-second-language
+// UI is relocated later.
+test.describe.skip('pipeline-strip language selector (removed — strip replaced by #topProgress)', () => {
 
   test.beforeEach(async ({ page }) => {
     const r = await page.request.post(BASE + '/login', { data: { username: USER, password: PASS } });

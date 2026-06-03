@@ -257,28 +257,16 @@ test.describe.serial("v3.19 Happy-Path", () => {
         const userChip = page.locator('[data-testid="user-chip"]');
         await expect(userChip).toBeVisible({ timeout: 5000 });
 
-        // S1b: Pipeline strip present
-        const pipelineStrip = page.locator("#pipelineStrip");
-        await expect(pipelineStrip).toBeVisible();
+        // S1b: Topbar processing-progress present (replaced the pipeline strip)
+        const topProgress = page.locator("#topProgress");
+        await expect(topProgress).toBeVisible();
 
         // S1c: Check active kind matches mode
         const activeKindActual = await page.evaluate(() => activeKind);
         expect(activeKindActual).toBe(mode.kind);
 
-        // S1d: Check pipeline strip has correct columns
-        if (mode.isV6) {
-          // V6 strip should show VAD / qwen3-ctx / refiner columns
-          await expect(page.locator('[data-step="vad"]')).toBeVisible({
-            timeout: 5000,
-          });
-          await expect(page.locator('[data-step="qwen3-ctx"]')).toBeVisible();
-        } else {
-          // Profile strip should show ASR / MT columns
-          await expect(page.locator('[data-step="asr"]')).toBeVisible({
-            timeout: 5000,
-          });
-          await expect(page.locator('[data-step="mt"]')).toBeVisible();
-        }
+        // S1d: (obsolete) the pipeline strip + its per-step columns were removed when
+        // #topProgress replaced the strip — nothing strip-specific to assert here.
 
         // Check no critical JS errors
         const consoleErrors = [];
@@ -293,9 +281,10 @@ test.describe.serial("v3.19 Happy-Path", () => {
       });
 
       // ------------------------------------------------------------------
-      // S2 — Pipeline strip preset switch
+      // S2 — OBSOLETE: the pipeline-strip preset switcher was removed from the
+      // topbar (replaced by #topProgress). Pipeline kind is set at upload now.
       // ------------------------------------------------------------------
-      test("S2 Pipeline strip preset switch", async ({ page }) => {
+      test.skip("S2 Pipeline strip preset switch", async ({ page }) => {
         await page.context().addCookies(
           JSON.parse(fs.readFileSync(AUTH_FILE, "utf8")).cookies || []
         );

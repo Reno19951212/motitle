@@ -81,9 +81,11 @@ test.describe.serial('output-lang archive: reTranslateFile guard + strip regress
   });
 
   // ───────────────────────────────────────────────────────────────────────────
-  // T2: renderPipelineStrip doesn't throw on dashboard without selected file
+  // T2: renderPipelineStrip is now a guarded no-op (the #pipelineStrip container was
+  // removed when #topProgress replaced the strip). It must not throw, and the strip
+  // container must be absent.
   // ───────────────────────────────────────────────────────────────────────────
-  test('renderPipelineStrip renders without errors (no file selected)', async ({ page }) => {
+  test('renderPipelineStrip is a guarded no-op without the strip container', async ({ page }) => {
     const errors = [];
     page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
 
@@ -92,20 +94,21 @@ test.describe.serial('output-lang archive: reTranslateFile guard + strip regress
 
     await page.evaluate(() => {
       activeFileId = null;
-      renderPipelineStrip();
+      renderPipelineStrip();   // guarded: early-returns when #pipelineStrip is gone
     });
 
-    const strip = page.locator('#pipelineStrip');
-    await expect(strip).toBeVisible();
+    // The strip container was removed; the topbar progress display takes its place.
+    expect(await page.locator('#pipelineStrip').count()).toBe(0);
+    await expect(page.locator('#topProgress')).toBeVisible();
 
-    // No JS errors
+    // No JS errors from the guarded call
     expect(errors.filter(e => !e.includes('favicon') && !e.includes('Failed to load resource'))).toHaveLength(0);
   });
 
   // ───────────────────────────────────────────────────────────────────────────
-  // T3: profile file → strip still renders preset-wrap (regression guard)
+  // T3: OBSOLETE — the preset-wrap / strip UI was removed (strip → #topProgress).
   // ───────────────────────────────────────────────────────────────────────────
-  test('profile file: strip still renders preset-wrap (regression guard)', async ({ page }) => {
+  test.skip('profile file: strip still renders preset-wrap (regression guard)', async ({ page }) => {
     const errors = [];
     page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
 
