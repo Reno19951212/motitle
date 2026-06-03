@@ -423,6 +423,10 @@ def _run_output_lang(file_id, job, audio_path, cancel_event):
         raise RuntimeError(f"output_lang file {file_id} has no output_languages — misconfigured")
     _update_file(file_id, status='transcribing', user_id=job["user_id"])
 
+    if _is_cross_language(source_language, outs):
+        _run_output_lang_cross(file_id, job, audio_path, cancel_event, outs, source_language, script)
+        return
+
     first = outs[0]
     content_cache: dict = {}
     _first_start = time.time()
@@ -445,6 +449,38 @@ def _run_output_lang(file_id, job, audio_path, cancel_event):
     if len(outs) > 1:
         _job_queue.enqueue(user_id=job["user_id"], file_id=file_id,
                            job_type='asr_output', output_language=outs[1])
+
+
+def _run_output_lang_cross(file_id, job, audio_path, cancel_event, outs, source_language, script):
+    """Cross-language FIRST pass: ONE content-language ASR base -> derive every output
+    1:1 (passthrough/MT/refine) -> single shared grid. No 2nd job, no index-merge."""
+    from output_lang_persist import build_output_translations
+    from output_lang_router import content_asr_lang
+    from output_lang_aligned import derive_aligned_output
+    import output_lang_postprocess as olp
+    _t0 = time.time()
+    bres = transcribe_with_segments(
+        audio_path, cancel_event=cancel_event,
+        asr_profile_override=_output_lang_asr_override(),
+        progress_kind="output_lang", progress_stage_index=0,
+        lang_override=content_asr_lang(source_language), task_override="transcribe")
+    base = [{"start": s.get("start", 0.0), "end": s.get("end", 0.0), "text": (s.get("text") or "").strip()}
+            for s in ((bres or {}).get("segments") or [])]
+    if not base:
+        _update_file(file_id, status='error', error='output-lang content ASR empty')
+        raise RuntimeError(f"output-lang cross base empty for {file_id}")
+    if _OL_FAMILY.get(source_language) == "zh":
+        base = olp.clause_split_all(base, char_cap=18)
+    llm = _make_ollama_llm_call()
+    derived = {o: derive_aligned_output(base, source_language, o, script, llm) for o in outs}
+    rows = build_output_translations(base, [(o, derived[o]) for o in outs])
+    aligned = [{"start": base[i]["start"], "end": base[i]["end"],
+                "by_lang": {o: (derived[o][i].get("text", "") if i < len(derived[o]) else "") for o in outs}}
+               for i in range(len(base))]
+    _update_file(file_id, status='done', translation_status='done', translation_kind='output_lang',
+                 translations=rows, segments=base, aligned_bilingual=aligned,
+                 content_asr_segments=base, text=" ".join(s["text"] for s in base),
+                 asr_seconds=round(time.time() - _t0, 1))
 
 
 def _run_output_lang_second(file_id, job, audio_path, cancel_event):

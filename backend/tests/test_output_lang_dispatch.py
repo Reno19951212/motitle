@@ -34,9 +34,41 @@ def test_mt_handler_short_circuits_output_lang(app_mod, monkeypatch):
 
 
 def test_asr_handler_output_lang_first_pass(app_mod, monkeypatch):
+    # Same-family (yue -> yue) first pass: legacy per-output path produces the
+    # primary language via _produce_output_lang and enqueues asr_output for the
+    # second same-family language. Cross-language single-grid coverage lives in
+    # test_crosslang_phase1_dispatch.py.
     fid = "t-ol-run"
     monkeypatch.setattr(app_mod, "_produce_output_lang",
                         lambda audio, src, out, script, ce, cache: [{"start": 0, "end": 1, "text": "今晚嘅賽事"}])
+    monkeypatch.setattr(app_mod, "_resolve_file_path", lambda f: "/tmp/x.wav")
+    enq = []
+    monkeypatch.setattr(app_mod._job_queue, "enqueue", lambda **k: enq.append(k))
+    with app_mod._registry_lock:
+        app_mod._file_registry[fid] = {"id": fid, "active_kind": "output_lang",
+                                       "source_language": "yue", "script": "trad",
+                                       "output_languages": ["yue", "zh"]}
+    try:
+        app_mod._asr_handler({"file_id": fid, "id": "j", "user_id": 1, "type": "asr"})
+        e = app_mod._file_registry[fid]
+        assert e["status"] == "done"
+        assert e["translations"][0]["by_lang"]["yue"]["text"] == "今晚嘅賽事"
+        assert e["translations"][0]["yue_text"] == "今晚嘅賽事"
+        assert any(k.get("job_type") == "asr_output" and k.get("output_language") == "zh" for k in enq)
+    finally:
+        with app_mod._registry_lock:
+            app_mod._file_registry.pop(fid, None)
+
+
+def test_asr_handler_output_lang_first_pass_cross_single_grid(app_mod, monkeypatch):
+    # Cross-language (yue -> en) first pass: new bound-base single-grid path
+    # transcribes the content language ONCE, derives every output 1:1, persists
+    # one shared grid, and enqueues NO asr_output job.
+    fid = "t-ol-run-cross"
+    base = [{"start": 0, "end": 1, "text": "今晚嘅賽事"}]
+    monkeypatch.setattr(app_mod, "transcribe_with_segments", lambda *a, **k: {"segments": base})
+    monkeypatch.setattr(app_mod, "_make_ollama_llm_call",
+                        lambda: (lambda s, u: {"今晚嘅賽事": "Tonight's race"}.get(u, u)))
     monkeypatch.setattr(app_mod, "_resolve_file_path", lambda f: "/tmp/x.wav")
     enq = []
     monkeypatch.setattr(app_mod._job_queue, "enqueue", lambda **k: enq.append(k))
@@ -48,9 +80,12 @@ def test_asr_handler_output_lang_first_pass(app_mod, monkeypatch):
         app_mod._asr_handler({"file_id": fid, "id": "j", "user_id": 1, "type": "asr"})
         e = app_mod._file_registry[fid]
         assert e["status"] == "done"
-        assert e["translations"][0]["by_lang"]["yue"]["text"] == "今晚嘅賽事"
-        assert e["translations"][0]["yue_text"] == "今晚嘅賽事"
-        assert any(k.get("job_type") == "asr_output" and k.get("output_language") == "en" for k in enq)
+        tr = e["translations"]
+        assert len(tr) == len(base)
+        assert "yue" in tr[0]["by_lang"] and "en" in tr[0]["by_lang"]
+        assert tr[0]["en_text"] == "Tonight's race"
+        assert e.get("content_asr_segments")
+        assert not enq
     finally:
         with app_mod._registry_lock:
             app_mod._file_registry.pop(fid, None)
