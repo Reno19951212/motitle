@@ -92,6 +92,27 @@ O1 只修咗雙語**匯出/燒入**（`aligned_bilingual`，1:1）。校對頁 +
 **建議最終 prompt**：checklist 骨幹 + additive（術語表 handicap→讓賽/gate→檔位/Group One→一級賽；數字硬規則阿拉伯數字 + 禁文言）。
 **剩低（prompt 鎖唔死）**：專名一致（馬名 烈焰/烈火/火舞悟空 搖擺、`艾力堅` 非官方譯名）→ 必須 glossary 注入（v2）。
 
+## ★ Domain-style MT prompt + Style-picker 設計（2026-06-02/03，workflow）
+
+**問題（多片 re-run 揭發）**：winner prompt（checklist）係**賽馬域框定**（「香港賽馬電視台…賽馬廣播」）→ 跑**非賽馬**英文片注入賽馬詞：FIFA `the boys`(球員)→`眾騎師`、`an attacker`(前鋒)→`進攻型馬匹`（6/49 cue 污染）。
+**Workflow**（`wu01xb8zk`，3 author + run×3-base + judge + synth，**真 qwen3.5 live**）：3 個去賽馬域候選 × 3 base（賽馬/Kane/FIFA）。
+**結果**：3 個候選全部 **FIFA 賽馬詞=0、Kane=0、leak=0、register 5、overall 5** —— 去域框定 + 「禁注入原文冇嘅領域術語」規則根治污染。Winner = **`sportsnews`**（體育新聞,涵蓋足球/籃球/賽馬/網球/新聞/訪問,不預設單一項目）。Prompt：`docs/superpowers/specs/2026-06-02-mt-prompt-generic-sportsnews.txt`。
+**整合 re-run（真片,live :5001）**：2 條足球片用 sportsnews → `the boys→球員們`、`attacker→進攻球員`、racing_terms 0/29 + 0/49;賽馬片保留 racing-winner（racing_terms 3/20,正確）。**style-matching 實證成立。**
+
+### ★ Style-picker 設計（user 提議,確認採納）
+Upload pop-up 右下加 **style 選擇器** → 對應 MT prompt。**建議 2 個 style（越少越難揀錯）**：
+| Style | prompt | 涵蓋 |
+|---|---|---|
+| **馬會賽馬** | racing-winner（`2026-06-02-mt-prompt-winner-checklist.txt`） | 純賽馬,主動補騎師/檔位/策騎 |
+| **通用（體育/新聞/訪問）** ← **default** | sportsnews（`2026-06-02-mt-prompt-generic-sportsnews.txt`） | 足球/籃球/FIFA/新聞/訪問,0 污染 |
+Default = 通用（fail-safe:賽馬片用通用只少補賽馬詞,仍正確;racing prompt 用錯落足球會崩）。可選第 3 個「純新聞」但功能上同通用幾乎一樣（UX 安心,非必要）。
+**架構**：style → prompt template mapping;之上再疊 per-job glossary 專名表（見剩低問題）。
+
+### 剩低問題（style 之上仍需）
+1. **專名 glossary（最高優先）**：`Golden60→金六十/金六/黃金六`、`Building60→建築六十`、`馬努斯`(Manus 撞「馬」substring) —— prompt 鎖唔死,要 cross-lang MT glossary 注入（v2）。
+2. ASR garble pass-through（`ton of food→食物總量`）—— 上游 ASR 質量,MT 改唔到。
+3. **Validation-First production run**：呢批 prompt 改動受 `backend/translation/*` 管制,落 production 前已用真 qwen3.5 live run 三檔確認 0 污染 reproduce（✅ 本次已做）。
+
 ## 待 user review 後入 brainstorm→spec→plan
 B 架構 ✅ 可行。spec 必帶上述 5 硬要求。範圍外（仍 v1 限制）：en/zh 碎句 fragment-MT 上文質量（neighbour-context,v2）。
 
