@@ -1935,6 +1935,7 @@
     // appended to /api/transcribe FormData only when output languages are chosen.
     let pendingSourceLanguage = 'yue';
     let pendingScript = 'trad';
+    let pendingMtStyle = 'generic';
     let _olPreviewUrl = null;  // object URL for the popup's <video> preview (revoked on close)
 
     // V6 — Dual-ASR Pipeline state (v3.19)
@@ -4841,7 +4842,7 @@
       pendingOutputLangs = langs;
       pendingSourceLanguage = (document.getElementById('olSourceLang') || {}).value || 'yue';
       pendingScript = (document.getElementById('olScript') || {}).value || 'trad';
-      const pendingMtStyle = (document.getElementById('mtStyle') || {}).value || 'generic';
+      pendingMtStyle = (document.getElementById('mtStyle') || {}).value || 'generic';
       closeOutputLangModal();
       startTranscription();
     }
