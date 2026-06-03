@@ -1925,6 +1925,13 @@ def serve_glossary_page():
     return send_from_directory(_FRONTEND_DIR, "Glossary.html")
 
 
+@app.get("/Files.html")
+@login_required
+def serve_files_page():
+    """Standalone files library page (wired to /api/files)."""
+    return send_from_directory(_FRONTEND_DIR, "Files.html")
+
+
 @app.get("/user.html")
 @login_required
 def serve_user_page():
