@@ -505,7 +505,18 @@ def _run_output_lang_second(file_id, job, audio_path, cancel_event):
         source_language = entry.get("source_language") or "yue"
         script = entry.get("script") or "trad"
         cached = entry.get("content_asr_segments")
-    if _is_cross_language(source_language, outs):
+        _ol_base = entry.get("content_asr_segments") or []
+        _ol_live = entry.get("translations") or []
+    # Only route to the cross derive-from-base path when the existing grid IS the
+    # bound-base grid: content_asr_segments present AND its length == the live
+    # translations length (Task 3's cross first pass sets content_asr_segments=base
+    # and builds translations on it, so lengths match). Otherwise the first pass
+    # was a same-family whisper-direct (no base cached, or a legacy grid with
+    # different segmentation) — fall through to the legacy index-merge path below,
+    # which re-transcribes + merges. Never crash, never misalign.
+    if _is_cross_language(source_language, outs) and _ol_base and len(_ol_base) == len(_ol_live):
+        _reset_progress_for_job(file_id, job.get("id", ""), "output_lang", 1,
+                                num_output_langs=max(2, len(outs)))
         _run_output_lang_second_cross(file_id, target, source_language, script)
         return
     _reset_progress_for_job(file_id, job.get("id", ""), "output_lang", 1,

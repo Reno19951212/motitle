@@ -109,3 +109,27 @@ def test_cross_language_second_pass_derives_from_base(monkeypatch):
     finally:
         with _app._registry_lock:
             _app._file_registry.pop(fid, None)
+
+
+def test_cross_second_pass_falls_back_to_legacy_when_no_base(monkeypatch):
+    # cross outs but NO content_asr_segments (legacy whisper-direct first pass) -> must NOT route to cross-derive
+    fid = "f-cross-nobase"
+    called = {"cross": False}
+    monkeypatch.setattr(_app, "_run_output_lang_second_cross",
+                        lambda *a, **k: called.__setitem__("cross", True))
+    monkeypatch.setattr(_app, "_produce_output_lang", lambda *a, **k: [{"start": 0, "end": 1, "text": "X"}])
+    with _app._registry_lock:
+        _app._file_registry[fid] = {"id": fid, "active_kind": "output_lang", "source_language": "yue",
+                                    "script": "trad", "output_languages": ["yue", "en"],
+                                    "translations": [{"idx": 0, "start": 0, "end": 1,
+                                                      "by_lang": {"yue": {"text": "今晚"}}, "yue_text": "今晚"}]}
+        # NB: no content_asr_segments
+    try:
+        try:
+            _app._run_output_lang_second(fid, {"user_id": 1, "id": "j2", "output_language": "en"}, "a.wav", None)
+        except Exception:
+            pass  # legacy path may need more stubs; we only assert routing here
+        assert called["cross"] is False   # did NOT route to cross derive-from-base (no proper base)
+    finally:
+        with _app._registry_lock:
+            _app._file_registry.pop(fid, None)
