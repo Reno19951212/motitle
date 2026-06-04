@@ -77,6 +77,18 @@
 - 改動點：`output_lang_router.route_output('yue','zh')` + `app.py::_produce_output_lang` 嘅 zh 分支。
 - **附帶 efficiency win**：若同時要 口語(yue)+書面(zh)（user 正正咁做），yue ASR 只跑一次、書面由佢 derive，慳一個 Whisper pass（= O1 shared-base）。
 
-## 下一步（待 user 拍板）
+## ✅ 整合驗證（live，real mlx + Ollama，90s 毛記 clip，2026-06-04）
 
-通過 review 後 → brainstorm → spec → plan → 落代碼（routing 改動 + regression：確保 yue 單語言、cmn、en/ja、Profile/V6 全部不變）。
+落代碼後經 `backend/scripts/crosslang_prototype/integ_yue_base.py` 跑 3 個 flow（真 mlx-whisper large-v3 + 真 Ollama qwen3.5:35b-a3b-mlx-bf16，直接行新 dispatch `_run_output_lang`）：
+
+| flow | ASR | 書面(zh) | 其他軌 | aligned |
+|---|---|---|---|---|
+| 1 書面單一 | **1× Whisper-yue** | clean（marker 0.0）「她發現男友前往東南亞**召妓**。」 | — | 52/52 |
+| 2 書面+口語 | **1× shared yue** | marker 0.0 | yue = raw 口語 marker 25.1「嘩今日個case正呀」（== 持久化口語，逐句一致） | 52/52 |
+| 3 書面+英文 | **1× shared yue** | clean 書面 | en = real MT「He still refuses to admit it.」 | 52/52 |
+
+3/3 verdict ✅。確認：① source-driven（全部一次 Whisper-yue）② 書面由 yue base derive，**召妓 意思保留**（正正係 Whisper-zh 直出會漏嗰個）③ **口語軌 byte-match 持久化口語**（零 regression）④ 多輸出共用一次 yue ASR（efficiency win）⑤ aligned grid == segs（配對完美）。Backend unit + regression（output_lang/crosslang/bilingual/aligned/dispatch suite）全綠；auth API 檔各自隔離全綠（full-suite 401 = pre-existing session-pollution baseline）。
+
+## 狀態：✅ Validated + Implemented + Integration-verified
+
+Spec [2026-06-04-…-design.md](2026-06-04-yue-written-register-asr-base-design.md) / Plan [2026-06-04-…-plan.md](../plans/2026-06-04-yue-written-register-asr-base-plan.md)。Commits（branch feat/output-language-pipeline）：`ce487f8`(validation+spec) → `471f3eb`(plan) → `33fee2f`(實作+tests)。

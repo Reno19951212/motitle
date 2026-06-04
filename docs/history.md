@@ -4,6 +4,21 @@
 
 ## Completed Features
 
+### 粵語語音統一 YUE ASR base — 取代書面語 Whisper-zh 直出（2026-06-04）
+- **問題**：粵語語音、中文書面語**單一輸出**之前行 `route_output('yue','zh')='whisper'` → Whisper `language='zh'` **直出**（當粵語音係書面/普通話聽），系統性漏失粵語特定意思（例：「識穿男友喺東南亞叫雞」→「察覺男友在東南亞」漏咗召妓）。
+- **核心原則**：**ASR Whisper 語言純由來源語音決定（`content_asr_lang(source)`：yue→yue, cmn→zh, en→en, ja→ja），輸出語言唔影響 ASR**；之後每個輸出 1:1 衍生（passthrough / refine / MT）。今日只喺「粵→書面直出」一個位違反咗，今次貫徹到所有 yue-source 情況。
+- **Validation-First（全程）**：prototype（`backend/scripts/crosslang_prototype/diag_yue_written_vs_direct.py`，200 段真 毛記）對比 A（Whisper-zh 直出）vs B（yue ASR + refine）：**B 意思 head-to-head 贏 66.7% vs 23%、意思錯誤率 A 77-80% → B 33-36%（減半）、register 同樣乾淨**，兩個獨立 judge model（qwen3.5 + qwen3.6）一致。Tracker：[2026-06-04-yue-written-register-asr-base-validation-tracker.md](superpowers/specs/2026-06-04-yue-written-register-asr-base-validation-tracker.md)。
+- **改動（`backend/app.py` 唯一 production 檔）**：抽 `_run_output_lang_bound_base(do_clause_split)`（`_run_output_lang_cross` 變 thin wrapper）；`_run_output_lang` 加 `source=='yue'` 分支行 bound-base derive（`do_clause_split=False` → 口語軌逐 byte 不變）；`_run_output_lang_second` 第二語言 trigger 擴至 yue 同語系（由 cached yue base derive）；`_run_output_lang_second_cross` 喺無舊 aligned grid 時由 merged rows 砌返（legacy robust）。`output_lang_router/aligned/postprocess/crosslang_mt` 零改（derive 機制已齊）。
+- **不變**：cmn/en/ja source、書面+英文 cross-language、Profile、V6 全部唔郁。資料模型（by_lang + {lang}_text + aligned_bilingual）shape 不變。
+- **3 個 flow（confirmed）**：① 書面單一 = YUE×1 + refine；② 書面+口語 = YUE×1 共用（口語=passthrough、書面=refine）；③ 書面+英文 = YUE×1 共用（書面=refine、英文=MT）。多輸出共用一次 yue ASR（efficiency win）。
+- **整合驗證 ✅（live，real mlx + Ollama，90s 毛記，`integ_yue_base.py`）**：3/3 flow done，全部 1× Whisper-yue、召妓 意思保留、口語軌 byte-match 持久化口語、英文真 MT、aligned grid == segs（52/52）。Backend unit + regression 全綠（新 `test_yue_base_dispatch` 4 + 更新 3 個斷言舊行為嘅 test）。
+- **Spec/Plan**：[design](superpowers/specs/2026-06-04-yue-written-register-asr-base-design.md) / [plan](superpowers/plans/2026-06-04-yue-written-register-asr-base-plan.md)。Commits：`ce487f8`(validation+spec) → `471f3eb`(plan) → `33fee2f`(實作+tests)。
+- **範圍外（v2）**：cmn-source 書面 fidelity 取捨、clause_split 同/跨語系統一、glossary 專名注入。
+
+### Proofread 頁重設計 — 兩段式段列表 + 主頁式字幕設定（2026-06-04）
+- 跟 proofread.html 設計：① 段列表每行兩段文字（line1=第一/原文語言、line2=第二/譯文語言淡色；output_lang 單語言只 line1）；② 字幕設定 panel 換成主頁 inspector 顯示（預覽框 + 分組滑桿 size/outline/margin + 文字/輪廓色票 + 自訂色），沿用 FontPreview SVG + debounce PATCH active profile（值改寫 `fontConfig`，immutable）。find/replace highlight 改 target 對應 sub-line。`#ssSize` 保留（min=12）做 range slider。
+- 純 frontend（`frontend/proofread.html`）。Tests：新 `test_proofread_settings_redesign`（2）+ 既有 proofread_layout / type_mismatch / output_lang_proofread 全綠。Commit `72a312f`。
+
 ### Style-picker Phase 2 — 翻譯風格選擇器（馬會賽馬 / 體育新聞 / 通用）（2026-06-03）
 - **問題**：Phase 1 嘅 en→zh MT prompt 係單一通用版,但賽馬片想主動補賽馬詞、非賽馬片唔想被注入賽馬詞（驗證見 FIFA 足球被 racing-framed prompt 注「the boys→騎師」）。
 - **方案**：upload pop-up 加「翻譯風格」dropdown（3 style → MT prompt template）。`mt_style ∈ {racing 馬會賽馬, sportsnews 體育新聞, generic 通用}`,**default generic**。3 個 prompt 全部 production qwen3.5 實證（[drift-fix tracker](docs/superpowers/specs/2026-06-02-drift-fix-validation-tracker.md)）。
