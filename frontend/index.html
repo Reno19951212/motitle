@@ -1967,6 +1967,43 @@
     function _escapeHtmlSafe(s) {
       return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     }
+    // mlx-whisper transcribes the whole audio at once (no streaming) → no real progress
+    // signal during ASR (0% until a burst at the end). Show a smooth TIME-BASED estimate
+    // so the bar moves: an asymptotic ramp toward ~95%, snapped to 100% on real completion.
+    const _asrStartAt = {};        // fid → ms when transcription started
+    const _EST_T_MS = 45000;       // ramp time-constant (≈63% @45s, ≈88% @90s, caps ~95%)
+    function _estPct(fid) {
+      const t0 = _asrStartAt[fid];
+      if (!t0) return 0;
+      return Math.floor(95 * (1 - Math.exp(-(Date.now() - t0) / _EST_T_MS)));
+    }
+    // Drive #topProgress + the card from the time-estimate for one transcribing file.
+    function _applyTranscribeEstimate(fid) {
+      const f = uploadedFiles[fid];
+      if (!f) return;
+      if (!_asrStartAt[fid]) _asrStartAt[fid] = Date.now();
+      const est = _estPct(fid);
+      const langs = Array.isArray(f.languages) ? f.languages : [];
+      const ordered = [langs.find(l => l && l.role === 'first'), langs.find(l => l && l.role === 'second')].filter(Boolean);
+      const count = (ordered.length ? ordered : langs).slice(0, 2).length || 1;
+      // 轉錄 = 第一語言 active 緊（升估算）、第二語言未開始。
+      langProgress[fid] = Array.from({ length: count }, (_, idx) => ({ pct: idx === 0 ? est : 0, state: idx === 0 ? 'active' : 'idle' }));
+      const snap = cardProgress[fid];
+      if (snap) _applyCardProgress(fid, { ...snap, pct: Math.max(snap.pct || 0, est) });
+    }
+    // 1s ticker (no /api/queue fetch) advances the estimate between 3s polls so the bar
+    // moves smoothly; cleans up when a file leaves the transcribing state.
+    function _tickEstimates() {
+      let touchedActive = false;
+      Object.keys(_asrStartAt).forEach((fid) => {
+        const f = uploadedFiles[fid];
+        if (!f || f.status !== 'transcribing') { delete _asrStartAt[fid]; delete langProgress[fid]; return; }
+        _applyTranscribeEstimate(fid);
+        if (fid === activeFileId) touchedActive = true;
+      });
+      if (touchedActive && typeof renderStatusCard === 'function') renderStatusCard();
+    }
+
     // Tracks which file_ids had an active (running/queued) job last poll, so completion
     // (a job that left /api/queue) can be detected and the real file status refreshed.
     let _prevActiveJobFiles = new Set();
@@ -1998,7 +2035,11 @@
           // job's progress). Real lang_progress wins if the backend ever provides it.
           if (Array.isArray(row.lang_progress)) {
             langProgress[fid] = row.lang_progress;
+          } else if (jobActive && uploadedFiles[fid] && uploadedFiles[fid].status === 'transcribing') {
+            // ASR (mlx, no streaming): drive the bars from the smooth time-estimate.
+            _applyTranscribeEstimate(fid);
           } else if (jobActive && row.progress_pct != null) {
+            // Other stages (e.g. 翻譯) — backend pct on the bars.
             const langs = (uploadedFiles[fid] && Array.isArray(uploadedFiles[fid].languages)) ? uploadedFiles[fid].languages : [];
             const ordered = [langs.find(l => l && l.role === 'first'), langs.find(l => l && l.role === 'second')].filter(Boolean);
             const count = (ordered.length ? ordered : langs).slice(0, 2).length || 1;
@@ -5819,6 +5860,10 @@
       if (window.__cardPollTimer == null) {
         window.__cardPollTimer = setInterval(_pollCardProgress, 3000);
         _pollCardProgress();
+      }
+      // 1s ticker: smoothly advance the time-based ASR estimate between 3s polls.
+      if (window.__estTimer == null) {
+        window.__estTimer = setInterval(_tickEstimates, 1000);
       }
     }
 
