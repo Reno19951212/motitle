@@ -5,6 +5,8 @@
 **作者：** Reno Cheung
 **狀態：** 進行中
 
+> ⚠️ **註（2026-06-04）**：本 PRD 寫於 v2.1（Profile + 引擎選擇器年代）。產品其後已演進到 **output_lang 輸出語言 pipeline**（上傳彈窗揀來源語言 + 目標輸出語言/翻譯風格、跨語系 bound-base 1:1 派生、#topProgress 取代 pipeline strip 等）。**當前權威狀態見 [CLAUDE.md](../CLAUDE.md) 的「Current State & Recent Highlights」，完整歷史見 [docs/history.md](history.md)。** 本檔的功能狀態 marker 已就 v3.0/v3.1 嘅引擎選擇器 + API 更新，但未涵蓋 output_lang pipeline 嘅新功能。
+
 ---
 
 ## 1. 產品概述
@@ -147,7 +149,7 @@
 | **Mock** | — | — | ✅ 測試用 |
 | *(未來擴展)* | | | |
 | *vLLM* | *任意 HuggingFace 模型* | *model, temperature, max_tokens* | 📋 規劃中 |
-| *OpenAI-compatible* | *GPT-4o / Claude 等* | *api_key, model, temperature* | 📋 規劃中 |
+| **OpenRouter**（OpenAI-compatible） | GPT-4o / Claude / Gemini / DeepSeek 等 + 自訂 model id | api_key, openrouter_model, temperature | ✅ 完成（v3.1） |
 
 #### 引擎可用性檢測
 
@@ -168,9 +170,9 @@
 | | 轉錄進度條（百分比 + ETA） | ✅ |
 | | 翻譯狀態徽章（待翻譯/翻譯中/完成） | ✅ |
 | | 手動翻譯/重新翻譯按鈕 | ✅ |
-| | **ASR 引擎選擇器**（選引擎 → 顯示該引擎參數面板） | 📋 待實現 |
-| | **翻譯引擎選擇器**（選引擎 → 顯示該引擎參數面板） | 📋 待實現 |
-| | **引擎可用性狀態**（即時顯示每個引擎是否可用） | 📋 待實現 |
+| | **ASR 引擎選擇器**（選引擎 → 顯示該引擎參數面板） | ✅ 完成 |
+| | **翻譯引擎選擇器**（選引擎 → 顯示該引擎參數面板） | ✅ 完成 |
+| | **引擎可用性狀態**（即時顯示每個引擎是否可用） | ✅ 完成 |
 | | Profile 快速切換（載入/儲存當前引擎組合） | ✅ 完成（CRUD UI + active Profile 保護） |
 | | 語言參數配置面板（可收合） | ✅ |
 | | 術語表管理面板（可收合） | ✅ |
@@ -188,8 +190,8 @@
 
 | 功能 | 說明 | 狀態 |
 |------|------|------|
-| **引擎獨立選擇** | ASR 同翻譯引擎可分別選擇，唔綁定 | 📋 待實現 |
-| **引擎參數面板** | 選擇引擎後動態顯示該引擎嘅可配參數 | 📋 待實現 |
+| **引擎獨立選擇** | ASR 同翻譯引擎可分別選擇，唔綁定 | ✅ 完成 |
+| **引擎參數面板** | 選擇引擎後動態顯示該引擎嘅可配參數 | ✅ 完成 |
 | **引擎可用性 API** | 後端偵測引擎/模型是否可用，前端即時顯示 | ✅ 基礎 |
 | Profile 系統 | 儲存/載入 ASR + 翻譯 + 字體配置組合 | ✅ |
 | 語言參數 | 每語言獨立 ASR/翻譯參數 | ✅ |
@@ -231,10 +233,10 @@
 | 方法 | 路徑 | 說明 | 狀態 |
 |------|------|------|------|
 | GET | `/api/asr/engines` | 列出所有 ASR 引擎及可用性 | ✅ |
-| GET | `/api/asr/engines/<name>/params` | 取得指定引擎嘅可配參數 schema | 📋 待實現 |
+| GET | `/api/asr/engines/<name>/params` | 取得指定引擎嘅可配參數 schema | ✅ 完成 |
 | GET | `/api/translation/engines` | 列出所有翻譯引擎及可用性 | ✅ |
-| GET | `/api/translation/engines/<name>/params` | 取得指定引擎嘅可配參數 schema | 📋 待實現 |
-| GET | `/api/translation/engines/<name>/models` | 列出指定引擎可用嘅模型列表 | 📋 待實現 |
+| GET | `/api/translation/engines/<name>/params` | 取得指定引擎嘅可配參數 schema | ✅ 完成 |
+| GET | `/api/translation/engines/<name>/models` | 列出指定引擎可用嘅模型列表 | ✅ 完成 |
 
 ---
 
