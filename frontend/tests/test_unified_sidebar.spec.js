@@ -41,9 +41,8 @@ test('user.html reachable (200) after login', async ({ page }) => {
   expect(r.status()).toBe(200);
 });
 
-test('index topbar 設定 gear opens language-config', async ({ page }) => {
+test('index topbar 設定 gear is removed (per Ka Lok design)', async ({ page }) => {
   await login(page);
   await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
-  await page.locator('#settingsGearBtn').click();
-  await expect(page.locator('text=語言配置').first()).toBeVisible({ timeout: 3000 });
+  expect(await page.locator('#settingsGearBtn').count()).toBe(0);   // settings button removed
 });
