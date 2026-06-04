@@ -397,6 +397,17 @@ This section summarises the CURRENT behaviour a developer needs; older entries l
 - **`source='yue'` runs entirely through the bound-base path** (`_run_output_lang_bound_base`, `do_clause_split=False` so the 口語 track is byte-identical to a direct yue transcription): one Whisper-`yue` base → derive 口語=passthrough / 書面語·普通話=refine / 英·日=MT. This **replaced the former Whisper-`zh`-direct for 書面語** (Validation-First 2026-06-04: meaning-error 77%→33%, register equally clean, confirmed by 2 independent judge models + a 3-flow live integration). `cmn`/`en`/`ja` sources keep the per-output whisper-direct path (source-driven == output-driven there). Cross-FAMILY files (e.g. +英文) use the same bound-base derive WITH clause-split.
 - **`aligned_bilingual`** (O1) = the 1:1 paired base-grid (every cue carries all output languages, length == base) used for bilingual export/render so paired cues are construction-perfect aligned (no drift). Single-language `by_lang` / `{lang}_text` mirror data model is unchanged.
 
+**Dev quick-reference** (full user-facing tables + prompt contents + flow examples → [README.md「輸出語言 Pipeline 路由」](README.md)):
+
+- **Two models only**: ASR = **mlx-whisper large-v3** (`_output_lang_asr_override`); LLM = **Ollama `qwen3.5:35b-a3b-mlx-bf16`** (MoE, 35.1B total / **A3B = 3B active**) @ temp 0.3 (`_make_ollama_llm_call`) — **shared by MT + refiner**, only the prompt differs.
+- **Derive matrix** (`output_lang_aligned.derive_mode(content, output)`): `yue`→{yue:pass, zh/cmn:**refine**, en/ja:**mt**}; `cmn`→{cmn:pass, zh:refine, yue/en/ja:mt}; `en`→{en:pass, else:mt}; `ja`→{ja:pass, else:mt}.
+- **Prompt selection**:
+  - **refine** → `output_lang_postprocess.formal_refine(segs, llm, style)`: `racing` → `config/prompt_templates_v5/refiner/zh_written_register_v6.json`; else (default) → `…/zh_written_register_generic.json` (neutral, forbids domain-term injection).
+  - **mt** → `translation/crosslang_mt.build_mt_system_prompt(src, out, style)`: `en→zh/cmn` → `config/mt_style_prompts/{generic,racing,sportsnews}.txt`; else → `_MT_SYS` (generic broadcast MT) + `_ZH_WRITTEN_RULES` when out∈{zh,cmn}.
+  - **pass** → no LLM; copy text, then OpenCC `apply_script` (Chinese outputs only).
+- **Byte-for-byte preservation** (names/places/English/numbers) is a PROMPT RULE in both MT (`保留專有名詞`) and the refiners (rule 6), not a separate step.
+- **Key files**: `output_lang_router.py` (`route_output`/`content_asr_lang`/`whisper_direct_params`) · `output_lang_aligned.py` (`derive_mode`/`derive_aligned_output`) · `output_lang_postprocess.py` (`formal_refine`/`apply_script`/`clause_split_all`) · `translation/crosslang_mt.py` (MT) · dispatch in `app.py` (`_run_output_lang` / `_run_output_lang_bound_base` / `_run_output_lang_second`).
+
 ### Upload-popup output-language selection rules (NEW)
 
 - **First output language is LOCKED to the source-language family** via `syncFirstLangToSource` + `OL_FIRST_BY_SOURCE`: 英/普/日 → a single disabled option; **粵語 → choose 口語廣東話 OR 中文書面語, default 中文書面語**.
