@@ -13,6 +13,7 @@
 - **3 個 flow（confirmed）**：① 書面單一 = YUE×1 + refine；② 書面+口語 = YUE×1 共用（口語=passthrough、書面=refine）；③ 書面+英文 = YUE×1 共用（書面=refine、英文=MT）。多輸出共用一次 yue ASR（efficiency win）。
 - **整合驗證 ✅（live，real mlx + Ollama，90s 毛記，`integ_yue_base.py`）**：3/3 flow done，全部 1× Whisper-yue、召妓 意思保留、口語軌 byte-match 持久化口語、英文真 MT、aligned grid == segs（52/52）。Backend unit + regression 全綠（新 `test_yue_base_dispatch` 4 + 更新 3 個斷言舊行為嘅 test）。
 - **Spec/Plan**：[design](superpowers/specs/2026-06-04-yue-written-register-asr-base-design.md) / [plan](superpowers/plans/2026-06-04-yue-written-register-asr-base-plan.md)。Commits：`ce487f8`(validation+spec) → `471f3eb`(plan) → `33fee2f`(實作+tests)。
+- **Follow-up — 書面語 refiner de-raced (style-aware)**：`formal_refine` 用嘅固定 prompt（`zh_written_register_v6.json`）係賽馬版，非賽馬內容（毛記）被扭曲成賽馬（口語「女事主打嚟」→「由女騎師策騎」）。修：`formal_refine(…, style)` style-aware，default 用新中性 `zh_written_register_generic.json`（明文禁注入領域術語），`style='racing'` 先用賽馬版；`derive_aligned_output` 傳 style。Validation-First（`diag_refiner_deraced.py`：racing 注入 3 段→0、register 同樣乾淨）+ 整合 re-verify（書面「女事主到來」、racing scan none）。tracker follow-up section。
 - **範圍外（v2）**：cmn-source 書面 fidelity 取捨、clause_split 同/跨語系統一、glossary 專名注入。
 
 ### Proofread 頁重設計 — 兩段式段列表 + 主頁式字幕設定（2026-06-04）

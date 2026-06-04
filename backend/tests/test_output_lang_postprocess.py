@@ -41,3 +41,30 @@ def test_formal_refine_plain_text_fallback():
     segs = [{"start": 0, "end": 1, "text": "我哋玩"}]
     out = formal_refine(segs, lambda system, user: "我們進行遊戲")
     assert out[0]["text"] == "我們進行遊戲"
+
+
+def test_formal_refine_style_aware_default_neutral():
+    # 2026-06-04: 書面語 refiner is style-aware. Default (generic) = neutral de-raced
+    # prompt that forbids domain-term injection; 'racing' = the racing-flavoured V6 prompt.
+    segs = [{"start": 0, "end": 1, "text": "佢好開心㗎"}]
+    echo = lambda system, user: system  # echo the chosen system prompt back as the "refined" text
+    racing = formal_refine(segs, echo, style="racing")[0]["text"]
+    generic = formal_refine(segs, echo, style="generic")[0]["text"]
+    default = formal_refine(segs, echo)[0]["text"]
+    assert "賽馬術語" in racing               # racing prompt is racing-flavoured
+    assert "賽馬術語" not in generic          # neutral prompt has no racing lock
+    assert "特定領域術語" in generic          # …and explicitly forbids domain-term injection
+    assert default == generic                # default == neutral (de-raced)
+
+
+def test_derive_aligned_output_refine_passes_style():
+    from output_lang_aligned import derive_aligned_output
+    seen = {}
+    def capture(system, user):
+        seen["sys"] = system
+        return user
+    # yue→zh is 'refine'; the style must reach formal_refine's prompt choice.
+    derive_aligned_output([{"start": 0, "end": 1, "text": "佢好開心"}], "yue", "zh", "trad", capture, style="racing")
+    assert "賽馬術語" in seen["sys"]
+    derive_aligned_output([{"start": 0, "end": 1, "text": "佢好開心"}], "yue", "zh", "trad", capture, style="generic")
+    assert "賽馬術語" not in seen["sys"]

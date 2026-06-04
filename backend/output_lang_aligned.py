@@ -31,12 +31,13 @@ def derive_aligned_output(base: List[dict], content_lang: str, output_lang: str,
                           script: str, llm_call: Callable[[str, str], str],
                           style: str = "generic") -> List[dict]:
     """1:1 derive output_lang from base (no clause-split). New list, base untouched.
-    `style` selects the en->zh MT domain prompt (passed through to crosslang_mt)."""
+    `style` selects the domain prompt for BOTH the en->zh MT (crosslang_mt) and the
+    書面語 refiner (formal_refine): 'racing' → racing prompt, else neutral default."""
     mode = derive_mode(content_lang, output_lang)
     if mode == "mt":
         out = crosslang_mt.translate_segments(base, content_lang, output_lang, llm_call, style=style)
     elif mode == "refine":
-        out = olp.formal_refine(base, llm_call)
+        out = olp.formal_refine(base, llm_call, style=style)
     else:
         out = [{"start": s.get("start", 0.0), "end": s.get("end", 0.0), "text": s.get("text", "")}
                for s in base]

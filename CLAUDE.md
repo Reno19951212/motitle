@@ -401,7 +401,7 @@ This section summarises the CURRENT behaviour a developer needs; older entries l
 
 - **First output language is LOCKED to the source-language family** via `syncFirstLangToSource` + `OL_FIRST_BY_SOURCE`: 英/普/日 → a single disabled option; **粵語 → choose 口語廣東話 OR 中文書面語, default 中文書面語**.
 - **Second output language EXCLUDES any language in the SAME family as the source** (中文系 = `yue`/`cmn`/`zh`) via `OL_FAMILY` — this prevents same-family index-merge drift. To get two Chinese forms, run the file twice.
-- **翻譯風格 picker** (馬會賽馬 / 體育新聞 / 通用, default 通用) → `mt_style`, only affects en→zh/cmn cross-lang MT.
+- **翻譯風格 picker** (馬會賽馬 / 體育新聞 / 通用, default 通用) → `mt_style`, drives BOTH the en→zh/cmn cross-lang MT prompt AND the 書面語 refiner (`formal_refine`): default/通用 → **neutral de-raced** refiner (`zh_written_register_generic.json`, forbids domain-term injection), 馬會賽馬 → racing refiner (`zh_written_register_v6.json`). Fixed 2026-06-04 — the refiner was previously always-racing and mistranslated non-racing content into racing (女事主打嚟 → 由女騎師策騎); validation in the yue-base tracker follow-up.
 
 ### Dashboard progress (#topProgress replaced the pipeline strip)
 

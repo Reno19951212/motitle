@@ -92,3 +92,22 @@
 ## 狀態：✅ Validated + Implemented + Integration-verified
 
 Spec [2026-06-04-…-design.md](2026-06-04-yue-written-register-asr-base-design.md) / Plan [2026-06-04-…-plan.md](../plans/2026-06-04-yue-written-register-asr-base-plan.md)。Commits（branch feat/output-language-pipeline）：`ce487f8`(validation+spec) → `471f3eb`(plan) → `33fee2f`(實作+tests)。
+
+---
+
+## ✅ Follow-up — 書面語 refiner de-raced (style-aware)（2026-06-04）
+
+**問題（user 報，整合期實證）**：`formal_refine` 用嘅固定 refiner prompt（`zh_written_register_v6.json`）係**賽馬版**（preamble 講「賽馬術語」、rule 6 lock 袁幸堯/沙田/HIGHLAND BLINK、3 個示例全馬經）。非賽馬內容（毛記）行佢就被帶到馬經味，甚至**將內容扭曲成賽馬**。`mt_style` 風格選擇器（racing/sportsnews/generic）根本冇 reach refine —— refine 永遠用呢個賽馬 prompt。
+
+**Validation-First prototype**（`backend/scripts/crosslang_prototype/diag_refiner_deraced.py`，130 真 毛記段，production qwen3.5）—— A=賽馬 refiner vs B=中性 de-raced refiner：
+
+| | racing-term 注入 | 口語 marker/100 | no-op | len |
+|---|---|---|---|---|
+| A 賽馬版 | **5（3 段）** | 0.09 | 0.8% | 1.0× |
+| B 中性版 | **0** | 0.36（≈平手） | 0% | 1.0× |
+
+關鍵樣本：口語「**女事主打嚟**」→ A:「由**女騎師策騎**」（完全扭曲成賽馬!）/ B:「女事主到來」✅；「唔係嗰隻放鬆」→ A:「並非該**馬匹**鬆弛」/ B:「並非那隻放鬆」✅。
+
+**修法（mirror `mt_style` flow）**：`formal_refine(segments, llm, style='generic')` style-aware —— default 用新 `zh_written_register_generic.json`（中性、明文禁注入特定領域術語）；`style='racing'` 先用賽馬 `zh_written_register_v6`。`derive_aligned_output` refine 分支傳 `style=style`。改 `output_lang_postprocess.py` + `output_lang_aligned.py`（+ 新 prompt JSON）。
+
+**整合 re-verify ✅**（同 `integ_yue_base.py` 90s 毛記）：書面「女事主到來」（非女騎師策騎）、racing-term scan = none、3/3 flow done、口語/英文/aligned 不變。Tests：`test_output_lang_postprocess` 新 2（style-aware + derive 傳 style）。
