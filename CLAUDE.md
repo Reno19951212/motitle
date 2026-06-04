@@ -262,6 +262,8 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | PATCH | `/api/profiles/<id>` | Update profile |
 | DELETE | `/api/profiles/<id>` | Delete profile |
 | POST | `/api/profiles/<id>/activate` | Set active profile |
+| GET | `/api/settings/font` | Global subtitle-font preset (used by render + live preview when no active profile — V6 / output_lang) |
+| PUT | `/api/settings/font` | Update the global font preset (settings.json `font`); emits `profile_updated` |
 | GET | `/api/asr/engines` | List ASR engines with availability |
 | GET | `/api/asr/engines/<name>/params` | Get param schema for ASR engine |
 | POST | `/api/translate` | Translate a file's segments |
