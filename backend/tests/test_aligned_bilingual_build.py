@@ -4,16 +4,12 @@ import app as _app
 
 
 def test_second_pass_builds_aligned_bilingual(monkeypatch):
-    # Same-family input (yue source, yue+zh outputs) keeps the LEGACY second-pass
-    # path, whose O1 block builds aligned_bilingual via build_aligned_bilingual.
-    # Cross-language second passes append to the existing grid instead — covered in
-    # test_crosslang_phase1_dispatch::test_cross_language_second_pass_derives_from_base.
+    # 2026-06-04: yue source same-family second pass now derives `target` 1:1 from the
+    # cached yue base (refine) via _run_output_lang_second_cross, which builds the aligned
+    # grid from the merged rows when the file has none yet (legacy-shaped here).
     fid = "f-al"
     base = [{"start": 0, "end": 1, "text": "今晚嘅賽事"}, {"start": 1, "end": 2, "text": "多謝大家"}]
-    monkeypatch.setattr(_app, "_produce_output_lang",
-                        lambda *a, **k: [{"start": 0, "end": 1, "text": "今晚的賽事"}, {"start": 1, "end": 2, "text": "多謝大家"}])
-    monkeypatch.setattr(_app, "transcribe_with_segments", lambda *a, **k: {"segments": base})
-    # Identity LLM — yue→yue is passthrough, yue→zh refine returns text unchanged.
+    # Identity LLM — yue→zh refine returns text unchanged (so zh == the yue base text).
     monkeypatch.setattr(_app, "_make_ollama_llm_call",
                         lambda: (lambda s, u: u))
     with _app._registry_lock:

@@ -428,6 +428,14 @@ def _run_output_lang(file_id, job, audio_path, cancel_event):
         _run_output_lang_cross(file_id, job, audio_path, cancel_event, outs, source_language, script, mt_style)
         return
 
+    if source_language == "yue":
+        # Source-driven ASR principle: ONE Whisper-yue base, derive every same-family
+        # output 1:1 (yue=passthrough, zh/cmn=refine). Replaces the old Whisper-zh-direct
+        # for 書面語 (Validation-First 2026-06-04). do_clause_split=False → 口語 byte-identical.
+        _run_output_lang_bound_base(file_id, job, audio_path, cancel_event, outs,
+                                    source_language, script, mt_style, do_clause_split=False)
+        return
+
     first = outs[0]
     content_cache: dict = {}
     _first_start = time.time()
@@ -452,9 +460,14 @@ def _run_output_lang(file_id, job, audio_path, cancel_event):
                            job_type='asr_output', output_language=outs[1])
 
 
-def _run_output_lang_cross(file_id, job, audio_path, cancel_event, outs, source_language, script, mt_style="generic"):
-    """Cross-language FIRST pass: ONE content-language ASR base -> derive every output
-    1:1 (passthrough/MT/refine) -> single shared grid. No 2nd job, no index-merge."""
+def _run_output_lang_bound_base(file_id, job, audio_path, cancel_event, outs,
+                                source_language, script, mt_style, do_clause_split):
+    """ONE content-language ASR base -> derive every output 1:1 (passthrough/refine/MT)
+    -> single shared grid. No 2nd job, no index-merge. The ASR language is purely
+    source-driven (content_asr_lang); the output language only selects the downstream
+    transform. `do_clause_split` splits the base at Chinese punctuation before deriving
+    (cross-language path, for MT cue length); the same-family yue path passes False so the
+    口語 track stays byte-identical to a direct yue transcription."""
     from output_lang_persist import build_output_translations
     from output_lang_router import content_asr_lang
     from output_lang_aligned import derive_aligned_output
@@ -469,8 +482,8 @@ def _run_output_lang_cross(file_id, job, audio_path, cancel_event, outs, source_
         base = [{"start": s.get("start", 0.0), "end": s.get("end", 0.0), "text": (s.get("text") or "").strip()}
                 for s in ((bres or {}).get("segments") or [])]
         if not base:
-            raise RuntimeError(f"output-lang cross base empty for {file_id}")
-        if _OL_FAMILY.get(source_language) == "zh":
+            raise RuntimeError(f"output-lang base empty for {file_id}")
+        if do_clause_split and _OL_FAMILY.get(source_language) == "zh":
             base = olp.clause_split_all(base, char_cap=18)
         llm = _make_ollama_llm_call()
         derived = {o: derive_aligned_output(base, source_language, o, script, llm, style=mt_style) for o in outs}
@@ -485,6 +498,12 @@ def _run_output_lang_cross(file_id, job, audio_path, cancel_event, outs, source_
     except Exception as e:
         _update_file(file_id, status='error', error=str(e))
         raise
+
+
+def _run_output_lang_cross(file_id, job, audio_path, cancel_event, outs, source_language, script, mt_style="generic"):
+    """Cross-language FIRST pass — bound-base derive WITH clause-split (unchanged behavior)."""
+    _run_output_lang_bound_base(file_id, job, audio_path, cancel_event, outs,
+                                source_language, script, mt_style, do_clause_split=True)
 
 
 def _run_output_lang_second(file_id, job, audio_path, cancel_event):
@@ -516,7 +535,8 @@ def _run_output_lang_second(file_id, job, audio_path, cancel_event):
     # was a same-family whisper-direct (no base cached, or a legacy grid with
     # different segmentation) — fall through to the legacy index-merge path below,
     # which re-transcribes + merges. Never crash, never misalign.
-    if _is_cross_language(source_language, outs) and _ol_base and len(_ol_base) == len(_ol_live):
+    if (_is_cross_language(source_language, outs) or source_language == "yue") \
+            and _ol_base and len(_ol_base) == len(_ol_live):
         _reset_progress_for_job(file_id, job.get("id", ""), "output_lang", 1,
                                 num_output_langs=max(2, len(outs)))
         _run_output_lang_second_cross(file_id, target, source_language, script, mt_style)
@@ -587,9 +607,18 @@ def _run_output_lang_second_cross(file_id, target, source_language, script, mt_s
             nbl = {**(row.get("by_lang") or {}), target: {"text": t, "status": "pending", "flags": []}}
             new_rows.append({**row, "by_lang": nbl, f"{target}_text": t})
         cur_al = _file_registry[file_id].get("aligned_bilingual") or []
-        new_al = [{**c, "by_lang": {**(c.get("by_lang") or {}),
-                                    target: (seg2[i].get("text", "") if i < len(seg2) else "")}}
-                  for i, c in enumerate(cur_al)]
+        if cur_al:
+            new_al = [{**c, "by_lang": {**(c.get("by_lang") or {}),
+                                        target: (seg2[i].get("text", "") if i < len(seg2) else "")}}
+                      for i, c in enumerate(cur_al)]
+        else:
+            # No prior aligned grid (legacy file whose first pass predates the bound-base
+            # build) — construct it fresh from the merged rows so paired bilingual export
+            # still works.
+            new_al = [{"start": r.get("start", 0.0), "end": r.get("end", 0.0),
+                       "by_lang": {lang: (v.get("text", "") if isinstance(v, dict) else (v or ""))
+                                   for lang, v in (r.get("by_lang") or {}).items()}}
+                      for r in new_rows]
         _file_registry[file_id]["translations"] = new_rows
         _file_registry[file_id]["aligned_bilingual"] = new_al
         _save_registry()

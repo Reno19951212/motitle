@@ -34,13 +34,15 @@ def test_mt_handler_short_circuits_output_lang(app_mod, monkeypatch):
 
 
 def test_asr_handler_output_lang_first_pass(app_mod, monkeypatch):
-    # Same-family (yue -> yue) first pass: legacy per-output path produces the
-    # primary language via _produce_output_lang and enqueues asr_output for the
-    # second same-family language. Cross-language single-grid coverage lives in
-    # test_crosslang_phase1_dispatch.py.
+    # 2026-06-04: yue same-family first pass now uses the bound-base single-grid path —
+    # ONE Whisper-yue ASR, derive yue (passthrough) + zh (refine) from it, persist one
+    # grid, enqueue NO asr_output job. (Was: per-output _produce_output_lang + 2nd job.)
     fid = "t-ol-run"
-    monkeypatch.setattr(app_mod, "_produce_output_lang",
-                        lambda audio, src, out, script, ce, cache: [{"start": 0, "end": 1, "text": "今晚嘅賽事"}])
+    base = [{"start": 0, "end": 1, "text": "今晚嘅賽事"}]
+    n = {"tx": 0}
+    monkeypatch.setattr(app_mod, "transcribe_with_segments",
+                        lambda *a, **k: (n.__setitem__("tx", n["tx"] + 1) or {"segments": base}))
+    monkeypatch.setattr(app_mod, "_make_ollama_llm_call", lambda: (lambda s, u: u))
     monkeypatch.setattr(app_mod, "_resolve_file_path", lambda f: "/tmp/x.wav")
     enq = []
     monkeypatch.setattr(app_mod._job_queue, "enqueue", lambda **k: enq.append(k))
@@ -52,9 +54,11 @@ def test_asr_handler_output_lang_first_pass(app_mod, monkeypatch):
         app_mod._asr_handler({"file_id": fid, "id": "j", "user_id": 1, "type": "asr"})
         e = app_mod._file_registry[fid]
         assert e["status"] == "done"
+        assert n["tx"] == 1                                              # ONE shared yue ASR
         assert e["translations"][0]["by_lang"]["yue"]["text"] == "今晚嘅賽事"
         assert e["translations"][0]["yue_text"] == "今晚嘅賽事"
-        assert any(k.get("job_type") == "asr_output" and k.get("output_language") == "zh" for k in enq)
+        assert "zh" in e["translations"][0]["by_lang"]                  # 書面 derived in same pass
+        assert not enq                                                  # no asr_output job
     finally:
         with app_mod._registry_lock:
             app_mod._file_registry.pop(fid, None)

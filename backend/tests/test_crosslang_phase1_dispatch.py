@@ -43,19 +43,24 @@ def test_cross_language_first_pass_single_grid(monkeypatch):
             _app._file_registry.pop(fid, None)
 
 
-def test_same_family_first_pass_uses_legacy(monkeypatch):
+def test_same_family_yue_first_pass_uses_bound_base(monkeypatch):
+    # 2026-06-04: yue source same-family now derives ALL outputs from ONE Whisper-yue base
+    # (was: Whisper-zh-direct per output + a 2nd asr_output job). One ASR pass, no enqueue.
     fid = "f-same1"
-    seg = [{"start": 0, "end": 1, "text": "今晚好高興"}]
-    monkeypatch.setattr(_app, "_produce_output_lang", lambda *a, **k: seg)
-    enqueued = []
-    monkeypatch.setattr(_app._job_queue, "enqueue", lambda **k: enqueued.append(k))
+    base = [{"start": 0, "end": 1, "text": "今晚好高興"}]
+    n = {"tx": 0}
+    monkeypatch.setattr(_app, "transcribe_with_segments",
+                        lambda *a, **k: (n.__setitem__("tx", n["tx"] + 1) or {"segments": base}))
+    monkeypatch.setattr(_app, "_make_ollama_llm_call", lambda: (lambda s, u: u))
+    enq = []
+    monkeypatch.setattr(_app._job_queue, "enqueue", lambda **k: enq.append(k))
     with _app._registry_lock:
         _app._file_registry[fid] = {"id": fid, "active_kind": "output_lang",
                                     "source_language": "yue", "script": "trad",
                                     "output_languages": ["zh", "yue"]}
     try:
         _app._run_output_lang(fid, {"user_id": 1, "id": "j1"}, "a.wav", None)
-        assert enqueued and enqueued[0].get("job_type") == "asr_output"
+        assert n["tx"] == 1 and not enq      # one shared yue ASR, no 2nd job
     finally:
         with _app._registry_lock:
             _app._file_registry.pop(fid, None)
