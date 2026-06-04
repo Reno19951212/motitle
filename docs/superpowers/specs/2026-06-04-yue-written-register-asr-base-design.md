@@ -20,6 +20,19 @@
 
 統一原則：**source=yue 時，content ASR 只跑一次（`language='yue'`），每個輸出由呢個 base 1:1 衍生** —— passthrough（口語）/ refine（書面、普通話）/ MT（英文、日文）。
 
+## 核心原則（統一框架）
+
+**ASR Whisper 語言純由「上傳時揀嘅來源語音」決定 = `content_asr_lang(source_language)`，輸出語言完全唔影響 ASR。** 之後每個輸出語言只係揀下游 model：passthrough（同語言）/ refine（同語系異語體）/ MT（跨語系）。
+
+| 來源語音 | ASR language |
+|---|---|
+| 粵語 | `yue` |
+| 普通話 | `zh`（Whisper `zh` = 普通話為主；無獨立 cmn code，粵語先有 `yue`） |
+| 英文 | `en` |
+| 日文 | `ja` |
+
+呢個原則今日**只喺「粵語→書面語直出」一個位被違反**（誤用 output 驅動嘅 Whisper-`zh`）。其餘組合（普→zh、英→en、日→ja、粵+英文）其實已經 source 驅動。本改動 = **將原則貫徹到所有情況**，消除最後一個例外。
+
 ## Design
 
 ### 路由改動（核心）
