@@ -416,6 +416,24 @@ class ProfileManager:
         )
         os.replace(tmp_path, self._settings_path)
 
+    def get_global_font(self) -> dict:
+        """Global subtitle-font preset (settings.json 'font') — the source of truth for
+        render + live preview when NO profile is active (V6 / output_lang modes, where the
+        font is not owned by any pipeline profile). Falls back to DEFAULT_FONT_CONFIG."""
+        from renderer import DEFAULT_FONT_CONFIG  # lazy: avoid import cycle at module load
+        f = self._read_settings().get("font")
+        return {**DEFAULT_FONT_CONFIG, **f} if isinstance(f, dict) else dict(DEFAULT_FONT_CONFIG)
+
+    def set_global_font(self, font: dict) -> dict:
+        """Persist the global font preset to settings.json (merged over current). Returns merged."""
+        from renderer import DEFAULT_FONT_CONFIG
+        settings = self._read_settings()
+        current = settings.get("font") if isinstance(settings.get("font"), dict) else {}
+        merged = {**DEFAULT_FONT_CONFIG, **current, **(font or {})}
+        settings["font"] = merged
+        self._write_settings(settings)
+        return merged
+
 
 # ---------------------------------------------------------------------------
 # Internal validation helpers (pure functions, no mutation)

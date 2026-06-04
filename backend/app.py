@@ -2131,6 +2131,51 @@ def api_get_active_profile():
     return jsonify({"profile": profile})
 
 
+def _validate_global_font(font):
+    """Lenient font validation — validate only the fields that are present, matching the
+    profile-PATCH ranges (size 12-120, outline 0-10, margin 0-200, family/colors string)."""
+    if not isinstance(font, dict):
+        return ["font must be a dict"]
+    errs = []
+    if "family" in font and not isinstance(font["family"], str):
+        errs.append("font.family must be a string")
+    for k in ("color", "outline_color"):
+        if k in font and not isinstance(font[k], str):
+            errs.append(f"font.{k} must be a string")
+
+    def _num(v):
+        return isinstance(v, (int, float)) and not isinstance(v, bool)
+    if "size" in font and (not _num(font["size"]) or font["size"] < 12 or font["size"] > 120):
+        errs.append("font.size must be a number between 12 and 120")
+    if "outline_width" in font and (not _num(font["outline_width"]) or font["outline_width"] < 0 or font["outline_width"] > 10):
+        errs.append("font.outline_width must be a number between 0 and 10")
+    if "margin_bottom" in font and (not _num(font["margin_bottom"]) or font["margin_bottom"] < 0 or font["margin_bottom"] > 200):
+        errs.append("font.margin_bottom must be a number between 0 and 200")
+    return errs
+
+
+@app.route('/api/settings/font', methods=['GET'])
+@login_required
+def api_get_settings_font():
+    """Global subtitle-font preset — source of truth for render + live preview when no
+    profile is active (V6 / output_lang modes). See ProfileManager.get_global_font."""
+    return jsonify({"font": _profile_manager.get_global_font()})
+
+
+@app.route('/api/settings/font', methods=['PUT'])
+@login_required
+def api_set_settings_font():
+    data = request.get_json(silent=True) or {}
+    font = data.get("font") if isinstance(data.get("font"), dict) else data
+    errs = _validate_global_font(font)
+    if errs:
+        return jsonify({"error": "; ".join(errs)}), 400
+    merged = _profile_manager.set_global_font(font)
+    # Broadcast so every open overlay (FontPreview listens to profile_updated) updates live.
+    socketio.emit("profile_updated", {"font": merged})
+    return jsonify({"font": merged})
+
+
 @app.route('/api/profiles/<profile_id>', methods=['GET'])
 @login_required
 def api_get_profile(profile_id):
@@ -3756,8 +3801,10 @@ def api_start_render():
             "cancelled": False,
         }
 
-    # Load font config from active profile (fallback to DEFAULT_FONT_CONFIG)
-    font_config = active_profile.get("font", DEFAULT_FONT_CONFIG) if active_profile else DEFAULT_FONT_CONFIG
+    # Load font config from active profile; in modes with no active profile (V6 /
+    # output_lang) fall back to the GLOBAL font preset (settings.json), not the hardcoded
+    # default — so 「儲存為預設」 actually reaches the burn-in.
+    font_config = active_profile.get("font", DEFAULT_FONT_CONFIG) if active_profile else _profile_manager.get_global_font()
 
     # Snapshot translations to pass into thread (immutable)
     # O1: paired bilingual renders the 1:1-aligned view when present.

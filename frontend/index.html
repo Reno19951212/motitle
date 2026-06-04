@@ -4471,15 +4471,26 @@
     }
 
     async function saveFontAsProfile() {
-      if (!activeProfile) { showToast('未有當前 Profile', 'warning'); return; }
       try {
-        const r = await fetch(`${API_BASE}/api/profiles/${activeProfile.id}`, {
-          method: 'PATCH',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ font: fontConfig }),
-        });
+        let r;
+        if (activeProfile) {
+          // Profile mode — save to the active profile's font (existing behaviour).
+          r = await fetch(`${API_BASE}/api/profiles/${activeProfile.id}`, {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ font: fontConfig }),
+          });
+        } else {
+          // V6 / output_lang mode — no active profile; save the GLOBAL font preset
+          // (settings.json), which render + live preview read in these modes.
+          r = await fetch(`${API_BASE}/api/settings/font`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ font: fontConfig }),
+          });
+        }
         if (r.ok) {
-          showToast('已儲存為 Profile 字體', 'success');
+          showToast('已儲存為預設字體', 'success');
           return;
         }
         // Surface the underlying error so users (and we) can tell what's wrong.
@@ -5934,7 +5945,16 @@
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
         activeProfile = data.profile;
-        if (activeProfile?.font) fontConfig = { ...fontConfig, ...activeProfile.font };
+        if (activeProfile?.font) {
+          fontConfig = { ...fontConfig, ...activeProfile.font };
+        } else if (!activeProfile) {
+          // No active profile (V6 / output_lang) — load the GLOBAL font preset so the
+          // live preview matches what render will burn in.
+          try {
+            const gf = await fetch(`${API_BASE}/api/settings/font`).then(x => x.ok ? x.json() : null);
+            if (gf && gf.font) fontConfig = { ...fontConfig, ...gf.font };
+          } catch (_) { /* keep defaults */ }
+        }
         renderAll();
         applySubtitleStyle();
       } catch (e) { _initFetchError('active profile', e); }

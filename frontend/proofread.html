@@ -917,9 +917,8 @@
   let waveformPeaks = null;
   let glossaryId = null;          // selected glossary ID
   let glossaryEntries = [];       // current glossary entries
-  let activeProfileId = null;     // for PATCH font settings
+  let activeProfileId = null;     // for PATCH font settings (null in V6 / output_lang → global preset)
   let activeProfile = null;       // full profile so resolvers see font.subtitle_source / bilingual_order
-  let ssDebounceTimer = null;     // subtitle settings save debounce
 
   // Font config mirrors active profile's `font` — read-only on this page;
   // user edits live on the Dashboard's 字幕設定 tab + 💾 儲存為預設.
@@ -1206,9 +1205,16 @@
         const data = await r.json();
         activeProfileId = data.profile?.id || null;
         activeProfile = data.profile || null;
-        const f = data.profile?.font || {};
-        fontConfig = { ...fontConfig, ...f };
-        renderSubtitleSettings();   // re-render with loaded profile values
+        if (data.profile?.font) {
+          fontConfig = { ...fontConfig, ...data.profile.font };
+        } else {
+          // No active profile (V6 / output_lang) — load the GLOBAL font preset.
+          try {
+            const gf = await fetch(`${API_BASE}/api/settings/font`).then(x => x.ok ? x.json() : null);
+            if (gf && gf.font) fontConfig = { ...fontConfig, ...gf.font };
+          } catch (_) { /* keep defaults */ }
+        }
+        renderSubtitleSettings();   // re-render with loaded values
       }
     } catch (e) { /* keep defaults already rendered */ }
     applySubtitleStyle();
@@ -1271,13 +1277,16 @@
           <input type="range" id="ssMarginBottom" min="0" max="200" value="${fc.margin_bottom}" oninput="proofreadUpdateFont('margin_bottom', +this.value)" aria-label="底部邊距">
           <div class="range-hints"><span>0</span><span>200</span></div>
         </div>
+      </div>
+      <div class="ss-group" style="border-bottom:0;">
+        <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="saveFontPreset()">💾 儲存為預設</button>
       </div>`;
   }
 
   function _ssSetLbl(id, text) { const el = document.getElementById(id); if (el) el.textContent = text; }
 
-  // Slider / select change — update fontConfig, labels + preview, live overlay,
-  // debounced save. No re-render (would interrupt an in-progress slider drag).
+  // Slider / select change — update fontConfig + labels + live preview (SVG overlay).
+  // Persisting is EXPLICIT via 儲存為預設 (matches the dashboard); no auto-save.
   function proofreadUpdateFont(key, value) {
     fontConfig = { ...fontConfig, [key]: value };
     _ssSetLbl('ssSizeLbl', fontConfig.size + 'px');
@@ -1286,21 +1295,14 @@
     const pv = document.getElementById('ssPreviewText');
     if (pv) { pv.style.fontSize = (fontConfig.size * 0.6) + 'px'; pv.style.color = fontConfig.color; }
     applySubtitleStyle();
-    onSubtitleSettingChange();
   }
 
   // Colour pick re-renders so the active swatch ring moves to the chosen colour,
-  // then re-applies the live preview + debounced save.
+  // then re-applies the live preview.
   function proofreadPickColor(key, value) {
     fontConfig = { ...fontConfig, [key]: value };
     renderSubtitleSettings();
     applySubtitleStyle();
-    onSubtitleSettingChange();
-  }
-
-  function onSubtitleSettingChange() {
-    clearTimeout(ssDebounceTimer);
-    ssDebounceTimer = setTimeout(saveSubtitleSettings, 500);
   }
 
   // Clamp a numeric value to [lo, hi], falling back when not finite.
@@ -1310,8 +1312,9 @@
     return Math.min(hi, Math.max(lo, n));
   }
 
-  async function saveSubtitleSettings() {
-    if (!activeProfileId) return;
+  // 儲存為預設 — persist the current font: to the active profile if there is one,
+  // otherwise to the GLOBAL font preset (settings.json) read by V6 / output_lang render.
+  async function saveFontPreset() {
     const font = {
       family: (fontConfig.family || '').trim() || 'Noto Sans TC',
       size: _clampNum(fontConfig.size, 12, 120, 32),
@@ -1321,14 +1324,15 @@
       margin_bottom: _clampNum(fontConfig.margin_bottom, 0, 200, 40),
     };
     try {
-      const r = await fetch(`${API_BASE}/api/profiles/${activeProfileId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ font }),
-      });
-      if (!r.ok) throw new Error((await r.json()).error || '儲存失敗');
+      const r = activeProfileId
+        ? await fetch(`${API_BASE}/api/profiles/${activeProfileId}`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ font }) })
+        : await fetch(`${API_BASE}/api/settings/font`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ font }) });
+      if (!r.ok) throw new Error((await r.json()).error || `HTTP ${r.status}`);
       fontConfig = { ...fontConfig, ...font };
       applySubtitleStyle();
+      showToast('已儲存為預設字體', 'success');
     } catch (e) {
       showToast(`字幕設定儲存失敗: ${e.message}`, 'error');
     }
