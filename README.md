@@ -522,6 +522,78 @@ ollama signin
 
 > **`batch_size: 1` 單段模式**（v3.8 新增）：每個 ASR segment 獨立發送畀 LLM 翻譯，無 neighbour context。解決 batched mode 嘅三類問題：(1) 跨段內容錯位（一段嘅 ZH 變咗鄰段嘅內容），(2) Bloat（譯文加咗原文無嘅主語、連接詞、形容詞），(3) 相鄰段重複介紹同一人名。代價：對代詞（he / they / it）解析靠 LLM 自己估，可能影響準確性；速度比 `batch_size=10` 慢約 30%（115 段約 41 秒）。EN 預設啟用，ZH 預設用 `batch_size: 8`。
 
+### 輸出語言 Pipeline 路由（ASR / Refiner / MT 架構）
+
+> 適用於上傳彈窗選擇「輸出語言」的流程（`active_kind=output_lang`，現時的主要流程）。整條 pipeline 由頭到尾**只用兩個模型**。
+
+**兩個模型**
+
+| 角色 | 模型 | 說明 |
+|---|---|---|
+| **ASR** 語音辨識 | **mlx-whisper large-v3**（`mlx-community/whisper-large-v3-mlx`） | `condition_on_previous_text=False`、`task=transcribe` |
+| **LLM**（MT + Refiner 共用） | **Qwen3.5 35B-A3B**（Ollama `qwen3.5:35b-a3b-mlx-bf16`，temperature 0.3） | MoE 混合專家模型：**總參數 35.1B、每個 token 只激活 3B（即「A3B」）**。MT 翻譯與書面語 Refiner 用同一個模型，差別只在於餵入的 prompt |
+
+**核心原則：ASR 的 Whisper 語言純由「來源語音」決定，輸出語言不影響 ASR。** 內容音訊只轉錄一次，之後每個輸出語言各自由這個 base 作 1:1 衍生（多個輸出共用同一次 ASR）。
+
+**表 1 — ASR 層（來源語音 → Whisper 語言）**
+
+| 來源語音（上傳時選） | Whisper language |
+|---|---|
+| 粵語 `yue` | `yue` |
+| 普通話 `cmn` | `zh`（Whisper 的 `zh` 以普通話為主，無獨立 cmn 代碼） |
+| 英文 `en` | `en` |
+| 日文 `ja` | `ja` |
+
+**表 2 — 衍生模式矩陣（來源 × 輸出）**
+
+語系劃分：`yue / cmn / zh` 屬中文系、`en`、`ja`。
+
+| 來源 ＼ 輸出 | 口語粵語 `yue` | 書面語 `zh` | 普通話 `cmn` | 英文 `en` | 日文 `ja` |
+|---|---|---|---|---|---|
+| **粵語 yue** | 直通 | 書面化 | 書面化 | 翻譯 | 翻譯 |
+| **普通話 cmn** | 翻譯 | 書面化 | 直通 | 翻譯 | 翻譯 |
+| **英文 en** | 翻譯 | 翻譯 | 翻譯 | 直通 | 翻譯 |
+| **日文 ja** | 翻譯 | 翻譯 | 翻譯 | 翻譯 | 直通 |
+
+- **直通（passthrough）**：與來源同語言，直接複製文字，**不經 LLM**。
+- **書面化（refine）**：同語系不同語體（口語 → 書面語 / 普通話），由 Refiner 改寫 register。
+- **翻譯（MT）**：跨語系，由 MT 翻譯。
+
+**表 3 — 每個模式用什麼模型與 Prompt**
+
+| 模式 | 模型 | Prompt |
+|---|---|---|
+| **直通** | 無 LLM | 無（中文輸出最後過 OpenCC 繁/簡轉換） |
+| **書面化 Refiner** | Qwen3.5 35B-A3B | **隨風格切換**：通用（預設）→ 中性 Refiner `zh_written_register_generic.json`；馬會賽馬 → 賽馬 Refiner `zh_written_register_v6.json` |
+| **翻譯 MT** | Qwen3.5 35B-A3B | `英 → 中文書面語`：風格模板 `config/mt_style_prompts/{generic,racing,sportsnews}.txt`；**其餘語言對**：通用廣播 MT prompt（`_MT_SYS`，輸出中文時再附加「書面語規則」） |
+
+**表 4 — Prompt 內容重點**
+
+| Prompt | 用於 | 重點內容 |
+|---|---|---|
+| **通用 MT**（`_MT_SYS`） | 除「英 → 中文」外所有跨語系翻譯 | 廣播口播風格、自然流暢；**不得加入原文沒有的資訊或領域術語；保留專有名詞**；輸出中文時附加規則（禁用粵語口語字、禁將通用詞改成原文沒有的領域術語） |
+| **風格模板**（generic / racing / sportsnews） | **僅**「英 → 中文書面語」翻譯 | 通用＝中性；馬會賽馬＝賽馬詞；體育新聞＝體育詞 |
+| **中性 Refiner**（預設） | 任何「→ 書面語 / 普通話」書面化 | 口語 → 書面語 register；保留阿拉伯數字；**逐字保留人名 / 地名 / 英文詞**；**嚴禁注入賽馬 / 體育 / 財經等領域術語** |
+| **賽馬 Refiner**（選用） | 書面化 + 已選「馬會賽馬」風格 | 同上，但帶賽馬語境、保留賽馬術語與賽事名 |
+
+> **「逐字保留（byte-for-byte）」不是獨立模型或步驟，而是 prompt 規則**：MT 與兩個 Refiner 都要求人名、地名、英文詞、數字原樣不變。
+>
+> **OpenCC 繁/簡轉換**：所有中文輸出最後經 `apply_script`（繁體 `s2hk` / 簡體 `t2s`），與模型無關。
+>
+> **風格選擇器（`mt_style`）同時影響 MT 與 Refiner**：預設「通用」會用**中性** Refiner（不會把非賽馬內容寫成賽馬味）；製作真正賽馬素材時，於上傳彈窗選「馬會賽馬」才切換到賽馬 Refiner。
+
+**表 5 — 完整流程例子**
+
+| 來源 → 輸出 | ASR | 模式 | 模型 + Prompt |
+|---|---|---|---|
+| **粵語 → 書面語** | Whisper `yue` ×1 | 書面化 | Qwen3.5 + 中性 Refiner（選「馬會賽馬」才用賽馬 Refiner）+ OpenCC |
+| **粵語 → 口語廣東話** | Whisper `yue` ×1 | 直通 | 無 LLM + OpenCC |
+| **粵語 → 英文** | Whisper `yue` ×1 | 翻譯 | Qwen3.5 + 通用 MT |
+| **普通話 → 書面語** | Whisper `zh` ×1 | 書面化 | Qwen3.5 + 中性 Refiner + OpenCC |
+| **英文 → 書面語** | Whisper `en` ×1 | 翻譯 | Qwen3.5 + 英→中文風格模板（預設通用＝中性）+ OpenCC |
+
+> 多個輸出共用同一次 ASR：例如「粵語 → 書面語 + 英文」只跑一次 Whisper `yue`，再由同一 base 分別書面化（書面語）與翻譯（英文），逐句對齊。
+
 ### 前端頁面
 
 | 頁面 | 功能 | 與後端通訊 |
