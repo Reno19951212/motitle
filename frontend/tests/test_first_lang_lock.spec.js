@@ -55,9 +55,29 @@ test('切換 source 即時重套鎖定（粵語→英文鎖 en，英文→粵語
   expect(await page.locator('#olFirstLang').isDisabled()).toBe(false);
 });
 
-test('第二輸出語言維持自由（唔受鎖定影響，仍含全部 + 無）', async ({ page }) => {
+test('第二輸出語言排走同來源同語系（英文 source → 仍可揀中文/日文，但唔可再揀英文）', async ({ page }) => {
   await openPopup(page);
-  await page.selectOption('#olSourceLang', 'en');                  // first locked = en
+  await page.selectOption('#olSourceLang', 'en');                  // first locked = en (en 語系)
   const secondVals = await page.locator('#olSecondLang option').evaluateAll((o) => o.map((x) => x.value));
-  expect(secondVals).toEqual(expect.arrayContaining(['', 'yue', 'zh', 'cmn', 'en', 'ja']));
+  // en 語系排走 → 仍含中文系 + 日文 + 無，但唔含 en
+  expect(secondVals).toEqual(expect.arrayContaining(['', 'yue', 'zh', 'cmn', 'ja']));
+  expect(secondVals).not.toContain('en');
+});
+
+test('粵語 source → 第二語言唔可揀任何中文形態（封鎖同語系雙輸出 drift）', async ({ page }) => {
+  await openPopup(page);
+  await page.selectOption('#olSourceLang', 'yue');                 // 中文語系
+  const secondVals = await page.locator('#olSecondLang option').evaluateAll((o) => o.map((x) => x.value));
+  expect(secondVals).toEqual(['', 'en', 'ja']);                   // 只剩無 + 跨語系
+  for (const zh of ['yue', 'zh', 'cmn']) expect(secondVals).not.toContain(zh);
+});
+
+test('切換 source 即時重套第二語言過濾（粵語→英文 source 後可再揀中文做第二）', async ({ page }) => {
+  await openPopup(page);
+  await page.selectOption('#olSourceLang', 'yue');
+  expect(await page.locator('#olSecondLang option').evaluateAll(o => o.map(x => x.value))).toEqual(['', 'en', 'ja']);
+  await page.selectOption('#olSourceLang', 'en');                 // 切去英文 source
+  const vals = await page.locator('#olSecondLang option').evaluateAll(o => o.map(x => x.value));
+  expect(vals).toContain('zh');                                  // 英文 source → 第二可揀中文書面語
+  expect(vals).not.toContain('en');
 });

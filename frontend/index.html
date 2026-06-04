@@ -4903,6 +4903,13 @@
       ja:  [['ja', '日文']],
       yue: [['zh', '中文書面語'], ['yue', '口語廣東話']],   // 粵語預設中文書面語，可改口語
     };
+    // 語系：粵/普/中文書面語同屬「中文」一系。兩個同語系輸出 = 兩個獨立 Whisper pass
+    // 被 index-merge → 時間軸 drift。所以第二輸出語言唔可以同來源（=第一）同語系。
+    const OL_FAMILY = { yue: 'zh', cmn: 'zh', zh: 'zh', en: 'en', ja: 'ja' };
+    const OL_SECOND_ALL = [
+      ['', '無'], ['yue', '口語廣東話'], ['zh', '中文書面語'],
+      ['cmn', '普通話'], ['en', '英文'], ['ja', '日文'],
+    ];
     function syncFirstLangToSource() {
       const srcEl = document.getElementById('olSourceLang');
       const first = document.getElementById('olFirstLang');
@@ -4913,6 +4920,15 @@
       first.value = opts[0][0];   // 預設 = 第一個選項（粵語 → 中文書面語）
       // 單一選項（英/普/日）→ 硬鎖（disabled）；粵語兩選項 → 可揀。
       first.disabled = opts.length < 2;
+      // 第二輸出語言：排走同來源同語系嘅選項（避免同語系雙輸出嘅 index-merge drift）。
+      const second = document.getElementById('olSecondLang');
+      if (second) {
+        const srcFam = OL_FAMILY[src] || 'zh';
+        const prev = second.value;
+        const allowed = OL_SECOND_ALL.filter(([v]) => v === '' || OL_FAMILY[v] !== srcFam);
+        second.innerHTML = allowed.map(([v, label]) => `<option value="${v}">${label}</option>`).join('');
+        second.value = allowed.some(([v]) => v === prev) ? prev : '';   // 唔再合法就回「無」
+      }
     }
 
     function openOutputLangModal(file) {

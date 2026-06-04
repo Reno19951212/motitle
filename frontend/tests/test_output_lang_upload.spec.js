@@ -74,11 +74,13 @@ test.describe.serial('output-lang upload popup', () => {
     expect(firstVals).not.toContain('ja');
     expect(firstVals).not.toContain('');  // no 「無」 on the required first select
 
-    // Second output language select exposes the 4 codes + 「無」 (empty value).
+    // Second output language: same-family-as-source options are filtered out to avoid
+    // the same-family index-merge drift. Default source = 粵語 (中文語系) → only 無 + 跨語系.
     const secondVals = await page.locator('#olSecondLang option').evaluateAll(
       (opts) => opts.map((o) => o.value)
     );
-    expect(secondVals).toEqual(expect.arrayContaining(['', 'yue', 'zh', 'en', 'ja']));
+    expect(secondVals).toEqual(['', 'en', 'ja']);
+    expect(secondVals).not.toContain('zh');   // 中文系唔可同粵語 source 同時做雙輸出
     // The 「無」 label is shown for the empty option.
     const noneLabel = await page.locator('#olSecondLang option[value=""]').textContent();
     expect((noneLabel || '').trim()).toContain('無');
