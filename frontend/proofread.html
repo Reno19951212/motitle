@@ -344,41 +344,33 @@
     }
     .rv-b-ss-head { padding: 7px 10px; border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text); flex-shrink: 0; white-space: nowrap; }
 
-    /* Compact 字幕設定 — tuned for the ~270-wide vid-panel: slim preview strip
-       across the top, then a 2-column body so the key editable controls are all
-       visible without scrolling. Inputs stay the existing editable <input>s
-       (#ssFamily/#ssSize/#ssColor/#ssColorHex/#ssOutlineColor/#ssOutlineColorHex/
-       #ssOutlineWidth/#ssMarginBottom) — only re-wrapped/re-styled, not rewired. */
-    .rv-b-subtitle-settings { container-type: inline-size; }
-    .rv-b-ss-body {
-      flex: 1; min-height: 0; overflow-y: auto;
-      padding: 10px; gap: 8px 12px;
-      display: grid; grid-template-columns: 1fr; align-content: start;
-    }
-    /* Two columns once the panel itself is wide enough (keys off panel width,
-       not viewport — the panel is widest when the layout stacks). */
-    @container (min-width: 220px) {
-      .rv-b-ss-body { grid-template-columns: 1fr 1fr; }
-    }
-    /* slim cosmetic preview strip (CSS-only sample — live preview is the video
-       SVG overlay driven by FontPreview). */
-    .ss-preview { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; }
-    .ss-pv-tag { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); flex-shrink: 0; }
-    .ss-pv-stage { flex: 1; height: 34px; border-radius: 6px; overflow: hidden; background: linear-gradient(135deg, #1a1a2a 0%, #0a0a14 100%); display: flex; align-items: center; justify-content: center; padding: 0 8px; min-width: 0; }
-    .ss-pv-stage .sub-preview-text { color: #fff; font-weight: 500; text-align: center; line-height: 1.2; text-shadow: 0 0 2px #000, 0 1px 2px rgba(0,0,0,0.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-    .ss-cell { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-    .ss-cell-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); }
-    /* colour rows span the full panel width so swatches never wrap */
-    .ss-colorline { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; }
-    .ss-colorline .ss-cell-label { flex-shrink: 0; }
-
-    /* existing editable inputs, restyled denser to fit the compacted cells */
-    .rv-b-ss-input { background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 12px; padding: 5px 7px; min-width: 0; width: 100%; box-sizing: border-box; }
-    .rv-b-ss-color { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
-    .rv-b-ss-color input[type=color] { width: 24px; height: 24px; border: 1px solid var(--border); border-radius: 5px; padding: 1px; background: var(--surface-2); cursor: pointer; }
-    .rv-b-ss-hex { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-dim); }
-    .ss-unit { font-size: 11px; color: var(--text-dim); }
-    .ss-num-row { display: flex; align-items: center; gap: 6px; }
+    /* 字幕設定 panel body — mirrors the dashboard inspector「字幕設定」display:
+       a preview strip then grouped slider / colour-swatch sections. Controls
+       write `fontConfig`, refresh the FontPreview SVG overlay, and debounce-PATCH
+       the active profile (rendered into #ssBody by renderSubtitleSettings). */
+    .rv-b-ss-body { flex: 1; min-height: 0; overflow-y: auto; }
+    .rv-b-ss-body .sub-preview { padding: 10px 12px 12px; border-bottom: 1px solid var(--surface-2); background: var(--bg-soft, var(--surface-2)); }
+    .rv-b-ss-body .sub-preview-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); margin-bottom: 6px; }
+    .rv-b-ss-body .sub-preview-stage { height: 60px; border-radius: 6px; position: relative; overflow: hidden; background: linear-gradient(135deg, #1a1a2a 0%, #0a0a14 100%); }
+    .rv-b-ss-body .sub-preview-text { position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; color: #fff; font-weight: 500; text-shadow: 0 0 2px #000, 0 1px 2px rgba(0,0,0,0.8); padding: 4px 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rv-b-ss-body .ss-group { padding: 10px 12px; border-bottom: 1px solid var(--surface-2); }
+    .rv-b-ss-body .ss-group:last-of-type { border-bottom: 0; }
+    .rv-b-ss-body .ss-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); margin-bottom: 9px; }
+    .rv-b-ss-body .ss-row { display: grid; grid-template-columns: 40px 1fr; gap: 8px; align-items: center; margin-bottom: 9px; }
+    .rv-b-ss-body .ss-row:last-child { margin-bottom: 0; }
+    .rv-b-ss-body .ss-row > label { font-size: 12px; color: var(--text-mid); }
+    .rv-b-ss-body .ss-row select { background: var(--surface-2); border: 1px solid var(--border); color: var(--text); padding: 5px 7px; border-radius: 6px; font-size: 12px; width: 100%; box-sizing: border-box; }
+    .rv-b-ss-body .swatch-pick { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+    .rv-b-ss-body .swatch-pick .sw { width: 22px; height: 22px; border-radius: 5px; border: 2px solid transparent; cursor: pointer; position: relative; }
+    .rv-b-ss-body .swatch-pick .sw.on { border-color: var(--text); box-shadow: 0 0 0 2px var(--accent-ring); }
+    .rv-b-ss-body .swatch-pick .sw.custom { background: var(--surface-2); border: 1px dashed var(--border-strong); color: var(--text-dim); font-size: 13px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .rv-b-ss-body .swatch-pick .sw.custom input[type=color] { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; padding: 0; border: 0; }
+    .rv-b-ss-body .slider-row { margin-bottom: 9px; }
+    .rv-b-ss-body .slider-row:last-child { margin-bottom: 0; }
+    .rv-b-ss-body .slider-row .labels { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: var(--text-mid); margin-bottom: 4px; }
+    .rv-b-ss-body .slider-row .labels .v { color: var(--accent-2); font-family: var(--font-mono); }
+    .rv-b-ss-body .slider-row input[type=range] { width: 100%; accent-color: var(--accent); }
+    .rv-b-ss-body .range-hints { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-dim); font-family: var(--font-mono); margin-top: 2px; }
 
     /* Glossary Apply Modal */
     .ga-overlay {
@@ -550,7 +542,7 @@
       padding: 7px 10px;
       border-radius: 6px;
       cursor: pointer;
-      align-items: center;
+      align-items: start;
     }
     .rv-b-rail-item:hover { background: var(--surface-2); }
     .rv-b-rail-item.cur {
@@ -558,10 +550,16 @@
       box-shadow: inset 0 0 0 1px var(--accent-ring);
     }
     .rv-b-rail-item.ap { opacity: 0.6; }
-    .rv-b-rail-num { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); font-weight: 700; text-align: right; }
-    .rv-b-rail-ts { font-family: var(--font-mono); font-size: 11px; color: var(--accent-2); }
-    .rv-b-rail-text { font-size: 12px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .rv-b-rail-item.cur .rv-b-rail-text { font-weight: 600; }
+    .rv-b-rail-num { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); font-weight: 700; text-align: right; padding-top: 1px; }
+    .rv-b-rail-ts { font-family: var(--font-mono); font-size: 11px; color: var(--accent-2); padding-top: 1px; }
+    /* Two stacked text blocks per row: line 1 = first/source language,
+       line 2 = second/translated language (dimmed). Single-language
+       output_lang files render line 1 only. */
+    .rv-b-rail-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .rv-b-rail-text-1, .rv-b-rail-text-2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rv-b-rail-text-1 { font-size: 12px; color: var(--text); }
+    .rv-b-rail-text-2 { font-size: 11.5px; color: var(--text-dim); }
+    .rv-b-rail-item.cur .rv-b-rail-text-1 { font-weight: 600; }
     .rv-b-rail-flags { display: flex; gap: 3px; }
     .rv-b-rail-flags .qa-flag { padding: 1px 5px; font-size: 9.5px; }
     .rv-b-rail-ok { color: var(--success); font-size: 11px; }
@@ -839,56 +837,14 @@
                   </div>
                 </div>
 
-                <!-- 字幕設定 (editable — re-styled into the design's compacted
-                     2-column layout; every #ss* input + handler preserved) -->
+                <!-- 字幕設定 — 跟主頁 inspector「字幕設定」嘅顯示方式：預覽框 +
+                     分組滑桿 + 色票。所有控制寫入 fontConfig、即時更新 FontPreview
+                     SVG overlay，並 debounce PATCH active profile。內容由
+                     renderSubtitleSettings() render 落 #ssBody（色票 active state
+                     要 re-render，所以用 JS 渲染）。 -->
                 <div class="rv-b-subtitle-settings" id="subtitleSettingsPanel">
                   <div class="rv-b-ss-head">字幕設定</div>
-                  <div class="rv-b-ss-body">
-                    <div class="ss-preview">
-                      <span class="ss-pv-tag">預覽</span>
-                      <div class="ss-pv-stage">
-                        <span class="sub-preview-text">方案包括三條新港鐵線</span>
-                      </div>
-                    </div>
-
-                    <div class="ss-cell">
-                      <span class="ss-cell-label">字型</span>
-                      <input class="rv-b-ss-input" id="ssFamily" type="text" oninput="onSubtitleSettingChange()" aria-label="字幕字型名稱">
-                    </div>
-                    <div class="ss-cell">
-                      <span class="ss-cell-label">大小</span>
-                      <div class="ss-num-row">
-                        <input class="rv-b-ss-input" id="ssSize" type="number" min="12" max="120" oninput="onSubtitleSettingChange()" aria-label="字幕大小 (px)">
-                        <span class="ss-unit">px</span>
-                      </div>
-                    </div>
-                    <div class="ss-cell">
-                      <span class="ss-cell-label">輪廓寬</span>
-                      <input class="rv-b-ss-input" id="ssOutlineWidth" type="number" min="0" max="10" oninput="onSubtitleSettingChange()" aria-label="字幕輪廓寬度">
-                    </div>
-                    <div class="ss-cell">
-                      <span class="ss-cell-label">底部邊距</span>
-                      <div class="ss-num-row">
-                        <input class="rv-b-ss-input" id="ssMarginBottom" type="number" min="0" max="200" oninput="onSubtitleSettingChange()" aria-label="字幕底部邊距 (px)">
-                        <span class="ss-unit">px</span>
-                      </div>
-                    </div>
-
-                    <div class="ss-colorline">
-                      <span class="ss-cell-label">文字色</span>
-                      <div class="rv-b-ss-color">
-                        <input type="color" id="ssColor" oninput="onColorInput('ssColor','ssColorHex');onSubtitleSettingChange()" aria-label="字幕顏色">
-                        <span class="rv-b-ss-hex" id="ssColorHex">#ffffff</span>
-                      </div>
-                    </div>
-                    <div class="ss-colorline">
-                      <span class="ss-cell-label">輪廓色</span>
-                      <div class="rv-b-ss-color">
-                        <input type="color" id="ssOutlineColor" oninput="onColorInput('ssOutlineColor','ssOutlineColorHex');onSubtitleSettingChange()" aria-label="字幕輪廓顏色">
-                        <span class="rv-b-ss-hex" id="ssOutlineColorHex">#000000</span>
-                      </div>
-                    </div>
-                  </div>
+                  <div class="rv-b-ss-body" id="ssBody"></div>
                 </div>
 
               </div>
@@ -1233,31 +1189,113 @@
   }
 
   // ============================================================
-  // Subtitle Settings Panel
+  // Subtitle Settings Panel — mirrors the dashboard inspector「字幕設定」display:
+  // a preview strip then grouped sliders + colour swatches. Every control writes
+  // the in-memory `fontConfig`, refreshes the FontPreview SVG overlay on the
+  // video, and debounce-PATCHes the active profile. Rendered into #ssBody so the
+  // active swatch ring stays in sync with the chosen colour.
   // ============================================================
+  const SS_TEXT_COLORS = ['#ffffff', '#ffe066', '#a3e635', '#f472b6'];
+  const SS_OUTLINE_COLORS = ['#000000', '#1a1a2a', '#3a0a52', '#7f1d1d'];
+
   async function initSubtitleSettings() {
+    renderSubtitleSettings();   // immediate render with current/default fontConfig
     try {
       const r = await fetch(`${API_BASE}/api/profiles/active`);
-      if (!r.ok) return;
-      const data = await r.json();
-      activeProfileId = data.profile?.id || null;
-      activeProfile = data.profile || null;
-      const f = data.profile?.font || {};
-      fontConfig = { ...fontConfig, ...f };
-      document.getElementById('ssFamily').value = fontConfig.family;
-      document.getElementById('ssSize').value = fontConfig.size;
-      document.getElementById('ssColor').value = fontConfig.color;
-      document.getElementById('ssColorHex').textContent = fontConfig.color;
-      document.getElementById('ssOutlineColor').value = fontConfig.outline_color;
-      document.getElementById('ssOutlineColorHex').textContent = fontConfig.outline_color;
-      document.getElementById('ssOutlineWidth').value = fontConfig.outline_width;
-      document.getElementById('ssMarginBottom').value = fontConfig.margin_bottom;
-      applySubtitleStyle();
-    } catch (e) { /* keep defaults */ }
+      if (r.ok) {
+        const data = await r.json();
+        activeProfileId = data.profile?.id || null;
+        activeProfile = data.profile || null;
+        const f = data.profile?.font || {};
+        fontConfig = { ...fontConfig, ...f };
+        renderSubtitleSettings();   // re-render with loaded profile values
+      }
+    } catch (e) { /* keep defaults already rendered */ }
+    applySubtitleStyle();
   }
 
-  function onColorInput(inputId, hexId) {
-    document.getElementById(hexId).textContent = document.getElementById(inputId).value;
+  function renderSubtitleSettings() {
+    const body = document.getElementById('ssBody');
+    if (!body) return;
+    const fc = fontConfig;
+    const families = ['Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', 'Source Han Sans HK'];
+    if (fc.family && !families.includes(fc.family)) families.unshift(fc.family);
+    const swatches = (colors, key, cur) => {
+      const lc = (cur || '').toLowerCase();
+      const isPreset = colors.some(c => c.toLowerCase() === lc);
+      return colors.map(c =>
+        `<div class="sw ${c.toLowerCase() === lc ? 'on' : ''}" style="background:${c}" title="${c}" onclick="proofreadPickColor('${key}','${c}')"></div>`
+      ).join('')
+        + `<label class="sw custom ${isPreset ? '' : 'on'}" title="自訂顏色">+<input type="color" value="${escapeHtml(cur || '#000000')}" oninput="proofreadPickColor('${key}', this.value)"></label>`;
+    };
+    body.innerHTML = `
+      <div class="sub-preview">
+        <div class="sub-preview-label">預覽</div>
+        <div class="sub-preview-stage">
+          <div class="sub-preview-text" id="ssPreviewText" style="font-size:${(fc.size || 32) * 0.6}px;color:${fc.color};">方案包括三條新港鐵線，連接新界地區。</div>
+        </div>
+      </div>
+      <div class="ss-group">
+        <div class="ss-title">字體</div>
+        <div class="ss-row">
+          <label>字型</label>
+          <select onchange="proofreadUpdateFont('family', this.value)" aria-label="字幕字型">
+            ${families.map(fam => `<option ${fam === fc.family ? 'selected' : ''}>${escapeHtml(fam)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="slider-row">
+          <div class="labels"><span class="l">字幕大小</span><span class="v" id="ssSizeLbl">${fc.size}px</span></div>
+          <input type="range" id="ssSize" min="12" max="120" value="${fc.size}" oninput="proofreadUpdateFont('size', +this.value)" aria-label="字幕大小">
+          <div class="range-hints"><span>12</span><span>120</span></div>
+        </div>
+      </div>
+      <div class="ss-group">
+        <div class="ss-title">顏色 &amp; 描邊</div>
+        <div class="ss-row">
+          <label>文字</label>
+          <div class="swatch-pick" id="ssTextSwatches">${swatches(SS_TEXT_COLORS, 'color', fc.color)}</div>
+        </div>
+        <div class="ss-row">
+          <label>輪廓</label>
+          <div class="swatch-pick" id="ssOutlineSwatches">${swatches(SS_OUTLINE_COLORS, 'outline_color', fc.outline_color)}</div>
+        </div>
+        <div class="slider-row">
+          <div class="labels"><span class="l">描邊粗幼</span><span class="v" id="ssOutlineLbl">${fc.outline_width}px</span></div>
+          <input type="range" id="ssOutlineWidth" min="0" max="10" step="0.5" value="${fc.outline_width}" oninput="proofreadUpdateFont('outline_width', +this.value)" aria-label="描邊粗幼">
+        </div>
+      </div>
+      <div class="ss-group">
+        <div class="ss-title">位置</div>
+        <div class="slider-row">
+          <div class="labels"><span class="l">底部邊距</span><span class="v" id="ssMarginLbl">${fc.margin_bottom}px</span></div>
+          <input type="range" id="ssMarginBottom" min="0" max="200" value="${fc.margin_bottom}" oninput="proofreadUpdateFont('margin_bottom', +this.value)" aria-label="底部邊距">
+          <div class="range-hints"><span>0</span><span>200</span></div>
+        </div>
+      </div>`;
+  }
+
+  function _ssSetLbl(id, text) { const el = document.getElementById(id); if (el) el.textContent = text; }
+
+  // Slider / select change — update fontConfig, labels + preview, live overlay,
+  // debounced save. No re-render (would interrupt an in-progress slider drag).
+  function proofreadUpdateFont(key, value) {
+    fontConfig = { ...fontConfig, [key]: value };
+    _ssSetLbl('ssSizeLbl', fontConfig.size + 'px');
+    _ssSetLbl('ssOutlineLbl', fontConfig.outline_width + 'px');
+    _ssSetLbl('ssMarginLbl', fontConfig.margin_bottom + 'px');
+    const pv = document.getElementById('ssPreviewText');
+    if (pv) { pv.style.fontSize = (fontConfig.size * 0.6) + 'px'; pv.style.color = fontConfig.color; }
+    applySubtitleStyle();
+    onSubtitleSettingChange();
+  }
+
+  // Colour pick re-renders so the active swatch ring moves to the chosen colour,
+  // then re-applies the live preview + debounced save.
+  function proofreadPickColor(key, value) {
+    fontConfig = { ...fontConfig, [key]: value };
+    renderSubtitleSettings();
+    applySubtitleStyle();
+    onSubtitleSettingChange();
   }
 
   function onSubtitleSettingChange() {
@@ -1265,27 +1303,22 @@
     ssDebounceTimer = setTimeout(saveSubtitleSettings, 500);
   }
 
-  // Clamp a Number input to its [min, max] range — HTML min/max do not block
-  // typed-in values, so we enforce them at save time.
-  function _clampNumberInput(id, lo, hi, fallback) {
-    const el = document.getElementById(id);
-    let n = Number(el?.value);
+  // Clamp a numeric value to [lo, hi], falling back when not finite.
+  function _clampNum(v, lo, hi, fallback) {
+    let n = Number(v);
     if (!Number.isFinite(n)) n = fallback;
-    if (n < lo) n = lo;
-    if (n > hi) n = hi;
-    if (el) el.value = String(n);
-    return n;
+    return Math.min(hi, Math.max(lo, n));
   }
 
   async function saveSubtitleSettings() {
     if (!activeProfileId) return;
     const font = {
-      family: document.getElementById('ssFamily').value.trim(),
-      size: _clampNumberInput('ssSize', 12, 120, 32),
-      color: document.getElementById('ssColor').value,
-      outline_color: document.getElementById('ssOutlineColor').value,
-      outline_width: _clampNumberInput('ssOutlineWidth', 0, 10, 2),
-      margin_bottom: _clampNumberInput('ssMarginBottom', 0, 200, 40),
+      family: (fontConfig.family || '').trim() || 'Noto Sans TC',
+      size: _clampNum(fontConfig.size, 12, 120, 32),
+      color: fontConfig.color,
+      outline_color: fontConfig.outline_color,
+      outline_width: _clampNum(fontConfig.outline_width, 0, 10, 2),
+      margin_bottom: _clampNum(fontConfig.margin_bottom, 0, 200, 40),
     };
     try {
       const r = await fetch(`${API_BASE}/api/profiles/${activeProfileId}`, {
@@ -1994,14 +2027,24 @@
       list.innerHTML = '<div class="rv-b-rail-empty">未有段落</div>';
       return;
     }
-    // output_lang: the list row summary shows the FIRST output language (always
-    // present). For a single-language file s.zh (the 2nd lang) is empty, so the
-    // legacy `s.zh || '(未翻譯)'` would render '(未翻譯)' for every row.
+    // Each rail row shows TWO stacked text blocks: line 1 = primary/source/first
+    // track, line 2 = translated/second track (dimmed). output_lang single-language
+    // files have no second track → only line 1 renders (so we never show a bogus
+    // '(未翻譯)' second line for transcribe-only output).
     const isOutputLang = fileInfo && fileInfo.active_kind === 'output_lang';
     list.innerHTML = segs.map((s, i) => {
       const cur = i === cursorIdx ? 'cur' : '';
       const ap = s.approved ? 'ap' : '';
-      const rowText = isOutputLang ? (s.en || s.zh || '(未翻譯)') : (s.zh || '(未翻譯)');
+      let line1, line2, hasLine2;
+      if (isOutputLang) {
+        line1 = s.en || '(未翻譯)';     // 第一輸出語言
+        line2 = s.zh || '(未翻譯)';     // 第二輸出語言
+        hasLine2 = (s._hasSecond === true);
+      } else {
+        line1 = s.en || '(無原文)';     // 原文 / Qwen3 source
+        line2 = s.zh || '(未翻譯)';     // 譯文 / refined
+        hasLine2 = true;
+      }
       const flagsHtml = s.flags.slice(0, 2).map(f => {
         const color = f.type === 'review' || f.type.startsWith('low-') || f.type === 'untranslated' ? 'rose' : 'amber';
         return `<span class="qa-flag qa-flag-${color}" title="${escapeHtml(f.msg || '')}">${flagLabel(f.type)}</span>`;
@@ -2010,7 +2053,10 @@
         <div class="rv-b-rail-item ${cur} ${ap}" data-idx="${i}" onclick="setCursor(${i})">
           <div class="rv-b-rail-num">${s.id}</div>
           <div class="rv-b-rail-ts">${escapeHtml(s.tsIn)}</div>
-          <div class="rv-b-rail-text">${escapeHtml(rowText)}</div>
+          <div class="rv-b-rail-text">
+            <div class="rv-b-rail-text-1">${escapeHtml(line1)}</div>
+            ${hasLine2 ? `<div class="rv-b-rail-text-2">${escapeHtml(line2)}</div>` : ''}
+          </div>
           <div class="rv-b-rail-flags">
             ${flagsHtml}
             ${s.approved ? '<span class="rv-b-rail-ok">✓</span>' : ''}
@@ -2784,7 +2830,10 @@
     fbMatches.forEach((m, mi) => {
       const row = document.querySelector(`.rv-b-rail-item[data-idx="${m.idx}"]`);
       if (!row) return;
-      const textEl = row.querySelector('.rv-b-rail-text');
+      // Source/first matches highlight line 1; translation/second matches line 2.
+      const textEl = m.field === 'zh'
+        ? row.querySelector('.rv-b-rail-text-2')
+        : row.querySelector('.rv-b-rail-text-1');
       if (!textEl) return;
       const isCur = mi === fbCurMatch;
       const s = segs[m.idx];
