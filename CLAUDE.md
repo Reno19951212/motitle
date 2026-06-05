@@ -247,7 +247,7 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | GET | `/api/health` | Server status, loaded models |
 | GET | `/Files.html` | Files library page (login-required static page) |
 | GET | `/api/models` | Available Whisper model list |
-| POST | `/api/transcribe` | Upload + async transcription → auto-translate. Form fields: `output_languages` (JSON, 1-2 of `{yue,zh,cmn,en,ja}` → forces `active_kind=output_lang`), `source_language` (`{yue,cmn,en,ja}`), `script` (`trad`/`simp`, default `trad`), `mt_style` (`racing`/`sportsnews`/`generic`) |
+| POST | `/api/transcribe` | Upload + async transcription → auto-translate. Form fields: `output_languages` (JSON, 1-2 of `{yue,zh,cmn,en,ja}` → forces `active_kind=output_lang`), `source_language` (`{yue,cmn,en,ja}`), `script` (`trad`/`simp`, default `trad`), `mt_style` (`racing`/`sportsnews`/`generic`), `glossary_ids` (JSON array, ordered glossary ids), `glossary_llm` (`"1"`/`"0"`, default `"1"`) |
 | GET | `/api/files` | List all uploaded files with status |
 | GET | `/api/files/<id>/media` | Serve original media file |
 | GET | `/api/files/<id>/subtitle.<fmt>` | Download subtitle (srt/vtt/txt)；接 `?source=` + `?order=` query params |
@@ -283,6 +283,7 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | GET | `/api/glossaries/<id>/export` | Export CSV |
 | POST | `/api/files/<id>/glossary-scan` | Scan translations for glossary violations (string match) |
 | POST | `/api/files/<id>/glossary-apply` | Apply glossary corrections via LLM smart replacement |
+| POST | `/api/files/<id>/glossary-reapply` | output_lang only — 重新套用詞彙表，由 cached content base 1:1 re-derive（無 re-ASR）；非 output_lang / 無 content base / 未知 glossary → 400 |
 | GET | `/api/languages` | List language configs |
 | GET | `/api/languages/<id>` | Get language config |
 | PATCH | `/api/languages/<id>` | Update language config |

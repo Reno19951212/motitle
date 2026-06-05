@@ -4,6 +4,19 @@
 
 ## Completed Features
 
+### 詞彙表 Review v2 — output_lang glossary 自動套用（post-derive stage + before/after + reapply）（2026-06-05）
+- **目標**：output_lang pipeline 之前完全唔套用任何術語表（glossary），馬名/騎師名/專有名詞由 LLM 自行決定 → 跑馬廣播片出現不一致/錯譯。v2 喺 pipeline 嘅 **post-derivation** 位置統一加一個 deterministic glossary stage，支援多詞彙表 ordered first-wins 合併、source 同 target 兩側路由、LLM 精修選項，並在校對頁逐段顯示「原文 → 規範後」對照。
+- **核心架構（純模組，注入式）**：新 `backend/output_lang_glossary.py` —— `glossary_stage(segs, glossaries, llm_call, llm_enabled)` 純函數，deterministic 套用（suffix-strip 如馬匹編號 `(K335)` + verbatim canonicalize）+ 可選 LLM 精修 escalation；多 glossary **ordered first-wins** merge（入參順序＝優先）；**全語言對自動路由**（MT 輸出配 source side，refine/passthrough 輸出配 target side）；per-language **false-injection guard**（單個常見英文字 deny-list + ≤2-char 中文 target skip）。
+- **整合接駁**：`glossary_stage(...)` 喺 `output_lang_aligned.derive_aligned_output` 裡 **`apply_script`（OpenCC）之後** 執行，亦喺 `app.py::_produce_output_lang` 裡串入；每段記錄 `seg["glossary_changes"]=[{source, before, after, glossary}]`；`output_lang_persist.build_output_translations` 將 `glossary_changes` 帶落 translation rows。
+- **Dispatch**：transcribe handler 讀並驗 `glossary_ids`（JSON array，**有序 = 優先**）+ `glossary_llm`（default ON）；存 `entry["glossary_ids"]` / `entry["glossary_llm"]`；`_run_output_lang*` 透過 `_load_glossaries` 載入後一路傳落 derive。
+- **新 endpoint**：`POST /api/files/<id>/glossary-reapply` body `{glossary_ids?, glossary_llm?}`（缺省用 file 存嘅值）—— 由 cached `content_asr_segments` base 1:1 **re-derive 每個輸出**（**無 re-ASR**；MT/refine 重跑），重建 rows + `aligned_bilingual`，返 `200 {ok, file_id, languages, changed_count}`。非 output_lang / 無 content base / 未知 glossary id → 400。
+- **`/api/transcribe` 新 form fields**：`glossary_ids`（JSON array，有序 glossary id 列表）+ `glossary_llm`（`"1"`/`"0"`，default `"1"`）。
+- **前端**：upload popup 加 `#olGlossary`（multi-select，選項 `name (src→tgt)`）+ `#olGlossaryLlm` checkbox（default on）。Proofread 詳情 panel 「詞彙對照」顯示逐段 `before → after · glossary`（`.gl-before` 刪除線淡色 → `.gl-after` 強調色）或「— 此段無詞彙表詞條 —」；segment-list rail 對有更改嘅段顯示 📖 標記；詞彙表 panel 有「重新套用詞彙表」按鈕 → 呼叫 `glossary-reapply`。
+- **Validation-First（全程，主要風險係 false-injection）**：source-side（Winning Factor × 1350-entry 賽馬詞彙表）false inject **3→0**（single-common-word guard）；target-side broadcast（字幕/和等短詞）**2→0**（≤2-char Chinese skip）；target-side racing **0**。Gold-confirmed source-side **follow-rate 43/43 = 100%**。Tracker：[docs/superpowers/specs/2026-06-05-glossary-v2-validation-tracker.md](docs/superpowers/specs/2026-06-05-glossary-v2-validation-tracker.md)；Gold：[docs/superpowers/validation/glossary-v2/gold_applicability_winningfactor.json](docs/superpowers/validation/glossary-v2/gold_applicability_winningfactor.json)。
+- **Tests**：39 個 module（`test_output_lang_glossary.py`）+ 11 個 dispatch（`test_glossary_dispatch.py`）+ 6 個 reapply endpoint（`test_glossary_reapply.py`）+ 7 個 Playwright（`test_glossary_v2.spec.js`），共 63 個新 test。
+- **已知 v1 限制**：reapply 做全量 re-derive → 覆蓋手動校對編輯（v1 接受）；target-side 粵語馬名 follow-rate 真片驗證 deferred（false-injection floor 已 0）；CSV aliases 只記錄於 docs，無 fallback 套用。
+- **Spec/Plan/Research**：[design](docs/superpowers/specs/2026-06-05-glossary-v2-design.md) / [plan](docs/superpowers/plans/2026-06-05-glossary-v2-plan.md) / [research](docs/superpowers/research/2026-06-05-glossary-v2-research.md)。Commits：`246a771`(純模組) → `045868a`(derive+dispatch wiring) → `2246828`(reapply endpoint) → `55c2a6c`(frontend)。
+
 ### 粵語語音統一 YUE ASR base — 取代書面語 Whisper-zh 直出（2026-06-04）
 - **問題**：粵語語音、中文書面語**單一輸出**之前行 `route_output('yue','zh')='whisper'` → Whisper `language='zh'` **直出**（當粵語音係書面/普通話聽），系統性漏失粵語特定意思（例：「識穿男友喺東南亞叫雞」→「察覺男友在東南亞」漏咗召妓）。
 - **核心原則**：**ASR Whisper 語言純由來源語音決定（`content_asr_lang(source)`：yue→yue, cmn→zh, en→en, ja→ja），輸出語言唔影響 ASR**；之後每個輸出 1:1 衍生（passthrough / refine / MT）。今日只喺「粵→書面直出」一個位違反咗，今次貫徹到所有 yue-source 情況。
