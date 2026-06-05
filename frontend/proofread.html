@@ -939,6 +939,8 @@
 
   let fileInfo = null;        // { id, original_name, duration, ... }
   let segs = [];              // enriched: { idx, id, en, zh, in, out, tsIn, tsOut, duration, cps, approved, edited, flags, ... }
+  let _olLangs = [];  // output_lang language descriptors, reused by split/merge
+  let _segOpBusy = false;
   let cursorIdx = null;       // index into segs
   let totalMs = 0;            // video duration in ms
   let waveformPeaks = null;
@@ -1902,6 +1904,43 @@
     }
   }
 
+  // Build segs[] from output_lang translation rows + language descriptors.
+  // Used by loadSegments AND by split/merge (to avoid an extra round-trip).
+  function _rebuildSegsFromArrays(translations, langs) {
+    const firstL = (langs[0] && langs[0].lang) || 'yue';
+    const secondL = langs[1] && langs[1].lang;
+    return translations.map((t, i) => {
+      const firstText = t[`${firstL}_text`]
+                     || (t.by_lang && t.by_lang[firstL] && t.by_lang[firstL].text) || '';
+      const secondText = secondL
+        ? (t[`${secondL}_text`] || (t.by_lang && t.by_lang[secondL] && t.by_lang[secondL].text) || '')
+        : '';
+      const inMs = Math.round((t.start || 0) * 1000);
+      const outMs = Math.round((t.end || 0) * 1000);
+      const durSec = (outMs - inMs) / 1000;
+      const cpsFirst = durSec > 0 ? Math.round((firstText.length / durSec) * 10) / 10 : 0;
+      const apiFlags = Array.isArray(t.flags) ? t.flags : [];
+      const flags = qaFlagsFromBackend(apiFlags, []);
+      if (cpsFirst > 12) flags.push({ type: 'cps', msg: `CPS ${cpsFirst}（上限 12）` });
+      return {
+        idx: (typeof t.idx === 'number') ? t.idx : i,
+        id: i + 1,
+        in: inMs, out: outMs,
+        tsIn: fmtMs(inMs), tsOut: fmtMs(outMs),
+        duration: durSec.toFixed(1),
+        en: firstText, zh: secondText,
+        cps: cpsFirst,
+        _cpsSecond: secondL && durSec > 0 ? Math.round((secondText.length / durSec) * 10) / 10 : 0,
+        _hasSecond: !!secondL,
+        approved: t.status === 'approved' || t.approved === true,
+        edited: t.edited === true,
+        flags,
+        glossary_changes: Array.isArray(t.glossary_changes) ? t.glossary_changes : [],
+        speaker: null, candidates: [], glossary: [], asr: null, mt: null,
+      };
+    });
+  }
+
   async function loadSegments() {
     const isOutputLang = fileInfo && fileInfo.active_kind === 'output_lang';
     const isV6 = fileInfo && fileInfo.active_kind === 'pipeline_v6';
@@ -1915,9 +1954,6 @@
           langs = lr.languages || [];
         } catch (e) {}
       }
-      const firstL = (langs[0] && langs[0].lang) || 'yue';
-      const secondL = langs[1] && langs[1].lang;  // may be undefined
-
       let translations = [];
       try {
         const tResp = await fetch(`${API_BASE}/api/files/${fileId}/translations`).then(r => r.json());
@@ -1927,42 +1963,8 @@
         translations = [];
       }
 
-      segs = translations.map((t, i) => {
-        const firstText = t[`${firstL}_text`]
-                       || (t.by_lang && t.by_lang[firstL] && t.by_lang[firstL].text)
-                       || '';
-        const secondText = secondL
-          ? (t[`${secondL}_text`] || (t.by_lang && t.by_lang[secondL] && t.by_lang[secondL].text) || '')
-          : '';
-        const inMs = Math.round((t.start || 0) * 1000);
-        const outMs = Math.round((t.end || 0) * 1000);
-        const durSec = (outMs - inMs) / 1000;
-        const cpsFirst = durSec > 0 ? Math.round((firstText.length / durSec) * 10) / 10 : 0;
-        const apiFlags = Array.isArray(t.flags) ? t.flags : [];
-        const flags = qaFlagsFromBackend(apiFlags, []);
-        if (cpsFirst > 12) flags.push({ type: 'cps', msg: `CPS ${cpsFirst}（上限 12）` });
-        return {
-          idx: (typeof t.idx === 'number') ? t.idx : i,
-          id: i + 1,
-          in: inMs, out: outMs,
-          tsIn: fmtMs(inMs), tsOut: fmtMs(outMs),
-          duration: durSec.toFixed(1),
-          en: firstText,       // 第一輸出語言 → enInput（頂部欄位）
-          zh: secondText,      // 第二輸出語言 → zhInput（底部欄位；無第二語言時為空字串）
-          cps: cpsFirst,       // 主 CPS = 第一語言
-          _cpsSecond: secondL && durSec > 0 ? Math.round((secondText.length / durSec) * 10) / 10 : 0,
-          _hasSecond: !!secondL,
-          approved: t.status === 'approved' || t.approved === true,
-          edited: t.edited === true,
-          flags,
-          glossary_changes: Array.isArray(t.glossary_changes) ? t.glossary_changes : [],
-          speaker: null,
-          candidates: [],
-          glossary: [],
-          asr: null,
-          mt: null,
-        };
-      });
+      _olLangs = langs;
+      segs = _rebuildSegsFromArrays(translations, langs);
     } else if (isV6) {
       let translations = [];
       try {
