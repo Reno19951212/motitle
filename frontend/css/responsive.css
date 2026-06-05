@@ -5,10 +5,13 @@
 #mobileSidebarOverlay { display: none; }
 #mobileHamburgerBtn { display: none; }
 
-/* Default (>768px): hide mobile-only proofread chrome (must come BEFORE media queries) */
+/* Default (>768px): hide mobile-only proofread chrome (must come BEFORE media queries).
+   The panes are the grid cells — flex columns so .rv-b-left/.rv-b-right fill the grid-row
+   height (which lets the segment list + 詞彙表/字幕設定 panels scroll internally and pins
+   the timeline at the bottom instead of overflowing past the fold). */
 .proofread-mobile-tabs { display: none; }
 .proofread-video-pane,
-.proofread-segments-pane { display: block; }
+.proofread-segments-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 
 
 /* === Tablet (≤1024px) === */

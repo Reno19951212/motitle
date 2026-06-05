@@ -295,16 +295,20 @@
     /* ============================================================
        Variant B — Timeline Editor
        ============================================================ */
-    .rv-b { display: grid; grid-template-columns: 340px 1fr; gap: 12px; padding: 12px 14px; width: 100%; min-height: 0; flex: 1; }
+    .rv-b { display: grid; grid-template-columns: 340px 1fr; grid-template-rows: minmax(0, 1fr); gap: 12px; padding: 12px 14px; width: 100%; min-height: 0; flex: 1; overflow: hidden; }
     @media (max-width: 1280px) { .rv-b { grid-template-columns: 280px 1fr; } .rv-fname { max-width: 220px; } .rv-kbd-hint { display: none; } }
     @media (max-width: 768px) {
-      .rv-b { grid-template-columns: 1fr; padding: 8px; gap: 8px; overflow-y: auto; }
+      .rv-b { grid-template-columns: 1fr; grid-template-rows: none; padding: 8px; gap: 8px; overflow-y: auto; overflow-x: hidden; }
       .rv-body { overflow-y: auto; }
     }
 
-    .rv-b-left { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; }
-    .rv-b-right { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; }
-    .rv-b-top-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex: 1; min-height: 0; }
+    /* flex:1 1 0 so each fills its .proofread-*-pane (the full-height grid cell); the
+       inner rail-list / vid-panels then scroll and the timeline stays pinned. */
+    .rv-b-left { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; flex: 1 1 0; }
+    .rv-b-right { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; flex: 1 1 0; }
+    /* flex: 1 1 0 + min-height:0 + overflow:hidden lets the whole top block SHRINK
+       (panels scroll inside) instead of pushing the timeline off the bottom. */
+    .rv-b-top-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex: 1 1 0; min-height: 0; overflow: hidden; }
     @media (max-width: 768px) { .rv-b-top-row { grid-template-columns: 1fr; } }
     .rv-b-video-col { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
 
@@ -314,14 +318,17 @@
        browser zoom (px would not). On short windows the video pillarboxes a touch
        (object-fit: contain) rather than eating all the column height. */
     .rv-b-video-wrap { flex: 0 1 auto; min-height: 0; max-height: clamp(150px, 34vh, 420px); overflow: hidden; }
-    /* Panels grow to fill the freed space; min-height is vh-based so they stay
-       usable across sizes/zoom and a tall glossary scrolls inside each panel. */
+    /* Panels grow to fill the space the capped video frees up, but min-height:0 lets
+       them SHRINK + scroll internally on short windows so the timeline below is never
+       clipped. The video cap (above) is what gives them height when there is room. */
     .rv-b-vid-panels {
       display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
-      flex: 1 1 auto; min-height: clamp(190px, 30vh, 360px);
+      flex: 1 1 auto; min-height: 0;
     }
     .rv-b-vid-panels > * { min-height: 0; }
-    @media (max-width: 1024px) { .rv-b-vid-panels { grid-template-columns: 1fr; height: auto; max-height: 50vh; } }
+    /* When stacked (≤1024) split the available height into two scrolling rows rather
+       than letting content height push the layout (and the timeline) past the fold. */
+    @media (max-width: 1024px) { .rv-b-vid-panels { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; min-height: 0; } }
 
     .rv-b-glossary {
       display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden;
@@ -573,10 +580,13 @@
     .rv-b-rail-ok { color: var(--success); font-size: 11px; }
     .rv-b-rail-empty { padding: 30px 16px; text-align: center; color: var(--text-dim); font-size: 12px; }
 
+    /* flex: 0 0 auto — never shrinks, so the timeline is always pinned visible at the
+       bottom of the right pane regardless of width/height/zoom; the top block above
+       shrinks instead. */
     .rv-b-timeline-panel {
       background: var(--surface); border: 1px solid var(--border); border-radius: 9px;
       padding: 12px; display: flex; flex-direction: column; gap: 10px;
-      flex-shrink: 0;
+      flex: 0 0 auto;
     }
     .rv-b-timeline-head { display: flex; align-items: center; }
     .rv-b-tlh-l { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-mid); }
