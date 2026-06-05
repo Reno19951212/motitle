@@ -68,6 +68,9 @@ def admin_client():
     except ValueError:
         from auth.users import update_password as _upw
         _upw(db, "admin_p3", "TestPass1!")
+    # Reset in-memory rate limiter so accumulated login attempts from earlier
+    # tests in the same run do not cause this login to be rejected with 429.
+    app_module._limiter.reset()
     c = app_module.app.test_client()
     r = c.post("/login", json={"username": "admin_p3", "password": "TestPass1!"})
     assert r.status_code == 200
@@ -256,3 +259,62 @@ def test_admin_users_toggle_admin_flips_flag(admin_client):
     assert r.get_json()["is_admin"] is True
     assert get_user_by_username(db, "ta_p3")["is_admin"] is True
     delete_user(db, "ta_p3")
+
+
+def test_admin_update_remarks_happy_path(admin_client):
+    import app as app_module
+    from auth.users import create_user, get_user_by_username, delete_user
+    db = app_module.app.config["AUTH_DB_PATH"]
+    try:
+        create_user(db, "rm_p3", "TestPass1!", is_admin=False)
+    except ValueError:
+        pass
+    target = get_user_by_username(db, "rm_p3")
+    r = admin_client.patch(f"/api/admin/users/{target['id']}/remarks",
+                           json={"remarks": "外判翻譯員"})
+    assert r.status_code == 200
+    assert r.get_json()["remarks"] == "外判翻譯員"
+    assert get_user_by_username(db, "rm_p3")["remarks"] == "外判翻譯員"
+    delete_user(db, "rm_p3")
+
+
+def test_admin_update_remarks_too_long_returns_400(admin_client):
+    import app as app_module
+    from auth.users import create_user, get_user_by_username, delete_user
+    db = app_module.app.config["AUTH_DB_PATH"]
+    try:
+        create_user(db, "rml_p3", "TestPass1!", is_admin=False)
+    except ValueError:
+        pass
+    target = get_user_by_username(db, "rml_p3")
+    r = admin_client.patch(f"/api/admin/users/{target['id']}/remarks",
+                           json={"remarks": "x" * 501})
+    assert r.status_code == 400
+    assert r.get_json().get("error")
+    delete_user(db, "rml_p3")
+
+
+def test_admin_update_remarks_missing_user_returns_404(admin_client):
+    r = admin_client.patch("/api/admin/users/999999/remarks", json={"remarks": "x"})
+    assert r.status_code == 404
+
+
+def test_update_remarks_requires_admin():
+    # Non-admin gets 403.
+    import app as app_module
+    from auth.users import init_db, create_user, get_user_by_username, delete_user
+    db = app_module.app.config["AUTH_DB_PATH"]
+    init_db(db)
+    try:
+        create_user(db, "na_rm_p3", "TestPass1!", is_admin=False)
+    except ValueError:
+        pass
+    # Reset rate-limiter storage so accumulated login attempts from earlier
+    # tests in the same run do not block this login with a 429.
+    app_module._limiter.reset()
+    c = app_module.app.test_client()
+    c.post("/login", json={"username": "na_rm_p3", "password": "TestPass1!"})
+    target = get_user_by_username(db, "na_rm_p3")
+    r = c.patch(f"/api/admin/users/{target['id']}/remarks", json={"remarks": "x"})
+    assert r.status_code == 403
+    delete_user(db, "na_rm_p3")

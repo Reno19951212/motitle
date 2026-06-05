@@ -7,7 +7,7 @@ from flask_login import current_user
 from auth.decorators import admin_required
 from auth.users import (
     create_user, delete_user, set_admin, update_password,
-    list_all_users, count_admins, get_user_by_id,
+    list_all_users, count_admins, get_user_by_id, update_remarks,
 )
 from auth.audit import log_audit
 
@@ -173,6 +173,25 @@ def reset_password_route(user_id):
     log_audit(db, actor_id=current_user.id, action="user.reset_password",
               target_kind="user", target_id=str(user_id))
     return jsonify({"ok": True}), 200
+
+
+@bp.patch("/api/admin/users/<int:user_id>/remarks")
+@admin_required
+def update_remarks_route(user_id):
+    data = request.get_json(silent=True) or {}
+    remarks = data.get("remarks", "")
+    db = current_app.config["AUTH_DB_PATH"]
+    target = get_user_by_id(db, user_id)
+    if not target:
+        return jsonify({"error": "not found"}), 404
+    try:
+        update_remarks(db, user_id, remarks)
+    except ValueError as e:
+        return jsonify({"error": "備註過長（上限 500 字）" if "too long" in str(e) else str(e)}), 400
+    log_audit(db, actor_id=current_user.id, action="user.update_remarks",
+              target_kind="user", target_id=str(user_id),
+              details={"remarks": (remarks or "").strip()})
+    return jsonify({"ok": True, "remarks": (remarks or "").strip()}), 200
 
 
 @bp.post("/api/admin/users/<int:user_id>/toggle-admin")
