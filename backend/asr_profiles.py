@@ -13,6 +13,7 @@ asr_profile + mt_profile + pipeline triples.
 """
 
 import json
+import platform as _platform_mod
 import threading
 import time
 import uuid
@@ -27,6 +28,23 @@ VALID_DEVICES = {"auto", "cpu", "cuda"}
 MAX_INITIAL_PROMPT_CHARS = 512
 MAX_NAME_CHARS = 64
 MAX_DESCRIPTION_CHARS = 256
+
+_OS_NORMALIZE = {"Darwin": "darwin", "Windows": "win32", "Linux": "linux"}
+
+
+def _detect_os() -> str:
+    return _OS_NORMALIZE.get(_platform_mod.system(), _platform_mod.system().lower())
+
+
+def available_engines() -> set:
+    """VALID_ENGINES minus engines that cannot run on this platform.
+
+    mlx-whisper requires Apple Silicon (MLX/Metal); excluded off darwin.
+    """
+    engines = set(VALID_ENGINES)
+    if _detect_os() != "darwin":
+        engines.discard("mlx-whisper")
+    return engines
 
 
 def validate_asr_profile(data: Any) -> list:
@@ -48,6 +66,8 @@ def validate_asr_profile(data: Any) -> list:
     engine = data.get("engine")
     if engine not in VALID_ENGINES:
         errors.append(f"engine must be one of {sorted(VALID_ENGINES)}")
+    elif engine == "mlx-whisper" and "mlx-whisper" not in available_engines():
+        errors.append("engine 'mlx-whisper' is not supported on this platform (Apple Silicon only)")
 
     model_size = data.get("model_size", "large-v3")
     if model_size not in VALID_MODEL_SIZES:
