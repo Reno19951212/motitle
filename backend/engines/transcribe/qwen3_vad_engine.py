@@ -31,9 +31,25 @@ from threading import Event
 # audio/numpy surface area).
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_DEFAULT_QWEN_VENV_PYTHON = (
-    _REPO_ROOT / "backend" / "scripts" / "v5_prototype" / "venv_qwen" / "bin" / "python"
-)
+
+
+def default_qwen_venv_python(_os_name: str | None = None) -> Path:
+    """Path to the py3.11 Qwen3 subprocess interpreter, OS-aware + env-overridable.
+
+    Args:
+        _os_name: override ``os.name`` for testing (``"posix"`` / ``"nt"``).
+                  Production callers should omit this argument.
+    """
+    override = os.environ.get("V6_QWEN_VENV_PYTHON")
+    if override:
+        return Path(override)
+    platform = _os_name if _os_name is not None else os.name
+    venv = _REPO_ROOT / "backend" / "scripts" / "v5_prototype" / "venv_qwen"
+    if platform == "nt":
+        return venv / "Scripts" / "python.exe"
+    return venv / "bin" / "python"
+
+
 _DEFAULT_SUBPROCESS_SCRIPT = (
     _REPO_ROOT / "backend" / "scripts" / "v5_prototype" / "qwen3_vad_subprocess.py"
 )
@@ -181,9 +197,7 @@ class Qwen3VadEngine:
         self._context = context
         self._post_s2hk = post_s2hk
         self._model = model
-        self._venv_python = Path(venv_python or os.environ.get(
-            "V6_QWEN_VENV_PYTHON", str(_DEFAULT_QWEN_VENV_PYTHON)
-        ))
+        self._venv_python = Path(venv_python) if venv_python else default_qwen_venv_python()
         self._subprocess_script = Path(subprocess_script or str(_DEFAULT_SUBPROCESS_SCRIPT))
 
     def transcribe_regions(

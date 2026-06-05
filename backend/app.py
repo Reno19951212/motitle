@@ -1140,10 +1140,8 @@ app.config["LLM_PROFILE_MANAGER"] = _llm_profile_manager
 app.config["REFINER_PROFILE_MANAGER"] = _refiner_profile_manager
 
 # V6 environment health check — disables V6 in UI if Qwen3 subprocess venv missing
-from pathlib import Path as _Path
-_qwen_venv_python = (
-    _Path(__file__).resolve().parent / "scripts/v5_prototype/venv_qwen/bin/python"
-)
+from engines.transcribe.qwen3_vad_engine import default_qwen_venv_python as _default_qwen_venv_python
+_qwen_venv_python = _default_qwen_venv_python()
 if not _qwen_venv_python.exists():
     print("[V6] WARNING: Qwen3 subprocess venv missing — V6 pipelines unavailable")
     print(f"[V6]   Run: bash {_qwen_venv_python.parent.parent.parent}/setup_v6.sh")
