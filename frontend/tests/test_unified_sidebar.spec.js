@@ -46,3 +46,22 @@ test('index topbar 設定 gear is removed (per Ka Lok design)', async ({ page })
   await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
   expect(await page.locator('#settingsGearBtn').count()).toBe(0);   // settings button removed
 });
+
+// Regression (2026-06-05): the rail 主頁 link used href="index.html" on Glossary/Files/
+// user, which 404s (backend serves "/", not "/index.html"). And proofread's 檔案 link
+// pointed at "/" instead of Files.html. The home link must be "/" on every cross-page rail.
+test('rail 主頁 points to / (not the 404 index.html) on every cross-page rail', async ({ page }) => {
+  await login(page);
+  for (const url of ['/proofread.html', '/Glossary.html', '/Files.html', '/user.html']) {
+    await page.goto(BASE + url, { waitUntil: 'domcontentloaded' });
+    const home = await page.locator('.b-rail a.rail-btn', { hasText: '主頁' }).first().getAttribute('href');
+    expect(home, `${url} 主頁 link`).toBe('/');
+  }
+});
+
+test('proofread rail 檔案 points to Files.html (not home)', async ({ page }) => {
+  await login(page);
+  await page.goto(BASE + '/proofread.html', { waitUntil: 'domcontentloaded' });
+  const files = await page.locator('.b-rail a.rail-btn', { hasText: '檔案' }).first().getAttribute('href');
+  expect(files).toBe('/Files.html');
+});
