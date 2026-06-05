@@ -173,8 +173,9 @@ def _drain_subprocess(
 
 def _load_audio_ffmpeg(audio_path: str, sr: int = 16000):
     import numpy as np  # lazy — see module docstring
+    from ffmpeg_locate import find_ffmpeg  # lazy — keeps module importable without backend sys.path
     cmd = [
-        "ffmpeg", "-hide_banner", "-loglevel", "error",
+        find_ffmpeg(), "-hide_banner", "-loglevel", "error",
         "-i", audio_path, "-ac", "1", "-ar", str(sr), "-f", "f32le", "-",
     ]
     proc = subprocess.run(cmd, capture_output=True, check=True)

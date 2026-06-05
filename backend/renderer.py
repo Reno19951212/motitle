@@ -7,6 +7,8 @@ import tempfile
 from pathlib import Path
 from typing import List, Optional
 
+from ffmpeg_locate import find_ffmpeg
+
 # Re-export from the new shared resolver so existing callers keep working
 # without importing from the new module directly.
 from subtitle_text import (
@@ -230,21 +232,11 @@ class SubtitleRenderer:
             video_abs = os.path.abspath(video_path)
             output_abs = os.path.abspath(output_path)
             cwd = str(self._renders_dir)
-            # On Windows, CreateProcess with cwd= can miss PATH lookup for bare
-            # "ffmpeg", so resolve to an absolute path up front. Fall back to
-            # common Windows install locations when PATH doesn't include it
-            # (e.g. backend launched from a shell that lacks the winget Links dir).
-            ffmpeg_exe = shutil.which("ffmpeg")
-            if not ffmpeg_exe and os.name == "nt":
-                for candidate in (
-                    os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\WinGet\Links\ffmpeg.exe"),
-                    r"C:\ffmpeg\bin\ffmpeg.exe",
-                    r"C:\Program Files\ffmpeg\bin\ffmpeg.exe",
-                ):
-                    if os.path.isfile(candidate):
-                        ffmpeg_exe = candidate
-                        break
-            ffmpeg_exe = ffmpeg_exe or "ffmpeg"
+            # Resolve ffmpeg to an absolute path up front so CreateProcess on
+            # Windows never has to rely on PATH lookup with a bare name.
+            # macOS/Linux: also resolves Homebrew / system paths when PATH is
+            # incomplete (e.g. backend launched from a GUI without full PATH).
+            ffmpeg_exe = find_ffmpeg()
 
             if output_format == "mxf":
                 prores_profile = int(opts.get("prores_profile", 3))

@@ -2119,12 +2119,29 @@ def ready_check():
     return jsonify({"ready": True}), 200
 
 
+def _whisper_cache_dir():
+    """Return the OS-appropriate whisper model cache directory.
+
+    Respects XDG_CACHE_HOME / HF_HOME overrides; on Windows uses %LOCALAPPDATA%;
+    on macOS/Linux returns the conventional ~/.cache/whisper (identical to the
+    previous hard-coded value, so macOS behaviour is unchanged).
+    """
+    import os as _os
+    env = _os.environ.get("XDG_CACHE_HOME") or _os.environ.get("HF_HOME")
+    if env:
+        return Path(env) / "whisper"
+    if _os.name == "nt":
+        base = _os.environ.get("LOCALAPPDATA") or str(Path.home())
+        return Path(base) / "whisper"
+    return Path.home() / ".cache" / "whisper"
+
+
 @app.route('/api/models', methods=['GET'])
 @login_required
 def list_models():
     """List available Whisper models with download/loaded status"""
     # Check which models are downloaded on disk
-    cache_dir = Path.home() / '.cache' / 'whisper'
+    cache_dir = _whisper_cache_dir()
     downloaded = set()
     if cache_dir.exists():
         for f in cache_dir.iterdir():
