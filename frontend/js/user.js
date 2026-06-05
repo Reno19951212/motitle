@@ -3,7 +3,6 @@
 // Single vanilla module, no build step. Mirrors Dashboard/Proofread design system.
 
 const PW_MIN_LEN = 8;
-const PW_RULE = '密碼規則：至少 8 個字元，且不能係常見密碼（例如 password、12345678、qwerty）';
 const REMARKS_MAX = 500;
 
 // shared state
@@ -241,7 +240,7 @@ async function confirmReset(userId) {
   if (!r.ok) { const e = await r.json().catch(()=>({})); showToast('重設失敗：' + (e.error || r.status), 'error'); return; }
   closeExpand();
   showToast('密碼已重設', 'success');
-  loadAudit();
+  loadUsers(); loadAudit();
 }
 
 async function saveRemarks(userId) {
@@ -258,6 +257,7 @@ async function saveRemarks(userId) {
 }
 
 async function toggleAdmin(userId) {
+  closeExpand();
   const r = await fetch(`/api/admin/users/${userId}/toggle-admin`, { method: 'POST', credentials: 'same-origin' });
   if (!r.ok) { const e = await r.json().catch(()=>({})); showToast('失敗：' + (e.error || r.status), 'error'); return; }
   showToast('權限已更新', 'success');
@@ -390,8 +390,10 @@ function toggleAuditDetail(id, item) {
 function copyJson(id) {
   const row = AUDIT_ROWS.find(r => r.id === id);
   if (!row) return;
-  navigator.clipboard?.writeText(JSON.stringify(row.details, null, 2));
-  showToast('已複製 JSON', 'success');
+  if (!navigator.clipboard) { showToast('剪貼板不支援', 'error'); return; }
+  navigator.clipboard.writeText(JSON.stringify(row.details, null, 2))
+    .then(() => showToast('已複製 JSON', 'success'))
+    .catch(() => showToast('複製失敗', 'error'));
 }
 
 // audit search + filter
