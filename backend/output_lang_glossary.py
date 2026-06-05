@@ -231,6 +231,37 @@ def _get_aliases(entry: dict) -> List[str]:
     return []
 
 
+def _build_strip_names(
+    glossaries: List[dict],
+    output_lang: str,
+    content_lang: str,
+    derive_mode: str,
+) -> List[str]:
+    """Collect every canonical target name (+ aliases) from glossaries that route
+    for this output, for comprehensive 「」 bracket stripping.
+
+    Covers BOTH 'source' and 'target' routed glossaries: a source-side glossary's
+    Chinese ``target`` still appears in the zh output, so its name should also be
+    unbracketed. Names ≤2 chars are dropped (same guard as the matching layer) so
+    short common words (和 / 球會 / 字幕) are never unwrapped.
+
+    Returns a deduplicated, longest-first list (strip_name_brackets re-sorts anyway,
+    but ordering here keeps the output stable / readable).
+    """
+    names: set = set()
+    for g in glossaries:
+        if route_for_output(g, output_lang, content_lang, derive_mode) is None:
+            continue
+        for e in g.get("entries", []):
+            t = strip_horse_id(e.get("target") or "")
+            if t and len(t) > 2:
+                names.add(t)
+            for alias in _get_aliases(e):
+                if alias and len(alias) > 2:
+                    names.add(alias)
+    return sorted(names, key=len, reverse=True)
+
+
 # ---------------------------------------------------------------------------
 # Deterministic apply (no LLM)
 # ---------------------------------------------------------------------------
@@ -444,6 +475,15 @@ def glossary_stage(
             for seg in segments
         ]
 
+    # Build ONCE (before the per-segment loop) the comprehensive set of canonical
+    # strip-names: every target name (+ aliases) of every glossary that routes for
+    # this output — covering BOTH 'source' and 'target' sides, because a source-side
+    # glossary's Chinese target still appears in the zh output. This makes the bracket
+    # strip cover already-correct names that never produced a per-segment candidate
+    # ("全部統一"). Reuse the same >2-char guard the matching uses so short common
+    # words (和 / 球會 / 字幕) are never unwrapped.
+    strip_names = _build_strip_names(glossaries, output_lang, content_lang, derive_mode)
+
     result: List[dict] = []
 
     for i, seg in enumerate(segments):
@@ -479,13 +519,15 @@ def glossary_stage(
                 current_text = llm_text
                 all_changes.extend(llm_changes)
 
-        # Strip 「name」 brackets for every applicable glossary target name.
-        # Runs for all segments that have candidates (including ones where the
-        # name was already correct / no change recorded) — bracket-only strips
-        # do NOT add to glossary_changes, they are purely cosmetic normalization.
-        if all_cands:
-            target_names = [c["target"] for c in all_cands]
-            current_text = strip_name_brackets(current_text, target_names)
+        # Strip 「name」 brackets for EVERY routing-glossary target name — not just
+        # the per-segment candidates. This covers target-side already-correct names
+        # (which _filter_target_side only flags when needing change) and any name a
+        # candidate filter skipped, so all glossary names end up unbracketed ("全部統一").
+        # strip_name_brackets is idempotent + only removes 「」 hugging an exact name,
+        # so passing the full set is safe; segments with no bracketed glossary name are
+        # a no-op. Bracket-only strips do NOT add to glossary_changes (purely cosmetic).
+        if strip_names:
+            current_text = strip_name_brackets(current_text, strip_names)
 
         # Build new segment dict immutably
         new_seg = {**seg, "text": current_text, "glossary_changes": all_changes}
