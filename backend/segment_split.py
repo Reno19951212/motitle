@@ -8,7 +8,7 @@ import re
 import string
 from typing import Dict, List, Optional, Tuple
 
-_PUNCT = set("。，、！？；：）（「」『』【】《》〈〉…—·．""''、，。") | set(string.punctuation)
+_PUNCT = set("。，、！？；：）（「」『』【】《》〈〉…—·．""''") | set(string.punctuation)
 _CC: Dict[str, object] = {}
 
 
@@ -133,6 +133,10 @@ def split_translations(translations: List[dict], p: int,
 
     def build(half: int) -> dict:
         new_by: Dict[str, dict] = {}
+        # {**row} already copied any pre-existing {lang}_text mirror keys; the loop
+        # below overwrites them for every lang in by_lang.  This is intentional:
+        # build_output_translations guarantees by_lang ⊇ the mirror langs, so any
+        # mirror key not overwritten here would be a stale artefact (shouldn't exist).
         new_row = {**row, "status": "pending", "glossary_changes": []}
         for L, v in by_lang.items():
             pair = parts.get(L)
@@ -170,6 +174,8 @@ def renumber_translations(translations: List[dict]) -> List[dict]:
 
 def merge_base(base: List[dict], p: int) -> List[dict]:
     """Merge base segment p with p+1: union time, join text."""
+    if not (0 <= p < len(base) - 1):
+        raise IndexError(f"merge_base: p={p} has no next segment (len={len(base)})")
     a, b = base[p], base[p + 1]
     merged = {"start": a.get("start", 0.0), "end": b.get("end", 0.0),
               "text": merge_text(a.get("text", ""), b.get("text", ""))}
@@ -178,6 +184,8 @@ def merge_base(base: List[dict], p: int) -> List[dict]:
 
 def merge_translations(translations: List[dict], p: int) -> List[dict]:
     """Merge translation rows p and p+1 per language; reset to pending."""
+    if not (0 <= p < len(translations) - 1):
+        raise IndexError(f"merge_translations: p={p} has no next segment (len={len(translations)})")
     a, b = translations[p], translations[p + 1]
     a_by, b_by = a.get("by_lang") or {}, b.get("by_lang") or {}
     langs = list(a_by.keys()) + [L for L in b_by if L not in a_by]
@@ -196,6 +204,8 @@ def merge_translations(translations: List[dict], p: int) -> List[dict]:
 
 def merge_aligned(aligned: List[dict], p: int) -> List[dict]:
     """Merge aligned rows p and p+1 (string by_lang values)."""
+    if not (0 <= p < len(aligned) - 1):
+        raise IndexError(f"merge_aligned: p={p} has no next segment (len={len(aligned)})")
     a, b = aligned[p], aligned[p + 1]
     a_by, b_by = a.get("by_lang") or {}, b.get("by_lang") or {}
     langs = list(a_by.keys()) + [L for L in b_by if L not in a_by]

@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 import segment_split as ss
 
 
@@ -183,3 +185,21 @@ def test_merge_aligned_joins_strings():
     out = ss.merge_aligned(aligned, 0)
     assert out[0]["by_lang"]["en"] == "hello world bye"
     assert out[0]["start"] == 0.0 and out[0]["end"] == 12.0
+
+
+def test_merge_base_last_index_raises():
+    base, _, _ = _sample_state()
+    with pytest.raises(IndexError):
+        ss.merge_base(base, len(base) - 1)
+
+
+def test_merge_translations_last_index_raises():
+    _, translations, _ = _sample_state()
+    with pytest.raises(IndexError):
+        ss.merge_translations(translations, len(translations) - 1)
+
+
+def test_merge_aligned_last_index_raises():
+    _, _, aligned = _sample_state()
+    with pytest.raises(IndexError):
+        ss.merge_aligned(aligned, len(aligned) - 1)
