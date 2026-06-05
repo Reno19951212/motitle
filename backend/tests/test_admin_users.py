@@ -191,6 +191,49 @@ def test_admin_users_create_weak_password_returns_400_not_409(admin_client):
         delete_user(db, "cw_weak_p3")
 
 
+def test_new_user_has_empty_remarks(db_path):
+    from auth.users import list_all_users
+    users = list_all_users(db_path)
+    assert users[0]["remarks"] == ""
+
+
+def test_update_remarks_persists(db_path):
+    from auth.users import update_remarks, get_user_by_username, list_all_users
+    uid = get_user_by_username(db_path, "alice")["id"]
+    update_remarks(db_path, uid, "夜更校對員")
+    assert get_user_by_username(db_path, "alice")["remarks"] == "夜更校對員"
+    listed = {u["username"]: u for u in list_all_users(db_path)}
+    assert listed["alice"]["remarks"] == "夜更校對員"
+
+
+def test_update_remarks_trims_and_caps_length(db_path):
+    from auth.users import update_remarks, get_user_by_username
+    uid = get_user_by_username(db_path, "alice")["id"]
+    update_remarks(db_path, uid, "  hi  ")
+    assert get_user_by_username(db_path, "alice")["remarks"] == "hi"
+    import pytest
+    with pytest.raises(ValueError):
+        update_remarks(db_path, uid, "x" * 501)
+
+
+def test_init_db_migrates_existing_db_idempotently(tmp_path):
+    # An older DB created before the remarks column must gain it on init_db re-run.
+    import sqlite3
+    from auth.users import init_db, create_user, get_user_by_username
+    p = str(tmp_path / "old.db")
+    conn = sqlite3.connect(p)
+    conn.execute(
+        "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, "
+        "password_hash TEXT NOT NULL, created_at REAL NOT NULL, is_admin INTEGER DEFAULT 0, "
+        "settings_json TEXT DEFAULT '{}')"
+    )
+    conn.commit(); conn.close()
+    init_db(p)            # should ALTER TABLE ADD COLUMN remarks
+    init_db(p)            # idempotent — must not raise
+    create_user(p, "old_user", "TestPass1!")
+    assert get_user_by_username(p, "old_user")["remarks"] == ""
+
+
 def test_admin_users_toggle_admin_flips_flag(admin_client):
     import app as app_module
     from auth.users import create_user, get_user_by_username, delete_user

@@ -16,15 +16,22 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT NOT NULL,
   created_at REAL NOT NULL,
   is_admin INTEGER DEFAULT 0,
-  settings_json TEXT DEFAULT '{}'
+  settings_json TEXT DEFAULT '{}',
+  remarks TEXT NOT NULL DEFAULT ''
 );
 """
+
+REMARKS_MAX_LEN = 500
 
 
 def init_db(db_path: str) -> None:
     """Create users table if absent."""
     conn = sqlite3.connect(db_path)
     conn.executescript(_SCHEMA)
+    # Idempotent migration: older DBs created before the remarks column.
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(users)").fetchall()]
+    if "remarks" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN remarks TEXT NOT NULL DEFAULT ''")
     # R5 Phase 5 T2.3: WAL + synchronous=NORMAL — enables concurrent reads
     # under writes (admin dashboard polling vs login transactions).
     conn.execute("PRAGMA journal_mode=WAL")
@@ -65,6 +72,7 @@ def create_user(
 
 
 def _row_to_user(row: sqlite3.Row) -> dict:
+    keys = row.keys()
     return {
         "id": row["id"],
         "username": row["username"],
@@ -72,6 +80,7 @@ def _row_to_user(row: sqlite3.Row) -> dict:
         "created_at": row["created_at"],
         "is_admin": bool(row["is_admin"]),
         "settings_json": row["settings_json"],
+        "remarks": row["remarks"] if "remarks" in keys else "",
     }
 
 
@@ -109,7 +118,7 @@ def list_all_users(db_path: str) -> list:
     conn = get_connection(db_path)
     try:
         rows = conn.execute(
-            "SELECT id, username, created_at, is_admin, settings_json "
+            "SELECT id, username, created_at, is_admin, settings_json, remarks "
             "FROM users ORDER BY id ASC"
         ).fetchall()
         return [
@@ -119,6 +128,7 @@ def list_all_users(db_path: str) -> list:
                 "created_at": r["created_at"],
                 "is_admin": bool(r["is_admin"]),
                 "settings_json": r["settings_json"],
+                "remarks": r["remarks"] if "remarks" in r.keys() else "",
             }
             for r in rows
         ]
@@ -136,6 +146,20 @@ def update_password(db_path: str, username: str, new_password: str) -> None:
             "UPDATE users SET password_hash = ? WHERE username = ?",
             (hash_password(new_password), username),
         )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def update_remarks(db_path: str, user_id: int, remarks: str) -> None:
+    """Set a user's admin-authored remarks. Trims whitespace; caps at
+    REMARKS_MAX_LEN characters. Empty string is allowed (clears the note)."""
+    text = (remarks or "").strip()
+    if len(text) > REMARKS_MAX_LEN:
+        raise ValueError(f"remarks too long (max {REMARKS_MAX_LEN} characters)")
+    conn = get_connection(db_path)
+    try:
+        conn.execute("UPDATE users SET remarks = ? WHERE id = ?", (text, user_id))
         conn.commit()
     finally:
         conn.close()
