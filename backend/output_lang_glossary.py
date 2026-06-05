@@ -63,6 +63,27 @@ _REVIEW_SYS = (
 # Pure helper functions
 # ---------------------------------------------------------------------------
 
+def strip_name_brackets(text: str, names: List[str]) -> str:
+    """Remove Chinese corner brackets 「」 that directly wrap any of `names`.
+
+    Idempotent; only strips brackets hugging an exact name occurrence — other 「」
+    (quotes/emphasis elsewhere) are left untouched.  Longest names first so a name
+    that is a substring of another doesn't get partially unwrapped.
+
+    Args:
+        text:  The subtitle text to process.
+        names: Iterable of canonical target names to unwrap.
+
+    Returns:
+        New string with 「name」 → name for each applicable name; all other
+        「…」 occurrences are preserved exactly.
+    """
+    out = text
+    for nm in sorted({n for n in names if n}, key=len, reverse=True):
+        out = out.replace("「" + nm + "」", nm)
+    return out
+
+
 def strip_horse_id(t: Optional[str]) -> str:
     """Strip trailing horse-ID suffix like ` (H123)` or ` (K335)`.
 
@@ -457,6 +478,14 @@ def glossary_stage(
             if llm_text != current_text:
                 current_text = llm_text
                 all_changes.extend(llm_changes)
+
+        # Strip 「name」 brackets for every applicable glossary target name.
+        # Runs for all segments that have candidates (including ones where the
+        # name was already correct / no change recorded) — bracket-only strips
+        # do NOT add to glossary_changes, they are purely cosmetic normalization.
+        if all_cands:
+            target_names = [c["target"] for c in all_cands]
+            current_text = strip_name_brackets(current_text, target_names)
 
         # Build new segment dict immutably
         new_seg = {**seg, "text": current_text, "glossary_changes": all_changes}
