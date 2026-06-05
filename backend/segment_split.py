@@ -44,3 +44,8 @@ def compute_split_ratio(content_part1: str, content_full: str) -> float:
     if full <= 0:
         return 0.5
     return max(0.15, min(0.85, len(content_part1 or "") / full))
+
+
+def mechanical_parts(texts_by_lang: Dict[str, str]) -> Dict[str, Tuple[str, str]]:
+    """Mechanical / fallback split: both halves duplicate the full text per language."""
+    return {lang: (txt or "", txt or "") for lang, txt in texts_by_lang.items()}

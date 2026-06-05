@@ -33,3 +33,12 @@ def test_compute_split_ratio_clamped_low_and_high():
 
 def test_compute_split_ratio_empty_full_is_half():
     assert ss.compute_split_ratio("", "") == 0.5
+
+
+def test_mechanical_parts_duplicates_each_language():
+    out = ss.mechanical_parts({"yue": "你好世界", "en": "hello world"})
+    assert out == {"yue": ("你好世界", "你好世界"), "en": ("hello world", "hello world")}
+
+
+def test_mechanical_parts_handles_empty():
+    assert ss.mechanical_parts({"yue": ""}) == {"yue": ("", "")}
