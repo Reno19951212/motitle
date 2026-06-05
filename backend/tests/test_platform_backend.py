@@ -71,3 +71,22 @@ def test_resolve_asr_env_override_gb10_whispercpp():
     out = pb.resolve_asr_override({"R5_ASR_BACKEND": "whispercpp"}, info)
     assert out["asr"]["engine"] == "whispercpp"
     assert out["asr"]["device"] == "cuda"
+
+
+# ---------------------------------------------------------------------------
+# Task 3: resolve_ollama_model(env, info)
+# ---------------------------------------------------------------------------
+
+def test_resolve_ollama_model_darwin_is_mlx_bf16():
+    info = {"os": "darwin", "arch": "arm64", "has_cuda": False}
+    assert pb.resolve_ollama_model({}, info) == "qwen3.5:35b-a3b-mlx-bf16"
+
+
+def test_resolve_ollama_model_non_darwin_is_gguf():
+    info = {"os": "win32", "arch": "x86_64", "has_cuda": True}
+    assert pb.resolve_ollama_model({}, info) == "qwen3.5:35b-a3b"
+
+
+def test_resolve_ollama_model_env_override_wins():
+    info = {"os": "win32", "arch": "x86_64", "has_cuda": True}
+    assert pb.resolve_ollama_model({"R5_OLLAMA_MODEL": "qwen3.5:35b-a3b-q8_0"}, info) == "qwen3.5:35b-a3b-q8_0"

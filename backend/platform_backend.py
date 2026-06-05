@@ -52,3 +52,22 @@ def resolve_asr_override(env: dict, info: dict) -> dict:
     device = "cuda" if choice == "cuda" else "cpu"
     compute_type = "float16" if choice == "cuda" else "int8"
     return {"asr": {"engine": "whisper", "model_size": "large-v3", "device": device, "compute_type": compute_type, "condition_on_previous_text": False}}
+
+
+# ---------------------------------------------------------------------------
+# Task 3: resolve_ollama_model
+# ---------------------------------------------------------------------------
+
+_OLLAMA_MODEL_DARWIN = "qwen3.5:35b-a3b-mlx-bf16"
+_OLLAMA_MODEL_CUDA = "qwen3.5:35b-a3b"  # GGUF default tag; Phase-0 validation may raise to q8_0
+
+
+def resolve_ollama_model(env: dict, info: dict) -> str:
+    """Return the Ollama model tag. R5_OLLAMA_MODEL overrides; else platform default.
+
+    macOS default == the historical hard-coded MLX bf16 tag (byte-identical).
+    """
+    override = (env.get("R5_OLLAMA_MODEL") or "").strip()
+    if override:
+        return override
+    return _OLLAMA_MODEL_DARWIN if info["os"] == "darwin" else _OLLAMA_MODEL_CUDA
