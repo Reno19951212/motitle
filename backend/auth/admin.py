@@ -186,7 +186,7 @@ def update_remarks_route(user_id):
     if not target:
         return jsonify({"error": "not found"}), 404
     try:
-        update_remarks(db, user_id, remarks)
+        update_remarks(db, user_id, trimmed)
     except ValueError as e:
         # Mirror _friendly_pw_error's case-insensitive match + safe fallback.
         return jsonify({"error": "備註過長（上限 500 字）" if "too long" in str(e).lower() else str(e)}), 400
