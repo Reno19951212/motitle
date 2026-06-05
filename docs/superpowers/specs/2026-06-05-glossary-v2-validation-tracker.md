@@ -2,7 +2,7 @@
 
 **日期：** 2026-06-05
 **範圍（CLAUDE.md Validation-First）：** glossary 應用到 output_lang refine/MT prompt 行為。落 production code 前嘅 gate。
-**狀態：** ⏳ **進行中** — false-injection floor（主導風險）✅ 綠；formal follow-rate（需 gold-label）待做。
+**狀態：** ✅ **源側完成（已上線整合驗證）** — false-injection floor ✅ 0；源側 follow-rate gold-confirmed 100% + SHIPPED-code 整合重現（43 occ / 9 名 / 0 false-inj）。目標側 follow-rate 留 v2（floor 已 0）。
 
 Spec：[2026-06-05-glossary-v2-design.md](2026-06-05-glossary-v2-design.md)｜Plan：[../plans/2026-06-05-glossary-v2-plan.md](../plans/2026-06-05-glossary-v2-plan.md)｜Research：[../research/2026-06-05-glossary-v2-research.md](../research/2026-06-05-glossary-v2-research.md)
 
@@ -28,10 +28,24 @@ Spec：[2026-06-05-glossary-v2-design.md](2026-06-05-glossary-v2-design.md)｜Pl
 
 > ⚠️ 目標側（粵→書面）follow-rate 未做（floor 已 0）— 需一條真係講馬名嘅粵語片;user 暫接受「源側 100% + 兩側 floor 0」做 Phase-1 起步 gate。
 
-## ⏳ 待做（Phase 0 full gate）
+## ✅ Phase 4 — 整合驗證（SHIPPED code，真 Ollama，2026-06-05）
 
-- `gold_applicability.json`（Winning Factor + 一條粵→書面 clip）→ formal follow-rate ≥85% 驗證。
-- Suffix-leak = 0 全 clip 確認（demo 剝 suffix logic 已驗 0）。
+落 production code（commits `246a771`/`045868a`/`2246828`/`55c2a6c`）後，用**已整合嘅 `output_lang_glossary.glossary_stage`**（即真實上線 path，唔再係 prototype）+ 真 Ollama `qwen3.5:35b-a3b-mlx-bf16` 重驗源側：
+
+| 整合測試 | 檔 | 結果 |
+|---|---|---|
+| **源側 follow-rate（gold 重現）** | Winning Factor `17b6d55ef43b`（en→zh, mt mode, 賽馬 1350 表） | **39/282 段有 candidate → 入 LLM；43 個 change occurrence、9 隻 gold 馬名全部 canonicalize**（火悟空/活力拍檔/燈胆將軍/喜慶寶/錶之星河/榮駿大道/共享富裕/北斗福星/翠紅），29s。對齊 gold（43 applicable occurrence / 9 names）。 |
+| **False-injection（整合層重驗）** | 同上 | **CLASS→大文豪 / DASH→迅意 = NONE ✅**；`\bACE\b` word-boundary 正確唔中 "race/place" substring。 |
+| **Endpoint end-to-end** | `POST /api/files/<id>/glossary-reapply` on 騎師訪問 `591daafc9f4b`（en→zh, racing, 52 段） | **HTTP 200、47s、`changed_count:0`** —— 正確：該 clip 無真實 glossary 馬名（唯一 'ACE' 係 "race" 內 substring，word-boundary 正確排除）。證明 endpoint 由 cached base 1:1 re-derive（無 re-ASR）跑通。 |
+
+**整合期捉到（非 production bug，diagnostic 自身）**：`glossary_stage(...)` 嘅 `derive_mode` 參數係 **string**（`"mt"`/`"refine"`/`"pass"`），非 function；`derive_aligned_output` 內部 `mode = derive_mode(content,output)` 計好先傳，整合 path 正確。
+**已知 v1 minor（非 blocker）**：個別 source-side `before` label 可能係跨名 fragment（e.g. `Blazing Wukong」與「Amazing Partners`），但 `after`（canonical 名）永遠正確 —— 校對頁 before/after 顯示輕微 cosmetic，留 v2 prompt 調。
+**Side effect（dev registry）**：591 reapply 重 derive 咗其 zh translations（同等質量重生），無備份；dev 資料可接受。
+
+## ⏳ 待做（Phase 0 full gate — 部分留 v2）
+
+- 目標側（粵→書面）formal follow-rate：需一條真係講馬名嘅粵語片（floor 已 0，user 接受留後）。
+- Suffix-leak = 0 全 clip 確認（demo 剝 suffix logic 已驗 0；整合 9 隻名無 suffix 殘留）。
 - Quality regression（over-cap/empty/meaning-drift）vs no-glossary baseline。
 - 多表（broadcast + racing 同時）first-wins + 各自路由的 end-to-end。
 - 1350 vs 19 scale robustness（follow-rate 跌 ≤5pp）。
