@@ -1,0 +1,134 @@
+{
+  "clip": "17b6d55ef43b",
+  "clip_name": "The Winning Factor Season 1",
+  "glossary": "db323f9d (賽馬 1350)",
+  "direction": "en->zh source-side",
+  "not_applicable_common_words": [
+    "CLASS",
+    "DASH"
+  ],
+  "gold_applicable": {
+    "12": [
+      "AMAZING PARTNERS",
+      "BLAZING WUKONG"
+    ],
+    "16": [
+      "SMART AVENUE"
+    ],
+    "17": [
+      "FAMILY JEWEL",
+      "HYMNBOOK"
+    ],
+    "26": [
+      "AMAZING PARTNERS",
+      "BLAZING WUKONG"
+    ],
+    "27": [
+      "AMAZING PARTNERS"
+    ],
+    "34": [
+      "AMAZING PARTNERS"
+    ],
+    "43": [
+      "AMAZING PARTNERS"
+    ],
+    "52": [
+      "AMAZING PARTNERS"
+    ],
+    "59": [
+      "AMAZING PARTNERS"
+    ],
+    "70": [
+      "BLAZING WUKONG"
+    ],
+    "76": [
+      "BLAZING WUKONG"
+    ],
+    "85": [
+      "BLAZING WUKONG"
+    ],
+    "91": [
+      "AMAZING PARTNERS"
+    ],
+    "112": [
+      "FAMILY JEWEL"
+    ],
+    "113": [
+      "HYMNBOOK",
+      "SMART AVENUE"
+    ],
+    "116": [
+      "BLAZING WUKONG"
+    ],
+    "127": [
+      "AMAZING PARTNERS"
+    ],
+    "131": [
+      "AMAZING PARTNERS"
+    ],
+    "146": [
+      "PATCH OF STARS"
+    ],
+    "150": [
+      "BULB GENERAL"
+    ],
+    "151": [
+      "HOT DELIGHT"
+    ],
+    "154": [
+      "HOT DELIGHT"
+    ],
+    "156": [
+      "BULB GENERAL"
+    ],
+    "158": [
+      "HOT DELIGHT"
+    ],
+    "171": [
+      "HOT DELIGHT"
+    ],
+    "183": [
+      "HOT DELIGHT"
+    ],
+    "192": [
+      "HOT DELIGHT"
+    ],
+    "198": [
+      "BULB GENERAL"
+    ],
+    "201": [
+      "HOT DELIGHT"
+    ],
+    "213": [
+      "BULB GENERAL"
+    ],
+    "217": [
+      "BULB GENERAL"
+    ],
+    "220": [
+      "PATCH OF STARS"
+    ],
+    "226": [
+      "PATCH OF STARS"
+    ],
+    "228": [
+      "BULB GENERAL"
+    ],
+    "242": [
+      "CRIMSON FLASH"
+    ],
+    "252": [
+      "HOT DELIGHT"
+    ],
+    "256": [
+      "HOT DELIGHT"
+    ],
+    "266": [
+      "BULB GENERAL"
+    ],
+    "276": [
+      "BULB GENERAL"
+    ]
+  },
+  "note": "user-confirmed 2026-06-05: CLASS/DASH are common words (班次/衝刺) not the horses; 9 names real; no missed names."
+}

@@ -20,11 +20,13 @@ Spec：[2026-06-05-glossary-v2-design.md](2026-06-05-glossary-v2-design.md)｜Pl
 
 **結論**：源側（常用詞 deny）+ 目標側（≤2 字 skip）兩個 guard 各自將 false-injection 壓到 **0**。Gate 嘅最關鍵數字綠燈。
 
-## ✅ Follow-rate（demo 信號，formal 待 gold-label）
+## ✅ Follow-rate（gold-confirmed，源側）
 
-Demo（`diag_glossary_v2.py`，真 qwen3.5，Winning Factor en→zh 源側 + guard）：39 段被改，馬名 wins **全部正確 canonicalize**（火悟空/活力拍檔/榮駿大道/共享富裕/北斗福星/燈胆將軍/喜慶寶/錶之星河/翠紅），中文名 100% 由 glossary `target` 抽出（剝 `(H###)`）。LLM 只擺位 + 判斷適用性。
+**Gold-label（user-confirmed 2026-06-05）**：[gold_applicability_winningfactor.json](../validation/glossary-v2/gold_applicability_winningfactor.json) — Winning Factor（en→zh 源側）× 賽馬 glossary。User 確認：`CLASS`/`DASH` 喺片中係「班次/衝刺」唔係嗰兩隻馬（**not applicable**）；其餘 9 個馬名真係指嗰隻馬（applicable）；無漏咗馬名。Gold = **39 段、43 個 applicable occurrence**。
 
-> ⚠️ **formal follow-rate（`correct / gold-applicable`）需 `gold_applicability.json`（人手標逐段 applicable term）** — 與 user 一齊標後補。Demo 定性顯示 follow-rate 高。
+**Formal FOLLOW-RATE = 43/43 = 100%**（對 guarded clone `wfglossary002` 計：所有 gold-applicable 馬名 occurrence 正確 canonicalize 成 glossary `target`；`CLASS`/`DASH` 正確冇套 → false-injection 同步 = 0）。≥85% 門檻 **遠超**。
+
+> ⚠️ 目標側（粵→書面）follow-rate 未做（floor 已 0）— 需一條真係講馬名嘅粵語片;user 暫接受「源側 100% + 兩側 floor 0」做 Phase-1 起步 gate。
 
 ## ⏳ 待做（Phase 0 full gate）
 
@@ -38,4 +40,4 @@ Demo（`diag_glossary_v2.py`，真 qwen3.5，Winning Factor en→zh 源側 + gua
 
 `diag_glossary_v2.py`（demo + guard）；clones `wfglossary001`（無防守，3 false-inj）/`wfglossary002`（有防守，0）喺 registry 供校對頁人手檢測。
 
-**判定：false-injection gate ✅ 綠（兩 guard → 0）；full Phase-0（follow-rate gold-label）pending → 完成先入 Phase 1 production code。**
+**判定（2026-06-05）：源側 Phase-0 gate ✅ 綠 — false-injection（兩 guard → 0）+ follow-rate（gold-confirmed 100%）。User 批准開始 Phase 1（branch `feat/glossary-v2`）。目標側 follow-rate 留 Phase 4 integration 補（floor 已 0）。**
