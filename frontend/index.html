@@ -2161,10 +2161,7 @@
     }
 
     // Resolve segment text per subtitle source mode.
-    // Mirrors backend resolve_segment_text for explicit modes, EXCEPT 'auto' here
-    // defaults the DISPLAY to 雙語 when both tracks exist (1 lang → first language,
-    // 2 langs → bilingual). Backend export/render 'auto' stays translation-preferred
-    // and is overridable per-file via the source toggle.
+    // Mirrors backend backend/subtitle_text.py resolve_segment_text exactly.
     // Handles role-based values: 'first' (= legacy 'en'), 'second' (= legacy 'zh').
     function pickSubtitleText(seg, mode = 'auto', order = 'en_top') {
       const en = (seg.en || seg._en_text || seg.text || '').trim();
@@ -2180,9 +2177,7 @@
         if (!zh) return en;
         return order === 'en_top' ? `${en}\n${zh}` : `${zh}\n${en}`;
       }
-      // auto (default): 2 languages → 雙語 (both stacked); 1 language → first.
-      if (en && zh) return order === 'en_top' ? `${en}\n${zh}` : `${zh}\n${en}`;
-      return en || zh;
+      return zh || en;
     }
 
     // Resolve subtitle source from a file entry, falling back to the active profile.
@@ -2192,7 +2187,10 @@
       if (v === 'auto' || v === 'en' || v === 'zh' || v === 'bilingual' || v === 'first' || v === 'second') return v;
       const p = ((profile || {}).font || {}).subtitle_source;
       if (p === 'auto' || p === 'en' || p === 'zh' || p === 'bilingual' || p === 'first' || p === 'second') return p;
-      return 'auto';
+      // No explicit override → DEFAULT by language count: 2 languages → 雙語, else the
+      // single first language. Just a default — user can still pick 第一/第二/雙語.
+      const langs = (fileEntry && Array.isArray(fileEntry.languages)) ? fileEntry.languages : [];
+      return langs.length >= 2 ? 'bilingual' : 'first';
     }
     function resolveBilingualOrder(fileEntry, profile) {
       const v = (fileEntry || {}).bilingual_order;
@@ -2477,7 +2475,10 @@
       const _srcLabelMap = {en:'原文 (EN)', zh:'譯文 (ZH)', bilingual:'雙語對照', auto:'自動 (Auto)', first:'第一語言', second:'第二語言'};
       const _srcLabel = _srcLabelMap[_dlSrc] || '自動';
       const _orderLabel = _dlOrder === 'en_top' ? 'EN 上 / ZH 下' : 'ZH 上 / EN 下';
-      const _on = (v) => _fileSrc === v ? 'on' : '';
+      // Highlight the raw override if set, else the resolved default (_dlSrc) so the
+      // toggle shows 雙語 / 第一語言 as the active default — not the empty「跟 Profile」state.
+      const _effSrc = _fileSrc || _dlSrc;
+      const _on = (v) => _effSrc === v ? 'on' : '';
 
       // Build descriptor-driven language buttons from file.languages (if present).
       // Falls back to legacy hardcoded EN/ZH/雙語 when descriptor is absent.

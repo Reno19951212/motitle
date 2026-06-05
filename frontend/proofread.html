@@ -969,9 +969,7 @@
   }
 
   // Resolve segment text per subtitle source mode.
-  // Mirrors backend resolve_segment_text for explicit modes, EXCEPT 'auto' here
-  // defaults the DISPLAY to 雙語 when both tracks exist (1 lang → first, 2 langs →
-  // bilingual). Backend export/render 'auto' stays translation-preferred, overridable.
+  // Mirrors backend backend/subtitle_text.py resolve_segment_text exactly.
   // Handles role-based values: 'first' (= legacy 'en'), 'second' (= legacy 'zh').
   function pickSubtitleText(seg, mode = 'auto', order = 'en_top') {
     const en = (seg.en || seg._en_text || seg.text || '').trim();
@@ -987,9 +985,7 @@
       if (!zh) return en;
       return order === 'en_top' ? `${en}\n${zh}` : `${zh}\n${en}`;
     }
-    // auto (default): 2 languages → 雙語 (both stacked); 1 language → first.
-    if (en && zh) return order === 'en_top' ? `${en}\n${zh}` : `${zh}\n${en}`;
-    return en || zh;
+    return zh || en;
   }
 
   // Resolve subtitle source from a file entry, falling back to the active profile.
@@ -999,7 +995,10 @@
     if (v === 'auto' || v === 'en' || v === 'zh' || v === 'bilingual' || v === 'first' || v === 'second') return v;
     const p = ((profile || {}).font || {}).subtitle_source;
     if (p === 'auto' || p === 'en' || p === 'zh' || p === 'bilingual' || p === 'first' || p === 'second') return p;
-    return 'auto';
+    // No explicit override → DEFAULT by language count: 2 languages → 雙語, else the
+    // single first language. Just a default — the user can still pick 第一/第二/雙語.
+    const langs = (fileEntry && Array.isArray(fileEntry.languages)) ? fileEntry.languages : [];
+    return langs.length >= 2 ? 'bilingual' : 'first';
   }
   function resolveBilingualOrder(fileEntry, profile) {
     const v = (fileEntry || {}).bilingual_order;
@@ -1063,12 +1062,15 @@
       }
     }
 
-    srcSel.value = (fileInfo && fileInfo.subtitle_source) ? fileInfo.subtitle_source : '';
+    // No explicit override → show the default selection (2 langs → 雙語, else 第一語言)
+    // so the dropdown reflects what's displayed; the user can still change it.
+    const _defaultSrc = secondLang ? 'bilingual' : 'first';
+    srcSel.value = (fileInfo && fileInfo.subtitle_source) ? fileInfo.subtitle_source : _defaultSrc;
 
     if (ordSel) {
       ordSel.value = (fileInfo && fileInfo.bilingual_order) ? fileInfo.bilingual_order : 'en_top';
-      const curSrc = fileInfo && fileInfo.subtitle_source;
-      ordSel.style.display = (curSrc === 'bilingual') ? '' : 'none';
+      // Show the order picker whenever the EFFECTIVE source is bilingual (incl. default).
+      ordSel.style.display = (srcSel.value === 'bilingual') ? '' : 'none';
     }
   }
 
