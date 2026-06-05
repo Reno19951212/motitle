@@ -2092,6 +2092,8 @@
     let pendingSourceLanguage = 'yue';
     let pendingScript = 'trad';
     let pendingMtStyle = 'generic';
+    let pendingGlossaryIds = [];   // glossary-v2: ordered array of selected glossary IDs
+    let pendingGlossaryLlm = true; // glossary-v2: whether to LLM-refine glossary substitutions
     let _olPreviewUrl = null;  // object URL for the popup's <video> preview (revoked on close)
 
     // V6 — Dual-ASR Pipeline state (v3.19)
@@ -4982,6 +4984,28 @@
       }
     }
 
+    // glossary-v2: populate the #olGlossary multi-select from GET /api/glossaries
+    async function _populateGlossarySelector() {
+      const sel = document.getElementById('olGlossary');
+      if (!sel) return;
+      try {
+        const resp = await fetch(`${API_BASE}/api/glossaries`);
+        if (!resp.ok) { sel.innerHTML = ''; return; }
+        const data = await resp.json();
+        const glossaries = data.glossaries || data || [];
+        if (!glossaries.length) {
+          sel.innerHTML = '<option value="" disabled style="color:var(--text-dim);">（尚未建立詞彙表）</option>';
+          return;
+        }
+        sel.innerHTML = glossaries.map(g => {
+          const pair = (g.source_lang && g.target_lang) ? ` (${g.source_lang}→${g.target_lang})` : '';
+          return `<option value="${g.id}">${escapeHtml(g.name)}${pair}</option>`;
+        }).join('');
+      } catch (e) {
+        sel.innerHTML = '';
+      }
+    }
+
     function openOutputLangModal(file) {
       if (!file) return;
       // Populate the left-side preview + metadata.
@@ -5003,6 +5027,8 @@
       const second = document.getElementById('olSecondLang');
       if (second) second.value = '';
       syncFirstLangToSource();
+      // glossary-v2: load glossary options async (non-blocking)
+      _populateGlossarySelector();
       _openModalWithFocus('olOverlay', document.getElementById('runBtn'));
     }
 
@@ -5037,6 +5063,13 @@
       pendingSourceLanguage = (document.getElementById('olSourceLang') || {}).value || 'yue';
       pendingScript = (document.getElementById('olScript') || {}).value || 'trad';
       pendingMtStyle = (document.getElementById('mtStyle') || {}).value || 'generic';
+      // glossary-v2: collect selected glossary IDs in DOM order
+      const glossarySel = document.getElementById('olGlossary');
+      pendingGlossaryIds = glossarySel
+        ? Array.from(glossarySel.selectedOptions).map(o => o.value).filter(Boolean)
+        : [];
+      const llmCheck = document.getElementById('olGlossaryLlm');
+      pendingGlossaryLlm = llmCheck ? llmCheck.checked : true;
       closeOutputLangModal();
       startTranscription();
     }
@@ -5076,6 +5109,9 @@
         formData.append('source_language', pendingSourceLanguage);
         formData.append('script', pendingScript);
         formData.append('mt_style', pendingMtStyle);
+        // glossary-v2: glossary IDs + LLM flag (always send when output_lang popup was used)
+        formData.append('glossary_ids', JSON.stringify(pendingGlossaryIds));
+        formData.append('glossary_llm', pendingGlossaryLlm ? '1' : '0');
       }
 
       try {
@@ -5114,6 +5150,7 @@
         activeFileId = data.file_id;
         selectedFile = null;
         pendingOutputLangs = [];
+        pendingGlossaryIds = [];
         document.getElementById('fileInput').value = '';
         // Bug B: carry a pipeline-level pre-picked second language onto the new
         // V6 file (stored as second_lang_preselect → auto-translated after V6).
@@ -6363,6 +6400,16 @@
                 <option value="sportsnews">體育新聞</option>
                 <option value="racing">馬會賽馬</option>
               </select>
+            </label>
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+              <span style="font-weight:600;">詞彙表（可多選，順序＝優先）</span>
+              <select id="olGlossary" class="or-input" multiple style="min-height:60px;resize:vertical;">
+                <option value="" disabled style="color:var(--text-dim);">載入中…</option>
+              </select>
+            </label>
+            <label style="display:flex;flex-direction:row;align-items:center;gap:6px;font-size:12px;cursor:pointer;">
+              <input type="checkbox" id="olGlossaryLlm" checked style="accent-color:var(--accent);">
+              <span>LLM 精修（建議開）</span>
             </label>
             <div id="olWarn" style="display:none;font-size:11px;color:var(--danger);"></div>
           </div>

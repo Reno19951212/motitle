@@ -636,6 +636,12 @@
       font-style: italic;
     }
 
+    /* glossary-v2: before/after display in detail panel */
+    .gl-before { text-decoration: line-through; color: var(--text-dim); }
+    .gl-after  { color: var(--accent-2); font-weight: 600; }
+    .gl-src    { color: var(--text-dim); font-size: .85em; }
+    .gl-empty  { color: var(--text-dim); font-size: .85em; font-style: italic; }
+
     .rv-b-detail-footer {
       display: flex; align-items: center; gap: 8px;
       padding: 10px 14px;
@@ -829,6 +835,7 @@
                       <option value="">選擇詞彙表…</option>
                     </select>
                     <button class="btn btn-ghost btn-sm" id="glossaryApplyBtn" onclick="scanGlossary()" disabled>套用</button>
+                    <button class="btn btn-ghost btn-sm" id="glossaryReapplyBtn" onclick="reapplyGlossary()" style="display:none;" title="重新套用詞彙表（output_lang 模式）">重新套用詞彙表</button>
                     <button class="btn btn-ghost btn-sm" onclick="addGlossaryEntry()">+ 新增</button>
                     <button class="btn btn-ghost btn-sm" id="glossaryDeleteBtn" onclick="deleteCurrentGlossary()" title="刪除此詞彙表" disabled>🗑</button>
                   </div>
@@ -1609,6 +1616,31 @@
     }
   }
 
+  // glossary-v2: reapply glossary for output_lang files via /glossary-reapply
+  async function reapplyGlossary() {
+    if (!fileId) return;
+    const btn = document.getElementById('glossaryReapplyBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '套用中…'; }
+    try {
+      const r = await fetch(`${API_BASE}/api/files/${fileId}/glossary-reapply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${r.status}`);
+      }
+      const data = await r.json();
+      showToast(`詞彙表已重新套用（${data.changed_count || 0} 處更改）`, 'success');
+      await loadSegments();
+    } catch (e) {
+      showToast(`重新套用失敗: ${e.message}`, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '重新套用詞彙表'; }
+    }
+  }
+
   let lastScanResult = null;  // module-level: store scan response for apply phase
 
   function showGlossaryApplyModal(scanResult) {
@@ -1897,6 +1929,7 @@
           approved: t.status === 'approved' || t.approved === true,
           edited: t.edited === true,
           flags,
+          glossary_changes: Array.isArray(t.glossary_changes) ? t.glossary_changes : [],
           speaker: null,
           candidates: [],
           glossary: [],
@@ -2003,6 +2036,11 @@
     if (applyBtn) {
       applyBtn.style.display = (fileInfo && fileInfo.active_kind === 'output_lang') ? 'none' : '';
     }
+    // glossary-v2: show/hide the reapply button for output_lang files
+    const reapplyBtn = document.getElementById('glossaryReapplyBtn');
+    if (reapplyBtn) {
+      reapplyBtn.style.display = (fileInfo && fileInfo.active_kind === 'output_lang') ? '' : 'none';
+    }
 
     renderSegList();
     renderProgress();
@@ -2052,7 +2090,7 @@
       const flagsHtml = s.flags.slice(0, 2).map(f => {
         const color = f.type === 'review' || f.type.startsWith('low-') || f.type === 'untranslated' ? 'rose' : 'amber';
         return `<span class="qa-flag qa-flag-${color}" title="${escapeHtml(f.msg || '')}">${flagLabel(f.type)}</span>`;
-      }).join('');
+      }).join('') + (s.glossary_changes && s.glossary_changes.length ? '<span class="qa-flag" title="詞彙表已套用">📖</span>' : '');
       return `
         <div class="rv-b-rail-item ${cur} ${ap}" data-idx="${i}" onclick="setCursor(${i})">
           <div class="rv-b-rail-num">${s.id}</div>
@@ -2253,10 +2291,20 @@
         <div class="rv-b-detail-field">
           <div class="rv-b-detail-label">
             <span>詞彙對照</span>
-            <span class="dot">·</span>
-            <span style="color:var(--text-dim); text-transform:none; letter-spacing:0; font-weight:500;">後端未實作</span>
           </div>
-          <div class="rv-b-detail-stub">— 尚未有詞彙比對 —</div>
+          ${(s.glossary_changes && s.glossary_changes.length)
+            ? `<div style="display:flex;flex-direction:column;gap:4px;padding:6px 0;">${
+                s.glossary_changes.map(gc =>
+                  `<div style="font-size:12px;line-height:1.5;">` +
+                  `<span class="gl-before">${escapeHtml(gc.before)}</span>` +
+                  ` → ` +
+                  `<span class="gl-after">${escapeHtml(gc.after)}</span>` +
+                  ` <span class="gl-src">· ${escapeHtml(gc.glossary || '')}</span>` +
+                  `</div>`
+                ).join('')
+              }</div>`
+            : `<div class="gl-empty">— 此段無詞彙表詞條（未涉及）—</div>`
+          }
         </div>
       </div>
 
