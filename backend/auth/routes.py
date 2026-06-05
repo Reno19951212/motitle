@@ -82,15 +82,18 @@ def me():
             "id": 0,
             "username": "bypass",
             "is_admin": True,
+            "remarks": "",
             "active_kind": active_kind,
             "active_id": active_id,
             "v6_available": v6_available,
         }), 200
 
+    me_row = get_user_by_id(current_app.config["AUTH_DB_PATH"], current_user.id)
     return jsonify({
         "id": current_user.id,
         "username": current_user.username,
         "is_admin": current_user.is_admin,
+        "remarks": (me_row or {}).get("remarks", ""),
         "active_kind": active_kind,
         "active_id": active_id,
         "v6_available": v6_available,

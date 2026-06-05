@@ -318,3 +318,15 @@ def test_update_remarks_requires_admin():
     r = c.patch(f"/api/admin/users/{target['id']}/remarks", json={"remarks": "x"})
     assert r.status_code == 403
     delete_user(db, "na_rm_p3")
+
+
+def test_api_me_includes_remarks(admin_client):
+    # admin_p3 sees its own remarks via /api/me after an admin sets them.
+    import app as app_module
+    from auth.users import get_user_by_username, update_remarks
+    db = app_module.app.config["AUTH_DB_PATH"]
+    me = get_user_by_username(db, "admin_p3")
+    update_remarks(db, me["id"], "系統主帳戶")
+    r = admin_client.get("/api/me")
+    assert r.status_code == 200
+    assert r.get_json().get("remarks") == "系統主帳戶"
