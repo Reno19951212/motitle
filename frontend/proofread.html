@@ -308,12 +308,17 @@
     @media (max-width: 768px) { .rv-b-top-row { grid-template-columns: 1fr; } }
     .rv-b-video-col { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
 
-    .rv-b-video-wrap { flex-shrink: 1; min-height: 0; overflow: hidden; }
-    /* Cap panels height so a large glossary scrolls inside instead of expanding
-       the row and covering the video preview above. */
+    /* Cap the video preview with a viewport-relative height (not its raw 16:9
+       height) so the 詞彙表 / 字幕設定 panels below always get usable room and the
+       字幕設定 controls don't get squeezed into a scroll. vh-based so it adapts to
+       browser zoom (px would not). On short windows the video pillarboxes a touch
+       (object-fit: contain) rather than eating all the column height. */
+    .rv-b-video-wrap { flex: 0 1 auto; min-height: 0; max-height: clamp(150px, 34vh, 420px); overflow: hidden; }
+    /* Panels grow to fill the freed space; min-height is vh-based so they stay
+       usable across sizes/zoom and a tall glossary scrolls inside each panel. */
     .rv-b-vid-panels {
       display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
-      flex: 1 1 auto; min-height: 180px;
+      flex: 1 1 auto; min-height: clamp(190px, 30vh, 360px);
     }
     .rv-b-vid-panels > * { min-height: 0; }
     @media (max-width: 1024px) { .rv-b-vid-panels { grid-template-columns: 1fr; height: auto; max-height: 50vh; } }
@@ -480,8 +485,11 @@
       position: relative; background: #000;
       border: 1px solid var(--border); border-radius: 8px;
       aspect-ratio: 16/9; overflow: hidden;
+      /* respect the wrap's capped height; keep 16:9 by letterboxing the inner
+         video instead of distorting it. */
+      max-height: 100%; max-width: 100%; margin: 0 auto;
     }
-    .rv-b-video video { width: 100%; height: 100%; display: block; }
+    .rv-b-video video { width: 100%; height: 100%; display: block; object-fit: contain; }
     .rv-b-video-placeholder {
       position: absolute; inset: 0;
       background: linear-gradient(135deg, #1a1a2a, #0a0a14);
@@ -872,7 +880,7 @@
               <div class="rv-b-tlh-r">
               </div>
             </div>
-            <div class="rv-wave" id="waveform" style="height:74px;">
+            <div class="rv-wave" id="waveform" style="height:clamp(96px,13vh,150px);">
               <div class="rv-wave-bars" id="waveformBars"></div>
               <div class="rv-wave-regions" id="waveformRegions"></div>
               <div class="rv-wave-playhead" id="waveformPlayhead" style="left:0%;display:none;">
