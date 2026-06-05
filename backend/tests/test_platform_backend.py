@@ -34,3 +34,40 @@ def test_detect_platform_linux_arm64_cuda(monkeypatch):
     monkeypatch.setattr(pb.shutil, "which", lambda name: "/usr/bin/nvidia-smi" if name == "nvidia-smi" else None)
     info = pb.detect_platform()
     assert info == {"os": "linux", "arch": "arm64", "has_cuda": True}
+
+
+# ---------------------------------------------------------------------------
+# Task 2: resolve_asr_override(env, info)
+# ---------------------------------------------------------------------------
+
+def test_resolve_asr_auto_darwin_is_mlx_identical():
+    info = {"os": "darwin", "arch": "arm64", "has_cuda": False}
+    out = pb.resolve_asr_override({}, info)
+    assert out == {"asr": {"engine": "mlx-whisper", "model_size": "large-v3", "condition_on_previous_text": False}}
+
+
+def test_resolve_asr_auto_cuda_is_faster_whisper():
+    info = {"os": "win32", "arch": "x86_64", "has_cuda": True}
+    out = pb.resolve_asr_override({}, info)
+    assert out == {"asr": {"engine": "whisper", "model_size": "large-v3", "device": "cuda", "compute_type": "float16", "condition_on_previous_text": False}}
+
+
+def test_resolve_asr_auto_no_cuda_is_cpu():
+    info = {"os": "linux", "arch": "x86_64", "has_cuda": False}
+    out = pb.resolve_asr_override({}, info)
+    assert out["asr"]["engine"] == "whisper"
+    assert out["asr"]["device"] == "cpu"
+    assert out["asr"]["compute_type"] == "int8"
+
+
+def test_resolve_asr_env_override_forces_mlx_on_linux():
+    info = {"os": "linux", "arch": "arm64", "has_cuda": True}
+    out = pb.resolve_asr_override({"R5_ASR_BACKEND": "mlx"}, info)
+    assert out["asr"]["engine"] == "mlx-whisper"
+
+
+def test_resolve_asr_env_override_gb10_whispercpp():
+    info = {"os": "linux", "arch": "arm64", "has_cuda": True}
+    out = pb.resolve_asr_override({"R5_ASR_BACKEND": "whispercpp"}, info)
+    assert out["asr"]["engine"] == "whispercpp"
+    assert out["asr"]["device"] == "cuda"
