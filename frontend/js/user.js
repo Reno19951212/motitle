@@ -287,3 +287,125 @@ window.confirmDelete = confirmDelete;
 window.confirmReset = confirmReset;
 window.saveRemarks = saveRemarks;
 window.toggleAdmin = toggleAdmin;
+
+// ============================================================
+// Audit log (admin)
+// ============================================================
+// Backend action strings → badge class + label. Audit schema stores ONLY:
+// {id, ts, actor_user_id, action, target_kind, target_id, details}. No
+// ip/user_agent/status is stored, so none is shown (honesty clamp).
+const ACTION_META = {
+  'user.create':           { cls: 'act-create', label: '＋ create_user', cat: 'create' },
+  'user.delete':           { cls: 'act-delete', label: '✕ delete_user', cat: 'delete' },
+  'user.reset_password':   { cls: 'act-update', label: '✎ reset_password', cat: 'update' },
+  'user.toggle_admin':     { cls: 'act-update', label: '✎ toggle_admin', cat: 'update' },
+  'user.update_remarks':   { cls: 'act-update', label: '✎ update_remarks', cat: 'update' },
+  'password_changed':      { cls: 'act-update', label: '✎ password_changed', cat: 'update' },
+  'password_change_failed':{ cls: 'act-other',  label: '⚠ pw_change_failed', cat: 'other' },
+  'login_failed':          { cls: 'act-other',  label: '⚠ login_failed', cat: 'other' },
+};
+function actionMeta(action) {
+  return ACTION_META[action] || { cls: 'act-other', label: escapeHtml(action), cat: 'other' };
+}
+function actorLabel(id) {
+  if (id === 0 || id == null) return '系統';
+  return USER_MAP[id] ? `${USER_MAP[id]} · #${id}` : `#${id}`;
+}
+function targetLabel(kind, id) {
+  if (!kind) return '—';
+  if (kind === 'user' && USER_MAP[id]) return `user · ${USER_MAP[id]} (#${id})`;
+  return `${kind}${id != null ? ' · ' + id : ''}`;
+}
+
+async function loadAudit() {
+  const r = await fetch('/api/admin/audit?limit=100', { credentials: 'same-origin' });
+  if (!r.ok) return;
+  AUDIT_ROWS = await r.json();
+  document.getElementById('navAuditCount').textContent = AUDIT_ROWS.length;
+  renderAudit();
+}
+
+function auditMatches(row) {
+  const meta = actionMeta(row.action);
+  if (auditFilter !== 'all' && meta.cat !== auditFilter) return false;
+  if (auditQuery) {
+    const hay = `${row.action} ${actorLabel(row.actor_user_id)} ${targetLabel(row.target_kind, row.target_id)} ${JSON.stringify(row.details||{})}`.toLowerCase();
+    if (!hay.includes(auditQuery)) return false;
+  }
+  return true;
+}
+
+function renderAudit() {
+  const list = document.getElementById('adminAuditList');
+  const rows = AUDIT_ROWS.filter(auditMatches);
+  if (!rows.length) { list.innerHTML = '<div class="empty-row">無相符紀錄</div>'; return; }
+  list.innerHTML = rows.map(row => {
+    const meta = actionMeta(row.action);
+    const detailId = `ad-${row.id}`;
+    return `
+      <div class="audit-item" onclick="toggleAuditDetail(${row.id}, this)">
+        <span class="audit-ts">${fmtTs(row.ts)}</span>
+        <span class="audit-actor"><span class="av">${escapeHtml(initial(USER_MAP[row.actor_user_id] || '系'))}</span><span class="an">${escapeHtml(actorLabel(row.actor_user_id))}</span></span>
+        <span class="act-badge ${meta.cls}">${meta.label}</span>
+        <span class="audit-target">${escapeHtml(targetLabel(row.target_kind, row.target_id))}</span>
+        <span class="audit-caret">▾</span>
+      </div>
+      <div class="audit-detail-row" id="${detailId}" style="display:none;">${auditDetailHtml(row)}</div>`;
+  }).join('');
+}
+
+function auditDetailHtml(row) {
+  const summary = `
+    <div class="adetail-block"><div class="adetail-block-head">操作摘要 · Summary</div>
+      <dl class="adetail-kv">
+        <dt>operation</dt><dd>${escapeHtml(row.action)}</dd>
+        <dt>actor</dt><dd>${escapeHtml(actorLabel(row.actor_user_id))}</dd>
+        <dt>target</dt><dd>${escapeHtml(targetLabel(row.target_kind, row.target_id))}</dd>
+        <dt>timestamp</dt><dd>${fmtTs(row.ts)}</dd>
+      </dl></div>`;
+  let details;
+  if (row.details && Object.keys(row.details).length) {
+    const kv = Object.entries(row.details).map(([k, v]) =>
+      `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(typeof v === 'object' ? JSON.stringify(v) : String(v))}</dd>`).join('');
+    const raw = escapeHtml(JSON.stringify(row.details, null, 2));
+    details = `
+      <div class="adetail-block"><div class="adetail-block-head">詳情 · Details</div>
+        <dl class="adetail-kv">${kv}</dl>
+        <div class="araw">${raw}</div>
+        <div class="adetail-actions"><button class="btn-xs btn-sec" onclick="event.stopPropagation();copyJson(${row.id})">複製 JSON</button></div></div>`;
+  } else {
+    details = `<div class="adetail-block"><div class="adetail-block-head">詳情 · Details</div><div class="adetail-empty">— 無額外詳情 —</div></div>`;
+  }
+  return `<div class="audit-detail-grid">${summary}${details}</div>`;
+}
+
+function toggleAuditDetail(id, item) {
+  const el = document.getElementById(`ad-${id}`);
+  if (!el) return;
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : 'block';
+  item.classList.toggle('open', !open);
+}
+
+function copyJson(id) {
+  const row = AUDIT_ROWS.find(r => r.id === id);
+  if (!row) return;
+  navigator.clipboard?.writeText(JSON.stringify(row.details, null, 2));
+  showToast('已複製 JSON', 'success');
+}
+
+// audit search + filter
+document.getElementById('auditSearch').addEventListener('input', (e) => {
+  auditQuery = e.target.value.trim().toLowerCase();
+  renderAudit();
+});
+document.getElementById('auditFilter').addEventListener('click', (e) => {
+  const btn = e.target.closest('.audit-chip');
+  if (!btn) return;
+  auditFilter = btn.dataset.filter;
+  document.querySelectorAll('#auditFilter .audit-chip').forEach(c => c.classList.toggle('on', c === btn));
+  renderAudit();
+});
+
+window.toggleAuditDetail = toggleAuditDetail;
+window.copyJson = copyJson;
