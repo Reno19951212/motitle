@@ -62,6 +62,7 @@ from subtitle_text import (
     VALID_BILINGUAL_ORDERS,
     SUPPORTED_OUTPUT_LANGS,
 )
+import segment_split as ss
 
 # Try to import faster-whisper for better performance
 try:
@@ -5198,7 +5199,6 @@ def _seg_split_gather_texts(entry, pos):
 
 def _seg_apply_split(entry, pos, parts, content_lang, r, start, end):
     """Apply a split at pos to entry in place. Returns (segments, translations)."""
-    import segment_split as ss
     mid = round(start + (end - start) * r, 3)
     src_p1, src_p2 = parts.get(content_lang, ("", ""))
     segs = entry.get("segments") or []
@@ -5210,7 +5210,8 @@ def _seg_apply_split(entry, pos, parts, content_lang, r, start, end):
     entry["translations"] = ss.renumber_translations(new_trans)
     if entry.get("aligned_bilingual"):
         entry["aligned_bilingual"] = ss.split_aligned(entry["aligned_bilingual"], pos, parts, start, mid, end)
-    assert len(entry["segments"]) == len(entry["translations"]), "segment/translation misalignment after split"
+    if len(entry["segments"]) != len(entry["translations"]):
+        raise RuntimeError("segment/translation misalignment after split")
     entry["text"] = " ".join((s.get("text") or "") for s in entry["segments"])
     return list(entry["segments"]), list(entry["translations"])
 
@@ -5219,7 +5220,6 @@ def _seg_apply_split(entry, pos, parts, content_lang, r, start, end):
 @require_file_owner
 def split_segment(file_id, pos):
     """Split cue at 0-indexed position `pos` into two. mode: 'ai' | 'mechanical'."""
-    import segment_split as ss
     data = request.get_json(silent=True) or {}
     mode = data.get("mode", "mechanical")
     if mode not in ("ai", "mechanical"):
@@ -5272,9 +5272,12 @@ def split_segment(file_id, pos):
             if (abs(cur_start - start) > 1e-6 or abs(cur_end - end) > 1e-6
                     or (cur_seg.get("text") or "").strip() != src_text):
                 return jsonify({"error": "段落已被其他操作修改，請重試"}), 409
-        segments_out, translations_out = _seg_apply_split(
-            entry, pos, parts, content_lang, r, cur_start, cur_end)
-        _save_registry()
+        try:
+            segments_out, translations_out = _seg_apply_split(
+                entry, pos, parts, content_lang, r, cur_start, cur_end)
+            _save_registry()
+        except RuntimeError:
+            return jsonify({"error": "段落操作內部錯誤"}), 500
     return jsonify({"segments": segments_out, "translations": translations_out}), 200
 
 
@@ -5282,7 +5285,6 @@ def split_segment(file_id, pos):
 @require_file_owner
 def merge_next_segment(file_id, pos):
     """Merge cue at `pos` with the next cue (pos+1)."""
-    import segment_split as ss
     if _file_has_active_render(file_id):
         return jsonify({"error": "正在渲染中，無法修改段落"}), 409
     with _registry_lock:
@@ -5290,22 +5292,26 @@ def merge_next_segment(file_id, pos):
         if not entry:
             return jsonify({"error": "文件不存在"}), 404
         if entry.get("active_kind") != "output_lang":
-            return jsonify({"error": "分割只支援輸出語言流程"}), 400
+            return jsonify({"error": "合併只支援輸出語言流程"}), 400
         translations = entry.get("translations") or []
         if not (0 <= pos < len(translations)):
             return jsonify({"error": "段落不存在"}), 404
         if pos + 1 >= len(translations):
             return jsonify({"error": "已經係最後一段，無法合併下一段"}), 400
         segs = entry.get("segments") or []
-        entry["segments"] = ss.merge_base(segs, pos)
-        if entry.get("content_asr_segments"):
-            entry["content_asr_segments"] = ss.merge_base(entry["content_asr_segments"], pos)
-        entry["translations"] = ss.renumber_translations(ss.merge_translations(translations, pos))
-        if entry.get("aligned_bilingual"):
-            entry["aligned_bilingual"] = ss.merge_aligned(entry["aligned_bilingual"], pos)
-        assert len(entry["segments"]) == len(entry["translations"]), "misalignment after merge"
-        entry["text"] = " ".join((s.get("text") or "") for s in entry["segments"])
-        _save_registry()
+        try:
+            entry["segments"] = ss.merge_base(segs, pos)
+            if entry.get("content_asr_segments"):
+                entry["content_asr_segments"] = ss.merge_base(entry["content_asr_segments"], pos)
+            entry["translations"] = ss.renumber_translations(ss.merge_translations(translations, pos))
+            if entry.get("aligned_bilingual"):
+                entry["aligned_bilingual"] = ss.merge_aligned(entry["aligned_bilingual"], pos)
+            if len(entry["segments"]) != len(entry["translations"]):
+                raise RuntimeError("misalignment after merge")
+            entry["text"] = " ".join((s.get("text") or "") for s in entry["segments"])
+            _save_registry()
+        except RuntimeError:
+            return jsonify({"error": "段落操作內部錯誤"}), 500
         return jsonify({"segments": list(entry["segments"]),
                         "translations": list(entry["translations"])}), 200
 

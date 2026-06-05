@@ -127,3 +127,62 @@ def test_ai_split_falls_back_to_mechanical_on_bad_llm(client, monkeypatch):
     assert data["translations"][0]["by_lang"]["yue"]["text"] == "你好世界"
     assert data["translations"][1]["by_lang"]["yue"]["text"] == "你好世界"
     assert data["segments"][0]["end"] == 5.0
+
+
+def test_split_render_in_progress_returns_409(client, monkeypatch):
+    monkeypatch.setattr(appmod, "_save_registry", lambda: None)
+    fid = _seed_output_lang_file("f-render")
+    with appmod._render_jobs_lock:
+        appmod._render_jobs["r-test"] = {"status": "processing", "file_id": fid, "cancelled": False}
+    try:
+        r = client.post(f"/api/files/{fid}/segments/0/split", json={"mode": "mechanical"})
+        assert r.status_code == 409
+        rm = client.post(f"/api/files/{fid}/segments/0/merge-next", json={})
+        assert rm.status_code == 409
+    finally:
+        with appmod._render_jobs_lock:
+            appmod._render_jobs.pop("r-test", None)
+
+
+def test_ai_split_conflict_returns_409(client, monkeypatch):
+    # The mocked LLM mutates the cue between Phase 1 (snapshot) and Phase 3
+    # (re-read), so the AI conflict check trips and returns 409.
+    monkeypatch.setattr(appmod, "_save_registry", lambda: None)
+    fid = _seed_output_lang_file("f-conflict")
+
+    def mutating_llm():
+        def _call(system, user):
+            with appmod._registry_lock:
+                appmod._file_registry[fid]["segments"][0]["text"] = "改咗的內容唔同晒"
+            return '{"parts": [{"yue": "你好"}, {"yue": "世界"}]}'
+        return _call
+
+    monkeypatch.setattr(appmod, "_make_ollama_llm_call", mutating_llm)
+    r = client.post(f"/api/files/{fid}/segments/0/split", json={"mode": "ai"})
+    assert r.status_code == 409
+
+
+def test_bilingual_split_splits_both_languages(client, monkeypatch):
+    monkeypatch.setattr(appmod, "_save_registry", lambda: None)
+    monkeypatch.setattr(appmod, "_make_ollama_llm_call",
+                        lambda: (lambda s, u: '{"parts": [{"zh": "你好", "en": "hello"}, {"zh": "世界", "en": "world"}]}'))
+    fid = "f-bi"
+    with appmod._registry_lock:
+        appmod._file_registry[fid] = {
+            "status": "done", "active_kind": "output_lang", "source_language": "cmn",
+            "output_languages": ["zh", "en"], "user_id": "u1",
+            "segments": [{"start": 0.0, "end": 10.0, "text": "你好世界"}],
+            "content_asr_segments": [{"start": 0.0, "end": 10.0, "text": "你好世界"}],
+            "translations": [{"idx": 0, "start": 0.0, "end": 10.0, "status": "approved",
+                "by_lang": {"zh": {"text": "你好世界", "status": "approved", "flags": []},
+                            "en": {"text": "hello world", "status": "approved", "flags": []}},
+                "zh_text": "你好世界", "en_text": "hello world", "glossary_changes": []}],
+            "aligned_bilingual": [{"start": 0.0, "end": 10.0, "by_lang": {"zh": "你好世界", "en": "hello world"}}],
+        }
+    r = client.post(f"/api/files/{fid}/segments/0/split", json={"mode": "ai"})
+    assert r.status_code == 200
+    d = r.get_json()
+    assert d["translations"][0]["by_lang"]["zh"]["text"] == "你好"
+    assert d["translations"][0]["by_lang"]["en"]["text"] == "hello"
+    assert d["translations"][1]["by_lang"]["zh"]["text"] == "世界"
+    assert d["translations"][1]["by_lang"]["en"]["text"] == "world"
