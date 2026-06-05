@@ -158,7 +158,7 @@ function renderUsers() {
         <td class="timecell">${fmtDate(u.created_at)}</td>
         <td class="actcell">
           <button class="iconbtn" title="備註" data-testid="admin-user-remark" onclick="expandRow(${u.id},'remark')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-8 8H3v-3z"/></svg></button>
-          <button class="iconbtn" title="重設密碼" onclick="expandRow(${u.id},'reset')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 015 0v2"/></svg></button>
+          <button class="iconbtn" title="重設密碼" data-testid="admin-user-reset" onclick="expandRow(${u.id},'reset')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13.4 6.5A5.2 5.2 0 1 0 14 9"/><path d="M13.8 2.8 13.9 6.6 10.1 6.4"/></svg></button>
           <button class="iconbtn" title="${toggleTitle}" onclick="toggleAdmin(${u.id})"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${toggleIcon}</svg></button>
           <button class="iconbtn danger" title="${isMe ? '不能刪除自己' : '刪除'}" ${isMe ? 'disabled' : ''} data-testid="admin-user-delete" onclick="expandRow(${u.id},'delete')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h10M6 4V3h4v1M5 4l.5 9h5L11 4"/></svg></button>
         </td>
