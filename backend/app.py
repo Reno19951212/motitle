@@ -4643,6 +4643,110 @@ def translate_second_language(file_id):
     }), 202
 
 
+@app.route('/api/files/<file_id>/glossary-reapply', methods=['POST'])
+@require_file_owner
+def glossary_reapply(file_id):
+    """Re-run the glossary stage for an output_lang file WITHOUT re-running ASR.
+
+    Each output language is re-derived 1:1 from the file's cached content base
+    (``content_asr_segments``) via ``derive_aligned_output``, so before/after is
+    meaningful and idempotent. Empty ``glossary_ids`` re-derives cleanly (no
+    changes). The translation rows + ``aligned_bilingual`` (when ≥2 outputs) are
+    rebuilt immutably so ``by_lang`` / ``{lang}_text`` / ``glossary_changes`` are
+    fresh and consistent.
+
+    Body (both optional — default to the entry's stored values):
+        {"glossary_ids": [...], "glossary_llm": true}
+
+    ⚠️ A full re-derive overwrites manual proofreading edits. For v1 that is an
+    accepted trade-off — we do NOT merge human edits.
+
+    Returns 200 {"ok": true, "file_id", "languages", "changed_count"}.
+    """
+    from output_lang_persist import build_output_translations
+    from output_lang_router import content_asr_lang
+    from output_lang_aligned import derive_aligned_output, build_aligned_bilingual
+
+    data = request.get_json(silent=True) or {}
+
+    # ----- Phase 1: read-only validation + snapshot under the lock -----------
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+        if not entry:
+            return jsonify({"error": "文件不存在"}), 404
+        if entry.get("active_kind") != "output_lang":
+            return jsonify({"error": "只支援 output_lang 檔案"}), 400
+
+        base = list(entry.get("content_asr_segments") or [])
+        if not base:
+            return jsonify({"error": "此檔案無內容語音快取，請重新處理"}), 400
+
+        output_languages = list(entry.get("output_languages") or [])
+        source_language = entry.get("source_language") or "yue"
+        script = entry.get("script") or "trad"
+        mt_style = entry.get("mt_style") or "generic"
+
+        # Resolve glossary settings: body wins, else stored entry defaults.
+        if "glossary_ids" in data and data["glossary_ids"] is not None:
+            glossary_ids = list(data["glossary_ids"])
+        else:
+            glossary_ids = list(entry.get("glossary_ids") or [])
+        if "glossary_llm" in data and data["glossary_llm"] is not None:
+            glossary_llm = bool(data["glossary_llm"])
+        else:
+            glossary_llm = bool(entry.get("glossary_llm", True))
+
+    # Validate each glossary id (outside the lock — manager has its own).
+    for gid in glossary_ids:
+        if _glossary_manager.get(gid) is None:
+            return jsonify({"error": f"未知詞彙表: {gid}"}), 400
+    glossaries = _load_glossaries(glossary_ids) if glossary_ids else None
+
+    if not output_languages:
+        return jsonify({"error": "此檔案無輸出語言"}), 400
+
+    # ----- Phase 2: slow LLM re-derive (OUTSIDE the lock) --------------------
+    content_lang = content_asr_lang(source_language)
+    llm_call = _make_ollama_llm_call()
+    derived = {
+        out: derive_aligned_output(
+            base, content_lang, out, script, llm_call,
+            style=mt_style, glossaries=glossaries, glossary_llm=glossary_llm)
+        for out in output_languages
+    }
+    rows = build_output_translations(
+        base, [(out, derived[out]) for out in output_languages])
+
+    # Rebuild aligned_bilingual for ≥2 outputs (best-effort — never block).
+    aligned = None
+    if len(output_languages) >= 2:
+        try:
+            aligned = build_aligned_bilingual(
+                base, output_languages, content_lang, script, llm_call,
+                glossaries=glossaries, glossary_llm=glossary_llm)
+        except Exception:
+            aligned = None  # paired view is best-effort; rows already valid
+
+    changed_count = sum(len(r.get("glossary_changes") or []) for r in rows)
+
+    # ----- Phase 3: persist fresh results -----------------------------------
+    update_fields = {
+        "translations": rows,
+        "glossary_ids": list(glossary_ids),
+        "glossary_llm": glossary_llm,
+    }
+    if aligned is not None:
+        update_fields["aligned_bilingual"] = aligned
+    _update_file(file_id, **update_fields)
+
+    return jsonify({
+        "ok": True,
+        "file_id": file_id,
+        "languages": output_languages,
+        "changed_count": changed_count,
+    }), 200
+
+
 @app.route('/api/transcribe/sync', methods=['POST'])
 @admin_required
 def transcribe_sync():
