@@ -197,95 +197,8 @@ def route_for_output(
 
 
 # ---------------------------------------------------------------------------
-# Candidate filtering
+# Candidate filtering helpers
 # ---------------------------------------------------------------------------
-
-def filter_candidates(
-    text: str,
-    glossaries: List[dict],
-    output_lang: str,
-    content_lang: str,
-    derive_mode: str,
-) -> List[dict]:
-    """Find applicable glossary candidates for a text segment.
-
-    For each glossary that routes to 'source' or 'target':
-    - source side: find source terms (English/JA) in `text` (word-boundary, case-insensitive)
-                   and apply is_name_candidate guard.
-    - target side: find canonical target terms (Chinese) as substrings in `text`,
-                   but SKIP targets that are ≤2 characters (over-match risk).
-
-    Returns a list of candidate dicts:
-        {source, target, glossary, side, aliases}
-    """
-    candidates: List[dict] = []
-    seen_sources: set = set()  # deduplicate by source (first-wins already in index)
-
-    idx = build_merged_index(glossaries)
-
-    for g in glossaries:
-        side = route_for_output(g, output_lang, content_lang, derive_mode)
-        if side is None:
-            continue
-
-        for e in g.get("entries", []):
-            s = (e.get("source") or "").strip()
-            raw_target = e.get("target") or ""
-            t = strip_horse_id(raw_target)
-            if not t:
-                continue
-
-            # First-wins: skip if a higher-priority glossary already registered this source
-            src_key = s.upper()
-            if src_key in seen_sources:
-                continue
-
-            if side == "source":
-                # Source-side: look for the English/JA term in the text
-                if not is_name_candidate(s):
-                    continue
-                pattern = re.compile(r"\b" + re.escape(s) + r"\b", re.IGNORECASE)
-                if pattern.search(text):
-                    seen_sources.add(src_key)
-                    candidates.append({
-                        "source": s,
-                        "target": t,
-                        "glossary": g.get("name", ""),
-                        "side": "source",
-                        "aliases": _get_aliases(e),
-                    })
-
-            elif side == "target":
-                # Target-side: look for canonical Chinese name in the output text.
-                # Guard: skip targets ≤2 chars (high false-positive risk with substring match)
-                if len(t) <= 2:
-                    continue
-                if t in text:
-                    seen_sources.add(src_key)
-                    candidates.append({
-                        "source": s,
-                        "target": t,
-                        "glossary": g.get("name", ""),
-                        "side": "target",
-                        "aliases": _get_aliases(e),
-                    })
-                else:
-                    # Also check aliases in the text
-                    aliases = _get_aliases(e)
-                    for alias in aliases:
-                        if alias and len(alias) > 2 and alias in text:
-                            seen_sources.add(src_key)
-                            candidates.append({
-                                "source": s,
-                                "target": t,
-                                "glossary": g.get("name", ""),
-                                "side": "target",
-                                "aliases": aliases,
-                            })
-                            break
-
-    return candidates
-
 
 def _get_aliases(entry: dict) -> List[str]:
     """Extract aliases list from a glossary entry dict."""
@@ -484,7 +397,7 @@ def glossary_stage(
     1. Determine source text for source-side filtering:
        - If src_texts is provided, use src_texts[i].
        - Else fall back to seg.get("src_text") or seg["text"].
-    2. filter_candidates → deterministic_apply.
+    2. _filter_source_side + _filter_target_side → deterministic_apply.
     3. If use_llm and there are remaining unresolved candidates (source-side
        or unresolved target-side) → llm_review.
     4. Attach glossary_changes to each new segment dict.
@@ -521,11 +434,9 @@ def glossary_stage(
 
         output_text: str = seg.get("text", "")
 
-        # For source-side filtering, use src_text; for target-side, use output_text
-        # We pass src_text for source-side glossaries and output_text for target-side.
-        # filter_candidates uses the text parameter for both — we need to pass the
-        # right text per glossary's side. We handle this by calling filter_candidates
-        # separately for source-side and target-side glossaries.
+        # Source-side filtering sees the content/source text (src_text); target-side
+        # sees the derived output text. We filter each side separately so each glossary
+        # is matched against the right text per its routed side.
         source_cands = _filter_source_side(src_text, glossaries, output_lang, content_lang, derive_mode)
         target_cands = _filter_target_side(output_text, glossaries, output_lang, content_lang, derive_mode)
         all_cands = source_cands + target_cands

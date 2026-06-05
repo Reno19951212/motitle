@@ -14,7 +14,9 @@ _MT_TARGET_NAME: Dict[str, str] = {
     "en": "English",
     "ja": "自然書面日本語",
 }
-_SRC_NAME: Dict[str, str] = {"yue": "粵語/中文", "cmn": "普通話/中文", "en": "English", "ja": "Japanese"}
+_SRC_NAME: Dict[str, str] = {
+    "yue": "粵語/中文", "cmn": "普通話/中文", "zh": "中文", "en": "English", "ja": "Japanese",
+}
 
 # zh/cmn (written-Chinese) target: forbid spoken-Cantonese leakage + domain injection
 _ZH_WRITTEN_RULES = (

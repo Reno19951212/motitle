@@ -369,6 +369,15 @@ def _produce_output_lang(audio_path, source_language, output_lang, script,
     import output_lang_postprocess as olp
     from output_lang_aligned import derive_mode
 
+    # Canonical content language for derive/MT/glossary routing. The cmn ASR base
+    # is transcribed with lang_override 'zh' (content_asr_lang maps cmn→zh), so the
+    # content language seen downstream IS 'zh' — NOT the raw 'cmn' source_language.
+    # Using the raw code here made a zh-source glossary's `gl_src == content_lang`
+    # gate fail ('zh' != 'cmn') → glossary silently dropped on the upload path while
+    # the reapply endpoint (which already uses content_asr_lang) applied it.
+    # content_asr_lang is identity for yue/en/ja, so those flows stay byte-identical.
+    content_lang = content_asr_lang(source_language)
+
     method = route_output(source_language, output_lang)
     if method == "whisper":
         res = transcribe_with_segments(
@@ -383,10 +392,10 @@ def _produce_output_lang(audio_path, source_language, output_lang, script,
                 audio_path, cancel_event=cancel_event,
                 asr_profile_override=_output_lang_asr_override(),
                 progress_kind="output_lang", progress_stage_index=0,
-                lang_override=content_asr_lang(source_language), task_override="transcribe")
+                lang_override=content_lang, task_override="transcribe")
             content_asr_cache["segments"] = (cres or {}).get("segments") or []
         base = crosslang_mt.translate_segments(
-            content_asr_cache["segments"], source_language, output_lang, _make_ollama_llm_call())
+            content_asr_cache["segments"], content_lang, output_lang, _make_ollama_llm_call())
 
     if output_lang in ("yue", "zh", "cmn"):
         if method == "asr_mt":
@@ -401,13 +410,13 @@ def _produce_output_lang(audio_path, source_language, output_lang, script,
         import output_lang_glossary as olg
         # Source-side filtering: for the asr_mt path use the content ASR text;
         # for the whisper-direct path the only available source IS the output `base`.
-        mode = derive_mode(source_language, output_lang)
+        mode = derive_mode(content_lang, output_lang)
         if method == "asr_mt" and content_asr_cache.get("segments"):
             src_texts = [s.get("text", "") for s in content_asr_cache["segments"]]
         else:
             src_texts = [s.get("text", "") for s in base]
         base = olg.glossary_stage(
-            base, glossaries, output_lang, source_language, mode,
+            base, glossaries, output_lang, content_lang, mode,
             _make_ollama_llm_call(), use_llm=glossary_llm, src_texts=src_texts)
     return base
 
@@ -515,12 +524,16 @@ def _run_output_lang_bound_base(file_id, job, audio_path, cancel_event, outs,
     from output_lang_aligned import derive_aligned_output
     import output_lang_postprocess as olp
     _t0 = time.time()
+    # Canonical content language (cmn→zh; yue/en/ja identity). Drives BOTH the ASR
+    # lang_override AND the 1:1 derive — so a zh-source glossary's source-side gate
+    # (gl_src == content_lang) matches the 'zh' ASR base instead of the raw 'cmn'.
+    content_lang = content_asr_lang(source_language)
     try:
         bres = transcribe_with_segments(
             audio_path, cancel_event=cancel_event,
             asr_profile_override=_output_lang_asr_override(),
             progress_kind="output_lang", progress_stage_index=0,
-            lang_override=content_asr_lang(source_language), task_override="transcribe")
+            lang_override=content_lang, task_override="transcribe")
         base = [{"start": s.get("start", 0.0), "end": s.get("end", 0.0), "text": (s.get("text") or "").strip()}
                 for s in ((bres or {}).get("segments") or [])]
         if not base:
@@ -528,7 +541,7 @@ def _run_output_lang_bound_base(file_id, job, audio_path, cancel_event, outs,
         if do_clause_split and _OL_FAMILY.get(source_language) == "zh":
             base = olp.clause_split_all(base, char_cap=18)
         llm = _make_ollama_llm_call()
-        derived = {o: derive_aligned_output(base, source_language, o, script, llm, style=mt_style,
+        derived = {o: derive_aligned_output(base, content_lang, o, script, llm, style=mt_style,
                                             glossaries=glossaries, glossary_llm=glossary_llm)
                    for o in outs}
         rows = build_output_translations(base, [(o, derived[o]) for o in outs])
@@ -634,7 +647,10 @@ def _run_output_lang_second(file_id, job, audio_path, cancel_event):
                     progress_kind="output_lang", progress_stage_index=1,
                     lang_override=content_asr_lang(src2), task_override="transcribe")
                 base2 = (bres or {}).get("segments") or []
-            aligned = build_aligned_bilingual(base2, outs2, src2, scr2, _make_ollama_llm_call(),
+            # content_asr_lang (cmn→zh; yue/en/ja identity) — match the 'zh' ASR base
+            # so a zh-source glossary routes correctly in the paired derive.
+            aligned = build_aligned_bilingual(base2, outs2, content_asr_lang(src2), scr2,
+                                              _make_ollama_llm_call(),
                                               glossaries=glossaries, glossary_llm=glossary_llm)
             with _registry_lock:
                 if file_id in _file_registry:
@@ -650,12 +666,16 @@ def _run_output_lang_second_cross(file_id, target, source_language, script, mt_s
     and append it to translations + aligned_bilingual on the SAME grid (no index-merge).
     `glossaries` (if non-empty) canonicalizes names + records per-segment changes."""
     from output_lang_aligned import derive_aligned_output
+    from output_lang_router import content_asr_lang
     with _registry_lock:
         entry = _file_registry.get(file_id) or {}
         base = list(entry.get("content_asr_segments") or [])
     if not base:
         raise RuntimeError(f"cross second pass: no content_asr_segments for {file_id}")
-    seg2 = derive_aligned_output(base, source_language, target, script, _make_ollama_llm_call(),
+    # content_asr_lang (cmn→zh; yue/en/ja identity) — match the cached 'zh' ASR base
+    # so a zh-source glossary routes correctly on this on-demand second language.
+    seg2 = derive_aligned_output(base, content_asr_lang(source_language), target, script,
+                                 _make_ollama_llm_call(),
                                  style=mt_style, glossaries=glossaries, glossary_llm=glossary_llm)
     with _registry_lock:
         if file_id not in _file_registry:

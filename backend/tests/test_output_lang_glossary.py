@@ -138,58 +138,6 @@ def test_route_source_requires_correct_content_lang():
 
 
 # ---------------------------------------------------------------------------
-# filter_candidates — target-side ≤2-char guard
-# ---------------------------------------------------------------------------
-
-def test_filter_candidates_target_side_skips_short_target():
-    # target "好" (1 char) should be skipped
-    g = _make_glossary("a", "A", "yue", "zh", [{"source": "Good Horse", "target": "好"}])
-    segs = [{"text": "好的成績", "start": 0.0, "end": 1.0}]
-    # refine mode → target side
-    result = G.filter_candidates("好的成績", [g], output_lang="zh", content_lang="yue", derive_mode="refine")
-    # "好" is ≤2 chars → skipped
-    assert result == []
-
-
-def test_filter_candidates_target_side_accepts_3char_target():
-    # target "火悟空" (3 chars) should pass
-    g = _make_glossary("a", "A", "en", "zh",
-                       [{"source": "Blazing Wukong", "target": "火悟空 (K335)"}])
-    result = G.filter_candidates("火悟空衝線", [g], output_lang="zh", content_lang="en", derive_mode="refine")
-    # "火悟空" is in text and ≥3 chars → should be a candidate
-    assert len(result) == 1
-    assert result[0]["target"] == "火悟空"
-
-
-def test_filter_candidates_source_side_rejects_common_word():
-    # source "class" is a common word → guard should reject
-    g = _make_glossary("a", "A", "en", "zh", [{"source": "class", "target": "大文豪"}])
-    result = G.filter_candidates("It is a class 3 race", [g], output_lang="zh", content_lang="en", derive_mode="mt")
-    assert result == []
-
-
-def test_filter_candidates_source_side_accepts_multiword():
-    g = _make_glossary("a", "A", "en", "zh",
-                       [{"source": "Amazing Partners", "target": "活力拍檔"}])
-    result = G.filter_candidates("Amazing Partners showed great form", [g],
-                                 output_lang="zh", content_lang="en", derive_mode="mt")
-    assert len(result) == 1
-    assert result[0]["source"] == "Amazing Partners"
-
-
-def test_filter_candidates_no_match_returns_empty():
-    g = _make_glossary("a", "A", "en", "zh",
-                       [{"source": "Blazing Wukong", "target": "火悟空"}])
-    result = G.filter_candidates("Nothing here", [g], output_lang="zh", content_lang="en", derive_mode="mt")
-    assert result == []
-
-
-def test_filter_candidates_empty_glossaries():
-    result = G.filter_candidates("Blazing Wukong wins", [], output_lang="zh", content_lang="en", derive_mode="mt")
-    assert result == []
-
-
-# ---------------------------------------------------------------------------
 # deterministic_apply
 # ---------------------------------------------------------------------------
 
