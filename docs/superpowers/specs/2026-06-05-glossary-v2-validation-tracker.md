@@ -55,3 +55,23 @@ Spec：[2026-06-05-glossary-v2-design.md](2026-06-05-glossary-v2-design.md)｜Pl
 `diag_glossary_v2.py`（demo + guard）；clones `wfglossary001`（無防守，3 false-inj）/`wfglossary002`（有防守，0）喺 registry 供校對頁人手檢測。
 
 **判定（2026-06-05）：源側 Phase-0 gate ✅ 綠 — false-injection（兩 guard → 0）+ follow-rate（gold-confirmed 100%）。User 批准開始 Phase 1（branch `feat/glossary-v2`）。目標側 follow-rate 留 Phase 4 integration 補（floor 已 0）。**
+
+## ✅ Final 對抗式 code review（2026-06-05，7 維度 × adversarial verify）
+
+Workflow（7 reviewer → 逐 finding 由 skeptic 反駁/確認）：**10 findings、10 全部 confirmed、0 refuted**（1 HIGH / 3 MEDIUM / 6 LOW）。三大不可動 invariant（immutability / glossaries=None backward-compat / lock discipline）全部 verifier 確認 intact。
+
+**已修（commit `eeaca3c`）：**
+- **HIGH — `cmn`（普通話）來源 content-language 分歧**：dispatch 傳原始 `source_language`（`cmn`），但中文 glossary `source_lang` 只可 `zh`，`route_for_output` exact-equality `'zh'!='cmn'` → glossary 靜默唔套用；reapply 用 `content_asr_lang`（→`zh`）就套 → 非 idempotent。修：dispatch 全 5 site 改用 `content_asr_lang(source_language)`（同 ASR base + reapply 一致）。`derive_mode(cmn,o)==derive_mode(zh,o)` 全輸出相同；yue/en/ja 係 identity → 主力驗證流程 byte-identical。**收窄結論**：真 bug 只係 `cmn→[zh-family 輸出]`（yue/zh/cmn，e.g.「普通話→口語廣東話」呢個官方支援流程）；`cmn→en/ja` 仍正確回 `None`（zh→zh glossary 本質上唔套用到英/日輸出，要 zh→en glossary 先得）—— 原 finding 略 over-scope。
+- **MEDIUM #2**（同根因：reapply MT prompt source label `cmn`→bare `zh`）：補 `crosslang_mt._SRC_NAME['zh']='中文'` → label 唔再退化，dispatch/reapply 一致。
+- **MEDIUM #3**（glossary selector 用 DOM 順序非點擊順序）：label 改「清單上方者優先」，貼合 `selectedOptions` 嘅 DOM 順序 + first-wins。
+- **MEDIUM #4**（`filter_candidates` 85 行 dead code）：刪除（`glossary_stage` 用 `_filter_source_side`/`_filter_target_side`）+ 7 條專屬 test（guard 覆蓋由 `glossary_stage` 整合 test 保留）。
+
+**Known-minor（6 LOW，已記、留 v2）：**
+- #5 target-side guard 用 length-only（≤2 char skip + substring）而非 spec §C/§I5 提嘅中文 boundary-class pattern（doc-only；floor 已驗 0）。
+- #6 `route_for_output`/`glossary_stage` 簽名加 `derive_mode`/`src_texts` 超 spec §F.4（internally consistent；只需 update spec doc）。
+- #7 `build_output_translations` + 二次合併永遠寫 `glossary_changes` key（no-glossary 時 = `[]`，inert；downstream 全 null-safe；row-level always-present 係刻意設計）。
+- #8 `glossary-reapply` Phase 3 鎖外覆寫 translations，理論上同 in-flight `asr_output`（加第二語言）job 有 TOCTOU（user-initiated、窄窗；reapply 由 base 全重 derive 故大致 self-consistent；可日後加 409 guard）。
+- #9 `_load_glossaries` 回 `[]` vs reapply 正規化做 `None`（downstream 全 truthiness gate → 行為相同；latent inconsistency）。
+- #10 個別 function >50 行（`glossary_stage`/`llm_review`/`build_merged_index`，多數係 docstring/comment 撐大；純風格）。
+
+**整體判定**：實作 sound，唯一真 correctness bug（cmn）已修並驗證；其餘 MEDIUM 兩個（label/dead-code）已收，6 LOW 全 doc/style/edge 無 correctness 影響，記低留 v2。可 merge。
