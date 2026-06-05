@@ -552,7 +552,7 @@
     .rv-b-rail-list { flex: 1; min-height: 0; overflow-y: auto; padding: 6px; }
     .rv-b-rail-item {
       display: grid;
-      grid-template-columns: 24px 56px 1fr auto;
+      grid-template-columns: 38px 24px 56px 1fr auto 24px;
       gap: 8px;
       padding: 7px 10px;
       border-radius: 6px;
@@ -581,6 +581,24 @@
     .rv-b-rail-flags .qa-flag { padding: 1px 5px; font-size: 9.5px; }
     .rv-b-rail-ok { color: var(--success); font-size: 11px; }
     .rv-b-rail-empty { padding: 30px 16px; text-align: center; color: var(--text-dim); font-size: 12px; }
+    .rv-b-rail-ops { display: flex; gap: 2px; align-items: center; }
+    .rv-seg-btn {
+      width: 17px; height: 17px; padding: 0; border: none; background: transparent;
+      color: var(--text-dim); border-radius: var(--radius-sm); cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+      opacity: 0; transition: opacity .15s, background .15s, color .15s;
+    }
+    .rv-b-rail-item:hover .rv-seg-btn,
+    .rv-b-rail-item.cur .rv-seg-btn { opacity: 1; }
+    .rv-seg-ai:hover { background: var(--accent-soft); color: var(--accent-2); }
+    .rv-seg-mech:hover, .rv-seg-merge:hover { background: var(--surface-3); color: var(--text); }
+    .rv-seg-btn:disabled { opacity: .2 !important; cursor: not-allowed; }
+    .rv-seg-busy { opacity: .55; pointer-events: none; }
+    @keyframes splitFlash {
+      0%   { background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-ring); }
+      100% { background: transparent; box-shadow: none; }
+    }
+    .rv-split-flash { animation: splitFlash 1.5s ease-out forwards; }
 
     /* flex: 0 0 auto — never shrinks, so the timeline is always pinned visible at the
        bottom of the right pane regardless of width/height/zoom; the top block above
@@ -2115,12 +2133,28 @@
         line2 = s.zh || '(未翻譯)';     // 譯文 / refined
         hasLine2 = true;
       }
+      const tooShort = (s.out - s.in) < 400;
+      const isLast = i === segs.length - 1;
       const flagsHtml = s.flags.slice(0, 2).map(f => {
         const color = f.type === 'review' || f.type.startsWith('low-') || f.type === 'untranslated' ? 'rose' : 'amber';
         return `<span class="qa-flag qa-flag-${color}" title="${escapeHtml(f.msg || '')}">${flagLabel(f.type)}</span>`;
       }).join('') + (s.glossary_changes && s.glossary_changes.length ? '<span class="qa-flag" title="詞彙表已套用">📖</span>' : '');
       return `
         <div class="rv-b-rail-item ${cur} ${ap}" data-idx="${i}" onclick="setCursor(${i}, true)">
+          <div class="rv-b-rail-ops">
+            <button class="rv-seg-btn rv-seg-ai" title="AI 智能分割 (Ctrl+Shift+S)"
+              onclick="event.stopPropagation(); splitSegment(${i}, 'ai')" ${tooShort ? 'disabled' : ''}>
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+                stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 8h10M8 3l1.4 3.6L13 8l-3.6 1.4L8 13l-1.4-3.6L3 8l3.6-1.4z"/></svg>
+            </button>
+            <button class="rv-seg-btn rv-seg-mech" title="機械式對半分割 (Ctrl+Shift+D)"
+              onclick="event.stopPropagation(); splitSegment(${i}, 'mechanical')" ${tooShort ? 'disabled' : ''}>
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+                stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 1v14M5 5L3 3M5 5a2 2 0 1 1-3 0 2 2 0 0 1 3 0zM5 11l-2 2M5 11a2 2 0 1 0-3 0 2 2 0 0 0 3 0z"/></svg>
+            </button>
+          </div>
           <div class="rv-b-rail-num">${s.id}</div>
           <div class="rv-b-rail-ts" title="In ${escapeHtml(s.tsIn)} → Out ${escapeHtml(s.tsOut)}"><span>${escapeHtml(s.tsIn)}</span><span class="rv-b-rail-ts-out">${escapeHtml(s.tsOut)}</span></div>
           <div class="rv-b-rail-text">
@@ -2131,6 +2165,12 @@
             ${flagsHtml}
             ${s.approved ? '<span class="rv-b-rail-ok">✓</span>' : ''}
           </div>
+          <button class="rv-seg-btn rv-seg-merge" title="合併下一段 (Ctrl+Shift+M)"
+            onclick="event.stopPropagation(); mergeNext(${i})" ${isLast ? 'disabled' : ''}>
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+              stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h8M4 12h8M6 7l2 2 2-2"/></svg>
+          </button>
         </div>`;
     }).join('');
   }
