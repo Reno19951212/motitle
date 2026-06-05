@@ -95,3 +95,65 @@ def test_build_split_prompt_system_mentions_langs_and_json_and_punctuation():
     assert "yue" in sysp and "en" in sysp
     assert "JSON" in sysp
     assert "標點" in sysp  # punctuation-priority instruction present
+
+
+def _sample_state():
+    base = [
+        {"start": 0.0, "end": 10.0, "text": "你好世界"},
+        {"start": 10.0, "end": 12.0, "text": "再見"},
+    ]
+    translations = [
+        {"idx": 0, "start": 0.0, "end": 10.0, "status": "approved",
+         "by_lang": {"yue": {"text": "你好世界", "status": "approved", "flags": []},
+                     "en": {"text": "hello world", "status": "approved", "flags": []}},
+         "yue_text": "你好世界", "en_text": "hello world", "glossary_changes": [{"a": 1}]},
+        {"idx": 1, "start": 10.0, "end": 12.0, "status": "pending",
+         "by_lang": {"yue": {"text": "再見", "status": "pending", "flags": []},
+                     "en": {"text": "bye", "status": "pending", "flags": []}},
+         "yue_text": "再見", "en_text": "bye", "glossary_changes": []},
+    ]
+    aligned = [
+        {"start": 0.0, "end": 10.0, "by_lang": {"yue": "你好世界", "en": "hello world"}},
+        {"start": 10.0, "end": 12.0, "by_lang": {"yue": "再見", "en": "bye"}},
+    ]
+    return base, translations, aligned
+
+
+def test_split_base_inserts_two_segments_no_id_no_words():
+    base, _, _ = _sample_state()
+    out = ss.split_base(base, 0, "你好", "世界", 0.0, 5.0, 10.0)
+    assert len(out) == 3
+    assert out[0] == {"start": 0.0, "end": 5.0, "text": "你好"}
+    assert out[1] == {"start": 5.0, "end": 10.0, "text": "世界"}
+    assert out[2]["text"] == "再見"
+    assert "id" not in out[0] and "words" not in out[0]
+
+
+def test_split_translations_resets_status_and_sets_text_both_languages():
+    _, translations, _ = _sample_state()
+    parts = {"yue": ("你好", "世界"), "en": ("hello", "world")}
+    out = ss.split_translations(translations, 0, parts, 0.0, 5.0, 10.0)
+    assert len(out) == 3
+    assert out[0]["by_lang"]["yue"]["text"] == "你好"
+    assert out[0]["en_text"] == "hello"
+    assert out[1]["by_lang"]["en"]["text"] == "world"
+    assert out[0]["status"] == "pending" and out[1]["status"] == "pending"
+    assert out[0]["glossary_changes"] == [] and out[1]["glossary_changes"] == []
+    assert out[0]["start"] == 0.0 and out[0]["end"] == 5.0
+    assert out[1]["start"] == 5.0 and out[1]["end"] == 10.0
+
+
+def test_split_aligned_values_are_strings():
+    _, _, aligned = _sample_state()
+    parts = {"yue": ("你好", "世界"), "en": ("hello", "world")}
+    out = ss.split_aligned(aligned, 0, parts, 0.0, 5.0, 10.0)
+    assert out[0]["by_lang"]["yue"] == "你好"
+    assert out[1]["by_lang"]["en"] == "world"
+    assert out[0]["end"] == 5.0 and out[1]["start"] == 5.0
+
+
+def test_renumber_translations_sets_sequential_idx():
+    _, translations, _ = _sample_state()
+    parts = {"yue": ("你好", "世界"), "en": ("hello", "world")}
+    out = ss.renumber_translations(ss.split_translations(translations, 0, parts, 0.0, 5.0, 10.0))
+    assert [t["idx"] for t in out] == [0, 1, 2]

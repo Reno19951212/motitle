@@ -110,3 +110,59 @@ def build_split_prompt_system(langs: List[str]) -> str:
 
 def build_split_prompt_user(texts_by_lang: Dict[str, str]) -> str:
     return json.dumps(texts_by_lang, ensure_ascii=False)
+
+
+def split_base(base: List[dict], p: int, src_p1: str, src_p2: str,
+               start: float, mid: float, end: float) -> List[dict]:
+    """Split a {start,end,text} base segment in two. No id/words (output_lang shape)."""
+    seg1 = {"start": start, "end": mid, "text": src_p1}
+    seg2 = {"start": mid, "end": end, "text": src_p2}
+    return base[:p] + [seg1, seg2] + base[p + 1:]
+
+
+def _by_lang_text(v) -> str:
+    return (v.get("text") if isinstance(v, dict) else v) or ""
+
+
+def split_translations(translations: List[dict], p: int,
+                       parts: Dict[str, Tuple[str, str]],
+                       start: float, mid: float, end: float) -> List[dict]:
+    """Replace translation row p with two pending rows carrying each language's halves."""
+    row = translations[p]
+    by_lang = row.get("by_lang") or {}
+
+    def build(half: int) -> dict:
+        new_by: Dict[str, dict] = {}
+        new_row = {**row, "status": "pending", "glossary_changes": []}
+        for L, v in by_lang.items():
+            pair = parts.get(L)
+            txt = pair[half] if pair else _by_lang_text(v)
+            new_by[L] = {"text": txt, "status": "pending", "flags": []}
+            new_row[f"{L}_text"] = txt
+        new_row["by_lang"] = new_by
+        new_row["start"] = start if half == 0 else mid
+        new_row["end"] = mid if half == 0 else end
+        return new_row
+
+    return translations[:p] + [build(0), build(1)] + translations[p + 1:]
+
+
+def split_aligned(aligned: List[dict], p: int,
+                  parts: Dict[str, Tuple[str, str]],
+                  start: float, mid: float, end: float) -> List[dict]:
+    """Replace aligned row p with two rows (by_lang values are STRINGS)."""
+    row = aligned[p]
+    by_lang = row.get("by_lang") or {}
+
+    def build(half: int) -> dict:
+        new_by = {L: (parts[L][half] if L in parts else (v or ""))
+                  for L, v in by_lang.items()}
+        return {"start": start if half == 0 else mid,
+                "end": mid if half == 0 else end, "by_lang": new_by}
+
+    return aligned[:p] + [build(0), build(1)] + aligned[p + 1:]
+
+
+def renumber_translations(translations: List[dict]) -> List[dict]:
+    """Reset idx to list position for every row (new dicts)."""
+    return [{**t, "idx": i} for i, t in enumerate(translations)]
