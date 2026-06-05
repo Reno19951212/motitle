@@ -35,3 +35,12 @@ def normalize(text: str) -> str:
 def merge_text(a: str, b: str) -> str:
     """Join two cue texts with a single trimmed space."""
     return f"{(a or '').strip()} {(b or '').strip()}".strip()
+
+
+def compute_split_ratio(content_part1: str, content_full: str) -> float:
+    """Fraction of the cue's duration the first half gets, from the content/source
+    language char counts. Clamped to [0.15, 0.85]; 0.5 when the source is empty."""
+    full = len(content_full or "")
+    if full <= 0:
+        return 0.5
+    return max(0.15, min(0.85, len(content_part1 or "") / full))

@@ -20,3 +20,16 @@ def test_merge_text_joins_with_single_space_trimmed():
     assert ss.merge_text("你好", "世界") == "你好 世界"
     assert ss.merge_text("  a ", " b  ") == "a b"
     assert ss.merge_text("", "x") == "x"
+
+
+def test_compute_split_ratio_basic():
+    assert ss.compute_split_ratio("12345", "1234567890") == 0.5
+
+
+def test_compute_split_ratio_clamped_low_and_high():
+    assert ss.compute_split_ratio("x", "x" * 100) == 0.15      # 0.01 -> clamp 0.15
+    assert ss.compute_split_ratio("x" * 99, "x" * 100) == 0.85  # 0.99 -> clamp 0.85
+
+
+def test_compute_split_ratio_empty_full_is_half():
+    assert ss.compute_split_ratio("", "") == 0.5
