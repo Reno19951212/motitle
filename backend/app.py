@@ -62,6 +62,7 @@ from subtitle_text import (
     VALID_BILINGUAL_ORDERS,
     SUPPORTED_OUTPUT_LANGS,
 )
+import segment_split as ss
 
 # Try to import faster-whisper for better performance
 try:
@@ -5163,6 +5164,160 @@ def update_segment_text(file_id, seg_id):
         _save_registry()
 
     return jsonify({'status': 'ok', 'id': seg_id, 'text': new_text})
+
+
+# ---------------------------------------------------------------------------
+# Segment split / merge helpers + routes (output_lang only)
+# ---------------------------------------------------------------------------
+
+def _file_has_active_render(file_id):
+    """True if a render job is currently processing this file (app.py:3790 pattern)."""
+    with _render_jobs_lock:
+        for _rid, _job in _render_jobs.items():
+            if (_job.get("status") == "processing" and not _job.get("cancelled")
+                    and _job.get("file_id") == file_id):
+                return True
+    return False
+
+
+def _seg_split_gather_texts(entry, pos):
+    """Snapshot the cue's texts keyed by language (content language + outputs)."""
+    from output_lang_router import content_asr_lang
+    segs = entry.get("segments") or []
+    translations = entry.get("translations") or []
+    base_seg = segs[pos] if pos < len(segs) else {}
+    row = translations[pos]
+    start = base_seg.get("start", row.get("start", 0.0))
+    end = base_seg.get("end", row.get("end", 0.0))
+    src_text = (base_seg.get("text") or "").strip()
+    content_lang = content_asr_lang(entry.get("source_language") or "yue")
+    texts = {content_lang: src_text}
+    for L, v in (row.get("by_lang") or {}).items():
+        texts[L] = (v.get("text") if isinstance(v, dict) else v) or ""
+    return content_lang, texts, start, end, src_text
+
+
+def _seg_apply_split(entry, pos, parts, content_lang, r, start, end):
+    """Apply a split at pos to entry in place. Returns (segments, translations)."""
+    mid = round(start + (end - start) * r, 3)
+    src_p1, src_p2 = parts.get(content_lang, ("", ""))
+    segs = entry.get("segments") or []
+    entry["segments"] = ss.split_base(segs, pos, src_p1, src_p2, start, mid, end)
+    if entry.get("content_asr_segments"):
+        entry["content_asr_segments"] = ss.split_base(
+            entry["content_asr_segments"], pos, src_p1, src_p2, start, mid, end)
+    new_trans = ss.split_translations(entry.get("translations") or [], pos, parts, start, mid, end)
+    entry["translations"] = ss.renumber_translations(new_trans)
+    if entry.get("aligned_bilingual"):
+        entry["aligned_bilingual"] = ss.split_aligned(entry["aligned_bilingual"], pos, parts, start, mid, end)
+    if len(entry["segments"]) != len(entry["translations"]):
+        raise RuntimeError("segment/translation misalignment after split")
+    entry["text"] = " ".join((s.get("text") or "") for s in entry["segments"])
+    return list(entry["segments"]), list(entry["translations"])
+
+
+@app.route('/api/files/<file_id>/segments/<int:pos>/split', methods=['POST'])
+@require_file_owner
+def split_segment(file_id, pos):
+    """Split cue at 0-indexed position `pos` into two. mode: 'ai' | 'mechanical'."""
+    data = request.get_json(silent=True) or {}
+    mode = data.get("mode", "mechanical")
+    if mode not in ("ai", "mechanical"):
+        return jsonify({"error": "未知分割模式"}), 400
+    if _file_has_active_render(file_id):
+        return jsonify({"error": "正在渲染中，無法修改段落"}), 409
+
+    # Phase 1 — snapshot under lock
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+        if not entry:
+            return jsonify({"error": "文件不存在"}), 404
+        if entry.get("active_kind") != "output_lang":
+            return jsonify({"error": "分割只支援輸出語言流程"}), 400
+        translations = entry.get("translations") or []
+        if not (0 <= pos < len(translations)):
+            return jsonify({"error": "段落不存在"}), 404
+        content_lang, texts, start, end, src_text = _seg_split_gather_texts(entry, pos)
+        if round(end - start, 3) < 0.4:
+            return jsonify({"error": "段落太短，無法分割（最少 0.4 秒）"}), 400
+
+    # Compute the AI split OUTSIDE the lock (the LLM call is slow). Mechanical mode —
+    # and any AI fallback — is computed in Phase 3 from the freshly re-read cue, so it
+    # never acts on stale text. `ai_parts` stays None unless the LLM produced a usable
+    # split for a non-empty cue.
+    ai_parts = None
+    ai_r = 0.5
+    if mode == "ai" and any(texts.values()):
+        llm = _make_ollama_llm_call()
+        raw = llm(ss.build_split_prompt_system(list(texts.keys())),
+                  ss.build_split_prompt_user(texts))
+        parsed = ss.parse_split_response(raw, texts, content_lang)
+        if parsed is not None:
+            ai_parts = parsed
+            ai_r = ss.compute_split_ratio(parsed[content_lang][0], texts.get(content_lang, ""))
+
+    # Phase 3 — re-acquire, conflict check (AI only), apply
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+        if not entry:
+            return jsonify({"error": "文件不存在"}), 404
+        translations = entry.get("translations") or []
+        if not (0 <= pos < len(translations)):
+            return jsonify({"error": "段落已被其他操作修改，請重試"}), 409
+        cur_lang, cur_texts, cur_start, cur_end, cur_src = _seg_split_gather_texts(entry, pos)
+        if ai_parts is not None:
+            # The LLM result was derived from the Phase-1 snapshot — reject if ANY of the
+            # cue's texts (source OR output languages) or its timing changed meanwhile, so
+            # a concurrent translation edit is never silently overwritten.
+            if (abs(cur_start - start) > 1e-6 or abs(cur_end - end) > 1e-6
+                    or cur_src != src_text or cur_texts != texts):
+                return jsonify({"error": "段落已被其他操作修改，請重試"}), 409
+            parts, r = ai_parts, ai_r
+        else:
+            # mechanical / empty cue / AI fallback — split the CURRENT cue 50/50.
+            parts, r = ss.mechanical_parts(cur_texts), 0.5
+        try:
+            segments_out, translations_out = _seg_apply_split(
+                entry, pos, parts, cur_lang, r, cur_start, cur_end)
+            _save_registry()
+        except RuntimeError:
+            return jsonify({"error": "段落操作內部錯誤"}), 500
+    return jsonify({"segments": segments_out, "translations": translations_out}), 200
+
+
+@app.route('/api/files/<file_id>/segments/<int:pos>/merge-next', methods=['POST'])
+@require_file_owner
+def merge_next_segment(file_id, pos):
+    """Merge cue at `pos` with the next cue (pos+1)."""
+    if _file_has_active_render(file_id):
+        return jsonify({"error": "正在渲染中，無法修改段落"}), 409
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+        if not entry:
+            return jsonify({"error": "文件不存在"}), 404
+        if entry.get("active_kind") != "output_lang":
+            return jsonify({"error": "合併只支援輸出語言流程"}), 400
+        translations = entry.get("translations") or []
+        if not (0 <= pos < len(translations)):
+            return jsonify({"error": "段落不存在"}), 404
+        if pos + 1 >= len(translations):
+            return jsonify({"error": "已經係最後一段，無法合併下一段"}), 400
+        segs = entry.get("segments") or []
+        try:
+            entry["segments"] = ss.merge_base(segs, pos)
+            if entry.get("content_asr_segments"):
+                entry["content_asr_segments"] = ss.merge_base(entry["content_asr_segments"], pos)
+            entry["translations"] = ss.renumber_translations(ss.merge_translations(translations, pos))
+            if entry.get("aligned_bilingual"):
+                entry["aligned_bilingual"] = ss.merge_aligned(entry["aligned_bilingual"], pos)
+            if len(entry["segments"]) != len(entry["translations"]):
+                raise RuntimeError("misalignment after merge")
+            entry["text"] = " ".join((s.get("text") or "") for s in entry["segments"])
+            _save_registry()
+        except RuntimeError:
+            return jsonify({"error": "段落操作內部錯誤"}), 500
+        return jsonify({"segments": list(entry["segments"]),
+                        "translations": list(entry["translations"])}), 200
 
 
 @app.route('/api/files/<file_id>', methods=['PATCH'])
