@@ -55,22 +55,24 @@ Three parallel, positionally-aligned lists in the in-memory file registry
 > (`len(base) == len(live)`, app.py:601) and fall back if violated — so the invariant
 > is load-bearing, not cosmetic.
 
-### `entry["segments"]` — timing/source authority
+### `entry["segments"]` — timing/source base (output_lang shape, verified `app.py:537-554`)
 ```python
-{"id": int,       # POSITIONAL — equals 0-indexed list position, assigned at transcription
- "start": float,  # seconds
+{"start": float,  # seconds
  "end": float,
- "text": str,     # source/content-language text
- "words": [{"word","start","end","probability"}, ...]}  # may be []
+ "text": str}     # source/content-language text — NO "id", NO "words"
 ```
-- `PATCH /segments/<seg_id>` looks segments up by **`s["id"] == seg_id`** (linear scan,
-  `app.py:5147`). **Mandatory:** any insertion must renumber `id` to match position.
-- That PATCH branch also propagates the edit to `translations[*]["en_text"]` gated by
-  `t.get('seg_idx', i) == seg_position` (app.py:5156-5161). This touches **`en_text`
-  only** — an EN-mode field — so it is **inert for output_lang** (whose text lives in
-  `by_lang`/`{lang}_text`). Positional enumeration is the real segment↔translation key,
-  kept valid by the §4 renumber; the `idx`/`seg_idx` lookup is not a correctness concern
-  for this feature's scope.
+- **CRITICAL (verified):** for output_lang files, `_run_output_lang_bound_base`
+  (app.py:551-554) sets `segments = base`, `content_asr_segments = base`, all from the
+  SAME `base` list whose dicts are `{start, end, text}` only (app.py:537-538). There is
+  **no `id` field and no `words` field** (unlike profile/V6 segments). `segments` and
+  `content_asr_segments` are the same content.
+- Therefore split/merge are **keyed by 0-indexed POSITION** (= the translation `idx` =
+  list index), NOT by an `id` field. The route does direct positional access, not the
+  id-scan that profile-mode `PATCH /segments/<seg_id>` (app.py:5147) uses. There is **no
+  `id` to renumber and no `words` to partition** for output_lang.
+- The profile-mode `PATCH /segments` → `translations[*]["en_text"]` propagation
+  (app.py:5156-5161) is irrelevant here (output_lang doesn't use that route; its text
+  lives in `by_lang`/`{lang}_text`).
 
 ### `entry["translations"]` — output-language rows (verified `output_lang_persist.py`)
 ```python
@@ -100,11 +102,12 @@ Three parallel, positionally-aligned lists in the in-memory file registry
   rebuilds from the stale N-row base → misalignment / loss of the split. **Split/merge
   MUST keep `content_asr_segments` in sync** (§4) when it is present.
 
-### Route `seg_id` semantics (frontend↔backend contract)
-`seg_id` in the route equals the segment's **`id` field = its 0-indexed list position**.
-The frontend MUST send `seg.id` derived from the **same 0-indexed scheme**. (Today
-`loadSegments` sets `id: i + 1`; §6 changes the reconstruction to carry the backend's
-0-indexed `id` verbatim so `/segments/${seg.id}/split` hits the right cue.)
+### Route position semantics (frontend↔backend contract)
+The route's `<int:pos>` is a **0-indexed list position** — direct index into the four
+parallel lists (NOT an `id` field, which output_lang segments don't have). The frontend
+sends `segs[i].idx` (already 0-indexed; after a rebuild `idx === i` because the backend
+renumbers `translations[i].idx = i`). The display number `segs[i].id = i + 1` stays
+unchanged (it's only the human-friendly 段號 in `.rv-b-rail-num`).
 
 ### Downstream that needs **no change** (verified)
 - **SRT/VTT export** re-emits cue numbers sequentially; reads `start`/`end`. Export
@@ -124,9 +127,10 @@ The frontend MUST send `seg.id` derived from the **same 0-indexed scheme**. (Tod
 
 ### Endpoints
 ```
-POST /api/files/<file_id>/segments/<int:seg_id>/split   body: {"mode": "ai" | "mechanical"}
-POST /api/files/<file_id>/segments/<int:seg_id>/merge-next
+POST /api/files/<file_id>/segments/<int:pos>/split   body: {"mode": "ai" | "mechanical"}
+POST /api/files/<file_id>/segments/<int:pos>/merge-next
 ```
+`<int:pos>` = 0-indexed list position (direct index, validated `0 <= pos < len(translations)`).
 `@require_file_owner` (consistent with existing segment routes). Both return the
 **full updated arrays** `{ "segments": [...], "translations": [...] }`. The frontend
 rebuilds `segs[]` from **`translations`** alone (segments is backend bookkeeping; see §6).
@@ -135,14 +139,15 @@ rebuilds `segs[]` from **`translations`** alone (segments is backend bookkeeping
 - **mechanical split** and **merge-next** run fully inside `with _registry_lock:`,
   end with `_save_registry()`.
 - **AI split** is **three-phase** (mirrors glossary-reapply's snapshot→LLM→write):
-  1. **Phase 1 (lock held):** look up the segment by `id`; snapshot its texts
-     (`segments[p].text` + each `translations[p].by_lang[lang].text`) + `start`/`end`;
+  1. **Phase 1 (lock held):** validate `pos`; snapshot the cue's texts
+     (`segments[pos].text` + each `translations[pos].by_lang[lang].text`) + `start`/`end`;
      release lock.
   2. **Phase 2 (NO lock):** call the LLM on the snapshot (~2–5 s).
-  3. **Phase 3 (lock held):** re-locate the segment by `id` (it may have moved);
-     if its `id`/`start`/`end` changed since phase 1 → discard, return **409**
-     `{"error": "段落已被其他操作修改，請重試"}`. Else apply the split, renumber,
-     assert `len(segments)==len(translations)`, `_save_registry()`, return arrays.
+  3. **Phase 3 (lock held):** re-read position `pos`; if `translations[pos]`'s
+     `start`/`end` or the source text changed since phase 1 (concurrent insert/edit) →
+     discard, return **409** `{"error": "段落已被其他操作修改，請重試"}`. Else apply the
+     split, renumber `translations[].idx`, assert `len(segments)==len(translations)`,
+     `_save_registry()`, return arrays.
 
 ### Render-in-progress guard (S5)
 Before phase-1, check render state using the existing pattern (app.py:4054-4057):
@@ -157,7 +162,7 @@ app.py:819/4648). Do not read `_file_registry` while holding only `_render_jobs_
 | Condition | Status | Body |
 |---|---|---|
 | File not found | 404 | `{"error": "文件不存在"}` |
-| Segment id not found | 404 | `{"error": "段落不存在"}` |
+| `pos` out of range (`< 0` or `>= len(translations)`) | 404 | `{"error": "段落不存在"}` |
 | `active_kind != "output_lang"` | 400 | `{"error": "分割只支援輸出語言流程"}` |
 | split: `(end-start) < 0.4` s | 400 | `{"error": "段落太短，無法分割（最少 0.4 秒）"}` |
 | merge-next: seg is the last cue | 400 | `{"error": "已經係最後一段，無法合併下一段"}` |
@@ -169,8 +174,10 @@ app.py:819/4648). Do not read `_file_registry` while holding only `_render_jobs_
 
 ## 4. Cascade algorithm (the core)
 
-All present lists stay positionally aligned. `p` = list index of the segment whose
-`id == seg_id`.
+All present lists stay positionally aligned. `p = pos` (the 0-indexed route position;
+direct index into every list). For output_lang, `segments` and `content_asr_segments`
+are the same `{start,end,text}` base — both updated identically; only `translations`
+carries an index field (`idx`) that needs renumbering.
 
 ### SPLIT
 1. **Compute the two text halves per language:**
@@ -186,25 +193,25 @@ All present lists stay positionally aligned. `p` = list index of the segment who
      `r = len(part1_content) / len(content_text)`, clamped `[0.15, 0.85]`. If
      `content_text` empty → first output language; if still empty → `r = 0.5`.
 2. `mid = round(start + (end - start) * r, 3)`. `seg1 = [start, mid]`, `seg2 = [mid, end]`.
-3. **`segments`:** replace `segments[p]` with two dicts (`seg1` text = source part1,
-   `seg2` text = source part2; partition `words` by `w["start"] < mid`).
-4. **`content_asr_segments`** (if present): apply the **same** split at `mid` with the
-   same source parts → keeps re-derive ops correct.
+3. **`segments`:** replace `segments[p]` with two `{start,end,text}` dicts (`seg1` text =
+   source part1, `seg2` text = source part2). No `id`, no `words` (output_lang base shape).
+4. **`content_asr_segments`** (same as `segments` for output_lang): apply the **same**
+   split identically → keeps re-derive ops (glossary-reapply / add-2nd-lang) correct.
 5. **`translations`:** replace row `p` with two rows. Per language L:
    `by_lang[L] = {"text": partN_L, "status": "pending", "flags": []}`, mirror
    `{L}_text = partN_L`. Row `status = "pending"`, `glossary_changes = []`,
    `start`/`end` set to `seg1`/`seg2`.
 6. **`aligned_bilingual`** (if present): replace row `p` with two rows
    (`by_lang[L]` = partN_L **string**; `start`/`end` set).
-7. **Renumber** (mandatory — PATCH at app.py:5147 looks up by `id`):
-   `segments[i]["id"] = i` and `translations[i]["idx"] = i` for all `i`.
+7. **Renumber:** `translations[i]["idx"] = i` for all `i` (segments/base have no index
+   field — they are purely positional, so nothing to renumber there).
 8. Assert `len(segments) == len(translations)`. Rebuild
    `entry["text"] = " ".join(s["text"] for s in segments)`; `_save_registry()`.
 
 ### MERGE-NEXT
-1. `a = segments[p]`, `b = segments[p+1]`.
+1. `a = segments[p]`, `b = segments[p+1]` (last-cue guard: `p+1 < len`).
 2. `merge_text(x, y) = (x.strip() + " " + y.strip()).strip()` (works CJK + Latin; user
-   edits afterwards). Time `[a.start, b.end]`. `words = a.words + b.words`.
+   edits afterwards). Time `[a.start, b.end]`. (No `words` to concat — output_lang base.)
 3. **`translations`:** for each language L in `union(a.by_lang, b.by_lang)`:
    `merged.by_lang[L] = {"text": merge_text(a[L].text, b[L].text), "status":"pending", "flags":[]}`,
    mirror `{L}_text` = merged text. `glossary_changes` = both rows' lists concatenated
@@ -212,8 +219,8 @@ All present lists stay positionally aligned. `p` = list index of the segment who
    present): `by_lang[L]` values are **strings** → `merge_text(...)`.
 4. Apply the merge to `segments`, `content_asr_segments` (if present), `translations`,
    `aligned_bilingual` (if present); time `[a.start, b.end]`.
-5. **Renumber** `id` / `idx` (mandatory — PATCH lookup invariant); assert
-   `len(segments)==len(translations)`; rebuild `entry["text"]`; `_save_registry()`.
+5. **Renumber** `translations[i]["idx"] = i`; assert `len(segments)==len(translations)`;
+   rebuild `entry["text"]`; `_save_registry()`.
 
 ### Absent `content_asr_segments` (legacy files)
 Split/merge skip the base sync (`if present` guard) and are still safe. Downstream
@@ -308,20 +315,22 @@ lines 1930-1965 exactly:
   `durSec = (outMs-inMs)/1000`.
 - `cps = durSec>0 ? round(firstText.length/durSec,1) : 0`; `_cpsSecond` similarly.
 - `tsIn/tsOut = fmtMs(inMs/outMs)`; `duration = durSec.toFixed(1)`; `_hasSecond = !!secondL`.
-- `id` = backend `t`/segment 0-indexed id carried verbatim (NOT `i+1`); `idx = t.idx ?? i`.
+- `id = i + 1` (display 段號 only — unchanged); `idx = (typeof t.idx === 'number') ? t.idx : i`
+  (0-indexed POSITION — this is what the split/merge API path uses).
 - `approved = t.status === 'approved'`; `edited = t.edited === true`;
   `flags` = rebuilt via the existing helper (+ CPS flag); `glossary_changes =
   Array.isArray(t.glossary_changes) ? t.glossary_changes : []`.
 - stub `speaker/candidates/glossary/asr/mt`.
 
-> **id scheme (M3):** drop `loadSegments`'s `id: i+1` for output_lang and carry the
-> backend 0-indexed `id`; the split/merge buttons call `/segments/${seg.id}/...` so the
-> server's `s["id"] == seg_id` scan matches. This is an intentional change to the current
-> line 1946.
+> **position scheme (M3, corrected):** output_lang segments have **no `id` field** — the
+> grid is keyed by 0-indexed POSITION. Split/merge buttons call
+> `/segments/${segs[i].idx}/...` (`idx` from `translations[i].idx`). `loadSegments`'s
+> `id: i+1` stays as the display 段號 — **no change there**. This is simpler and avoids
+> touching line 1946.
 
 ### New JS
-- `splitSegment(i, mode)` → `POST .../segments/${segs[i].id}/split {mode}`.
-- `mergeNext(i)` → `POST .../segments/${segs[i].id}/merge-next`.
+- `splitSegment(i, mode)` → `POST .../segments/${segs[i].idx}/split {mode}`.
+- `mergeNext(i)` → `POST .../segments/${segs[i].idx}/merge-next`.
 - Both: `try { spinner on; r = await fetch(...); if (!r.ok) throw new Error((await r.json()).error || 'HTTP '+r.status); const {translations}=await r.json(); segs = _rebuildSegsFromArrays(translations, langs); renderSegList(); renderWaveformRegions(); setCursor(mode split ? i+1 : i, false); flash(...); showToast('段落已分割'/'已合併','success'); } catch(e){ showToast(e.message,'error'); } finally { spinner off; re-enable buttons; }`
   — mirrors `reapplyGlossary` / `saveEditEntry` error handling (S8).
 
@@ -360,7 +369,8 @@ lines 1930-1965 exactly:
 
 **Backend unit (`backend/tests/test_segment_split.py`):**
 - pure `segment_split.py`: ratio (mechanical=0.5, ai clamp 0.15–0.85), list splits keep
-  length+1 + correct renumber, merge keeps length-1, words partition by `mid`.
+  length+1 + correct `idx` renumber, merge keeps length-1, `segments` halves carry
+  `{start,end,text}` only (no `id`/`words`), `mid` computed from ratio.
 - `normalize()` + reconstruction guard: EN multi-space/punct/case; CJK no-space + punct
   movement + trailing ellipsis; trad↔simp via t2s passes; content-changed fails →
   fallback; bilingual one-lang-fail → whole split rejected; single-char splits.
