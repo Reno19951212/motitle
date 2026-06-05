@@ -42,3 +42,44 @@ def test_mechanical_parts_duplicates_each_language():
 
 def test_mechanical_parts_handles_empty():
     assert ss.mechanical_parts({"yue": ""}) == {"yue": ("", "")}
+
+
+def test_parse_split_response_plain_json_bilingual():
+    raw = '{"parts": [{"yue": "你好", "en": "hello"}, {"yue": "世界", "en": "world"}]}'
+    texts = {"yue": "你好世界", "en": "hello world"}
+    out = ss.parse_split_response(raw, texts, content_lang="yue")
+    assert out == {"yue": ("你好", "世界"), "en": ("hello", "world")}
+
+
+def test_parse_split_response_strips_markdown_fence():
+    raw = '```json\n{"parts": [{"yue": "你好"}, {"yue": "世界"}]}\n```'
+    out = ss.parse_split_response(raw, {"yue": "你好世界"}, content_lang="yue")
+    assert out == {"yue": ("你好", "世界")}
+
+
+def test_parse_split_response_extracts_json_from_preamble():
+    raw = '好的，結果係：{"parts": [{"yue": "你好"}, {"yue": "世界"}]} 完成'
+    out = ss.parse_split_response(raw, {"yue": "你好世界"}, content_lang="yue")
+    assert out == {"yue": ("你好", "世界")}
+
+
+def test_parse_split_response_rejects_content_change():
+    # LLM dropped a character -> reconstruction fails -> None (caller falls back)
+    raw = '{"parts": [{"yue": "你好"}, {"yue": "世"}]}'
+    assert ss.parse_split_response(raw, {"yue": "你好世界"}, content_lang="yue") is None
+
+
+def test_parse_split_response_rejects_empty_source_part():
+    raw = '{"parts": [{"yue": ""}, {"yue": "你好世界"}]}'
+    assert ss.parse_split_response(raw, {"yue": "你好世界"}, content_lang="yue") is None
+
+
+def test_parse_split_response_allows_empty_nonsource_part():
+    # source yue splits cleanly; en second part empty is tolerated
+    raw = '{"parts": [{"yue": "你好", "en": "hi there"}, {"yue": "世界", "en": ""}]}'
+    out = ss.parse_split_response(raw, {"yue": "你好世界", "en": "hi there"}, content_lang="yue")
+    assert out == {"yue": ("你好", "世界"), "en": ("hi there", "")}
+
+
+def test_parse_split_response_unparseable_returns_none():
+    assert ss.parse_split_response("not json at all", {"yue": "你好"}, content_lang="yue") is None

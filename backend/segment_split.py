@@ -49,3 +49,48 @@ def compute_split_ratio(content_part1: str, content_full: str) -> float:
 def mechanical_parts(texts_by_lang: Dict[str, str]) -> Dict[str, Tuple[str, str]]:
     """Mechanical / fallback split: both halves duplicate the full text per language."""
     return {lang: (txt or "", txt or "") for lang, txt in texts_by_lang.items()}
+
+
+def parse_split_response(
+    raw: str, texts_by_lang: Dict[str, str], content_lang: str
+) -> Optional[Dict[str, Tuple[str, str]]]:
+    """Parse the LLM split response into {lang: (part1, part2)}.
+
+    Repairs markdown fences / <think> tags / preamble, then validates per language:
+    reconstruction `normalize(p1+p2) == normalize(original)`; the content/source
+    language must split into two non-empty parts. Returns None on any failure so the
+    caller can fall back to mechanical_parts().
+    """
+    if not raw:
+        return None
+    s = raw.strip()
+    s = re.sub(r"<think>.*?</think>", "", s, flags=re.DOTALL).strip()
+    s = re.sub(r"^```[a-zA-Z]*\s*", "", s)
+    s = re.sub(r"\s*```$", "", s).strip()
+    obj = None
+    try:
+        obj = json.loads(s)
+    except Exception:
+        m = re.search(r"\{.*\}", s, flags=re.DOTALL)
+        if not m:
+            return None
+        try:
+            obj = json.loads(m.group(0))
+        except Exception:
+            return None
+    parts = obj.get("parts") if isinstance(obj, dict) else None
+    if not isinstance(parts, list) or len(parts) != 2:
+        return None
+    p1, p2 = parts
+    if not isinstance(p1, dict) or not isinstance(p2, dict):
+        return None
+    out: Dict[str, Tuple[str, str]] = {}
+    for lang, original in texts_by_lang.items():
+        a = (p1.get(lang) or "").strip()
+        b = (p2.get(lang) or "").strip()
+        if normalize(a + b) != normalize(original):
+            return None
+        if lang == content_lang and (original or "").strip() and (not a or not b):
+            return None
+        out[lang] = (a, b)
+    return out
