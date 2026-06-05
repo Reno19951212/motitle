@@ -305,7 +305,9 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 
 **`index.html`** — Main dashboard. File upload, transcription with progress, auto-translation, profile selector, transcript display (auto-switches to Chinese when translations available), subtitle overlay on video playback.
 
-**`proofread.html`** — Standalone proof-reading editor. Side-by-side layout: video player (left) + segment table (right). Inline editing of Chinese translations, per-segment and bulk approval, keyboard shortcuts, format picker (MP4/MXF), render with progress polling and download.
+**`proofread.html`** — Standalone proof-reading editor. Side-by-side layout: video player (left) + segment table (right). Inline editing of Chinese translations, per-segment and bulk approval, keyboard shortcuts, format picker (MP4/MXF), render with progress polling and download. Segment rail rows show **In + Out** timecodes (stacked); **clicking a row seeks the video** (`setCursor(i, true)`, same as the timeline). Layout is fill-chain robust — `.rv-b` uses `grid-template-rows: minmax(0,1fr)` and the `.proofread-*-pane` wrappers are flex columns so 詞彙表/字幕設定 panels scroll internally and the **時間軸 (waveform) stays pinned visible** at the bottom across all widths/zoom (was overflowing off-screen).
+
+**Subtitle display default (2026-06-05, display-only)** — `resolveSubtitleSource` (in both `index.html` + `proofread.html`) defaults the **no-override** case to **雙語 when the file has ≥2 language tracks, else the single 第一語言** (read from `fileEntry.languages`). It is shown as the *selected* default (proofread dropdown + dashboard source-toggle highlight) and remains fully switchable to 第一/第二/雙語/auto. Only the display default changed; `pickSubtitleText` still mirrors the backend, and **backend `resolve_segment_text` (export/render) is unchanged** — export/render `auto` stays translation-preferred and overridable per-file.
 
 ### Pipeline Progress Contract（v3.20+）
 

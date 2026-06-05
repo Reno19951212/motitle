@@ -4,6 +4,16 @@
 
 ## Completed Features
 
+### 校對頁版面 + 字幕雙語預設顯示（2026-06-05）
+- **校對頁版面修復（純前端 `proofread.html` + `css/responsive.css`）**：
+  - **時間軸永遠貼底可見** —— 之前面板 `min-height` 太高 + grid cell 用 block wrapper 唔受視窗高度約束，內容一高過視窗 `overflow:hidden` 就將底部時間軸切走（實測 1200×760 時時間軸跌到 y=949 完全出界）。修法：`.rv-b` 加 `grid-template-rows: minmax(0,1fr)`（grid row 鎖死視窗高）、`.proofread-*-pane`（mobile-tab wrapper / grid cell）改 flex column、`.rv-b-left`/`.rv-b-right` `flex:1 1 0` 填滿、`.rv-b-top-row` `overflow:hidden`、`.rv-b-vid-panels` `min-height:0`（panel 內部 scroll）、時間軸 `flex:0 0 auto` 永不縮。實測闊度 860–1512 × 高度 720–982 + 等效 zoom 到 760×560，時間軸全部 ≤ 視窗、貼底可見。
+  - 詞彙表/字幕設定 panel 改 **vh-based** 比例（影片 `max-height: clamp(150px,34vh,420px)` + `object-fit:contain` letterbox，面板填滿剩餘空間並內部 scroll）；波形高度 `clamp(70px,9.5vh,112px)`（自適應 + 整體收細）。
+  - **段列表每行加 In + Out 時間**（疊住：In accent / Out dim，hover tooltip；時間欄 46→56px）。
+  - **撳段列表行 = 同步 seek video**：row onclick `setCursor(i)` → `setCursor(i, true)`，同時間軸 region 一致（實測撳第 5 行 video currentTime 0.00→8.69s = 該段 In）。
+- **字幕顯示預設（主頁 + 校對頁，純顯示）**：`resolveSubtitleSource` 嘅 **未覆寫** 預設由 `'auto'` 改成按 `fileEntry.languages` 語言數 —— **≥2 語言 → 雙語、1 語言 → 第一語言**；顯示為已揀選項（校對頁 dropdown + 主頁來源掣 highlight `_effSrc=_fileSrc||_dlSrc`），仍可切換 第一/第二/雙語/auto（只改預設，顯式選擇照舊）。`pickSubtitleText` 維持 backend mirror；**backend `resolve_segment_text`（匯出/render）不變** —— export/render `auto` 仍譯文優先、可逐檔覆寫，避免無意中將 render 預設改成雙語燒入。
+- **測試**：`test_proofread_layout` + `test_bilingual_selector` + `test_glossary_v2_proofread` 全綠（9 pass / 2 pre-existing skip）；時間軸跨闊度/zoom + 雙語預設 + 切換 Playwright 量化驗證。
+- **已知 minor（LOW，非 blocker）**：`fileInfo.languages` 缺失時預設源理論上不一致（正常 `/api/files` path 永遠有 descriptor，unreachable）；In/Out 時間欄對 ≥100 分鐘片可能輕微 clip（有 tooltip）。
+
 ### 詞彙表 Review v2 — output_lang glossary 自動套用（post-derive stage + before/after + reapply）（2026-06-05）
 - **目標**：output_lang pipeline 之前完全唔套用任何術語表（glossary），馬名/騎師名/專有名詞由 LLM 自行決定 → 跑馬廣播片出現不一致/錯譯。v2 喺 pipeline 嘅 **post-derivation** 位置統一加一個 deterministic glossary stage，支援多詞彙表 ordered first-wins 合併、source 同 target 兩側路由、LLM 精修選項，並在校對頁逐段顯示「原文 → 規範後」對照。
 - **核心架構（純模組，注入式）**：新 `backend/output_lang_glossary.py` —— `glossary_stage(segs, glossaries, llm_call, llm_enabled)` 純函數，deterministic 套用（suffix-strip 如馬匹編號 `(K335)` + verbatim canonicalize）+ 可選 LLM 精修 escalation；多 glossary **ordered first-wins** merge（入參順序＝優先）；**全語言對自動路由**（MT 輸出配 source side，refine/passthrough 輸出配 target side）；per-language **false-injection guard**（單個常見英文字 deny-list + ≤2-char 中文 target skip）。
