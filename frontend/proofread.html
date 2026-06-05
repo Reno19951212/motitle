@@ -3065,6 +3065,19 @@
       }
     }
 
+    // Segment split/merge — fire even while editing a textarea (before inInput guard).
+    // Note: Ctrl+Shift+D / Ctrl+Shift+M may be shadowed by browser shortcuts on some
+    // platforms; the row buttons are the primary path.
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'S' || e.key === 's')) {
+      e.preventDefault(); if (cursorIdx >= 0) splitSegment(cursorIdx, 'ai'); return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
+      e.preventDefault(); if (cursorIdx >= 0) splitSegment(cursorIdx, 'mechanical'); return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'M' || e.key === 'm')) {
+      e.preventDefault(); if (cursorIdx >= 0) mergeNext(cursorIdx); return;
+    }
+
     // Cmd+Enter works even in textarea (handled by onZhKey) — skip here
     if (inInput) return;
     if (e.key === 'j' || e.key === 'J') { e.preventDefault(); nav(-1); }
