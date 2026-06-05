@@ -31,7 +31,9 @@ def init_db(db_path: str) -> None:
     # Idempotent migration: older DBs created before the remarks column.
     cols = [r[1] for r in conn.execute("PRAGMA table_info(users)").fetchall()]
     if "remarks" not in cols:
+        conn.execute("BEGIN")
         conn.execute("ALTER TABLE users ADD COLUMN remarks TEXT NOT NULL DEFAULT ''")
+        conn.execute("COMMIT")
     # R5 Phase 5 T2.3: WAL + synchronous=NORMAL — enables concurrent reads
     # under writes (admin dashboard polling vs login transactions).
     conn.execute("PRAGMA journal_mode=WAL")
@@ -153,14 +155,17 @@ def update_password(db_path: str, username: str, new_password: str) -> None:
 
 def update_remarks(db_path: str, user_id: int, remarks: str) -> None:
     """Set a user's admin-authored remarks. Trims whitespace; caps at
-    REMARKS_MAX_LEN characters. Empty string is allowed (clears the note)."""
+    REMARKS_MAX_LEN characters. Empty string is allowed (clears the note).
+    Raises ValueError if user_id does not exist."""
     text = (remarks or "").strip()
     if len(text) > REMARKS_MAX_LEN:
         raise ValueError(f"remarks too long (max {REMARKS_MAX_LEN} characters)")
     conn = get_connection(db_path)
     try:
-        conn.execute("UPDATE users SET remarks = ? WHERE id = ?", (text, user_id))
+        cur = conn.execute("UPDATE users SET remarks = ? WHERE id = ?", (text, user_id))
         conn.commit()
+        if cur.rowcount == 0:
+            raise ValueError(f"user id {user_id} not found")
     finally:
         conn.close()
 

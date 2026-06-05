@@ -211,9 +211,16 @@ def test_update_remarks_trims_and_caps_length(db_path):
     uid = get_user_by_username(db_path, "alice")["id"]
     update_remarks(db_path, uid, "  hi  ")
     assert get_user_by_username(db_path, "alice")["remarks"] == "hi"
-    import pytest
+    update_remarks(db_path, uid, "x" * 500)  # exactly at the cap — must not raise
+    assert get_user_by_username(db_path, "alice")["remarks"] == "x" * 500
     with pytest.raises(ValueError):
         update_remarks(db_path, uid, "x" * 501)
+
+
+def test_update_remarks_unknown_user_raises(db_path):
+    from auth.users import update_remarks
+    with pytest.raises(ValueError):
+        update_remarks(db_path, 999999, "x")
 
 
 def test_init_db_migrates_existing_db_idempotently(tmp_path):
