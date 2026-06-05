@@ -284,6 +284,8 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | POST | `/api/files/<id>/glossary-scan` | Scan translations for glossary violations (string match) |
 | POST | `/api/files/<id>/glossary-apply` | Apply glossary corrections via LLM smart replacement |
 | POST | `/api/files/<id>/glossary-reapply` | output_lang only — 重新套用詞彙表，由 cached content base 1:1 re-derive（無 re-ASR）；非 output_lang / 無 content base / 未知 glossary → 400 |
+| POST | `/api/files/<id>/segments/<pos>/split` | output_lang only — split cue at 0-indexed `pos` into two; body `{mode: "ai"\|"mechanical"}` (ai = LLM semantic split, mechanical = 50/50 midpoint + duplicate text); syncs segments/translations/aligned_bilingual/content_asr_segments; 400 non-output_lang / <0.4s, 409 render-in-progress / concurrent-edit |
+| POST | `/api/files/<id>/segments/<pos>/merge-next` | output_lang only — merge cue `pos` with `pos+1` (join text, union time, reset pending); 400 last-cue / non-output_lang, 409 render-in-progress |
 | GET | `/api/languages` | List language configs |
 | GET | `/api/languages/<id>` | Get language config |
 | PATCH | `/api/languages/<id>` | Update language config |
@@ -429,6 +431,11 @@ This section summarises the CURRENT behaviour a developer needs; older entries l
 - **`racing.txt` (馬會賽馬 style)** upgraded to the qwen3.5-validated HKJC-persona racing-register prompt, incl. a no-省略號-on-fragments rule + `crosslang_mt._clean` trailing-ellipsis strip.
 - **Admin reset-password / create-user** map a weak/empty-password `ValueError` to a clean **400** (was 500); the policy (≥8 chars, not a common password) is shown in `user.html`.
 - **Settings gear (`#settingsGearBtn`) REMOVED** from the dashboard topbar (only 管理 + 登出 in the user chip). 語言配置 management (`openLangConfigManageModal`) has NO UI entry anymore (its gear + the strip step-menu entry are both gone) — it is RETIRED; the remaining modal/function/strip JS is dead code.
+
+### Proofread segment split / merge (output_lang)
+
+- Each segment row has two left-side buttons — **AI 切割** (Ollama `qwen3.5:35b-a3b` splits every language at one aligned semantic/punctuation boundary; time split by content-language char ratio clamped 0.15–0.85) and **機械式硬切割** (50/50 midpoint, both halves duplicate the text) — plus a right-side **合併下一段**. Keyboard: `Ctrl+Shift+S` / `Ctrl+Shift+D` / `Ctrl+Shift+M`. Buttons are gated to output_lang rows only; rows under 0.4 s have split buttons disabled.
+- Pure logic in `backend/segment_split.py`; routes in `app.py` (AI path snapshots under `_registry_lock`, calls the LLM lock-free, re-acquires + conflict-checks). The cascade keeps `segments`/`translations`/`aligned_bilingual`/`content_asr_segments` positionally aligned and renumbers `translations[].idx`, so SRT export / render / glossary-reapply / add-second-language stay correct. AI failure (bad JSON, reconstruction mismatch, empty source part) falls back to mechanical automatically.
 
 ### Remaining UI to retire (dead code, no entry point)
 
