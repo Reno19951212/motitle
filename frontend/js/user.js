@@ -110,3 +110,180 @@ document.getElementById('changePwForm').addEventListener('submit', async (e) => 
 
 // loadUsers / loadAudit defined in the user-management + audit sections below.
 loadMe();
+
+// ============================================================
+// User management (admin)
+// ============================================================
+const AVATAR_GRADIENTS = [
+  'linear-gradient(135deg,#6c63ff,#a78bfa)',
+  'linear-gradient(135deg,#38bdf8,#6c63ff)',
+  'linear-gradient(135deg,#22c55e,#38bdf8)',
+  'linear-gradient(135deg,#f59e0b,#ef4444)',
+  'linear-gradient(135deg,#a78bfa,#ef4444)',
+];
+function avatarGradient(id) { return AVATAR_GRADIENTS[id % AVATAR_GRADIENTS.length]; }
+
+async function loadUsers() {
+  const r = await fetch('/api/admin/users', { credentials: 'same-origin' });
+  if (!r.ok) { showToast('載入用戶失敗', 'error'); return; }
+  USERS = await r.json();
+  USER_MAP = {};
+  USERS.forEach(u => { USER_MAP[u.id] = u.username; });
+  document.getElementById('navUsersCount').textContent = USERS.length;
+  renderUsers();
+  // audit actor/target labels depend on USER_MAP — re-render if already loaded
+  if (AUDIT_ROWS.length) renderAudit();
+}
+
+function renderUsers() {
+  const tb = document.getElementById('adminUserList');
+  if (!USERS.length) { tb.innerHTML = '<tr><td colspan="5" class="empty-row">未有用戶</td></tr>'; return; }
+  tb.innerHTML = USERS.map(u => {
+    const isMe = ME && u.id === ME.id;
+    const rolePill = u.is_admin
+      ? '<span class="role-pill role-admin" style="font-size:10px;padding:1px 8px;"><span class="pdot"></span>管理員</span>'
+      : '<span class="role-pill role-user" style="font-size:10px;padding:1px 8px;"><span class="pdot"></span>用戶</span>';
+    const remark = (u.remarks && u.remarks.trim())
+      ? `<div class="remark-text">${escapeHtml(u.remarks)}</div>`
+      : '<div class="remark-empty">— 未有備註 —</div>';
+    const toggleTitle = u.is_admin ? '降級為用戶' : '升為管理員';
+    const toggleIcon = u.is_admin
+      ? '<path d="M8 11V3M4 7l4 4 4-4"/>'
+      : '<path d="M8 3v8M4 7l4-4 4 4"/>';
+    return `
+      <tr class="urow ${isMe ? 'me' : ''}" data-testid="admin-user-row" data-user-id="${u.id}">
+        <td class="idcell">${u.id}</td>
+        <td><div class="u-cell"><div class="u-av" style="background:${avatarGradient(u.id)}">${escapeHtml(initial(u.username))}</div>
+          <div><div class="u-name">${escapeHtml(u.username)} ${rolePill}</div>${isMe ? '<div class="u-sub">你自己</div>' : ''}</div></div></td>
+        <td class="remark-cell">${remark}</td>
+        <td class="timecell">${fmtDate(u.created_at)}</td>
+        <td class="actcell">
+          <button class="iconbtn" title="備註" data-testid="admin-user-remark" onclick="expandRow(${u.id},'remark')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-8 8H3v-3z"/></svg></button>
+          <button class="iconbtn" title="重設密碼" onclick="expandRow(${u.id},'reset')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 015 0v2"/></svg></button>
+          <button class="iconbtn" title="${toggleTitle}" onclick="toggleAdmin(${u.id})"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${toggleIcon}</svg></button>
+          <button class="iconbtn danger" title="${isMe ? '不能刪除自己' : '刪除'}" ${isMe ? 'disabled' : ''} data-testid="admin-user-delete" onclick="expandRow(${u.id},'delete')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h10M6 4V3h4v1M5 4l.5 9h5L11 4"/></svg></button>
+        </td>
+      </tr>`;
+  }).join('');
+  // re-open an expansion if one was active before a re-render
+  if (openExpand) {
+    const { userId, kind } = openExpand;
+    openExpand = null;
+    expandRow(userId, kind);
+  }
+}
+
+function closeExpand() {
+  const ex = document.querySelector('#adminUserList tr.expand-row');
+  if (ex) ex.remove();
+  openExpand = null;
+}
+
+function expandRow(userId, kind) {
+  // toggle off if same row+kind already open
+  if (openExpand && openExpand.userId === userId && openExpand.kind === kind) { closeExpand(); return; }
+  closeExpand();
+  const u = USERS.find(x => x.id === userId);
+  if (!u) return;
+  const row = document.querySelector(`#adminUserList tr.urow[data-user-id="${userId}"]`);
+  if (!row) return;
+  const tr = document.createElement('tr');
+  tr.className = 'expand-row';
+  let inner = '';
+  if (kind === 'delete') {
+    inner = `<div class="expand-inner expand-danger">
+      <span class="warn">⚠ 確定刪除「${escapeHtml(u.username)}」？此操作無法復原</span>
+      <span class="spacer"></span>
+      <button class="btn-xs btn-sec" onclick="closeExpand()">取消</button>
+      <button class="btn-xs btn-dng" data-testid="admin-user-delete-confirm" onclick="confirmDelete(${userId})">確認刪除</button></div>`;
+  } else if (kind === 'reset') {
+    inner = `<div class="expand-inner expand-edit">
+      <span style="color:var(--accent-2);font-size:12px;font-weight:600;">為「${escapeHtml(u.username)}」設定新密碼</span>
+      <input type="password" id="resetPwInput" placeholder="新密碼（≥8 字）">
+      <span class="spacer"></span>
+      <button class="btn-xs btn-sec" onclick="closeExpand()">取消</button>
+      <button class="btn-primary" style="padding:6px 13px;" onclick="confirmReset(${userId})">確認重設</button></div>`;
+  } else if (kind === 'remark') {
+    const cur = u.remarks || '';
+    inner = `<div class="expand-inner expand-remark">
+      <div class="er-head"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="var(--accent-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-8 8H3v-3z"/></svg>用戶備註 · ${escapeHtml(u.username)}</div>
+      <textarea id="remarkInput" maxlength="${REMARKS_MAX}" placeholder="輸入備註，例如：夜更校對員、外判翻譯員、暫停使用…" oninput="document.getElementById('remarkCount').textContent=this.value.length">${escapeHtml(cur)}</textarea>
+      <div class="er-foot"><span class="er-count"><span id="remarkCount">${cur.length}</span> / ${REMARKS_MAX}</span><span class="spacer"></span>
+        <button class="btn-xs btn-sec" onclick="closeExpand()">取消</button>
+        <button class="btn-primary" style="padding:6px 13px;" data-testid="admin-user-remark-save" onclick="saveRemarks(${userId})">儲存備註</button></div></div>`;
+  }
+  const td = document.createElement('td');
+  td.colSpan = 5; td.style.padding = '0';
+  td.innerHTML = inner;
+  tr.appendChild(td);
+  row.after(tr);
+  openExpand = { userId, kind };
+  const focusEl = tr.querySelector('input, textarea');
+  if (focusEl) focusEl.focus();
+}
+
+async function confirmDelete(userId) {
+  const r = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE', credentials: 'same-origin' });
+  if (!r.ok) { const e = await r.json().catch(()=>({})); showToast('刪除失敗：' + (e.error || r.status), 'error'); return; }
+  closeExpand();
+  showToast('用戶已刪除', 'success');
+  loadUsers(); loadAudit();
+}
+
+async function confirmReset(userId) {
+  const input = document.getElementById('resetPwInput');
+  const pw = input ? input.value : '';
+  if (pw.length < PW_MIN_LEN) { showToast(`密碼太短（少於 ${PW_MIN_LEN} 字）`, 'error'); return; }
+  const r = await fetch(`/api/admin/users/${userId}/reset-password`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+    body: JSON.stringify({ new_password: pw }),
+  });
+  if (!r.ok) { const e = await r.json().catch(()=>({})); showToast('重設失敗：' + (e.error || r.status), 'error'); return; }
+  closeExpand();
+  showToast('密碼已重設', 'success');
+  loadAudit();
+}
+
+async function saveRemarks(userId) {
+  const input = document.getElementById('remarkInput');
+  const remarks = input ? input.value : '';
+  const r = await fetch(`/api/admin/users/${userId}/remarks`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+    body: JSON.stringify({ remarks }),
+  });
+  if (!r.ok) { const e = await r.json().catch(()=>({})); showToast('備註儲存失敗：' + (e.error || r.status), 'error'); return; }
+  closeExpand();
+  showToast('備註已儲存', 'success');
+  loadUsers(); loadAudit();
+}
+
+async function toggleAdmin(userId) {
+  const r = await fetch(`/api/admin/users/${userId}/toggle-admin`, { method: 'POST', credentials: 'same-origin' });
+  if (!r.ok) { const e = await r.json().catch(()=>({})); showToast('失敗：' + (e.error || r.status), 'error'); return; }
+  showToast('權限已更新', 'success');
+  loadUsers(); loadAudit();
+}
+
+// create user
+document.getElementById('adminUserCreateForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const pw = fd.get('password') || '';
+  if (pw.length < PW_MIN_LEN) { showToast(`密碼太短（少於 ${PW_MIN_LEN} 字）`, 'error'); return; }
+  const r = await fetch('/api/admin/users', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+    body: JSON.stringify({ username: fd.get('username'), password: pw, is_admin: fd.get('is_admin') === 'on' }),
+  });
+  if (!r.ok) { const er = await r.json().catch(()=>({})); showToast(`建立失敗：${er.error || r.status}`, 'error'); return; }
+  e.target.reset();
+  showToast('用戶已建立', 'success');
+  loadUsers(); loadAudit();
+});
+
+// expose inline-handler functions to global scope (onclick=)
+window.expandRow = expandRow;
+window.closeExpand = closeExpand;
+window.confirmDelete = confirmDelete;
+window.confirmReset = confirmReset;
+window.saveRemarks = saveRemarks;
+window.toggleAdmin = toggleAdmin;
