@@ -179,7 +179,8 @@ def reset_password_route(user_id):
 @admin_required
 def update_remarks_route(user_id):
     data = request.get_json(silent=True) or {}
-    remarks = data.get("remarks", "")
+    remarks = data.get("remarks") or ""
+    trimmed = remarks.strip()
     db = current_app.config["AUTH_DB_PATH"]
     target = get_user_by_id(db, user_id)
     if not target:
@@ -187,11 +188,12 @@ def update_remarks_route(user_id):
     try:
         update_remarks(db, user_id, remarks)
     except ValueError as e:
-        return jsonify({"error": "備註過長（上限 500 字）" if "too long" in str(e) else str(e)}), 400
+        # Mirror _friendly_pw_error's case-insensitive match + safe fallback.
+        return jsonify({"error": "備註過長（上限 500 字）" if "too long" in str(e).lower() else str(e)}), 400
     log_audit(db, actor_id=current_user.id, action="user.update_remarks",
               target_kind="user", target_id=str(user_id),
-              details={"remarks": (remarks or "").strip()})
-    return jsonify({"ok": True, "remarks": (remarks or "").strip()}), 200
+              details={"remarks": trimmed})
+    return jsonify({"ok": True, "remarks": trimmed}), 200
 
 
 @bp.post("/api/admin/users/<int:user_id>/toggle-admin")
