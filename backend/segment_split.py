@@ -94,3 +94,19 @@ def parse_split_response(
             return None
         out[lang] = (a, b)
     return out
+
+
+def build_split_prompt_system(langs: List[str]) -> str:
+    lang_list = ", ".join(langs)
+    return (
+        "你係字幕分割助手。將每種語言嘅字幕分成兩個連續部分，"
+        "切點要喺自然語意/標點邊界（優先標點符號）。每種語言喺對應嘅語意位置切，保持兩段對齊。"
+        "必須保留原文用字同書寫系統（繁/簡），唔好翻譯、唔好改寫、唔好加減任何字。"
+        f"輸入語言：{lang_list}。"
+        '只輸出 JSON，格式：{"parts": [{"<lang>": "前半"}, {"<lang>": "後半"}]}，'
+        "唔好有 markdown、唔好有解釋、唔好有思考標籤。"
+    )
+
+
+def build_split_prompt_user(texts_by_lang: Dict[str, str]) -> str:
+    return json.dumps(texts_by_lang, ensure_ascii=False)

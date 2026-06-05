@@ -83,3 +83,15 @@ def test_parse_split_response_allows_empty_nonsource_part():
 
 def test_parse_split_response_unparseable_returns_none():
     assert ss.parse_split_response("not json at all", {"yue": "你好"}, content_lang="yue") is None
+
+
+def test_build_split_prompt_user_is_json_of_texts():
+    texts = {"yue": "你好世界", "en": "hello"}
+    assert json.loads(ss.build_split_prompt_user(texts)) == texts
+
+
+def test_build_split_prompt_system_mentions_langs_and_json_and_punctuation():
+    sysp = ss.build_split_prompt_system(["yue", "en"])
+    assert "yue" in sysp and "en" in sysp
+    assert "JSON" in sysp
+    assert "標點" in sysp  # punctuation-priority instruction present
