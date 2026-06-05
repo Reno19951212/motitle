@@ -559,6 +559,8 @@
       cursor: pointer;
       align-items: start;
     }
+    /* Non-output_lang pipelines have no split/merge buttons → original 4-column row. */
+    .rv-b-rail-item.rv-b-rail-item--noops { grid-template-columns: 24px 56px 1fr auto; }
     .rv-b-rail-item:hover { background: var(--surface-2); }
     .rv-b-rail-item.cur {
       background: var(--accent-soft);
@@ -1973,14 +1975,14 @@
     if ((s.out - s.in) < 400) { showToast('段落太短，無法分割（最少 0.4 秒）', 'warning'); return; }
     _segOpBusy = true;
     const row = document.querySelector(`.rv-b-rail-item[data-idx="${i}"]`);
-    if (row && mode === 'ai') row.classList.add('rv-seg-busy');
+    if (row) row.classList.add('rv-seg-busy');
     try {
       const r = await fetch(`${API_BASE}/api/files/${fileId}/segments/${s.idx}/split`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode }),
       });
-      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
-      const data = await r.json();
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
       segs = _rebuildSegsFromArrays(data.translations, _olLangs);
       renderSegList();
       renderWaveformRegions();
@@ -2002,12 +2004,14 @@
     if (!s) return;
     if (i + 1 >= segs.length) { showToast('已經係最後一段，無法合併下一段', 'warning'); return; }
     _segOpBusy = true;
+    const row = document.querySelector(`.rv-b-rail-item[data-idx="${i}"]`);
+    if (row) row.classList.add('rv-seg-busy');
     try {
       const r = await fetch(`${API_BASE}/api/files/${fileId}/segments/${s.idx}/merge-next`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
       });
-      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
-      const data = await r.json();
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
       segs = _rebuildSegsFromArrays(data.translations, _olLangs);
       renderSegList();
       renderWaveformRegions();
@@ -2018,6 +2022,8 @@
       showToast('合併失敗：' + e.message, 'error');
     } finally {
       _segOpBusy = false;
+      const r2 = document.querySelector(`.rv-b-rail-item[data-idx="${i}"]`);
+      if (r2) r2.classList.remove('rv-seg-busy');
     }
   }
 
@@ -2201,8 +2207,9 @@
         const color = f.type === 'review' || f.type.startsWith('low-') || f.type === 'untranslated' ? 'rose' : 'amber';
         return `<span class="qa-flag qa-flag-${color}" title="${escapeHtml(f.msg || '')}">${flagLabel(f.type)}</span>`;
       }).join('') + (s.glossary_changes && s.glossary_changes.length ? '<span class="qa-flag" title="詞彙表已套用">📖</span>' : '');
-      return `
-        <div class="rv-b-rail-item ${cur} ${ap}" data-idx="${i}" onclick="setCursor(${i}, true)">
+      // Split/merge is output_lang-only. Other pipeline kinds render the original
+      // 4-column row (no ops cluster / merge button) via the --noops modifier.
+      const opsHtml = isOutputLang ? `
           <div class="rv-b-rail-ops">
             <button class="rv-seg-btn rv-seg-ai" title="AI 智能分割 (Ctrl+Shift+S)"
               onclick="event.stopPropagation(); splitSegment(${i}, 'ai')" ${tooShort ? 'disabled' : ''}>
@@ -2216,7 +2223,18 @@
                 stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M8 1v14M5 5L3 3M5 5a2 2 0 1 1-3 0 2 2 0 0 1 3 0zM5 11l-2 2M5 11a2 2 0 1 0-3 0 2 2 0 0 0 3 0z"/></svg>
             </button>
-          </div>
+          </div>` : '';
+      const mergeHtml = isOutputLang ? `
+          <button class="rv-seg-btn rv-seg-merge" title="合併下一段 (Ctrl+Shift+M)"
+            onclick="event.stopPropagation(); mergeNext(${i})" ${isLast ? 'disabled' : ''}>
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+              stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h8M4 12h8M6 7l2 2 2-2"/></svg>
+          </button>` : '';
+      const noops = isOutputLang ? '' : 'rv-b-rail-item--noops';
+      return `
+        <div class="rv-b-rail-item ${cur} ${ap} ${noops}" data-idx="${i}" onclick="setCursor(${i}, true)">
+          ${opsHtml}
           <div class="rv-b-rail-num">${s.id}</div>
           <div class="rv-b-rail-ts" title="In ${escapeHtml(s.tsIn)} → Out ${escapeHtml(s.tsOut)}"><span>${escapeHtml(s.tsIn)}</span><span class="rv-b-rail-ts-out">${escapeHtml(s.tsOut)}</span></div>
           <div class="rv-b-rail-text">
@@ -2227,12 +2245,7 @@
             ${flagsHtml}
             ${s.approved ? '<span class="rv-b-rail-ok">✓</span>' : ''}
           </div>
-          <button class="rv-seg-btn rv-seg-merge" title="合併下一段 (Ctrl+Shift+M)"
-            onclick="event.stopPropagation(); mergeNext(${i})" ${isLast ? 'disabled' : ''}>
-            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor"
-              stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 4h8M4 12h8M6 7l2 2 2-2"/></svg>
-          </button>
+          ${mergeHtml}
         </div>`;
     }).join('');
   }
@@ -3069,13 +3082,13 @@
     // Note: Ctrl+Shift+D / Ctrl+Shift+M may be shadowed by browser shortcuts on some
     // platforms; the row buttons are the primary path.
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'S' || e.key === 's')) {
-      e.preventDefault(); if (cursorIdx >= 0) splitSegment(cursorIdx, 'ai'); return;
+      e.preventDefault(); if (cursorIdx != null && cursorIdx >= 0) splitSegment(cursorIdx, 'ai'); return;
     }
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
-      e.preventDefault(); if (cursorIdx >= 0) splitSegment(cursorIdx, 'mechanical'); return;
+      e.preventDefault(); if (cursorIdx != null && cursorIdx >= 0) splitSegment(cursorIdx, 'mechanical'); return;
     }
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'M' || e.key === 'm')) {
-      e.preventDefault(); if (cursorIdx >= 0) mergeNext(cursorIdx); return;
+      e.preventDefault(); if (cursorIdx != null && cursorIdx >= 0) mergeNext(cursorIdx); return;
     }
 
     // Cmd+Enter works even in textarea (handled by onZhKey) — skip here
