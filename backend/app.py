@@ -333,22 +333,32 @@ def _whisper_params_for_lang(lang):
 def _output_lang_asr_override():
     """Return a FRESH override dict for the output-language ASR pass.
 
-    mlx large-v3 with condition_on_previous_text=False (the validated engine;
-    cond=False breaks the head-hallucination cascade loop). A new dict is built
-    per call so no downstream mutation can leak into a shared module global.
+    Backend chosen by platform_backend (env R5_ASR_BACKEND + platform detect).
+    macOS/auto == the validated mlx large-v3 cond=False dict (unchanged).
     """
-    return {"asr": {
-        "engine": "mlx-whisper",
-        "model_size": "large-v3",
-        "condition_on_previous_text": False,
-    }}
+    import platform_backend as _pb
+    return _pb.resolve_asr_override(os.environ, _pb.detect_platform())
+
+
+def _make_ollama_llm_call_engine():
+    """Build the Ollama engine bound to the platform-resolved model + URL.
+
+    Split out for testability; _make_ollama_llm_call wraps it into a callable.
+    """
+    import platform_backend as _pb
+    from translation.ollama_engine import OllamaTranslationEngine
+    info = _pb.detect_platform()
+    eng = OllamaTranslationEngine({
+        "engine": "qwen3.5-35b-a3b",
+        "ollama_url": _pb.resolve_ollama_url(os.environ),
+    })
+    eng._model = _pb.resolve_ollama_model(os.environ, info)
+    return eng
 
 
 def _make_ollama_llm_call():
-    """Build a (system, user) -> str LLM client bound to the production MT model
-    (Ollama qwen3.5:35b-a3b-mlx-bf16), reused for cross-lang MT + the 書面語 refiner."""
-    from translation.ollama_engine import OllamaTranslationEngine
-    eng = OllamaTranslationEngine({"engine": "qwen3.5-35b-a3b"})
+    """(system, user) -> str LLM client for cross-lang MT + the 書面語 refiner."""
+    eng = _make_ollama_llm_call_engine()
     return lambda system, user: eng._call_ollama(system, user, 0.3)
 
 
