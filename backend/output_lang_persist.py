@@ -49,7 +49,9 @@ def build_output_translations(
     List[dict]
         A new list of new dicts.  Each row has:
         ``idx``, ``start``, ``end``, ``status``, ``by_lang``,
-        and ``{lang}_text`` mirror keys for every language provided.
+        ``glossary_changes`` (collected from the per-language derived segments;
+        ``[]`` when no glossary stage ran), and ``{lang}_text`` mirror keys for
+        every language provided.
     """
     rows: List[Dict[str, Any]] = []
 
@@ -62,9 +64,15 @@ def build_output_translations(
             "by_lang": {},
         }
 
+        # Aggregate glossary changes across every derived language at this index.
+        # glossary_stage attaches seg["glossary_changes"] per output segment; rows
+        # are the proofread unit, so we union them here (empty list when none).
+        glossary_changes: List[Dict[str, Any]] = []
+
         for lang, segs in lang_segment_pairs:
             # Safe access: if segs is shorter than source_segments, yield "".
-            text: str = segs[i].get("text", "") if i < len(segs) else ""
+            seg = segs[i] if i < len(segs) else {}
+            text: str = seg.get("text", "")
 
             # AUTHORITATIVE write: by_lang entry first, then the top-level
             # mirror — both from the same variable so they can never diverge.
@@ -78,6 +86,10 @@ def build_output_translations(
             # masking the translation output (B2 9e3ef67 lesson).
             row[f"{lang}_text"] = text
 
+            for ch in (seg.get("glossary_changes") or []):
+                glossary_changes.append(ch)
+
+        row["glossary_changes"] = glossary_changes
         rows.append(row)
 
     return rows

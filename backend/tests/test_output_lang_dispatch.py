@@ -122,7 +122,7 @@ def test_asr_handler_output_lang_second_pass_merges(app_mod, monkeypatch):
     # branch (covered in test_crosslang_phase1_dispatch).
     fid = "t-ol-run2"
     monkeypatch.setattr(app_mod, "_produce_output_lang",
-                        lambda audio, src, out, script, ce, cache: [{"start": 0, "end": 1, "text": "今晚的賽事"}])
+                        lambda audio, src, out, script, ce, cache, **kw: [{"start": 0, "end": 1, "text": "今晚的賽事"}])
     monkeypatch.setattr(app_mod, "_resolve_file_path", lambda f: "/tmp/x.wav")
     with app_mod._registry_lock:
         app_mod._file_registry[fid] = {

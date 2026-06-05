@@ -352,16 +352,22 @@ def _make_ollama_llm_call():
 
 
 def _produce_output_lang(audio_path, source_language, output_lang, script,
-                         cancel_event, content_asr_cache):
+                         cancel_event, content_asr_cache,
+                         glossaries=None, glossary_llm=True):
     """Produce one output language's segments via the routed method + post-processing.
 
     content_asr_cache: dict shared across a file's output languages — the content-
     language ASR (MT source) is transcribed once and reused for every cross output.
     Returns a list of {start,end,text} segments (by_lang shape upstream).
+
+    When `glossaries` is supplied (non-empty), a glossary stage runs AFTER OpenCC:
+    it canonicalizes entity/horse names and attaches seg["glossary_changes"] to each
+    segment. `glossaries=None` (or empty) → behaviour byte-identical to before.
     """
     from output_lang_router import route_output, whisper_direct_params, content_asr_lang
     from translation import crosslang_mt
     import output_lang_postprocess as olp
+    from output_lang_aligned import derive_mode
 
     method = route_output(source_language, output_lang)
     if method == "whisper":
@@ -390,7 +396,33 @@ def _produce_output_lang(audio_path, source_language, output_lang, script,
         base = olp.apply_script(base, script)
     elif output_lang == "ja" and method == "asr_mt":
         base = olp.clause_split_all(base, char_cap=18)
+
+    if glossaries:
+        import output_lang_glossary as olg
+        # Source-side filtering: for the asr_mt path use the content ASR text;
+        # for the whisper-direct path the only available source IS the output `base`.
+        mode = derive_mode(source_language, output_lang)
+        if method == "asr_mt" and content_asr_cache.get("segments"):
+            src_texts = [s.get("text", "") for s in content_asr_cache["segments"]]
+        else:
+            src_texts = [s.get("text", "") for s in base]
+        base = olg.glossary_stage(
+            base, glossaries, output_lang, source_language, mode,
+            _make_ollama_llm_call(), use_llm=glossary_llm, src_texts=src_texts)
     return base
+
+
+def _load_glossaries(glossary_ids):
+    """Resolve an ordered list of glossary ids into glossary dicts (first-wins
+    priority preserved by order). Unknown / unreadable ids are silently dropped
+    — they were already validated at upload time in the transcribe handler.
+    py3.9: plain loop (no walrus-in-comprehension)."""
+    out = []
+    for gid in (glossary_ids or []):
+        g = _glossary_manager.get(gid)
+        if g:
+            out.append(g)
+    return out
 
 
 _OL_FAMILY = {"yue": "zh", "cmn": "zh", "zh": "zh", "en": "en", "ja": "ja"}
@@ -420,12 +452,16 @@ def _run_output_lang(file_id, job, audio_path, cancel_event):
         source_language = entry.get("source_language") or "yue"
         script = entry.get("script") or "trad"
         mt_style = entry.get("mt_style") or "generic"
+        glossary_ids = list(entry.get("glossary_ids") or [])
+        glossary_llm = entry.get("glossary_llm", True)
+    glossaries = _load_glossaries(glossary_ids)
     if not outs:
         raise RuntimeError(f"output_lang file {file_id} has no output_languages — misconfigured")
     _update_file(file_id, status='transcribing', user_id=job["user_id"])
 
     if _is_cross_language(source_language, outs):
-        _run_output_lang_cross(file_id, job, audio_path, cancel_event, outs, source_language, script, mt_style)
+        _run_output_lang_cross(file_id, job, audio_path, cancel_event, outs, source_language,
+                               script, mt_style, glossaries, glossary_llm)
         return
 
     if source_language == "yue":
@@ -433,14 +469,16 @@ def _run_output_lang(file_id, job, audio_path, cancel_event):
         # output 1:1 (yue=passthrough, zh/cmn=refine). Replaces the old Whisper-zh-direct
         # for 書面語 (Validation-First 2026-06-04). do_clause_split=False → 口語 byte-identical.
         _run_output_lang_bound_base(file_id, job, audio_path, cancel_event, outs,
-                                    source_language, script, mt_style, do_clause_split=False)
+                                    source_language, script, mt_style, do_clause_split=False,
+                                    glossaries=glossaries, glossary_llm=glossary_llm)
         return
 
     first = outs[0]
     content_cache: dict = {}
     _first_start = time.time()
     try:
-        segs1 = _produce_output_lang(audio_path, source_language, first, script, cancel_event, content_cache)
+        segs1 = _produce_output_lang(audio_path, source_language, first, script, cancel_event,
+                                     content_cache, glossaries=glossaries, glossary_llm=glossary_llm)
     except Exception as e:
         _update_file(file_id, status='error', error=str(e))
         raise
@@ -461,13 +499,17 @@ def _run_output_lang(file_id, job, audio_path, cancel_event):
 
 
 def _run_output_lang_bound_base(file_id, job, audio_path, cancel_event, outs,
-                                source_language, script, mt_style, do_clause_split):
+                                source_language, script, mt_style, do_clause_split,
+                                glossaries=None, glossary_llm=True):
     """ONE content-language ASR base -> derive every output 1:1 (passthrough/refine/MT)
     -> single shared grid. No 2nd job, no index-merge. The ASR language is purely
     source-driven (content_asr_lang); the output language only selects the downstream
     transform. `do_clause_split` splits the base at Chinese punctuation before deriving
     (cross-language path, for MT cue length); the same-family yue path passes False so the
-    口語 track stays byte-identical to a direct yue transcription."""
+    口語 track stays byte-identical to a direct yue transcription.
+
+    `glossaries` (if non-empty) is threaded into each output's derive_aligned_output so
+    entity names get canonicalized + per-segment glossary_changes recorded on the rows."""
     from output_lang_persist import build_output_translations
     from output_lang_router import content_asr_lang
     from output_lang_aligned import derive_aligned_output
@@ -486,7 +528,9 @@ def _run_output_lang_bound_base(file_id, job, audio_path, cancel_event, outs,
         if do_clause_split and _OL_FAMILY.get(source_language) == "zh":
             base = olp.clause_split_all(base, char_cap=18)
         llm = _make_ollama_llm_call()
-        derived = {o: derive_aligned_output(base, source_language, o, script, llm, style=mt_style) for o in outs}
+        derived = {o: derive_aligned_output(base, source_language, o, script, llm, style=mt_style,
+                                            glossaries=glossaries, glossary_llm=glossary_llm)
+                   for o in outs}
         rows = build_output_translations(base, [(o, derived[o]) for o in outs])
         aligned = [{"start": base[i]["start"], "end": base[i]["end"],
                     "by_lang": {o: (derived[o][i].get("text", "") if i < len(derived[o]) else "") for o in outs}}
@@ -500,10 +544,12 @@ def _run_output_lang_bound_base(file_id, job, audio_path, cancel_event, outs,
         raise
 
 
-def _run_output_lang_cross(file_id, job, audio_path, cancel_event, outs, source_language, script, mt_style="generic"):
+def _run_output_lang_cross(file_id, job, audio_path, cancel_event, outs, source_language,
+                           script, mt_style="generic", glossaries=None, glossary_llm=True):
     """Cross-language FIRST pass — bound-base derive WITH clause-split (unchanged behavior)."""
     _run_output_lang_bound_base(file_id, job, audio_path, cancel_event, outs,
-                                source_language, script, mt_style, do_clause_split=True)
+                                source_language, script, mt_style, do_clause_split=True,
+                                glossaries=glossaries, glossary_llm=glossary_llm)
 
 
 def _run_output_lang_second(file_id, job, audio_path, cancel_event):
@@ -525,9 +571,12 @@ def _run_output_lang_second(file_id, job, audio_path, cancel_event):
         source_language = entry.get("source_language") or "yue"
         script = entry.get("script") or "trad"
         mt_style = entry.get("mt_style") or "generic"
+        glossary_ids = list(entry.get("glossary_ids") or [])
+        glossary_llm = entry.get("glossary_llm", True)
         cached = entry.get("content_asr_segments")
         _ol_base = entry.get("content_asr_segments") or []
         _ol_live = entry.get("translations") or []
+    glossaries = _load_glossaries(glossary_ids)
     # Only route to the cross derive-from-base path when the existing grid IS the
     # bound-base grid: content_asr_segments present AND its length == the live
     # translations length (Task 3's cross first pass sets content_asr_segments=base
@@ -539,21 +588,28 @@ def _run_output_lang_second(file_id, job, audio_path, cancel_event):
             and _ol_base and len(_ol_base) == len(_ol_live):
         _reset_progress_for_job(file_id, job.get("id", ""), "output_lang", 1,
                                 num_output_langs=max(2, len(outs)))
-        _run_output_lang_second_cross(file_id, target, source_language, script, mt_style)
+        _run_output_lang_second_cross(file_id, target, source_language, script, mt_style,
+                                      glossaries=glossaries, glossary_llm=glossary_llm)
         return
     _reset_progress_for_job(file_id, job.get("id", ""), "output_lang", 1,
                             num_output_langs=max(2, len(outs)))
     content_cache = {"segments": cached} if cached else {}
     _second_start = time.time()
-    segs2 = _produce_output_lang(audio_path, source_language, target, script, cancel_event, content_cache)
+    segs2 = _produce_output_lang(audio_path, source_language, target, script, cancel_event,
+                                 content_cache, glossaries=glossaries, glossary_llm=glossary_llm)
 
     with _registry_lock:
         live = _file_registry.get(file_id, {}).get("translations") or []
         new_rows = []
         for i, row in enumerate(live):
-            text2 = segs2[i].get("text", "") if i < len(segs2) else ""
+            seg2 = segs2[i] if i < len(segs2) else {}
+            text2 = seg2.get("text", "")
             new_by_lang = {**(row.get("by_lang") or {}), target: {"text": text2, "status": "pending", "flags": []}}
-            new_rows.append({**row, "by_lang": new_by_lang, f"{target}_text": text2})
+            # Union any glossary changes from this second language onto the row.
+            merged_changes = list(row.get("glossary_changes") or [])
+            merged_changes.extend(seg2.get("glossary_changes") or [])
+            new_rows.append({**row, "by_lang": new_by_lang, f"{target}_text": text2,
+                             "glossary_changes": merged_changes})
         if file_id in _file_registry:
             _file_registry[file_id]["translations"] = new_rows
             _file_registry[file_id]["asr_output_second_seconds"] = round(time.time() - _second_start, 1)
@@ -578,7 +634,8 @@ def _run_output_lang_second(file_id, job, audio_path, cancel_event):
                     progress_kind="output_lang", progress_stage_index=1,
                     lang_override=content_asr_lang(src2), task_override="transcribe")
                 base2 = (bres or {}).get("segments") or []
-            aligned = build_aligned_bilingual(base2, outs2, src2, scr2, _make_ollama_llm_call())
+            aligned = build_aligned_bilingual(base2, outs2, src2, scr2, _make_ollama_llm_call(),
+                                              glossaries=glossaries, glossary_llm=glossary_llm)
             with _registry_lock:
                 if file_id in _file_registry:
                     _file_registry[file_id]["aligned_bilingual"] = aligned
@@ -587,25 +644,32 @@ def _run_output_lang_second(file_id, job, audio_path, cancel_event):
         pass  # aligned view is best-effort; single-language output already persisted
 
 
-def _run_output_lang_second_cross(file_id, target, source_language, script, mt_style="generic"):
+def _run_output_lang_second_cross(file_id, target, source_language, script, mt_style="generic",
+                                  glossaries=None, glossary_llm=True):
     """Cross-language on-demand add: derive `target` 1:1 from the cached content base
-    and append it to translations + aligned_bilingual on the SAME grid (no index-merge)."""
+    and append it to translations + aligned_bilingual on the SAME grid (no index-merge).
+    `glossaries` (if non-empty) canonicalizes names + records per-segment changes."""
     from output_lang_aligned import derive_aligned_output
     with _registry_lock:
         entry = _file_registry.get(file_id) or {}
         base = list(entry.get("content_asr_segments") or [])
     if not base:
         raise RuntimeError(f"cross second pass: no content_asr_segments for {file_id}")
-    seg2 = derive_aligned_output(base, source_language, target, script, _make_ollama_llm_call(), style=mt_style)
+    seg2 = derive_aligned_output(base, source_language, target, script, _make_ollama_llm_call(),
+                                 style=mt_style, glossaries=glossaries, glossary_llm=glossary_llm)
     with _registry_lock:
         if file_id not in _file_registry:
             return
         cur = _file_registry[file_id].get("translations") or []
         new_rows = []
         for i, row in enumerate(cur):
-            t = seg2[i].get("text", "") if i < len(seg2) else ""
+            d2 = seg2[i] if i < len(seg2) else {}
+            t = d2.get("text", "")
             nbl = {**(row.get("by_lang") or {}), target: {"text": t, "status": "pending", "flags": []}}
-            new_rows.append({**row, "by_lang": nbl, f"{target}_text": t})
+            merged_changes = list(row.get("glossary_changes") or [])
+            merged_changes.extend(d2.get("glossary_changes") or [])
+            new_rows.append({**row, "by_lang": nbl, f"{target}_text": t,
+                             "glossary_changes": merged_changes})
         cur_al = _file_registry[file_id].get("aligned_bilingual") or []
         if cur_al:
             new_al = [{**c, "by_lang": {**(c.get("by_lang") or {}),
@@ -1258,7 +1322,7 @@ def _resnapshot_active_for_rerun(file_id):
 def _register_file(file_id, original_name, stored_name, size_bytes, user_id=None,
                    file_path=None, active_kind=None, active_id=None,
                    output_languages=None, source_language=None, script=None,
-                   mt_style=None):
+                   mt_style=None, glossary_ids=None, glossary_llm=True):
     """Register an uploaded file. user_id is the owner (R5 Phase 1 — required
     once auth lands; defaults to None for backward compatibility with any
     pre-R5 path that may still upload anonymously). file_path is the
@@ -1313,6 +1377,8 @@ def _register_file(file_id, original_name, stored_name, size_bytes, user_id=None
             'source_language': source_language,  # T7: authoritative cross-lang routing
             'script': script or 'trad',          # T7: trad | simp (default trad)
             'mt_style': mt_style or 'generic',   # Phase 2: cross-lang MT domain style
+            'glossary_ids': list(glossary_ids or []),  # glossary-v2: ordered, first-wins
+            'glossary_llm': bool(glossary_llm),        # glossary-v2: LLM review toggle (default ON)
         }
         _save_registry()
     # Snapshot pipeline JSON immediately for V6 files (outside the lock to
@@ -4341,6 +4407,26 @@ def transcribe_file():
         if _script not in {"trad", "simp"}:
             return jsonify({"error": "script must be trad or simp"}), 400
 
+    # Glossary v2: optional ordered glossary_ids (first-wins) + glossary_llm toggle.
+    # Validate every id against the manager NOW so a bad id fails fast at upload
+    # (the dispatch path silently drops unknown ids, but the user should know).
+    _glossary_ids = []
+    _raw_glossary_ids = request.form.get('glossary_ids')
+    if _raw_glossary_ids is not None:
+        try:
+            _parsed_gids = json.loads(_raw_glossary_ids)
+        except (ValueError, TypeError):
+            return jsonify({"error": "glossary_ids must be a JSON array"}), 400
+        if not isinstance(_parsed_gids, list):
+            return jsonify({"error": "glossary_ids must be a JSON array"}), 400
+        for _gid in _parsed_gids:
+            if not isinstance(_gid, str) or not _gid:
+                return jsonify({"error": "glossary_ids must be non-empty strings"}), 400
+            if _glossary_manager.get(_gid) is None:
+                return jsonify({"error": "未知詞彙表: " + _gid}), 400
+        _glossary_ids = _parsed_gids
+    _glossary_llm = request.form.get('glossary_llm', '1') != '0'  # default ON
+
     # Generate a unique file id and save (R5 Phase 1: per-user dir layout)
     file_id = uuid.uuid4().hex[:12]
     stored_name = f"{file_id}{suffix}"
@@ -4352,7 +4438,8 @@ def transcribe_file():
                            user_id=current_user.id, file_path=file_path,
                            output_languages=_upload_output_languages,
                            source_language=_src_lang, script=_script,
-                           mt_style=_mt_style)
+                           mt_style=_mt_style,
+                           glossary_ids=_glossary_ids, glossary_llm=_glossary_llm)
 
     # Notify client about the new file
     if sid:

@@ -4,7 +4,7 @@ Pure (llm_call injected). Each output language is a 1:1 transform of the SAME ba
 (passthrough / cross-lang MT / 書面語 refiner) + OpenCC — NO clause-split — so all
 outputs share base boundaries -> paired cue[i] aligns by construction.
 """
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Optional
 
 from translation import crosslang_mt
 import output_lang_postprocess as olp
@@ -29,10 +29,17 @@ def derive_mode(content_lang: str, output_lang: str) -> str:
 
 def derive_aligned_output(base: List[dict], content_lang: str, output_lang: str,
                           script: str, llm_call: Callable[[str, str], str],
-                          style: str = "generic") -> List[dict]:
+                          style: str = "generic",
+                          glossaries: Optional[List[dict]] = None,
+                          glossary_llm: bool = True) -> List[dict]:
     """1:1 derive output_lang from base (no clause-split). New list, base untouched.
     `style` selects the domain prompt for BOTH the en->zh MT (crosslang_mt) and the
-    書面語 refiner (formal_refine): 'racing' → racing prompt, else neutral default."""
+    書面語 refiner (formal_refine): 'racing' → racing prompt, else neutral default.
+
+    When `glossaries` is supplied (non-empty), a glossary stage runs AFTER OpenCC:
+    it canonicalizes entity/horse names and records per-segment changes in
+    seg["glossary_changes"] = [{source, before, after, glossary}]. `glossaries=None`
+    (or empty) → behaviour byte-identical to the no-glossary path (no extra key)."""
     mode = derive_mode(content_lang, output_lang)
     if mode == "mt":
         out = crosslang_mt.translate_segments(base, content_lang, output_lang, llm_call, style=style)
@@ -43,13 +50,25 @@ def derive_aligned_output(base: List[dict], content_lang: str, output_lang: str,
                for s in base]
     if output_lang in ("yue", "zh", "cmn"):
         out = olp.apply_script(out, script)
+    if glossaries:
+        import output_lang_glossary as olg
+        # Source-side filtering sees the content-language `base` text; target-side
+        # sees the derived `out` text. The returned list carries glossary_changes.
+        out = olg.glossary_stage(
+            out, glossaries, output_lang, content_lang, mode, llm_call,
+            use_llm=glossary_llm,
+            src_texts=[s.get("text", "") for s in base])
     return out
 
 
 def build_aligned_bilingual(base: List[dict], output_languages: List[str], content_lang: str,
-                            script: str, llm_call: Callable[[str, str], str]) -> List[dict]:
-    """Assemble [{start,end,by_lang:{lang:text}}] on the base grid (all outputs 1:1)."""
-    derived = {ol: derive_aligned_output(base, content_lang, ol, script, llm_call)
+                            script: str, llm_call: Callable[[str, str], str],
+                            glossaries: Optional[List[dict]] = None,
+                            glossary_llm: bool = True) -> List[dict]:
+    """Assemble [{start,end,by_lang:{lang:text}}] on the base grid (all outputs 1:1).
+    `glossaries` (if supplied) is threaded into each output's derive_aligned_output."""
+    derived = {ol: derive_aligned_output(base, content_lang, ol, script, llm_call,
+                                         glossaries=glossaries, glossary_llm=glossary_llm)
                for ol in output_languages}
     aligned: List[dict] = []
     for i, b in enumerate(base):
