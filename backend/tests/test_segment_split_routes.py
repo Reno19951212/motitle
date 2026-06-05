@@ -162,6 +162,26 @@ def test_ai_split_conflict_returns_409(client, monkeypatch):
     assert r.status_code == 409
 
 
+def test_ai_split_conflict_on_translation_edit_returns_409(client, monkeypatch):
+    # A concurrent edit to the OUTPUT translation text (by_lang), not the source
+    # segment text, must also abort the AI split so the edit is not overwritten.
+    monkeypatch.setattr(appmod, "_save_registry", lambda: None)
+    fid = _seed_output_lang_file("f-conflict-tr")
+
+    def mutating_llm():
+        def _call(system, user):
+            with appmod._registry_lock:
+                row = appmod._file_registry[fid]["translations"][0]
+                row["by_lang"]["yue"]["text"] = "校對員啱啱改咗呢句"
+                row["yue_text"] = "校對員啱啱改咗呢句"
+            return '{"parts": [{"yue": "你好"}, {"yue": "世界"}]}'
+        return _call
+
+    monkeypatch.setattr(appmod, "_make_ollama_llm_call", mutating_llm)
+    r = client.post(f"/api/files/{fid}/segments/0/split", json={"mode": "ai"})
+    assert r.status_code == 409
+
+
 def test_bilingual_split_splits_both_languages(client, monkeypatch):
     monkeypatch.setattr(appmod, "_save_registry", lambda: None)
     monkeypatch.setattr(appmod, "_make_ollama_llm_call",

@@ -136,18 +136,22 @@ POST /api/files/<file_id>/segments/<int:pos>/merge-next
 rebuilds `segs[]` from **`translations`** alone (segments is backend bookkeeping; see §6).
 
 ### Concurrency model (M1 — do NOT hold the lock across the LLM call)
-- **mechanical split** and **merge-next** run fully inside `with _registry_lock:`,
-  end with `_save_registry()`.
+- **merge-next** runs fully inside `with _registry_lock:`, ends with `_save_registry()`.
+- **mechanical split** is computed **inside the Phase-3 lock** from the freshly re-read
+  cue (`mechanical_parts(cur_texts)`, `r = 0.5`) — so it never acts on stale text and
+  needs no conflict check.
 - **AI split** is **three-phase** (mirrors glossary-reapply's snapshot→LLM→write):
   1. **Phase 1 (lock held):** validate `pos`; snapshot the cue's texts
      (`segments[pos].text` + each `translations[pos].by_lang[lang].text`) + `start`/`end`;
      release lock.
-  2. **Phase 2 (NO lock):** call the LLM on the snapshot (~2–5 s).
-  3. **Phase 3 (lock held):** re-read position `pos`; if `translations[pos]`'s
-     `start`/`end` or the source text changed since phase 1 (concurrent insert/edit) →
-     discard, return **409** `{"error": "段落已被其他操作修改，請重試"}`. Else apply the
-     split, renumber `translations[].idx`, assert `len(segments)==len(translations)`,
-     `_save_registry()`, return arrays.
+  2. **Phase 2 (NO lock):** call the LLM on the snapshot (~2–5 s). On parse failure /
+     empty cue the result is `None` → fall through to a mechanical split in Phase 3.
+  3. **Phase 3 (lock held):** re-read position `pos`. If the LLM produced a usable split,
+     reject (**409** `{"error": "段落已被其他操作修改，請重試"}`) when **any** of the
+     cue's texts changed since Phase 1 — the **source text OR any output-language
+     `by_lang` text** — or `start`/`end` changed; this stops a concurrent proofread edit
+     from being silently overwritten. Otherwise apply, renumber `translations[].idx`,
+     assert `len(segments)==len(translations)`, `_save_registry()`, return arrays.
 
 ### Render-in-progress guard (S5)
 Before phase-1, check render state using the existing pattern (app.py:4054-4057):

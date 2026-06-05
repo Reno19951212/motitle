@@ -5241,22 +5241,22 @@ def split_segment(file_id, pos):
         if round(end - start, 3) < 0.4:
             return jsonify({"error": "段落太短，無法分割（最少 0.4 秒）"}), 400
 
-    # Compute parts (LLM call OUTSIDE the lock for mode 'ai')
-    if mode == "mechanical" or not any(texts.values()):
-        parts = ss.mechanical_parts(texts)
-        r = 0.5
-    else:
+    # Compute the AI split OUTSIDE the lock (the LLM call is slow). Mechanical mode —
+    # and any AI fallback — is computed in Phase 3 from the freshly re-read cue, so it
+    # never acts on stale text. `ai_parts` stays None unless the LLM produced a usable
+    # split for a non-empty cue.
+    ai_parts = None
+    ai_r = 0.5
+    if mode == "ai" and any(texts.values()):
         llm = _make_ollama_llm_call()
         raw = llm(ss.build_split_prompt_system(list(texts.keys())),
                   ss.build_split_prompt_user(texts))
-        parts = ss.parse_split_response(raw, texts, content_lang)
-        if parts is None:
-            parts = ss.mechanical_parts(texts)
-            r = 0.5
-        else:
-            r = ss.compute_split_ratio(parts[content_lang][0], texts.get(content_lang, ""))
+        parsed = ss.parse_split_response(raw, texts, content_lang)
+        if parsed is not None:
+            ai_parts = parsed
+            ai_r = ss.compute_split_ratio(parsed[content_lang][0], texts.get(content_lang, ""))
 
-    # Phase 3 — re-acquire, conflict check, apply
+    # Phase 3 — re-acquire, conflict check (AI only), apply
     with _registry_lock:
         entry = _file_registry.get(file_id)
         if not entry:
@@ -5264,17 +5264,21 @@ def split_segment(file_id, pos):
         translations = entry.get("translations") or []
         if not (0 <= pos < len(translations)):
             return jsonify({"error": "段落已被其他操作修改，請重試"}), 409
-        segs = entry.get("segments") or []
-        cur_seg = segs[pos] if pos < len(segs) else {}
-        cur_start = cur_seg.get("start", translations[pos].get("start", 0.0))
-        cur_end = cur_seg.get("end", translations[pos].get("end", 0.0))
-        if mode == "ai":
+        cur_lang, cur_texts, cur_start, cur_end, cur_src = _seg_split_gather_texts(entry, pos)
+        if ai_parts is not None:
+            # The LLM result was derived from the Phase-1 snapshot — reject if ANY of the
+            # cue's texts (source OR output languages) or its timing changed meanwhile, so
+            # a concurrent translation edit is never silently overwritten.
             if (abs(cur_start - start) > 1e-6 or abs(cur_end - end) > 1e-6
-                    or (cur_seg.get("text") or "").strip() != src_text):
+                    or cur_src != src_text or cur_texts != texts):
                 return jsonify({"error": "段落已被其他操作修改，請重試"}), 409
+            parts, r = ai_parts, ai_r
+        else:
+            # mechanical / empty cue / AI fallback — split the CURRENT cue 50/50.
+            parts, r = ss.mechanical_parts(cur_texts), 0.5
         try:
             segments_out, translations_out = _seg_apply_split(
-                entry, pos, parts, content_lang, r, cur_start, cur_end)
+                entry, pos, parts, cur_lang, r, cur_start, cur_end)
             _save_registry()
         except RuntimeError:
             return jsonify({"error": "段落操作內部錯誤"}), 500
