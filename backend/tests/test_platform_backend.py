@@ -73,6 +73,14 @@ def test_resolve_asr_env_override_gb10_whispercpp():
     assert out["asr"]["device"] == "cuda"
 
 
+def test_resolve_asr_whispercpp_no_cuda_falls_back_to_cpu():
+    info = {"os": "linux", "arch": "arm64", "has_cuda": False}
+    out = pb.resolve_asr_override({"R5_ASR_BACKEND": "whispercpp"}, info)
+    assert out["asr"]["engine"] == "whispercpp"
+    assert out["asr"]["device"] == "cpu"
+    assert out["asr"]["compute_type"] == "int8"
+
+
 # ---------------------------------------------------------------------------
 # Task 3: resolve_ollama_model(env, info)
 # ---------------------------------------------------------------------------

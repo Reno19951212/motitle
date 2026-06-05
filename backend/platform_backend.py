@@ -48,7 +48,9 @@ def resolve_asr_override(env: dict, info: dict) -> dict:
     if choice == "mlx":
         return {"asr": {"engine": "mlx-whisper", "model_size": "large-v3", "condition_on_previous_text": False}}
     if choice == "whispercpp":
-        return {"asr": {"engine": "whispercpp", "model_size": "large-v3", "device": "cuda", "compute_type": "float16", "condition_on_previous_text": False}}
+        device = "cuda" if info.get("has_cuda") else "cpu"
+        compute_type = "float16" if info.get("has_cuda") else "int8"
+        return {"asr": {"engine": "whispercpp", "model_size": "large-v3", "device": device, "compute_type": compute_type, "condition_on_previous_text": False}}
     device = "cuda" if choice == "cuda" else "cpu"
     compute_type = "float16" if choice == "cuda" else "int8"
     return {"asr": {"engine": "whisper", "model_size": "large-v3", "device": device, "compute_type": compute_type, "condition_on_previous_text": False}}
@@ -59,7 +61,7 @@ def resolve_asr_override(env: dict, info: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 _OLLAMA_MODEL_DARWIN = "qwen3.5:35b-a3b-mlx-bf16"
-_OLLAMA_MODEL_CUDA = "qwen3.5:35b-a3b"  # GGUF default tag; Phase-0 validation may raise to q8_0
+_OLLAMA_MODEL_GGUF = "qwen3.5:35b-a3b"  # GGUF default tag; applies to all non-darwin platforms; Phase-0 validation may raise to q8_0
 
 
 def resolve_ollama_model(env: dict, info: dict) -> str:
@@ -70,7 +72,7 @@ def resolve_ollama_model(env: dict, info: dict) -> str:
     override = (env.get("R5_OLLAMA_MODEL") or "").strip()
     if override:
         return override
-    return _OLLAMA_MODEL_DARWIN if info["os"] == "darwin" else _OLLAMA_MODEL_CUDA
+    return _OLLAMA_MODEL_DARWIN if info["os"] == "darwin" else _OLLAMA_MODEL_GGUF
 
 
 # ---------------------------------------------------------------------------
