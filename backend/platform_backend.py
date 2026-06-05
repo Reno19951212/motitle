@@ -71,3 +71,16 @@ def resolve_ollama_model(env: dict, info: dict) -> str:
     if override:
         return override
     return _OLLAMA_MODEL_DARWIN if info["os"] == "darwin" else _OLLAMA_MODEL_CUDA
+
+
+# ---------------------------------------------------------------------------
+# Task 4: resolve_ollama_url
+# ---------------------------------------------------------------------------
+
+_OLLAMA_URL_DEFAULT = "http://localhost:11434"
+
+
+def resolve_ollama_url(env: dict) -> str:
+    """Return the Ollama base URL. R5_OLLAMA_URL overrides; blank -> default."""
+    val = (env.get("R5_OLLAMA_URL") or "").strip()
+    return val or _OLLAMA_URL_DEFAULT

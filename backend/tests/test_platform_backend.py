@@ -90,3 +90,19 @@ def test_resolve_ollama_model_non_darwin_is_gguf():
 def test_resolve_ollama_model_env_override_wins():
     info = {"os": "win32", "arch": "x86_64", "has_cuda": True}
     assert pb.resolve_ollama_model({"R5_OLLAMA_MODEL": "qwen3.5:35b-a3b-q8_0"}, info) == "qwen3.5:35b-a3b-q8_0"
+
+
+# ---------------------------------------------------------------------------
+# Task 4: resolve_ollama_url(env)
+# ---------------------------------------------------------------------------
+
+def test_resolve_ollama_url_default():
+    assert pb.resolve_ollama_url({}) == "http://localhost:11434"
+
+
+def test_resolve_ollama_url_env():
+    assert pb.resolve_ollama_url({"R5_OLLAMA_URL": "http://10.0.0.5:11434"}) == "http://10.0.0.5:11434"
+
+
+def test_resolve_ollama_url_blank_falls_back():
+    assert pb.resolve_ollama_url({"R5_OLLAMA_URL": "  "}) == "http://localhost:11434"
