@@ -25,6 +25,11 @@
 2. **語言支援**：全語對自動路由（按 glossary 嘅 source_lang/target_lang + derive mode）。
 3. **套用時機**：處理時自動 + 校對頁可重套。
 
+**Finalized parameters（2026-06-05）：**
+- **衝突規則**：多表撞同一 match key → **排前嘅 glossary 贏**（揀選順序 = 優先；後表唔覆蓋）。
+- **LLM 精修層 default**：**default ON**（toggle `#olGlossaryLlm` 預設開）。原因：alias-less glossary（如 racing 1350 條）淨確定性層只能剝 suffix + 確認，**改唔到英文留底/異寫嘅名**；要 demo 嗰種「Blazing Wukong → 火悟空」效果做 default,必須開 LLM。用戶可關閉做純確定性/快速模式。
+- **CSV aliases backfill**：v1 **純文檔提示**（README 講「target 可含 (H###)、建議補常見錯寫做 alias」）；自動 helper 留 v2。
+
 ---
 
 ## A. 架構 — 統一 post-derivation glossary stage
