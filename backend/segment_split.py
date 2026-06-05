@@ -166,3 +166,39 @@ def split_aligned(aligned: List[dict], p: int,
 def renumber_translations(translations: List[dict]) -> List[dict]:
     """Reset idx to list position for every row (new dicts)."""
     return [{**t, "idx": i} for i, t in enumerate(translations)]
+
+
+def merge_base(base: List[dict], p: int) -> List[dict]:
+    """Merge base segment p with p+1: union time, join text."""
+    a, b = base[p], base[p + 1]
+    merged = {"start": a.get("start", 0.0), "end": b.get("end", 0.0),
+              "text": merge_text(a.get("text", ""), b.get("text", ""))}
+    return base[:p] + [merged] + base[p + 2:]
+
+
+def merge_translations(translations: List[dict], p: int) -> List[dict]:
+    """Merge translation rows p and p+1 per language; reset to pending."""
+    a, b = translations[p], translations[p + 1]
+    a_by, b_by = a.get("by_lang") or {}, b.get("by_lang") or {}
+    langs = list(a_by.keys()) + [L for L in b_by if L not in a_by]
+    merged = {**a, "status": "pending"}
+    new_by: Dict[str, dict] = {}
+    for L in langs:
+        txt = merge_text(_by_lang_text(a_by.get(L)), _by_lang_text(b_by.get(L)))
+        new_by[L] = {"text": txt, "status": "pending", "flags": []}
+        merged[f"{L}_text"] = txt
+    merged["by_lang"] = new_by
+    merged["start"] = a.get("start", 0.0)
+    merged["end"] = b.get("end", 0.0)
+    merged["glossary_changes"] = list(a.get("glossary_changes") or []) + list(b.get("glossary_changes") or [])
+    return translations[:p] + [merged] + translations[p + 2:]
+
+
+def merge_aligned(aligned: List[dict], p: int) -> List[dict]:
+    """Merge aligned rows p and p+1 (string by_lang values)."""
+    a, b = aligned[p], aligned[p + 1]
+    a_by, b_by = a.get("by_lang") or {}, b.get("by_lang") or {}
+    langs = list(a_by.keys()) + [L for L in b_by if L not in a_by]
+    new_by = {L: merge_text(a_by.get(L, ""), b_by.get(L, "")) for L in langs}
+    return aligned[:p] + [{"start": a.get("start", 0.0),
+                           "end": b.get("end", 0.0), "by_lang": new_by}] + aligned[p + 2:]

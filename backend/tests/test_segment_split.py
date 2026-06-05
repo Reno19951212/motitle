@@ -157,3 +157,29 @@ def test_renumber_translations_sets_sequential_idx():
     parts = {"yue": ("你好", "世界"), "en": ("hello", "world")}
     out = ss.renumber_translations(ss.split_translations(translations, 0, parts, 0.0, 5.0, 10.0))
     assert [t["idx"] for t in out] == [0, 1, 2]
+
+
+def test_merge_base_unions_time_and_joins_text():
+    base, _, _ = _sample_state()
+    out = ss.merge_base(base, 0)
+    assert len(out) == 1
+    assert out[0] == {"start": 0.0, "end": 12.0, "text": "你好世界 再見"}
+
+
+def test_merge_translations_joins_each_language_and_resets_pending():
+    _, translations, _ = _sample_state()
+    out = ss.merge_translations(translations, 0)
+    assert len(out) == 1
+    assert out[0]["by_lang"]["yue"]["text"] == "你好世界 再見"
+    assert out[0]["by_lang"]["en"]["text"] == "hello world bye"
+    assert out[0]["yue_text"] == "你好世界 再見"
+    assert out[0]["status"] == "pending"
+    assert out[0]["start"] == 0.0 and out[0]["end"] == 12.0
+    assert out[0]["glossary_changes"] == [{"a": 1}]
+
+
+def test_merge_aligned_joins_strings():
+    _, _, aligned = _sample_state()
+    out = ss.merge_aligned(aligned, 0)
+    assert out[0]["by_lang"]["en"] == "hello world bye"
+    assert out[0]["start"] == 0.0 and out[0]["end"] == 12.0
