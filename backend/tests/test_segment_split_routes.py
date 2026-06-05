@@ -66,7 +66,11 @@ def test_mechanical_split_duplicates_text_and_halves_time(client, monkeypatch):
 def test_split_too_short_returns_400(client, monkeypatch):
     monkeypatch.setattr(appmod, "_save_registry", lambda: None)
     fid = _seed_output_lang_file("f-short")
-    r = client.post(f"/api/files/{fid}/segments/1/split", json={"mode": "mechanical"})  # 2s seg
+    with appmod._registry_lock:
+        e = appmod._file_registry[fid]
+        e["segments"][1]["end"] = 10.3       # 10.0 -> 10.3 = 0.3s, too short
+        e["translations"][1]["end"] = 10.3
+    r = client.post(f"/api/files/{fid}/segments/1/split", json={"mode": "mechanical"})
     assert r.status_code == 400
 
 

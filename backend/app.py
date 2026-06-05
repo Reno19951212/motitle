@@ -5238,8 +5238,8 @@ def split_segment(file_id, pos):
         if not (0 <= pos < len(translations)):
             return jsonify({"error": "段落不存在"}), 404
         content_lang, texts, start, end, src_text = _seg_split_gather_texts(entry, pos)
-        if round(end - start, 3) <= 2.0:
-            return jsonify({"error": "段落太短，無法分割（最少 2 秒）"}), 400
+        if round(end - start, 3) < 0.4:
+            return jsonify({"error": "段落太短，無法分割（最少 0.4 秒）"}), 400
 
     # Compute parts (LLM call OUTSIDE the lock for mode 'ai')
     if mode == "mechanical" or not any(texts.values()):
