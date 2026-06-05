@@ -1959,6 +1959,68 @@
     });
   }
 
+  function _flashRows(idxs) {
+    idxs.forEach(idx => {
+      const el = document.querySelector(`.rv-b-rail-item[data-idx="${idx}"]`);
+      if (el) { el.classList.add('rv-split-flash'); setTimeout(() => el.classList.remove('rv-split-flash'), 1500); }
+    });
+  }
+
+  async function splitSegment(i, mode) {
+    if (_segOpBusy) return;
+    const s = segs[i];
+    if (!s) return;
+    if ((s.out - s.in) < 400) { showToast('段落太短，無法分割（最少 0.4 秒）', 'warning'); return; }
+    _segOpBusy = true;
+    const row = document.querySelector(`.rv-b-rail-item[data-idx="${i}"]`);
+    if (row && mode === 'ai') row.classList.add('rv-seg-busy');
+    try {
+      const r = await fetch(`${API_BASE}/api/files/${fileId}/segments/${s.idx}/split`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+      const data = await r.json();
+      segs = _rebuildSegsFromArrays(data.translations, _olLangs);
+      renderSegList();
+      renderWaveformRegions();
+      setCursor(Math.min(i + 1, segs.length - 1), false);
+      _flashRows([i, i + 1]);
+      showToast(mode === 'ai' ? '段落已 AI 分割' : '段落已對半分割', 'success');
+    } catch (e) {
+      showToast('分割失敗：' + e.message, 'error');
+    } finally {
+      _segOpBusy = false;
+      const r2 = document.querySelector(`.rv-b-rail-item[data-idx="${i}"]`);
+      if (r2) r2.classList.remove('rv-seg-busy');
+    }
+  }
+
+  async function mergeNext(i) {
+    if (_segOpBusy) return;
+    const s = segs[i];
+    if (!s) return;
+    if (i + 1 >= segs.length) { showToast('已經係最後一段，無法合併下一段', 'warning'); return; }
+    _segOpBusy = true;
+    try {
+      const r = await fetch(`${API_BASE}/api/files/${fileId}/segments/${s.idx}/merge-next`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+      const data = await r.json();
+      segs = _rebuildSegsFromArrays(data.translations, _olLangs);
+      renderSegList();
+      renderWaveformRegions();
+      setCursor(Math.min(i, segs.length - 1), false);
+      _flashRows([i]);
+      showToast('段落已合併', 'success');
+    } catch (e) {
+      showToast('合併失敗：' + e.message, 'error');
+    } finally {
+      _segOpBusy = false;
+    }
+  }
+
   async function loadSegments() {
     const isOutputLang = fileInfo && fileInfo.active_kind === 'output_lang';
     const isV6 = fileInfo && fileInfo.active_kind === 'pipeline_v6';
