@@ -602,7 +602,7 @@ ollama signin
 | **proofread.html** | 校對編輯器 — 審核、編輯、批核、渲染 | REST API（輪詢渲染狀態） |
 | **Files.html** | 檔案總覽頁 — 列出所有檔案及狀態 | REST API（`/api/files`，`js/files-page.js`） |
 | **Glossary.html** | 術語表管理頁 — entry CRUD、CSV 匯入/匯出 | REST API（`/api/glossaries`） |
-| **user.html** | 帳戶 / 改密碼 / admin 用戶管理 + 審計 | REST API（`/api/me`、`/api/admin/*`） |
+| **user.html** | 帳戶頁 — 左側分頁導航（我的帳戶 / 用戶管理 / 審計日誌）；用戶管理支援 inline 操作（刪除確認、重設密碼、備註）；結構化審計日誌可展開詳情、搜尋及動作類型篩選；per-user 備註由管理員編輯、用戶可喺「我的帳戶」查看自己嘅備註 | REST API（`/api/me`、`/api/admin/*`） |
 | **login.html** | 登入頁 | `POST /login`（Flask-Login session） |
 
 > 五頁共用同一套左側 rail（主頁 / 檔案 / 校對 / 術語表 / User）。

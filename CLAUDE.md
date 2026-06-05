@@ -145,7 +145,7 @@ motitle/
 ├── frontend/
 │   ├── index.html              # Main dashboard — upload, transcribe, translate
 │   ├── proofread.html          # Proof-reading editor — review, edit, approve, render
-│   ├── user.html               # Account + admin user management + audit (5-item rail)
+│   ├── user.html               # Account page — 左側分頁導航（我的帳戶 / 用戶管理 / 審計日誌）、全闊 panes、用戶管理 inline 操作（刪除確認 / 重設密碼 / 備註）、結構化審計日誌（可展開詳情 + 搜尋/篩選）；per-user remarks 由管理員編輯、用戶可喺「我的帳戶」查看自己嘅備註。
 │   ├── Glossary.html           # Glossary management page
 │   ├── Files.html              # Files library page (login-required)
 │   ├── login.html              # Login form
@@ -300,6 +300,10 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | GET | `/api/renders/<id>/download` | Download rendered file |
 
 > Admin `POST /api/admin/users` (create) and `POST /api/admin/users/<id>/reset-password` now return **400** (not 500) on a weak/empty password — the ValueError from password-strength validation is mapped to a clean 400. Policy (≥8 chars, not a common password) is shown in `user.html`.
+>
+> `PATCH /api/admin/users/<id>/remarks` — Admin-only: set a user's remarks (≤500 chars); audits `user.update_remarks`; 404 for unknown user / 400 for over-length.
+>
+> `GET /api/me` now also returns the caller's own `remarks` (read-only, shown on 我的帳戶 tab).
 
 ### Frontend
 
