@@ -969,7 +969,9 @@
   }
 
   // Resolve segment text per subtitle source mode.
-  // Mirrors backend backend/subtitle_text.py resolve_segment_text exactly.
+  // Mirrors backend resolve_segment_text for explicit modes, EXCEPT 'auto' here
+  // defaults the DISPLAY to 雙語 when both tracks exist (1 lang → first, 2 langs →
+  // bilingual). Backend export/render 'auto' stays translation-preferred, overridable.
   // Handles role-based values: 'first' (= legacy 'en'), 'second' (= legacy 'zh').
   function pickSubtitleText(seg, mode = 'auto', order = 'en_top') {
     const en = (seg.en || seg._en_text || seg.text || '').trim();
@@ -985,7 +987,9 @@
       if (!zh) return en;
       return order === 'en_top' ? `${en}\n${zh}` : `${zh}\n${en}`;
     }
-    return zh || en;
+    // auto (default): 2 languages → 雙語 (both stacked); 1 language → first.
+    if (en && zh) return order === 'en_top' ? `${en}\n${zh}` : `${zh}\n${en}`;
+    return en || zh;
   }
 
   // Resolve subtitle source from a file entry, falling back to the active profile.
