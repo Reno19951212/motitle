@@ -72,6 +72,7 @@
 | **上傳 popup**（`index.html` olOverlay） | 加「詞彙表 Review」**多選** selector（`#olGlossary`，可多選，順序 = 優先）+「LLM 精修」toggle（`#olGlossaryLlm`，對應 §A LLM 層 opt-in） |
 | **POST /api/transcribe**（app.py） | 讀 `glossary_ids`（JSON array）+ 驗證每個存在 → 存 `entry["glossary_ids"]` + `entry["glossary_llm"]` |
 | **校對頁**（proofread.html） | output_lang 重開「套用」→ **「重新套用詞彙表」**（改完手動 re-run glossary stage on 現有輸出）；header 顯示用咗邊幾個 glossary |
+| **校對頁 — 詞彙對照 before/after**（右邊 detail panel） | 接通現有 stub「詞彙對照」欄（line ~2255）：渲染當前段嘅 `glossary_changes`，逐個 `before → after`（before 淡色/刪除線、after 高亮）+ glossary 名；**該段無詞條時顯示「此段無詞彙表詞條（未涉及）」** → 令用戶知道某些名冇變係因為 glossary 冇對應，唔係 bug。rail 行 `.rv-b-rail-flags` 加 📖 badge 標示有改動嘅段 |
 | **Glossary.html**（CRUD + CSV import/export） | **不變**（已支援 `{source,target,target_aliases}` + source_lang/target_lang + 語言對 badge）。文檔提示「target 可含 `(H###)`，stage 自動剝」 |
 | **檔案卡 / 校對頂** | 加「📖 已套詞彙表」indicator（由 `entry["glossary_ids"]` 派生） |
 | **CSV 格式** | 3 欄不變;README 建議**補 aliases**（racing 1350 條冇 alias → 確定性層先接到更多） |
@@ -79,6 +80,7 @@
 ## E. Data model（最小改動）
 
 - file entry 新欄：`glossary_ids: List[str]`（有序）、`glossary_llm: bool`。
+- translation row 新欄：**`glossary_changes: List[{source, before, after, glossary}]`**（glossary stage 改字時記低，per-segment；空 list = 該段無詞條改動）→ 校對頁 before/after 顯示用。
 - 重用：`GlossaryManager`（get / list / CSV）、`/api/glossaries*` CRUD、`GLOSSARY_APPLY_SYSTEM_PROMPT`、`_make_glossary_term_pattern`（字界）、`_make_ollama_llm_call`（LLM binding）。
 - `by_lang` / `{lang}_text` / `aligned_bilingual` shape **不變**（glossary stage 只改 text 值）。
 
@@ -88,7 +90,7 @@
 2. `backend/app.py` — transcribe handler（讀 `source_language`/`script` 嗰度）驗證 + 存 `entry["glossary_ids"]`；`_run_output_lang` / `_run_output_lang_bound_base` / `_run_output_lang_cross` / `_run_output_lang_second*` load glossaries（`_glossary_manager.get`）+ thread。
 3. `backend/output_lang_aligned.derive_aligned_output`（+ `build_aligned_bilingual`）/ `backend/output_lang_postprocess` — `apply_script` 之後 call `output_lang_glossary.glossary_stage(...)`；signature 加 `glossaries`（向後兼容 default None = 行為不變）。
 4. **新** `backend/output_lang_glossary.py` — `build_merged_index(glossaries)`（剝 suffix + 優先序合併）、`route_for_output(glossary, output_lang, content_lang) -> 'source'|'target'|None`、`filter_candidates(text, index, side)`（含 guard）、`deterministic_apply(...)`、`llm_review(...)`（注入 llm_call）、`glossary_stage(segments, glossaries, output_lang, content_lang, llm_call, *, use_llm)`。
-5. `frontend/proofread.html` — output_lang 重開套用掣 → 「重新套用詞彙表」→ 新 endpoint（或重用）re-run stage on 現有 translations。
+5. `frontend/proofread.html` — output_lang 重開套用掣 → 「重新套用詞彙表」→ 新 endpoint（或重用）re-run stage on 現有 translations；`renderDetail`（~L2159）嘅「詞彙對照」stub（~L2255）渲染當前段 `glossary_changes`（before→after + glossary 名 / 無詞條提示）；`_renderSegListBase` rail 行加 📖 badge（有 `glossary_changes` 時）。`loadSegments` output_lang 分支將 `t.glossary_changes` 帶入 `segs[i]`。
 6. `backend/app.py` — 新（或擴）endpoint `POST /api/files/<id>/glossary-reapply`（output_lang re-run glossary stage on 現有輸出，回更新後 translations）。
 
 ## G. 範圍外（v2）
