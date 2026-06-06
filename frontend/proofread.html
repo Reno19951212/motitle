@@ -159,16 +159,16 @@
       position: relative; z-index: 40;
     }
     .rv-back {
-      display: flex; align-items: center; gap: 6px;
-      padding: 6px 10px 6px 8px;
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 10px;
       background: var(--surface-2);
       border: 1px solid var(--border);
-      border-radius: 7px;
+      border-radius: var(--radius-sm);
       color: var(--text-mid);
       font-size: 12px; font-weight: 600;
       cursor: pointer;
     }
-    .rv-back:hover { color: var(--text); border-color: var(--border-strong); }
+    .rv-back:hover { background: var(--surface-3); border-color: var(--border-strong); color: var(--text); }
     .rv-sep { color: var(--text-dim); font-family: var(--font-mono); }
     .rv-title { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 0 1 auto; }
     .rv-mode { font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: 0.02em; }

@@ -132,7 +132,7 @@
     .b-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
     .gl-shell { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
     .gl-header {
-      display: flex; align-items: center; gap: 16px;
+      display: flex; align-items: center; gap: 12px;
       padding: 10px 18px;
       background: var(--surface);
       border-bottom: 1px solid var(--border);
@@ -140,14 +140,15 @@
     }
     .gl-back {
       display: inline-flex; align-items: center; gap: 6px;
-      padding: 5px 9px;
-      background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px;
-      font-size: 12px; color: var(--text-mid);
+      padding: 5px 10px;
+      background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      font-size: 12px; font-weight: 600; color: var(--text-mid);
+      cursor: pointer;
     }
-    .gl-back:hover { background: var(--surface-3); color: var(--text); }
+    .gl-back:hover { background: var(--surface-3); border-color: var(--border-strong); color: var(--text); }
     .gl-title {
       display: flex; align-items: center; gap: 8px;
-      font-size: 13px; font-weight: 600; color: var(--text);
+      font-size: 13px; font-weight: 700; color: var(--text);
     }
     .gl-title-sep { color: var(--text-dim); margin: 0 2px; }
     .gl-title-active {
