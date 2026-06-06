@@ -53,6 +53,7 @@ from profiles import ProfileManager
 from glossary import GlossaryManager
 from language_config import LanguageConfigManager, DEFAULT_ASR_CONFIG, DEFAULT_TRANSLATION_CONFIG
 from renderer import SubtitleRenderer, DEFAULT_FONT_CONFIG
+from ffmpeg_locate import find_ffmpeg, find_ffprobe
 from subtitle_text import (
     resolve_segment_text,
     resolve_subtitle_source as _resolve_subtitle_source_helper,
@@ -1590,7 +1591,7 @@ def get_media_duration(file_path: str) -> float:
     """Get media duration in seconds using ffprobe"""
     try:
         cmd = [
-            'ffprobe', '-v', 'quiet',
+            find_ffprobe(), '-v', 'quiet',
             '-print_format', 'json',
             '-show_format',
             file_path
@@ -1608,7 +1609,7 @@ def extract_audio(video_path: str, output_path: str) -> bool:
     """Extract audio from video file using ffmpeg"""
     try:
         cmd = [
-            'ffmpeg', '-i', video_path,
+            find_ffmpeg(), '-i', video_path,
             '-vn',  # No video
             '-acodec', 'pcm_s16le',  # PCM 16-bit
             '-ar', '16000',  # 16kHz sample rate (Whisper requirement)
@@ -2122,17 +2123,19 @@ def ready_check():
 def _whisper_cache_dir():
     """Return the OS-appropriate whisper model cache directory.
 
-    Respects XDG_CACHE_HOME / HF_HOME overrides; on Windows uses %LOCALAPPDATA%;
-    on macOS/Linux returns the conventional ~/.cache/whisper (identical to the
+    Precedence: a non-empty XDG_CACHE_HOME (its /whisper subdir) wins; otherwise
+    a non-empty HF_HOME is used as a cache-root fallback (its /whisper subdir).
+    Empty or unset env vars are skipped (a blank XDG_CACHE_HOME must not resolve
+    to a relative "whisper" dir). On Windows uses %LOCALAPPDATA%; on macOS/Linux
+    with no override returns the conventional ~/.cache/whisper (identical to the
     previous hard-coded value, so macOS behaviour is unchanged).
     """
     import os as _os
-    env = _os.environ.get("XDG_CACHE_HOME") or _os.environ.get("HF_HOME")
-    if env:
-        return Path(env) / "whisper"
+    cache_root = _os.environ.get("XDG_CACHE_HOME") or _os.environ.get("HF_HOME")
+    if cache_root:
+        return Path(cache_root) / "whisper"
     if _os.name == "nt":
-        base = _os.environ.get("LOCALAPPDATA") or str(Path.home())
-        return Path(base) / "whisper"
+        return Path(_os.environ.get("LOCALAPPDATA") or Path.home()) / "whisper"
     return Path.home() / ".cache" / "whisper"
 
 
