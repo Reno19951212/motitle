@@ -266,6 +266,10 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | POST | `/api/profiles/<id>/activate` | Set active profile |
 | GET | `/api/settings/font` | Global subtitle-font preset (used by render + live preview when no active profile — V6 / output_lang) |
 | PUT | `/api/settings/font` | Update the global font preset (settings.json `font`); emits `profile_updated` |
+| GET | `/api/fonts` | List subtitle fonts in `backend/assets/fonts/` (`{file, family}`); drives the font picker + `@font-face` injection |
+| POST | `/api/fonts` | Upload a custom subtitle font (.ttf/.otf; validates extension + size ≤32MB + sfnt magic bytes); returns `{file, family}` (family read from the font `name` table via fontTools) |
+| DELETE | `/api/fonts/<filename>` | Delete an uploaded custom font (resolved-path confined to `assets/fonts/`) |
+| GET | `/fonts/<filename>` | Serve a font file (for `@font-face` live preview + libass `:fontsdir` burn-in) |
 | GET | `/api/asr/engines` | List ASR engines with availability |
 | GET | `/api/asr/engines/<name>/params` | Get param schema for ASR engine |
 | POST | `/api/translate` | Translate a file's segments |
@@ -443,7 +447,16 @@ This section summarises the CURRENT behaviour a developer needs; older entries l
 - Each segment row has two left-side buttons — **AI 切割** (Ollama `qwen3.5:35b-a3b` splits every language at one aligned semantic/punctuation boundary; time split by content-language char ratio clamped 0.15–0.85) and **機械式硬切割** (50/50 midpoint, both halves duplicate the text) — plus a right-side **合併下一段**. Keyboard: `Ctrl+Shift+S` / `Ctrl+Shift+D` / `Ctrl+Shift+M`. Buttons are gated to output_lang rows only; rows under 0.4 s have split buttons disabled.
 - Pure logic in `backend/segment_split.py`; routes in `app.py` (AI path snapshots under `_registry_lock`, calls the LLM lock-free, re-acquires + conflict-checks). The cascade keeps `segments`/`translations`/`aligned_bilingual`/`content_asr_segments` positionally aligned and renumbers `translations[].idx`, so SRT export / render / glossary-reapply / add-second-language stay correct. AI failure (bad JSON, reconstruction mismatch, empty source part) falls back to mechanical automatically.
 
-### Remaining UI to retire (dead code, no entry point)
+### Subtitle custom-font upload (NEW, 2026-06-06)
 
-- `renderPipelineStrip` / `renderPipelineStripV6` / `renderStripLanguageSelector` / `togglePipelineSteps` (pipeline strip)
-- `openLangConfigManageModal` + the language-config modal/step-menu
+- The subtitle font system is **bundled-font driven**: drop/upload `.ttf`/`.otf` into `backend/assets/fonts/` → `GET /api/fonts` lists them → `font-preview.js` injects one `@font-face` per file (live preview) AND `renderer.py` passes `:fontsdir=<FONTS_DIR>` to libass (burn-in), so preview glyphs match the rendered output.
+- **Custom fonts can now be uploaded in-app** (no more manual server file-drop). The 字幕設定 panel on **proofread + index** has a **「＋ 新增字型」** button → `POST /api/fonts` (validates extension + size ≤32MB + sfnt magic bytes; `secure_filename` with a uuid fallback for CJK filenames). The font `<select>` is now driven by `/api/fonts` (actually-available fonts, grouped 「已上載字型」/「系統字型」) via `FontPreview.fontOptionsHtml()` / `refreshFonts()` / `getFonts()` — so switching a font produces a real change instead of silently falling back to a system font. `DELETE /api/fonts/<file>` removes one.
+- `fonttools` (in `requirements.txt`) reads the **real family name** from each font's `name` table, so the picker value == the `@font-face` family == the ASS Style family libass resolves via `:fontsdir`. Font config (family/size/color/outline/margin) still persists to the active Profile or `settings.json` `font` via the existing 「儲存為預設」 flow.
+
+### Retired UI / removed dead code (cleaned up 2026-06-06)
+
+Full audit: [docs/superpowers/specs/2026-06-06-project-health-audit.md](docs/superpowers/specs/2026-06-06-project-health-audit.md). ~6,800 lines removed; verified `import app` + suite clean.
+
+- **Removed (frontend)**: the pipeline-strip subgraph (`renderPipelineStrip` / `renderPipelineStripV6` / `renderStripLanguageSelector` / `togglePipelineSteps` + ~17 call sites + CSS), the `openLangConfigManageModal` language-config modal, dead JS helpers (`stagesForFile` / `restartService` / `fmtSec` / `loadFontConfig` / etc.), and orphan pages `proofread.old.html` + `mockup-media-bin.html`.
+- **Removed (backend)**: the dead+broken live-streaming ASR subsystem (5 socket handlers + `/api/streaming/available` + the `WHISPER_STREAMING_AVAILABLE` block), the never-registered `routes/` blueprint package (12 duplicate modules + `register_blueprints`; the 4 live ones — pipelines/refiner_profiles/transcribe_profiles/llm_profiles — kept), `asr/repetition_guard.py`, and `asr_profiles.py`.
+- **Still present but legacy/inert** (NOT retired — kept pending product decision): the V5 DAG path (`pipeline_runner.run()` v5 branches, v4 stages, `translator_profiles.py` / `verifier_profiles.py` managers) + its config (`config/{asr_profiles,translator_profiles}/`, left uncommitted) + 2 inert V5 pipelines. Activation only accepts `profile` / `pipeline_v6`, so V5 never runs at runtime. **`backend/scripts/v5_prototype/venv_qwen/` is NOT v5 — it is the LIVE V6 Qwen3-ASR py3.11 venv (gitignored; never delete).**
