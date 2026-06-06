@@ -3,24 +3,32 @@
 # Provisions venv + mlx-whisper, bootstraps an admin user, and writes
 # backend/.env with a freshly-generated FLASK_SECRET_KEY.
 set -euo pipefail
+SCRIPT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [[ "$(uname -m)" != "arm64" ]]; then
   echo "ERROR: This script targets Apple Silicon (arm64). For Intel Mac, use setup.sh"
   exit 1
 fi
 
-# Check prerequisites
-command -v python3 >/dev/null || { echo "Python 3.11+ required: brew install python@3.11"; exit 1; }
-command -v ffmpeg >/dev/null  || { echo "FFmpeg required: brew install ffmpeg"; exit 1; }
+# --- Prerequisites (auto-install via Homebrew when missing) ---
+command -v brew >/dev/null || { echo "Homebrew required: https://brew.sh"; exit 1; }
+command -v python3 >/dev/null || brew install python@3.11
+command -v ffmpeg  >/dev/null || brew install ffmpeg
+command -v ollama  >/dev/null || brew install ollama
 
-# Backend setup
+# Backend venv (idempotent — reuse if mlx-whisper already imports)
 cd backend
-python3 -m venv venv
-# shellcheck disable=SC1091
-source venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
-pip install mlx-whisper
+if [[ -d venv ]] && venv/bin/python -c "import mlx_whisper" 2>/dev/null; then
+  echo "venv present and mlx-whisper importable — skipping rebuild"
+  source venv/bin/activate
+else
+  python3 -m venv venv
+  # shellcheck disable=SC1091
+  source venv/bin/activate
+  pip install --upgrade pip
+  pip install -r requirements.txt
+  pip install mlx-whisper
+fi
 
 # Bootstrap admin
 echo ""
@@ -61,5 +69,20 @@ echo "=== Generate self-signed HTTPS cert ==="
 python scripts/generate_https_cert.py data/certs && \
   echo "Cert: backend/data/certs/server.crt" || \
   echo "Cert generation failed (HTTPS will be disabled; install mkcert or openssl to enable)"
+echo ""
+echo "=== Ollama model (qwen3.5:35b-a3b-mlx-bf16) ==="
+MODEL_TAG="qwen3.5:35b-a3b-mlx-bf16"
+# bf16 35B is large (~70GB); require generous free space on the boot volume.
+NEED_GB=90
+FREE_GB=$(df -g / | awk 'NR==2 {print $4}')
+if ollama list 2>/dev/null | grep -q "qwen3.5:35b-a3b-mlx-bf16"; then
+  echo "Model already pulled — skipping."
+elif (( FREE_GB < NEED_GB )); then
+  echo "WARNING: only ${FREE_GB}GB free (need ~${NEED_GB}GB for ${MODEL_TAG})."
+  echo "  Free up space then run:  ollama pull ${MODEL_TAG}"
+else
+  echo "Pulling ${MODEL_TAG} (large download)…"
+  ollama pull "${MODEL_TAG}"
+fi
 echo ""
 echo "Setup complete."
