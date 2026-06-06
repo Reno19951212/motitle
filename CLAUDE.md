@@ -155,11 +155,17 @@ motitle/
 │       ├── step-diagram.js     # Kind-agnostic step-diagram renderer
 │       └── files-page.js       # Files.html logic
 ├── docs/superpowers/           # Design specs and implementation plans
+├── docs/deployment/            # Operator runbooks
+│   └── macos-server.md         # macOS Apple Silicon server-appliance install (launchd)
+├── packaging/macos/            # LaunchDaemon plists + launcher + service management CLI
 ├── setup.sh                    # One-shot environment setup
+├── setup-mac.sh                # macOS Apple Silicon server setup (deps + venv + admin user + launchd)
 ├── start.sh                    # Start backend + open browser
 ├── CLAUDE.md                   # This file
 └── README.md                   # User-facing documentation (Traditional Chinese)
 ```
+
+> **macOS server-appliance deployment** — `setup-mac.sh` installs Homebrew deps, mlx-whisper venv, bootstraps the admin user, writes `backend/.env` (FLASK_SECRET_KEY), generates a self-signed HTTPS cert, pulls `qwen3.5:35b-a3b-mlx-bf16`, and optionally installs two LaunchDaemons (`com.motitle.server` + `com.motitle.ollama`) via `packaging/macos/motitle-service.sh`. Full operator runbook: [docs/deployment/macos-server.md](docs/deployment/macos-server.md).
 
 ---
 
