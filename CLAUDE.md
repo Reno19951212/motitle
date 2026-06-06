@@ -79,6 +79,8 @@ pytest tests/ -k "not api_"         # Skip Flask-dependent API tests
 
 > Note: API-level tests (`test_api_*`) require `flask` in the active venv. Unit tests run without it.
 
+**CI**: `.github/workflows/ci.yml` runs the 4 cross-platform abstraction unit tests (`test_platform_backend`, `test_ffmpeg_locate`, `test_asr_profiles_platform`, `test_qwen_venv_path`) on `ubuntu-latest` + `macos-14` via GitHub Actions — pure-logic, no GPU/model deps, just `pytest`.
+
 ### curl smoke tests
 ```bash
 curl http://localhost:5001/api/health
