@@ -2271,15 +2271,6 @@
       }
     }
 
-    function stagesForFile(f) {
-      const cat = fileStatusCategory(f);
-      if (cat === 'error') return { asr: 'err', mt: 'err' };
-      if (cat === 'transcribing') return { asr: 'warn', mt: 'idle' };
-      if (cat === 'translating') return { asr: 'ok', mt: 'warn' };
-      if (cat === 'pending' || cat === 'queued') return { asr: 'idle', mt: 'idle' };
-      return { asr: 'ok', mt: f.translation_status === 'done' ? 'ok' : 'idle' };
-    }
-
     // ============================================================
     // Rendering
     // ============================================================
@@ -4124,12 +4115,6 @@
 
     // Allow user to re-open the OpenRouter modal after it's been set,
     // for editing the key or switching models without re-picking engine.
-    function openOpenRouterModalIfActive() {
-      if (activeProfile?.translation?.engine === 'openrouter') {
-        openOpenRouterModal();
-      }
-    }
-
     function applyOutputFormat(name) {
       // Output format is per-render, not profile-wide; remember selection for next render.
       window._preferredOutputFormat = name;
@@ -5799,26 +5784,6 @@
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-    }
-
-    async function restartService() {
-      const btn = document.getElementById('restartBtn');
-      try { await fetch(`${API_BASE}/api/restart`, { method: 'POST' }); } catch (e) {}
-      showToast('正在重啟服務器...', 'warning');
-      let attempts = 0;
-      const poll = setInterval(async () => {
-        attempts++;
-        try {
-          const r = await fetch(`${API_BASE}/api/health`, { signal: AbortSignal.timeout(2000) });
-          if (r.ok) {
-            clearInterval(poll); renderModalState.pollTimerId = null;
-            showToast('服務器已重啟', 'success');
-            if (socket) socket.disconnect();
-            connectSocket();
-          }
-        } catch {}
-        if (attempts > 30) { clearInterval(poll); showToast('重啟超時', 'error'); }
-      }, 2000);
     }
 
     // ============================================================

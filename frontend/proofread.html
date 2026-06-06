@@ -1251,12 +1251,6 @@
     const sec = (s - m * 60).toFixed(2).padStart(5, '0');
     return `${String(m).padStart(2, '0')}:${sec}`;
   }
-  function fmtSec(ms) {
-    if (!ms && ms !== 0) return '—:—';
-    const s = Math.floor(ms / 1000);
-    const m = Math.floor(s / 60);
-    return `${String(m).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-  }
   function showToast(msg, kind = 'info') {
     const stack = document.getElementById('toastStack');
     const t = document.createElement('div');
@@ -1282,18 +1276,6 @@
     if (typeof FontPreview !== 'undefined') {
       FontPreview.applyFontConfig(fontConfig);
     }
-  }
-
-  async function loadFontConfig() {
-    try {
-      const r = await fetch(`${API_BASE}/api/profiles/active`);
-      if (!r.ok) return;
-      const data = await r.json();
-      if (data.profile?.font) {
-        fontConfig = { ...fontConfig, ...data.profile.font };
-      }
-    } catch (e) { /* keep defaults */ }
-    applySubtitleStyle();
   }
 
   // ============================================================
@@ -1886,10 +1868,6 @@
   }
 
   // Legacy alias kept for any inline onclick that may still reference it
-  function toggleSelectAllViolations(checked) {
-    _toggleSection('strict', checked);
-  }
-
   async function applySelectedViolations() {
     const checked = Array.from(document.querySelectorAll('.ga-row-check:checked'));
     const violations = [];
