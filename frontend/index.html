@@ -246,45 +246,6 @@
       display: flex; align-items: center; gap: 10px;
       min-width: 0;
     }
-    .topbar-mid .pipeline-strip { flex: 1; min-width: 0; }
-
-    .pipeline-strip {
-      display: flex; align-items: center;
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 3px;
-      gap: 2px;
-      min-width: 0;
-    }
-    .pipeline-strip .step { position: relative; }
-    .pipeline-strip { position: relative; }
-    .pipeline-strip .pipeline-preset .pp-v {
-      max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .pipeline-steps-toggle {
-      display: inline-flex; align-items: center; gap: 4px;
-      background: none; border: 0; cursor: pointer;
-      padding: 6px 10px; border-radius: 8px; color: var(--text-mid);
-    }
-    .pipeline-steps-toggle:hover { background: var(--surface-3); color: var(--text); }
-    .pipeline-steps-toggle .k {
-      font-weight: 700; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
-    }
-    .pipeline-steps-popover {
-      display: none;
-      position: absolute; top: 100%; left: 0; margin-top: 6px;
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 10px; box-shadow: 0 16px 40px rgba(0,0,0,0.55);
-      padding: 4px 6px; z-index: 90;
-      align-items: center; gap: 2px;
-      width: max-content; max-width: 90vw; overflow: visible;
-    }
-    .pipeline-steps-popover.open { display: flex; }
-    /* popover has room — show full step values (override the inline 100px
-       ellipsis cap; 4-class specificity beats `.pipeline-strip .step .v`) */
-    .pipeline-strip .pipeline-steps-popover .step .v { max-width: none; overflow: visible; }
-    .pipeline-preset-wrap { position: relative; }
 
     /* Pipeline step dropdown */
     .step-menu {
@@ -307,9 +268,7 @@
       top: -8px; left: 0; right: 0; height: 8px;
     }
     .step:hover .step-menu,
-    .step:focus-within .step-menu,
-    .pipeline-preset-wrap:hover .preset-menu,
-    .pipeline-preset-wrap:focus-within .preset-menu { display: flex; }
+    .step:focus-within .step-menu { display: flex; }
 
     .step-menu-head {
       font-size: 10px; font-weight: 700; text-transform: uppercase;
@@ -358,73 +317,7 @@
       padding: 6px 10px 2px;
       opacity: 0.7;
     }
-    .pipeline-strip .step {
-      display: flex; align-items: center; gap: 6px;
-      padding: 6px 10px;
-      font-size: 12px;
-      color: var(--text-mid);
-      border-radius: 7px;
-      cursor: pointer;
-      white-space: nowrap;
-      min-width: 0;
-    }
-    .pipeline-strip .step .v { max-width: 100px; overflow: hidden; text-overflow: ellipsis; }
-    @media (max-width: 1500px) {
-      .pipeline-strip .step .k { display: none; }
-      .pipeline-strip .step { padding: 6px 8px; gap: 5px; }
-      .pipeline-strip .arrow { padding: 0; font-size: 10px; }
-    }
-    @media (max-width: 1200px) {
-      .pipeline-preset .pp-k { display: none; }
-      .pipeline-strip .step .v { max-width: 70px; font-size: 11px; }
-    }
-    .pipeline-strip .step:hover { background: var(--surface-3); color: var(--text); }
-    .pipeline-strip .step-gloss {
-      background: rgba(108,99,255,0.10);
-      border-left: 1px solid var(--border);
-    }
-    .pipeline-strip .step-gloss:hover { background: rgba(108,99,255,0.18); }
-    .pipeline-strip .step-gloss .k { color: var(--accent); }
-    .pipeline-strip .step[data-step="vad"],
-    .pipeline-strip .step[data-step="qwen3-ctx"],
-    .pipeline-strip .step[data-step="refiner"] {
-      border-left: 2px solid var(--accent-2);
-    }
-    .pipeline-strip .step .k { font-weight: 700; font-size: 10px; letter-spacing: 0.08em; color: var(--text-dim); text-transform: uppercase; }
-    .pipeline-strip .step .v { font-family: var(--font-mono); font-size: 12px; color: var(--text); }
-    .pipeline-strip .step .caret { color: var(--text-dim); font-size: 10px; }
-    .pipeline-strip .arrow { color: var(--text-dim); padding: 0 2px; }
-    .pipeline-strip .sep { width: 1px; align-self: stretch; background: var(--border); margin: 4px 0; }
-
-    /* File-context language selector (B2 strip lang) */
-    .strip-lang-wrap { display:flex; align-items:center; gap:6px; padding:0 4px; position:relative; border-right:1px solid var(--border); }
-    .strip-lang-chip { font-size:11px; padding:3px 8px; border-radius:6px; background:var(--surface-3); color:var(--text); white-space:nowrap; }
-    .strip-lang-chip.strip-lang-adding { background:rgba(74,158,255,0.18); color:var(--accent-2); }
-    .strip-add-lang { display:inline-flex; align-items:center; gap:3px; font-size:11px; padding:3px 8px; border-radius:6px; border:1px dashed var(--border); background:transparent; color:var(--accent); cursor:pointer; white-space:nowrap; }
-    .strip-add-lang:hover { background:rgba(108,99,255,0.12); }
-    .strip-add-lang-menu { display:none; position:absolute; top:100%; left:0; margin-top:4px; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:4px; z-index:50; min-width:120px; box-shadow:0 6px 24px rgba(0,0,0,0.4); }
-    .strip-add-lang-menu.open { display:block; }
-    .strip-add-lang-menu button { display:block; width:100%; text-align:left; padding:6px 10px; border:none; background:transparent; color:var(--text); font-size:12px; border-radius:5px; cursor:pointer; }
-    .strip-add-lang-menu button:hover { background:var(--surface-3); }
-
     [data-loading="1"]::after { content: ' (載入中…)'; color: var(--text-dim); font-size: 11px; }
-
-    .pipeline-preset {
-      display: flex; align-items: center; gap: 8px;
-      padding: 6px 10px;
-      background: var(--accent-softer);
-      border-right: 1px solid var(--border);
-      cursor: pointer;
-      white-space: nowrap;
-      transition: background .12s;
-    }
-    .pipeline-preset:hover { background: rgba(108,99,255,0.18); }
-    .pipeline-preset .pp-text { display: flex; flex-direction: column; text-align: left; }
-    .pipeline-preset .pp-k {
-      font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em;
-      color: var(--accent); text-transform: uppercase;
-    }
-    .pipeline-preset .pp-v { font-size: 12px; font-weight: 600; color: var(--text); }
 
     .topbar-actions { display: flex; align-items: center; gap: 6px; }
     .save-btn {
@@ -2689,113 +2582,6 @@
         </div>`;
     }
 
-    function renderPipelineStripV6(el) {
-      if (!el) return;
-      const p = activePipeline || { vad: {}, qwen3_asr: {}, refinements: { zh: [{}] } };
-      const preset = p.name || '未選擇';
-
-      // Build preset menu (reuse 2-section pattern from main renderPipelineStrip)
-      const _currentUserId = window.authState?.user?.id ?? null;
-      const _sharedProfiles = availableProfiles.filter(pr => pr.user_id === null || pr.user_id === undefined);
-      const _myProfiles = _currentUserId !== null
-        ? availableProfiles.filter(pr => pr.user_id === _currentUserId) : [];
-      const _renderProfileButton = pr => `
-            <button onclick="activateProfile('${pr.id}')">
-              <div class="smn-main">
-                <span class="smn-name">${escapeHtml(pr.name || pr.id)}</span>
-              </div>
-              <div class="smn-desc">${escapeHtml(pr.asr?.model_size || '—')} · ${escapeHtml((pr.translation?.engine || '—').replace(/-cloud$/,''))}</div>
-            </button>`;
-      let _profileGroupsHtml = '';
-      if (_myProfiles.length) {
-        _profileGroupsHtml += '<div class="step-menu-section-label">我嘅</div>';
-        _profileGroupsHtml += _myProfiles.map(_renderProfileButton).join('');
-      }
-      if (_sharedProfiles.length) {
-        if (_myProfiles.length) _profileGroupsHtml += '<div class="split-divider"></div>';
-        _profileGroupsHtml += '<div class="step-menu-section-label">共享</div>';
-        _profileGroupsHtml += _sharedProfiles.map(_renderProfileButton).join('');
-      }
-      const _v6IsAvailable = window.authState?.v6_available !== false;
-      const _v6PipelinesHtml = !_v6IsAvailable
-        ? `<div style="padding:8px 12px;color:var(--text-dim);font-size:11px;">⚠ Qwen3 venv 未安裝 — 跑 setup_v6.sh</div>`
-        : availablePipelines
-            .filter(pp => pp.pipeline_type === "v6_vad_dual_asr")
-            .map(pp => `
-          <button ${activeId === pp.id ? 'class="on"' : ''} onclick="activatePipeline('${pp.id}')">
-            <div class="smn-main">
-              <span class="smn-name">${escapeHtml(pp.name)}</span>
-              ${activeId === pp.id ? '<span class="smn-badge">當前</span>' : ''}
-              <span class="smn-badge" style="background:rgba(74,158,255,0.18);color:var(--accent-2)">V6</span>
-            </div>
-          </button>`).join('');
-      const presetMenuHtml = `
-        <div class="step-menu preset-menu" style="min-width: 280px;">
-          <div class="step-menu-head">舊有 Profile 組合</div>
-          ${_profileGroupsHtml}
-          <div class="split-divider"></div>
-          <div class="step-menu-head">Dual-ASR Pipeline (V6)</div>
-          ${_v6PipelinesHtml}
-        </div>`;
-
-      // VAD column — read-only summary
-      const vadThr = p.vad?.threshold ?? 0.5;
-      const vadMin = (p.vad?.min_speech_duration_ms ?? 250) / 1000;
-      const vadCell = `${vadThr} · min ${vadMin.toFixed(2)}s`;
-
-      // Qwen3 context column — truncated preview
-      const ctxFull = p.qwen3_asr?.context || '';
-      const ctxCell = ctxFull ? (ctxFull.length > 18 ? ctxFull.slice(0, 18) + '…' : ctxFull) : '（無）';
-
-      // Refiner column — refiner_profile_id
-      const refinerId = p.refinements?.zh?.[0]?.refiner_profile_id;
-      const refinerCell = refinerId ? refinerId.slice(0, 8) : '未設定';
-
-      const outputFmt = window._preferredOutputFormat || 'H.264 · MP4';
-
-      el.innerHTML = `
-        <div class="pipeline-preset-wrap">
-          <button class="pipeline-preset" title="切換 Pipeline 預設">
-            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="var(--accent)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="5" width="4" height="6" rx="1"/><rect x="11" y="5" width="4" height="6" rx="1"/><circle cx="8" cy="2" r="1.5"/><circle cx="8" cy="14" r="1.5"/><path d="M5 8h6 M8 3.5v3 M8 9.5v3"/></svg>
-            <div class="pp-text">
-              <div class="pp-k">Pipeline · V6</div>
-              <div class="pp-v">${escapeHtml(preset)}</div>
-            </div>
-            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
-          </button>
-          ${presetMenuHtml}
-        </div>
-        ${renderStripLanguageSelector()}
-        <button class="pipeline-steps-toggle" onclick="togglePipelineSteps(this)" title="顯示 / 隱藏 pipeline 步驟">
-          <span class="k">步驟</span>
-          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
-        </button>
-        <div class="pipeline-steps-popover">
-          <div class="step" data-step="vad" tabindex="0">
-            <div><div class="k">VAD</div><div class="v">${escapeHtml(vadCell)}</div></div>
-          </div>
-          <span class="arrow">→</span>
-          <div class="step" data-step="qwen3-ctx" tabindex="0" onclick="openPromptPanelInline('qwen3_context')" style="cursor:pointer;">
-            <div><div class="k">Qwen3 Context</div><div class="v">${escapeHtml(ctxCell)}</div></div>
-            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
-          </div>
-          <span class="arrow">→</span>
-          <div class="step" data-step="output" tabindex="0">
-            <div><div class="k">輸出</div><div class="v">${escapeHtml(outputFmt)}</div></div>
-          </div>
-          <span class="arrow">→</span>
-          <div class="step" data-step="refiner" tabindex="0" onclick="openPromptPanelInline('refiner_prompt')" style="cursor:pointer;">
-            <div><div class="k">Refiner</div><div class="v">${escapeHtml(refinerCell)}</div></div>
-            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
-          </div>
-        </div>`;
-    }
-
-    function togglePipelineSteps(btn) {
-      const pop = btn.parentElement.querySelector('.pipeline-steps-popover');
-      if (!pop) return;
-      pop.classList.toggle('open');
-    }
     document.addEventListener('click', (e) => {
       document.querySelectorAll('.pipeline-steps-popover.open').forEach(pop => {
         const wrap = pop.parentElement;
@@ -2813,87 +2599,10 @@
       });
     });
 
-    // ============================================================
-    // File-context language selector helpers (B2 — strip lang)
-    // ============================================================
-
-    // Returns HTML for the file-context language selector segment, or '' when
-    // no file is selected or the file has no languages descriptor yet.
-    function renderStripLanguageSelector() {
-      // Two sources for the language tracks shown in the strip:
-      //  (a) a selected file → its per-file descriptor (file.languages), or
-      //  (b) NO file selected but V6 is the active pipeline → the pipeline's
-      //      own languages (source_lang from config + a pipeline-level pre-pick),
-      //      so first/second are visible BEFORE any upload. The pre-pick is held
-      //      in window._v6PendingSecondLang and applied to the next upload.
-      const f = activeFileId ? uploadedFiles[activeFileId] : null;
-      // Build languages from the active V6 pipeline (source_lang) + an optional
-      // pre-selected second language (file-level or pipeline-level pending).
-      const _v6PipelineLangs = (preLang) => {
-        const src = (activePipeline && activePipeline.source_lang) || 'zh';
-        const arr = [{ role: 'first', lang: src, label: '原文' }];
-        const sec = preLang || window._v6PendingSecondLang;
-        if (sec && sec !== src) arr.push({ role: 'second', lang: sec, label: '譯文' });
-        return arr;
-      };
-      let langs, isV6, ctxFileId, translating;
-      if (f) {
-        const fileLangs = Array.isArray(f.languages) ? f.languages : [];
-        // A file uploaded with V6 selected may have no active_kind yet (optimistic
-        // upload entry) — treat it as V6 while the V6 pipeline is active.
-        isV6 = f.active_kind === 'pipeline_v6' || (activeKind === 'pipeline_v6' && !f.active_kind);
-        ctxFileId = f.id;
-        translating = !!f._addingSecondLang;
-        // A freshly-uploaded V6 file's descriptor isn't populated until /api/files
-        // refreshes — fall back to the pipeline's languages (+ this file's
-        // pre-selected second) so the selector stays usable right after upload too.
-        langs = fileLangs.some(l => l.role === 'first')
-          ? fileLangs
-          : (isV6 && activePipeline ? _v6PipelineLangs(f.second_lang_preselect) : fileLangs);
-      } else if (activeKind === 'pipeline_v6' && activePipeline) {
-        langs = _v6PipelineLangs(null);
-        isV6 = true;
-        ctxFileId = '';        // empty → addSecondLanguage stores a pipeline-level pre-pick
-        translating = false;
-      } else {
-        return '';
-      }
-      if (!langs.length) return '';
-      const first  = langs.find(l => l.role === 'first');
-      const second = langs.find(l => l.role === 'second');
-      let chips = '';
-      if (first) {
-        chips += `<span class="strip-lang-chip" title="第一語言">第一 · ${escapeHtml(first.label || '原文')}（${escapeHtml((first.lang || '').toUpperCase())}）</span>`;
-      }
-      if (second) {
-        chips += `<span class="strip-lang-chip" title="第二語言">第二 · ${escapeHtml(second.label || '譯文')}（${escapeHtml((second.lang || '').toUpperCase())}）</span>`;
-      }
-      // "+ 加第二語言" only for V6 with just one language (file or pipeline-level)
-      if (isV6 && first && !second) {
-        if (translating) {
-          chips += `<span class="strip-lang-chip strip-lang-adding">翻譯中…</span>`;
-        } else {
-          const targets = secondLangTargetsFor(first.lang);
-          chips += `<button class="strip-add-lang" onclick="toggleAddLangMenu(this)" title="加第二語言">+ 加第二語言<svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></button>`;
-          chips += `<div class="strip-add-lang-menu">` +
-            targets.map(t => `<button onclick="addSecondLanguage('${escapeHtml(ctxFileId)}','${escapeHtml(t.lang)}')">${escapeHtml(t.label)}</button>`).join('') +
-            (targets.length ? '' : `<div style="padding:6px 10px;color:var(--text-dim);font-size:11px;">無支援方向</div>`) +
-          `</div>`;
-        }
-      }
-      if (!chips) return '';
-      return `<div class="strip-lang-wrap">${chips}</div>`;
-    }
-
     // MVP hardcoded translation directions supported by the backend.
     function secondLangTargetsFor(srcLang) {
       const MAP = { zh: [{lang:'en', label:'英文 (EN)'}], en: [{lang:'zh', label:'中文 (ZH)'}] };
       return MAP[(srcLang || '').toLowerCase()] || [];
-    }
-
-    function toggleAddLangMenu(btn) {
-      const menu = btn.parentElement.querySelector('.strip-add-lang-menu');
-      if (menu) menu.classList.toggle('open');
     }
 
     async function addSecondLanguage(fileId, lang) {
@@ -2902,14 +2611,12 @@
         // upload applies it as the file's second_lang_preselect, which is
         // auto-translated once V6 finishes the refiner.
         window._v6PendingSecondLang = lang;
-        renderPipelineStrip();
         showToast(`已設定第二語言（${lang.toUpperCase()}）— upload 片並跑完 V6 後會自動翻譯`, 'info');
         return;
       }
       const f = uploadedFiles[fileId];
       if (!f) return;
       f._addingSecondLang = true;
-      renderPipelineStrip();
       try {
         const r = await fetch(`${API_BASE}/api/files/${encodeURIComponent(fileId)}/translate-second`, {
           method: 'POST',
@@ -2925,7 +2632,6 @@
           // shows immediately (before the next /api/files refresh).
           f._addingSecondLang = false;
           f.second_lang_preselect = lang;
-          renderPipelineStrip();
           showToast(`已預選第二語言（${lang.toUpperCase()}）— V6 處理完成後會自動翻譯`, 'info');
         } else {
           showToast(`已開始翻譯第二語言（${lang.toUpperCase()}）…`, 'info');
@@ -2935,237 +2641,7 @@
       } catch (e) {
         f._addingSecondLang = false;
         showToast(`加第二語言失敗：${e.message}`, 'error');
-        renderPipelineStrip();
       }
-    }
-
-    function renderPipelineStrip() {
-      // V6 mode renders a different column layout
-      if (activeKind === "pipeline_v6") {
-        return renderPipelineStripV6(document.getElementById('pipelineStrip'));
-      }
-
-      // T10: ARCHIVED — pipeline strip preset-selection hiding for output_lang files.
-      // The strip shows the GLOBAL active pipeline (profile/V6), which is still used
-      // for re-running existing profile/V6 files. Hiding it per-file active_kind risks
-      // breaking V6 strip tests and existing-file display (the strip ignores file kind).
-      // The V6/MT preset-menu UI is documented as "remaining UI to retire" in
-      // docs/superpowers/archived/ARCHIVE_MT_V6_DESIGN.md §2.8.
-      // reTranslateFile is guarded separately (see below in this file).
-
-      const el = document.getElementById('pipelineStrip');
-      if (!el) return;  // pipeline strip removed from topbar — nothing to render
-      const p = activeProfile || { asr: {}, translation: {} };
-      const preset = p.name || '未選擇';
-      const asrModel = p.asr?.model_size || '—';
-      const mtEngine = (p.translation?.engine || '—');
-      const mtEngineShort = mtEngine.replace(/-cloud$/, '');
-      const glossId = p.translation?.glossary_id;
-      const currentGloss = glossaries.find(g => g.id === glossId);
-      const glossName = currentGloss?.name || '無';
-      const glossCount = currentGloss ? (currentGloss.entry_count || (currentGloss.entries?.length ?? 0)) : 0;
-      const outputFmt = 'H.264 · MP4';
-
-      // Group profiles by ownership: user_id===null → shared; user_id===currentUser.id → mine
-      const _currentUserId = window.authState?.user?.id ?? null;
-      const _sharedProfiles = availableProfiles.filter(pr => pr.user_id === null || pr.user_id === undefined);
-      const _myProfiles = _currentUserId !== null
-        ? availableProfiles.filter(pr => pr.user_id === _currentUserId)
-        : [];
-      const _renderProfileButton = pr => `
-            <button ${pr.id === p.id ? 'class="on"' : ''} onclick="activateProfile('${pr.id}')">
-              <div class="smn-main">
-                <span class="smn-name">${escapeHtml(pr.name || pr.id)}</span>
-                ${pr.id === p.id ? '<span class="smn-badge">當前</span>' : ''}
-              </div>
-              <div class="smn-desc">${escapeHtml(pr.asr?.model_size || '—')} · ${escapeHtml((pr.translation?.engine || '—').replace(/-cloud$/,''))}</div>
-            </button>`;
-      const _profileGroupsHtml = (() => {
-        if (!availableProfiles.length) {
-          return '<div style="padding:8px 12px;color:var(--text-dim);font-size:12px;">未有 Profile，撳「+ 新增」建立第一個</div>';
-        }
-        let html = '';
-        if (_myProfiles.length) {
-          html += '<div class="step-menu-section-label">我嘅</div>';
-          html += _myProfiles.map(_renderProfileButton).join('');
-        }
-        if (_sharedProfiles.length) {
-          if (_myProfiles.length) html += '<div class="split-divider"></div>';
-          html += '<div class="step-menu-section-label">共享</div>';
-          html += _sharedProfiles.map(_renderProfileButton).join('');
-        }
-        return html;
-      })();
-      const v6Available = window.authState?.v6_available !== false;
-      const _v6PipelinesHtml = !v6Available
-        ? `<div style="padding:8px 12px;color:var(--text-dim);font-size:11px;">⚠ Qwen3 venv 未安裝 — 跑 setup_v6.sh</div>`
-        : availablePipelines
-            .filter(p => p.pipeline_type === "v6_vad_dual_asr")
-            .map(p => `
-          <button ${activeKind === "pipeline_v6" && activeId === p.id ? 'class="on"' : ''}
-                  onclick="activatePipeline('${p.id}')">
-            <div class="smn-main">
-              <span class="smn-name">${escapeHtml(p.name)}</span>
-              ${activeKind === "pipeline_v6" && activeId === p.id ? '<span class="smn-badge">當前</span>' : ''}
-              <span class="smn-badge" style="background:rgba(74,158,255,0.18);color:var(--accent-2)">V6</span>
-            </div>
-            <div class="smn-desc">VAD + Qwen3-ASR + Refiner</div>
-          </button>`).join('');
-      const presetMenuHtml = `
-        <div class="step-menu preset-menu" style="min-width: 280px;">
-          <div class="step-menu-head">舊有 Profile 組合</div>
-          ${_profileGroupsHtml}
-          ${_v6PipelinesHtml ? `
-            <div class="split-divider"></div>
-            <div class="step-menu-head">Dual-ASR Pipeline (V6)</div>
-            ${_v6PipelinesHtml}
-          ` : ''}
-          <div class="split-divider"></div>
-          <button class="smn-manage" onclick="openProfileSaveModal()"><span class="fmt-badge outline">💾</span><span class="fmt-desc">將當前設定儲存為新預設…</span></button>
-          <button class="smn-manage" onclick="openProfileManageModal()"><span class="fmt-badge outline">⚙</span><span class="fmt-desc">管理預設…</span></button>
-        </div>`;
-
-      const currentLcId = p.asr?.language_config_id || p.asr?.language || 'en';
-      const lcDropdownHtml = (availableLanguageConfigs.length === 0
-        ? '<div style="padding:8px 12px; color:var(--text-dim); font-size:11px;">（無語言配置）</div>'
-        : availableLanguageConfigs.map(lc => `
-          <button ${lc.id === currentLcId ? 'class="on"' : ''} onclick="applyLanguageConfig('${lc.id}')">
-            <div class="smn-main">
-              <span class="smn-name">${escapeHtml(lc.id)} — ${escapeHtml(lc.name)}</span>
-              ${lc.id === currentLcId ? '<span class="smn-badge">當前</span>' : ''}
-            </div>
-          </button>`).join(''));
-
-      // Build the ASR menu inline (NOT via renderStepMenu) because it has a
-      // 2-section layout (model + language config) that doesn't fit the
-      // single-section template. Mirrors renderStepMenu's option-button
-      // structure for the model picker so styling stays consistent.
-      const asrModelButtonsHtml = ASR_OPTIONS.map(o => `
-        <button ${o.name === asrModel ? 'class="on"' : ''} onclick="applyAsrModel('${o.name.replace(/'/g, "\\'")}')">
-          <div class="smn-main">
-            <span class="smn-name">${escapeHtml(o.name)}</span>
-            ${o.badge ? `<span class="smn-badge">${escapeHtml(o.badge)}</span>` : ''}
-          </div>
-          ${o.desc ? `<div class="smn-desc">${escapeHtml(o.desc)}</div>` : ''}
-        </button>`).join('');
-
-      const asrMenuHtml = `
-        <div class="step-menu" data-kind="asr">
-          <div class="step-menu-head">ASR · 模型</div>
-          ${asrModelButtonsHtml}
-          <div class="split-divider"></div>
-          <div class="step-menu-head">語言配置</div>
-          ${lcDropdownHtml}
-          <div class="split-divider"></div>
-          <button class="smn-manage" onclick="openLangConfigCreateModal()">
-            <span class="fmt-badge outline">➕</span><span class="fmt-desc">新增語言配置…</span>
-          </button>
-          <button class="smn-manage" onclick="openLangConfigManageModal()">
-            <span class="fmt-badge outline">⚙</span><span class="fmt-desc">管理語言配置…</span>
-          </button>
-        </div>`;
-      const mtMenuHtml  = renderStepMenu('MT · 選擇', MT_OPTIONS, mtEngine, 'applyMtEngine').replace('<div class="step-menu">', '<div class="step-menu" data-kind="mt" style="min-width:220px;">');
-      const outMenuHtml = renderStepMenu('輸出 · 選擇', OUTPUT_OPTIONS, outputFmt, 'applyOutputFormat').replace('<div class="step-menu">', '<div class="step-menu" data-kind="output">');
-
-      // Group glossaries by ownership: user_id===null → shared; user_id===currentUser.id → mine
-      const _sharedGloss = glossaries.filter(g => g.user_id === null || g.user_id === undefined);
-      const _myGloss = _currentUserId !== null
-        ? glossaries.filter(g => g.user_id === _currentUserId)
-        : [];
-      const _renderGlossButton = g => {
-        const pair = `${(g.source_lang || '?').toUpperCase()}→${(g.target_lang || '?').toUpperCase()}`;
-        const o = { name: g.name, badge: `${pair} · ${(g.entry_count || g.entries?.length || 0)} 條`, id: g.id };
-        return `<button ${o.id === glossId ? 'class="on"' : ''} onclick="applyGlossary('${o.id}')">
-              <div class="smn-main">
-                <span class="smn-name">${escapeHtml(o.name)}</span>
-                ${o.badge ? `<span class="smn-badge">${escapeHtml(o.badge)}</span>` : ''}
-              </div>
-            </button>`;
-      };
-      const _glossGroupsHtml = (() => {
-        let html = '';
-        if (_myGloss.length) {
-          html += '<div class="step-menu-section-label">我嘅</div>';
-          html += _myGloss.map(_renderGlossButton).join('');
-        }
-        if (_sharedGloss.length) {
-          if (_myGloss.length) html += '<div class="split-divider"></div>';
-          html += '<div class="step-menu-section-label">共享</div>';
-          html += _sharedGloss.map(_renderGlossButton).join('');
-        }
-        return html;
-      })();
-      const glossMenuHtml = `
-        <div class="step-menu" data-kind="gloss" style="min-width:240px;right:0;left:auto;">
-          <div class="step-menu-head">術語表 · 選擇</div>
-          ${_glossGroupsHtml}
-          <button ${null === glossId ? 'class="on"' : ''} onclick="applyGlossary(null)">
-              <div class="smn-main">
-                <span class="smn-name">— 不使用 —</span>
-              </div>
-              <div class="smn-desc">跳過術語校正</div>
-            </button>
-          <div class="split-divider"></div>
-          <button class="smn-manage"><span class="fmt-badge outline">+</span><span class="fmt-desc">新增 / 管理術語表…</span></button>
-        </div>`;
-
-      el.innerHTML = `
-        <div class="pipeline-preset-wrap">
-          <button class="pipeline-preset" title="切換 Pipeline 預設">
-            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="var(--accent)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="5" width="4" height="6" rx="1"/><rect x="11" y="5" width="4" height="6" rx="1"/><circle cx="8" cy="2" r="1.5"/><circle cx="8" cy="14" r="1.5"/><path d="M5 8h6 M8 3.5v3 M8 9.5v3"/></svg>
-            <div class="pp-text">
-              <div class="pp-k">Pipeline</div>
-              <div class="pp-v">${escapeHtml(preset)}</div>
-            </div>
-            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
-          </button>
-          ${presetMenuHtml}
-        </div>
-        ${renderStripLanguageSelector()}
-        <button class="pipeline-steps-toggle" onclick="togglePipelineSteps(this)" title="顯示 / 隱藏 pipeline 步驟">
-          <span class="k">步驟</span>
-          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
-        </button>
-        <div class="pipeline-steps-popover">
-          <div class="step" data-step="asr" tabindex="0">
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="var(--accent-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8h1M4 5v6M6 3v10M8 6v4M10 4v8M12 7v2M14 8h0"/></svg>
-            <div><div class="k">ASR</div><div class="v">${escapeHtml(asrModel)}</div></div>
-            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
-            ${asrMenuHtml}
-          </div>
-          <span class="arrow">→</span>
-          <div class="step" data-step="mt" tabindex="0">
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="var(--accent-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2l6 3-6 3-6-3zM2 8l6 3 6-3M2 11l6 3 6-3"/></svg>
-            <div>
-              <div class="k">MT</div>
-              <div class="v">${escapeHtml(mtEngine === 'openrouter'
-                ? `OR · ${(p.translation?.openrouter_model || '未設定').split('/').pop()}`
-                : mtEngineShort)}</div>
-            </div>
-            ${mtEngine === 'openrouter' ? `
-              <button type="button" title="編輯 OpenRouter 設定 (API key / 模型)"
-                onclick="event.stopPropagation(); openOpenRouterModal();"
-                style="background:none;border:none;padding:2px 4px;margin:0 2px;cursor:pointer;color:var(--text-mid);"
-                aria-label="設定">⚙</button>
-            ` : ''}
-            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
-            ${mtMenuHtml}
-          </div>
-          <span class="arrow">→</span>
-          <div class="step" data-step="output" tabindex="0">
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="var(--accent-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 6h12M2 10h12"/></svg>
-            <div><div class="k">輸出</div><div class="v">${escapeHtml(outputFmt)}</div></div>
-            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
-            ${outMenuHtml}
-          </div>
-          <span class="arrow">→</span>
-          <div class="step step-gloss" data-step="gloss" tabindex="0" title="執行時套用嘅術語表">
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="var(--accent)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h4a3 3 0 013 3v8a2 2 0 00-2-2H3z M13 3H9a3 3 0 00-3 3v8a2 2 0 012-2h5z"/></svg>
-            <div><div class="k">術語表</div><div class="v">${escapeHtml(glossName)}${glossCount ? ` · ${glossCount} 條` : ''}</div></div>
-            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
-            ${glossMenuHtml}
-          </div>
-        </div>`;
     }
 
     // Pipeline step handlers — wire each step's menu items to PATCH the active profile
@@ -3504,7 +2980,6 @@
           if (!r.ok) throw new Error((await r.json()).error || '儲存失敗');
           await fetchProfiles();
           await fetchActiveProfile();
-          renderPipelineStrip();
           closeProfileSaveModal();
           showToast(`已更新預設：${name}`, 'success');
           if (document.getElementById('ppmOverlay').classList.contains('open')) {
@@ -3533,7 +3008,6 @@
           await fetch(`${API_BASE}/api/profiles/${created.id}/activate`, { method: 'POST' });
           await fetchProfiles();
           await fetchActiveProfile();
-          renderPipelineStrip();
           closeProfileSaveModal();
           showToast(`已儲存並啟用:${name}`, 'success');
         }
@@ -3586,7 +3060,6 @@
         const r = await fetch(`${API_BASE}/api/profiles/${encodeURIComponent(profId)}`, { method: 'DELETE' });
         if (!r.ok) throw new Error((await r.json()).error || '刪除失敗');
         await fetchProfiles();
-        renderPipelineStrip();
         _renderProfileManageList();
         showToast(`已刪除預設：${prof.name || profId}`, 'success');
       } catch (e) {
@@ -3674,7 +3147,6 @@
         }
         if (!r.ok) throw new Error((await r.json()).error || '儲存失敗');
         await fetchLanguageConfigs();
-        renderPipelineStrip();
         closeLangConfigModal();
         showToast(isEdit ? `已更新語言配置：${body.id}` : `已建立語言配置：${body.id}`, 'success');
         if (document.getElementById('lcmOverlay').classList.contains('open')) {
@@ -3726,7 +3198,6 @@
           return;
         }
         await fetchLanguageConfigs();
-        renderPipelineStrip();
         _renderLangConfigManageList();
         showToast(`已刪除語言配置：${lcId}`, 'success');
       } catch (e) {
@@ -3749,7 +3220,6 @@
         if (!r.ok) throw new Error((await r.json()).error || '切換失敗');
         const d = await r.json();
         activeProfile = d.profile;
-        renderPipelineStrip();
         showToast(`已切換語言配置：${lcId}`, 'success');
       } catch (e) {
         showToast(`切換語言配置失敗: ${e.message}`, 'error');
@@ -3889,7 +3359,6 @@
         }
 
         await fetchActivePipeline();
-        renderPipelineStrip();
         closeInlinePromptPanel();
         showToast('已更新 Pipeline 設定', 'success');
       } catch (e) {
@@ -4119,7 +3588,6 @@
       // Output format is per-render, not profile-wide; remember selection for next render.
       window._preferredOutputFormat = name;
       showToast(`輸出格式已選：${name}`, 'success');
-      renderPipelineStrip();
     }
 
     function renderHealthCluster() {
@@ -4630,7 +4098,6 @@
       renderQueue();
       renderFileHeader();
       renderStatusCard();
-      renderPipelineStrip();
       renderHealthCluster();
       renderWaveform();
       renderInspectorBody();
@@ -5939,7 +5406,6 @@
     window.__injectFileAndSelectForStrip = function(fileId, fileEntry) {
       uploadedFiles[fileId] = fileEntry;
       activeFileId = fileId;
-      renderPipelineStrip();
     };
 
     // ============================================================
@@ -6046,7 +5512,6 @@
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
         availablePipelines = data.pipelines || [];
-        renderPipelineStrip();
       } catch (e) { _initFetchError('pipelines', e); }
     }
 
@@ -6066,7 +5531,6 @@
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
         availableProfiles = data.profiles || [];
-        renderPipelineStrip();
       } catch (e) { _initFetchError('profiles', e); }
     }
 
@@ -6085,7 +5549,6 @@
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
         glossaries = data.glossaries || [];
-        renderPipelineStrip();
       } catch (e) { _initFetchError('glossaries', e); }
     }
 

@@ -134,9 +134,51 @@ def _isolate_app_data(request, tmp_path, monkeypatch):
         or request.node.get_closest_marker("real_auth") is not None
     )
     monkeypatch.setitem(app.app.config, "RATELIMIT_ENABLED", False)
-    if not _use_real_auth:
-        monkeypatch.setitem(app.app.config, "LOGIN_DISABLED", True)
-        monkeypatch.setitem(app.app.config, "R5_AUTH_BYPASS", True)
+
+    # Fixture-isolation guard (cross-test bleed fix):
+    # Several test-local fixtures (e.g. non_admin_session, and per-module
+    # `client` fixtures in test_v6_second_language / test_output_lang_api /
+    # test_bilingual_api / test_segment_split_routes / test_bug_*_fixes /
+    # test_phase5_security) mutate these auth flags via DIRECT assignment or
+    # `app.config.pop(...)` rather than monkeypatch.setitem. Direct mutation is
+    # NOT auto-reverted, and `.pop()` deletes the key entirely, which corrupts
+    # the value monkeypatch.setitem below would otherwise restore. The net
+    # effect was the flags leaking into SUBSEQUENT tests (e.g. R5_AUTH_BYPASS
+    # left False/absent → ~50 unrelated tests 401'ing in a cumulative run while
+    # passing in isolation).
+    #
+    # This autouse fixture wraps EVERY test, and its teardown runs LAST (after
+    # all test-local fixture teardowns). So we:
+    #   (a) snapshot both auth flags on the way in (to restore exactly the
+    #       pre-test state on the way out, removing this test's footprint), and
+    #   (b) UNCONDITIONALLY ESTABLISH the correct flag state for THIS test —
+    #       True/True under bypass, False/False under real_auth.
+    #
+    # Step (b) is what actually kills the bleed: snapshot+restore alone only
+    # preserves whatever (possibly already-polluted) value was incoming, so a
+    # leaked R5_AUTH_BYPASS would survive across real_auth tests. By forcing a
+    # known-good starting state every time, no prior test's direct assignment /
+    # `app.config.pop(...)` can corrupt this test's auth behaviour.
+    #
+    # NOTE: these two flags are set/restored MANUALLY (not via
+    # monkeypatch.setitem). monkeypatch's undo runs *after* this generator's
+    # teardown, so mixing the two would let monkeypatch re-apply a stale value
+    # on top of our authoritative restore. Owning the full lifecycle here keeps
+    # the post-test state deterministic.
+    _AUTH_FLAG_KEYS = ("LOGIN_DISABLED", "R5_AUTH_BYPASS")
+    _MISSING = object()
+    _auth_flag_snapshot = {
+        k: app.app.config.get(k, _MISSING) for k in _AUTH_FLAG_KEYS
+    }
+
+    if _use_real_auth:
+        # Real login/permission checks must run — force bypass OFF even if a
+        # prior bypass test leaked it ON.
+        app.app.config["LOGIN_DISABLED"] = False
+        app.app.config["R5_AUTH_BYPASS"] = False
+    else:
+        app.app.config["LOGIN_DISABLED"] = True
+        app.app.config["R5_AUTH_BYPASS"] = True
 
     # Also replace the module-level _subtitle_renderer instance, which was
     # constructed at import time with the real RENDERS_DIR.
@@ -196,6 +238,17 @@ def _isolate_app_data(request, tmp_path, monkeypatch):
     with app._registry_lock:
         app._file_registry.clear()
         app._file_registry.update(original_registry)
+
+    # Authoritative auth-flag restore (see the snapshot comment above). Runs
+    # after every test-local fixture teardown, so it overrides any direct
+    # assignment / `.pop()` a test fixture left behind. A key absent in the
+    # snapshot is restored to absent; otherwise the original value is put back.
+    for _k in _AUTH_FLAG_KEYS:
+        _orig = _auth_flag_snapshot[_k]
+        if _orig is _MISSING:
+            app.app.config.pop(_k, None)
+        else:
+            app.app.config[_k] = _orig
 
 
 # ---------------------------------------------------------------------------
