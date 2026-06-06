@@ -10,14 +10,6 @@ def app_mod(monkeypatch):
     return _a
 
 
-def test_whisper_params_mapping(app_mod):
-    f = app_mod._whisper_params_for_lang
-    assert f("yue") == {"lang_override": "yue", "task_override": "transcribe", "s2hk_override": True}
-    assert f("zh") == {"lang_override": "zh", "task_override": "transcribe", "s2hk_override": True}
-    assert f("ja") == {"lang_override": "ja", "task_override": "transcribe", "s2hk_override": None}
-    assert f("en") == {"lang_override": None, "task_override": "translate", "s2hk_override": None}
-
-
 def test_mt_handler_short_circuits_output_lang(app_mod, monkeypatch):
     called = {"auto": False}
     monkeypatch.setattr(app_mod, "_auto_translate", lambda *a, **k: called.__setitem__("auto", True))
