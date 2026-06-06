@@ -308,7 +308,7 @@
     .rv-b-right { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; flex: 1 1 0; }
     /* flex: 1 1 0 + min-height:0 + overflow:hidden lets the whole top block SHRINK
        (panels scroll inside) instead of pushing the timeline off the bottom. */
-    .rv-b-top-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex: 1 1 0; min-height: 0; overflow: hidden; }
+    .rv-b-top-row { display: grid; grid-template-columns: 1.5fr 1fr; gap: 12px; flex: 1 1 0; min-height: 0; overflow: hidden; }
     @media (max-width: 768px) { .rv-b-top-row { grid-template-columns: 1fr; } }
     .rv-b-video-col { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
 
@@ -317,10 +317,14 @@
        字幕設定 controls don't get squeezed into a scroll. vh-based so it adapts to
        browser zoom (px would not). On short windows the video pillarboxes a touch
        (object-fit: contain) rather than eating all the column height. */
-    .rv-b-video-wrap { flex: 0 1 auto; min-height: 0; max-height: clamp(150px, 34vh, 420px); overflow: hidden; }
+    /* Fixed-size video pinned to the TOP of the column (not stretched/centered), so the
+       panels below get a stable expanded block beneath it. */
+    .rv-b-video-wrap { flex: 0 0 auto; min-height: 0; max-height: clamp(200px, 42vh, 400px); overflow: hidden; }
     /* Panels grow to fill the space the capped video frees up, but min-height:0 lets
        them SHRINK + scroll internally on short windows so the timeline below is never
        clipped. The video cap (above) is what gives them height when there is room. */
+    /* Glossary + 字幕設定: always expanded, side-by-side, filling the height below the
+       fixed top-aligned video — a stable, balanced lower block. */
     .rv-b-vid-panels {
       display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
       flex: 1 1 auto; min-height: 0;
@@ -492,9 +496,10 @@
       position: relative; background: #000;
       border: 1px solid var(--border); border-radius: 8px;
       aspect-ratio: 16/9; overflow: hidden;
-      /* respect the wrap's capped height; keep 16:9 by letterboxing the inner
-         video instead of distorting it. */
-      max-height: 100%; max-width: 100%; margin: 0 auto;
+      /* Fill the (now wider) video column width; aspect-ratio sets the height. The
+         wrap centers it vertically. max-height:100% letterboxes (object-fit:contain)
+         instead of distorting on short windows. */
+      width: 100%; max-height: 100%; max-width: 100%; margin: 0 auto;
     }
     .rv-b-video video { width: 100%; height: 100%; display: block; object-fit: contain; }
     .rv-b-video-placeholder {
@@ -544,15 +549,22 @@
       overflow: hidden;
     }
     .rv-b-rail-head {
-      padding: 10px 14px;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 9px 12px;
       font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
       color: var(--text-mid);
       border-bottom: 1px solid var(--border);
     }
+    /* Button legend (top-right) — maps the three row-action icons to short labels so the
+       user knows what they do at a glance; full labels are in each item's tooltip. */
+    .rv-b-rail-legend { display: flex; gap: 9px; align-items: center; flex-shrink: 0; text-transform: none; letter-spacing: 0; font-weight: 600; font-size: 10px; color: var(--text-dim); }
+    .rv-b-rail-legend > span { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; cursor: default; }
+    .rv-b-rail-legend svg { width: 13px; height: 13px; flex-shrink: 0; }
+    .rv-b-rail-legend .lg-ai { color: var(--accent-2); }
     .rv-b-rail-list { flex: 1; min-height: 0; overflow-y: auto; padding: 6px; }
     .rv-b-rail-item {
       display: grid;
-      grid-template-columns: 38px 24px 56px 1fr auto 24px;
+      grid-template-columns: 24px 1fr auto 80px;
       gap: 8px;
       padding: 7px 10px;
       border-radius: 6px;
@@ -560,7 +572,7 @@
       align-items: start;
     }
     /* Non-output_lang pipelines have no split/merge buttons → original 4-column row. */
-    .rv-b-rail-item.rv-b-rail-item--noops { grid-template-columns: 24px 56px 1fr auto; }
+    .rv-b-rail-item.rv-b-rail-item--noops { grid-template-columns: 24px 1fr auto; }
     .rv-b-rail-item:hover { background: var(--surface-2); }
     .rv-b-rail-item.cur {
       background: var(--accent-soft);
@@ -583,17 +595,25 @@
     .rv-b-rail-flags .qa-flag { padding: 1px 5px; font-size: 9.5px; }
     .rv-b-rail-ok { color: var(--success); font-size: 11px; }
     .rv-b-rail-empty { padding: 30px 16px; text-align: center; color: var(--text-dim); font-size: 12px; }
-    .rv-b-rail-ops { display: flex; gap: 2px; align-items: center; }
-    .rv-seg-btn {
-      width: 17px; height: 17px; padding: 0; border: none; background: transparent;
-      color: var(--text-dim); border-radius: var(--radius-sm); cursor: pointer;
-      display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
-      opacity: 0; transition: opacity .15s, background .15s, color .15s;
+    /* Consolidated trailing action pill (AI split / mechanical split / merge-next). */
+    .rv-b-rail-ops {
+      display: flex; gap: 3px; align-items: center;
+      justify-self: end; align-self: center; padding: 2px; border-radius: 9px;
+      transition: background .15s;
     }
+    .rv-b-rail-item:hover .rv-b-rail-ops,
+    .rv-b-rail-item.cur .rv-b-rail-ops { background: var(--surface-3); }
+    .rv-seg-btn {
+      width: 22px; height: 22px; padding: 0; border: none; background: transparent;
+      color: var(--text-dim); border-radius: 7px; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+      opacity: .42; transition: opacity .15s, background .15s, color .15s;
+    }
+    /* Always faintly visible (discoverable); brighten on row hover / selection. */
     .rv-b-rail-item:hover .rv-seg-btn,
     .rv-b-rail-item.cur .rv-seg-btn { opacity: 1; }
     .rv-seg-ai:hover { background: var(--accent-soft); color: var(--accent-2); }
-    .rv-seg-mech:hover, .rv-seg-merge:hover { background: var(--surface-3); color: var(--text); }
+    .rv-seg-mech:hover, .rv-seg-merge:hover { background: var(--surface-2); color: var(--text); }
     .rv-seg-btn:disabled { opacity: .2 !important; cursor: not-allowed; }
     .rv-seg-busy { opacity: .55; pointer-events: none; }
     @keyframes splitFlash {
@@ -841,7 +861,15 @@
         <div class="rv-b-left">
           <div class="rv-b-rail">
             <div class="rv-b-rail-head">
-              段列表 · <span id="segCount">0</span> 段
+              <span>段列表 · <span id="segCount">0</span> 段</span>
+              <span class="rv-b-rail-legend">
+                <span class="lg-ai" title="AI 智能分割（Ctrl+Shift+S）">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M8 3l1.4 3.6L13 8l-3.6 1.4L8 13l-1.4-3.6L3 8l3.6-1.4z"/></svg>智能</span>
+                <span title="機械式對半分割（Ctrl+Shift+D）">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1v14M5 5L3 3M5 5a2 2 0 1 1-3 0 2 2 0 0 1 3 0zM5 11l-2 2M5 11a2 2 0 1 0-3 0 2 2 0 0 0 3 0z"/></svg>對半</span>
+                <span title="合併下一句（Ctrl+Shift+M）">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h8M4 12h8M6 7l2 2 2-2"/></svg>合併</span>
+              </span>
             </div>
             <div class="rv-b-rail-list" id="segList">
               <div class="rv-b-rail-empty">載入中…</div>
@@ -2207,36 +2235,34 @@
         const color = f.type === 'review' || f.type.startsWith('low-') || f.type === 'untranslated' ? 'rose' : 'amber';
         return `<span class="qa-flag qa-flag-${color}" title="${escapeHtml(f.msg || '')}">${flagLabel(f.type)}</span>`;
       }).join('') + (s.glossary_changes && s.glossary_changes.length ? '<span class="qa-flag" title="詞彙表已套用">📖</span>' : '');
-      // Split/merge is output_lang-only. Other pipeline kinds render the original
-      // 4-column row (no ops cluster / merge button) via the --noops modifier.
-      const opsHtml = isOutputLang ? `
+      // Split/merge is output_lang-only. The three actions (AI split / mechanical
+      // split / merge-next) are consolidated into ONE trailing pill on the right edge.
+      // Other pipeline kinds render the original 4-column row via the --noops modifier.
+      const actionsHtml = isOutputLang ? `
           <div class="rv-b-rail-ops">
             <button class="rv-seg-btn rv-seg-ai" title="AI 智能分割 (Ctrl+Shift+S)"
               onclick="event.stopPropagation(); splitSegment(${i}, 'ai')" ${tooShort ? 'disabled' : ''}>
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor"
                 stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M3 8h10M8 3l1.4 3.6L13 8l-3.6 1.4L8 13l-1.4-3.6L3 8l3.6-1.4z"/></svg>
             </button>
             <button class="rv-seg-btn rv-seg-mech" title="機械式對半分割 (Ctrl+Shift+D)"
               onclick="event.stopPropagation(); splitSegment(${i}, 'mechanical')" ${tooShort ? 'disabled' : ''}>
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor"
                 stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M8 1v14M5 5L3 3M5 5a2 2 0 1 1-3 0 2 2 0 0 1 3 0zM5 11l-2 2M5 11a2 2 0 1 0-3 0 2 2 0 0 0 3 0z"/></svg>
             </button>
+            <button class="rv-seg-btn rv-seg-merge" title="合併下一段 (Ctrl+Shift+M)"
+              onclick="event.stopPropagation(); mergeNext(${i})" ${isLast ? 'disabled' : ''}>
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+                stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 4h8M4 12h8M6 7l2 2 2-2"/></svg>
+            </button>
           </div>` : '';
-      const mergeHtml = isOutputLang ? `
-          <button class="rv-seg-btn rv-seg-merge" title="合併下一段 (Ctrl+Shift+M)"
-            onclick="event.stopPropagation(); mergeNext(${i})" ${isLast ? 'disabled' : ''}>
-            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor"
-              stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 4h8M4 12h8M6 7l2 2 2-2"/></svg>
-          </button>` : '';
       const noops = isOutputLang ? '' : 'rv-b-rail-item--noops';
       return `
         <div class="rv-b-rail-item ${cur} ${ap} ${noops}" data-idx="${i}" onclick="setCursor(${i}, true)">
-          ${opsHtml}
           <div class="rv-b-rail-num">${s.id}</div>
-          <div class="rv-b-rail-ts" title="In ${escapeHtml(s.tsIn)} → Out ${escapeHtml(s.tsOut)}"><span>${escapeHtml(s.tsIn)}</span><span class="rv-b-rail-ts-out">${escapeHtml(s.tsOut)}</span></div>
           <div class="rv-b-rail-text">
             <div class="rv-b-rail-text-1">${escapeHtml(line1)}</div>
             ${hasLine2 ? `<div class="rv-b-rail-text-2">${escapeHtml(line2)}</div>` : ''}
@@ -2245,7 +2271,7 @@
             ${flagsHtml}
             ${s.approved ? '<span class="rv-b-rail-ok">✓</span>' : ''}
           </div>
-          ${mergeHtml}
+          ${actionsHtml}
         </div>`;
     }).join('');
   }
