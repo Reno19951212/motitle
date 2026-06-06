@@ -4,9 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MoTitle — 檔案庫 Files</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
     /* ============================================================
        Files (檔案庫) — built on the index.html / MoTitle design
@@ -83,22 +80,13 @@
     .b-rail .flex1 { flex: 1; }
 
     .b-main { display: grid; grid-template-rows: auto 1fr; min-height: 0; min-width: 0; }
-    .b-topbar { display: grid; grid-template-columns: auto minmax(0,1fr) auto auto; align-items: center; gap: 12px; padding: 10px 18px; background: var(--surface); border-bottom: 1px solid var(--border); min-width: 0; position: relative; z-index: 40; }
+    .b-topbar { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 12px; padding: 10px 18px; background: var(--surface); border-bottom: 1px solid var(--border); min-width: 0; position: relative; z-index: 40; }
     .b-topbar .search { display: flex; align-items: center; gap: 8px; padding: 7px 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; color: var(--text-mid); font-size: 13px; min-width: 200px; max-width: 280px; }
     .b-topbar .page-id { display: flex; align-items: center; gap: 9px; min-width: 0; }
     .page-id .pi-ic { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent-2); flex: 0 0 30px; }
     .page-id .pi-t { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
     .page-id .pi-s { font-size: 11px; color: var(--text-dim); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
-    @media (max-width: 1400px) { .b-topbar .search .kbd { display: none; } }
-
-    .health-cluster { display: flex; align-items: center; gap: 6px; }
-    .hpill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface-2); white-space: nowrap; }
-    .hpill .led { width: 7px; height: 7px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 3px rgba(34,197,94,0.18); }
-    .hpill .hk { font-size: 9px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; color: var(--text-dim); }
-    .hpill .hv { font-size: 10.5px; color: var(--text-mid); font-family: var(--font-mono); }
-    .user-chip { display: inline-flex; align-items: center; gap: 8px; padding: 4px 6px 4px 12px; border: 1px solid var(--border); border-radius: 14px; font-size: 12px; color: var(--text-mid); }
-    .user-chip .gear { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; color: var(--text-mid); }
-    .user-chip .gear:hover { background: var(--surface-2); color: var(--text); }
+    @media (max-width: 1500px) { .b-topbar .search .kbd { display: none; } }
 
     /* body */
     .files-body { min-height: 0; min-width: 0; overflow: auto; padding: 22px 26px 40px; }
@@ -205,7 +193,7 @@
   <div class="app" id="app">
     <div class="bold">
       <!-- Left rail -->
-      <aside class="b-rail">
+      <aside class="b-rail" id="bRail">
         <div class="mark" title="MoTitle">M</div>
         <a class="rail-btn" href="/"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8l6-5 6 5v6H2z M6 14V9h4v5"/></svg><span class="tt">主頁</span></a>
         <a class="rail-btn on" href="Files.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 6h12M2 10h12M5 3v10M11 3v10"/></svg><span class="tt">檔案</span></a>
@@ -230,10 +218,10 @@
             <span>搜尋檔案、術語、Profile…</span>
             <span style="margin-left:auto;" class="kbd">⌘K</span>
           </div>
-          <div class="health-cluster" id="healthCluster"></div>
-          <span class="user-chip">
-            <span id="userName">使用者</span>
-            <button class="gear" title="設定" onclick="window.location.href='user.html'"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6L13 13M3 13l1.4-1.4M11.6 4.4L13 3"/></svg></button>
+          <span id="userChip" data-testid="user-chip" style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--border);border-radius:14px;font-size:12px;color:var(--text-mid);">
+            <span id="userChipName">使用者</span>
+            <a id="adminLink" data-testid="admin-link" href="/user.html" style="display:none;color:var(--accent);text-decoration:none;font-size:11px;margin-right:6px;" title="管理">⚙</a>
+            <button id="userChipLogout" data-testid="logout" style="background:none;border:0;color:var(--text-dim);cursor:pointer;font-size:11px;padding:0;" title="登出">⏻</button>
           </span>
         </div>
 
@@ -292,6 +280,7 @@
 
   <div class="toasts" id="toasts"></div>
 
+  <script src="js/auth.js"></script>
   <script src="js/files-page.js"></script>
 </body>
 </html>

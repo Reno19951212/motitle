@@ -4,9 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MoTitle — 帳戶 User</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
     :root {
       --bg:#0a0a0f; --bg-soft:#0f0f18; --surface:#13131a; --surface-2:#1a1a24; --surface-3:#222232;
@@ -38,7 +35,7 @@
 
     .b-rail { background:var(--bg-soft); border-right:1px solid var(--border); display:flex; flex-direction:column; align-items:center; padding:14px 0; gap:8px; }
     .b-rail .mark { width:36px; height:36px; border-radius:10px; background:linear-gradient(135deg,var(--accent),var(--accent-2)); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:15px; margin-bottom:10px; }
-    .rail-btn { width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; color:var(--text-dim); position:relative; }
+    .rail-btn { width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; color:var(--text-dim); font-size:16px; position:relative; }
     .rail-btn:hover { color:var(--text); background:var(--surface-2); }
     .rail-btn.on { color:var(--accent-2); background:var(--accent-soft); }
     .rail-btn.on::before { content:""; position:absolute; left:-14px; top:10px; bottom:10px; width:3px; border-radius:2px; background:var(--accent); }
@@ -47,22 +44,14 @@
     .b-rail .flex1 { flex:1; }
 
     .b-main { display:grid; grid-template-rows:auto 1fr; min-height:0; min-width:0; }
-    .b-topbar { display:grid; grid-template-columns:auto minmax(0,1fr) auto auto; align-items:center; gap:12px; padding:10px 18px; background:var(--surface); border-bottom:1px solid var(--border); min-width:0; }
+    .b-topbar { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:12px; padding:10px 18px; background:var(--surface); border-bottom:1px solid var(--border); min-width:0; position:relative; z-index:40; }
     .b-topbar .search { display:flex; align-items:center; gap:8px; padding:7px 12px; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; color:var(--text-mid); font-size:13px; min-width:200px; max-width:280px; }
     .kbd { display:inline-flex; align-items:center; padding:2px 6px; font-family:var(--font-mono); font-size:11px; color:var(--text-mid); background:var(--surface-2); border:1px solid var(--border); border-bottom-width:2px; border-radius:5px; line-height:1; }
-    @media (max-width:1400px) { .b-topbar .search .kbd { display:none; } }
+    @media (max-width:1500px) { .b-topbar .search .kbd { display:none; } }
     .page-id { display:flex; align-items:center; gap:9px; min-width:0; }
     .page-id .pi-ic { width:30px; height:30px; border-radius:8px; display:grid; place-items:center; background:var(--accent-soft); color:var(--accent-2); flex:0 0 30px; }
     .page-id .pi-t { font-size:14px; font-weight:700; letter-spacing:-0.01em; }
     .page-id .pi-s { font-size:11px; color:var(--text-dim); font-weight:600; letter-spacing:0.06em; text-transform:uppercase; }
-    .health-cluster { display:flex; align-items:center; gap:6px; }
-    .hpill { display:inline-flex; align-items:center; gap:6px; padding:5px 9px; border-radius:7px; border:1px solid var(--border); background:var(--surface-2); white-space:nowrap; }
-    .hpill .led { width:7px; height:7px; border-radius:50%; background:var(--success); box-shadow:0 0 0 3px rgba(34,197,94,0.18); }
-    .hpill .hk { font-size:9px; font-weight:800; letter-spacing:0.09em; text-transform:uppercase; color:var(--text-dim); }
-    .hpill .hv { font-size:10.5px; color:var(--text-mid); font-family:var(--font-mono); }
-    @media (max-width:1100px) { .hpill { display:none; } }
-    .user-chip { display:inline-flex; align-items:center; gap:8px; padding:5px 8px 5px 13px; border:1px solid var(--border); border-radius:14px; font-size:12px; color:var(--text-mid); }
-    .user-chip .uc-av { width:22px; height:22px; border-radius:50%; background:linear-gradient(135deg,var(--accent),var(--accent-2)); display:grid; place-items:center; color:#fff; font-size:10px; font-weight:700; }
 
     .u-body { display:grid; grid-template-columns:212px 1fr; min-height:0; }
     .u-nav { background:var(--bg-soft); border-right:1px solid var(--border); padding:18px 12px; display:flex; flex-direction:column; gap:3px; overflow:auto; }
@@ -215,10 +204,10 @@
   </style>
 </head>
 <body>
-  <div class="app">
+  <div class="app" id="app">
     <div class="bold">
       <!-- left rail (canonical 5-item) -->
-      <aside class="b-rail">
+      <aside class="b-rail" id="bRail">
         <div class="mark" title="MoTitle">M</div>
         <a class="rail-btn" href="/" title="主頁"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8l6-5 6 5v6H2z M6 14V9h4v5"/></svg><span class="tt">主頁</span></a>
         <a class="rail-btn" href="Files.html" title="檔案"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 6h12M2 10h12M5 3v10M11 3v10"/></svg><span class="tt">檔案</span></a>
@@ -239,11 +228,11 @@
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="4"/><path d="M10 10l3 3"/></svg>
             <span>搜尋檔案、術語、Profile…</span><span style="margin-left:auto;" class="kbd">⌘K</span>
           </div>
-          <div class="health-cluster">
-            <span class="hpill"><span class="led"></span><span class="hk">Whisper</span><span class="hv">mlx-whisper</span></span>
-            <span class="hpill"><span class="led"></span><span class="hk">Cloud</span><span class="hv">qwen3.5</span></span>
-          </div>
-          <span class="user-chip"><span class="uc-av" id="userChipAvatar">—</span><span id="userChipName">—</span></span>
+          <span id="userChip" data-testid="user-chip" style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--border);border-radius:14px;font-size:12px;color:var(--text-mid);">
+            <span id="userChipName">—</span>
+            <a id="adminLink" data-testid="admin-link" href="/user.html" style="display:none;color:var(--accent);text-decoration:none;font-size:11px;margin-right:6px;" title="管理">⚙</a>
+            <button id="userChipLogout" data-testid="logout" style="background:none;border:0;color:var(--text-dim);cursor:pointer;font-size:11px;padding:0;" title="登出">⏻</button>
+          </span>
         </div>
 
         <!-- two-column body -->
@@ -329,6 +318,7 @@
   <div class="toast-stack" id="toastStack"></div>
 
   <!-- real backend wiring — DO NOT swap for mock -->
+  <script src="js/auth.js"></script>
   <script src="js/user.js"></script>
 </body>
 </html>

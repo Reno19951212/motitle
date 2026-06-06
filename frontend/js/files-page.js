@@ -338,16 +338,6 @@
     };
   });
 
-  /* ---- health cluster (static; mirrors dashboard) ---- */
-  function renderHealth() {
-    const items = [
-      { k: 'WHISPER', v: 'mlx-whisper' },
-      { k: 'CLOUD', v: 'qwen3.5' },
-    ];
-    document.getElementById('healthCluster').innerHTML = items.map((h) =>
-      `<span class="hpill"><span class="led"></span><span class="hk">${h.k}</span><span class="hv">${esc(h.v)}</span></span>`).join('');
-  }
-
   /* ---- user chip (real /api/me) ---- */
   async function loadUser() {
     try {
@@ -355,7 +345,11 @@
       if (!r.ok) return;
       const j = await r.json();
       const name = j.username || j.name;
-      if (name) document.getElementById('userName').textContent = name;
+      if (name) document.getElementById('userChipName').textContent = name;
+      if (j.is_admin) {
+        const al = document.getElementById('adminLink');
+        if (al) al.style.display = 'inline';
+      }
     } catch (e) { /* keep default */ }
   }
 
@@ -402,8 +396,9 @@
   }
 
   /* ---- boot ---- */
-  renderHealth();
   loadUser();
+  const _logoutBtn = document.getElementById('userChipLogout');
+  if (_logoutBtn) _logoutBtn.addEventListener('click', () => { if (window.logout) window.logout(); });
   refresh();
   setInterval(refresh, POLL_MS);
 })();

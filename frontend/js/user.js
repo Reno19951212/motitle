@@ -60,7 +60,10 @@ async function loadMe() {
 
   document.getElementById('accountUsername').textContent = ME.username || '—';
   document.getElementById('userChipName').textContent = ME.username || '—';
-  document.getElementById('userChipAvatar').textContent = initial(ME.username);
+  if (ME.is_admin) {
+    const al = document.getElementById('adminLink');
+    if (al) al.style.display = 'inline';
+  }
 
   const badge = document.getElementById('accountRole');
   badge.innerHTML = `<span class="pdot"></span>${ME.is_admin ? '管理員' : '用戶'}`;
@@ -109,6 +112,10 @@ document.getElementById('changePwForm').addEventListener('submit', async (e) => 
 
 // loadUsers / loadAudit defined in the user-management + audit sections below.
 loadMe();
+
+// topbar chip logout (logout provided by auth.js)
+const _userChipLogout = document.getElementById('userChipLogout');
+if (_userChipLogout) _userChipLogout.addEventListener('click', () => { if (window.logout) window.logout(); });
 
 // ============================================================
 // User management (admin)
