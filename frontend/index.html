@@ -4391,12 +4391,17 @@
             <div class="ss-title">字體</div>
             <div class="ss-row">
               <label>字型</label>
-              <select onchange="updateFontConfig('family', this.value)">
-                <option ${fontConfig.family==='Noto Sans TC'?'selected':''}>Noto Sans TC</option>
-                <option ${fontConfig.family==='PingFang TC'?'selected':''}>PingFang TC</option>
-                <option ${fontConfig.family==='Microsoft JhengHei'?'selected':''}>Microsoft JhengHei</option>
-                <option ${fontConfig.family==='Source Han Sans HK'?'selected':''}>Source Han Sans HK</option>
+              <select id="dashFontSelect" onchange="updateFontConfig('family', this.value)">
+                ${FontPreview.fontOptionsHtml(fontConfig.family, ['Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', 'Source Han Sans HK'])}
               </select>
+            </div>
+            <div class="ss-row">
+              <label></label>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-width:0;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('dashFontUpload').click()">＋ 新增字型</button>
+                <input type="file" id="dashFontUpload" accept=".ttf,.otf" style="display:none" onchange="dashUploadFont(this)" />
+                <span id="dashFontUploadMsg" style="font-size:11px;color:var(--text-dim);"></span>
+              </div>
             </div>
             <div class="slider-row">
               <div class="labels"><span class="l">字幕大小</span><span class="v" id="fontSizeLbl">${fontConfig.size}px</span></div>
@@ -4451,6 +4456,38 @@
             <button class="btn btn-secondary btn-sm" style="margin-top:8px;width:100%;" onclick="saveFontAsProfile()">💾 儲存為預設</button>
           </div>
         </div>`;
+    }
+
+    // Upload a custom .ttf/.otf font, then make it the active family. Shared
+    // (backend/assets/fonts) so it works in both the live preview (@font-face)
+    // and the burnt-in render (libass :fontsdir). Live-preview only until
+    // 「儲存為預設」 persists it.
+    async function dashUploadFont(input) {
+      const file = input.files && input.files[0];
+      input.value = '';
+      if (!file) return;
+      const msg = document.getElementById('dashFontUploadMsg');
+      if (msg) { msg.textContent = '上載中…'; msg.style.color = 'var(--text-dim)'; }
+      try {
+        const fd = new FormData();
+        fd.append('file', file);
+        const r = await fetch(`${API_BASE}/api/fonts`, { method: 'POST', body: fd, credentials: 'same-origin' });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          if (msg) { msg.textContent = '✕ ' + (data.error || `HTTP ${r.status}`); msg.style.color = 'var(--danger)'; }
+          return;
+        }
+        await FontPreview.refreshFonts();
+        fontConfig.family = data.family;
+        const sel = document.getElementById('dashFontSelect');
+        if (sel) sel.innerHTML = FontPreview.fontOptionsHtml(fontConfig.family, ['Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', 'Source Han Sans HK']);
+        applySubtitleStyle();
+        const m2 = document.getElementById('dashFontUploadMsg');
+        if (m2) { m2.textContent = `✓ 已新增「${data.family}」，記得撳「儲存為預設」`; m2.style.color = 'var(--success)'; }
+      } catch (e) {
+        const m3 = document.getElementById('dashFontUploadMsg');
+        if (m3) { m3.textContent = '✕ 上載失敗'; m3.style.color = 'var(--danger)'; }
+      }
     }
 
     function updateFontConfig(k, v) {

@@ -45,6 +45,7 @@ if sys.platform == "win32":
 import whisper
 import numpy as np
 from flask import Flask, request, jsonify, send_file, send_from_directory, redirect
+from werkzeug.utils import secure_filename
 from flask_cors import CORS
 import ipaddress
 from urllib.parse import urlparse
@@ -2000,6 +2001,69 @@ def serve_font(filename):
     if not (FONTS_DIR / filename).is_file():
         return jsonify({"error": "Font not found"}), 404
     return send_from_directory(str(FONTS_DIR), filename)
+
+
+# Magic-byte signatures for valid sfnt (TrueType / OpenType / collection)
+# font files. Guards against arbitrary files renamed to .ttf/.otf being
+# written into the shared fonts dir.
+_FONT_MAGIC = {b"\x00\x01\x00\x00", b"true", b"ttcf", b"OTTO", b"typ1"}
+MAX_FONT_BYTES = 32 * 1024 * 1024  # 32 MB — generous for CJK fonts, rejects junk
+
+
+@app.route('/api/fonts', methods=['POST'])
+@login_required
+def api_upload_font():
+    """Upload a custom subtitle font (.ttf/.otf) into the shared fonts dir.
+
+    The family name used by the live preview (@font-face) and the burnt-in
+    render (libass :fontsdir) is read from the font's `name` table, so the
+    on-disk filename can be sanitised freely without affecting glyph matching.
+    Validated by extension + size + sfnt magic bytes before touching disk.
+    """
+    if 'file' not in request.files:
+        return jsonify({"error": "缺少字型檔案 (file)"}), 400
+    f = request.files['file']
+    if not f or not f.filename:
+        return jsonify({"error": "缺少字型檔案"}), 400
+    ext = Path(f.filename).suffix.lower()
+    if ext not in ALLOWED_FONT_EXTS:
+        return jsonify({"error": "只接受 .ttf 或 .otf 字型檔"}), 400
+
+    # Read into memory (bounded) so we validate magic bytes + size before disk.
+    blob = f.read(MAX_FONT_BYTES + 1)
+    if len(blob) > MAX_FONT_BYTES:
+        return jsonify({"error": f"字型檔過大（上限 {MAX_FONT_BYTES // (1024 * 1024)} MB）"}), 400
+    if len(blob) < 4 or blob[:4] not in _FONT_MAGIC:
+        return jsonify({"error": "檔案不是有效嘅 TrueType/OpenType 字型"}), 400
+
+    FONTS_DIR.mkdir(parents=True, exist_ok=True)
+    # secure_filename strips non-ASCII (incl. CJK) — fall back to a uuid stem
+    # when nothing usable remains; re-attach the validated extension regardless.
+    stem = Path(secure_filename(f.filename or "")).stem
+    if not stem:
+        stem = f"font_{uuid.uuid4().hex[:8]}"
+    dest = FONTS_DIR / f"{stem}{ext}"
+    n = 1
+    while dest.exists():
+        dest = FONTS_DIR / f"{stem}-{n}{ext}"
+        n += 1
+    dest.write_bytes(blob)
+
+    return jsonify({"file": dest.name, "family": _font_family_name(dest)}), 201
+
+
+@app.route('/api/fonts/<path:filename>', methods=['DELETE'])
+@login_required
+def api_delete_font(filename):
+    """Delete a custom font from the shared fonts dir (defence-in-depth against
+    path traversal: confine the resolved path to FONTS_DIR)."""
+    if Path(filename).suffix.lower() not in ALLOWED_FONT_EXTS:
+        return jsonify({"error": "Unsupported font type"}), 400
+    target = (FONTS_DIR / filename).resolve()
+    if target.parent != FONTS_DIR or not target.is_file():
+        return jsonify({"error": "Font not found"}), 404
+    target.unlink()
+    return jsonify({"ok": True, "file": Path(filename).name})
 
 
 # ============================================================

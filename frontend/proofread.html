@@ -1333,8 +1333,6 @@
     const body = document.getElementById('ssBody');
     if (!body) return;
     const fc = fontConfig;
-    const families = ['Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', 'Source Han Sans HK'];
-    if (fc.family && !families.includes(fc.family)) families.unshift(fc.family);
     const swatches = (colors, key, cur) => {
       const lc = (cur || '').toLowerCase();
       const isPreset = colors.some(c => c.toLowerCase() === lc);
@@ -1355,8 +1353,16 @@
         <div class="ss-row">
           <label>字型</label>
           <select onchange="proofreadUpdateFont('family', this.value)" aria-label="字幕字型">
-            ${families.map(fam => `<option ${fam === fc.family ? 'selected' : ''}>${escapeHtml(fam)}</option>`).join('')}
+            ${FontPreview.fontOptionsHtml(fc.family, ['Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', 'Source Han Sans HK'])}
           </select>
+        </div>
+        <div class="ss-row">
+          <label></label>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-width:0;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('ssFontUpload').click()">＋ 新增字型</button>
+            <input type="file" id="ssFontUpload" accept=".ttf,.otf" style="display:none" onchange="proofreadUploadFont(this)" />
+            <span id="ssFontUploadMsg" style="font-size:11px;color:var(--text-dim);"></span>
+          </div>
         </div>
         <div class="slider-row">
           <div class="labels"><span class="l">字幕大小</span><span class="v" id="ssSizeLbl">${fc.size}px</span></div>
@@ -1396,6 +1402,37 @@
 
   // Slider / select change — update fontConfig + labels + live preview (SVG overlay).
   // Persisting is EXPLICIT via 儲存為預設 (matches the dashboard); no auto-save.
+  // Upload a custom .ttf/.otf font, then make it the active family. The font
+  // is shared (backend/assets/fonts) so it works in BOTH the live preview
+  // (@font-face) and the burnt-in render (libass :fontsdir). Live-preview only
+  // until 「儲存為預設」 persists it, matching the rest of this panel.
+  async function proofreadUploadFont(input) {
+    const file = input.files && input.files[0];
+    input.value = '';  // allow re-selecting the same file later
+    if (!file) return;
+    const msg = document.getElementById('ssFontUploadMsg');
+    if (msg) { msg.textContent = '上載中…'; msg.style.color = 'var(--text-dim)'; }
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const r = await fetch(`${API_BASE}/api/fonts`, { method: 'POST', body: fd, credentials: 'same-origin' });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        if (msg) { msg.textContent = '✕ ' + (data.error || `HTTP ${r.status}`); msg.style.color = 'var(--danger)'; }
+        return;
+      }
+      await FontPreview.refreshFonts();            // re-inject @font-face + refresh list
+      fontConfig = { ...fontConfig, family: data.family };
+      renderSubtitleSettings();                    // rebuild picker (now incl. the new font, selected)
+      applySubtitleStyle();                        // paint overlay with the new font
+      const m2 = document.getElementById('ssFontUploadMsg');
+      if (m2) { m2.textContent = `✓ 已新增「${data.family}」，記得撳「儲存為預設」`; m2.style.color = 'var(--success)'; }
+    } catch (e) {
+      const m3 = document.getElementById('ssFontUploadMsg');
+      if (m3) { m3.textContent = '✕ 上載失敗'; m3.style.color = 'var(--danger)'; }
+    }
+  }
+
   function proofreadUpdateFont(key, value) {
     fontConfig = { ...fontConfig, [key]: value };
     _ssSetLbl('ssSizeLbl', fontConfig.size + 'px');
