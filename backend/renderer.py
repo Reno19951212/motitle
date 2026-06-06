@@ -1,9 +1,7 @@
 """Subtitle renderer — generates ASS subtitles and burns them into video via FFmpeg."""
 
 import os
-import shutil
 import subprocess
-import tempfile
 from pathlib import Path
 from typing import List, Optional
 
@@ -11,11 +9,10 @@ from ffmpeg_locate import find_ffmpeg
 
 # Re-export from the new shared resolver so existing callers keep working
 # without importing from the new module directly.
+# (strip_qa_prefixes is consumed by tests/test_renderer.py via `from renderer import`.)
 from subtitle_text import (
     resolve_segment_text,
     strip_qa_prefixes,
-    VALID_SUBTITLE_SOURCES,
-    VALID_BILINGUAL_ORDERS,
 )
 
 DEFAULT_FONT_CONFIG = {

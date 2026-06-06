@@ -43,9 +43,9 @@ def default_qwen_venv_python(_os_name: str | None = None) -> Path:
     override = os.environ.get("V6_QWEN_VENV_PYTHON")
     if override:
         return Path(override)
-    platform = _os_name if _os_name is not None else os.name
+    target_os = _os_name if _os_name is not None else os.name
     venv = _REPO_ROOT / "backend" / "scripts" / "v5_prototype" / "venv_qwen"
-    if platform == "nt":
+    if target_os == "nt":
         return venv / "Scripts" / "python.exe"
     return venv / "bin" / "python"
 
