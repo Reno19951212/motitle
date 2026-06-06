@@ -48,5 +48,9 @@ def create_asr_engine(asr_config: dict) -> ASREngine:
     elif engine_name == "mlx-whisper":
         from .mlx_whisper_engine import MlxWhisperEngine
         return MlxWhisperEngine(asr_config)
+    elif engine_name == "whispercpp":
+        raise NotImplementedError(
+            "whispercpp ASR engine is pending GB10 hardware (Phase 4) — not yet implemented"
+        )
     else:
         raise ValueError(f"Unknown ASR engine: {engine_name}")

@@ -20,7 +20,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Optional
 
-VALID_ENGINES = {"whisper", "mlx-whisper"}
+VALID_ENGINES = {"whisper", "mlx-whisper", "whispercpp"}
 VALID_MODEL_SIZES = {"large-v3"}
 VALID_MODES = {"same-lang", "emergent-translate", "translate-to-en"}
 VALID_LANGUAGES = {"en", "zh", "ja", "ko", "fr", "de", "es"}
@@ -40,10 +40,14 @@ def available_engines() -> set:
     """VALID_ENGINES minus engines that cannot run on this platform.
 
     mlx-whisper requires Apple Silicon (MLX/Metal); excluded off darwin.
+    whispercpp is a forward-looking GB10 placeholder; Linux-only, excluded
+    off linux.
     """
     engines = set(VALID_ENGINES)
     if _detect_os() != "darwin":
         engines.discard("mlx-whisper")
+    if _detect_os() != "linux":
+        engines.discard("whispercpp")
     return engines
 
 
@@ -68,6 +72,8 @@ def validate_asr_profile(data: Any) -> list:
         errors.append(f"engine must be one of {sorted(VALID_ENGINES)}")
     elif engine == "mlx-whisper" and "mlx-whisper" not in available_engines():
         errors.append("engine 'mlx-whisper' is not supported on this platform (Apple Silicon only)")
+    elif engine == "whispercpp" and "whispercpp" not in available_engines():
+        errors.append("engine 'whispercpp' is not supported on this platform (Linux/GB10 only)")
 
     model_size = data.get("model_size", "large-v3")
     if model_size not in VALID_MODEL_SIZES:
@@ -92,6 +98,10 @@ def validate_asr_profile(data: Any) -> list:
     device = data.get("device", "auto")
     if device not in VALID_DEVICES:
         errors.append(f"device must be one of {sorted(VALID_DEVICES)}")
+    elif device == "cuda":
+        import platform_backend
+        if not platform_backend.detect_platform()["has_cuda"]:
+            errors.append("device 'cuda' requires an NVIDIA GPU (none detected); use 'auto' or 'cpu'")
 
     return errors
 

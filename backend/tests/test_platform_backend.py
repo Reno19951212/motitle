@@ -114,3 +114,26 @@ def test_resolve_ollama_url_env():
 
 def test_resolve_ollama_url_blank_falls_back():
     assert pb.resolve_ollama_url({"R5_OLLAMA_URL": "  "}) == "http://localhost:11434"
+
+
+def test_resolve_ollama_url_valid_https_passes(capsys):
+    assert pb.resolve_ollama_url({"R5_OLLAMA_URL": "https://ollama.internal:11434"}) == "https://ollama.internal:11434"
+    assert capsys.readouterr().err == ""
+
+
+def test_resolve_ollama_url_invalid_scheme_falls_back(capsys):
+    assert pb.resolve_ollama_url({"R5_OLLAMA_URL": "htp://localhost"}) == "http://localhost:11434"
+    err = capsys.readouterr().err
+    assert "WARNING" in err
+    assert "htp://localhost" in err
+
+
+def test_resolve_ollama_url_no_scheme_falls_back(capsys):
+    assert pb.resolve_ollama_url({"R5_OLLAMA_URL": "localhost:11434"}) == "http://localhost:11434"
+    err = capsys.readouterr().err
+    assert "WARNING" in err
+
+
+def test_resolve_ollama_url_blank_is_silent(capsys):
+    assert pb.resolve_ollama_url({"R5_OLLAMA_URL": "   "}) == "http://localhost:11434"
+    assert capsys.readouterr().err == ""

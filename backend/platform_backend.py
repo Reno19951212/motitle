@@ -8,6 +8,8 @@ Silicon). See docs/superpowers/specs/2026-06-06-cross-platform-delivery-design.m
 
 import platform
 import shutil
+import sys
+from urllib.parse import urlparse
 
 _ARCH_MAP = {
     "arm64": "arm64", "aarch64": "arm64",
@@ -48,8 +50,8 @@ def resolve_asr_override(env: dict, info: dict) -> dict:
     if choice == "mlx":
         return {"asr": {"engine": "mlx-whisper", "model_size": "large-v3", "condition_on_previous_text": False}}
     if choice == "whispercpp":
-        device = "cuda" if info.get("has_cuda") else "cpu"
-        compute_type = "float16" if info.get("has_cuda") else "int8"
+        device = "cuda" if info["has_cuda"] else "cpu"
+        compute_type = "float16" if info["has_cuda"] else "int8"
         return {"asr": {"engine": "whispercpp", "model_size": "large-v3", "device": device, "compute_type": compute_type, "condition_on_previous_text": False}}
     device = "cuda" if choice == "cuda" else "cpu"
     compute_type = "float16" if choice == "cuda" else "int8"
@@ -83,6 +85,21 @@ _OLLAMA_URL_DEFAULT = "http://localhost:11434"
 
 
 def resolve_ollama_url(env: dict) -> str:
-    """Return the Ollama base URL. R5_OLLAMA_URL overrides; blank -> default."""
+    """Return the Ollama base URL. R5_OLLAMA_URL overrides; blank -> default.
+
+    A set-but-malformed URL (missing http/https scheme or netloc) falls back to
+    the default and prints a one-line warning to stderr. Blank/whitespace falls
+    back silently (existing behaviour).
+    """
     val = (env.get("R5_OLLAMA_URL") or "").strip()
-    return val or _OLLAMA_URL_DEFAULT
+    if not val:
+        return _OLLAMA_URL_DEFAULT
+    parsed = urlparse(val)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        print(
+            "[platform_backend] WARNING: R5_OLLAMA_URL={!r} is not a valid "
+            "http(s) URL; falling back to default {}".format(val, _OLLAMA_URL_DEFAULT),
+            file=sys.stderr,
+        )
+        return _OLLAMA_URL_DEFAULT
+    return val
