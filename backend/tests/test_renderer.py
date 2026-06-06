@@ -401,9 +401,17 @@ def test_ass_filter_escapes_colon_in_path(tmp_path, monkeypatch):
     assert "cmd" in captured, "FFmpeg was not called"
     vf_idx = captured["cmd"].index("-vf")
     vf_value = captured["cmd"][vf_idx + 1]
-    # The colon in the path must be escaped; a bare ':' in the ass= value would corrupt the filter
-    assert "\\:" in vf_value, f"Expected escaped colon in -vf value, got: {vf_value}"
-    assert "fake:path" not in vf_value, f"Unescaped colon found in -vf value: {vf_value}"
+    # The renderer writes the .ass into the FFmpeg cwd (the renders dir) and
+    # passes a RELATIVE basename to the ass filter — this sidesteps path-colon
+    # escaping (e.g. Windows drive letters) entirely. So the value is a
+    # well-formed `ass=<basename>` (plus `:fontsdir=` only when fonts are
+    # bundled). Assert the file portion is a bare basename with no directory
+    # separator — hence no stray ':' that could corrupt the filter graph.
+    assert vf_value.startswith("ass="), f"unexpected -vf value: {vf_value}"
+    ass_file_part = vf_value.split(",", 1)[0].split(":fontsdir=", 1)[0]
+    assert "/" not in ass_file_part and "\\" not in ass_file_part, \
+        f"ass filter should reference a relative basename, got: {vf_value}"
+    assert "/fake/video.mp4" not in vf_value, f"source path leaked into -vf: {vf_value}"
 
 
 # ---------------------------------------------------------------------------

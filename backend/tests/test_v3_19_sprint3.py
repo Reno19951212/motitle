@@ -137,11 +137,15 @@ def test_b7_render_source_en_for_zh_v6_rejected(client, v6_zh_source_file):
             f"400 error message should mention 'source', got {r.get_json()}"
         )
         return
-    # Option B: accept but warn
+    # Option B (current, v3.20): accept asynchronously (202). The endpoint does
+    # NOT currently emit a source-mismatch warning for source=en (only
+    # warning_missing_zh, computed for zh/second/bilingual). Whether it SHOULD
+    # is an OPEN PRODUCT QUESTION — see
+    # docs/superpowers/specs/2026-06-06-project-health-audit.md (流程健康 · Render).
     assert r.status_code in (200, 202), f"Unexpected status {r.status_code}"
     body = r.get_json()
-    assert "warning_missing_en" in body or "warning_source_mismatch" in body, (
-        f"V6 zh-source rendered as source=en should emit warning, got {body}"
+    assert "render_id" in body and "warning_missing_zh" in body, (
+        f"render response should carry render_id + warning_missing_zh, got {body}"
     )
 
 

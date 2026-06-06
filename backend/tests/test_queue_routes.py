@@ -47,11 +47,17 @@ def test_queue_requires_login(app_with_queue):
     assert r.status_code == 401
 
 
-def test_queue_returns_only_own_jobs_for_user(app_with_queue):
+def test_queue_returns_all_active_jobs_with_owner(app_with_queue):
+    """/api/queue is a SHARED team view: every logged-in user sees all active
+    jobs, each annotated with owner_username (see list_queue() docstring —
+    "Global active-queue view shared across all logged-in users"). Mutation
+    (cancel/retry) stays owner-scoped — covered by test_cancel_running.py.
+    This replaced an earlier per-user-filtered design; the old assertion
+    (only-own-jobs / len==1) was stale."""
     c = app_with_queue.test_client()
     c.post("/login", json={"username": "alice", "password": "TestPass1!"})
     r = c.get("/api/queue")
     assert r.status_code == 200
     body = json.loads(r.data)
-    assert all(j["owner_username"] == "alice" for j in body)
-    assert len(body) == 1
+    assert len(body) == 2  # both alice's and bob's active jobs are visible
+    assert {j["owner_username"] for j in body} == {"alice", "bob"}

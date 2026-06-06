@@ -26,3 +26,7 @@ Flask-Limiter>=3.5.0
 
 # V6 — VAD + Qwen3-ASR subprocess audio I/O (v3.19)
 silero-vad>=6.2.1
+
+# Subtitle custom-font upload: read the real family name from a font's `name`
+# table so the live preview (@font-face) and burn-in (libass :fontsdir) match.
+fonttools>=4.40.0

@@ -124,40 +124,57 @@ const FontPreview = (() => {
   // libass via :fontsdir=. Without this, the browser falls back to whichever
   // system font matches the family name (often a different cut, sometimes
   // a different family entirely) and preview glyphs drift from burn-in.
-  let _fontsInjected = false;
-  async function _injectBundledFonts() {
-    if (_fontsInjected) return;
-    _fontsInjected = true;
+  // Cache of the /api/fonts list (each {file, family}) so the subtitle-
+  // settings panels can build their font picker from the SAME set the
+  // overlay actually has @font-face rules for — guaranteeing every option
+  // renders (and matches the burn-in) instead of silently falling back.
+  let _fonts = [];
+
+  function _injectFaces(fonts) {
+    // Replace (not append) the style element so a refresh after upload/delete
+    // never accumulates stale @font-face rules.
+    let styleEl = document.getElementById('font-preview-bundled-faces');
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = 'font-preview-bundled-faces';
+      document.head.appendChild(styleEl);
+    }
+    // font-display:block holds rendering until the font loads (matters because
+    // we draw the overlay immediately on segment switch and a fallback flash
+    // would reveal the wrong glyph).
+    styleEl.textContent = fonts.map(f => {
+      const url = `${_apiBase}/fonts/${encodeURIComponent(f.file)}`;
+      const fmt = f.file.toLowerCase().endsWith('.otf') ? 'opentype' : 'truetype';
+      return `@font-face{font-family:'${f.family}';src:url('${url}') format('${fmt}');font-display:block;}`;
+    }).join('\n');
+  }
+
+  async function _loadFonts() {
     try {
       const r = await fetch(`${_apiBase}/api/fonts`);
-      if (!r.ok) return;
+      if (!r.ok) return _fonts;
       const data = await r.json();
-      const fonts = (data && data.fonts) || [];
-      if (!fonts.length) return;
-      const styleEl = document.createElement('style');
-      styleEl.id = 'font-preview-bundled-faces';
-      styleEl.textContent = fonts.map(f => {
-        const url = `${_apiBase}/fonts/${encodeURIComponent(f.file)}`;
-        const fmt = f.file.toLowerCase().endsWith('.otf') ? 'opentype' : 'truetype';
-        // font-display:block holds rendering until the font loads (matters
-        // because we draw the overlay immediately on segment switch and a
-        // fallback flash would reveal the wrong glyph).
-        return `@font-face{font-family:'${f.family}';src:url('${url}') format('${fmt}');font-display:block;}`;
-      }).join('\n');
-      document.head.appendChild(styleEl);
-
-      // Eagerly load each face so the first overlay paint already has the
-      // glyph in cache; otherwise the very first segment can flash with
-      // fallback metrics for one frame.
-      if (document.fonts && document.fonts.load) {
-        await Promise.all(fonts.map(f =>
+      _fonts = (data && data.fonts) || [];
+      _injectFaces(_fonts);
+      // Eagerly load each face so the first overlay paint already has the glyph
+      // in cache; otherwise the very first segment can flash fallback metrics.
+      if (document.fonts && document.fonts.load && _fonts.length) {
+        await Promise.all(_fonts.map(f =>
           document.fonts.load(`16px '${f.family}'`).catch(() => {})
         ));
         if (_font) applyFontConfig(_font);  // re-paint with correct metrics
       }
     } catch (err) {
-      console.warn('[FontPreview] Failed to load bundled fonts:', err);
+      console.warn('[FontPreview] Failed to load fonts:', err);
     }
+    return _fonts;
+  }
+
+  let _fontsInjected = false;
+  async function _injectBundledFonts() {
+    if (_fontsInjected) return;
+    _fontsInjected = true;
+    await _loadFonts();
   }
 
   function init(socketOrNull) {
@@ -187,5 +204,43 @@ const FontPreview = (() => {
     _renderText(text || '');
   }
 
-  return { init, updateText, applyFontConfig };
+  // Snapshot of the available uploaded/bundled fonts (each {file, family}),
+  // for the subtitle-settings font pickers.
+  function getFonts() { return _fonts.slice(); }
+
+  function _esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g,
+      c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // Build <optgroup>/<option> HTML for a subtitle font <select>, shared by the
+  // Dashboard + Proofread settings panels so both pickers behave identically:
+  //   - "已上載字型": the actually-available uploaded fonts (real @font-face +
+  //     libass :fontsdir → guaranteed to render AND match the burn-in)
+  //   - "系統字型（需已安裝）": legacy system-font names (only render if the
+  //     viewer/render host has them installed) — kept for back-compat.
+  // The current value is always present + selected even if it is neither.
+  function fontOptionsHtml(current, systemFonts) {
+    const cur = current || '';
+    const uploaded = [];
+    const seen = new Set();
+    _fonts.forEach((f) => {
+      if (f.family && !seen.has(f.family)) { seen.add(f.family); uploaded.push(f.family); }
+    });
+    const sys = (systemFonts || []).filter((s) => !seen.has(s));
+    const opt = (fam) => `<option value="${_esc(fam)}"${fam === cur ? ' selected' : ''}>${_esc(fam)}</option>`;
+    let html = '';
+    if (uploaded.length) html += `<optgroup label="已上載字型">${uploaded.map(opt).join('')}</optgroup>`;
+    if (sys.length) html += `<optgroup label="系統字型（需已安裝）">${sys.map(opt).join('')}</optgroup>`;
+    if (cur && !seen.has(cur) && !sys.includes(cur)) {
+      html = `<option value="${_esc(cur)}" selected>${_esc(cur)}</option>` + html;
+    }
+    return html;
+  }
+
+  // Re-fetch /api/fonts + re-inject @font-face. Call after a font upload or
+  // delete so the new face is live in the overlay and getFonts() is current.
+  async function refreshFonts() { return _loadFonts(); }
+
+  return { init, updateText, applyFontConfig, getFonts, refreshFonts, fontOptionsHtml };
 })();

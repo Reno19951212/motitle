@@ -51,13 +51,17 @@ def test_login_with_missing_keys_still_returns_400(client_with_admin_db):
 
 
 def test_socketio_cors_origins_uses_lan_regex():
-    """T1.2 — SocketIO CORS must NOT be wildcard (was '*' pre-Phase-5)."""
+    """T1.2 — SocketIO CORS must NOT be wildcard (was '*' pre-Phase-5).
+
+    python-engineio takes a *callable* origin checker rather than the
+    Flask-CORS regex string, so SocketIO reuses the `_is_lan_origin` callable
+    (same LAN ranges as the Flask layer's `_LAN_ORIGIN_REGEX`)."""
     import app as app_module
     cors_cfg = app_module.socketio.server.eio.cors_allowed_origins
     assert cors_cfg != "*", "SocketIO must use LAN-only CORS (T1.2)"
-    # Should be the same regex string the Flask CORS layer uses
-    assert cors_cfg == app_module._LAN_ORIGIN_REGEX, \
-        f"T1.2 — SocketIO CORS must reuse _LAN_ORIGIN_REGEX, got {cors_cfg!r}"
+    assert callable(cors_cfg), "SocketIO CORS origin checker must be a callable"
+    assert cors_cfg is app_module._is_lan_origin, \
+        f"T1.2 — SocketIO CORS must use the _is_lan_origin callable, got {cors_cfg!r}"
 
 
 def test_socketio_connect_handler_registered():
