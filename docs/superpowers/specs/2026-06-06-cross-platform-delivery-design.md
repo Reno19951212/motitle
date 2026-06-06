@@ -109,14 +109,24 @@ backend/
 
 ## 5. Roadmap（分階段，gate-driven）
 
-| Phase | 內容 | 依賴 / Gate | 首批? | 獨立 plan? |
+> **2026-06-06 重新排序**：用戶目前**只有 macOS 機，冇 Windows / NVIDIA / GB10 硬件**。因此將 **macOS 打包提前為下一個 active phase**（保留 MLX stack、**唔涉換模型 → 唔受 Validation-First gate 約束 → 零硬件阻礙**）。所有需要 CUDA 硬件嘅階段（Phase 0 驗證、Phase 2 Windows、Phase 4 GB10）一律 defer 為 *pending hardware*。
+
+| Phase | 內容 | 依賴 / Gate | 狀態 | 獨立 plan? |
 |---|---|---|---|---|
-| **0 驗證** | 跑等價質量矩陣（Win arm B/C），鎖 GGUF tag | — | ✅ | 本 design §audit6；tracker 文件 |
-| **1 抽象層** | D1/D4/D5 + Ollama URL env（純邏輯，可 TDD） | 無硬件 | ✅ | **本配對 plan.md（已詳寫）** |
-| **2 Windows 打包** | venv+Inno+NSSM+firewall+threading；排除 whisper-streaming；start-win.ps1 | Phase 0 evidence + Phase 1 | ✅ | 到時出 |
-| **3 macOS 打包** | launchd LaunchDaemon + 簽名 ffmpeg + .pkg | Phase 1 | ✅ | 到時出 |
-| **4 GB10** | 新 whispercpp 引擎 + Docker(NGC) + arm D 驗證 | **GB10 真機** | ⏸ pending | 真機到先出 |
-| **5 CI + 衛生** | GitHub Actions matrix + pinned requirements + CDN 本地化(optional) + 刪 old.html | Phase 1-3 | ✅ | 到時出 |
+| **1 抽象層** | D1/D4/D5 + Ollama URL env（純邏輯，可 TDD） | 無硬件 | ✅ **完成**（worktree，10 commit，未整合） | plan.md（已詳寫） |
+| **3 macOS 打包** ⭐ | 增強 setup-mac.sh（auto Ollama + pull 模型 + 磁碟檢查）+ launchd LaunchDaemon（app + Ollama，RunAtLoad/KeepAlive/防睡眠）+ start/stop/status 管理腳本 + operator runbook。**無需 Apple Developer ID / 簽名。** | Phase 1；**macOS 機（有）** | 🟢 **NOW（active）** | **[../plans/2026-06-06-macos-packaging.md](../plans/2026-06-06-macos-packaging.md)** |
+| **0 驗證** | 跑等價質量矩陣（Win arm B/C），鎖 GGUF tag | **Windows+NVIDIA 機（無）** | ⏸ pending hardware | 硬件到先出 |
+| **2 Windows 打包** | venv+Inno+NSSM+firewall+threading；排除 whisper-streaming；start-win.ps1 | Phase 0 evidence + Windows 機（無） | ⏸ pending hardware | 硬件到先出 |
+| **4 GB10** | 新 whispercpp 引擎 + Docker(NGC) + arm D 驗證 | **GB10 真機（無）** | ⏸ pending hardware | 真機到先出 |
+| **5 CI + 衛生** | GitHub Actions（macOS + pure-unit matrix 可先做）+ pinned requirements + CDN 本地化(optional) + 刪 old.html | Phase 1/3 | 部分可即做 | 到時出 |
+
+### 5.1 macOS 打包架構決策（2026-06-06，已與用戶確認）
+
+- **形式**：增強現有 `setup-mac.sh` + launchd（**唔做簽名 .pkg** — operator 跑腳本式安裝，server appliance 場景可接受）。
+- **Ollama**：installer 自動裝 + 設 launchd 服務（`OLLAMA_HOST=0.0.0.0:11434`）+ `ollama pull qwen3.5:35b-a3b-mlx-bf16`（含磁碟空間檢查；模型大）。
+- **常駐**：兩個 **LaunchDaemon**（`/Library/LaunchDaemons`，需 sudo，pre-login boot）—— app server + Ollama，`RunAtLoad=true` + `KeepAlive=true` + `caffeinate` 防睡眠。app daemon 以 install 用戶身份跑（plist `UserName`），唔用 root。
+- **關鍵 ops 約束**（沿用）：app 啟動必須帶 `FLASK_SECRET_KEY`（由 `backend/.env` 載入，否則即 crash）；stale 大楷 `Python` process 會霸 port → 管理腳本要處理。bind `0.0.0.0`（LAN）+ macOS firewall 首次監聽會 prompt。
+- **唔改任何模型 code** → macOS 輸出與現狀 byte-identical，無 Validation-First gate。
 
 ## 6. 風險登記（撮要，全清單見 audit §8）
 
