@@ -1,0 +1,6766 @@
+{
+  "id": "db323f9d-8f1e-44da-a20f-64d1ace09b89",
+  "name": "賽馬",
+  "description": "",
+  "source_lang": "en",
+  "target_lang": "zh",
+  "entries": [
+    {
+      "source": "A AMERIC TE SPECSO",
+      "target": "有財有勢 (H037)",
+      "id": "d0cc75f5-45dc-43a1-94a2-347ecaffd0aa"
+    },
+    {
+      "source": "A TIME FOR US",
+      "target": "開心孖寶 (K475)",
+      "id": "4059effd-544f-49d0-9198-9d9971f879c2"
+    },
+    {
+      "source": "ABSOLUTE AWAKENED",
+      "target": "活力精神 (K039)",
+      "id": "5a19689e-ac5b-46bf-af63-dbb428459b4d"
+    },
+    {
+      "source": "ABSOLUTE HEART",
+      "target": "超和平 (L226)",
+      "id": "dfce17bf-d341-4c9e-92ed-011fbea504c3"
+    },
+    {
+      "source": "ABSOLUTE HONOUR",
+      "target": "超開心 (K260)",
+      "id": "e1c65663-2e6d-49df-8546-f64e077dd02c"
+    },
+    {
+      "source": "ABSOLUTE LUCKY",
+      "target": "旺旺昇叻 (K070)",
+      "id": "68478379-443c-4552-ac75-58cb0ea2fec3"
+    },
+    {
+      "source": "ACA FAST",
+      "target": "澳華發發 (K467)",
+      "id": "07810e23-8354-45e4-9e02-8e89d86124e6"
+    },
+    {
+      "source": "ACE",
+      "target": "部族高手 (K307)",
+      "id": "8b328eab-a8cb-4ba0-bc1d-cec9f80b1696"
+    },
+    {
+      "source": "ACE CHAMPION",
+      "target": "長勝隊長 (K379)",
+      "id": "dc8e9738-28c4-4561-b0b6-1544f17b2372"
+    },
+    {
+      "source": "ACE EAGLE",
+      "target": "祥勝鷹駒 (L341)",
+      "id": "cd2d7990-3c64-4c9f-ad98-b85ee5d5257d"
+    },
+    {
+      "source": "ACE POWER",
+      "target": "祥勝力駒 (J181)",
+      "id": "bc30b4b3-2e00-491a-b6db-2025ec5935e6"
+    },
+    {
+      "source": "ACE WAR",
+      "target": "祥勝將軍 (J509)",
+      "id": "34fd6543-be06-49db-abe0-280cda758471"
+    },
+    {
+      "source": "AERIS NOVA",
+      "target": "風再起時 (J534)",
+      "id": "8fe829fd-4123-4123-a8a6-fdae4acc20a8"
+    },
+    {
+      "source": "AERODYNAMICS",
+      "target": "友瑩光 (K564)",
+      "id": "075cb210-f81f-4fe5-9ed2-ed6fcf490ba5"
+    },
+    {
+      "source": "AEROINVINCIBLE",
+      "target": "友瑩仁 (J180)",
+      "id": "bb8ab60e-bb37-4d0e-aaf2-9124b87ac0f9"
+    },
+    {
+      "source": "AEROVOLANIC",
+      "target": "友瑩亮 (K400)",
+      "id": "03f54740-c717-40d9-8865-57a95ba47821"
+    },
+    {
+      "source": "AESTHETICISM",
+      "target": "唯美主義 (H289)",
+      "id": "e4b3ccc3-6852-4f9c-94a3-4f1d229962f2"
+    },
+    {
+      "source": "AETHELWIND",
+      "target": "笑看風雲 (L162)",
+      "id": "73b499ed-9cd5-4649-ac8b-0381d0614380"
+    },
+    {
+      "source": "AGENDA",
+      "target": "清雲龍駒 (K160)",
+      "id": "9099d9cd-a9f8-4986-9a32-515534ae2fe4"
+    },
+    {
+      "source": "AGENT",
+      "target": "魅影諜飛 (L444)",
+      "id": "84707d9a-0cf4-4c50-ab6f-571c8f1b9794"
+    },
+    {
+      "source": "AHREN",
+      "target": "魅影戈飛 (K183)",
+      "id": "d53c7496-40b9-49b1-aebe-e113d9c809c3"
+    },
+    {
+      "source": "AKASHVANI",
+      "target": "天星 (K234)",
+      "id": "5399ad2c-57d8-4e9b-8dc1-fe576144e882"
+    },
+    {
+      "source": "AKERMANIS GOLD",
+      "target": "蹺妙 (L031)",
+      "id": "67dea3f2-af80-4e83-af3d-33099a2f002b"
+    },
+    {
+      "source": "ALABAMA SONG",
+      "target": "豐功偉績 (K480)",
+      "id": "882b14e1-5edf-4dfa-b803-0091d4a0c4e5"
+    },
+    {
+      "source": "ALL ARE MINE",
+      "target": "開心三多 (H293)",
+      "id": "50cc6a47-b792-482b-9226-bc9f6cb1eec4"
+    },
+    {
+      "source": "ALL OUT FOR SIX",
+      "target": "馭跑得 (L193)",
+      "id": "8a12f119-42ff-4894-b43c-89bc302b2d31"
+    },
+    {
+      "source": "ALL ROUND WINNER",
+      "target": "榮利雙收 (K382)",
+      "id": "2737a1c2-1bf8-4cfa-8af9-e7d09a7c8568"
+    },
+    {
+      "source": "ALLCASH",
+      "target": "凱明神駒 (K190)",
+      "id": "6e402ffb-d41d-4d5e-a29b-4891d5fc9799"
+    },
+    {
+      "source": "ALL'S WELL",
+      "target": "亨驥 (K294)",
+      "id": "68e87cc0-4cd3-4b04-83fa-c39527be4be0"
+    },
+    {
+      "source": "ALMIGHTY LIGHTNING",
+      "target": "閃電小子 (L126)",
+      "id": "b6ba33dc-2127-478a-93a4-e766100095ef"
+    },
+    {
+      "source": "ALMIGHTY WARRIOR",
+      "target": "全能勇士 (L245)",
+      "id": "3b622757-6f6a-4ce6-b8be-a070bae9ef2f"
+    },
+    {
+      "source": "ALPHA STRIKE",
+      "target": "星運傳奇 (L019)",
+      "id": "0bd22036-3376-43a2-b839-1488a3181d6a"
+    },
+    {
+      "source": "ALWAYS FLUKE",
+      "target": "果然僥倖 (H252)",
+      "id": "3c592df0-aece-4fd5-b213-62a2efd1fd8c"
+    },
+    {
+      "source": "ALWAYS MY FOLKS",
+      "target": "喆喆友福 (J345)",
+      "id": "fe50a401-f397-4e23-89dd-f3570ceed97b"
+    },
+    {
+      "source": "AMAZING AWARD",
+      "target": "奮鬥輝煌 (J236)",
+      "id": "4a33a7fa-f365-4e0e-b0e2-7bc8ec939b81"
+    },
+    {
+      "source": "AMAZING DUCK",
+      "target": "君達得 (H392)",
+      "id": "b7d37292-963e-4b8c-86b5-f2fb8afe30f6"
+    },
+    {
+      "source": "AMAZING GAZE",
+      "target": "凝妙星 (K444)",
+      "id": "d3690f36-1fc1-4f90-acc0-992d49ff7d98"
+    },
+    {
+      "source": "AMAZING KID",
+      "target": "福星小子 (K434)",
+      "id": "703627f0-8d68-4c0e-8d6a-01532e2d38fe"
+    },
+    {
+      "source": "AMAZING PARTNERS",
+      "target": "活力拍檔 (K554)",
+      "id": "cb3cbb22-8eb0-4828-947e-e92bb98b6f75"
+    },
+    {
+      "source": "AMAZING VICTORY",
+      "target": "縱橫天下 (G123)",
+      "id": "bb9ddcd9-3d3e-4178-8060-450e755377a3"
+    },
+    {
+      "source": "AMAZING WINNER",
+      "target": "奇妙旅程 (L421)",
+      "id": "4cc11721-b1d8-41e2-a6da-b2a1688dbad3"
+    },
+    {
+      "source": "AMO ERGO SUM",
+      "target": "猶有心得 (K394)",
+      "id": "c92bf15e-4ed3-4a8c-b750-50e5c77c4c3a"
+    },
+    {
+      "source": "ANODE",
+      "target": "正極 (K367)",
+      "id": "34f93dfe-38d5-4241-b1f3-1285cfdd20a6"
+    },
+    {
+      "source": "ANOTHER WORLD",
+      "target": "不同世界 (K005)",
+      "id": "e28db483-3490-497a-aac2-8a6b0d4e7da2"
+    },
+    {
+      "source": "ANOTHER ZONDA",
+      "target": "暴風之子 (K176)",
+      "id": "fe76921a-a74c-4817-9b26-859dc2924c0b"
+    },
+    {
+      "source": "APEX GLORY",
+      "target": "領駿輝煌 (L265)",
+      "id": "58b3361f-9aeb-4a22-ace4-05858b692023"
+    },
+    {
+      "source": "APOLAR FIGHTER",
+      "target": "無極勇將 (J169)",
+      "id": "b795d798-699f-4e04-ac35-3b73ec1a4c3a"
+    },
+    {
+      "source": "AQUAMAN",
+      "target": "海王 (K523)",
+      "id": "7ae6ce2e-8592-4cb7-88ae-ff0a2863b628"
+    },
+    {
+      "source": "ARGENTO OCEAN",
+      "target": "當家精彩 (K322)",
+      "id": "e47da339-ba0b-49af-abbc-840bdc7868d4"
+    },
+    {
+      "source": "ARIEL",
+      "target": "艾莉奧 (G223)",
+      "id": "24e7d8a1-8ce2-4091-96aa-8dae29a268d9"
+    },
+    {
+      "source": "ARMOR GOLDEN EAGLE",
+      "target": "穿甲金鷹 (K566)",
+      "id": "0685f913-2225-437a-8b73-5770cb1041c6"
+    },
+    {
+      "source": "ARMOUR WAR EAGLE",
+      "target": "穿甲戰鷹 (J039)",
+      "id": "3c2e5611-fd8e-4a3c-8d74-82e30dc7f91e"
+    },
+    {
+      "source": "AUDACIOUS PURSUIT",
+      "target": "大千雄心 (K398)",
+      "id": "f36fa8f1-f289-46b9-8696-3073ccc9b227"
+    },
+    {
+      "source": "AURIO",
+      "target": "志滿同行 (K056)",
+      "id": "d1efc5f9-ba6d-477e-88ed-56805fe16b7f"
+    },
+    {
+      "source": "AURORA LADY",
+      "target": "晨曦儷人 (J066)",
+      "id": "d7023816-955d-4cc1-b633-80a1de60f141"
+    },
+    {
+      "source": "AURORA PATCH",
+      "target": "錶之極光 (K097)",
+      "id": "76bea110-9f97-4d9c-b57a-70d0e758a0b3"
+    },
+    {
+      "source": "AURORA PHOENIX",
+      "target": "晨曦鳳凰 (L452)",
+      "id": "38f71a17-eb26-4d9f-8a00-6363125a2961"
+    },
+    {
+      "source": "AUTOMATED",
+      "target": "新力飆 (K177)",
+      "id": "df9dee74-b7b5-4893-bd36-a2f01be8456e"
+    },
+    {
+      "source": "AUTUMN VIBES",
+      "target": "金風萬里 (K150)",
+      "id": "c9ab8c93-9475-416d-a4e6-f9738fbb1662"
+    },
+    {
+      "source": "AWESOME FLUKE",
+      "target": "非惟僥倖 (J050)",
+      "id": "4b5557a0-a439-41bb-91f4-3a697a5f2013"
+    },
+    {
+      "source": "AWESOME TREASURE",
+      "target": "佳運發 (E435)",
+      "id": "85b2b24e-1439-430e-8841-d1e42e9eaded"
+    },
+    {
+      "source": "BABIECA",
+      "target": "快活精神 (K326)",
+      "id": "e11e2dec-2bb6-4c18-a5e8-b39e18bfdab0"
+    },
+    {
+      "source": "BABY SAKURA",
+      "target": "櫻花酒杯 (L230)",
+      "id": "83dc7f8c-c1de-4d24-936c-96b978a724f4"
+    },
+    {
+      "source": "BASIC INSTINCT",
+      "target": "本能 (K289)",
+      "id": "f722f9ac-f0f5-4299-8d55-42970ef58107"
+    },
+    {
+      "source": "BEAUTY ALLIANCE",
+      "target": "一起美麗 (J260)",
+      "id": "4265f18a-4685-4b4a-b336-10855d41924e"
+    },
+    {
+      "source": "BEAUTY AWARD",
+      "target": "美麗大獎 (L326)",
+      "id": "a762a146-5a60-4b7c-92fa-7916b41c4759"
+    },
+    {
+      "source": "BEAUTY BOLT",
+      "target": "美麗星晨 (K491)",
+      "id": "49ce037d-170e-4163-ac93-21170831c36d"
+    },
+    {
+      "source": "BEAUTY CRESCENT",
+      "target": "同樣美麗 (H334)",
+      "id": "805d5e9b-504a-42ef-b07f-e26741d98bae"
+    },
+    {
+      "source": "BEAUTY GEMINI",
+      "target": "雙子美麗 (L129)",
+      "id": "3f1487e4-096d-4efb-aabe-a87995feeba7"
+    },
+    {
+      "source": "BEAUTY GLORY",
+      "target": "美麗邂逅 (E459)",
+      "id": "af7a7744-914e-4028-913a-80838928f409"
+    },
+    {
+      "source": "BEAUTY JOY",
+      "target": "美麗同享 (E058)",
+      "id": "a8dd5ff9-6fef-41fa-a105-dba21aab1383"
+    },
+    {
+      "source": "BEAUTY MISSILE",
+      "target": "特別美麗 (H123)",
+      "id": "6d5d30fc-cff2-426d-b890-79e3bbae5b8c"
+    },
+    {
+      "source": "BEAUTY SHOW",
+      "target": "美麗登場 (L260)",
+      "id": "7908cd06-e5e8-443f-a65f-772c2a531b61"
+    },
+    {
+      "source": "BEAUTY THUNDER",
+      "target": "凝聚美麗 (J299)",
+      "id": "f5ecf46e-ae29-43ea-bdac-3a370dce3dec"
+    },
+    {
+      "source": "BEAUTY VIVA",
+      "target": "爆出美麗 (K155)",
+      "id": "2ff7642f-ec19-4108-a65d-269163db843c"
+    },
+    {
+      "source": "BEAUTY WAVES",
+      "target": "美麗第一 (H294)",
+      "id": "bdf1c342-6fc4-4d58-858a-a66a69db7b6d"
+    },
+    {
+      "source": "BEST FARM",
+      "target": "種得好 (K579)",
+      "id": "354cc583-fc5c-40ee-a627-d3c0a6d826a7"
+    },
+    {
+      "source": "BEST WORLD",
+      "target": "同樣世界 (L329)",
+      "id": "8a93c59c-d88d-4f37-8e0a-b23f8489f1fd"
+    },
+    {
+      "source": "BETTER AND BETTER",
+      "target": "天天更好 (K277)",
+      "id": "2d4f9a23-435b-44de-8594-c05b74952841"
+    },
+    {
+      "source": "BIG BIG WORLD",
+      "target": "玄宇宙 (L257)",
+      "id": "de31afc9-0750-4b16-a963-fed8154a0425"
+    },
+    {
+      "source": "BIG RETURN",
+      "target": "大回報 (K192)",
+      "id": "0a2353f8-16b8-4776-8e1c-486e2717d97d"
+    },
+    {
+      "source": "BIGTIME GENERATION",
+      "target": "仁者荃承 (K496)",
+      "id": "6e9644a9-a77f-4917-b0a8-031d838a82f3"
+    },
+    {
+      "source": "BINGO BABE",
+      "target": "東方福寶 (K115)",
+      "id": "fb3757eb-dcfd-4f00-9198-b5a0b1891e0c"
+    },
+    {
+      "source": "BITS SUPERSTAR",
+      "target": "比特星 (J362)",
+      "id": "a1a78f07-6f0f-45ac-88ec-7fb1b5114734"
+    },
+    {
+      "source": "BLASTED TALENT",
+      "target": "疾風財子 (L091)",
+      "id": "3ad371f2-89d3-447a-9b1d-5808367d249c"
+    },
+    {
+      "source": "BLAZING BEAM",
+      "target": "前衛火影 (K103)",
+      "id": "d64b4171-f977-4764-824b-aa8f7d248fbe"
+    },
+    {
+      "source": "BLAZING METEOR",
+      "target": "火流星 (L426)",
+      "id": "6992dbdc-6bcb-4728-a845-82814f8989f3"
+    },
+    {
+      "source": "BLAZING STAR",
+      "target": "顯勝福星 (L405)",
+      "id": "513cc87d-84f7-4c04-b071-4067679a41e0"
+    },
+    {
+      "source": "BLAZING VICTORY",
+      "target": "有冠生輝 (L309)",
+      "id": "cb50386f-cd73-4e92-b803-a750d422454d"
+    },
+    {
+      "source": "BLAZING WIND",
+      "target": "熾烈神駒 (J157)",
+      "id": "63e56dab-9fcb-4fbd-9e62-e197b1002db2"
+    },
+    {
+      "source": "BLAZING WUKONG",
+      "target": "火悟空 (K335)",
+      "id": "28ed7086-b4e4-47fb-a98d-6035ab714b61"
+    },
+    {
+      "source": "BLING BLING GENIUS",
+      "target": "金鑽精靈 (J397)",
+      "id": "a396aa77-45c1-4944-8cc2-d164aacf52a2"
+    },
+    {
+      "source": "BLOSSOMY",
+      "target": "花開 (L037)",
+      "id": "45c7624d-aa99-49cc-8dab-f5d39bf49784"
+    },
+    {
+      "source": "BLUE BARON",
+      "target": "藍爵爺 (J448)",
+      "id": "e2acac88-c0b8-4126-8f23-1d3c3f616b54"
+    },
+    {
+      "source": "BLUE ILLUSION",
+      "target": "藍地球 (K468)",
+      "id": "d694fd42-bfce-4b1c-bfda-b74b0a1911e9"
+    },
+    {
+      "source": "BOLAVEN PLATEAU",
+      "target": "老撾巴色 (L369)",
+      "id": "7525ffa8-31ba-4a82-9dc7-7ce6daeeb68b"
+    },
+    {
+      "source": "BOLTZ",
+      "target": "乾坤圈 (L385)",
+      "id": "86ffc7df-62c2-474b-ad0e-48eca997ce7e"
+    },
+    {
+      "source": "BOSSANOVA",
+      "target": "隨意門 (L487)",
+      "id": "b7b68e25-c87f-4ef2-83d7-e43fd38f0349"
+    },
+    {
+      "source": "BOTTOMUPTOGETHER",
+      "target": "天天同樂 (J316)",
+      "id": "726b6cd1-4fd4-4311-97d3-fef051686c4c"
+    },
+    {
+      "source": "BRAVE STAR",
+      "target": "勇敢巨星 (G268)",
+      "id": "60d80053-27e3-48f4-82f4-f219b5ea4dbb"
+    },
+    {
+      "source": "BRAVE WIN",
+      "target": "勇敢孖寶 (K421)",
+      "id": "f9e09db8-9014-4f9c-8db1-b7cafae215e1"
+    },
+    {
+      "source": "BREAK HEAVEN",
+      "target": "鬥破蒼穹 (L342)",
+      "id": "8dbe730e-08a5-49f4-8d08-c9114026ee6b"
+    },
+    {
+      "source": "BRIGHT DAY",
+      "target": "朗日自強 (J530)",
+      "id": "3bbf294c-3493-4391-93e5-1feb83331017"
+    },
+    {
+      "source": "BRIGHT INHERITANCE",
+      "target": "光明傳承 (J215)",
+      "id": "35bfdfb4-84cd-4aea-a986-fc3f78473e42"
+    },
+    {
+      "source": "BRIGHT MORTAR",
+      "target": "砂漿麒星 (K333)",
+      "id": "89c492bf-e25f-4388-9fd4-c8dcba1ef661"
+    },
+    {
+      "source": "BRILLIANT EXPRESS",
+      "target": "神馳 (J321)",
+      "id": "0c1effee-4631-4e01-9120-3bdc36c63d9a"
+    },
+    {
+      "source": "BRILLIANT FIRE",
+      "target": "天火同德 (J441)",
+      "id": "abb9ecae-0e62-4e7d-a230-34429a101f47"
+    },
+    {
+      "source": "BRILLIANT TURN",
+      "target": "哥得寶 (L368)",
+      "id": "e30f0819-96fd-4e4d-8493-819439167c56"
+    },
+    {
+      "source": "BRILLIANT WINNER",
+      "target": "活力輝煌 (L203)",
+      "id": "f894c6e2-9672-4e04-9bf4-827bed0f2b46"
+    },
+    {
+      "source": "BROWNNEEDSFURTHER",
+      "target": "星辰千帥 (K325)",
+      "id": "44d06775-11c7-4423-9eca-462c8f3a0c04"
+    },
+    {
+      "source": "BUCEPHALAS",
+      "target": "鬥志波 (K096)",
+      "id": "e53fef7a-6a4d-4356-9c66-c58729793abf"
+    },
+    {
+      "source": "BULB GENERAL",
+      "target": "燈胆將軍 (K218)",
+      "id": "480312a7-5eb5-41db-970d-6cbd7b2a328a"
+    },
+    {
+      "source": "BULB GLORY",
+      "target": "燈胆輝煌 (L025)",
+      "id": "ad856b62-a8dc-4513-86cc-e8263a2ccfc9"
+    },
+    {
+      "source": "BULL ATTITUDE",
+      "target": "林寶精神 (K305)",
+      "id": "ced190e3-426a-4b09-bd23-87f2fb8e3241"
+    },
+    {
+      "source": "BULLISH NOVA",
+      "target": "牛精新星 (L200)",
+      "id": "ad97d94f-04d6-4d3c-86c2-ae9e64904302"
+    },
+    {
+      "source": "BULLISH PRIDE",
+      "target": "牛精豪情 (K181)",
+      "id": "e0b6eb7a-b48d-4b6c-9447-980cb1aea124"
+    },
+    {
+      "source": "BUNTA BABY",
+      "target": "品德寶寶 (J465)",
+      "id": "5241bd27-8edf-4f5a-9fbf-d0efd025b632"
+    },
+    {
+      "source": "BUSTLING CITY",
+      "target": "致力之城 (L210)",
+      "id": "fd58b5f0-0638-4843-a108-1b0cd726b227"
+    },
+    {
+      "source": "CALA DEI MORI",
+      "target": "定風波 (L428)",
+      "id": "ef285aaa-b2b0-42ab-b60c-8e3b5029e7ba"
+    },
+    {
+      "source": "CALIFORNIA BANNER",
+      "target": "加州星皓 (J132)",
+      "id": "e4b2d33a-5187-4475-a807-afff00a949ae"
+    },
+    {
+      "source": "CALIFORNIA BAY",
+      "target": "加州勇勝 (K364)",
+      "id": "ddc6d735-d130-422b-8de7-df6888a93fa1"
+    },
+    {
+      "source": "CALIFORNIA BLITZ",
+      "target": "加州本事 (J370)",
+      "id": "1818f604-a132-44f3-812c-474875612845"
+    },
+    {
+      "source": "CALIFORNIA BLUES",
+      "target": "加州報捷 (K509)",
+      "id": "727c28f5-dc77-4990-85e7-d60726d1b636"
+    },
+    {
+      "source": "CALIFORNIA COMMAND",
+      "target": "加州鬥士 (L430)",
+      "id": "8da364be-7d4c-4987-9724-42e51a04dfd2"
+    },
+    {
+      "source": "CALIFORNIA MOXIE",
+      "target": "加州活力 (J131)",
+      "id": "39ea09a9-3306-44b8-84f9-caa871c65403"
+    },
+    {
+      "source": "CALIFORNIA STAR",
+      "target": "加州星馳 (J123)",
+      "id": "46afbeeb-8d1c-4602-9636-767ecbaad431"
+    },
+    {
+      "source": "CALIFORNIA WAVES",
+      "target": "加州熱浪 (K477)",
+      "id": "30d3caa7-b501-4fad-80e4-d49d4ea3c481"
+    },
+    {
+      "source": "CALIFORNIATOTALITY",
+      "target": "加州動員 (H418)",
+      "id": "cec65871-55ae-4441-a001-5bc499642929"
+    },
+    {
+      "source": "CALL ME MAGNIFIQUE",
+      "target": "千禧龍 (L339)",
+      "id": "bff88bec-8e38-4007-a6e6-7430e008cced"
+    },
+    {
+      "source": "CALL ME SPARKLE",
+      "target": "龍之悅 (K571)",
+      "id": "95039e0f-11ab-4a0d-a4ab-24824bddd279"
+    },
+    {
+      "source": "CALL ME SUCCESS",
+      "target": "龍之尊 (K462)",
+      "id": "fe3f2489-d8d2-48e8-889d-26d1b154b1ac"
+    },
+    {
+      "source": "CALL ME TOPSEED",
+      "target": "傲視同群 (K357)",
+      "id": "fb5cb154-926a-4372-bbc6-0ea0a95f034c"
+    },
+    {
+      "source": "CALL TO COMMAND",
+      "target": "八里旺 (J243)",
+      "id": "7de59ce4-5082-4615-9449-c75bf3fad3c0"
+    },
+    {
+      "source": "CAMELOT KNIGHT",
+      "target": "赤雲武士 (L502)",
+      "id": "4dbaf856-a78f-4b92-b1ed-59d58824586b"
+    },
+    {
+      "source": "CANDLELIGHT DINNER",
+      "target": "燭光晚餐 (J468)",
+      "id": "945b2625-72c0-4df3-b953-d885e71d5f1a"
+    },
+    {
+      "source": "CAN'T GO WONG",
+      "target": "獎星 (H087)",
+      "id": "5f4c74a0-4b7b-4003-ae39-8a2b10116c80"
+    },
+    {
+      "source": "CAP FERRAT",
+      "target": "百賀飛駒 (K021)",
+      "id": "25643131-e033-44e2-860f-471e383d777f"
+    },
+    {
+      "source": "CAP LINER",
+      "target": "縱橫大兄 (L012)",
+      "id": "bbf01afe-8126-4510-8e79-b4cc9b4ab9fd"
+    },
+    {
+      "source": "CAPTAIN LINK",
+      "target": "團長好 (K515)",
+      "id": "ac892f16-96d4-485d-8372-006ec57912cd"
+    },
+    {
+      "source": "CARRYON SMILING",
+      "target": "始終如一 (J392)",
+      "id": "48f6c877-64ed-4fee-b118-7129fbcb99ae"
+    },
+    {
+      "source": "CASA BUDDY",
+      "target": "領航多財 (L101)",
+      "id": "c70f62ca-aa3b-4fb6-8f56-45facff979a6"
+    },
+    {
+      "source": "CASA LEGEND",
+      "target": "領航傳祺 (G126)",
+      "id": "a6d38553-1940-4f8c-a8cc-043966e0d341"
+    },
+    {
+      "source": "CASA OF HONOR",
+      "target": "領航君子 (K310)",
+      "id": "a33af8d0-feaa-40ce-93d1-dc11d1abcd8d"
+    },
+    {
+      "source": "CASA PRIMO",
+      "target": "領航多福 (L201)",
+      "id": "fbb0b89c-d685-4912-8c3c-18a5b2aa978e"
+    },
+    {
+      "source": "CASA ROCHESTER",
+      "target": "領航天子 (J494)",
+      "id": "d880e46b-c212-44b7-85ac-605999560586"
+    },
+    {
+      "source": "CAUSEWAY KING",
+      "target": "高士威勁 (L196)",
+      "id": "f767c1c2-e313-40f9-86b9-2aec6a1a27cc"
+    },
+    {
+      "source": "CAVA PIONEER",
+      "target": "領駿先鋒 (L359)",
+      "id": "1d1740a9-87c6-45fa-b0dd-334b2011c3eb"
+    },
+    {
+      "source": "CAVAMAZING",
+      "target": "領駿精彩 (L344)",
+      "id": "154d5a60-84d2-492f-b75e-a6d7a1ddee80"
+    },
+    {
+      "source": "CELESTIAL FLAIR",
+      "target": "寰宇神采 (L425)",
+      "id": "05a8b369-013e-4217-93f0-fdb7a2d05626"
+    },
+    {
+      "source": "CELESTIAL HARMONY",
+      "target": "悠悠乾坤 (K059)",
+      "id": "4876d56f-6f5e-4a8a-be71-5d9cef842de1"
+    },
+    {
+      "source": "CELESTIAL HERO",
+      "target": "星月飛雲 (K363)",
+      "id": "7b64774e-f66c-42ed-b245-d899ebe511a6"
+    },
+    {
+      "source": "CELESTIAL STRIDER",
+      "target": "萬里鵬躍 (L009)",
+      "id": "0dcf37c5-5972-4002-ac39-aa78338319e7"
+    },
+    {
+      "source": "CELESTIAL ZOUS",
+      "target": "星月峰雲 (L455)",
+      "id": "0b40c78d-aa5c-4a1e-aced-60dc9507aa1a"
+    },
+    {
+      "source": "CELTIC TIMES",
+      "target": "佳福駒 (G230)",
+      "id": "f52cb604-ed1b-4a9a-8200-76529b088789"
+    },
+    {
+      "source": "CENTRAL BANK",
+      "target": "怡傲錢莊 (L222)",
+      "id": "e22ebe20-7e64-4ea2-8010-6aeb6f0806c0"
+    },
+    {
+      "source": "CHAMP'S DOMAIN",
+      "target": "勝萬家 (L318)",
+      "id": "ccce014d-3249-4706-a6fb-3ebe8fcd7226"
+    },
+    {
+      "source": "CHANCHENG GLORY",
+      "target": "禪勝輝煌 (H212)",
+      "id": "137c8f5f-07cc-4128-8a47-7bb53943f25e"
+    },
+    {
+      "source": "CHANCHENG SPARKLE",
+      "target": "禪勝閃亮 (L051)",
+      "id": "5772b575-1bd8-4382-b8f6-21a24d6b5ea7"
+    },
+    {
+      "source": "CHARITY CHAMP",
+      "target": "冠益善 (L468)",
+      "id": "2a316688-3bcf-42a2-a2dd-7e496de9ba78"
+    },
+    {
+      "source": "CHARITY GAIN",
+      "target": "盈益善 (H431)",
+      "id": "a567d612-2836-4d17-a09c-bed6c77696bf"
+    },
+    {
+      "source": "CHARITY TOGETHER",
+      "target": "同益善 (K254)",
+      "id": "72d18083-7b3c-4b31-bcb5-48a06d777511"
+    },
+    {
+      "source": "CHARMING BABE",
+      "target": "輕功猛男 (J513)",
+      "id": "35cb2490-69e0-4e1e-954a-9cc5378d982d"
+    },
+    {
+      "source": "CHARMING LEGEND",
+      "target": "川河帥駒 (K127)",
+      "id": "e0fd5b96-0282-412c-b421-19892320eadc"
+    },
+    {
+      "source": "CHATEAU LE PECHE",
+      "target": "永勝金駒 (H471)",
+      "id": "4dc7ba2e-630b-4bb9-85ad-b7528ee309b8"
+    },
+    {
+      "source": "CHATEAUNEUF",
+      "target": "飲杯 (J219)",
+      "id": "79260adb-c21c-45a7-9b49-d7f71e304c57"
+    },
+    {
+      "source": "CHATER FLASH",
+      "target": "金獅大俠 (L082)",
+      "id": "e8ed7c33-4a83-4261-a57f-97ca8b0e89a6"
+    },
+    {
+      "source": "CHEAHA",
+      "target": "驍將 (K567)",
+      "id": "4c3872d1-aeac-4d4d-bfcc-04b1ed258ef1"
+    },
+    {
+      "source": "CHEERFUL WONGCHOY",
+      "target": "開心旺財 (L045)",
+      "id": "7c9fb11b-98a2-45c5-afe2-43cd23313c3f"
+    },
+    {
+      "source": "CHEVAL VICTORIOUS",
+      "target": "利不可擋 (J458)",
+      "id": "6238df07-5138-42fd-a312-224c11e65a73"
+    },
+    {
+      "source": "CHICKEN DINNER",
+      "target": "有備而戰 (L095)",
+      "id": "62c1e88e-3170-416e-89b2-e1e6cd47d595"
+    },
+    {
+      "source": "CHILL BUDDY",
+      "target": "超寫意 (K469)",
+      "id": "94e92834-7a81-4954-8915-b72621edacec"
+    },
+    {
+      "source": "CHILL EASY",
+      "target": "超輕鬆 (L148)",
+      "id": "034a9a0c-9a57-4b9e-842e-91b5a474942b"
+    },
+    {
+      "source": "CHILL KAKA",
+      "target": "超加加 (J486)",
+      "id": "eb7f8529-1df7-4645-b26a-4a91e6400d0c"
+    },
+    {
+      "source": "CHILL MASTER",
+      "target": "輕鬆大少 (J319)",
+      "id": "66dc6052-568a-45de-86d1-c88e8952d1a1"
+    },
+    {
+      "source": "CHILL PARTNERS",
+      "target": "超拍檔 (K484)",
+      "id": "56e70ce3-12c7-494f-859f-a19abc661e4c"
+    },
+    {
+      "source": "CHINA WIN",
+      "target": "中國心 (K395)",
+      "id": "dff9d98a-3348-4a49-8622-46032a39e578"
+    },
+    {
+      "source": "CHIU CHOW GOLF",
+      "target": "潮州高球 (L216)",
+      "id": "43e28a90-07e8-447d-9cae-1f5cce1b0e42"
+    },
+    {
+      "source": "CHIU CHOW SPIRIT",
+      "target": "潮州精神 (H175)",
+      "id": "b41fbfce-e1c8-41a5-a6c6-653e749495d0"
+    },
+    {
+      "source": "CHK CHK BOOM",
+      "target": "驍勇萌萌 (L358)",
+      "id": "565f83ab-c2d9-46de-90ba-18bb9a4750c5"
+    },
+    {
+      "source": "CIRCUIT BUBU",
+      "target": "綫路寶寶 (K463)",
+      "id": "e49c148b-5128-421e-a46b-ca510598553e"
+    },
+    {
+      "source": "CIRCUIT CENTURY",
+      "target": "電路一百 (K308)",
+      "id": "5502c6f6-0508-4466-bb4d-a2a94e1b1bd7"
+    },
+    {
+      "source": "CIRCUIT CHAMPION",
+      "target": "綫路英雄 (J428)",
+      "id": "39cb61bd-a385-4156-8a0e-3e71a3f6e860"
+    },
+    {
+      "source": "CIRCUIT CROWN",
+      "target": "綫路桂冠 (L423)",
+      "id": "54efee2a-1aa5-447a-8ec5-0832fa86b8ea"
+    },
+    {
+      "source": "CIRCUIT DUFFY",
+      "target": "綫路達飛 (J501)",
+      "id": "dcca9fc7-91ab-45ef-8c18-e36e87615ddb"
+    },
+    {
+      "source": "CIRCUIT FIERY",
+      "target": "綫路萬里 (H475)",
+      "id": "2d986f5f-614c-4476-8624-1fb4b226898b"
+    },
+    {
+      "source": "CIRCUIT GOGO",
+      "target": "綫路高高 (L002)",
+      "id": "85365075-ac8d-4b04-a6fa-f54c77d6ffed"
+    },
+    {
+      "source": "CIRCUIT GRAND SLAM",
+      "target": "綫路滿貫 (K201)",
+      "id": "fdad8891-5f12-4ca2-b901-6e82d5a05b66"
+    },
+    {
+      "source": "CIRCUIT MARSHAL",
+      "target": "綫路福將 (K526)",
+      "id": "bf5c9246-dd0e-45e6-981d-ce9cd9d1e5a2"
+    },
+    {
+      "source": "CIRCUIT VICTORY",
+      "target": "綫路光驊 (H487)",
+      "id": "2714b395-153e-4443-8c3b-09f6beb7d998"
+    },
+    {
+      "source": "CIRRUS SPEED",
+      "target": "萬里雲 (K279)",
+      "id": "ed043bda-1b33-47bd-b103-3e06f3600bf7"
+    },
+    {
+      "source": "CITY GOLD BANNER",
+      "target": "國千金 (L155)",
+      "id": "7b0bf2c1-c926-4309-a252-c62044564fe1"
+    },
+    {
+      "source": "CLASS",
+      "target": "大文豪 (L134)",
+      "id": "487df262-abd4-497f-9770-cbc15891ec79"
+    },
+    {
+      "source": "CLASSIC TRIPLE",
+      "target": "經典多寶 (L212)",
+      "id": "3f7facde-9055-4a33-b73c-7db8bef6a7e2"
+    },
+    {
+      "source": "CLOUD NINE",
+      "target": "快樂神駒 (L050)",
+      "id": "52c54867-fd37-4b4f-a96e-d54b6bfcf289"
+    },
+    {
+      "source": "COLOURFUL GAN",
+      "target": "顏色的顏 (L054)",
+      "id": "f692790f-b90e-42e4-b52b-1ed9c485c83f"
+    },
+    {
+      "source": "COLOURFUL GOLD",
+      "target": "豐勝多彩 (L324)",
+      "id": "c5c5f307-05f3-4402-8ae1-02cc88cccf6d"
+    },
+    {
+      "source": "COLOURFUL KING",
+      "target": "顏色之皇 (K227)",
+      "id": "9bf03a82-e72d-4ab7-88b4-ec4c3ab9cc4b"
+    },
+    {
+      "source": "COLOURFUL WINNER",
+      "target": "多彩多姿 (J312)",
+      "id": "7a93e4ff-4fcf-40a3-b1a6-dcc3ad2cee8e"
+    },
+    {
+      "source": "COME FAST FAY FAY",
+      "target": "金快飛飛 (K121)",
+      "id": "07bb80b7-f692-4c31-a80b-2089915c0944"
+    },
+    {
+      "source": "COMET MAJESTY",
+      "target": "燊威之星 (L304)",
+      "id": "6c117016-0fcf-4a9e-8e4f-124076f30d63"
+    },
+    {
+      "source": "COMET RADIANCE",
+      "target": "燊輝之星 (L067)",
+      "id": "34242c40-d60b-44d2-a334-dd3745d8630b"
+    },
+    {
+      "source": "COMPLETE UNKNOWN",
+      "target": "名揚四海 (L219)",
+      "id": "aecec878-7bcd-41ab-84f3-a669d68fa076"
+    },
+    {
+      "source": "CONCORDE STAR",
+      "target": "歷險大將 (J344)",
+      "id": "a580fa66-3a9a-4d53-9cd7-32a9fe0f39af"
+    },
+    {
+      "source": "CONGHUA GALAXY",
+      "target": "從化之星 (L337)",
+      "id": "d45d418c-7542-4d2e-8810-7baaa04fd317"
+    },
+    {
+      "source": "CONRAD PATCH",
+      "target": "錶之浩瀚 (L106)",
+      "id": "45290256-265f-4985-90f9-3e7ae0b726d3"
+    },
+    {
+      "source": "CONRAD THE GREAT",
+      "target": "勇者無敵 (K217)",
+      "id": "bdafe563-def1-4a57-a09a-df6073146a20"
+    },
+    {
+      "source": "CONSPIRATOR",
+      "target": "運籌帷幄 (K090)",
+      "id": "6b2a02a7-52be-4e5c-b729-d4b4899cdeac"
+    },
+    {
+      "source": "CONTINENT EXPRESS",
+      "target": "飛馳九洲 (L283)",
+      "id": "bf4c7867-a628-4e22-bb11-a773ea5bceb4"
+    },
+    {
+      "source": "COOGEE BAY",
+      "target": "奧林比安 (L307)",
+      "id": "643ce6b3-aaca-4cbf-88e2-d8b935725925"
+    },
+    {
+      "source": "COOL BLUE",
+      "target": "型到爆 (H011)",
+      "id": "694713aa-221a-4bbd-8147-7abd4171aa5f"
+    },
+    {
+      "source": "COOL BOY",
+      "target": "冷娃 (L014)",
+      "id": "f88e909c-ef53-41d7-a863-725ab346be1c"
+    },
+    {
+      "source": "COPARTNER A I",
+      "target": "合夥智能 (L280)",
+      "id": "49b30748-7133-461d-a460-9b214217c9bc"
+    },
+    {
+      "source": "COPARTNER FLEET",
+      "target": "合夥飛馳 (K342)",
+      "id": "1d593d98-f9a3-42cc-9e5c-0f5d872c4283"
+    },
+    {
+      "source": "COPARTNER PRANCE",
+      "target": "合夥奔馳 (H408)",
+      "id": "08454b8d-c3ec-41f5-9cb9-92b88dfbb270"
+    },
+    {
+      "source": "COPPER CORE",
+      "target": "友駿同心 (L214)",
+      "id": "d33bfa2f-fede-4869-8581-e92e7847c77d"
+    },
+    {
+      "source": "CORLEONE",
+      "target": "相映紅 (J426)",
+      "id": "d445332a-3587-49cd-ae45-961faec25179"
+    },
+    {
+      "source": "CORNERSTONE",
+      "target": "抱百嶺 (K519)",
+      "id": "e8196515-3e5b-4ea4-a2fa-cab26259000e"
+    },
+    {
+      "source": "COUNTRY DANCER",
+      "target": "鄉村樂韻 (H436)",
+      "id": "1b0114d8-3f9b-4b8f-bbdd-af2967dc133f"
+    },
+    {
+      "source": "COUNTRY PRIDE",
+      "target": "鄉村威龍 (L325)",
+      "id": "ddf23c94-9638-462a-8080-08815e0c47e0"
+    },
+    {
+      "source": "CRAZY TREASURE",
+      "target": "新強福盈 (J063)",
+      "id": "89c11e71-3ad0-4ab5-a28f-39bf3e447c63"
+    },
+    {
+      "source": "CRIMSON FLASH",
+      "target": "翠紅 (K173)",
+      "id": "268c4893-632d-4262-b6fb-ed084789fa7b"
+    },
+    {
+      "source": "CROSSBORDERDUDE",
+      "target": "跨境駿馬 (L022)",
+      "id": "dcabbaa2-5b0f-4ecb-b41b-27d4a04e332a"
+    },
+    {
+      "source": "CROSSBORDERPEGASUS",
+      "target": "跨境寶馬 (K008)",
+      "id": "85a0605e-ef2c-4ec7-9624-00774a07a871"
+    },
+    {
+      "source": "CRYSTAL POWERFUL",
+      "target": "妙玲瓏 (H068)",
+      "id": "5fb09f81-daa2-4913-a0c1-547f4578484c"
+    },
+    {
+      "source": "CYCLOTRON",
+      "target": "沐風凜凜 (L449)",
+      "id": "b391b6c2-b757-4157-accf-34f152aa887a"
+    },
+    {
+      "source": "DAILY ACCLAIM",
+      "target": "日日賞 (L273)",
+      "id": "f23d29a4-2d44-4547-843f-3b0854be89f8"
+    },
+    {
+      "source": "DAILY FUN",
+      "target": "共同享樂 (L231)",
+      "id": "2a2a480b-ebcb-4658-ad4a-0f2815800b42"
+    },
+    {
+      "source": "DAILY TROPHY",
+      "target": "日日獎 (H283)",
+      "id": "aa4577eb-1d01-4645-92ba-abefb9f4b818"
+    },
+    {
+      "source": "DAN ATTACK",
+      "target": "花好月盈 (H317)",
+      "id": "51d9fe5f-732e-40c8-af99-0083d748cbec"
+    },
+    {
+      "source": "DANCING BLAZE",
+      "target": "舞林盛宴 (L364)",
+      "id": "895693a8-521c-4a01-b2dc-8713e0de7869"
+    },
+    {
+      "source": "DANCING CLASSICS",
+      "target": "舞林寶典 (J060)",
+      "id": "80901288-96cb-44ff-82d4-ccbfb8570b0f"
+    },
+    {
+      "source": "DANICA'S CHOICE",
+      "target": "繼往開來 (L096)",
+      "id": "6af4393c-7e13-4240-af52-01d27b5abff5"
+    },
+    {
+      "source": "DARYL FLASH",
+      "target": "丞匡掠影 (L168)",
+      "id": "b9b23e4e-a953-442d-88a9-bfc5440f6a8e"
+    },
+    {
+      "source": "DASH",
+      "target": "迅意 (K250)",
+      "id": "da213dfa-1b3d-476d-abde-a65366a9fe59"
+    },
+    {
+      "source": "DASHING BASICS",
+      "target": "好吉利高 (L224)",
+      "id": "2450a432-e47c-44e1-b50a-a78c8665756c"
+    },
+    {
+      "source": "DASHING MAURISON",
+      "target": "滿洛城 (K374)",
+      "id": "5c09f22a-723b-41dd-b85e-d8da2635975e"
+    },
+    {
+      "source": "DASHING PAL",
+      "target": "兄弟再盈 (K045)",
+      "id": "e449a686-b691-4f36-9091-10931c75c932"
+    },
+    {
+      "source": "DASHING PEACH",
+      "target": "桃花俊 (L066)",
+      "id": "561b6d04-e093-4a33-a439-73393411c273"
+    },
+    {
+      "source": "DAY DAY VICTORY",
+      "target": "瑤瑤日上 (J423)",
+      "id": "836e7e30-1564-45fa-a5d5-13e318bb56f3"
+    },
+    {
+      "source": "DAZZLING FIT",
+      "target": "一定超 (K298)",
+      "id": "03e1ea6c-cfb8-4dbc-8544-50e06834a50a"
+    },
+    {
+      "source": "DECISION LINK",
+      "target": "有情有義 (K416)",
+      "id": "f4ba1f6e-86f6-45ef-9e90-4de8e7d9f38f"
+    },
+    {
+      "source": "DEFINITIVE",
+      "target": "時時精準 (K037)",
+      "id": "8cc9a8e7-bc7e-4bc6-a436-f0f4cec354ba"
+    },
+    {
+      "source": "DERRYNBLUE",
+      "target": "趣盈 (K539)",
+      "id": "8727a09d-52e6-416d-b5d5-147e3d689f90"
+    },
+    {
+      "source": "DEVAS TWELVE",
+      "target": "十二神將 (H435)",
+      "id": "fc323273-cb55-4f7c-8fb6-bc1f26d73da8"
+    },
+    {
+      "source": "DIAMOND SPARKLE",
+      "target": "鑽飾閃耀 (L182)",
+      "id": "47fee183-bef7-4dc5-9883-fd07612cc637"
+    },
+    {
+      "source": "DIRIYA",
+      "target": "陸小鳳 (K282)",
+      "id": "7a792987-984f-40ad-b94e-e8ea9eb8daf9"
+    },
+    {
+      "source": "DO YOU JUST",
+      "target": "嘉應勇將 (L094)",
+      "id": "c81aa056-3b09-4107-8c25-7ba60746b710"
+    },
+    {
+      "source": "DO YOUR PART",
+      "target": "做好自己 (J444)",
+      "id": "5d421864-fd9e-481b-901e-77d7065026b7"
+    },
+    {
+      "source": "DOUBLE ALPHA",
+      "target": "升升雙息 (L291)",
+      "id": "21e7c4f9-37f8-4e69-9158-c265c8296263"
+    },
+    {
+      "source": "DOUBLE BINGO",
+      "target": "東方寶寶 (J309)",
+      "id": "67b31198-dece-413c-82ad-7fe57f0af1fa"
+    },
+    {
+      "source": "DOUBLE MONEY",
+      "target": "贏完又贏 (K512)",
+      "id": "26a8cef4-7398-4327-918c-1d85255b1a68"
+    },
+    {
+      "source": "DOUBLE SHOW",
+      "target": "飛躍凱旋 (G250)",
+      "id": "d809e7ed-86a5-4883-a4e3-e4ddb07b1d27"
+    },
+    {
+      "source": "DOUBLE WIN",
+      "target": "雙贏 (H382)",
+      "id": "9a750a59-eea9-43b1-80bb-233bfebb0d3c"
+    },
+    {
+      "source": "DRACO",
+      "target": "快樂老撾 (J115)",
+      "id": "a20d5ceb-205f-43c7-b29e-44f1987dced7"
+    },
+    {
+      "source": "DRAGON AIR FORCE",
+      "target": "皇龍飛將 (J279)",
+      "id": "71ab4366-dd5f-45e1-9e93-1fd14f20054c"
+    },
+    {
+      "source": "DRAGON FOUR SEAS",
+      "target": "騰龍四海 (J317)",
+      "id": "455788e3-cf81-4e75-93bc-a0f3031543f7"
+    },
+    {
+      "source": "DRAGON GENERATION",
+      "target": "龍騰盛世 (L335)",
+      "id": "09ed4bcb-a31d-4bd9-b22a-fa7fe2992e16"
+    },
+    {
+      "source": "DRAGON JOY",
+      "target": "皇仁歡星 (J278)",
+      "id": "18d1ed5f-2f32-480f-9093-e33ee2d2e7ac"
+    },
+    {
+      "source": "DRAGON NEW STAR",
+      "target": "皇仁新星 (L191)",
+      "id": "9c500ff6-c411-4910-b4e3-1dbb88235d2a"
+    },
+    {
+      "source": "DRAGON ON SNOW",
+      "target": "騰龍踏雪 (L111)",
+      "id": "aaac1721-a566-4cce-838d-533fe352a50d"
+    },
+    {
+      "source": "DRAGON ROCA",
+      "target": "樂滿名駒 (L361)",
+      "id": "113e83ec-d54b-4103-a735-7974a1b75c88"
+    },
+    {
+      "source": "DRAGON SKY FORCE",
+      "target": "皇龍天將 (L198)",
+      "id": "708ccfa0-f7c6-4d74-b59f-9a604ed3043c"
+    },
+    {
+      "source": "DRAGON SUNRISE",
+      "target": "龍又生 (J269)",
+      "id": "a4a923b5-efbc-479d-b182-8834febaa883"
+    },
+    {
+      "source": "DREAMING TOGETHER",
+      "target": "同心同夢 (L215)",
+      "id": "ff789703-f409-41b8-8e2b-fca0be106fc3"
+    },
+    {
+      "source": "DROMBEG BANNER",
+      "target": "飛鷹翱翔 (H117)",
+      "id": "84db6c38-5fe4-4bd1-b2fc-8058646d6922"
+    },
+    {
+      "source": "DUKE ATREIDES",
+      "target": "騰昇瀧駒 (L340)",
+      "id": "311b2c69-25f8-4183-a7bd-7b56a0eeba2c"
+    },
+    {
+      "source": "DUKE OF ORANGE",
+      "target": "韋少寶 (K540)",
+      "id": "fb4e2a7a-e782-46ea-aa0d-062afc2f4f44"
+    },
+    {
+      "source": "DYNAMIC BROSE",
+      "target": "活力禾道 (L470)",
+      "id": "d651b34d-c770-4a06-a0bb-d97f20aee10e"
+    },
+    {
+      "source": "E HO HO",
+      "target": "電子好好 (L119)",
+      "id": "93a381cc-48e7-4c72-865c-61e3acd823b3"
+    },
+    {
+      "source": "E HOPEFUL",
+      "target": "電子騰飛 (L181)",
+      "id": "c644b9fc-7929-4200-a3e0-5b7c2a165241"
+    },
+    {
+      "source": "E PASSION",
+      "target": "電子紅心 (K497)",
+      "id": "d3db3ffa-8fae-492d-85f8-7f31e7f57ea7"
+    },
+    {
+      "source": "EFFORTLESS WIN",
+      "target": "㩒住贏 (L310)",
+      "id": "f21814a4-a0a4-42cc-8248-abe0c6ea10c7"
+    },
+    {
+      "source": "ELEGANT LIFE",
+      "target": "風采人生 (J366)",
+      "id": "a26c2b9e-83fa-4c64-b66d-07a547014bb4"
+    },
+    {
+      "source": "ELITE GOLF",
+      "target": "精英高球 (L023)",
+      "id": "14bb2956-5529-4bf9-a4f7-5e53c4d03942"
+    },
+    {
+      "source": "EMBLAZON",
+      "target": "會當凌 (K122)",
+      "id": "ab203835-2dc5-4cf5-b7f9-5259f14dee0a"
+    },
+    {
+      "source": "EMBRACE ABERDEEN",
+      "target": "香港仔 (L020)",
+      "id": "af23259d-d879-4962-8c7d-3fe0b0df24d8"
+    },
+    {
+      "source": "EMBRACES",
+      "target": "納百川 (J276)",
+      "id": "2e75ee91-9c93-4cfb-bb91-a6e36d058a21"
+    },
+    {
+      "source": "EMERGING STAR",
+      "target": "摘星聲升 (K390)",
+      "id": "1567e9f6-d84e-42c5-bfcf-a5cea68f743d"
+    },
+    {
+      "source": "ENDEARED",
+      "target": "安泰 (H161)",
+      "id": "8aa792da-31d5-478e-b95f-83b73de65b37"
+    },
+    {
+      "source": "ENDUED",
+      "target": "安都 (K033)",
+      "id": "8ed269d1-c511-420b-9109-6d4aa4386438"
+    },
+    {
+      "source": "ENDURANCE EXPRESS",
+      "target": "駿毅快車 (L397)",
+      "id": "3eb609d8-81bf-4c41-8465-7c7c2ec01273"
+    },
+    {
+      "source": "ENJOY GOLF",
+      "target": "快樂高球 (J222)",
+      "id": "8242c51e-025f-43fa-829a-eb40277c12fa"
+    },
+    {
+      "source": "ENROLLED",
+      "target": "安路 (L239)",
+      "id": "e35719fd-6029-4602-b7e3-7073c067f576"
+    },
+    {
+      "source": "ENSUED",
+      "target": "安都 (H452)",
+      "id": "7d32c751-5dc1-4162-8ce9-9d41408562ba"
+    },
+    {
+      "source": "ENTHRALLED",
+      "target": "安可 (K252)",
+      "id": "66eadc08-feb3-4d79-87cd-296220d4946a"
+    },
+    {
+      "source": "ENTHUSIUM",
+      "target": "安帝 (L107)",
+      "id": "59ec06f9-ad10-472c-93aa-62f05ace67d8"
+    },
+    {
+      "source": "ESCALIBOR",
+      "target": "財駿快駒 (L131)",
+      "id": "16b289df-3d7c-4426-8c35-578eb062f9ad"
+    },
+    {
+      "source": "ETALON OR",
+      "target": "準輝煌 (J273)",
+      "id": "dd441b20-6dd6-47ba-b3f1-65ece76990b2"
+    },
+    {
+      "source": "ETERNAL FORTUNE",
+      "target": "連連幸運 (K010)",
+      "id": "ec15c695-8362-4220-96b9-26c4ae8134cd"
+    },
+    {
+      "source": "ETERNAL RICHNESS",
+      "target": "年年豐裕 (K557)",
+      "id": "a263e1bf-22e6-4124-be0f-634ee3112e62"
+    },
+    {
+      "source": "EVER LUCK",
+      "target": "大愛無疆 (K235)",
+      "id": "828b2ed7-2c36-4e77-9369-8ef8e30ea4d9"
+    },
+    {
+      "source": "EVER SUPREME",
+      "target": "今明更好 (L363)",
+      "id": "7d7f7602-56f0-4950-8109-384be1c1b04c"
+    },
+    {
+      "source": "EVER WEALTH",
+      "target": "永福 (L317)",
+      "id": "36202e0d-aed5-4224-8d10-25934e421c34"
+    },
+    {
+      "source": "EVERSTAR",
+      "target": "廚神 (K264)",
+      "id": "38b2ca45-d7f1-4808-8d96-8428670cb689"
+    },
+    {
+      "source": "EVERYONE'S STAR",
+      "target": "大眾福星 (K172)",
+      "id": "4e84c6ae-cab1-4251-a114-2e1e2f90a721"
+    },
+    {
+      "source": "EXCEED THE LIMIT",
+      "target": "星願無限 (L267)",
+      "id": "126c6d11-6a71-4718-8ef7-0225f8b792ec"
+    },
+    {
+      "source": "EXCEED THE WISH",
+      "target": "星之願 (J480)",
+      "id": "7ab02e64-d193-46b1-8aed-f3dff43f87ff"
+    },
+    {
+      "source": "EXCELLENCE VALUE",
+      "target": "星價 (K093)",
+      "id": "d5ceb957-5cf0-4a3e-a255-9e8195d5a94a"
+    },
+    {
+      "source": "EXCELLENT BOY",
+      "target": "真叻仔 (K435)",
+      "id": "9aa354f3-2eb0-4081-89b8-8dd6efa94403"
+    },
+    {
+      "source": "EXCEPTIONAL SANTOS",
+      "target": "友聲友色 (K441)",
+      "id": "dadc57c3-2236-4b6a-a0c8-f3c26014c5bc"
+    },
+    {
+      "source": "FAFA S",
+      "target": "極上芳華 (L429)",
+      "id": "8c5f1886-e847-4187-91ba-f2ad44cdadae"
+    },
+    {
+      "source": "FAITHFUL WARRIOR",
+      "target": "忠良烈漢 (L360)",
+      "id": "10f6801c-d34f-4647-9716-48cc7a653915"
+    },
+    {
+      "source": "FALCON HUNTER",
+      "target": "靖哥哥 (K503)",
+      "id": "cf10b073-5370-42a9-80bf-b105e0c728e4"
+    },
+    {
+      "source": "FALLON",
+      "target": "快路 (H219)",
+      "id": "d7f9fa77-a966-450a-af43-9e4bfb61f201"
+    },
+    {
+      "source": "FAMILY FORTUNE",
+      "target": "富裕君子 (H447)",
+      "id": "9037c2f1-0070-4a43-9b5c-d5616de9c476"
+    },
+    {
+      "source": "FAMILY JEWEL",
+      "target": "共享富裕 (J390)",
+      "id": "fa4671f4-2fde-4717-80c4-456d7e609dbf"
+    },
+    {
+      "source": "FAMILY KNIGHT",
+      "target": "家傳之寶 (K490)",
+      "id": "c59baf86-0d11-4637-9a94-e5a33d304886"
+    },
+    {
+      "source": "FANTASTIC FUN",
+      "target": "凡凡有餘 (J364)",
+      "id": "43a0804b-0030-44bb-9998-a623518c1e71"
+    },
+    {
+      "source": "FASHION LEGEND",
+      "target": "川河型駒 (J080)",
+      "id": "e1f4a585-5003-4c70-a6cb-88ff5fa52116"
+    },
+    {
+      "source": "FAST NETWORK",
+      "target": "舉步生風 (J358)",
+      "id": "8779c97f-cebd-4180-8224-f2a9f64e1559"
+    },
+    {
+      "source": "FAST RESPONDER",
+      "target": "會長之寶 (J295)",
+      "id": "f408acdc-d323-4e45-a8be-fa9508c4776d"
+    },
+    {
+      "source": "FAST SPEED",
+      "target": "勁步速 (K351)",
+      "id": "d0d4d7a8-26b0-487b-acf8-ab62efd42e47"
+    },
+    {
+      "source": "FASTOSO",
+      "target": "嵐鑽 (L378)",
+      "id": "00f6fb53-ab58-4a90-9bf1-59b5409a50d2"
+    },
+    {
+      "source": "FATAL BLOW",
+      "target": "決一劍 (J484)",
+      "id": "dc261343-e326-4e58-9831-96209e229d3b"
+    },
+    {
+      "source": "FIERY STEED",
+      "target": "勇進駒 (K575)",
+      "id": "abf5d1e7-e4cc-4267-af5e-febbc4783edb"
+    },
+    {
+      "source": "FIGHT TIME",
+      "target": "凱旋幸運 (H409)",
+      "id": "7c974c59-217b-4dce-b388-d069691d8381"
+    },
+    {
+      "source": "FIGHTING MACHINE",
+      "target": "堅闖 (J015)",
+      "id": "8b085d0d-5201-43bb-b1f8-5cf8d42b6999"
+    },
+    {
+      "source": "FIND MY LOVE",
+      "target": "紅愛舍 (H110)",
+      "id": "bcb4223d-6f08-411e-a66b-61499f4eaf99"
+    },
+    {
+      "source": "FIREFOOT",
+      "target": "風起雲湧 (J183)",
+      "id": "5cb7ecf1-bcff-46f4-96ca-34c94af1c0ff"
+    },
+    {
+      "source": "FIT FOR BEAUTY",
+      "target": "一世美麗 (K489)",
+      "id": "df90bfd2-bac6-40de-9709-f0614b8d2a2d"
+    },
+    {
+      "source": "FIVEFORTWO",
+      "target": "好實力 (K381)",
+      "id": "4cae8bc0-9eeb-4d51-b922-2a11d08b3cb0"
+    },
+    {
+      "source": "FLASH CURRENT",
+      "target": "閃光燈 (J500)",
+      "id": "93da2aec-7841-4704-b965-4593bbfa5c4a"
+    },
+    {
+      "source": "FLASH STAR",
+      "target": "閃電星福 (K431)",
+      "id": "971ee637-e0db-4a48-a1fc-2728bcda6679"
+    },
+    {
+      "source": "FLASHING FIGHTER",
+      "target": "輝灑自如 (L281)",
+      "id": "80203c52-7ec4-4f9f-bece-e9703366023f"
+    },
+    {
+      "source": "FLOOF",
+      "target": "歡樂老撾 (H432)",
+      "id": "69e473b1-d7dd-42cc-9bfd-93fa0adb4fea"
+    },
+    {
+      "source": "FLOW WATER FLOW",
+      "target": "細水長流 (K562)",
+      "id": "02d30fe3-bfba-4b86-ae63-2928d4dfad34"
+    },
+    {
+      "source": "FLOWING",
+      "target": "風騷大師 (K556)",
+      "id": "ba70d943-2b7a-4089-aac6-9163c2faad58"
+    },
+    {
+      "source": "FLOWING RICHES",
+      "target": "常嚐發財 (K293)",
+      "id": "f3cd78e0-87cf-482e-8e70-9596e91cb1ad"
+    },
+    {
+      "source": "FLUORESCENCE",
+      "target": "熒光 (L124)",
+      "id": "ca798afe-db9b-47cb-af41-b4d2126345d6"
+    },
+    {
+      "source": "FLYING AMANI",
+      "target": "威力非凡 (K152)",
+      "id": "f07a3889-f77f-4b4a-a582-c3455f2d850f"
+    },
+    {
+      "source": "FLYING BOOM",
+      "target": "勤德天下 (K327)",
+      "id": "37623a6f-601c-4d2a-807a-a5ce2e3a58f9"
+    },
+    {
+      "source": "FLYING CHEVALIER",
+      "target": "愛飛豪俠 (L367)",
+      "id": "71a4c69b-042b-4a06-942f-eb5fe7b15f45"
+    },
+    {
+      "source": "FLYING CHRISTIE",
+      "target": "飛越晨曦 (K483)",
+      "id": "76a61cf7-8516-4937-a63f-03a82cbbf290"
+    },
+    {
+      "source": "FLYING FORTRESS",
+      "target": "非凡豪傑 (J445)",
+      "id": "f4173ddd-510c-4feb-b6c8-91a5d9e8968f"
+    },
+    {
+      "source": "FLYING FORTUNE",
+      "target": "財富非凡 (L057)",
+      "id": "eb90fc50-b807-4863-859d-070590ff172e"
+    },
+    {
+      "source": "FLYING HUNTER",
+      "target": "威力飛騰 (L247)",
+      "id": "59c0130d-8fa6-4345-a96f-b939e382d11c"
+    },
+    {
+      "source": "FLYING KNIGHT",
+      "target": "逍遙騎士 (K370)",
+      "id": "f18915eb-e9bb-4ff0-bb1e-15f71bb6cacc"
+    },
+    {
+      "source": "FLYING LUCK",
+      "target": "昭易搵 (J339)",
+      "id": "a04e4b21-806d-4850-9b06-1d4e40342940"
+    },
+    {
+      "source": "FLYING SNIPER",
+      "target": "勤德皆備 (L270)",
+      "id": "23bc2702-57b8-4f58-91b6-d10a95b74fb8"
+    },
+    {
+      "source": "FLYING TING LOK",
+      "target": "螢影飛馳 (K228)",
+      "id": "6fd960df-12ff-44e5-8086-451aec20319b"
+    },
+    {
+      "source": "FLYING WHISTLE",
+      "target": "八威昇騰 (L357)",
+      "id": "76aa22be-bc5f-4f53-b593-e4ab80ffa5f7"
+    },
+    {
+      "source": "FLYING WROTE",
+      "target": "東來欣賞 (J290)",
+      "id": "8eec621a-7064-45e3-9588-0d4d6cffbe89"
+    },
+    {
+      "source": "FOREMOST TEDDY",
+      "target": "領創動力 (J058)",
+      "id": "9f066a6e-81ad-4e18-af22-5531873f6e45"
+    },
+    {
+      "source": "FORERUNNER",
+      "target": "博愛先鋒 (G465)",
+      "id": "a94d35a7-a149-4e23-846c-4e4082a72b65"
+    },
+    {
+      "source": "FOREST KING",
+      "target": "金絲楠木 (K527)",
+      "id": "bd8a97c1-1f3d-4ba1-9b8b-4d2572e3791b"
+    },
+    {
+      "source": "FOREVER BEAR",
+      "target": "超勁熊威 (L192)",
+      "id": "c5638ee8-032d-4f23-b12f-b9a7e4b611e1"
+    },
+    {
+      "source": "FOREVER FANCY",
+      "target": "一路精彩 (K354)",
+      "id": "ed6778e2-ce77-45ea-9957-b8af2d64ac2d"
+    },
+    {
+      "source": "FOREVER FOLKS",
+      "target": "年年友福 (G463)",
+      "id": "3df7c800-1446-4522-ad88-1ae314666a1a"
+    },
+    {
+      "source": "FOREVER GLORIOUS",
+      "target": "龍船快 (G229)",
+      "id": "c5f38850-39c2-48d8-86d1-4125c29f08d6"
+    },
+    {
+      "source": "FOREVER LIFE",
+      "target": "祥發寬瑩 (K488)",
+      "id": "0b394d0f-dec6-4ebd-823a-00c4847bf036"
+    },
+    {
+      "source": "FORTUNATE SON",
+      "target": "將義 (J446)",
+      "id": "badf1742-9e82-4a75-91cd-0ac09a00f90a"
+    },
+    {
+      "source": "FORTUNE BOY",
+      "target": "火焰閃爍 (K098)",
+      "id": "05d26d56-1bd2-4c22-a593-710c321de745"
+    },
+    {
+      "source": "FORTUNE GOLDSADDLE",
+      "target": "發財金鞍 (L090)",
+      "id": "eecea302-d976-446e-a5de-0f8a35b981ea"
+    },
+    {
+      "source": "FORTUNE KINGO",
+      "target": "發財金戈 (K457)",
+      "id": "2a00f143-aa3b-418e-8c30-7f9f39d9f37b"
+    },
+    {
+      "source": "FORTUNE LINK",
+      "target": "重情重義 (L311)",
+      "id": "edd7d726-2e5c-4453-8472-54ebca8428fb"
+    },
+    {
+      "source": "FORTUNE STAR",
+      "target": "康昌之星 (K003)",
+      "id": "07d4fb72-9959-4f9c-88b0-d250145dd33e"
+    },
+    {
+      "source": "FORTUNE SUPERNOVA",
+      "target": "順成之星 (K287)",
+      "id": "6d414ede-32a5-4c74-9ad6-e0ea583c0b1f"
+    },
+    {
+      "source": "FORZA LEADER",
+      "target": "領袖勁力 (L034)",
+      "id": "f0b31068-c9b8-4a4e-a7c9-cdaa9bf3088b"
+    },
+    {
+      "source": "FORZA TORO",
+      "target": "哥倫布 (K355)",
+      "id": "5c38ca36-a7a8-4de5-9239-d4d8b50691b4"
+    },
+    {
+      "source": "FRANCIS MEYNELL",
+      "target": "馬上盈 (J394)",
+      "id": "65117189-fc14-4408-b61f-8ae9ccb5edd8"
+    },
+    {
+      "source": "FRANTANCK",
+      "target": "手到再來 (H429)",
+      "id": "5a21e188-7c57-4936-95c4-402a851504c5"
+    },
+    {
+      "source": "FREE PONY",
+      "target": "三強 (K229)",
+      "id": "52f1e698-0119-4892-b0ab-34e8ff9e770b"
+    },
+    {
+      "source": "FRIENDS OF SHAJING",
+      "target": "沙井之友 (K202)",
+      "id": "c6ff09e2-469f-4668-bf7c-253ca5ec00f8"
+    },
+    {
+      "source": "FULL OF FORTUNE",
+      "target": "開心滿滿 (L258)",
+      "id": "854398f8-cd09-43b6-89ac-d798c6695383"
+    },
+    {
+      "source": "FULL OF LAUGHTER",
+      "target": "多多開心 (L017)",
+      "id": "c3826518-bf7c-4f90-b400-37535e9d6673"
+    },
+    {
+      "source": "FUN ELITE",
+      "target": "中環精英 (J042)",
+      "id": "b088c2e4-0f44-4aaa-b9c6-a53d38c32600"
+    },
+    {
+      "source": "FUN N FUN TOGETHER",
+      "target": "天天耍樂 (J232)",
+      "id": "27603a47-f570-46ed-a041-afca832f35a1"
+    },
+    {
+      "source": "FUN TOGETHER",
+      "target": "時尚歡欣 (H041)",
+      "id": "49e3dc67-5398-4828-bb29-d15c4d01f5d9"
+    },
+    {
+      "source": "GALACTIC VOYAGE",
+      "target": "閃耀天河 (K514)",
+      "id": "233304ba-dc37-4214-ab36-e858d57592be"
+    },
+    {
+      "source": "GALAXY PATCH",
+      "target": "錶之銀河 (H399)",
+      "id": "28a4ffc2-c166-47e2-8c76-f00e7cd3fa0a"
+    },
+    {
+      "source": "GALE SAGA",
+      "target": "旋風傳奇 (J152)",
+      "id": "43c47d89-732e-4892-978c-84b8236e6bd0"
+    },
+    {
+      "source": "GALLANT ASCEND",
+      "target": "威武高升 (L160)",
+      "id": "e8170a67-c5c9-455c-b944-a9bfc3b0ec00"
+    },
+    {
+      "source": "GALLANT BOUNTY",
+      "target": "富寶駒 (L389)",
+      "id": "8a163097-470e-48cd-8de2-2e4fee10135b"
+    },
+    {
+      "source": "GALLANT DESIGN",
+      "target": "創寶駒 (L161)",
+      "id": "0ee528d9-bb2a-4def-86dd-881c0c22da12"
+    },
+    {
+      "source": "GALLANT EPOCH",
+      "target": "威武年代 (J451)",
+      "id": "eac2c98f-ad23-4572-a31d-14cd2ab0263f"
+    },
+    {
+      "source": "GALLANT KOKOROE",
+      "target": "威武心得 (L467)",
+      "id": "92f0cf05-2dd5-4ae3-8e5d-8e72e44cf963"
+    },
+    {
+      "source": "GAMEPLAYER ELITE",
+      "target": "電玩精英 (H356)",
+      "id": "bf23ebeb-4e17-4374-bcb6-d4263bd8846a"
+    },
+    {
+      "source": "GAUDIUM MAGNUM",
+      "target": "極歡欣 (L345)",
+      "id": "12d31f35-d3c8-4632-bfb7-e2388046cc5d"
+    },
+    {
+      "source": "GAZELEY",
+      "target": "同心 (K253)",
+      "id": "74cb2db7-8a1a-4514-9228-ea781aabf534"
+    },
+    {
+      "source": "GENERAL REDWOOD",
+      "target": "上浦福旺 (L102)",
+      "id": "74df7744-43ff-4337-aa7f-3e7af2643197"
+    },
+    {
+      "source": "GENERAL SMART",
+      "target": "志醒大將 (K138)",
+      "id": "ab465394-3d49-4547-aea0-f7c3b47cbba6"
+    },
+    {
+      "source": "GENEVA",
+      "target": "增強 (J114)",
+      "id": "beaf6b88-1874-4bb4-8275-46e34a5d9612"
+    },
+    {
+      "source": "GENIUS BABY",
+      "target": "團結戰靈 (K132)",
+      "id": "6909a05d-b76e-46d1-9c7c-236c14f743e5"
+    },
+    {
+      "source": "GENIUS MASTERMIND",
+      "target": "精智多寶 (L217)",
+      "id": "c37afb3e-7cce-4b16-a0b6-a5ecf7dd0d5a"
+    },
+    {
+      "source": "GENTLEMEN LEGACY",
+      "target": "君子傳承 (K385)",
+      "id": "3c5d0a59-f0d6-4aaa-a697-4715cfb9885b"
+    },
+    {
+      "source": "GEORGIAN SIGMA",
+      "target": "佐治傳奇 (L007)",
+      "id": "dbd8a856-552d-4373-83a3-b8ce99446001"
+    },
+    {
+      "source": "GET FRIENDLY",
+      "target": "佳佳友 (L069)",
+      "id": "a888de2e-97cd-42a0-b1b4-b66c2c30b059"
+    },
+    {
+      "source": "GHORGAN",
+      "target": "確好勁 (K199)",
+      "id": "e6fa3365-8416-4125-b0c8-310f113c1f56"
+    },
+    {
+      "source": "GIANT BALLON",
+      "target": "踏雪尋梅 (K451)",
+      "id": "7ddf2f3e-95b0-45f5-b8d1-e08a01209c65"
+    },
+    {
+      "source": "GIANT LEAP",
+      "target": "日馳千里 (J143)",
+      "id": "7a17b609-c1a8-494d-9464-5a79aa39dd5c"
+    },
+    {
+      "source": "GIANT SPIRIT",
+      "target": "巨靈神 (L169)",
+      "id": "5541ad40-e61a-4045-816f-c721155f0358"
+    },
+    {
+      "source": "GIDDY UP",
+      "target": "跑得好快 (J020)",
+      "id": "d54347c0-7514-4639-91ca-14308761a505"
+    },
+    {
+      "source": "GIMME FIVE",
+      "target": "五福星 (J099)",
+      "id": "8f114ac7-b78a-4eec-b49e-3bc4f95c4f66"
+    },
+    {
+      "source": "GIVE IT A TRY",
+      "target": "搏一搏 (L437)",
+      "id": "69caff29-3851-4a8f-815a-279cd627405d"
+    },
+    {
+      "source": "GLACIATED",
+      "target": "金多囍 (K272)",
+      "id": "4af7bdfa-702b-44d6-8120-683751ce1c19"
+    },
+    {
+      "source": "GLITTERING LEGEND",
+      "target": "川河耀駒 (L109)",
+      "id": "d1c48c39-06a2-4c06-b102-0a48f57a497f"
+    },
+    {
+      "source": "GLORIOUS DYNASTY",
+      "target": "本領多好 (L315)",
+      "id": "9d49d1ff-ca0e-4546-b959-178b9884370f"
+    },
+    {
+      "source": "GLORIOUS ERA",
+      "target": "光輝時代 (L038)",
+      "id": "e491e78e-9151-4cef-b18e-7d3fa8b3df2d"
+    },
+    {
+      "source": "GLORIOUS HERO",
+      "target": "盛世英雄 (L348)",
+      "id": "ff0ee386-67b5-4b97-8694-2ca2b3a55529"
+    },
+    {
+      "source": "GLORIOUS JOURNEY",
+      "target": "本領非凡 (J137)",
+      "id": "722868c6-1caf-4583-812e-2f75eeb6fca0"
+    },
+    {
+      "source": "GLORIOUS RYDER",
+      "target": "榮耀盛甲 (K290)",
+      "id": "09bbc604-b257-4ce4-982f-860dd6ed0f31"
+    },
+    {
+      "source": "GLORIOUS ST PAUL'S",
+      "target": "保羅輝煌 (K524)",
+      "id": "a74d1af7-3f3a-467a-b3f9-c568ae2d4ee0"
+    },
+    {
+      "source": "GLORIOUS SUCCESS",
+      "target": "本領輝煌 (K062)",
+      "id": "dc73dca5-fd80-4761-a07c-b39f1f1c7099"
+    },
+    {
+      "source": "GLORY B",
+      "target": "光輝所願 (H373)",
+      "id": "b6738322-7895-4337-bf45-3e9f0d0b7e3f"
+    },
+    {
+      "source": "GLORY CLOUD",
+      "target": "飛雲 (H320)",
+      "id": "3db96dd1-9b5a-4a6d-8dc4-8c288e211621"
+    },
+    {
+      "source": "GLORY ELITE",
+      "target": "輝煌精英 (H311)",
+      "id": "f3e272f7-02e9-4bcd-aded-e74ffdadb709"
+    },
+    {
+      "source": "GLOWING PRAISES",
+      "target": "好評如潮 (L223)",
+      "id": "7879c991-fe20-4c06-aa93-2283a89e3fc3"
+    },
+    {
+      "source": "GO GO GO",
+      "target": "上市魅力 (H196)",
+      "id": "b6287d63-e359-463d-97df-63052c69b621"
+    },
+    {
+      "source": "GOLD PATCH",
+      "target": "手機錶勁 (L099)",
+      "id": "20ce7f1a-8313-443e-8c68-d1f0718216cd"
+    },
+    {
+      "source": "GOLD TACK",
+      "target": "金德義 (H106)",
+      "id": "3a65f997-2643-4142-925e-73b0fd9e8226"
+    },
+    {
+      "source": "GOLD TAOGETHER",
+      "target": "黃金蟬聯 (L479)",
+      "id": "9ff3a649-d22c-4716-895e-81f42330e6e4"
+    },
+    {
+      "source": "GOLDEN ACE",
+      "target": "赤兔再世 (L461)",
+      "id": "bb427359-8395-426a-a50f-77dfc5c09a3e"
+    },
+    {
+      "source": "GOLDEN BRILLIANT",
+      "target": "喜馬 (K347)",
+      "id": "9dde28ad-4449-40f8-92bc-249df41ca48a"
+    },
+    {
+      "source": "GOLDEN CHAMP",
+      "target": "黃金大亨 (L135)",
+      "id": "b9e368e3-1200-4590-af3f-789a4284eb08"
+    },
+    {
+      "source": "GOLDEN DREAM",
+      "target": "美好夢想 (K329)",
+      "id": "c529b7e1-784f-4f43-85a9-3990e0649dbd"
+    },
+    {
+      "source": "GOLDEN ELITE",
+      "target": "金珀尖子 (L353)",
+      "id": "f65cad08-6bb1-4d0f-952f-2d1b846d5b13"
+    },
+    {
+      "source": "GOLDEN EMPIRE",
+      "target": "金發盛世 (E490)",
+      "id": "aef24809-0d25-4d8f-9656-fca80b076880"
+    },
+    {
+      "source": "GOLDEN FAIRY",
+      "target": "皇金風速 (E448)",
+      "id": "af9e1769-b0ce-40e3-9905-c34828915022"
+    },
+    {
+      "source": "GOLDEN FORTUNE",
+      "target": "連連好運 (K500)",
+      "id": "8ffc0978-91e4-4334-9b51-7a8ccc90a489"
+    },
+    {
+      "source": "GOLDEN FRIENDSHIP",
+      "target": "友得盈 (K106)",
+      "id": "f1c5e762-eaed-4bcd-9959-118b42ccaf70"
+    },
+    {
+      "source": "GOLDEN GUNNERS",
+      "target": "金鎗寶駒 (L306)",
+      "id": "215d8166-c3a9-44dd-a6ac-cca2d3a751b0"
+    },
+    {
+      "source": "GOLDEN TRIUMPH",
+      "target": "金鼓大班 (K506)",
+      "id": "29d4107c-446f-4773-bae7-b25ce1e37ec0"
+    },
+    {
+      "source": "GOLDEN WIN",
+      "target": "金運齊來 (L026)",
+      "id": "ee4baa8c-d4aa-4f68-99ac-c048dc41102e"
+    },
+    {
+      "source": "GOLDENTRONICMIGHTY",
+      "target": "金創福威 (K002)",
+      "id": "1621722f-ea85-456d-b5af-93e6900c4e63"
+    },
+    {
+      "source": "GOLDFIELD",
+      "target": "高山神駒 (L334)",
+      "id": "2ad5add2-b9f3-4617-93cb-d75dc5f973f3"
+    },
+    {
+      "source": "GOOD CHAP",
+      "target": "金玉良言 (J499)",
+      "id": "d88f73cb-5d39-4b75-83a1-c6b4f161a50c"
+    },
+    {
+      "source": "GOOD FORTUNE",
+      "target": "同有運 (H349)",
+      "id": "359dfbff-23f4-46d6-b131-fc4543e41f36"
+    },
+    {
+      "source": "GOOD GOOD",
+      "target": "小飛俠 (J224)",
+      "id": "d54dc592-0023-4bca-b1f7-c6d2ef232a7e"
+    },
+    {
+      "source": "GOOD LUCK BABE",
+      "target": "開心五月 (K016)",
+      "id": "a2b62da0-d031-41a2-bc63-2f7674a81bfc"
+    },
+    {
+      "source": "GOOD LUCK HAPPY",
+      "target": "寶成智好 (K301)",
+      "id": "ddd81531-a140-4ed1-903d-733e0b76ea97"
+    },
+    {
+      "source": "GOOD LUCK WIN",
+      "target": "寶成智星 (J135)",
+      "id": "d4fdd056-225d-4ac8-8fdc-c3587ac3ed7a"
+    },
+    {
+      "source": "GOOD POWER",
+      "target": "好力 (L228)",
+      "id": "8af74af8-6739-4ad5-a0b6-4b0bbda77a11"
+    },
+    {
+      "source": "GOR GOR",
+      "target": "暴風一族 (K104)",
+      "id": "75ae3517-aab6-4e50-872c-978e4b1d3cd7"
+    },
+    {
+      "source": "GORGEOUS VICTORY",
+      "target": "華麗再贏 (L087)",
+      "id": "8694a4b9-06da-4137-a273-7800dcd39e80"
+    },
+    {
+      "source": "GORGEOUS WIN",
+      "target": "華麗再勝 (J008)",
+      "id": "ff1797a7-6e18-498a-af43-63526fa7f583"
+    },
+    {
+      "source": "GRACEFUL HEART",
+      "target": "三代至醒 (L207)",
+      "id": "7e4f2995-2300-41c5-b10e-71ae13130a05"
+    },
+    {
+      "source": "GRAND EAGLE",
+      "target": "神鵰 (L336)",
+      "id": "bbd2577d-4c69-448a-97e9-0d44170169f6"
+    },
+    {
+      "source": "GRAND NOVA",
+      "target": "鴻圖新星 (J323)",
+      "id": "91a31311-83de-4ea1-98b1-9e9c291e3ee5"
+    },
+    {
+      "source": "GRAND PATCH",
+      "target": "手機錶能 (L293)",
+      "id": "d08706e8-6de5-4519-9cb9-a85a343644d5"
+    },
+    {
+      "source": "GRAND TURBO",
+      "target": "鴻圖大展 (L138)",
+      "id": "2469c328-a0e3-44f0-8f44-08c0bd9f1934"
+    },
+    {
+      "source": "GRATIFIDE",
+      "target": "時時開心 (K550)",
+      "id": "c0e90cb6-7f24-4e48-b47f-8ce58a544c5c"
+    },
+    {
+      "source": "GREAT LEGEND",
+      "target": "威威傳奇 (L409)",
+      "id": "e8702208-8d99-465c-870a-aabc438256a4"
+    },
+    {
+      "source": "GREAT LOOKING",
+      "target": "快又醒 (J198)",
+      "id": "40c3cd4e-bd97-4140-8610-53106929033f"
+    },
+    {
+      "source": "GREAT SPIRIT",
+      "target": "好精神 (J155)",
+      "id": "66f364a5-7fc5-4835-a294-69101efcd9a6"
+    },
+    {
+      "source": "GREATER BAE",
+      "target": "粵港資駒 (L033)",
+      "id": "78e8d8fc-4d32-47d4-a5eb-43bb79c17475"
+    },
+    {
+      "source": "GREEN ANGEL",
+      "target": "綠色鐵驥 (L255)",
+      "id": "a90f27d9-9cfa-4641-a2df-bd61f815cb97"
+    },
+    {
+      "source": "GREEN AUTUMN",
+      "target": "綠色最威 (L352)",
+      "id": "2fec024f-bcc9-46a4-be08-7dc8cab743b2"
+    },
+    {
+      "source": "GREEN FIELD PEARL",
+      "target": "綠茵明珠 (K460)",
+      "id": "a1a5028d-13a1-488a-bc47-f6dd44c27bbe"
+    },
+    {
+      "source": "GREEN SUMMIT",
+      "target": "綠頂峰 (L250)",
+      "id": "7811dcd4-21c0-4182-9a3f-4a41a72569a0"
+    },
+    {
+      "source": "GRIT SPIRIT",
+      "target": "龍虎精神 (L116)",
+      "id": "fcf59b96-40a0-4569-8094-38d3bcfa1821"
+    },
+    {
+      "source": "GROOVY FEELING",
+      "target": "高感 (J515)",
+      "id": "ac5b8e3d-766d-4c71-870d-609f09eeb3b4"
+    },
+    {
+      "source": "GROUPER",
+      "target": "老鼠斑 (L233)",
+      "id": "5fdca167-01f9-4159-ac15-f4f912bb712b"
+    },
+    {
+      "source": "GULU GOGO",
+      "target": "咕嚕快跑 (L377)",
+      "id": "0e695c08-68d1-4ef3-85d9-bd86690ff780"
+    },
+    {
+      "source": "GUMMY GUMMY",
+      "target": "晶晶日上 (H089)",
+      "id": "12366124-ba51-4538-9f6d-9d551f39de12"
+    },
+    {
+      "source": "GUSTOSISIMO",
+      "target": "得道猴王 (J303)",
+      "id": "bdf83dc4-9b83-4743-ae78-60f558c55085"
+    },
+    {
+      "source": "GUTSY BRAVO",
+      "target": "彪形勇將 (L178)",
+      "id": "069ee25d-6e82-40e8-b1fd-3e2c5d4bddc2"
+    },
+    {
+      "source": "HAILTOTHEVICTORS",
+      "target": "光輝歲月 (J508)",
+      "id": "cc0b4c48-ed22-4e5a-9eb4-3ea6e9ec456b"
+    },
+    {
+      "source": "HANDSOME BLOND",
+      "target": "勝在有型 (K241)",
+      "id": "e683c500-7d01-4427-97c4-460867905ef1"
+    },
+    {
+      "source": "HANDSOME HERO",
+      "target": "盈俊天下 (L346)",
+      "id": "f3e3207c-d9cf-4dd5-926c-43d6bc4c2b47"
+    },
+    {
+      "source": "HAPPY ACTION",
+      "target": "喜行 (K399)",
+      "id": "8cf51988-42c5-444b-9e5f-aabdd1b4316f"
+    },
+    {
+      "source": "HAPPY BOSS",
+      "target": "開心老闆 (K453)",
+      "id": "f4e924d1-f55f-46a5-a8f7-38b57b515144"
+    },
+    {
+      "source": "HAPPY BOYS",
+      "target": "快樂寶寶 (J545)",
+      "id": "622161d0-1261-4e33-ae2d-ebfbd6070131"
+    },
+    {
+      "source": "HAPPY BRETHREN",
+      "target": "快樂共濟 (L049)",
+      "id": "496d40e9-68cf-4c4d-ab8a-7a937f7288a2"
+    },
+    {
+      "source": "HAPPY BUDDIES",
+      "target": "快樂之友 (K344)",
+      "id": "4a85dae8-a807-4b45-af00-b7672db9ae0c"
+    },
+    {
+      "source": "HAPPY DRAMA",
+      "target": "開心進駒 (L285)",
+      "id": "32d6f71d-45ec-44e8-ab8f-7f68db3c638d"
+    },
+    {
+      "source": "HAPPY FLYER",
+      "target": "快樂飛飛 (L408)",
+      "id": "393c3b8b-6519-4819-b62c-965f8d059687"
+    },
+    {
+      "source": "HAPPY INDEX",
+      "target": "開心指數 (L152)",
+      "id": "51931270-a851-4fbf-99ad-b67582726954"
+    },
+    {
+      "source": "HAPPY PROMISE",
+      "target": "幸福約定 (L266)",
+      "id": "4e436e96-cf8e-4255-998e-2ddc47c9db22"
+    },
+    {
+      "source": "HAPPY SHOOTER",
+      "target": "逍遙人生 (J427)",
+      "id": "3d9e19ab-f6de-4174-b3fc-17a853dc751c"
+    },
+    {
+      "source": "HAPPY SMILE",
+      "target": "越駿聯歡 (L202)",
+      "id": "3f32baf6-7139-4cdb-b935-31e305a486db"
+    },
+    {
+      "source": "HAPPY SPECIAL",
+      "target": "幸福特約 (K572)",
+      "id": "c5c5c7f9-05ab-4a86-9397-85ab84e09537"
+    },
+    {
+      "source": "HAPPY TERCENTENARY",
+      "target": "喜豐年 (L185)",
+      "id": "f98d691e-4f92-40ff-94d9-30366b76ba14"
+    },
+    {
+      "source": "HAPPY UNITED",
+      "target": "萬眾開心 (H208)",
+      "id": "24e393a5-9bf0-4d8f-a583-1dd042bf7c60"
+    },
+    {
+      "source": "HAPPY UNIVERSE",
+      "target": "開心宇宙 (J533)",
+      "id": "f580189e-0346-46aa-9b71-708e6ed4cb81"
+    },
+    {
+      "source": "HAPPYDEARHAPPYDEER",
+      "target": "一鹿歡騰 (J002)",
+      "id": "ba82a1a4-8eb2-4ca0-955c-0c500c601982"
+    },
+    {
+      "source": "HARMONY FIRE",
+      "target": "天火同人 (E175)",
+      "id": "1a2d4d0b-dfbd-4e67-8477-834738cd9c04"
+    },
+    {
+      "source": "HARMONY GALAXY",
+      "target": "香港神駒 (J266)",
+      "id": "df2a603b-7061-4bc3-9cbf-22d944fcf568"
+    },
+    {
+      "source": "HARMONY N BLESSED",
+      "target": "人和家興 (E061)",
+      "id": "2ed6271c-0fdf-4590-bdec-7feb09f9e9f4"
+    },
+    {
+      "source": "HAROLD WIN",
+      "target": "哈羅威 (J280)",
+      "id": "809aabb2-028f-49a8-8bf6-24f6b9250628"
+    },
+    {
+      "source": "HARRY'S HERO",
+      "target": "極速之子 (H332)",
+      "id": "bb4b9a31-0f74-4b57-b5b1-6d2419ff703e"
+    },
+    {
+      "source": "HARVEST MOON",
+      "target": "豐才 (L419)",
+      "id": "3acff835-e8b8-4377-af40-007decc501fd"
+    },
+    {
+      "source": "HAYDAY",
+      "target": "千杯敬典 (H321)",
+      "id": "2f1ce0e2-2b0c-49b3-8cfe-f06e23d88024"
+    },
+    {
+      "source": "HE WAS ME",
+      "target": "劍無情 (J535)",
+      "id": "68f7d5be-4a09-4164-834e-bd30489e10f5"
+    },
+    {
+      "source": "HEALTHY HEALTHY",
+      "target": "添開心 (H203)",
+      "id": "7afcc3ed-6b95-4d39-97f4-1ad5cb271c2c"
+    },
+    {
+      "source": "HEALTHY PONY",
+      "target": "健康小馬 (L046)",
+      "id": "98e3348d-e653-4d13-9ae6-376aef23868b"
+    },
+    {
+      "source": "HEART INVINCIBLE",
+      "target": "正本無敵 (K418)",
+      "id": "27e2a9d9-f5e7-4cc8-92c5-3834532848f7"
+    },
+    {
+      "source": "HELENE FEELING",
+      "target": "喜蓮勇感 (H215)",
+      "id": "f81414a9-e1d6-4b61-8b58-6443a189474c"
+    },
+    {
+      "source": "HELENE SUPAFEELING",
+      "target": "喜蓮勁感 (L028)",
+      "id": "ff665daa-0f0f-441a-be6b-82cabc4acf8c"
+    },
+    {
+      "source": "HELIOS EXPRESS",
+      "target": "驕陽明駒 (H302)",
+      "id": "6760b623-0d5a-4303-9c7e-d5d6cee30a93"
+    },
+    {
+      "source": "HERBAL STAR",
+      "target": "馬錢子 (L053)",
+      "id": "810bf475-5110-48c7-84be-33aed90f39a5"
+    },
+    {
+      "source": "HERE COMES PLUTUS",
+      "target": "普魯托斯 (K413)",
+      "id": "cbb15da8-ae2c-4e20-847c-6fe7f85e4328"
+    },
+    {
+      "source": "HERO MASTERMIND",
+      "target": "盈智多寶 (L391)",
+      "id": "0c80bafe-1fbf-40f6-ac61-67b118ee91f7"
+    },
+    {
+      "source": "HERO RISING",
+      "target": "喜駿昇星 (L294)",
+      "id": "5030d75f-dc99-42bc-8245-09cc15f269f6"
+    },
+    {
+      "source": "HEROIC MASTER",
+      "target": "英雄豪邁 (G394)",
+      "id": "31601a26-c6e3-456f-83ca-71de0b98179d"
+    },
+    {
+      "source": "HEROIC VANGUARD",
+      "target": "豪邁先登 (L180)",
+      "id": "0614aa9e-3994-4353-8ca7-9541600f4d13"
+    },
+    {
+      "source": "HEY BROS",
+      "target": "團結巴打 (L150)",
+      "id": "7378fa90-696d-4c41-84ac-a5b6f3af4f7b"
+    },
+    {
+      "source": "HIGH PRAISE",
+      "target": "高度評價 (L316)",
+      "id": "20757548-7fd2-4d88-92a9-e5809e9a48d8"
+    },
+    {
+      "source": "HIGH RISE VICTORY",
+      "target": "高明豐勝 (L128)",
+      "id": "c157e8d6-40c0-42da-a1e4-2dc6f792ae7b"
+    },
+    {
+      "source": "HIGHLAND RAHY",
+      "target": "智勇名駒 (J298)",
+      "id": "3f7e2042-c253-411f-87b8-d4f3623435f1"
+    },
+    {
+      "source": "HIRO LEGEND",
+      "target": "運來煌星 (L383)",
+      "id": "29b15178-38b6-411c-84b1-dbc4bb2a36f5"
+    },
+    {
+      "source": "HOLMES A COURT",
+      "target": "風火猴王 (J511)",
+      "id": "b96add64-0552-4c8b-8f00-f2ae18047c86"
+    },
+    {
+      "source": "HONEST WITNESS",
+      "target": "可靠大師 (K283)",
+      "id": "a1aa5490-087c-416e-b801-aa33ff048635"
+    },
+    {
+      "source": "HONG LOK GOLF",
+      "target": "康樂高球 (J517)",
+      "id": "25321004-f53b-40ac-9e29-2b2365b97751"
+    },
+    {
+      "source": "HONORARY",
+      "target": "挺秀弘利 (K481)",
+      "id": "58cc8d08-8280-4117-85f1-32139819fb42"
+    },
+    {
+      "source": "HORATIUS",
+      "target": "煜耀良駒 (L412)",
+      "id": "20804a4e-126c-4e10-9663-cf6e8e038fe4"
+    },
+    {
+      "source": "HORSEPOWER",
+      "target": "馬力 (J431)",
+      "id": "9be43593-9967-417e-bc87-9c6331a4d419"
+    },
+    {
+      "source": "HOT AIR BALLON",
+      "target": "熱氣球 (K144)",
+      "id": "5a3e8f3b-b889-4d6c-8347-0846564e7abc"
+    },
+    {
+      "source": "HOT DELIGHT",
+      "target": "喜慶寶 (K583)",
+      "id": "85d75f4e-a627-4e0c-8953-a278233b1eeb"
+    },
+    {
+      "source": "HOTT SHOTT",
+      "target": "綠色鐵蹄 (L147)",
+      "id": "69d807e1-d151-4bf1-8f97-a8b7020724c2"
+    },
+    {
+      "source": "HOWEVER",
+      "target": "有意無意 (L350)",
+      "id": "50a7caa3-c149-4639-8b99-d785b9c6cb30"
+    },
+    {
+      "source": "HUGE WAVE",
+      "target": "大浪圖田 (J197)",
+      "id": "6e6ff3f7-62cb-43ee-a5e4-71f62026757b"
+    },
+    {
+      "source": "HUNTER CHAMPION",
+      "target": "長勝猛將 (L242)",
+      "id": "fdbb1d2e-01bd-4132-809e-9c860f0db084"
+    },
+    {
+      "source": "HYANNIS STAR",
+      "target": "星將 (K331)",
+      "id": "b19b87f9-8fd7-4921-88e8-b6c01ca1f0c6"
+    },
+    {
+      "source": "HYMNBOOK",
+      "target": "北斗福星 (L238)",
+      "id": "84f1ffd7-086f-4a3f-a12f-d22b46b3d409"
+    },
+    {
+      "source": "I AM BACK",
+      "target": "勝利君子 (L061)",
+      "id": "156f3903-7216-4af3-99a1-bab627144a9b"
+    },
+    {
+      "source": "I CAN",
+      "target": "我做到 (H381)",
+      "id": "0be0e050-bc29-4c99-a17b-f16749b442d6"
+    },
+    {
+      "source": "I EXCELLE",
+      "target": "我最好 (K502)",
+      "id": "8901c79c-396a-48db-84d5-a72e577a1c99"
+    },
+    {
+      "source": "I WIN I WIN",
+      "target": "逍遙 (L388)",
+      "id": "b30d23b6-1b85-4304-a0f5-c9c7e01fa02c"
+    },
+    {
+      "source": "ICONICAL",
+      "target": "飈誌 (J504)",
+      "id": "81fa4e8d-e605-4c72-bb88-037471c34019"
+    },
+    {
+      "source": "IGOR STRAVINSKY",
+      "target": "八駿福昇 (K086)",
+      "id": "9fc5e865-b516-49ec-960a-bca4f3e4cf37"
+    },
+    {
+      "source": "ILLUMINOUS",
+      "target": "明亮天下 (J170)",
+      "id": "8748eed9-1cec-4dae-b95d-b6962dfdf9fb"
+    },
+    {
+      "source": "IMPRESSIVE CHAMP",
+      "target": "又要威 (K522)",
+      "id": "890fa68e-4ae6-4987-ba87-b9d39f813fc7"
+    },
+    {
+      "source": "INCANTO STAR",
+      "target": "頌星 (K343)",
+      "id": "898130f9-c34a-4f8a-b5e4-e68a3cf3c63c"
+    },
+    {
+      "source": "INCREDIBLE MOMENT",
+      "target": "非凡時刻 (K275)",
+      "id": "5a0bb8c9-8504-44e3-9500-06608b636c61"
+    },
+    {
+      "source": "INFINITE RESOLVE",
+      "target": "晒冷 (K369)",
+      "id": "bf31f109-9efe-4a80-acc3-a7307130047c"
+    },
+    {
+      "source": "INFINITY PATCH",
+      "target": "手機錶晨 (L504)",
+      "id": "cd309af3-525a-4550-9492-53318bad13dd"
+    },
+    {
+      "source": "INNO CENTURY",
+      "target": "科創世紀 (K113)",
+      "id": "1d7b3241-5adc-4056-9f3b-fa8006313eb4"
+    },
+    {
+      "source": "INNO SUPER",
+      "target": "創科群英 (K319)",
+      "id": "48faa6d0-805c-4126-81ee-cf33c95efc42"
+    },
+    {
+      "source": "INVICTUS",
+      "target": "將傲 (L277)",
+      "id": "9df53edd-df0f-42eb-8543-8438ddd76f3e"
+    },
+    {
+      "source": "INVICTUS DRAGON",
+      "target": "龍傲綾羅 (K318)",
+      "id": "1722ae1a-922f-4a60-ac8c-9732ea1a70c3"
+    },
+    {
+      "source": "INVINCIBLE IBIS",
+      "target": "白鷺金剛 (K296)",
+      "id": "887a496c-0d51-4d28-828d-0232c2633ad0"
+    },
+    {
+      "source": "INVINCIBLE SAGE",
+      "target": "賢者無敵 (H301)",
+      "id": "0ae9f968-199a-4437-92d2-bf2b8492199e"
+    },
+    {
+      "source": "INVINCIBLE SHIELD",
+      "target": "笑傲江湖 (K168)",
+      "id": "9da98f5e-4b42-411b-ad13-de35e6066ffe"
+    },
+    {
+      "source": "INVINCIBLE STARR",
+      "target": "賢者福星 (L078)",
+      "id": "e0830786-8712-44db-a494-45b86963eeed"
+    },
+    {
+      "source": "INVINCIBLE STEED",
+      "target": "無敵好瑪 (L312)",
+      "id": "bda80e9b-9965-42c7-8b6c-4e541463a48e"
+    },
+    {
+      "source": "IRON LEGION",
+      "target": "鐵甲驌龍 (J459)",
+      "id": "c5bff324-25fc-47dc-a9f6-2b26d3326009"
+    },
+    {
+      "source": "IRON SECURITY",
+      "target": "鋼鐵安防 (L174)",
+      "id": "25fb5f1b-f4b2-407c-a3d9-ba6edb5c0386"
+    },
+    {
+      "source": "ISLAND BREEZES",
+      "target": "鼓浪高升 (J479)",
+      "id": "2cb92ec3-86e4-4406-bde1-cef8cff53f66"
+    },
+    {
+      "source": "ISLAND BUDDY",
+      "target": "鼓浪好友 (J217)",
+      "id": "27189b86-0cb8-4188-8f63-d38b540445af"
+    },
+    {
+      "source": "ISLAND HIGHFLYER",
+      "target": "鼓浪高風 (L332)",
+      "id": "b4e49f66-24ac-44e8-b425-e96618078ff5"
+    },
+    {
+      "source": "IT IS YOU",
+      "target": "事理 (L338)",
+      "id": "3f0417bb-8efc-406a-9c55-9c74b95d33e3"
+    },
+    {
+      "source": "IVY LEAGUE",
+      "target": "大學生 (H116)",
+      "id": "02369b15-a6ca-4602-90a8-b57414cab20b"
+    },
+    {
+      "source": "JACKSON HABIT",
+      "target": "杰遜仔 (L036)",
+      "id": "376619c3-473d-4e39-bffd-ed0e13409bb3"
+    },
+    {
+      "source": "JADE GLORY",
+      "target": "翡翠光彩 (L463)",
+      "id": "57d31105-74ef-4fbb-bbc4-226dfff4af1b"
+    },
+    {
+      "source": "JAMES TAK",
+      "target": "占士德 (J007)",
+      "id": "044482a9-1cfd-4672-b251-b0ec2e41f66e"
+    },
+    {
+      "source": "JEDI SPURS",
+      "target": "星球勇士 (L441)",
+      "id": "4d4d0064-14bb-42b0-8e65-9bb6c058d57a"
+    },
+    {
+      "source": "JIN SHENG",
+      "target": "金聖 (L399)",
+      "id": "b16df9ff-be49-478a-ba12-0afb5f3aaf67"
+    },
+    {
+      "source": "JOHANNES BRAHMS",
+      "target": "玩笑 (K014)",
+      "id": "9096166e-f9a8-40a5-a9e6-367fdb6ad1e5"
+    },
+    {
+      "source": "JOKER ORBIT",
+      "target": "莊家班 (L115)",
+      "id": "b997d2e8-d65c-46b3-95ec-863c64abb061"
+    },
+    {
+      "source": "JOLLY BONUS",
+      "target": "好運多彩 (L327)",
+      "id": "f35c9475-3827-4c4f-99ce-3c21d813afc3"
+    },
+    {
+      "source": "JOLLY BRILLIANT",
+      "target": "旌採 (K498)",
+      "id": "7b2de775-7144-4b57-9c6c-c43aae8832da"
+    },
+    {
+      "source": "JOLLY COMPANION",
+      "target": "良駒好友 (H454)",
+      "id": "058a3964-0e52-4fcc-9f8d-57e8cf8ce2c6"
+    },
+    {
+      "source": "JOLLY JUMPER",
+      "target": "肥仔精神 (K110)",
+      "id": "42f96ec8-77b6-46d2-bdeb-e377fdb92dd4"
+    },
+    {
+      "source": "JOLTIN",
+      "target": "孤風潛影 (L186)",
+      "id": "d2eb958e-7c64-420c-a0db-13473b6d35a6"
+    },
+    {
+      "source": "JOY OF SPRING",
+      "target": "春風萬里 (H383)",
+      "id": "26b60dfd-b815-4b39-a3e1-1f63ac647f04"
+    },
+    {
+      "source": "JOY STAR",
+      "target": "喜樂之星 (L235)",
+      "id": "6acc35ef-417a-4449-9240-6a8e96d20781"
+    },
+    {
+      "source": "JOY TOGETHER",
+      "target": "時尚歡笑 (L227)",
+      "id": "0438f0f4-3b58-41a8-96c3-524444d28e13"
+    },
+    {
+      "source": "JOYFUL JOY",
+      "target": "喜悅歡欣 (L322)",
+      "id": "8e1956f0-d695-4483-b2f6-33aa9e8062c7"
+    },
+    {
+      "source": "JOYFUL PROSPERITY",
+      "target": "富喜來 (H213)",
+      "id": "13c9a7a0-2c2c-457e-9d3e-415b79f3cbe9"
+    },
+    {
+      "source": "JUBILANT STAR",
+      "target": "福聚 (K410)",
+      "id": "a42ed4b0-c7d2-4fa8-b1b8-7e95fa7e2451"
+    },
+    {
+      "source": "JUBILANT WINNER",
+      "target": "快活英雄 (J346)",
+      "id": "0e7ad88d-22f6-4905-b852-beb12a9821b5"
+    },
+    {
+      "source": "JUICY DRAGON",
+      "target": "起舞奜奜 (K405)",
+      "id": "9718d4da-791f-49f7-90a2-25d03414fcda"
+    },
+    {
+      "source": "JUMBO BLESSING",
+      "target": "福進 (K529)",
+      "id": "cb39c18c-6378-4c97-b386-1c3a6711c47b"
+    },
+    {
+      "source": "JUMBO STEPS",
+      "target": "晉步贏 (L269)",
+      "id": "89bba3e5-84c9-4ee3-a217-7323d5bfe3ff"
+    },
+    {
+      "source": "JUMBO TREASURE",
+      "target": "寶進 (K249)",
+      "id": "f33b5db9-da60-4dcc-b101-ed8f908e7897"
+    },
+    {
+      "source": "JUNEAU PRIDE",
+      "target": "至尊高超 (J443)",
+      "id": "8eea60f9-7734-4cda-8f41-9105263c010d"
+    },
+    {
+      "source": "JUST FOLLOW ME",
+      "target": "隋我同來 (K332)",
+      "id": "8a38893b-fcea-457a-b1a4-a747b11e8be0"
+    },
+    {
+      "source": "JUSTIFYING",
+      "target": "快靚旺 (K027)",
+      "id": "7a485a8a-7746-41b1-a99e-7f74184453bb"
+    },
+    {
+      "source": "KA YING ATTACK",
+      "target": "嘉應奇兵 (J391)",
+      "id": "91d4520b-db70-4f73-ab8e-bbd2a2a7cf86"
+    },
+    {
+      "source": "KA YING BEAUTY",
+      "target": "嘉應美麗 (L243)",
+      "id": "0aae42c3-d449-4f5a-b0a3-4e9623ac6552"
+    },
+    {
+      "source": "KA YING GENERATION",
+      "target": "嘉應傳承 (J075)",
+      "id": "8b7b324a-53af-413f-97c8-68f30151f675"
+    },
+    {
+      "source": "KA YING GLORY",
+      "target": "嘉應駿昇 (K247)",
+      "id": "14a9108a-d45c-49a9-adad-0ef799c6254a"
+    },
+    {
+      "source": "KA YING GRATEFUL",
+      "target": "嘉應感恩 (L114)",
+      "id": "258c7449-cfef-4752-8eff-75f612f4ae43"
+    },
+    {
+      "source": "KA YING LIGHTNING",
+      "target": "嘉應耀昇 (L137)",
+      "id": "074ed412-4d1b-4063-8d94-a0638be566c4"
+    },
+    {
+      "source": "KA YING RADIANCE",
+      "target": "嘉應光彩 (K134)",
+      "id": "85215523-a5b4-407a-b0bb-b82fb59b7dd0"
+    },
+    {
+      "source": "KA YING RESILIENCE",
+      "target": "嘉應駿馬 (J439)",
+      "id": "56a0e0e4-6cf2-4cb0-b9ff-52bb327d1e58"
+    },
+    {
+      "source": "KA YING RISING",
+      "target": "嘉應高昇 (J062)",
+      "id": "0eb5321b-3adf-4cb7-a3c4-b7ea3be78084"
+    },
+    {
+      "source": "KA YING SHINING",
+      "target": "嘉應飛馳 (L321)",
+      "id": "de5e69e5-6ac2-4f4b-92d0-0b83556c7151"
+    },
+    {
+      "source": "KA YING SUPERB",
+      "target": "嘉應巨昇 (J091)",
+      "id": "a40b393e-8089-42f5-b8ca-f4f159711800"
+    },
+    {
+      "source": "KA YING WINNING",
+      "target": "嘉應騰飛 (L406)",
+      "id": "3cead9a4-11a1-4fc0-bf1d-4805bb6379de"
+    },
+    {
+      "source": "KAHOLO ANGEL",
+      "target": "鈦易搵 (H216)",
+      "id": "cad78d60-15c2-45e8-88cb-d6844894ebdb"
+    },
+    {
+      "source": "KANSAS",
+      "target": "多威心得 (L305)",
+      "id": "5daf79b7-66be-47b2-9988-5fec7148d492"
+    },
+    {
+      "source": "KARMA",
+      "target": "話你知 (G392)",
+      "id": "688327d0-6bda-48e8-baee-b10b6d49cce0"
+    },
+    {
+      "source": "KASA PAPA",
+      "target": "架勢奇爸 (G312)",
+      "id": "5a301df3-1ad6-48b4-8f54-2d932fbb358e"
+    },
+    {
+      "source": "KEEFY",
+      "target": "瑪瑙 (G306)",
+      "id": "736ca22f-ef6f-415c-8817-2cc178d06f9f"
+    },
+    {
+      "source": "KEEN MOLLY",
+      "target": "超勝無敵 (K386)",
+      "id": "5af28a2b-4a23-4f6f-a966-7db2e98bf413"
+    },
+    {
+      "source": "KEMPES",
+      "target": "肯佩斯 (J265)",
+      "id": "734b3430-81e3-4f2f-abd8-0f85054e9b27"
+    },
+    {
+      "source": "KING ALLOY",
+      "target": "皇金合 (K099)",
+      "id": "ce2ecf61-7422-438b-ab73-86d99e092895"
+    },
+    {
+      "source": "KING CANNON",
+      "target": "勁砲王 (K543)",
+      "id": "470b510d-16ad-4bbb-9180-0b3c64b38168"
+    },
+    {
+      "source": "KING DANCE",
+      "target": "勁勇皇駒 (K157)",
+      "id": "baa6ff99-7738-4276-9aee-4fc704fb9e68"
+    },
+    {
+      "source": "KING EQUINE",
+      "target": "勁無限 (L379)",
+      "id": "ac0083d8-2caa-4d7e-9ac0-ec43756c6821"
+    },
+    {
+      "source": "KING GLORIOSO",
+      "target": "皇帝英豪 (J247)",
+      "id": "8949b0fb-beca-4089-aafb-b5d4da514e70"
+    },
+    {
+      "source": "KING LOTUS",
+      "target": "蓮冠皇 (K186)",
+      "id": "7c80bb0d-8f72-41bb-8498-6ef53d91a6f5"
+    },
+    {
+      "source": "KING MILES",
+      "target": "安康萬里 (J158)",
+      "id": "58b8c305-1993-4709-b99f-e8f037499abd"
+    },
+    {
+      "source": "KING OBERON",
+      "target": "勝多多 (H407)",
+      "id": "2fea9dd1-0923-46a2-9c37-3b90e1d55430"
+    },
+    {
+      "source": "KING OF FIGHTERS",
+      "target": "佛亮老撾 (K174)",
+      "id": "537f52a4-647c-435e-abad-9340740bde77"
+    },
+    {
+      "source": "KING OF SELECTION",
+      "target": "揀馬之皇 (K397)",
+      "id": "c91b9a95-6480-4fb7-ab11-acb099a84de4"
+    },
+    {
+      "source": "KING OF THE SKY",
+      "target": "空中霸王 (L459)",
+      "id": "b80eaf92-484f-4c1a-81a6-2bc13b132709"
+    },
+    {
+      "source": "KING PROFIT",
+      "target": "皇者有利 (J539)",
+      "id": "058861f0-d44a-4d4c-87af-b50834e3290a"
+    },
+    {
+      "source": "KING SHOW",
+      "target": "勁騷 (K047)",
+      "id": "669bdf51-cb17-4499-bf47-cb844e428677"
+    },
+    {
+      "source": "KING ZOOM",
+      "target": "安康盛勢 (L279)",
+      "id": "588d2ccb-c103-411c-8a0d-562b8953ac22"
+    },
+    {
+      "source": "KINGDOM",
+      "target": "王者天下 (L366)",
+      "id": "5755af4f-74c7-4496-9627-50c5e5ee5c86"
+    },
+    {
+      "source": "KINGLY DEMEANOR",
+      "target": "竣誠駒 (H486)",
+      "id": "409fd3f0-6f9d-4fd2-a8f1-db37ed45ffda"
+    },
+    {
+      "source": "KINGMAN REEF",
+      "target": "澄心知遇 (L446)",
+      "id": "6dd5985c-770b-44eb-88c1-354dd3fe179d"
+    },
+    {
+      "source": "KING'S ARROW",
+      "target": "神箭 (L254)",
+      "id": "17f96dec-30ca-4f3f-9e50-53a5db904738"
+    },
+    {
+      "source": "KOL",
+      "target": "鋁主角 (L319)",
+      "id": "9f212b51-d2f6-485f-a1f8-f3c940371255"
+    },
+    {
+      "source": "KOLACHI",
+      "target": "至高心得 (J395)",
+      "id": "65d9c92d-f08d-4c74-ab03-3246454f25f3"
+    },
+    {
+      "source": "KWAI CHUNG TALENTS",
+      "target": "頑童 (L144)",
+      "id": "9a16f457-2df7-4f46-9486-c2c97b20aa91"
+    },
+    {
+      "source": "KYOTO SPRING",
+      "target": "機緣燦爛 (L190)",
+      "id": "f8bcd2be-c9a6-445a-9870-517e77cfe7ed"
+    },
+    {
+      "source": "KYRUS DRAGON",
+      "target": "家樂龍駒 (H396)",
+      "id": "462d2757-b90d-40c4-9c9f-4b5bff75d222"
+    },
+    {
+      "source": "KYRUS TREASURE",
+      "target": "家樂寶駒 (K300)",
+      "id": "c81b0da7-332a-4cce-b265-a00400a8fc18"
+    },
+    {
+      "source": "L432",
+      "target": "(L432)",
+      "id": "3fb69ff2-f830-41c4-ae02-0a4fc6f01057"
+    },
+    {
+      "source": "L433",
+      "target": "(L433)",
+      "id": "f448b34f-366a-4415-817b-78c7cc1d1da3"
+    },
+    {
+      "source": "L435",
+      "target": "(L435)",
+      "id": "88a1727d-1407-4bfb-912a-dbc99edc72b5"
+    },
+    {
+      "source": "L436",
+      "target": "(L436)",
+      "id": "b60ab1c8-8385-4f97-b613-8d5a2ad14ad4"
+    },
+    {
+      "source": "L442",
+      "target": "(L442)",
+      "id": "9ea56dac-3190-42b0-837d-12678e9b8ec8"
+    },
+    {
+      "source": "L447",
+      "target": "(L447)",
+      "id": "25a971f1-2bf6-40a3-8598-d687c840e6dc"
+    },
+    {
+      "source": "L457",
+      "target": "(L457)",
+      "id": "8afd7446-e294-4ff8-a1f4-6e456de036d2"
+    },
+    {
+      "source": "L469",
+      "target": "(L469)",
+      "id": "b6f6b667-a1e8-45f2-9e2e-e2b3ce455e9d"
+    },
+    {
+      "source": "L472",
+      "target": "(L472)",
+      "id": "3615ee9f-b7f4-4ce0-8cdb-d76f5c2ea860"
+    },
+    {
+      "source": "L474",
+      "target": "(L474)",
+      "id": "474ab521-f62f-45d3-b15b-d2fa24ed20fc"
+    },
+    {
+      "source": "L475",
+      "target": "(L475)",
+      "id": "1130e3b7-156d-4797-858a-5daf3c042980"
+    },
+    {
+      "source": "L476",
+      "target": "(L476)",
+      "id": "6b55b485-215f-4311-a77e-fa526e189957"
+    },
+    {
+      "source": "L477",
+      "target": "(L477)",
+      "id": "8c698fca-3c3a-437c-a942-e850347d49c3"
+    },
+    {
+      "source": "L478",
+      "target": "(L478)",
+      "id": "8cc0c06c-98c1-4bb3-937d-601f7df4a9ce"
+    },
+    {
+      "source": "L480",
+      "target": "(L480)",
+      "id": "2479abee-dc28-45bd-b1eb-ec3841045684"
+    },
+    {
+      "source": "L481",
+      "target": "(L481)",
+      "id": "dadfa45c-be78-4633-9a85-0efc5a964beb"
+    },
+    {
+      "source": "L482",
+      "target": "(L482)",
+      "id": "d9f9c890-e606-43eb-b4e2-dc5a7628e0d5"
+    },
+    {
+      "source": "L484",
+      "target": "(L484)",
+      "id": "fe589ebc-9fea-4f61-896e-078dfee2627e"
+    },
+    {
+      "source": "L486",
+      "target": "(L486)",
+      "id": "f1480cae-d298-4fda-853d-f03d8548607f"
+    },
+    {
+      "source": "L488",
+      "target": "(L488)",
+      "id": "c41a0bb5-eafe-448f-9ace-3184cbad0776"
+    },
+    {
+      "source": "L489",
+      "target": "(L489)",
+      "id": "1fa70d32-3fd9-43c8-9341-c983b8461b87"
+    },
+    {
+      "source": "L491",
+      "target": "(L491)",
+      "id": "ec9124e2-7802-4a48-b78d-75c674d2c202"
+    },
+    {
+      "source": "L492",
+      "target": "(L492)",
+      "id": "381334a9-dafd-4699-aaba-ee9c6b2cdb7d"
+    },
+    {
+      "source": "L493",
+      "target": "(L493)",
+      "id": "d741da21-b49b-4670-af2e-d56f935388e2"
+    },
+    {
+      "source": "L494",
+      "target": "(L494)",
+      "id": "23317fe9-64b5-4010-91db-e5a035245c98"
+    },
+    {
+      "source": "L495",
+      "target": "(L495)",
+      "id": "26831996-bdba-4246-86b4-e99205a445fc"
+    },
+    {
+      "source": "L497",
+      "target": "(L497)",
+      "id": "1516be39-2048-420a-8ffc-f85fc5c322e6"
+    },
+    {
+      "source": "L500",
+      "target": "(L500)",
+      "id": "8f194ced-9b83-4776-ba58-249e5a360cc8"
+    },
+    {
+      "source": "L501",
+      "target": "(L501)",
+      "id": "cad34f61-c2e3-4816-8406-459f990f5164"
+    },
+    {
+      "source": "L505",
+      "target": "(L505)",
+      "id": "be08de91-4e88-423b-9c3c-b2ec23b2c590"
+    },
+    {
+      "source": "L506",
+      "target": "(L506)",
+      "id": "5dd542cf-69f5-49a0-a2b3-65bc36afb3c8"
+    },
+    {
+      "source": "L507",
+      "target": "(L507)",
+      "id": "e2a2c4ef-b95a-40b4-8931-42a92c54a232"
+    },
+    {
+      "source": "L508",
+      "target": "(L508)",
+      "id": "e21df221-d3fd-4391-9ded-0bf3dfadc9a2"
+    },
+    {
+      "source": "L509",
+      "target": "(L509)",
+      "id": "c72a475b-29d2-4bd1-8c0e-6e30688125a6"
+    },
+    {
+      "source": "L510",
+      "target": "(L510)",
+      "id": "9877ca50-d46f-4d7d-99db-36fd02a3f63a"
+    },
+    {
+      "source": "L511",
+      "target": "(L511)",
+      "id": "9974d776-7c02-4b0d-90ba-60d11798265a"
+    },
+    {
+      "source": "L512",
+      "target": "(L512)",
+      "id": "ce8b9514-ff09-4e09-8031-ff297e1f5d53"
+    },
+    {
+      "source": "L513",
+      "target": "(L513)",
+      "id": "313e5a35-04c4-43d5-b4cf-0d2dff0c03e4"
+    },
+    {
+      "source": "L514",
+      "target": "(L514)",
+      "id": "9310df3b-9bfe-4dab-b96d-06e63896cf96"
+    },
+    {
+      "source": "L515",
+      "target": "(L515)",
+      "id": "882866c0-02ce-43f5-aa88-dd59a1e01025"
+    },
+    {
+      "source": "L516",
+      "target": "(L516)",
+      "id": "ce69c1cb-ef53-4842-864d-5b76ecd550e0"
+    },
+    {
+      "source": "L517",
+      "target": "(L517)",
+      "id": "71482b00-adeb-4451-9166-5d8922ca4b0b"
+    },
+    {
+      "source": "L518",
+      "target": "(L518)",
+      "id": "cc3d61b9-3da9-4484-a561-7c665d1bfa5e"
+    },
+    {
+      "source": "L519",
+      "target": "(L519)",
+      "id": "34913a06-259b-452f-9325-69a7ff1f800e"
+    },
+    {
+      "source": "L520",
+      "target": "(L520)",
+      "id": "c94887d1-f83f-45eb-9918-5102c6160175"
+    },
+    {
+      "source": "L521",
+      "target": "(L521)",
+      "id": "e6fe6029-c573-4610-9aba-b5f4995abfa8"
+    },
+    {
+      "source": "L522",
+      "target": "(L522)",
+      "id": "c703082f-34c3-4105-83db-a6cd6037e561"
+    },
+    {
+      "source": "L523",
+      "target": "(L523)",
+      "id": "75382500-9461-4ef7-bc38-b631b280d4ec"
+    },
+    {
+      "source": "L524",
+      "target": "(L524)",
+      "id": "131d092b-57e2-4731-8330-507a93dcbc33"
+    },
+    {
+      "source": "L525",
+      "target": "(L525)",
+      "id": "9f654252-d1c6-4d92-a725-f2b930b0962d"
+    },
+    {
+      "source": "L526",
+      "target": "(L526)",
+      "id": "3cea3955-8b3a-4b3e-a440-befe2cf916c6"
+    },
+    {
+      "source": "LA FORZA",
+      "target": "超力量 (J285)",
+      "id": "952babcc-107f-4357-9bdf-9435c1ff0501"
+    },
+    {
+      "source": "LADY'S CHOICE",
+      "target": "愛馬善 (H155)",
+      "id": "34bec387-e2c8-424c-b89e-bee492fc2e11"
+    },
+    {
+      "source": "LADY'S LOVE",
+      "target": "愛馬心 (L220)",
+      "id": "dd2bf3b7-c3bc-4b14-bc7e-dcbee0384287"
+    },
+    {
+      "source": "LAHORE",
+      "target": "拉合爾 (K043)",
+      "id": "7dcbcd98-3eae-474c-bde4-1f64d21831c1"
+    },
+    {
+      "source": "LAKESHORE HERO",
+      "target": "翠湖烈風 (J288)",
+      "id": "c7471635-3e2f-409a-8a5b-fcb8f93d33ef"
+    },
+    {
+      "source": "LE ZONDA",
+      "target": "極光之子 (L110)",
+      "id": "11ebbd07-840f-46b1-9890-559a4a0fd94e"
+    },
+    {
+      "source": "LEADING AGILITY",
+      "target": "驕陽雄心 (K553)",
+      "id": "ad680c69-8d6b-495e-8d6e-d32fa5e30e4c"
+    },
+    {
+      "source": "LEADING DRAGON",
+      "target": "應龍飛影 (L083)",
+      "id": "0c4b9d6f-3cad-4c89-a92f-5f6ef5ae8338"
+    },
+    {
+      "source": "LEAN ERA",
+      "target": "精益時代 (L297)",
+      "id": "eb6d91fe-3f4e-43ba-b7fb-d1369e36e1c1"
+    },
+    {
+      "source": "LEAN FLYER",
+      "target": "精益飛駒 (L386)",
+      "id": "16503a4f-65e6-47cf-974e-7421290a8592"
+    },
+    {
+      "source": "LEAN GENERAL",
+      "target": "精益大將 (K546)",
+      "id": "b103b1af-32cf-4f62-8413-50d6f10c0986"
+    },
+    {
+      "source": "LEAN MASTER",
+      "target": "精益大師 (H134)",
+      "id": "f1934d77-2b7a-42a1-8667-1f70491aa278"
+    },
+    {
+      "source": "LEAPING STAR",
+      "target": "飛躍星伴 (L189)",
+      "id": "a704aead-7af3-484b-a12e-5b168388d60f"
+    },
+    {
+      "source": "LEATHER HERO",
+      "target": "皮具英雄 (L473)",
+      "id": "34d9cc7b-84a9-4229-8f62-c6168bfe0f1a"
+    },
+    {
+      "source": "LEGEND STAR",
+      "target": "有盈勇士 (K271)",
+      "id": "e59a2b4d-3368-4f97-9f4d-58564d83265d"
+    },
+    {
+      "source": "LEGEND WINNER",
+      "target": "高高至高 (L032)",
+      "id": "c7412baf-6d23-4665-b65f-003094dbb7c0"
+    },
+    {
+      "source": "LEGENDARY IMPACT",
+      "target": "傳承效應 (K035)",
+      "id": "95605779-9b86-4760-86cd-f70ea9060c07"
+    },
+    {
+      "source": "LEGENDARY YEARS",
+      "target": "佳駿年年 (K286)",
+      "id": "77170d20-30fb-47c2-8330-4df47e2a3915"
+    },
+    {
+      "source": "LESLIE",
+      "target": "風繼續吹 (E471)",
+      "id": "93fa7144-1895-4307-9d61-6c9d08a0c148"
+    },
+    {
+      "source": "LET'S HAVE FUN",
+      "target": "共創歡欣 (L118)",
+      "id": "481e78dc-6235-41a4-a9c0-3aea37df7b34"
+    },
+    {
+      "source": "LIFELINE EXPRESS",
+      "target": "健康快車 (H439)",
+      "id": "f2fd6b6d-2e92-4792-810c-7924fa13fc5e"
+    },
+    {
+      "source": "LIGHT YEARS CHARM",
+      "target": "光年魅力 (K130)",
+      "id": "bca7384b-e6be-434c-9594-9d818cad1b4a"
+    },
+    {
+      "source": "LIGHT YEARS GLORY",
+      "target": "光年程祥 (K204)",
+      "id": "3c735de1-1a08-4e8e-9110-b6b6d56cc0c0"
+    },
+    {
+      "source": "LIGHTNESS OF BEING",
+      "target": "駿馬之光 (K159)",
+      "id": "58bafcca-30c3-44bf-bd2b-82266df402da"
+    },
+    {
+      "source": "LIGHTNESS OF MUSIC",
+      "target": "駿馬之曲 (K436)",
+      "id": "8a399b42-5754-420c-be9e-7a14b2e3c39c"
+    },
+    {
+      "source": "LIGHTNING ACE",
+      "target": "悠然常勝 (L136)",
+      "id": "6863453c-1f7c-4553-a6b6-c9450fcaf734"
+    },
+    {
+      "source": "LITTLE MONSTER",
+      "target": "小魔怪 (K391)",
+      "id": "819d46f5-e2b3-48bf-8967-2b68232a8429"
+    },
+    {
+      "source": "LITTLE PARADISE",
+      "target": "小鳥天堂 (K246)",
+      "id": "04d3c0ee-028a-4d86-a260-825313c7447b"
+    },
+    {
+      "source": "LIVE WIRE",
+      "target": "烈焰光芒 (L142)",
+      "id": "a3438818-6034-492a-ae83-0d6d58524691"
+    },
+    {
+      "source": "LIVEANDLETLIVE",
+      "target": "奔放 (K156)",
+      "id": "ba9f25c2-5f2c-44a3-9089-b7e94ac26184"
+    },
+    {
+      "source": "LO RIDER",
+      "target": "平凡騎士 (K161)",
+      "id": "eaa4c74c-c268-49fb-b0c7-f2a53df085dd"
+    },
+    {
+      "source": "LOCH TAY",
+      "target": "將睿 (K356)",
+      "id": "30104aa6-14b4-4cdb-ab62-fbc7590ad0ab"
+    },
+    {
+      "source": "LOOKING BRIGHT",
+      "target": "路路勁 (K315)",
+      "id": "6c26abde-1c35-4f44-a713-8b1a7c781a9d"
+    },
+    {
+      "source": "LOVE ESPRESSO",
+      "target": "戀愛最火 (L394)",
+      "id": "43dcc35a-b994-4ade-829b-1fadd63166f1"
+    },
+    {
+      "source": "LOVE TOGETHER",
+      "target": "好好戀愛 (L052)",
+      "id": "7a7700da-a7ee-4677-bea4-72a4cb87e4cf"
+    },
+    {
+      "source": "LOVELY MILES",
+      "target": "愛心萬里 (L165)",
+      "id": "ac831ae8-e483-4dd4-8cea-202430e3a7a4"
+    },
+    {
+      "source": "LOVERO",
+      "target": "開心勇駒 (H451)",
+      "id": "034db75c-8b14-4874-9b0a-e84969ea068d"
+    },
+    {
+      "source": "LOVING VIBES",
+      "target": "天下寵兒 (J359)",
+      "id": "eb2a84ce-a5d0-4e44-9ee2-2391f3ff3399"
+    },
+    {
+      "source": "LOYAL BRIGHT",
+      "target": "忠誠明駒 (K574)",
+      "id": "4a6f1b6d-1209-4254-8ef4-c8d8526bb140"
+    },
+    {
+      "source": "LUCK IS BACK",
+      "target": "金駒永騰 (J398)",
+      "id": "4dd68cac-33d6-4f67-82e9-99f32c0cbec7"
+    },
+    {
+      "source": "LUCKY BALERION",
+      "target": "幸運威龍 (L125)",
+      "id": "fc098e89-ab7f-4773-b3f8-47e172e0fb51"
+    },
+    {
+      "source": "LUCKY BID",
+      "target": "笑必勝 (L274)",
+      "id": "edbe6a6a-d35a-4d2e-9d3a-c22e30f33454"
+    },
+    {
+      "source": "LUCKY BLESSING",
+      "target": "幸運福星 (K073)",
+      "id": "1cf7a92e-3d9e-461e-bd4a-a9bbde139e10"
+    },
+    {
+      "source": "LUCKY CANDY",
+      "target": "幸運糖 (L041)",
+      "id": "98f8239f-f59e-456b-9816-b31d0680cf9d"
+    },
+    {
+      "source": "LUCKY DOCTOR",
+      "target": "幸運大夫 (L225)",
+      "id": "69469f4e-8d1b-4e0f-a904-1316ceb8a707"
+    },
+    {
+      "source": "LUCKY GENERATIONS",
+      "target": "幸運傳承 (J338)",
+      "id": "85d1cb3e-9c1f-467b-a50a-237ab79f9a71"
+    },
+    {
+      "source": "LUCKY GIBS",
+      "target": "金津寶駒 (L157)",
+      "id": "96cacc5e-d7d7-4cb6-8192-8905572167e6"
+    },
+    {
+      "source": "LUCKY MAN",
+      "target": "文明福星 (J315)",
+      "id": "e71d77d8-b049-4d41-96ab-a5dc7ad7bf4b"
+    },
+    {
+      "source": "LUCKY MCQUEEN",
+      "target": "幸運愉快 (K064)",
+      "id": "d9920abc-f8a7-4a7b-a661-bbc1502b6fc6"
+    },
+    {
+      "source": "LUCKY MY WAY",
+      "target": "幸運多彩 (K146)",
+      "id": "684ae863-399b-4037-9242-6dc4bec26e41"
+    },
+    {
+      "source": "LUCKY PLANET",
+      "target": "幸運星球 (H235)",
+      "id": "d3cd9eb9-aa86-4ea6-962c-7b51d0f1acf9"
+    },
+    {
+      "source": "LUCKY SAM GOR",
+      "target": "一生好彩 (K114)",
+      "id": "682d831c-3ee8-4759-8d18-6fe19c2ea95c"
+    },
+    {
+      "source": "LUCKY SECRET",
+      "target": "幸運勝利 (L073)",
+      "id": "cf569d8f-9705-4303-a245-79e39725dd09"
+    },
+    {
+      "source": "LUCKY SWEYNESSE",
+      "target": "金鑽貴人 (G180)",
+      "id": "12b75f16-6569-468d-8d1d-46eb684f0d23"
+    },
+    {
+      "source": "LUCKY TOGETHER",
+      "target": "越駿齊歡 (L079)",
+      "id": "48c5486d-6c2f-4168-a756-11f75f000cb6"
+    },
+    {
+      "source": "LUCKY TWENTY",
+      "target": "幸運二十 (K392)",
+      "id": "e7312b96-c807-4ef1-bcb1-6b144909fc90"
+    },
+    {
+      "source": "LUCKY TWIN STARS",
+      "target": "雙星報喜 (K126)",
+      "id": "cedd8c76-e014-410b-9814-a876bf484287"
+    },
+    {
+      "source": "LUCKY WITH YOU",
+      "target": "幸運有您 (E356)",
+      "id": "475b6687-c916-4bc6-827d-2076e1dd9318"
+    },
+    {
+      "source": "LUCKY XANDER",
+      "target": "平天雄 (K407)",
+      "id": "a99b8a22-cbf9-42c6-a48f-ac7a08f22a31"
+    },
+    {
+      "source": "LUCKY YEAR",
+      "target": "好運年 (K443)",
+      "id": "24fce3a3-8819-49d1-ba54-500291220695"
+    },
+    {
+      "source": "LUCRATIVE EIGHT",
+      "target": "利高八斗 (K542)",
+      "id": "fdc9e5d2-20fd-48f6-9d56-326b2b9737c1"
+    },
+    {
+      "source": "LUCY IN THE SKY",
+      "target": "鑽石星空 (J275)",
+      "id": "cd42b5b2-473b-4d6e-9b9e-d525bb34c289"
+    },
+    {
+      "source": "LUFFY ONE",
+      "target": "路飛駒 (L380)",
+      "id": "2e77e7cd-7a85-4a02-bff1-00cd5dfd00ff"
+    },
+    {
+      "source": "LUNAR DASH",
+      "target": "渡月橋 (K334)",
+      "id": "360f7534-f45e-4fab-9cf3-899f9eca0f85"
+    },
+    {
+      "source": "M001",
+      "target": "(M001)",
+      "id": "fe2b11ca-0830-425a-b1e4-05cf6b3d2281"
+    },
+    {
+      "source": "M002",
+      "target": "(M002)",
+      "id": "40d58d0c-624d-4f4a-be86-7e067002dbd5"
+    },
+    {
+      "source": "M003",
+      "target": "(M003)",
+      "id": "8ec661f6-f9ee-4ecc-9f4f-0d74c3bc782c"
+    },
+    {
+      "source": "M004",
+      "target": "(M004)",
+      "id": "8ccbc7fc-bdab-426a-807c-6294d79656de"
+    },
+    {
+      "source": "M005",
+      "target": "(M005)",
+      "id": "c48a96c4-62ab-4077-991d-a85978060c4c"
+    },
+    {
+      "source": "M006",
+      "target": "(M006)",
+      "id": "bd2a07af-f4f9-4a72-8892-ee77cc22f155"
+    },
+    {
+      "source": "M007",
+      "target": "(M007)",
+      "id": "021b561a-3311-45c4-9298-3b50dffc78a9"
+    },
+    {
+      "source": "M008",
+      "target": "(M008)",
+      "id": "1c970911-6673-4cbb-98cc-449e3317d52c"
+    },
+    {
+      "source": "M009",
+      "target": "(M009)",
+      "id": "4d267056-acd3-4771-8cc9-71c66f818231"
+    },
+    {
+      "source": "M M CONCORD",
+      "target": "和光同塵 (L076)",
+      "id": "446ae7d4-df5b-4e5a-9edd-3737664b3e0c"
+    },
+    {
+      "source": "M M HARMONY",
+      "target": "順天從人 (L288)",
+      "id": "b4b457c2-7d84-47be-b951-6031011944c7"
+    },
+    {
+      "source": "MABUBU",
+      "target": "馬寶寶 (K586)",
+      "id": "fd0406af-6b6e-4901-abdc-251b843f4b25"
+    },
+    {
+      "source": "MACANESE MASTER",
+      "target": "銀亮濠俠 (J532)",
+      "id": "fd698d2b-349d-46f4-92b6-c875f1e30770"
+    },
+    {
+      "source": "MADE FOR LIFE",
+      "target": "明亮光輝 (L005)",
+      "id": "6703c52a-d0a3-40cd-ab3d-98292fa65aed"
+    },
+    {
+      "source": "MAGIC CONTROL",
+      "target": "魔術控制 (J333)",
+      "id": "283241a7-f00f-4857-85de-fceaf3b71f62"
+    },
+    {
+      "source": "MAGIC SUPER",
+      "target": "駿皇逸 (K330)",
+      "id": "0b9800fd-4af8-4624-9952-6ad977bdeb09"
+    },
+    {
+      "source": "MAGNEMITE",
+      "target": "小磁怪 (K549)",
+      "id": "8bc7eb2a-75df-44d8-aaf1-a72f53672e30"
+    },
+    {
+      "source": "MAJESTIC DELIGHT",
+      "target": "首駿 (K189)",
+      "id": "8e129384-b422-4b17-84af-ce105d8aba75"
+    },
+    {
+      "source": "MAJESTIC LIFE",
+      "target": "駿美一生 (L085)",
+      "id": "859c7ec8-52cb-47c4-9f14-9fe6b3c85a70"
+    },
+    {
+      "source": "MAJESTIC VALOUR",
+      "target": "勇者為皇 (L016)",
+      "id": "fb74435b-771a-4bac-9687-b0b239de6909"
+    },
+    {
+      "source": "MAKE YOU SMILE",
+      "target": "魅力奔騰 (K426)",
+      "id": "3f0bfdfe-a7c1-4c0d-829e-6ec74077cbc8"
+    },
+    {
+      "source": "MALPENSA",
+      "target": "賢知友您 (K545)",
+      "id": "5a46c665-2397-475e-8797-d8826fabaab4"
+    },
+    {
+      "source": "MANAGEMENT FOLKS",
+      "target": "管之友 (E496)",
+      "id": "8eab95b4-0066-494e-9f1b-0e727646f7ac"
+    },
+    {
+      "source": "MANYTHANKS FOREVER",
+      "target": "常常感恩 (J065)",
+      "id": "b3cb10c3-f9be-4d33-a600-f9c93664124e"
+    },
+    {
+      "source": "MAPOGO",
+      "target": "馬運高 (L175)",
+      "id": "de61e018-642f-4b9a-89b0-66b8192c5238"
+    },
+    {
+      "source": "MARVEL AND GOLD",
+      "target": "神異金剛 (K109)",
+      "id": "9b5401cd-9fde-48b4-8467-b0052ef01a1e"
+    },
+    {
+      "source": "MASSIVE CONTENDER",
+      "target": "大天王 (L113)",
+      "id": "b96ad549-e291-44bd-a01c-0860dabad408"
+    },
+    {
+      "source": "MASSIVE GLORY",
+      "target": "大輝煌 (K205)",
+      "id": "72f93abc-478f-4af9-9ec6-68026d86f4e0"
+    },
+    {
+      "source": "MASSIVE REWARD",
+      "target": "大勇勝 (L331)",
+      "id": "94e94251-bef3-4b4f-88df-22059b94ce74"
+    },
+    {
+      "source": "MASSIVE SOVEREIGN",
+      "target": "大至尊 (J208)",
+      "id": "ff02bb24-3541-45db-9bb9-efcb4493d251"
+    },
+    {
+      "source": "MASTER CHAMPION",
+      "target": "長勝金剛 (K266)",
+      "id": "4cd14645-5645-4da4-b3b0-68a410f8e6e2"
+    },
+    {
+      "source": "MASTER LUCKY",
+      "target": "八仟好運 (K582)",
+      "id": "29a89ff5-7967-4c20-bc7e-6fd03ddbc397"
+    },
+    {
+      "source": "MASTER OF ALL",
+      "target": "勇冠群英 (H177)",
+      "id": "aeaa4820-eed6-4cae-bd94-941764d2956b"
+    },
+    {
+      "source": "MASTER OF HUMOR",
+      "target": "幽默大師 (K281)",
+      "id": "44ec75bf-33f4-4b68-9ebd-0a231a4650c4"
+    },
+    {
+      "source": "MASTER PATCH",
+      "target": "錶之能量 (L462)",
+      "id": "86442835-57ac-43d4-a2f6-3e12472c30a9"
+    },
+    {
+      "source": "MASTER PAYMENT",
+      "target": "支付之父 (L159)",
+      "id": "2f89c5e6-e7c1-4d16-92e6-c935ed442c67"
+    },
+    {
+      "source": "MASTER PHOENIX",
+      "target": "馬鳳凰 (J516)",
+      "id": "ab72c68e-29c2-45ac-be80-63273648342f"
+    },
+    {
+      "source": "MASTER RESOLUTE",
+      "target": "多多好馬 (K403)",
+      "id": "c15b47f5-30e8-438c-aa20-666b72bc45f6"
+    },
+    {
+      "source": "MASTER TRILLION",
+      "target": "八仟財陞 (J442)",
+      "id": "ea208162-4b51-4eaf-bf1f-b13ffd59db36"
+    },
+    {
+      "source": "MASTERHORSEMAN",
+      "target": "出類拔萃 (L253)",
+      "id": "6fb4d390-ab08-4888-a502-c394c5c54ce6"
+    },
+    {
+      "source": "MATSU VICTOR",
+      "target": "江南勇士 (H472)",
+      "id": "e4d0a13e-3029-46b7-a198-2a05ebf7fd95"
+    },
+    {
+      "source": "MATTERS MOST",
+      "target": "關鍵所在 (K154)",
+      "id": "e16bb05c-3ebc-431a-bae7-b4fd40c03713"
+    },
+    {
+      "source": "MATZDEN",
+      "target": "馬馳登 (L133)",
+      "id": "9f008672-5bd9-4790-b4fd-d9a176851c61"
+    },
+    {
+      "source": "MAX QUE",
+      "target": "勁沙塵 (J514)",
+      "id": "55c14924-5569-4dfa-b26f-c52b10b20c93"
+    },
+    {
+      "source": "MAZING GRACE",
+      "target": "知恩圖報 (K166)",
+      "id": "ed568913-e157-4c7a-98e6-f649df524fa0"
+    },
+    {
+      "source": "MEANINGFUL DRAGON",
+      "target": "百勝威龍 (H453)",
+      "id": "8d576827-5229-4153-b140-71011e77da64"
+    },
+    {
+      "source": "MEEPMEEP",
+      "target": "大利好運 (H234)",
+      "id": "8f1b32f1-944c-40d7-868a-9393f889af71"
+    },
+    {
+      "source": "MEGA AWESOME",
+      "target": "棉棉日上 (L323)",
+      "id": "3cf97f02-f800-4403-b511-b62ec3b109ae"
+    },
+    {
+      "source": "MEGA CAPTAIN",
+      "target": "文明戰士 (L287)",
+      "id": "068c834c-7dd7-4671-a1f4-39a4f0c8ffc7"
+    },
+    {
+      "source": "MEGA FORCE",
+      "target": "十力 (K200)",
+      "id": "9faf7419-df4e-4126-b344-2f6ef5420a13"
+    },
+    {
+      "source": "MEGA MASTERMIND",
+      "target": "睿智多寶 (L044)",
+      "id": "5912c1f3-0d82-45ca-a3a0-c4ca4b964358"
+    },
+    {
+      "source": "MEGASTAR HEART",
+      "target": "正本巨星 (L056)",
+      "id": "c6f68346-967a-40bc-9081-65b0b7ffc0a5"
+    },
+    {
+      "source": "MEOWTH",
+      "target": "喵喵怪 (J487)",
+      "id": "8bffb856-2ad7-4c2f-bf67-8ae9185217cf"
+    },
+    {
+      "source": "MERLION",
+      "target": "美獅魚 (L176)",
+      "id": "36906427-69be-49ec-b566-1dca66427a8c"
+    },
+    {
+      "source": "METRO POWER",
+      "target": "精彩福星 (K408)",
+      "id": "ba0b5f0c-f795-42ca-82b6-b15928663b0e"
+    },
+    {
+      "source": "MICKLEY",
+      "target": "米奇 (K082)",
+      "id": "1fea5679-75bd-4ac0-835a-ecb8522d59b1"
+    },
+    {
+      "source": "MID WINTER WIND",
+      "target": "駿跑得 (K208)",
+      "id": "56231928-2362-4fc8-beaa-db2d2d9043aa"
+    },
+    {
+      "source": "MIDNIGHT SMILE",
+      "target": "寬心知遇 (K454)",
+      "id": "5665625a-96d1-4fac-b2dc-3aa538068691"
+    },
+    {
+      "source": "MIGHTY COMMANDER",
+      "target": "三軍勇將 (J360)",
+      "id": "be901427-90b8-4dc6-a0f1-1ca5ee3c4851"
+    },
+    {
+      "source": "MIGHTY FIGHTER",
+      "target": "你知我寶 (L132)",
+      "id": "e444002e-b6ee-413c-b8b0-ec143382556b"
+    },
+    {
+      "source": "MIGHTY MASTS",
+      "target": "千帆駒 (L153)",
+      "id": "e1ea9d77-02d1-490b-a563-1f96b79d3750"
+    },
+    {
+      "source": "MIGHTY PROFIT",
+      "target": "滿利時 (L347)",
+      "id": "df53756a-17dd-46b6-9e60-1dbc0c81a610"
+    },
+    {
+      "source": "MIGHTY STEED",
+      "target": "勁進駒 (J384)",
+      "id": "86792aef-1b46-4999-95cc-1dce855c0ef7"
+    },
+    {
+      "source": "MIGHTY STRENGTH",
+      "target": "勁大威猛 (H450)",
+      "id": "734ea985-adcc-4dc9-b2b3-e3976f7b37da"
+    },
+    {
+      "source": "MISSION GIANT",
+      "target": "妙算強人 (K577)",
+      "id": "bf8d6c2e-2ab7-4b19-943e-5cce32447053"
+    },
+    {
+      "source": "MISSION KING",
+      "target": "妙算貴人 (L485)",
+      "id": "652bd79f-be75-47b9-8a36-f7a632910ef7"
+    },
+    {
+      "source": "MISTER DAPPER",
+      "target": "英駿飛駒 (H376)",
+      "id": "ade6a79a-3be4-48ba-a380-e98cd1b51fd0"
+    },
+    {
+      "source": "MOJAVE DESERT",
+      "target": "智跑得 (J330)",
+      "id": "fd78c328-7400-437a-84ff-b4a6f7120eef"
+    },
+    {
+      "source": "MOMENTS IN TIME",
+      "target": "智取神駒 (H474)",
+      "id": "4740acfd-0b4f-4a26-80ea-18306b8e371b"
+    },
+    {
+      "source": "MONARCH COUNTY",
+      "target": "仁仁有餘 (J421)",
+      "id": "b271c3d9-e149-41f0-b50c-ab2e092763d4"
+    },
+    {
+      "source": "MONDIAL",
+      "target": "驥跑得 (K206)",
+      "id": "6570d3c6-28f0-4d73-b186-f19172e070b3"
+    },
+    {
+      "source": "MONEY GAMES",
+      "target": "金錢遊戲 (L402)",
+      "id": "16119c49-1c76-4eae-beca-42f8174c138f"
+    },
+    {
+      "source": "MONEY TYCOON",
+      "target": "紅衣財神 (K423)",
+      "id": "38879e8f-8aa1-4618-848f-8212c5b2423e"
+    },
+    {
+      "source": "MONTA FRUTTA",
+      "target": "花果猴王 (H455)",
+      "id": "21168e14-225b-4e5a-b1c0-5f794b130c60"
+    },
+    {
+      "source": "MORGAN SUCCESS",
+      "target": "龍城精將 (K203)",
+      "id": "a3f11a57-fce6-4ab3-bed0-b1f026e9b10b"
+    },
+    {
+      "source": "MOTOR",
+      "target": "馬達 (K165)",
+      "id": "aaf66c72-75a9-4fe3-9e77-71d03afc46c0"
+    },
+    {
+      "source": "MOUNT EVEREST",
+      "target": "勇闖高峰 (K237)",
+      "id": "cfa5be9c-95b7-4524-89ab-3f92ef7f55c0"
+    },
+    {
+      "source": "MR ALADDIN",
+      "target": "同寶寶 (H386)",
+      "id": "f775b0ab-bab3-4ca8-83f6-e92aa7d43989"
+    },
+    {
+      "source": "MR COOL",
+      "target": "紅衣醒目 (K184)",
+      "id": "17c418e3-c981-4e6b-9feb-ff2177d9e23b"
+    },
+    {
+      "source": "MR DESIRA",
+      "target": "飛龍在天 (K411)",
+      "id": "e9882200-814a-405b-aa63-49af98c1fb63"
+    },
+    {
+      "source": "MR ENERGIA",
+      "target": "勁先生 (J239)",
+      "id": "314cf6cf-3d17-4da6-af9b-a76282834969"
+    },
+    {
+      "source": "MR GOOD VIBES",
+      "target": "駿先生 (H180)",
+      "id": "23c722bb-f9c9-415a-a20d-87e2c266ec16"
+    },
+    {
+      "source": "MR INCREDIBLE",
+      "target": "堅先生 (L232)",
+      "id": "908bad45-a743-432a-a2d3-6b43e72eaf48"
+    },
+    {
+      "source": "MR INVINCIBLE",
+      "target": "醒先生 (L448)",
+      "id": "e712d3cc-9c21-4a7b-adc7-03a6cdccf1ac"
+    },
+    {
+      "source": "MUGEN",
+      "target": "綠族無限 (H338)",
+      "id": "253aa2d7-9b8b-4f9f-88c5-350443aa4269"
+    },
+    {
+      "source": "MULTIDUTCH",
+      "target": "萬事得意 (K171)",
+      "id": "5ab6ba1f-7272-4395-bb79-df1c941c3126"
+    },
+    {
+      "source": "MULTIPERFECT",
+      "target": "萬事順 (L354)",
+      "id": "72bfd1ed-2afe-4902-8556-f98c985b577e"
+    },
+    {
+      "source": "MULTISUPERSTAR",
+      "target": "萬事勝利 (L163)",
+      "id": "15032bbf-41bc-4020-9fd5-069cd306fdb8"
+    },
+    {
+      "source": "MUST GO",
+      "target": "德心知遇 (J133)",
+      "id": "52eddc01-f45f-4dd7-be99-f4f32880cce3"
+    },
+    {
+      "source": "MY DAY MY WAY",
+      "target": "好節拍 (J519)",
+      "id": "532750b8-119d-4da3-951c-d7135208a827"
+    },
+    {
+      "source": "MY FLYING ANGEL",
+      "target": "美神來 (J174)",
+      "id": "4ec863c0-49c1-48c1-969e-6cd1ed548e50"
+    },
+    {
+      "source": "MY MARS",
+      "target": "煌上 (L301)",
+      "id": "06090f41-9d84-49f1-9d78-d60940b3b32b"
+    },
+    {
+      "source": "MY SUN",
+      "target": "煌令 (L289)",
+      "id": "fe9b38b1-eba0-4521-93a6-32057522c815"
+    },
+    {
+      "source": "MY TRIUMPH",
+      "target": "帶贏來 (K558)",
+      "id": "640399d7-3c74-4975-a7a8-0686d8adec8d"
+    },
+    {
+      "source": "MY WISH",
+      "target": "祝願 (J256)",
+      "id": "4275c73a-03f6-4390-91cd-71c52fdd4350"
+    },
+    {
+      "source": "MY WYNDFALL",
+      "target": "多利旺駒 (K445)",
+      "id": "d3b87d24-3832-4033-942f-c9f13f692f53"
+    },
+    {
+      "source": "NATURAL HIGH",
+      "target": "贏得自然 (J365)",
+      "id": "fb386e20-7edf-48d4-8805-13833e3ceb37"
+    },
+    {
+      "source": "NATURAL NUMBERS",
+      "target": "天然數字 (L166)",
+      "id": "248b3ffc-98b3-4f61-936c-3cff1518ab6f"
+    },
+    {
+      "source": "NAUTICAL FORCE",
+      "target": "海上大軍 (L187)",
+      "id": "bf288dda-8cbd-44cf-a9e7-b115760f2c77"
+    },
+    {
+      "source": "NAVAS G",
+      "target": "星光大道 (L194)",
+      "id": "95995837-bb63-4099-910e-3aadb1d3d99c"
+    },
+    {
+      "source": "NEBRASKAN",
+      "target": "獵寶勤 (J304)",
+      "id": "12868aef-93cc-4c8a-8ccf-6edcbe91ac11"
+    },
+    {
+      "source": "NEGENTROPY",
+      "target": "健康波 (L431)",
+      "id": "fcca0c7e-4fff-4455-8ab0-0e5985ec2172"
+    },
+    {
+      "source": "NEVER PETER OUT",
+      "target": "天威 (J200)",
+      "id": "8de444ef-0dfe-4a4b-977c-06eb01f9e14c"
+    },
+    {
+      "source": "NEVER SETTLE",
+      "target": "機不可失 (K417)",
+      "id": "8179c46a-b811-4ea5-83e0-862489771af9"
+    },
+    {
+      "source": "NEVER TOO SOON",
+      "target": "快搏 (E434)",
+      "id": "d4708595-2dfe-45c9-834b-4cc5d5fc378c"
+    },
+    {
+      "source": "NEW FUTURE FOLKS",
+      "target": "帥帥友福 (J418)",
+      "id": "eaf95114-64fe-4f5a-971d-ff4eb13773aa"
+    },
+    {
+      "source": "NEW POWER",
+      "target": "新力 (H325)",
+      "id": "a0581cec-c39f-461b-83a2-061bfe8b5a61"
+    },
+    {
+      "source": "NEXT FORTUNE",
+      "target": "歷勝 (L199)",
+      "id": "9e7b65f0-0017-4f8a-a02b-7bd4859a07a9"
+    },
+    {
+      "source": "NEZHA",
+      "target": "哪吒 (K494)",
+      "id": "01d94808-fa11-4c5c-8368-f43d05c06a1f"
+    },
+    {
+      "source": "NIGHT PUROSANGUE",
+      "target": "午夜快車 (J510)",
+      "id": "260a54ff-6850-4374-b1a9-d371279dfc71"
+    },
+    {
+      "source": "NINJA DERBY",
+      "target": "瀧澤飛駒 (H339)",
+      "id": "ca5d923e-6ab1-4282-b2be-0ff800983aa9"
+    },
+    {
+      "source": "NO OTHER CHOICE",
+      "target": "後無來者 (K049)",
+      "id": "4209408f-4a07-493d-998c-e10f6795c103"
+    },
+    {
+      "source": "NOBLE DELUXE",
+      "target": "魅力星 (K052)",
+      "id": "93097836-fc92-4b07-adb9-352a70c1bb87"
+    },
+    {
+      "source": "NOBLE FANS",
+      "target": "魅力知福 (K038)",
+      "id": "1823dac4-4da0-48b7-9c98-060420e49754"
+    },
+    {
+      "source": "NOBLE FIGHTER",
+      "target": "明智福將 (L365)",
+      "id": "8cf5fa2f-436c-427b-bad0-16ae64020373"
+    },
+    {
+      "source": "NOBLE HIGHNESS",
+      "target": "貴族精英 (L453)",
+      "id": "217b6576-9beb-4dfa-ba31-dc264e850179"
+    },
+    {
+      "source": "NOBLE PATCH",
+      "target": "錶之翠河 (L282)",
+      "id": "e2ec17ee-0339-4d7b-b352-72d9b200a334"
+    },
+    {
+      "source": "NOBLE PURSUIT",
+      "target": "大千氣象 (H324)",
+      "id": "5d72b81c-709b-4fb3-ad9c-2d9723ddf6bb"
+    },
+    {
+      "source": "NOBLE SUPERIOR",
+      "target": "浩然 (L392)",
+      "id": "7f307555-da6f-43ef-8651-2371d9d3d37e"
+    },
+    {
+      "source": "NOCTURNE",
+      "target": "開心鑽寶 (L356)",
+      "id": "ea49e7b6-ec0e-4cd7-aa2c-5a8b102b23be"
+    },
+    {
+      "source": "NOISY BOY",
+      "target": "優才 (J536)",
+      "id": "30cccd54-0dee-4a4d-99ae-30aae3ddde95"
+    },
+    {
+      "source": "NORTHERN BEAST",
+      "target": "北海盜 (H233)",
+      "id": "3028f22a-6614-4d88-b896-aeb15b5619ed"
+    },
+    {
+      "source": "NORTHERN FIRE BALL",
+      "target": "北地烈馬 (J488)",
+      "id": "71ef7778-e7b5-4dd2-a919-1af01270e96c"
+    },
+    {
+      "source": "NOT USUAL DOUBLE",
+      "target": "成就非凡 (L464)",
+      "id": "e438b84e-236b-4d73-83e7-fdf3ea5dc33d"
+    },
+    {
+      "source": "NOTTHESILLYONE",
+      "target": "大番薯 (J383)",
+      "id": "5ccecfb2-ee3c-41b0-b7ab-4dbb6e08ce3c"
+    },
+    {
+      "source": "NOVA TREE",
+      "target": "大樹萃星 (L403)",
+      "id": "26adbc63-75cd-451e-8128-ef3c538a30d1"
+    },
+    {
+      "source": "NUCLEOZOR",
+      "target": "奇異果 (K285)",
+      "id": "f373077a-0151-46c4-bde5-fa1686a18dce"
+    },
+    {
+      "source": "NUMBERS",
+      "target": "數字天文 (L080)",
+      "id": "8d16fe57-260b-4ad7-9f78-fa0fc88ce7ad"
+    },
+    {
+      "source": "NYX GLUCK",
+      "target": "嵐臣 (K438)",
+      "id": "b08d536d-05c7-49cb-b279-09a8f5200c3b"
+    },
+    {
+      "source": "OCEAN IMPACT",
+      "target": "蜜蜜送 (J502)",
+      "id": "bb5534f3-5b2d-4d67-b65f-94ddfcd3f2b8"
+    },
+    {
+      "source": "OLDTOWN",
+      "target": "鋁神 (K105)",
+      "id": "8a0d65eb-5136-4687-8ae2-af89fcfc9425"
+    },
+    {
+      "source": "ON THE LASH",
+      "target": "齊歡最樂 (J182)",
+      "id": "806f167b-de85-416a-95af-f7aa935a3183"
+    },
+    {
+      "source": "ON THE WAY",
+      "target": "隨想曲 (L154)",
+      "id": "8d37319e-bc74-47ea-b0e7-2fb6fdacee03"
+    },
+    {
+      "source": "ONE MAN SHOW",
+      "target": "顯勝高昇 (K409)",
+      "id": "f41e1357-cab1-4340-8a19-72dca9ce2fdf"
+    },
+    {
+      "source": "ONE MORE",
+      "target": "百威多贏 (K261)",
+      "id": "9eae5fab-71c4-46bd-9a57-b7a905699232"
+    },
+    {
+      "source": "ONESHOT",
+      "target": "一舖掂晒 (L105)",
+      "id": "7231dd78-0918-42ac-8297-df89bb520305"
+    },
+    {
+      "source": "ONLY U",
+      "target": "銳一 (J037)",
+      "id": "87039e92-d40d-45fb-88f0-f73717c62875"
+    },
+    {
+      "source": "ORIENTAL SURPRISE",
+      "target": "東方魅影 (K028)",
+      "id": "ada2071e-8d4d-4a4d-ab44-9f30f8e7affc"
+    },
+    {
+      "source": "ORIGIN OF FORM",
+      "target": "方圓星 (K517)",
+      "id": "9f2581a6-d995-49ea-aac6-e74212a2a27d"
+    },
+    {
+      "source": "OUR LUCKY GLORY",
+      "target": "多利神駒 (G292)",
+      "id": "d9ef3c29-cc23-4c0f-98f5-66ef50b76fce"
+    },
+    {
+      "source": "OUTGATE",
+      "target": "亞機拉 (H113)",
+      "id": "395dcb21-40ef-490f-92da-ef5730ab5a64"
+    },
+    {
+      "source": "PACKING ANGEL",
+      "target": "包裝福星 (J454)",
+      "id": "22761071-e5c3-4432-a414-fdddb1a25549"
+    },
+    {
+      "source": "PACKING FIGHTER",
+      "target": "包裝戰仕 (L112)",
+      "id": "bcff7236-1f13-4ef4-ba57-a3fcf65acde4"
+    },
+    {
+      "source": "PACKING GLORY",
+      "target": "包裝明將 (L013)",
+      "id": "d3231d24-86b2-44ca-80b5-9ba0256535a1"
+    },
+    {
+      "source": "PACKING HERMOD",
+      "target": "包裝天將 (J277)",
+      "id": "a2ea1696-5dcd-40a5-b4c1-53416a5229e1"
+    },
+    {
+      "source": "PACKING KING",
+      "target": "包裝天王 (K570)",
+      "id": "c0d4aae8-d8f7-4cdf-b145-9b4233771c9c"
+    },
+    {
+      "source": "PACKING PIONEER",
+      "target": "包裝傳奇 (L499)",
+      "id": "f5eea5a7-65b0-4ef8-aefe-f3840daa0f38"
+    },
+    {
+      "source": "PAKISTAN LEGACY",
+      "target": "巴基之勝 (J363)",
+      "id": "80e1efd6-46a4-4a15-8b0c-16173258e82d"
+    },
+    {
+      "source": "PANACEA",
+      "target": "自然動力 (K256)",
+      "id": "23f24201-52b8-4901-9e53-23a29b4d61ef"
+    },
+    {
+      "source": "PANDA BEAR",
+      "target": "熊啤啤 (L451)",
+      "id": "3439dadf-049f-4aa0-b1d4-26808b4e5752"
+    },
+    {
+      "source": "PANDA LEGEND",
+      "target": "熊噹噹 (H002)",
+      "id": "d9a181e2-0e87-4801-a8e5-8253c93b988f"
+    },
+    {
+      "source": "PAPAYA BROSE",
+      "target": "禾道豐 (L264)",
+      "id": "0a7a2e1c-eb70-4132-b9a9-2ae1d4757c79"
+    },
+    {
+      "source": "PARENTS' LOVE",
+      "target": "勝萬金 (H405)",
+      "id": "4dcd7147-11c9-4f77-a285-34bc5cda55b3"
+    },
+    {
+      "source": "PARROT BLESSING",
+      "target": "鸚姿威鵡 (L063)",
+      "id": "09fa1099-146c-4d8c-9597-642280dcf21d"
+    },
+    {
+      "source": "PASS LINE",
+      "target": "傲聖 (L384)",
+      "id": "04e3a8dc-927f-4cd6-aee1-22c06dedbbc2"
+    },
+    {
+      "source": "PATCH OF COSMO",
+      "target": "錶之宇宙 (J357)",
+      "id": "c8a2b689-b8ed-4b62-a95e-7640df9d21d1"
+    },
+    {
+      "source": "PATCH OF STARS",
+      "target": "錶之星河 (J343)",
+      "id": "793f0f35-323e-484f-8a75-6a8b3b4e20de"
+    },
+    {
+      "source": "PATCH OF THETA",
+      "target": "手機錶霸 (H485)",
+      "id": "4e4cc9f6-1e0c-4579-8418-0a52fca61335"
+    },
+    {
+      "source": "PATONGA HEART",
+      "target": "正本良心 (L382)",
+      "id": "42f22e65-f5b9-4ec0-9b1a-9352018912f1"
+    },
+    {
+      "source": "PEARL HERITAGE",
+      "target": "珍珠傳承 (L272)",
+      "id": "e738f26c-fb29-425b-80e2-3060c3bfc512"
+    },
+    {
+      "source": "PEARL OF PANG'S",
+      "target": "彭玥 (J447)",
+      "id": "ea7c968a-93b8-4c4c-9488-be188090e67c"
+    },
+    {
+      "source": "PEGAS",
+      "target": "飛馬座 (L075)",
+      "id": "6b9dbbbe-5ccb-4c46-adf1-b2908fe2ab66"
+    },
+    {
+      "source": "PEGASUS ELITE",
+      "target": "飛馬精英 (L440)",
+      "id": "2d989676-9cdd-4ba9-ba1e-a36ed9293a87"
+    },
+    {
+      "source": "PEJIBAYE",
+      "target": "葳莉非凡 (K297)",
+      "id": "15a9edf4-5d6b-4576-87f3-9cc03c4e7214"
+    },
+    {
+      "source": "PERFECT GENERAL",
+      "target": "精彩駿將 (J417)",
+      "id": "8d09ce3f-3a2f-4054-a726-69451ba53cc5"
+    },
+    {
+      "source": "PERFECT ONE",
+      "target": "通情達理 (L183)",
+      "id": "f5e58477-c28e-4463-9079-9c009040c05d"
+    },
+    {
+      "source": "PERFECT PAIRING",
+      "target": "幸運同行 (J331)",
+      "id": "dc65bb9a-1b4b-4bd1-9ee3-2fc217316d66"
+    },
+    {
+      "source": "PERFECT PEACH",
+      "target": "桃花多 (E488)",
+      "id": "37d24603-bdcc-45db-8272-7bf9bd99216c"
+    },
+    {
+      "source": "PERFECT TEAM",
+      "target": "精彩動力 (H120)",
+      "id": "60f12eab-cec7-4781-a643-297df3b28098"
+    },
+    {
+      "source": "PERFECT TRIUMPH",
+      "target": "精彩勇將 (L275)",
+      "id": "3cd7896b-8778-4e54-8d75-9b86adadfd45"
+    },
+    {
+      "source": "PERFECTDAY",
+      "target": "臻至辰 (K238)",
+      "id": "7bf9e424-9306-4516-82f2-fb7ccd1f7007"
+    },
+    {
+      "source": "PERFECTO MOMENTS",
+      "target": "勁爽 (J003)",
+      "id": "e9cc59ce-8c63-41a1-9473-550f33ac0f1e"
+    },
+    {
+      "source": "PERIDOT",
+      "target": "增旺 (K148)",
+      "id": "59f57cf0-3999-4d04-8fe0-25a444d9efc3"
+    },
+    {
+      "source": "PHANTOM CYCLONE",
+      "target": "幻影旋風 (J271)",
+      "id": "d3d11076-d174-436b-9923-90eec8af5803"
+    },
+    {
+      "source": "PHOENIX LIGHT",
+      "target": "大才 (G192)",
+      "id": "cce65a39-05e4-43f5-9337-560d07d1bc75"
+    },
+    {
+      "source": "PI LEGEND",
+      "target": "偵探傳奇 (L117)",
+      "id": "81215b94-6a91-401e-a1b5-ac3c19950e4e"
+    },
+    {
+      "source": "PING HAI COMET",
+      "target": "平海之星 (H344)",
+      "id": "6b164dda-e21a-4917-9ce8-870cb81368ee"
+    },
+    {
+      "source": "PLENTIFUL",
+      "target": "同滿滿 (G400)",
+      "id": "3dc4230b-b9a7-4e6b-aef0-997c3c77e756"
+    },
+    {
+      "source": "PLENTY BONUS",
+      "target": "滿鴻利 (L439)",
+      "id": "c7ff2eee-e579-495a-a3a6-a2c6e5b78d79"
+    },
+    {
+      "source": "POCKETING",
+      "target": "展雄志 (L396)",
+      "id": "b368c793-cbb8-452c-a8f9-cf48e9669867"
+    },
+    {
+      "source": "PODIUM",
+      "target": "焦點 (H173)",
+      "id": "d87b4e7a-09e2-46fc-b484-55393f56452e"
+    },
+    {
+      "source": "POET'S REIGN",
+      "target": "文采風流 (L021)",
+      "id": "13630e74-0682-4665-89dd-5780924d8987"
+    },
+    {
+      "source": "POLAR PATCH",
+      "target": "北極之錶 (L211)",
+      "id": "d1e0804c-50f4-497a-b9fc-a338407a6813"
+    },
+    {
+      "source": "POPE CODY",
+      "target": "幸運派彩 (K313)",
+      "id": "6055a712-0e2a-4752-b0ca-80616c7ea0a0"
+    },
+    {
+      "source": "POSITIVE SMILE",
+      "target": "心雄雄 (J467)",
+      "id": "c71a586d-5d20-4528-b94e-443390c40442"
+    },
+    {
+      "source": "POWER KOEPP",
+      "target": "電源之駒 (E301)",
+      "id": "2b0696c9-a9ca-4340-a028-01763d0e29c9"
+    },
+    {
+      "source": "POWER OF COURAGE",
+      "target": "眾志成城 (L246)",
+      "id": "ebde9d58-c3f7-4108-9b13-196aade364b4"
+    },
+    {
+      "source": "POWER OF VITAM",
+      "target": "泰力 (L171)",
+      "id": "83141502-60a9-4ffc-b253-9e3e9ddd4656"
+    },
+    {
+      "source": "POWER PATCH",
+      "target": "錶之無限 (L100)",
+      "id": "915cf494-4c51-4a97-a40f-7709a5fc67fe"
+    },
+    {
+      "source": "POWER SUMMIT",
+      "target": "問鼎巔峰 (K044)",
+      "id": "098dae63-36a6-48a3-909e-0aac079c1d85"
+    },
+    {
+      "source": "PRAY FOR JUSTICE",
+      "target": "正義波 (K473)",
+      "id": "3ddd0b5b-93b9-4463-9280-30064c6a3a8e"
+    },
+    {
+      "source": "PRAY FOR MIR",
+      "target": "和平波 (J245)",
+      "id": "e7c903ce-a889-4b1d-ab3d-94b81f0e9987"
+    },
+    {
+      "source": "PRECISION HOPE",
+      "target": "準希望 (L047)",
+      "id": "cffb7b44-612a-450b-943c-c8ca859b7339"
+    },
+    {
+      "source": "PRECISION MIND",
+      "target": "天寶威威 (L296)",
+      "id": "ef5cd01f-ae40-416c-b7fc-dbccde431426"
+    },
+    {
+      "source": "PRESIDENT PEGASUS",
+      "target": "總統輝煌 (L241)",
+      "id": "ad28f69a-b654-40c2-ab75-f4ba16d093f5"
+    },
+    {
+      "source": "PRESTIGE ALWAYS",
+      "target": "盈妍威楓 (J300)",
+      "id": "a9e0ff71-0964-4492-b0d0-050f054c71b2"
+    },
+    {
+      "source": "PRESTIGE COME",
+      "target": "盈妮威楓 (L261)",
+      "id": "e90267d1-faaf-438a-8fa2-989eba26e5d4"
+    },
+    {
+      "source": "PRESTIGE EMPEROR",
+      "target": "皇者威楓 (L158)",
+      "id": "e09743f8-4b62-4d1e-acb8-6d5834c88e7a"
+    },
+    {
+      "source": "PRESTIGE GOOD",
+      "target": "盈好威楓 (K131)",
+      "id": "69622be2-9d9b-4bc7-a93f-a401b81decf6"
+    },
+    {
+      "source": "PRESTIGE GREAT",
+      "target": "八駿威楓 (L206)",
+      "id": "733f5d39-65e0-4d48-bb9d-2f94fa6a015e"
+    },
+    {
+      "source": "PRESTIGE HALL",
+      "target": "賢者威楓 (K040)",
+      "id": "d802ce9e-fc11-4d15-ba67-9b467cc551af"
+    },
+    {
+      "source": "PRESTIGE PARTNER",
+      "target": "威威拍檔 (L503)",
+      "id": "7ef02b62-1bbd-414b-b887-ff8886030429"
+    },
+    {
+      "source": "PRESTIGE RICKY",
+      "target": "瑞祺威楓 (K009)",
+      "id": "4e37ac17-e1d3-430c-a599-16dc8fe8a5c5"
+    },
+    {
+      "source": "PRESTIGE SUPERIOR",
+      "target": "傲然 (K383)",
+      "id": "3e3b2517-c2d1-48a6-8090-51980b1738aa"
+    },
+    {
+      "source": "PRESTIGE WIN",
+      "target": "贏得威楓 (L248)",
+      "id": "5b020845-a0e9-4cde-a721-f1ff694497d4"
+    },
+    {
+      "source": "PRIME ACE",
+      "target": "八玲瓏 (L443)",
+      "id": "50561b8d-ea2a-4b61-8044-2ed97c47d0b6"
+    },
+    {
+      "source": "PRIME SUCCESS",
+      "target": "龍城上將 (L300)",
+      "id": "aaf72c79-fb75-475c-996a-de8da770df41"
+    },
+    {
+      "source": "PRIME WINISTER",
+      "target": "大丞相 (L218)",
+      "id": "f4795a0e-2d38-440c-96b7-b6dc3ead29b4"
+    },
+    {
+      "source": "PRINCE ALEX",
+      "target": "大力猴王 (G307)",
+      "id": "8f101bf3-aad3-4e2a-b7c4-466c9f4ef044"
+    },
+    {
+      "source": "PRIVATE WEALTH",
+      "target": "擅搏 (L177)",
+      "id": "015e9aca-0058-4788-8611-2dfde50955db"
+    },
+    {
+      "source": "PROUD BOX",
+      "target": "洪才 (K487)",
+      "id": "d1598b23-d036-48f8-ba22-8a82102bd368"
+    },
+    {
+      "source": "PUBLIC ATTENTION",
+      "target": "威利金箭 (L035)",
+      "id": "413ce42f-0dd7-4c87-860b-666f7fd3e223"
+    },
+    {
+      "source": "PUDDING GOGO",
+      "target": "布丁快跑 (L450)",
+      "id": "931709fd-c505-406a-877e-5be561434edc"
+    },
+    {
+      "source": "QUANTUM CLOUD",
+      "target": "天馬行雲 (L221)",
+      "id": "03b52f4e-ec16-45b9-896c-4e4dd45d6d26"
+    },
+    {
+      "source": "QUANTUM LEGEND",
+      "target": "量子力奇 (L268)",
+      "id": "71fe6ad6-03f7-4a73-8920-ebf8e6b48291"
+    },
+    {
+      "source": "QUANTUM PATCH",
+      "target": "錶之量子 (H166)",
+      "id": "47f37a12-920f-4981-b859-eb1ba4cb94e6"
+    },
+    {
+      "source": "QUANTUM WUKONG",
+      "target": "量子猴王 (L393)",
+      "id": "feff943d-a2f0-4d43-ae0e-83fb46d688d6"
+    },
+    {
+      "source": "QUARTZ LEGEND",
+      "target": "川河石駒 (K548)",
+      "id": "eae04729-51e8-46ac-8ab8-191161f5e7af"
+    },
+    {
+      "source": "QUICK CONTRIBUTION",
+      "target": "飛躍成就 (K112)",
+      "id": "ea710771-3fcb-4311-acf3-53e76fbd3628"
+    },
+    {
+      "source": "QUICK MONEY",
+      "target": "不勞而獲 (K377)",
+      "id": "1e77870d-312c-4e45-bc23-8c64784324e6"
+    },
+    {
+      "source": "RACINGRACE",
+      "target": "日頌月讚 (J102)",
+      "id": "f3c7c6d3-1705-450d-9f8f-6c6c8469bef0"
+    },
+    {
+      "source": "RADIANT PATH",
+      "target": "睿明途嘉 (L407)",
+      "id": "deed5903-fbd3-4c9d-b4dd-9a2ebc1f4834"
+    },
+    {
+      "source": "RAGGA BOMB",
+      "target": "佳登 (K162)",
+      "id": "ca51417b-7746-448f-99ff-fa27880683d2"
+    },
+    {
+      "source": "RAGING BLIZZARD",
+      "target": "精算暴雪 (H368)",
+      "id": "ec942234-1ed5-4a2f-b006-d97cb876bf2c"
+    },
+    {
+      "source": "RAGING WARRIOR",
+      "target": "騰雲絕影 (L401)",
+      "id": "721e70a0-8ef5-4197-bd4b-685275eda267"
+    },
+    {
+      "source": "RAINBOW SEVEN",
+      "target": "彩虹七色 (K145)",
+      "id": "16edbb08-5a15-4c14-8682-f9b1fae238d9"
+    },
+    {
+      "source": "RAPID PHANTOM",
+      "target": "極速神影 (L204)",
+      "id": "7d760b0e-a077-46ec-be6f-070238e478ca"
+    },
+    {
+      "source": "RATTAN GALAXY",
+      "target": "籐王駒 (K143)",
+      "id": "cb2cb7b3-2b11-414c-bab6-9fc615e8e38e"
+    },
+    {
+      "source": "REAL GENTLEMAN",
+      "target": "君子 (K534)",
+      "id": "630f0193-99f8-4599-b4f1-0ef888fb4c76"
+    },
+    {
+      "source": "REAL TIME",
+      "target": "精巧時計 (L042)",
+      "id": "a092eb3f-90a3-4971-8d65-019b777ae54a"
+    },
+    {
+      "source": "REBORN HERO",
+      "target": "英雄豪俠 (L458)",
+      "id": "1b5f96fc-42cb-4a6d-966a-e7bdcf1f7dcc"
+    },
+    {
+      "source": "RED BRICK WARRIOR",
+      "target": "紅磚戰士 (K580)",
+      "id": "5b7b3668-3bc7-4905-890e-1d57e7d57fce"
+    },
+    {
+      "source": "RED ELEGANCE",
+      "target": "紅逸舍 (H241)",
+      "id": "6d569f46-99ae-4824-9012-872d32d52cd0"
+    },
+    {
+      "source": "RED MAESTRO",
+      "target": "紅運光輝 (L030)",
+      "id": "6ce15647-1666-4e45-9b6b-76ba1a0849ec"
+    },
+    {
+      "source": "RED SEA",
+      "target": "赤海 (L195)",
+      "id": "c411f42d-195e-4c71-9d2f-fcb7c0e889ac"
+    },
+    {
+      "source": "REFUSETOBEENGLISH",
+      "target": "太子 (K362)",
+      "id": "582e0a0b-8038-475f-970e-d8a6c30d1cff"
+    },
+    {
+      "source": "REGAL GEM",
+      "target": "至尊瑰寶 (K258)",
+      "id": "c1abceb8-9e88-4640-ab88-4f50c4eec840"
+    },
+    {
+      "source": "REGENCY DREAM",
+      "target": "帝豪先鋒 (K499)",
+      "id": "c5909ad5-c80c-4699-ab95-5766a92402e2"
+    },
+    {
+      "source": "REGROWTH WINNER",
+      "target": "活得健康 (L140)",
+      "id": "64739c02-5468-482a-a33d-26f2781f8292"
+    },
+    {
+      "source": "RELENTLESS PURSUIT",
+      "target": "大千赤風 (L208)",
+      "id": "bfa71ff2-4710-4773-8c23-db2478a94c76"
+    },
+    {
+      "source": "RELIABLE DAD",
+      "target": "愛心波 (L006)",
+      "id": "4b5de50c-4196-4348-9f1d-4079c5eb6dcd"
+    },
+    {
+      "source": "RELIABLE PROFIT",
+      "target": "堅有利 (G462)",
+      "id": "9cde63bd-f1e0-4e4e-abd6-d7cc9c4850ba"
+    },
+    {
+      "source": "REWARDING TWINKLE",
+      "target": "駿馬之星 (J368)",
+      "id": "b5313aed-f495-41d6-bf4e-11593786b01f"
+    },
+    {
+      "source": "RICH HORSE",
+      "target": "富貴駒 (J191)",
+      "id": "3b34ed8d-eaf0-4b34-be25-619eab1d8614"
+    },
+    {
+      "source": "RIDING HIGH",
+      "target": "同喜 (J403)",
+      "id": "41cff08d-f94e-44c4-9c53-d09cf21013af"
+    },
+    {
+      "source": "RIDING TOGETHER",
+      "target": "同心同樂 (K081)",
+      "id": "9df418ba-50f6-4a20-832a-94311e4f0aa7"
+    },
+    {
+      "source": "RISING ELITE",
+      "target": "旭能精英 (K544)",
+      "id": "b74b8aa5-41d9-42c4-8e3c-7ca7ec5a76f2"
+    },
+    {
+      "source": "RISING FORCE",
+      "target": "扶搖勢勁 (K236)",
+      "id": "d0ffeaef-bc59-4268-a02d-491ef7ee146d"
+    },
+    {
+      "source": "RISING FROM ASHES",
+      "target": "自力更生 (G209)",
+      "id": "177df9dd-561b-46be-b621-b89c99c557b5"
+    },
+    {
+      "source": "RISING FROM EAST",
+      "target": "日出沙頭 (L145)",
+      "id": "e84004c3-90b7-47e5-80a6-d7cfbd2213c5"
+    },
+    {
+      "source": "RISING PHOENIX",
+      "target": "金滙千帥 (J498)",
+      "id": "90e6cdbc-07c0-44f9-a323-050d10d1bab3"
+    },
+    {
+      "source": "RISING WORLD",
+      "target": "共建世界 (L276)",
+      "id": "120a3ffc-a3be-459a-8d6e-7f4d291a40f9"
+    },
+    {
+      "source": "ROAD TO GLORY",
+      "target": "龍文正道 (L415)",
+      "id": "7bbe880d-c875-4e4c-91b1-d368a9fc3f7e"
+    },
+    {
+      "source": "ROBOT CHAMPION",
+      "target": "機械勇士 (L498)",
+      "id": "a790d652-fed1-4daf-ac80-7a2dd9ceca8b"
+    },
+    {
+      "source": "ROBOT KNIGHT",
+      "target": "機械騎士 (H464)",
+      "id": "9640e11b-469f-47c0-91e0-b1986fedc480"
+    },
+    {
+      "source": "ROBOT LUCKY STAR",
+      "target": "官金騏 (K485)",
+      "id": "cb4aa6c5-17dd-4a91-a52d-5c1dc1729a2d"
+    },
+    {
+      "source": "ROBOT STAR",
+      "target": "機械之星 (K559)",
+      "id": "73d1309c-a544-4d4b-848c-64fcdd23f4cf"
+    },
+    {
+      "source": "ROCK MY BABY",
+      "target": "爭氣 (L404)",
+      "id": "3bd01821-27f3-4494-8980-b169625fa144"
+    },
+    {
+      "source": "ROCK YOUR DREAM",
+      "target": "逐夢想 (L465)",
+      "id": "6e034160-7d16-4295-b4f0-b7dc7672d9f9"
+    },
+    {
+      "source": "ROMANTIC FANTASY",
+      "target": "夢照發 (H168)",
+      "id": "933bde05-a46e-4cda-bf6b-85cae7cc1c58"
+    },
+    {
+      "source": "ROMANTIC GLADIATOR",
+      "target": "浪漫鬥士 (L240)",
+      "id": "1560caec-5786-4735-b248-bd1f304a11e4"
+    },
+    {
+      "source": "ROMANTIC LAOS",
+      "target": "浪漫老撾 (G476)",
+      "id": "1b128c66-4a88-464a-af57-c3fe58b1a262"
+    },
+    {
+      "source": "ROMANTIC SON",
+      "target": "友愛心得 (J537)",
+      "id": "fee9b05c-8a60-4a36-a40e-42fd7af950fc"
+    },
+    {
+      "source": "ROMANTIC THOR",
+      "target": "浪漫戰神 (K012)",
+      "id": "540835d6-0a25-4cc3-b29a-d3316e0ef05e"
+    },
+    {
+      "source": "ROMANTIC WARRIOR",
+      "target": "浪漫勇士 (E486)",
+      "id": "44304d3c-faaa-4cb0-b24d-ad89b383f7d8"
+    },
+    {
+      "source": "ROSEWOOD FLEETFOOT",
+      "target": "捷足奔馳 (J524)",
+      "id": "132b2ffe-8a37-4e57-9be3-11d311de376b"
+    },
+    {
+      "source": "ROYAL BLITZ",
+      "target": "電光高昇 (L375)",
+      "id": "a94e8134-940a-4aa9-b6c7-8e8cf380424a"
+    },
+    {
+      "source": "RUBY SAILING",
+      "target": "紅海風帆 (H347)",
+      "id": "3944f0cc-8ae1-4d08-8a87-1d39f30ca991"
+    },
+    {
+      "source": "RUBY THRIVE",
+      "target": "紅海旺 (L098)",
+      "id": "e1b321e1-7106-4c4f-b4a8-b512c10a9d3d"
+    },
+    {
+      "source": "RUBYLOT",
+      "target": "球星 (H412)",
+      "id": "ed541610-522f-4ad3-967d-c77c88f9a4e1"
+    },
+    {
+      "source": "RUN RUN SMART",
+      "target": "自動自覺 (K080)",
+      "id": "39b6a786-c090-4d1d-ab69-f2b2953a568e"
+    },
+    {
+      "source": "RUN RUN SUNRISE",
+      "target": "日出東方 (K552)",
+      "id": "3891b4a1-5c49-4521-92e6-afa389fd7deb"
+    },
+    {
+      "source": "RUN RUN TIMING",
+      "target": "時間寶 (H403)",
+      "id": "4db9f320-b32c-45cc-a8d1-3889f46ad626"
+    },
+    {
+      "source": "RUN YES RUN",
+      "target": "東昇鉞 (J264)",
+      "id": "3b285b29-54a9-49f0-992d-bcae0a927275"
+    },
+    {
+      "source": "RUNJEET",
+      "target": "花香月明 (K276)",
+      "id": "06f9f622-9950-4146-9f21-13269343b2d5"
+    },
+    {
+      "source": "RUSSET GLOW",
+      "target": "安定神駒 (L059)",
+      "id": "b859e302-d62c-40da-9920-3b3fc58e3021"
+    },
+    {
+      "source": "RYUI KOKOROE",
+      "target": "龍威心得 (L120)",
+      "id": "542394bd-3ab8-419c-9103-6b196957d896"
+    },
+    {
+      "source": "SAGACIOUS LIFE",
+      "target": "睿盛人生 (K507)",
+      "id": "e398ed54-8e9c-40f4-a60a-6160fb345729"
+    },
+    {
+      "source": "SALON S",
+      "target": "極上紗瓏 (K585)",
+      "id": "22199632-6efc-4c95-8cfe-8c0a84eef30a"
+    },
+    {
+      "source": "SAMARKAND",
+      "target": "建測羣英 (H070)",
+      "id": "6fe9c850-f14a-426d-beb8-bae46d06c29f"
+    },
+    {
+      "source": "SAME TO YOU",
+      "target": "有你有我 (H057)",
+      "id": "2865ae92-0e2a-4700-89ee-30876f52965e"
+    },
+    {
+      "source": "SASSPHIRE",
+      "target": "睿麗人生 (L400)",
+      "id": "09bc02fe-0078-47f9-a344-b19fd5aba190"
+    },
+    {
+      "source": "SAVVY BRILLIANT",
+      "target": "耀寶 (J437)",
+      "id": "d269387c-acf1-4085-bcbf-3d1389493c23"
+    },
+    {
+      "source": "SAVVY WARRIOR",
+      "target": "戰寶 (K257)",
+      "id": "f58ce70d-3558-4431-9bfc-843f1fc48d1d"
+    },
+    {
+      "source": "SCARLET REIGN",
+      "target": "紅日傾城 (L343)",
+      "id": "75068d93-bcfb-48cd-afc0-406ae002121a"
+    },
+    {
+      "source": "SCORCHING LEGEND",
+      "target": "川河煌駒 (L081)",
+      "id": "fe065dab-fc9a-45a6-99bc-a8e5773d1e92"
+    },
+    {
+      "source": "SEA CHARIOT",
+      "target": "士登 (K358)",
+      "id": "4408cee3-9cce-4afd-9171-9c5c9c2984ca"
+    },
+    {
+      "source": "SEA DIAMOND",
+      "target": "海鑽石 (L072)",
+      "id": "5ae58958-efdf-4728-95c1-e0885f3f1728"
+    },
+    {
+      "source": "SECRET HEDGE",
+      "target": "精算無雙 (L438)",
+      "id": "f3776338-dcd2-4ac5-820b-b2e435612b85"
+    },
+    {
+      "source": "SECRET INGREDIENT",
+      "target": "雙劍合璧 (L290)",
+      "id": "fc8874d0-cd2f-4079-9c6e-95a95dbab735"
+    },
+    {
+      "source": "SELF IMPROVEMENT",
+      "target": "自強不息 (H337)",
+      "id": "930ced8e-257b-43ec-a8fb-3a095a3b3011"
+    },
+    {
+      "source": "SERANGOON",
+      "target": "八駿笑昇 (H296)",
+      "id": "8b9a00ba-0679-47d9-a9ec-1b64aa88c8c0"
+    },
+    {
+      "source": "SERAPH GABRIEL",
+      "target": "紫荊傳令 (L108)",
+      "id": "1ecc2409-1c77-488e-9b4c-9629d8d03961"
+    },
+    {
+      "source": "SETANTA",
+      "target": "駟跑得 (G095)",
+      "id": "09f99f7c-2bb9-48de-879c-917e9127d7b0"
+    },
+    {
+      "source": "SEWARD",
+      "target": "一騎絕塵 (K563)",
+      "id": "950680cb-1d17-40bc-b0c8-c1ccdfeda01b"
+    },
+    {
+      "source": "SHAMUS STORM",
+      "target": "紫荊拼搏 (K031)",
+      "id": "29c62e4d-dc59-4aaa-852b-9ada77283a01"
+    },
+    {
+      "source": "SHAMZ",
+      "target": "劍飛聲 (L097)",
+      "id": "d3e5de29-36b1-42b3-bdb3-6b05e2812b0b"
+    },
+    {
+      "source": "SHANDONG SPIRIT",
+      "target": "傳承精神 (L156)",
+      "id": "b99922f0-cbf5-451f-8c72-dcf08df11a4c"
+    },
+    {
+      "source": "SHANGHAI STYLE",
+      "target": "有派頭 (J093)",
+      "id": "a851d938-dabb-4231-a692-9d045721404e"
+    },
+    {
+      "source": "SHANGHAI WARRIOR",
+      "target": "上海勇士 (L434)",
+      "id": "8af48811-7f47-4249-a75c-0a3f9dcb5fd3"
+    },
+    {
+      "source": "SHANNON GLOW",
+      "target": "紫荊飛躍 (L445)",
+      "id": "f9e4ec7a-b1cf-4404-a17c-4b74c531f6b8"
+    },
+    {
+      "source": "SHANWAH",
+      "target": "星幻 (L123)",
+      "id": "3d093415-68c2-4e19-9001-4acd30881fa2"
+    },
+    {
+      "source": "SHARP PLANET",
+      "target": "銳行星 (L308)",
+      "id": "fb7b8aa2-2fda-469a-aa2e-5da2656378e9"
+    },
+    {
+      "source": "SHARPEN BRIGHT",
+      "target": "一支箭 (H276)",
+      "id": "92a953d8-433d-4dca-8a04-22c50dd9ecf4"
+    },
+    {
+      "source": "SHINYU KOKOROE",
+      "target": "摯友心得 (K263)",
+      "id": "6a0f1db6-eee7-4b61-b31f-c90917575f11"
+    },
+    {
+      "source": "SHOOTING TO TOP",
+      "target": "贏玥 (L039)",
+      "id": "7910c8fb-7c6c-4121-99bc-deff839b1700"
+    },
+    {
+      "source": "SHOTGUN",
+      "target": "盛勢威楓 (K111)",
+      "id": "5c42b629-4110-43c6-b4fe-fd44c0eb5088"
+    },
+    {
+      "source": "SHOW ME YOUR LOVE",
+      "target": "紅悅舍 (L355)",
+      "id": "7cb23b24-9ca9-45f8-af20-5883c25fbd69"
+    },
+    {
+      "source": "SIGHT DREAMER",
+      "target": "巧眼光 (J542)",
+      "id": "14dd60f8-c9ee-4694-baa4-7982b540da39"
+    },
+    {
+      "source": "SIGHT GENIUS",
+      "target": "醒眼光 (L490)",
+      "id": "a9a829c2-668e-4684-ae3b-079f9249a07e"
+    },
+    {
+      "source": "SIGHT HERMOSO",
+      "target": "俏眼光 (L003)",
+      "id": "1c946653-f635-4181-bb3d-f89ca4deb92e"
+    },
+    {
+      "source": "SILVER BLAZE",
+      "target": "各絲各法 (L164)",
+      "id": "dbf3e0dd-f523-4298-ad7e-cc4a6afed487"
+    },
+    {
+      "source": "SILVER SPURS",
+      "target": "銀刺勇士 (J043)",
+      "id": "2bb2c25c-8a36-44b3-b33b-b4397c5550e3"
+    },
+    {
+      "source": "SILVER UP",
+      "target": "銀騰 (J078)",
+      "id": "a1a8a00b-aa04-4cb6-be57-8b555dd32d21"
+    },
+    {
+      "source": "SILVERY BREEZE",
+      "target": "銀亮奔騰 (K057)",
+      "id": "25558dce-458b-4071-8b37-b9fef1f0c478"
+    },
+    {
+      "source": "SILVERY KNIGHT",
+      "target": "銀騎士 (L236)",
+      "id": "70ff4dc0-ec6b-4f89-932f-b88829e05ffa"
+    },
+    {
+      "source": "SING DRAGON",
+      "target": "昇瀧駒 (J141)",
+      "id": "1295a81c-03c2-4853-b680-7f13050573d4"
+    },
+    {
+      "source": "SIX PACK",
+      "target": "韋金主 (K061)",
+      "id": "696a9708-7220-48b6-91be-76bdaac98057"
+    },
+    {
+      "source": "SKY CAP",
+      "target": "富心星 (K125)",
+      "id": "d5f5a603-04dc-45e9-9dc4-c6a3d8c230d4"
+    },
+    {
+      "source": "SKY DEEP",
+      "target": "深心星 (K041)",
+      "id": "53c2a03a-2c63-43c4-af94-93134ba68553"
+    },
+    {
+      "source": "SKY HEART",
+      "target": "仁心星 (J092)",
+      "id": "b6ff1634-3bed-4df1-81a0-3432a18c7921"
+    },
+    {
+      "source": "SKY JEWELLERY",
+      "target": "首飾天空 (K032)",
+      "id": "d4e199d6-8ad4-43b6-8db7-8b324666a06c"
+    },
+    {
+      "source": "SKY JOY",
+      "target": "天賜喜 (K026)",
+      "id": "9106494f-a45f-4df8-8b33-5424096ae958"
+    },
+    {
+      "source": "SKY PHOENIX",
+      "target": "鳳翼天翔 (K404)",
+      "id": "ccf8ecff-20eb-4a46-badd-8df653587c3c"
+    },
+    {
+      "source": "SKY TRUST",
+      "target": "信心星 (J161)",
+      "id": "050526c2-f982-446c-81fe-7cb60e0a6b82"
+    },
+    {
+      "source": "SKY VINO",
+      "target": "滿心星 (K054)",
+      "id": "8f28197b-1d90-4308-a347-b7ae8ffa2211"
+    },
+    {
+      "source": "SMART AVENUE",
+      "target": "榮駿大道 (K474)",
+      "id": "2cc8d497-00ac-4a77-8acf-c0080b94543b"
+    },
+    {
+      "source": "SMART BEAUTY",
+      "target": "美麗多盈 (G477)",
+      "id": "10af4b99-f8d4-4815-9040-87ea6eae9126"
+    },
+    {
+      "source": "SMART CITY",
+      "target": "君智盛 (J213)",
+      "id": "88428c6d-c40b-4764-9021-2f09b9d2a33b"
+    },
+    {
+      "source": "SMART FAT CAT",
+      "target": "天蓬貓 (K280)",
+      "id": "7575b6f9-cf5d-4452-816b-125da88cbb14"
+    },
+    {
+      "source": "SMART FIGHTER",
+      "target": "你知我得 (H278)",
+      "id": "ed731755-dbd8-41b2-bb91-e5f63aa38910"
+    },
+    {
+      "source": "SMART GOLF",
+      "target": "醒目高球 (L004)",
+      "id": "052d4539-10a9-4c29-9b53-3b1b56636a76"
+    },
+    {
+      "source": "SMART HIGH",
+      "target": "贏得自在 (L349)",
+      "id": "a4360931-e93e-428f-9b9f-2a8e04ae537e"
+    },
+    {
+      "source": "SMART TRIO",
+      "target": "常多笑 (J538)",
+      "id": "0c8bbea8-34ca-4491-ba80-ac3b2f72621c"
+    },
+    {
+      "source": "SMILING CHAMPION",
+      "target": "威威神駒 (K565)",
+      "id": "bb117367-06a9-4aa6-b997-4969ac378c90"
+    },
+    {
+      "source": "SMILING EMPEROR",
+      "target": "風雲 (J371)",
+      "id": "e742a692-e4b3-4d84-8ada-5403c19416c0"
+    },
+    {
+      "source": "SMILING FALCON",
+      "target": "隼風雲 (K459)",
+      "id": "2e5ddca5-125e-49a0-bcc4-2757b640b64f"
+    },
+    {
+      "source": "SMILING ONE",
+      "target": "一風雲 (K336)",
+      "id": "17f84a42-6508-4858-aef0-2bce628099e5"
+    },
+    {
+      "source": "SMILING SKY",
+      "target": "天風雲 (K447)",
+      "id": "c377ebb6-7b2a-4347-b99b-974343b749c2"
+    },
+    {
+      "source": "SNOWTHORN",
+      "target": "凌風傲雪 (K025)",
+      "id": "32d7a0a8-63bd-4bd6-a4b6-6321bcb1a34a"
+    },
+    {
+      "source": "SO MY FOLKS",
+      "target": "嘉嘉友福 (K456)",
+      "id": "8dc69e67-403a-4bee-af54-e77156ca9520"
+    },
+    {
+      "source": "SO NAIVE",
+      "target": "開心福駒 (L413)",
+      "id": "97525e1a-d502-46a1-9896-55bed310bd1d"
+    },
+    {
+      "source": "SO YOU WILL",
+      "target": "友贏威馳 (L172)",
+      "id": "bb4d1db6-c1bb-415f-a3ef-b4469cafe231"
+    },
+    {
+      "source": "SOARING BRONCO",
+      "target": "神駒馬靈 (J162)",
+      "id": "318094e5-0907-4673-a7bb-19c609df3c20"
+    },
+    {
+      "source": "SOARING STEED",
+      "target": "飛揚騅 (L070)",
+      "id": "af973ee5-3539-48b6-9291-2048a0a41ef1"
+    },
+    {
+      "source": "SOLAR RIVER",
+      "target": "洛河 (J308)",
+      "id": "9a9b47ca-c988-4fc7-b0a4-5287f84d6563"
+    },
+    {
+      "source": "SOLEIL FIGHTER",
+      "target": "太陽勇士 (J127)",
+      "id": "d7ef13a9-2a7a-4f90-9851-9f66410fcf34"
+    },
+    {
+      "source": "SOLEIL SPIRIT",
+      "target": "太陽神駒 (L237)",
+      "id": "7651a14f-5dc7-4ed4-a846-41e71367ef7e"
+    },
+    {
+      "source": "SOLID CAR",
+      "target": "實力加 (K058)",
+      "id": "5f7e7bb0-ab6c-4966-9ea6-2df54267a1ee"
+    },
+    {
+      "source": "SOLID STATE",
+      "target": "實力股 (L411)",
+      "id": "479feb0f-5a29-4584-a34e-d69cd79b1efe"
+    },
+    {
+      "source": "SOLID WIN",
+      "target": "一定掂 (J225)",
+      "id": "b9b87b2b-3459-4eb1-95e0-8f3f98752031"
+    },
+    {
+      "source": "SOMELOVEFROMABOVE",
+      "target": "棒棒糖 (J503)",
+      "id": "769ea094-ccf4-453b-9653-6be380e07525"
+    },
+    {
+      "source": "SOMETHING JONAH",
+      "target": "拚搏 (K024)",
+      "id": "234b2fb0-bf8f-457e-9cdd-221be2743eee"
+    },
+    {
+      "source": "SON PAK FU",
+      "target": "小霸王 (G265)",
+      "id": "7630a4fe-bf1f-42ad-9af6-80ae676118ec"
+    },
+    {
+      "source": "SONIC BOOM",
+      "target": "快馬加鞭 (H144)",
+      "id": "e7f22bb0-e8f9-45ae-9718-fca5c3589f7b"
+    },
+    {
+      "source": "SONIC LINER",
+      "target": "縱橫天地 (L410)",
+      "id": "e73aaf4a-7ac3-48db-9727-df89ed64deb1"
+    },
+    {
+      "source": "SOO KOO",
+      "target": "君至酷 (L008)",
+      "id": "b14289c1-2fca-4e52-ac25-d3e852bda4c1"
+    },
+    {
+      "source": "SOVEREIGN FUND",
+      "target": "金牌活力 (J402)",
+      "id": "3f39df11-282e-4d2b-ba64-207f72bc558d"
+    },
+    {
+      "source": "SPANGLE FORTUNE",
+      "target": "閃耀威龍 (G427)",
+      "id": "60913ca8-52e5-4aa1-94a9-98f933a60f1f"
+    },
+    {
+      "source": "SPANGLED SANDS",
+      "target": "精英波 (L427)",
+      "id": "c2180ecc-a771-4608-a40d-2dad0854b2d5"
+    },
+    {
+      "source": "SPARKLE AND GOLD",
+      "target": "神燦金剛 (K259)",
+      "id": "4e8cc506-9216-4422-bdcc-9e6c4ff40688"
+    },
+    {
+      "source": "SPARKLING FELLOW",
+      "target": "飛來閃耀 (K175)",
+      "id": "cb510d51-1fd9-4fc0-96f4-2b77e7e3e69b"
+    },
+    {
+      "source": "SPECIAL HEDGE",
+      "target": "精算特殊 (H354)",
+      "id": "2de7b540-4c77-4bce-a158-924f438d1829"
+    },
+    {
+      "source": "SPEED DRAGON",
+      "target": "勁速威龍 (H380)",
+      "id": "c65943d4-4390-4778-8c3d-3d7af3844af1"
+    },
+    {
+      "source": "SPEEDY PATCH",
+      "target": "錶之梵星 (L104)",
+      "id": "30dfd45b-b1ae-4a03-b1dd-74f7237ea33b"
+    },
+    {
+      "source": "SPEEDY POWER",
+      "target": "閃電奇駿 (L362)",
+      "id": "4f0a8c01-83df-401c-a52b-fda0bdc55a50"
+    },
+    {
+      "source": "SPEEDY SMARTIE",
+      "target": "伶俐驫駒 (H108)",
+      "id": "04595411-1950-4d16-8d85-0b49406b6c19"
+    },
+    {
+      "source": "SPEEDY SUNNY SING",
+      "target": "新力風升 (L390)",
+      "id": "6798d63a-eb0b-46f3-9d3b-9e8ff26c0554"
+    },
+    {
+      "source": "SPEEDY TRIDENT",
+      "target": "海洋帝君 (K230)",
+      "id": "3e8c5ca5-1807-4024-9398-d6b626b96f98"
+    },
+    {
+      "source": "SPICE BAG",
+      "target": "鵲橋飛昇 (L244)",
+      "id": "efa5e9e2-5a9f-4f7b-9039-b98877f69ce4"
+    },
+    {
+      "source": "SPICY BONUS",
+      "target": "辣得爽利 (L086)",
+      "id": "88110e77-803c-47ef-bc5f-7042d315b4f3"
+    },
+    {
+      "source": "SPICY GOLD",
+      "target": "椒椒醒 (H440)",
+      "id": "1954208b-9ac5-4ecd-bd1d-62ea561ef252"
+    },
+    {
+      "source": "SPICY SPANGLE",
+      "target": "辣得金 (J087)",
+      "id": "adcf2773-067e-4f8c-b648-d505e2d51fa8"
+    },
+    {
+      "source": "SPICY STANDARD",
+      "target": "辣得準 (J520)",
+      "id": "24576d12-c10d-409c-8eaf-1377ffbacee8"
+    },
+    {
+      "source": "SPIRIT OF PEACE",
+      "target": "泰泰精神 (K007)",
+      "id": "c87cd512-3075-4a0a-87b8-9ea3a91a8c82"
+    },
+    {
+      "source": "SPIRITED STEED",
+      "target": "烈進駒 (L278)",
+      "id": "36cbaae9-d8ee-4c3e-a71a-c084d55c3fd8"
+    },
+    {
+      "source": "SPLENDID FORCE",
+      "target": "揚威四海 (K120)",
+      "id": "e38413f5-accb-468e-af5d-f50764914bdc"
+    },
+    {
+      "source": "SPLENDOR",
+      "target": "時時歡笑 (L320)",
+      "id": "c21d7c10-69b3-4ad7-94e5-b3dafeb7ef19"
+    },
+    {
+      "source": "SPORTS LEGEND",
+      "target": "川河動駒 (H456)",
+      "id": "f369b80f-1627-4632-8f29-b4e160e0e28f"
+    },
+    {
+      "source": "SPRITE DRAGON",
+      "target": "有龍則靈 (L395)",
+      "id": "1ac60de2-7e85-4d89-b3bb-09e31ed33844"
+    },
+    {
+      "source": "STANLEY EXPRESS",
+      "target": "勝於藍 (K476)",
+      "id": "13f2c2b5-376c-479c-b648-57afa1dbe842"
+    },
+    {
+      "source": "STAR BROSE",
+      "target": "禾道威 (J463)",
+      "id": "4cb6cfa9-0a30-4856-9828-dc8c698d0df3"
+    },
+    {
+      "source": "STAR COMMANDER",
+      "target": "輝煌猛將 (L414)",
+      "id": "c5eb5873-dd4b-4af2-ad7f-f74744abc2f2"
+    },
+    {
+      "source": "STAR ELEGANCE",
+      "target": "八心之星 (K536)",
+      "id": "349f4a99-d5c3-4d13-b153-32e1b7a69e5c"
+    },
+    {
+      "source": "STAR FIGURE",
+      "target": "星光快驅 (K215)",
+      "id": "90c8e696-5e68-49f8-9176-65b1765a4406"
+    },
+    {
+      "source": "STAR MAC",
+      "target": "久久為尊 (J053)",
+      "id": "e4e0cba8-4498-40ba-918a-edd83b0e9a6c"
+    },
+    {
+      "source": "STAR OF HEARTS",
+      "target": "心中之星 (L271)",
+      "id": "bdb85bf1-983d-48b5-9a59-87b8726c1af1"
+    },
+    {
+      "source": "STAR RISE",
+      "target": "久久為昇 (K516)",
+      "id": "5c7c3988-7e46-47f1-8108-a7ecddc9c31c"
+    },
+    {
+      "source": "STAR SATYR",
+      "target": "久久為軍 (K231)",
+      "id": "44f6620d-ba9a-4dd8-aa02-9f0860481c3f"
+    },
+    {
+      "source": "STARRY SHOW",
+      "target": "星威心得 (L074)",
+      "id": "0f0eade8-8ab7-4bf0-bf76-d7e652f4cd4f"
+    },
+    {
+      "source": "STAY COSMIC",
+      "target": "一馬當先 (L372)",
+      "id": "99c3c84b-b17a-4143-b714-a5cc7231f199"
+    },
+    {
+      "source": "STEADFAST FORT",
+      "target": "鬥志 (L286)",
+      "id": "e77f334b-d8dd-4abf-b13a-b3d251186261"
+    },
+    {
+      "source": "STELLAR EXPRESS",
+      "target": "星際快車 (J186)",
+      "id": "f246e81e-cfea-4a12-8731-5cf2d2abbc4a"
+    },
+    {
+      "source": "STEPS AHEAD",
+      "target": "遙遙領先 (J263)",
+      "id": "58fad2de-1e75-417e-b982-da94d240404b"
+    },
+    {
+      "source": "STORM MIRROR",
+      "target": "步風影 (L179)",
+      "id": "20fdf548-8c93-440d-bad5-1b5201a95232"
+    },
+    {
+      "source": "STORM RIDER",
+      "target": "風雲武士 (J027)",
+      "id": "062b1488-2542-4c65-8af3-db7fcba8211e"
+    },
+    {
+      "source": "STORM RUNNER",
+      "target": "步風雷 (J452)",
+      "id": "e6c0972c-dd28-47a5-b64e-f9db8b52ca55"
+    },
+    {
+      "source": "STORMI",
+      "target": "翠兒威威 (K084)",
+      "id": "524348a3-0dc1-41a2-93d0-0550dd22e5a9"
+    },
+    {
+      "source": "STORMING DRAGON",
+      "target": "勇霸龍 (J237)",
+      "id": "c52a472a-ef6d-4eff-8eec-49c32e39afb1"
+    },
+    {
+      "source": "STORMY GROVE",
+      "target": "紫荊盛勢 (K478)",
+      "id": "7b6343e4-af27-4c40-a133-aedf043a1580"
+    },
+    {
+      "source": "STORMY KNIGHT",
+      "target": "閃電武士 (L062)",
+      "id": "3fbe60e0-81c9-43c4-be61-d8759855bea5"
+    },
+    {
+      "source": "STRAIGHT TO GLORY",
+      "target": "團結勇士 (K340)",
+      "id": "296c364d-0712-477c-be6a-ac8a273ee1eb"
+    },
+    {
+      "source": "STRANGE ALERT",
+      "target": "如蝶翩翩 (K278)",
+      "id": "15d94da1-3932-429a-907b-66194bad8263"
+    },
+    {
+      "source": "STRATHPEFFER",
+      "target": "龍城強將 (H095)",
+      "id": "2cf0489f-2d7b-4db9-a28e-3ae0945e577a"
+    },
+    {
+      "source": "STUNNING BUNDLE",
+      "target": "震撼人心 (L420)",
+      "id": "0ac63312-2507-441f-989d-68dd1dfcf1f5"
+    },
+    {
+      "source": "STUNNING PEACH",
+      "target": "桃花開 (J301)",
+      "id": "7f6ce6a9-8475-4d57-9cb1-2df6888d1a77"
+    },
+    {
+      "source": "STURDY RUBY",
+      "target": "紅海勁 (H207)",
+      "id": "286a7d4b-b706-4554-806e-1180c16b8ed4"
+    },
+    {
+      "source": "SUGAR BALL",
+      "target": "糖不甩 (H394)",
+      "id": "f40c9883-697f-4d83-829c-8a5aa342505c"
+    },
+    {
+      "source": "SUGAR GOODSON",
+      "target": "捷駿 (L303)",
+      "id": "603abcf9-4f40-4d64-bbfb-74d147ca6b08"
+    },
+    {
+      "source": "SUGAR SUGAR",
+      "target": "鈁糖武士 (G016)",
+      "id": "9545164e-921c-4771-9ed1-1945562ae981"
+    },
+    {
+      "source": "SUNDAY'S SERENADE",
+      "target": "卓越蒨鋒 (J231)",
+      "id": "013b9432-0a5f-494d-affa-9f184bf94f84"
+    },
+    {
+      "source": "SUNLIGHT POWER",
+      "target": "陽光勇士 (H244)",
+      "id": "64d7b106-4113-4956-8e8e-eb5ded35bb3c"
+    },
+    {
+      "source": "SUNNY BOSS",
+      "target": "博士生 (L351)",
+      "id": "c82843c5-eedf-4e86-8d37-ba7c5ce5ee93"
+    },
+    {
+      "source": "SUNNY DA BEST",
+      "target": "新力好 (J118)",
+      "id": "867e85b9-c302-42ba-98c4-59f3f406d820"
+    },
+    {
+      "source": "SUNNY PHANTOM",
+      "target": "陽光築影 (L370)",
+      "id": "c6961ba9-6e7f-4c17-8a95-e495bff7c9a5"
+    },
+    {
+      "source": "SUNNY Q",
+      "target": "新力驕 (J223)",
+      "id": "f7da4ee5-2833-4245-aa20-570d15b2a600"
+    },
+    {
+      "source": "SUPER DRAGON",
+      "target": "源好運 (K389)",
+      "id": "cbb389df-3b81-4cd1-a17b-1b40a1062aa5"
+    },
+    {
+      "source": "SUPER EXPRESS",
+      "target": "綠野飛馳 (K245)",
+      "id": "08e575c4-706d-4555-8eb4-0a9364d563b1"
+    },
+    {
+      "source": "SUPER GOLDENDRAGON",
+      "target": "佰勝金龍 (K458)",
+      "id": "a5f403b6-fd4a-47a9-8365-5b702a1273ab"
+    },
+    {
+      "source": "SUPER HONG KONG",
+      "target": "香港精神 (D241)",
+      "id": "6d43df9e-ebbd-4c81-9626-f4c235935e33"
+    },
+    {
+      "source": "SUPER JOY N FUN",
+      "target": "時尚風趣 (J164)",
+      "id": "b8f3c5a7-0ce3-4e0d-9a0f-7de1f8c3adcc"
+    },
+    {
+      "source": "SUPER LOVE",
+      "target": "戀愛狂 (K118)",
+      "id": "64f7034f-a1d9-4f53-aa93-2e9f6e57886c"
+    },
+    {
+      "source": "SUPER MASTERMIND",
+      "target": "超智多寶 (K541)",
+      "id": "30eb65cd-3ccb-487e-b465-89281212a7c5"
+    },
+    {
+      "source": "SUPER RUBICK KID",
+      "target": "無比小子 (L259)",
+      "id": "93658de2-3899-45cc-9205-17ca2925c06b"
+    },
+    {
+      "source": "SUPER SICARIO",
+      "target": "堅多福 (K306)",
+      "id": "7d607c74-df9c-45ed-ac3b-91a0147e92b1"
+    },
+    {
+      "source": "SUPER SIXTY",
+      "target": "超強六十 (J071)",
+      "id": "9acda0a1-35bc-4704-971d-1e78dadba714"
+    },
+    {
+      "source": "SUPER STRONG KID",
+      "target": "金金小子 (K180)",
+      "id": "ed908427-5db6-46d6-b16a-f231f5ae258f"
+    },
+    {
+      "source": "SUPER UNICORN",
+      "target": "勁好運 (H481)",
+      "id": "03f304d1-2cdf-4598-93e0-6d3f27609a74"
+    },
+    {
+      "source": "SUPERB BOY",
+      "target": "巴閉哥 (G335)",
+      "id": "4ac8cd79-2b6e-409a-a912-a23f53cea8d4"
+    },
+    {
+      "source": "SUPERB CAPITALIST",
+      "target": "八駿巨昇 (H092)",
+      "id": "9b2cf435-c1bc-4414-a722-3ff18f6bd75e"
+    },
+    {
+      "source": "SUPERB GUY",
+      "target": "巴閉佬 (K323)",
+      "id": "6bbcad7f-c5de-493a-b7db-bed15f238ee4"
+    },
+    {
+      "source": "SUPERB KID",
+      "target": "巴閉仔 (H298)",
+      "id": "42c033f0-d414-4ca2-a5f2-5abf32126a19"
+    },
+    {
+      "source": "SUPERB KING",
+      "target": "巴閉王 (K479)",
+      "id": "e2c9ef4c-9aa9-4e90-8958-141e51f0c93a"
+    },
+    {
+      "source": "SUPERB SPIRIT",
+      "target": "巴閉精 (L040)",
+      "id": "6d8426d6-0c1e-4f5b-ae11-437dc2496ba1"
+    },
+    {
+      "source": "SUPREME AGILITY",
+      "target": "奮鬥心 (J267)",
+      "id": "6b092737-8470-44b9-99bf-b489ee405ca8"
+    },
+    {
+      "source": "SUPREME DATA",
+      "target": "數據派 (L262)",
+      "id": "45eca867-1a52-44cb-96fd-26bb9fa23da3"
+    },
+    {
+      "source": "SUPREME FEELING",
+      "target": "最感 (L130)",
+      "id": "3b674e71-09ee-411a-a5d4-c438512dafc3"
+    },
+    {
+      "source": "SUPREME MASTERMIND",
+      "target": "智多多寶 (K387)",
+      "id": "e56c66d3-6077-4c59-9488-36d7a50b17d1"
+    },
+    {
+      "source": "SUPREME SEA",
+      "target": "旺旺嘉駒 (L088)",
+      "id": "2381e4f2-8ec3-4060-adca-eefc89492769"
+    },
+    {
+      "source": "SUPREME VOYAGER",
+      "target": "杭至尊 (L043)",
+      "id": "e4402c35-b3d5-4374-965c-19db83c42ea2"
+    },
+    {
+      "source": "SUPREME WINNER",
+      "target": "紅旺繽紛 (J255)",
+      "id": "e99df06c-02f7-4c3a-aa69-2b6abe63de61"
+    },
+    {
+      "source": "SURE JOYFUL",
+      "target": "得意佳作 (G125)",
+      "id": "1d6f4c8e-a1ab-40b4-8a2e-055dd7777477"
+    },
+    {
+      "source": "SWAGGER BRO",
+      "target": "猛將兄 (K089)",
+      "id": "51a65a55-2b15-46ca-b2ea-7aabae7dc369"
+    },
+    {
+      "source": "SWEET BRIAR",
+      "target": "瑰麗人生 (H044)",
+      "id": "84188d16-639e-4de1-bcc3-6f5cb29220ee"
+    },
+    {
+      "source": "SWIFT ASCEND",
+      "target": "駿步騰飛 (H395)",
+      "id": "b85d596d-cdb6-41e3-a64a-86611da900d0"
+    },
+    {
+      "source": "SWORD POINT",
+      "target": "知足常樂 (G448)",
+      "id": "78be9a39-863a-467f-9d64-a188def05674"
+    },
+    {
+      "source": "SYMBOL OF STRENGTH",
+      "target": "乘數表 (K352)",
+      "id": "9aee0f75-8bf2-4d37-88e1-b3f42d8f7f9f"
+    },
+    {
+      "source": "SYNERGY EXPRESS",
+      "target": "步步合拍 (L252)",
+      "id": "a21e60c8-e93b-437e-b3f5-68d36ef938af"
+    },
+    {
+      "source": "SYNERGY IN ACTION",
+      "target": "昇龍戰駒 (L330)",
+      "id": "0a1bbc8d-47da-4a1a-a947-f72287e96ed5"
+    },
+    {
+      "source": "SZERYNG",
+      "target": "弦力寶 (K317)",
+      "id": "5faf29ce-0ca3-4afd-83e4-2573dd3b365d"
+    },
+    {
+      "source": "TACTICAL ACE",
+      "target": "智勝一籌 (L249)",
+      "id": "0c7d951e-3f5d-45b0-8c72-d816fb675035"
+    },
+    {
+      "source": "TACTICAL COMMAND",
+      "target": "智勝攻略 (H197)",
+      "id": "8f2c51fd-4ff4-47b0-b298-3fb2ccebb907"
+    },
+    {
+      "source": "TACTICAL HORIZONS",
+      "target": "智勝策略 (L173)",
+      "id": "5754125d-722d-4ca2-ae05-19e3964bb78b"
+    },
+    {
+      "source": "TACTICAL VICTORY",
+      "target": "智勝勳章 (K521)",
+      "id": "2bc1a4a8-7805-4c10-9d64-202a8292044e"
+    },
+    {
+      "source": "TAI VICTORY",
+      "target": "太勝駒 (K124)",
+      "id": "3a3fe387-ab7b-42a0-947a-f1ae646a9c9c"
+    },
+    {
+      "source": "TAIHANG SCENERY",
+      "target": "太行美景 (J314)",
+      "id": "07729bf5-a64e-471a-ac3a-60ea9f3b69be"
+    },
+    {
+      "source": "TAKE ACTION",
+      "target": "先到先得 (J098)",
+      "id": "0dd318f3-f3b9-46ec-8861-95b38dda4970"
+    },
+    {
+      "source": "TALENTS AMBITION",
+      "target": "精英雄心 (J136)",
+      "id": "47b93d13-d5c5-47a6-a0e0-ad66716e312b"
+    },
+    {
+      "source": "TALENTS CHAMPION",
+      "target": "精英奪冠 (L295)",
+      "id": "a15e18f6-5761-49c3-b738-5bd20176f133"
+    },
+    {
+      "source": "TANG HEART",
+      "target": "正本唐心 (L373)",
+      "id": "e4366501-7013-495b-a7ce-dd4491fa6def"
+    },
+    {
+      "source": "TARGET AUDIENCE",
+      "target": "觀眾之力 (K107)",
+      "id": "83f88d1b-a893-491f-a95c-ed472670b1b8"
+    },
+    {
+      "source": "TEAM HAPPY",
+      "target": "添喜運 (J218)",
+      "id": "2725378e-f000-4a5b-880b-58019116c7ed"
+    },
+    {
+      "source": "TEAM TEAM FOLKS",
+      "target": "天天友福 (K302)",
+      "id": "47592ae5-4b0f-4835-b4df-8b3118d5100c"
+    },
+    {
+      "source": "TELECOM FIGHTERS",
+      "target": "電訊巴打 (D482)",
+      "id": "9d23ca1c-08fe-47cf-a2fb-6cfcecf4d72b"
+    },
+    {
+      "source": "TELECOM FORTUNE",
+      "target": "電訊日進 (L424)",
+      "id": "bcf56421-2484-47a7-ae03-373b860b6604"
+    },
+    {
+      "source": "TELECOM POWER",
+      "target": "電訊驕陽 (J332)",
+      "id": "82046f6c-ea2c-4a08-af32-fc8df537863b"
+    },
+    {
+      "source": "TEN LOVES",
+      "target": "十分愛 (L371)",
+      "id": "c1ab9fb9-5379-47c5-974e-3b242100d5ab"
+    },
+    {
+      "source": "THE ABSOLUTE",
+      "target": "定數 (H438)",
+      "id": "c710b32e-b1e8-499a-993d-52ab2c498664"
+    },
+    {
+      "source": "THE ALL ROUNDER",
+      "target": "文武全能 (K402)",
+      "id": "b0952590-c682-410f-9d9b-005e51006ead"
+    },
+    {
+      "source": "THE AUSPICIOUS",
+      "target": "豐辰 (K004)",
+      "id": "6d1c3063-36d8-4b95-975e-64c7717bc787"
+    },
+    {
+      "source": "THE AZURE",
+      "target": "追風 (J227)",
+      "id": "9b45f87b-b36a-41c7-aa2c-d0c44b6478f4"
+    },
+    {
+      "source": "THE BOOM BOX",
+      "target": "膨才 (K076)",
+      "id": "5ca9aa4a-4d6c-44c6-831d-1ad48ac9c065"
+    },
+    {
+      "source": "THE CONCENTRATION",
+      "target": "全神貫注 (H465)",
+      "id": "59d3b313-c5a1-4c35-80af-7762fbbe6c92"
+    },
+    {
+      "source": "THE COSMIC POWER",
+      "target": "天罡北斗 (L064)",
+      "id": "53561693-5386-4fc7-a4f0-78ed554c6cd0"
+    },
+    {
+      "source": "THE GOLDEN KNIGHT",
+      "target": "黃金騎士 (K341)",
+      "id": "57b70a73-ab1e-4ea8-bc4f-2824031d1c10"
+    },
+    {
+      "source": "THE HEIR",
+      "target": "星運少爵 (H459)",
+      "id": "14508657-cd7f-42fd-a446-915d512e987a"
+    },
+    {
+      "source": "THE LION KING",
+      "target": "森林之王 (K265)",
+      "id": "fd45f761-0742-4dbe-966d-77d074a619c8"
+    },
+    {
+      "source": "THE PEAKABOO",
+      "target": "以戰高鋒 (L454)",
+      "id": "664cb54a-15ab-446b-aa7b-46c98f3ea1ea"
+    },
+    {
+      "source": "THE PERFECT MATCH",
+      "target": "至合拍 (J253)",
+      "id": "9604e849-4865-4717-87c9-b3b4a1cdca29"
+    },
+    {
+      "source": "THE RED HARE",
+      "target": "超勁赤兔 (K312)",
+      "id": "b18abf78-7025-4a36-a3fb-91d84d88f0a5"
+    },
+    {
+      "source": "THE UNIQUE STAR",
+      "target": "三甲之星 (L122)",
+      "id": "d6676719-6b94-4b17-8af6-8ade1e8d9f02"
+    },
+    {
+      "source": "THE WAY WE WIN",
+      "target": "不假外求 (J493)",
+      "id": "505c79ad-bd81-4082-a45d-b08ad27db2a9"
+    },
+    {
+      "source": "THOUSAND CUPS",
+      "target": "千杯 (J482)",
+      "id": "af1ab3a2-df00-4dc8-a990-4132191d5482"
+    },
+    {
+      "source": "THOUSAND SPIRIT",
+      "target": "千杯不醉 (K365)",
+      "id": "4e944639-83ea-410a-93b0-321c22d4ffcb"
+    },
+    {
+      "source": "THRIVING BROTHERS",
+      "target": "富國兄弟 (J396)",
+      "id": "fcde7bc5-dba1-4c21-895e-272ca352aae1"
+    },
+    {
+      "source": "THUNDER ACTION",
+      "target": "勁駿騰飛 (L314)",
+      "id": "eda83dc4-7a46-4c9b-9eef-f32a024535c7"
+    },
+    {
+      "source": "THUNDER BLAZE",
+      "target": "風火輪 (L188)",
+      "id": "c414b77c-d837-4a53-a108-51b3550e76b7"
+    },
+    {
+      "source": "THUNDER KIT",
+      "target": "傑出雷霆 (L121)",
+      "id": "3ca3a8ae-54a3-49ef-9448-37cd49fde2ef"
+    },
+    {
+      "source": "THUNDER PRINCE",
+      "target": "雷神太保 (K017)",
+      "id": "9ea8d3e9-6b9f-40e3-aa29-8d44005e50b0"
+    },
+    {
+      "source": "TIER FLY",
+      "target": "好好飛 (K311)",
+      "id": "c9a6b951-3cdf-43ca-b0f4-4dbf0651ae5c"
+    },
+    {
+      "source": "TIME TO FIRE",
+      "target": "長峰小子 (K117)",
+      "id": "8adcb85b-1f67-4161-9757-d52cf4d90680"
+    },
+    {
+      "source": "TIN FOOK",
+      "target": "天福 (K167)",
+      "id": "f5e08c56-6f41-47f9-9d41-059b0a4c46af"
+    },
+    {
+      "source": "TITAN PEGASUS",
+      "target": "泰坦 (L213)",
+      "id": "1db35747-0dc0-40d9-b967-7b4837872168"
+    },
+    {
+      "source": "TITANCK",
+      "target": "手到快來 (L299)",
+      "id": "3f61cc77-93e3-4250-9336-c3fb9a91db40"
+    },
+    {
+      "source": "TO INFINITY",
+      "target": "極速滿貫 (G277)",
+      "id": "6da3ed36-6ea6-48b0-a689-01fad2125bf5"
+    },
+    {
+      "source": "TOGETHER WE VALUE",
+      "target": "價值傳承 (L170)",
+      "id": "31e3593e-8d75-44d3-a5ca-88ce7d0ec281"
+    },
+    {
+      "source": "TOMODACHI KOKOROE",
+      "target": "好友心得 (H303)",
+      "id": "1d821c3a-5369-46e8-b68d-fcdaeb0d92ba"
+    },
+    {
+      "source": "TON OF TREASURE",
+      "target": "東權至寶 (L418)",
+      "id": "20ee9527-d306-4bc4-9160-d76b8dca44ef"
+    },
+    {
+      "source": "TOP DRAGON",
+      "target": "喜尊龍 (J481)",
+      "id": "a691b101-b3b6-45af-81d9-22c8a31d4dce"
+    },
+    {
+      "source": "TOP THRONE",
+      "target": "嘉冠王 (K116)",
+      "id": "3e7571cd-88ce-406d-b07f-8a139b12359c"
+    },
+    {
+      "source": "TOP TIME",
+      "target": "醒目先駒 (K006)",
+      "id": "d9653948-ef94-4ed1-b6ce-f6b811b49709"
+    },
+    {
+      "source": "TOP TO SKY",
+      "target": "天比高 (K339)",
+      "id": "ce53c8c0-2da3-4ce3-a00f-621b25de9e3d"
+    },
+    {
+      "source": "TOPSPIN KING",
+      "target": "尚旋 (L141)",
+      "id": "a9d2b5cb-a672-4247-b20e-643061596708"
+    },
+    {
+      "source": "TOURBILLON AWESOME",
+      "target": "飛輪日上 (L466)",
+      "id": "d86dcb58-f4ed-40a0-b456-30316b94147f"
+    },
+    {
+      "source": "TOURBILLON GOLFER",
+      "target": "飛輪霸 (K320)",
+      "id": "eb27d89e-9203-4828-85be-3832d88b4572"
+    },
+    {
+      "source": "TREASURE PATCH",
+      "target": "錶之星晨 (L496)",
+      "id": "dca6c62c-dd7e-45f6-8139-2f278c9cdbc2"
+    },
+    {
+      "source": "TRENDY RUSH",
+      "target": "潮流勇駒 (L209)",
+      "id": "272d1256-1cf8-4e16-9946-afc426423325"
+    },
+    {
+      "source": "TRINITY TREASURE",
+      "target": "三寶進財 (L167)",
+      "id": "c5c0fda1-8030-4d90-b860-d997f83f4bf4"
+    },
+    {
+      "source": "TRIPLE FORTUNE",
+      "target": "發發發 (L302)",
+      "id": "42d29c92-5e93-473d-9f4b-6011a143f097"
+    },
+    {
+      "source": "TRIUMPHANT MORE",
+      "target": "凱旋升 (J489)",
+      "id": "f224d0fc-9d35-49be-8664-ead27b02c816"
+    },
+    {
+      "source": "TRIUMPHANT WARRIOR",
+      "target": "城中勇士 (H430)",
+      "id": "97c58dab-0357-409f-afb0-d91fb72290e6"
+    },
+    {
+      "source": "TRUE BROTHERS",
+      "target": "勝兄弟 (L381)",
+      "id": "79637219-b54d-4b02-9204-91a388dd6408"
+    },
+    {
+      "source": "TSUEN WAN GLORY",
+      "target": "荃程路通 (E403)",
+      "id": "f1b8c768-d688-4386-83a7-d6ef23301bd9"
+    },
+    {
+      "source": "TURBO JEFFERIES",
+      "target": "天外富天 (L328)",
+      "id": "ac53d92a-0659-42f8-b6cc-caa1e4281004"
+    },
+    {
+      "source": "TURF PHOENIX",
+      "target": "戰騎飛 (J294)",
+      "id": "c4b6d21b-c716-446b-9405-9013b5b86988"
+    },
+    {
+      "source": "TURF QUEST",
+      "target": "勇騎飛 (L146)",
+      "id": "a7c512f0-ff78-4ea2-b6d5-24e99b8b4d87"
+    },
+    {
+      "source": "TURIN CHAMPIONS",
+      "target": "都靈冠星 (L024)",
+      "id": "1b7eaf76-0043-47a2-bb43-7536049e1eb4"
+    },
+    {
+      "source": "TURIN HERO",
+      "target": "林家良駒 (L251)",
+      "id": "ac9d500d-7cc0-4d4e-95b0-50b210f814be"
+    },
+    {
+      "source": "TURIN MASCOT",
+      "target": "都靈福星 (H165)",
+      "id": "6f8b68fb-f215-4fea-b907-502ce426ed39"
+    },
+    {
+      "source": "TURIN WARRIOR",
+      "target": "都靈勇士 (G150)",
+      "id": "01629287-161c-455b-92d8-3f808d7bc032"
+    },
+    {
+      "source": "TURQUOISE VELOCITY",
+      "target": "興馳千里 (K533)",
+      "id": "c20674e6-57ca-4262-9010-89398f2d675e"
+    },
+    {
+      "source": "TYCOON EXPRESS",
+      "target": "騰達勇士 (K376)",
+      "id": "a4d75940-a58a-41a2-80db-893e22c65fd6"
+    },
+    {
+      "source": "TYCOON RESOURCES",
+      "target": "財將 (L234)",
+      "id": "016cd7a7-9af2-4ec4-ab49-8b2ffa5b2dbf"
+    },
+    {
+      "source": "ULTRA BOLT",
+      "target": "紫電王 (L387)",
+      "id": "78db302a-3523-46c1-8fd2-0787e3179ecf"
+    },
+    {
+      "source": "UNRIVALED KING",
+      "target": "王者無雙 (L456)",
+      "id": "29bf4f87-1430-443c-8b8b-ead05eed187d"
+    },
+    {
+      "source": "UNSTOPPAPLE",
+      "target": "銳不可當 (L205)",
+      "id": "5085d276-e0ff-465a-b685-abdc0551df33"
+    },
+    {
+      "source": "URANUS STAR",
+      "target": "開心三寶 (K511)",
+      "id": "bfd31b29-1021-4361-a198-42cb4aac0309"
+    },
+    {
+      "source": "VECU",
+      "target": "開心瑰寶 (L027)",
+      "id": "38b8fecf-632a-4469-995e-2a0182964d1f"
+    },
+    {
+      "source": "VERBIER",
+      "target": "朗日雪峰 (J187)",
+      "id": "8b4568fd-9a46-48b7-8df4-8e197e19d555"
+    },
+    {
+      "source": "VERMILION TEMPEST",
+      "target": "赤風驪 (L093)",
+      "id": "ac39b61c-aa3f-492c-8956-06337a979f09"
+    },
+    {
+      "source": "VERY GRATEFUL",
+      "target": "凱皇寶 (K396)",
+      "id": "b959bee6-d313-444f-9917-7184f84ee5b6"
+    },
+    {
+      "source": "VICTOR SUPREME",
+      "target": "捷威 (K547)",
+      "id": "a49ccd51-9851-45fb-83f0-872dbc3eff34"
+    },
+    {
+      "source": "VICTOR THE RAPID",
+      "target": "維港激流 (J393)",
+      "id": "1ec7c24f-cd5e-420a-9bb0-03f358b5d169"
+    },
+    {
+      "source": "VICTOR THE WINNER",
+      "target": "維港智能 (G404)",
+      "id": "78011eda-312e-47a5-9cf5-f48c932482f1"
+    },
+    {
+      "source": "VICTORY CHAMPION",
+      "target": "凱旋王者 (K240)",
+      "id": "0b4848f3-d117-464f-93ae-d09d28b62b6a"
+    },
+    {
+      "source": "VICTORY SKY",
+      "target": "樂勝天下 (J540)",
+      "id": "5f99caf8-881b-4b93-978d-c6e344ded083"
+    },
+    {
+      "source": "VIEW ALL THINGS",
+      "target": "觀萬物 (K101)",
+      "id": "bd88150b-cad7-4a52-9e11-87bc3df7d46d"
+    },
+    {
+      "source": "VIEW OF COSMOS",
+      "target": "觀萬象 (L060)",
+      "id": "0852af67-7b3b-466f-9f09-dcde59b80bca"
+    },
+    {
+      "source": "VIGOR ELLEEGANT",
+      "target": "銳高 (J375)",
+      "id": "8f67055a-5eca-4531-88dd-f5c2d2d74ef4"
+    },
+    {
+      "source": "VIGOR EYE",
+      "target": "銳目 (L068)",
+      "id": "1fc4e753-7875-404c-bf3f-a98cadafd444"
+    },
+    {
+      "source": "VIGOR FLY",
+      "target": "銳逸 (L417)",
+      "id": "c4fa9c5a-e29b-465b-875e-e2bf8c04d2b9"
+    },
+    {
+      "source": "VIGOR HAPPINESS",
+      "target": "銳喜 (L284)",
+      "id": "65d91516-c839-4ab2-96c9-164d23ffe667"
+    },
+    {
+      "source": "VIOLET EXPRESS",
+      "target": "紫氣東來 (L376)",
+      "id": "57bff306-a861-4830-b91b-348b57c6c0fa"
+    },
+    {
+      "source": "VIOLET STAR",
+      "target": "紫辰之星 (L149)",
+      "id": "c11464ed-9371-4a51-95c9-cea2477b30f4"
+    },
+    {
+      "source": "VIRTUS GLORY",
+      "target": "明德輝煌 (L298)",
+      "id": "0d68814f-3127-4b7a-84f6-5b51b6023ab9"
+    },
+    {
+      "source": "VIVA BOSS",
+      "target": "怪獸波士 (L139)",
+      "id": "6f95c8eb-9b99-4f9c-b4fc-1112f2316bac"
+    },
+    {
+      "source": "VIVA CHALEUR",
+      "target": "爆熱 (G368)",
+      "id": "6b2b161c-46e5-4516-81ce-d3aa36f15732"
+    },
+    {
+      "source": "VIVA FIRECRACKER",
+      "target": "爆竹 (L065)",
+      "id": "845d0775-88e1-48da-9932-97075370891c"
+    },
+    {
+      "source": "VIVA GRACIOUSNESS",
+      "target": "爆笑 (J079)",
+      "id": "c4663292-a2be-4cd2-87e4-9936f90565fc"
+    },
+    {
+      "source": "VIVA PROSPERAR",
+      "target": "爆發 (L374)",
+      "id": "4731e1d9-587e-45f3-a7ae-01e599fbcb27"
+    },
+    {
+      "source": "VIVA TASTE",
+      "target": "怪獸叉燒 (K415)",
+      "id": "643e07a8-0b12-41a0-a8ba-239ab1943fab"
+    },
+    {
+      "source": "VIVACIOUS WIN",
+      "target": "隨緣得勝 (K223)",
+      "id": "10e30bd9-30c0-42c2-987e-4f7a9a03f391"
+    },
+    {
+      "source": "VOLCANIC SPARK",
+      "target": "風火恆雲 (H388)",
+      "id": "4f6b2ed1-3e86-47ed-8477-687bf0270bcd"
+    },
+    {
+      "source": "VON BAER",
+      "target": "建測精英 (K198)",
+      "id": "7d32d2be-7759-4483-9cfb-4cca9d717748"
+    },
+    {
+      "source": "VOYAGE BOSS",
+      "target": "遨遊波士 (K321)",
+      "id": "985c1d38-99f2-42e1-a4a8-191c55ea483a"
+    },
+    {
+      "source": "VOYAGE BUBBLE",
+      "target": "遨遊氣泡 (E436)",
+      "id": "060b53f3-9afd-4d7a-b0b0-c4a6008f1472"
+    },
+    {
+      "source": "VOYAGE CAPTAIN",
+      "target": "遨遊首領 (L001)",
+      "id": "c8ef9ba7-dc3e-43a9-8ce5-c964c1b6e76f"
+    },
+    {
+      "source": "VOYAGE HORIZON",
+      "target": "遨遊飛翔 (L398)",
+      "id": "0db725fb-9c82-458f-ab6e-07c2ed352f3b"
+    },
+    {
+      "source": "VOYAGE SAMURAI",
+      "target": "遨遊武士 (J026)",
+      "id": "cd87b50d-3d9e-48ee-8050-f8fc7bbfc512"
+    },
+    {
+      "source": "VULCANUS",
+      "target": "星火燎原 (J150)",
+      "id": "7305ed49-74a4-46c3-be19-038609aec0ce"
+    },
+    {
+      "source": "WAH MAY WAI WAI",
+      "target": "華美之威 (J193)",
+      "id": "23e7dabc-e28b-4e81-9017-867917be7989"
+    },
+    {
+      "source": "WAKA",
+      "target": "鴻盛贏冠 (L460)",
+      "id": "2af8e304-ae12-4bfc-bd59-6b3c9e635d2f"
+    },
+    {
+      "source": "WARRIORS DREAM",
+      "target": "奇異歡星 (K255)",
+      "id": "cf3a1b3e-45c9-4d66-b221-e3188199fcd8"
+    },
+    {
+      "source": "WATCH LEGEND",
+      "target": "表廠傳奇 (L313)",
+      "id": "78b35080-7b8a-434d-b9af-3e3123dcaaa5"
+    },
+    {
+      "source": "WAVE GARDEN",
+      "target": "大浪園田 (K209)",
+      "id": "ee05f922-a712-4161-9b0a-ccaf39b8f555"
+    },
+    {
+      "source": "WE ARE HERO",
+      "target": "英雄豪傑 (G207)",
+      "id": "46feacd7-a22a-4f25-99eb-cdd307f97c0d"
+    },
+    {
+      "source": "WELL ENOUGH",
+      "target": "龍文瑞安 (L029)",
+      "id": "c4397d9c-9578-46d8-a3a7-76a0c756e024"
+    },
+    {
+      "source": "WHOWROTETHATSONG",
+      "target": "寫我其誰 (L048)",
+      "id": "1915c75a-3a28-4fec-83ee-d95a891289a4"
+    },
+    {
+      "source": "WILLIE OPPA",
+      "target": "威利澳爸 (L471)",
+      "id": "42bae155-8d3f-4ae4-a12d-7960203b2d02"
+    },
+    {
+      "source": "WIN BEAUTY VIVA",
+      "target": "爆得美麗 (K368)",
+      "id": "d602768d-482d-4255-9b59-6adfec18818c"
+    },
+    {
+      "source": "WIN EASE",
+      "target": "鬆啲 (K384)",
+      "id": "3316090a-a47e-4379-b549-647f51859a12"
+    },
+    {
+      "source": "WIN METHOD",
+      "target": "知道穩勝 (K406)",
+      "id": "d5331da6-3d8f-428d-9341-2457de1337e9"
+    },
+    {
+      "source": "WIN SPEED",
+      "target": "超風速 (J205)",
+      "id": "36b8dc11-2b69-4dd5-94bf-5714dcfc3617"
+    },
+    {
+      "source": "WINALOT",
+      "target": "喜意 (L197)",
+      "id": "f163a8cc-28f8-4c9d-928c-e81a3ea65856"
+    },
+    {
+      "source": "WIND CONQUEROR",
+      "target": "御風雄霸 (L483)",
+      "id": "bbd1ad36-7356-486e-9d85-1e0b907ca01c"
+    },
+    {
+      "source": "WINDICATOR FAMILY",
+      "target": "威威父子 (H419)",
+      "id": "ee08256e-124b-4386-a274-7e6993f0217d"
+    },
+    {
+      "source": "WINDLORD",
+      "target": "風將 (L184)",
+      "id": "68697a27-e2f4-4c60-a479-520c6611b8d4"
+    },
+    {
+      "source": "WINGS OF WAR",
+      "target": "撼天鐵翼 (H162)",
+      "id": "43ec4f60-1be0-4c70-a630-38e520826bb9"
+    },
+    {
+      "source": "WINNING BUDDIES",
+      "target": "摯友勝 (L092)",
+      "id": "4e445c37-6932-4416-a563-14c4c29da2d9"
+    },
+    {
+      "source": "WINNING CHAMPION",
+      "target": "過關勇士 (K429)",
+      "id": "69428195-1c10-41cd-b982-dca78e7852bd"
+    },
+    {
+      "source": "WINNING COMBO",
+      "target": "勝之組合 (L292)",
+      "id": "4c8ebeab-f3ee-4062-8c59-b0cd4884cf45"
+    },
+    {
+      "source": "WINNING DATA",
+      "target": "大數據 (H230)",
+      "id": "d2923dee-562c-4f76-b447-b45876a75cf3"
+    },
+    {
+      "source": "WINNING DIAMOND",
+      "target": "鑽得勝 (K216)",
+      "id": "82b4493b-e8f2-4cf4-974c-f9437d98503b"
+    },
+    {
+      "source": "WINNING DRAGON",
+      "target": "又龍串鳳 (E461)",
+      "id": "55ab6e27-60b0-4782-99eb-7d90e6713e7b"
+    },
+    {
+      "source": "WINNING GOLD",
+      "target": "金勝名駒 (H461)",
+      "id": "9e2e665a-4a53-42d4-a78f-67656b312eee"
+    },
+    {
+      "source": "WINNING MACHINE",
+      "target": "順善寶 (K239)",
+      "id": "73ff6b70-2c5c-4a03-abfc-0ed31c4d155a"
+    },
+    {
+      "source": "WINNING MONEY",
+      "target": "紅錢到 (J116)",
+      "id": "9c6d8a84-bb33-41ba-8c7a-9bfc91b019cd"
+    },
+    {
+      "source": "WINNING NOW",
+      "target": "勝在當下 (K532)",
+      "id": "ec2ab4d8-e5d0-4484-ad8d-dade976e6d8c"
+    },
+    {
+      "source": "WINNING OVATION",
+      "target": "時時歡聲 (K350)",
+      "id": "54d51889-01ce-4ab3-8ea7-14e91dace1e6"
+    },
+    {
+      "source": "WINNING WING",
+      "target": "天將龍駒 (K129)",
+      "id": "97ae7ce5-89fe-46d3-8a47-c417f9265380"
+    },
+    {
+      "source": "WISEMAN",
+      "target": "贏得爽 (K211)",
+      "id": "61f0bfa5-dc9c-491d-bb7b-43122a95f20d"
+    },
+    {
+      "source": "WITH A SMILE",
+      "target": "笑喜喜 (K136)",
+      "id": "051e58e4-a247-4d73-8a11-21029d465e80"
+    },
+    {
+      "source": "WITHALLMYFAITH",
+      "target": "魅力知耀 (K428)",
+      "id": "3cffd89a-304d-431d-bfc1-09b9f95d21b0"
+    },
+    {
+      "source": "WITHOUT COMPARE",
+      "target": "凌登 (L151)",
+      "id": "555d2ca1-b1d7-4856-9c42-1bf88fef9b8f"
+    },
+    {
+      "source": "WITHOUT RHYME",
+      "target": "御登 (L077)",
+      "id": "c50de39f-319d-438e-b658-ae3bcb75e00e"
+    },
+    {
+      "source": "WOLF COMING",
+      "target": "狼來了 (K353)",
+      "id": "663e11c6-3a80-4629-90c8-2fb7701e56df"
+    },
+    {
+      "source": "WONDERSTAR",
+      "target": "手到齊來 (J531)",
+      "id": "67e458dd-9925-4b3d-aa24-22e5b3bf30a7"
+    },
+    {
+      "source": "WORD OF KINDNESS",
+      "target": "良言一句 (K569)",
+      "id": "e97bc36b-237a-49f2-864a-0f70bc8c2923"
+    },
+    {
+      "source": "WORLD HERO",
+      "target": "環球英雄 (J413)",
+      "id": "0c5506f0-a62c-4add-980f-2f87f6b2475a"
+    },
+    {
+      "source": "WRITTEN CASA",
+      "target": "領航財子 (J305)",
+      "id": "b180fe8a-e413-4d39-89a8-60cde69a2c42"
+    },
+    {
+      "source": "WRITTEN MIRACLE",
+      "target": "福盈 (L422)",
+      "id": "9101402e-8db3-4f0a-af3c-94217e7d4d0c"
+    },
+    {
+      "source": "WROTE A NEW PAGE",
+      "target": "龍文鞭影 (K226)",
+      "id": "167a94a1-eae2-4934-a2b2-c50a25ff7255"
+    },
+    {
+      "source": "WUKONG JEWELLERY",
+      "target": "首飾悟空 (K314)",
+      "id": "9a313192-16a4-4471-87bb-259c296634de"
+    },
+    {
+      "source": "YEE CHEONG GLORY",
+      "target": "怡昌光輝 (K074)",
+      "id": "834afa48-818d-46fa-b668-ec2b6d78313f"
+    },
+    {
+      "source": "YEE CHEONG RAIDER",
+      "target": "怡昌奇兵 (J176)",
+      "id": "8b6aa415-09bf-4f8a-8523-4fe80572cec5"
+    },
+    {
+      "source": "YEE CHEONG SPIRIT",
+      "target": "怡昌精神 (H379)",
+      "id": "f4da56da-5eae-42ac-b41a-cf9a80755774"
+    },
+    {
+      "source": "YEUX DE LIFELINE",
+      "target": "眼健康 (K455)",
+      "id": "fd694622-5175-4669-95ea-9e74cd9b7180"
+    },
+    {
+      "source": "YIU CHEUNG VICTORY",
+      "target": "耀昌勝世 (J529)",
+      "id": "8823db40-9849-4632-94af-0d93fb8b6344"
+    },
+    {
+      "source": "YODA'S CHOICE",
+      "target": "精明選擇 (J146)",
+      "id": "e7668ea6-ffdf-4652-a381-853b8f1c5d0f"
+    },
+    {
+      "source": "YOU ARE MINE",
+      "target": "你是我的 (L416)",
+      "id": "a22a345b-0cb8-42bb-a6bb-a415bba0f834"
+    },
+    {
+      "source": "YOUNG ACHIEVER",
+      "target": "競駿飛翔 (J291)",
+      "id": "a230f6aa-04e2-42d6-8716-cb89b45ce22f"
+    },
+    {
+      "source": "YOUNG ARROW",
+      "target": "競駿非凡 (J401)",
+      "id": "69c4108c-b080-4010-ad2a-c3e5205143ab"
+    },
+    {
+      "source": "YOUNG BRAVO",
+      "target": "競駿良駒 (K178)",
+      "id": "8ea95af2-be61-4f8f-8866-149d7e6d2fe9"
+    },
+    {
+      "source": "YOUNG CHAMPION",
+      "target": "競駿輝煌 (J195)",
+      "id": "fb5e25ca-cb7e-4d05-9f1b-c3c90c10c6b2"
+    },
+    {
+      "source": "YOUNG EMPEROR",
+      "target": "競駿皇者 (K011)",
+      "id": "07be3879-b3ca-4e09-8f9e-1fcb85d4cd06"
+    },
+    {
+      "source": "YOUNG FIGHTER",
+      "target": "競駿勇士 (K464)",
+      "id": "0b97f71f-373e-4b37-b848-cd070a3a34ba"
+    },
+    {
+      "source": "YOUNG HORIZON",
+      "target": "競駿天下 (G272)",
+      "id": "d59a3689-b0e6-425e-ab7c-415c0120c546"
+    },
+    {
+      "source": "YOUNG LEGACY",
+      "target": "競駿傳奇 (K465)",
+      "id": "c3e1bc2d-0111-4fab-9a82-1152ad0b08ce"
+    },
+    {
+      "source": "YOUNG STRIKER",
+      "target": "競駿奔騰 (K029)",
+      "id": "c2ad4f4e-e433-4340-99be-82a4fd221cf2"
+    },
+    {
+      "source": "YUEN LONG ELITE",
+      "target": "元朗精英 (J272)",
+      "id": "9f27200e-719e-40a7-96ce-97cbe569323c"
+    },
+    {
+      "source": "Z PRINCE",
+      "target": "爽飆王子 (L256)",
+      "id": "2b7c0be1-161f-4b9b-b525-ab5bcc354e0c"
+    },
+    {
+      "source": "ZETA HEDGE",
+      "target": "精算奕然 (K295)",
+      "id": "c6e9eb5a-02ce-4946-9dd1-d6b11f564647"
+    },
+    {
+      "source": "ZETTA FORCE",
+      "target": "小皇爺 (J546)",
+      "id": "98a429f8-4b74-426e-94c5-51632154d1cb"
+    },
+    {
+      "source": "ZOUPER FELLOW",
+      "target": "飛來霸 (K284)",
+      "id": "d1be012c-d44d-4fcf-b3e0-5e56c1559f09"
+    },
+    {
+      "source": "Golding 60",
+      "target": "金鎗六十",
+      "id": "43584d63-9178-492a-95e6-7c23fa3c1dbe"
+    }
+  ],
+  "created_at": 1780624350.266077,
+  "user_id": null
+}

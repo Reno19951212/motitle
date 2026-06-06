@@ -1,0 +1,26 @@
+{
+  "id": "1e3d2363-a967-43ac-acd7-728d8292bd4e",
+  "name": "JA-ZH",
+  "description": "",
+  "source_lang": "ja",
+  "target_lang": "zh",
+  "entries": [
+    {
+      "source": "ニュース",
+      "target": "新聞",
+      "id": "b2e4fe77-2981-4d11-83b9-fc07a8b160b4"
+    },
+    {
+      "source": "kdjd",
+      "target": "jsd",
+      "id": "3c159f2b-1736-400b-9865-f8b3f418b038"
+    },
+    {
+      "source": "dkddnnd",
+      "target": "你好",
+      "id": "ad278091-d3c8-45dd-bffd-c33862a57832"
+    }
+  ],
+  "created_at": 1780655292.0350878,
+  "user_id": null
+}

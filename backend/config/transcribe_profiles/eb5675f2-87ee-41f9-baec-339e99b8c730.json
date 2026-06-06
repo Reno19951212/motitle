@@ -1,0 +1,11 @@
+{
+  "name": "A2 smoke Whisper",
+  "engine": "mlx-whisper",
+  "model_size": "large-v3",
+  "language": "zh",
+  "id": "eb5675f2-87ee-41f9-baec-339e99b8c730",
+  "user_id": 5006,
+  "shared": false,
+  "created_at": 1779233731.246688,
+  "updated_at": 1779233731.246688
+}

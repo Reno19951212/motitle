@@ -1,0 +1,16 @@
+{
+  "id": "6187953b-d8d3-44b5-a5ba-3e455e0ec651",
+  "name": "ZH-ZH style",
+  "description": "",
+  "source_lang": "zh",
+  "target_lang": "zh",
+  "entries": [
+    {
+      "source": "廣播",
+      "target": "廣播電台",
+      "id": "c7621933-ceb8-4e1e-9add-1aba17523a34"
+    }
+  ],
+  "created_at": 1780655292.028517,
+  "user_id": null
+}

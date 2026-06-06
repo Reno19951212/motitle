@@ -1,0 +1,16 @@
+{
+  "id": "2477ffa7-a4b3-4238-b2d5-03eaf71bbaa0",
+  "name": "EN-ZH",
+  "description": "",
+  "source_lang": "en",
+  "target_lang": "zh",
+  "entries": [
+    {
+      "source": "broadcast",
+      "target": "廣播",
+      "id": "1424ec27-a328-42df-a8ae-5c339691ad98"
+    }
+  ],
+  "created_at": 1780655292.0308852,
+  "user_id": null
+}

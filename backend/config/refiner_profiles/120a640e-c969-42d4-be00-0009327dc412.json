@@ -1,0 +1,12 @@
+{
+  "name": "A2 smoke ZH",
+  "lang": "zh",
+  "style": "broadcast-hk",
+  "llm_profile_id": "603811c1-c36a-43b7-9acd-04396e39a0dd",
+  "prompt_template_id": "refiner/zh_broadcast_hk_default",
+  "id": "120a640e-c969-42d4-be00-0009327dc412",
+  "user_id": 5006,
+  "shared": false,
+  "created_at": 1779233731.265267,
+  "updated_at": 1779233731.265267
+}

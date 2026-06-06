@@ -1,0 +1,16 @@
+{
+  "id": "0d543db0-508b-4f34-acf2-c11232f8672b",
+  "name": "T",
+  "description": "",
+  "source_lang": "en",
+  "target_lang": "zh",
+  "entries": [
+    {
+      "source": "broadcast",
+      "target": "廣播",
+      "id": "04b8f6ff-8db1-423d-bf1e-b6628158b89a"
+    }
+  ],
+  "created_at": 1780655292.039291,
+  "user_id": null
+}

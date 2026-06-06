@@ -1,3 +1,14 @@
 {
-  "active_profile": "dev-default"
+  "active_profile": "dev-default",
+  "active_kind": "pipeline_v6",
+  "active_id": "4696bbaa-b988-49bd-859c-e742cb365634",
+  "font": {
+    "family": "Noto Sans TC",
+    "size": 36,
+    "color": "#FFFFFF",
+    "outline_color": "#000000",
+    "outline_width": 3.5,
+    "position": "bottom",
+    "margin_bottom": 65
+  }
 }

@@ -1,0 +1,12 @@
+{
+  "name": "Refiner ZH broadcast-hk",
+  "lang": "zh",
+  "style": "broadcast-hk",
+  "llm_profile_id": "9402593c-184d-4a4d-a160-ebdf55e678e8",
+  "prompt_template_id": "refiner/zh_broadcast_hk_default",
+  "shared": false,
+  "id": "e343a867-c619-4374-a36c-b2e60422dab6",
+  "user_id": 5089,
+  "created_at": 1779250236.4946291,
+  "updated_at": 1779250236.4946291
+}

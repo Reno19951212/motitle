@@ -1,0 +1,12 @@
+{
+  "name": "A2 smoke",
+  "backend": "ollama",
+  "model": "qwen3.5:9b",
+  "base_url": "http://localhost:11434",
+  "temperature": 0.2,
+  "id": "603811c1-c36a-43b7-9acd-04396e39a0dd",
+  "user_id": 5006,
+  "shared": false,
+  "created_at": 1779233731.2271512,
+  "updated_at": 1779233731.2271512
+}

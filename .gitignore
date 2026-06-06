@@ -9,6 +9,13 @@ build/
 # Virtual environment
 backend/venv/
 .venv/
+# V6 Qwen3-ASR subprocess venv (py3.11, ~279MB; built by scripts/setup_v6.sh — LIVE, never commit)
+backend/scripts/v5_prototype/venv_qwen/
+# Prototype scratch outputs
+backend/scripts/v5_prototype/out_nothink/
+
+# Frontend build cache (no-build project; stray TS incremental cache)
+*.tsbuildinfo
 
 # IDE
 .vscode/

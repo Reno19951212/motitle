@@ -1,5 +1,5 @@
 {
-  "name": "日文 -> 日文 字幕",
+  "name": "日文 -> 中文字幕",
   "description": "",
   "asr": {
     "engine": "mlx-whisper",
@@ -27,10 +27,12 @@
     "outline_color": "#000000",
     "outline_width": 2,
     "position": "bottom",
-    "margin_bottom": 41
+    "margin_bottom": 41,
+    "subtitle_source": "auto",
+    "bilingual_order": "en_top"
   },
   "id": "696ed1a3-dca4-408b-a250-f837e24ab7e7",
   "created_at": 1778214254.8832278,
-  "updated_at": 1778567609.323162,
+  "updated_at": 1780281034.3070788,
   "user_id": null
 }
