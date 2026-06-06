@@ -58,6 +58,7 @@ except ValueError as e:
 # Generate FLASK_SECRET_KEY
 SECRET=$(python -c "import secrets; print(secrets.token_hex(32))")
 echo "FLASK_SECRET_KEY=$SECRET" > .env
+chmod 600 .env
 echo ""
 echo "Saved backend/.env (gitignored). Next:"
 echo "  source backend/.env && cd backend && source venv/bin/activate && python app.py"

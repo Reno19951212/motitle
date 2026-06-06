@@ -35,6 +35,10 @@ export FLASK_PORT="${FLASK_PORT:-5001}"
 # Homebrew tools (ffmpeg, ollama) on PATH for the daemon context
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
+if [[ ! -f venv/bin/activate ]]; then
+  echo "[motitle] FATAL: backend/venv missing (run setup-mac.sh)" >&2
+  exit 1
+fi
 source venv/bin/activate
 
 # caffeinate keeps the Mac awake while the server runs; exec so launchd
