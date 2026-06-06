@@ -44,6 +44,8 @@ source backend/.env && cd backend && source venv/bin/activate && python app.py
 python backend\app.py
 ```
 
+> **Windows 提示**：`setup-win.ps1` 可能喺安裝 `whisper-streaming` 時失敗（`pyalsaaudio` / `opus-fast-mosestokenizer` 喺 Windows build 唔到）— 屬已知問題，跳過該依賴即可，詳見下面〈[Windows 常見問題](#windows-常見問題)〉。另外暫時**未有 `start-win.ps1`**，請手動啟動（上面嘅 `Activate.ps1` + `python backend\app.py`）或自行註冊為 Windows service。
+
 **Linux (Ubuntu/Debian, NVIDIA GB10 或任何 CUDA GPU)**：
 ```bash
 ./setup-linux-gb10.sh

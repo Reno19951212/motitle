@@ -397,7 +397,7 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 1. **CLAUDE.md** (this file) — Architecture, REST endpoints, current state (full history → [docs/history.md](docs/history.md))
 2. **README.md** (user-facing, **must be written in Traditional Chinese**)
-3. **docs/PRD.md** — Update feature status markers (📋 → ✅)
+3. **docs/PRD.md** — Update feature status markers (📋 → ✅). Note: PRD.md predates the `output_lang` pipeline and may be stale for pipeline features — treat its pipeline sections as historical and prefer this file's Current State section.
 4. **Validation-First tracker** — for any ASR/MT change, a `docs/superpowers/specs/YYYY-MM-DD-...-validation-tracker.md` recording empirical results (✅ Validated / ❌ Rejected / ⚠️ Partial)
 5. **Design + plan pair** — a matching `docs/superpowers/specs/...-design.md` and `docs/superpowers/plans/...-plan.md`
 

@@ -2,7 +2,7 @@
 
 > **日期**：2026-06-06
 > **配對審查文件**：[2026-06-06-cross-platform-delivery-audit.md](2026-06-06-cross-platform-delivery-audit.md)
-> **配對計劃文件**：[../plans/2026-06-06-platform-abstraction-layer.md](../plans/2026-06-06-platform-abstraction-layer.md)
+> **配對計劃文件**：Phase 1 平台抽象層 — [../plans/2026-06-06-platform-abstraction-layer.md](../plans/2026-06-06-platform-abstraction-layer.md)；Phase 3 macOS 打包 — [../plans/2026-06-06-macos-packaging.md](../plans/2026-06-06-macos-packaging.md)
 > **首批交付範圍**：macOS + Windows（GB10 出設計，pending 真機驗證）
 > **離線假設**：有內網可下載（安裝時下載模型；air-gapped 硬性化降為 optional）
 
