@@ -86,3 +86,23 @@ else
 fi
 echo ""
 echo "Setup complete."
+
+echo ""
+echo "=== Auto-start service (launchd) ==="
+echo "Install MoTitle + Ollama as boot services (survives reboot, restarts on crash)?"
+read -p "Install launchd services now? [y/N]: " INSTALL_SVC
+if [[ "${INSTALL_SVC:-N}" =~ ^[Yy]$ ]]; then
+  sudo "${SCRIPT_ROOT}/packaging/macos/motitle-service.sh" install
+  echo ""
+  echo "Service installed. Check:  sudo packaging/macos/motitle-service.sh status"
+else
+  echo "Skipped. To install later:  sudo packaging/macos/motitle-service.sh install"
+  echo "Or run in foreground:        ./start.sh"
+fi
+
+IP=$(ipconfig getifaddr en0 2>/dev/null || echo "<this-mac-ip>")
+echo ""
+echo "=================================================="
+echo "  Clients on the LAN open:  http://${IP}:5001"
+echo "  (first connection may trigger a macOS firewall prompt — Allow)"
+echo "=================================================="
