@@ -44,9 +44,29 @@ cmd_uninstall() {
   echo "Uninstalled."
 }
 
-cmd_start()   { _need_root; launchctl kickstart  "system/${OLLAMA_LABEL}"; launchctl kickstart  "system/${SERVER_LABEL}"; echo "started"; }
-cmd_stop()    { _need_root; launchctl kill SIGTERM "system/${SERVER_LABEL}" 2>/dev/null || true; launchctl kill SIGTERM "system/${OLLAMA_LABEL}" 2>/dev/null || true; echo "stopped"; }
-cmd_restart() { _need_root; launchctl kickstart -k "system/${OLLAMA_LABEL}"; launchctl kickstart -k "system/${SERVER_LABEL}"; echo "restarted"; }
+cmd_stop() {
+  _need_root
+  launchctl bootout "system/${SERVER_LABEL}" 2>/dev/null || true
+  launchctl bootout "system/${OLLAMA_LABEL}" 2>/dev/null || true
+  echo "stopped (services will auto-start again on next reboot)"
+}
+
+cmd_start() {
+  _need_root
+  # Re-bootstrap from disk; RunAtLoad=true launches immediately (no kickstart needed).
+  launchctl bootstrap system "${LDAEMONS}/${OLLAMA_LABEL}.plist"
+  launchctl bootstrap system "${LDAEMONS}/${SERVER_LABEL}.plist"
+  echo "started"
+}
+
+cmd_restart() {
+  _need_root
+  launchctl bootout "system/${SERVER_LABEL}" 2>/dev/null || true
+  launchctl bootout "system/${OLLAMA_LABEL}" 2>/dev/null || true
+  launchctl bootstrap system "${LDAEMONS}/${OLLAMA_LABEL}.plist"
+  launchctl bootstrap system "${LDAEMONS}/${SERVER_LABEL}.plist"
+  echo "restarted"
+}
 
 cmd_status() {
   echo "== launchd =="
