@@ -1,1 +1,58 @@
-<!doctype html><title>License</title>
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MoTitle — 軟件授權</title>
+  <style>
+    body{font-family:system-ui,"PingFang TC",sans-serif;background:#0f1115;color:#e8eaed;
+         display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0}
+    .card{background:#1a1d23;padding:32px;border-radius:12px;width:min(560px,92vw);box-shadow:0 8px 40px #0008}
+    h1{font-size:20px;margin:0 0 4px} .sub{color:#9aa0a6;margin:0 0 20px;font-size:14px}
+    label{display:block;font-size:13px;color:#9aa0a6;margin:16px 0 6px}
+    .iid{display:flex;gap:8px}
+    .iid code{flex:1;background:#0f1115;padding:10px;border-radius:6px;font-size:13px;word-break:break-all}
+    textarea{width:100%;min-height:96px;background:#0f1115;color:#e8eaed;border:1px solid #2a2e36;
+             border-radius:6px;padding:10px;font-family:monospace;font-size:13px;box-sizing:border-box}
+    button{background:#3b82f6;color:#fff;border:0;border-radius:6px;padding:10px 16px;cursor:pointer;font-size:14px}
+    button.ghost{background:#2a2e36}
+    .msg{margin-top:12px;font-size:14px;min-height:20px}
+    .err{color:#ff6b6b} .ok{color:#51cf66} .status{color:#9aa0a6;font-size:14px;margin-bottom:8px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>MoTitle 軟件授權</h1>
+    <p class="sub">此安裝尚未啟用。請將下方安裝碼交予供應商換取 license，再貼入啟用。</p>
+    <div class="status" id="status">載入中…</div>
+
+    <label>安裝碼 (Install ID)</label>
+    <div class="iid"><code id="iid">…</code><button class="ghost" id="copy">複製</button></div>
+
+    <label>License Token</label>
+    <textarea id="token" placeholder="貼入供應商提供的 license 字串"></textarea>
+    <div style="margin-top:12px"><button id="activate">啟用</button></div>
+    <div class="msg" id="msg"></div>
+  </div>
+  <script src="/js/license.js"></script>
+  <script>
+    (async function () {
+      const L = window.MoTitleLicense;
+      const $ = (id) => document.getElementById(id);
+      const st = await L.fetchStatus();
+      $('iid').textContent = st.install_id || '(未知)';
+      $('status').textContent = '狀態：' + L.describe(st);
+      if (st.unlocked) { location.href = '/'; return; }
+      $('copy').onclick = () => navigator.clipboard.writeText(st.install_id || '');
+      $('activate').onclick = async () => {
+        const { ok, body } = await L.activate($('token').value);
+        const m = $('msg');
+        if (ok && body.unlocked) { m.className = 'msg ok'; m.textContent = '啟用成功，正在進入…';
+          setTimeout(() => location.href = '/', 800); }
+        else { m.className = 'msg err';
+          m.textContent = '啟用失敗：' + (body.error || '未知錯誤'); }
+      };
+    })();
+  </script>
+</body>
+</html>
