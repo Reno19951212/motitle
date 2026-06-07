@@ -705,6 +705,7 @@ def _asr_handler(job, cancel_event=None):
     transcribe_with_segments so that it can raise JobCancelled between
     segments when the event is set.
     """
+    _license_guard_or_raise()
     file_id = job["file_id"]
     with _registry_lock:
         f = _file_registry.get(file_id)
@@ -2049,6 +2050,12 @@ from licensing import license_state as _license_state
 from licensing import token as _license_token
 from auth.audit import log_audit
 import time as _time_for_license
+
+
+def _license_guard_or_raise():
+    """Defense-in-depth: AI workers refuse to run without an unlocked licence."""
+    if not _license_validator.evaluate().unlocked:
+        raise RuntimeError("licence required: AI job refused")
 
 
 def _license_status_payload():
@@ -4128,6 +4135,7 @@ def _auto_translate(fid: str, sid=None, cancel_event=None) -> None:
     translate call. Raises JobCancelled when set so JobQueue can mark the
     job 'cancelled' rather than 'failed'.
     """
+    _license_guard_or_raise()
     try:
         translation_start = time.time()
         profile = _profile_manager.get_active()
