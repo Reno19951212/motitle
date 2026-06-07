@@ -93,6 +93,38 @@ source backend/.env && cd backend && source venv/bin/activate && python app.py
 
 ---
 
+## 軟件授權 / License
+
+MoTitle 採用**完全離線**嘅軟件授權機制 —— 唔會連去任何授權伺服器，所有驗證都喺本機用內嵌嘅公鑰（Ed25519）做。未授權嘅安裝會被鎖住：只可以登入同埋睇授權頁，所有 ASR / 翻譯 / 渲染功能都唔開放。
+
+### 點解要 license
+
+- 控制軟件部署 —— 每一部機要有一個由供應商簽發、綁定咗呢部機嘅 token 先用得。
+- 支援訂閱（3 個月 / 1 年）或永久授權，過期之後有寬限期（預設 30 日）先正式鎖住。
+
+### 安裝後點啟用（一次性）
+
+1. **攞 install-id**：登入後去「管理 → 授權」分頁，或 `GET /api/license`，會見到呢部機嘅 `install_id`（一串隨機碼）。
+2. **交畀供應商**：將 `install_id` 連同公司名 / 方案（3 個月 / 1 年 / 永久）交畀供應商。
+3. **貼 token 啟用**：供應商簽發一個 token（一串文字）畀你；喺「授權」分頁貼上去 → 啟用。系統會即時驗簽 + 核對 install-id + 核對未過寬限期，全部通過先寫入本機，之後 app 即刻解鎖。
+   - 啟用失敗會話你知原因：`invalid`（簽名唔啱）/ `wrong_machine`（token 綁咗第二部機）/ `expired`（連寬限期都過咗）。
+
+### 續期 / 換機 / 寬限期
+
+- **續期**：到期前向供應商攞一個新 token（同一個 install-id），喺「授權」分頁貼上去覆蓋即可。
+- **換機**：新機會有一個新嘅 `install-id`，要供應商**重新簽發**綁去新機嘅 token —— 舊 token 喺新機會顯示 `wrong_machine`。
+- **寬限期**：過咗到期日之後，app 仍然會運作 `grace_days`（預設 30）日，期間頂部會顯示提示橫額，提你續期；寬限期一過就鎖住（`expired`）。
+- **防改時鐘**：系統會記低見過嘅最遲時間（`last_seen` ratchet），如果偵測到系統時鐘被回撥就會當 `invalid` 鎖住。
+
+### 供應商 / Ops 注意（私鑰保管）
+
+- **私鑰只放喺供應商機**：`scripts/licensing/keygen.py` 一次性生成 keypair，私鑰寫去 `~/.motitle-licensing/private_key`（權限 0600），**永遠唔好 commit**，要做離線備份。
+- **簽發 token**：`scripts/licensing/sign_license.py --customer "客戶名" --plan {sub-3mo|sub-1yr|perpetual} --install-id <客戶 install-id>`；每次簽發會喺 `issued_licenses.csv` 加一行作審計記錄（只記 token 嘅 sha256 前綴）。
+- **私鑰洩漏**：必須 rotate —— 重新 `keygen` 出新 keypair，將新公鑰換入 `backend/licensing/keys.py`，**出新版軟件**畀客戶（舊公鑰失效，舊 token 全部作廢，要重新簽發）。
+- **出貨排除**：`scripts/licensing/`（CLI + ledger）同 `backend/config/license.json`（每部機自己嘅啟用狀態）都唔應該打包出貨；後兩者已經喺 `.gitignore` 排除。
+
+---
+
 ## 系統需求
 
 - **Python** 3.8 或以上（推薦 3.11）
@@ -920,6 +952,13 @@ Sentence pipeline 嘅進階版：合併成句後，prompt LLM 喺中文輸出中
 | POST | `/api/render` | 開始燒入字幕渲染 |
 | GET | `/api/renders/<id>` | 查詢渲染狀態 |
 | GET | `/api/renders/<id>/download` | 下載渲染結果 |
+
+### 授權 / License
+| 方法 | 路徑 | 說明 |
+|------|------|------|
+| GET | `/api/license` | 取得授權狀態 + 本機 `install_id`（需登入） |
+| POST | `/api/license/activate` | 貼 token 啟用授權（管理員；body `{token}`） |
+| POST | `/api/license/deactivate` | 清除已安裝 token、重新鎖住（管理員） |
 
 ---
 

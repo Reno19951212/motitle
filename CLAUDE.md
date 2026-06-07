@@ -306,6 +306,9 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | DELETE | `/api/renders/<id>` | Cancel an in-flight render job (sets `cancelled` flag, status flips to `'cancelled'` on completion) |
 | GET | `/api/renders/in-progress` | List active render jobs (optional `?file_id=` filter) — used by Proofread page to re-attach after reload |
 | GET | `/api/renders/<id>/download` | Download rendered file |
+| GET | `/api/license` | Get license status — `{state, unlocked, customer, plan, expires_at, days_left, grace_days, features, install_id}` (login-required; `install_id` is what the owner needs to mint a token) |
+| POST | `/api/license/activate` | Admin-only — body `{token}`; verifies signature + machine-bind + not-past-grace BEFORE persisting, then returns the new status; 400 `invalid` / `wrong_machine` / `expired` |
+| POST | `/api/license/deactivate` | Admin-only — clear the installed token (re-locks the app); audits `license.deactivate` |
 
 > Admin `POST /api/admin/users` (create) and `POST /api/admin/users/<id>/reset-password` now return **400** (not 500) on a weak/empty password — the ValueError from password-strength validation is mapped to a clean 400. Policy (≥8 chars, not a common password) is shown in `user.html`.
 >
@@ -406,6 +409,23 @@ Whenever a new feature is completed or existing functionality is modified, you *
 Full chronological feature/version history → [docs/history.md](docs/history.md).
 
 This section summarises the CURRENT behaviour a developer needs; older entries live in history.md.
+
+### Token Licensing (on-prem offline activation)
+
+- **What it is**: a fully offline, per-deployment software licence. The whole app is gated behind a signed Ed25519 token so an unlicensed install is locked (read-only auth + licence-management surface only). No phone-home — verification is 100% local against an embedded public key.
+- **Modules** (`backend/licensing/`, each independently testable):
+  - `token.py` — pure crypto: `sign(payload, sk_b64)` / `verify_signature(token) -> claims` / `InvalidToken`. Canonical-JSON payload, Ed25519 signature, no I/O.
+  - `keys.py` — the embedded `PUBLIC_KEY_B64` (baked by `scripts/licensing/keygen.py`). The ONLY trust anchor shipped in the binary.
+  - `license_state.py` — the only module that touches `config/license.json`. Owns `install_id` (random per-machine uuid), the installed `token`, and a `last_seen` monotonic ratchet (anti clock-rollback). Atomic temp-file writes; throttled `last_seen` persistence.
+  - `validator.py` — pure decision logic: `evaluate() -> LicenseStatus(state, unlocked, …)`. States: `active` / `grace` / `expired` / `wrong_machine` / `invalid` / `none`. **Fail-closed** (any error → `invalid`/locked). Honours a 300s clock-skew window and a per-token `grace_days` (default 30) after `exp`.
+  - `gate.py` — the only Flask-aware piece: a `before_request` enforcer. Allowlists health + auth (`/login`, `/logout`, `/api/me`) + the licence surface (`/api/license*`, `/license.html`) + `/js/`,`/css/` static. Everything else needs `evaluate().unlocked` → API calls get **403** `{error, license_state}`, page loads get redirected to `/license.html`. Test-only `R5_LICENSE_BYPASS` mirrors the `R5_AUTH_BYPASS` pattern (autouse in conftest so the existing API suites keep running; never set in production).
+- **Install-id binding**: every token embeds the target machine's `install_id`; activating a token minted for a different machine returns `wrong_machine`. To move machines, re-issue against the new install-id.
+- **Grace**: after `exp` the app stays `unlocked` for `grace_days` (banner shown) then flips to `expired`/locked.
+- **Defense-in-depth**: AI workers call `_license_guard_or_raise()` and refuse to run (`RuntimeError`) if the licence is not unlocked, even if the HTTP gate were bypassed.
+- **Owner CLI** (`scripts/licensing/`, NOT shipped to customers):
+  - `keygen.py` — one-time keypair gen. Private key → `~/.motitle-licensing/private_key` (0600, never commit); public key pasted into `keys.py`.
+  - `sign_license.py --customer … --plan {sub-3mo|sub-1yr|perpetual} --install-id …` — mints a token and appends a row to `issued_licenses.csv` (audit ledger; token stored only as a sha256 prefix).
+- **Gitignored, per-deployment**: `backend/config/license.json` (the activated state) and `scripts/licensing/issued_licenses.csv` (the owner's ledger) are never committed.
 
 ### Output-language pipeline (primary flow)
 
