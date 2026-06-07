@@ -1,5 +1,7 @@
 # Admin Beta 測試模式（OpenRouter 雲端模型）Implementation Plan
 
+> **Status (2026-06-07):** Tasks 1–5 + close-out done. Beta shipped as **LLM-only** (翻譯 / 書面語 refiner → OpenRouter `qwen/qwen3.5-35b-a3b`; ASR stays local). ASR-on-OpenRouter Tasks 6/7 **CANCELLED** by Phase 0 gate — OpenRouter's `/api/v1/audio/transcriptions` returns no segment/word timestamps; see [docs/superpowers/specs/2026-06-07-beta-openrouter-validation-tracker.md](../specs/2026-06-07-beta-openrouter-validation-tracker.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 喺 Admin User 區加一個全局 Beta 測試模式開關，開啟後將 output_lang pipeline 嘅 ASR（Whisper）+ LLM（Qwen3.5-A3B）由本地切換去 OpenRouter 雲端。
@@ -643,7 +645,7 @@ git commit -m "feat(beta): route output_lang LLM to OpenRouter when beta mode on
 
 ---
 
-## Task 6: `OpenRouterWhisperEngine` + factory（⚠️ 需 Task 1 V1 = ✅）
+## Task 6: `OpenRouterWhisperEngine` + factory（⚠️ 需 Task 1 V1 = ✅）— ❌ CANCELLED (Phase 0 gate)
 
 > **GATE**：只有 Task 1 tracker V1 標 ✅（OpenRouter whisper 返到 segment timestamp）先做呢個 task。下面 `_map_response` 用 OpenAI verbose_json 標準形（`segments:[{start,end,text}]`）—— **以 Task 1 tracker 記錄嘅實際 field 名為準**，若不同就同步改 Step 1 test + Step 3 code。
 
@@ -842,7 +844,7 @@ git commit -m "feat(beta): OpenRouter Whisper ASR engine + factory mapping"
 
 ---
 
-## Task 7: ASR override 注入（flag 開 → openrouter-whisper）（⚠️ 需 Task 6）
+## Task 7: ASR override 注入（flag 開 → openrouter-whisper）（⚠️ 需 Task 6）— ❌ CANCELLED (Phase 0 gate)
 
 **Files:**
 - Modify: `backend/app.py:302-309`（`_output_lang_asr_override`）

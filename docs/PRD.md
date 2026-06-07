@@ -303,6 +303,7 @@
 | **中** | 多語言支援 | 日文、韓文等目標語言 |
 | **中** | 批量處理 | 多文件排隊、批量轉錄+翻譯 |
 | ✅ | 用戶管理 | 登入、權限、操作日誌；帳戶頁重新設計（左側分頁、inline 管理操作、結構化審計日誌）+ 用戶備註（admin 編輯 ≤500 字、用戶可見自己）|
+| ✅ | **Admin Beta 測試模式（LLM-only）** | 全局 `settings.json:beta_openrouter` 開關；開啟後 output_lang LLM（MT + 書面語 refiner）路由至 OpenRouter `qwen/qwen3.5-35b-a3b`；ASR 維持本地（OpenRouter ASR 無時間戳，Validation-First 2026-06-07 拒絕）；Admin UI tab + API key 管理（`backend/.env`）|
 | **低** | 字幕樣式模板 | 可保存/載入字幕樣式預設 |
 
 ---

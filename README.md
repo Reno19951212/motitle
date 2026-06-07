@@ -580,6 +580,24 @@ ollama signin
   ```
 - 避開 reasoning models（如 `qwen/qwen3.5-122b-a10b`）除非你要深度推理 — 呢啲 model 每 call 有長長嘅 `reasoning` field，延遲可達 30–60 秒
 
+## Beta 測試模式（管理員）
+
+管理員可喺「我的帳戶 → Beta 測試模式」開啟全局 Beta 測試開關。
+
+**開啟後的效果：**
+- **翻譯 / 書面語精修**：改用 OpenRouter 雲端 Qwen3.5（`qwen/qwen3.5-35b-a3b`），按用量計費。
+- **語音轉文字（ASR）維持本地**：mlx-whisper large-v3 本地運作，不走雲端。OpenRouter ASR 因無法回傳 segment 時間戳，已驗證不可行（Validation-First Phase 0, 2026-06-07）。
+
+**設定步驟：**
+1. 以管理員帳號登入，進入「我的帳戶 → Beta 測試模式」。
+2. 輸入 OpenRouter API Key（格式 `sk-or-v1-…`；儲存後寫入 `backend/.env`，重啟後自動載入）。
+3. 勾選「啟用 Beta 測試模式」並儲存。
+
+**注意事項：**
+- 必須先設定 API Key 才能開啟 Beta 模式（未填 key 直接啟用 → 400 錯誤）。
+- 雲端 LLM 失敗會直接顯示錯誤並標記任務失敗，**不會自動退回本地**。
+- 僅影響 output_lang pipeline 的 LLM 呼叫；ASR、渲染等其他步驟不受影響。
+
 #### 語言參數
 
 每種語言可獨立設定：
