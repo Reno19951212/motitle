@@ -2058,20 +2058,26 @@ from auth.audit import log_audit
 import time as _time_for_license
 
 
-def _license_guard_or_raise():
-    """Defense-in-depth: AI workers refuse to run without an unlocked licence.
+def _license_ok() -> bool:
+    """Bypass-aware licence check shared by the worker guard and the load_model
+    SocketIO event. Returns True when AI work is permitted.
 
     Honours the R5_LICENSE_BYPASS test flag via the module-level `app` object.
-    Worker threads have no request context, so `current_app` is unavailable
-    here (unlike the HTTP gate); the concrete app object's config is always
-    readable. Mirroring the gate's bypass keeps the test suite's handler tests
-    (which drive _asr_handler / _mt_handler / _auto_translate directly) from
-    being blocked by the guard. The flag is config-only and never set in
-    production.
+    Worker / SocketIO threads have no request context, so `current_app` is
+    unavailable here (unlike the HTTP gate); the concrete app object's config is
+    always readable. Mirroring the gate's bypass keeps the test suite's handler
+    tests (which drive _asr_handler / _mt_handler / _auto_translate and the
+    load_model event directly) from being blocked. The flag is config-only and
+    never set in production.
     """
     if app.config.get("R5_LICENSE_BYPASS"):
-        return
-    if not _license_validator.evaluate().unlocked:
+        return True
+    return _license_validator.evaluate().unlocked
+
+
+def _license_guard_or_raise():
+    """Defense-in-depth: AI workers refuse to run without an unlocked licence."""
+    if not _license_ok():
         raise RuntimeError("licence required: AI job refused")
 
 
@@ -5439,6 +5445,14 @@ def handle_load_model(data):
     """Pre-load a model on request"""
     model_size = data.get('model', 'small')
     sid = request.sid  # capture before entering thread
+
+    # SocketIO events bypass the HTTP before_request licence gate, so the
+    # licence must be checked here. Warming a model is AI-adjacent compute;
+    # refuse it on an unlicensed deployment (no output is produced regardless,
+    # but we should not let an unlicensed install consume resources).
+    if not _license_ok():
+        socketio.emit('model_error', {'error': 'licence required'}, room=sid)
+        return
 
     socketio.emit('model_loading', {'model': model_size, 'status': 'loading'}, room=sid)
 

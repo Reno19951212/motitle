@@ -15,8 +15,12 @@ ALLOWLIST_EXACT = {
     "/api/license", "/api/license/activate", "/api/license/deactivate",
     "/favicon.ico",
 }
-# Static asset prefixes needed to render login + the licence wall.
-ALLOWLIST_PREFIXES = ("/js/", "/css/")
+# Static asset prefixes needed to render login + the licence wall, plus the
+# SocketIO transport. The transport itself is allowlisted so the connection can
+# establish; its events are gated individually (connect = auth, load_model =
+# licence). Blocking the transport here would just break the connection without
+# adding protection the per-event checks don't already provide.
+ALLOWLIST_PREFIXES = ("/js/", "/css/", "/socket.io/")
 
 
 def _allowed(path: str) -> bool:
