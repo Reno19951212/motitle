@@ -112,6 +112,10 @@
     .field label { font-size:11px; font-weight:700; color:var(--text-dim); letter-spacing:0.04em; }
     .pw-form input { background:var(--surface-2); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:10px 12px; font-size:13px; width:100%; transition:border-color .12s; }
     .pw-form input:focus { border-color:var(--accent); outline:none; box-shadow:0 0 0 3px var(--accent-softer); }
+    .pw-form textarea { background:var(--surface-2); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:10px 12px; font-size:12.5px; font-family:var(--font-mono); line-height:1.5; resize:vertical; min-height:90px; width:100%; transition:border-color .12s; }
+    .pw-form textarea:focus { border-color:var(--accent); outline:none; box-shadow:0 0 0 3px var(--accent-softer); }
+    .iid-row { display:flex; align-items:center; gap:10px; }
+    .iid-box { flex:1; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-size:12.5px; font-family:var(--font-mono); word-break:break-all; }
     .pw-hint { font-size:11px; color:var(--text-dim); display:flex; align-items:flex-start; gap:6px; line-height:1.4; }
     .pw-hint svg { flex:0 0 13px; margin-top:1px; color:var(--text-dim); }
     .pw-msg { font-size:12.5px; font-weight:600; min-height:16px; }
@@ -325,24 +329,27 @@
 
             <!-- PANE: license -->
             <div class="u-pane" id="pane-license">
-              <div class="pane-head"><div class="h-title">軟件授權</div><div class="h-sub">查看授權狀態、安裝碼、更新 License Token · Software licence</div></div>
+              <div class="pane-head"><div class="h-title">軟件授權</div><div class="h-sub">查看授權狀態同安裝碼；管理員可更新 License Token · Software licence</div></div>
               <section class="ucard">
                 <div class="ucard-head"><span class="lead"></span><span class="hicon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 015 0v2"/></svg></span>授權狀態 · Status</div>
                 <div class="pw-form">
                   <div id="lic-status" class="pw-msg">載入中…</div>
                   <div class="field">
                     <label>安裝碼 (Install ID)</label>
-                    <div style="display:flex;align-items:center;gap:10px;">
-                      <code id="lic-iid" class="mono" style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12.5px;word-break:break-all;">…</code>
+                    <div class="iid-row">
+                      <code id="lic-iid" class="iid-box">…</code>
                       <button id="lic-copy" class="btn-xs btn-sec" type="button">複製</button>
                     </div>
                   </div>
-                  <div class="field">
-                    <label>更新 / 續期 License Token</label>
-                    <textarea id="lic-token" placeholder="貼入新的 license 字串" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px 12px;font-size:12.5px;font-family:var(--font-mono);line-height:1.5;resize:vertical;min-height:90px;width:100%;"></textarea>
+                  <!-- activate controls are admin-only (POST /api/license/activate is @admin_required); unhidden in user.js when ME.is_admin -->
+                  <div id="lic-admin" hidden>
+                    <div class="field">
+                      <label>更新 / 續期 License Token</label>
+                      <textarea id="lic-token" placeholder="貼入新的 license 字串"></textarea>
+                    </div>
+                    <div><button id="lic-activate" class="btn-primary" type="button">啟用 / 更新</button></div>
+                    <div id="lic-msg" class="pw-msg"></div>
                   </div>
-                  <div><button id="lic-activate" class="btn-primary" type="button">啟用 / 更新</button></div>
-                  <div id="lic-msg" class="pw-msg"></div>
                 </div>
               </section>
             </div>
@@ -367,9 +374,14 @@
         $('lic-iid').textContent = st.install_id || '(未知)';
         $('lic-status').textContent = '狀態：' + L.describe(st);
       }
-      $('lic-copy').onclick = async () =>
-        navigator.clipboard.writeText((await L.fetchStatus()).install_id || '');
-      $('lic-activate').onclick = async () => {
+      // Read the already-rendered install-id (avoids a second round-trip).
+      $('lic-copy').onclick = () => {
+        const iid = $('lic-iid').textContent;
+        if (iid && iid !== '(未知)' && iid !== '…') navigator.clipboard.writeText(iid);
+      };
+      // Activate controls exist only for admins (see #lic-admin gating in user.js).
+      const activateBtn = $('lic-activate');
+      if (activateBtn) activateBtn.onclick = async () => {
         const { ok, body } = await L.activate($('lic-token').value);
         const m = $('lic-msg');
         m.className = ok && body.unlocked ? 'pw-msg ok' : 'pw-msg err';

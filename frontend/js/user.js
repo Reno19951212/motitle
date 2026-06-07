@@ -86,6 +86,10 @@ async function loadMe() {
     document.getElementById('navAdminGroup').hidden = false;
     document.getElementById('navUsers').hidden = false;
     document.getElementById('navAudit').hidden = false;
+    // License activate controls are admin-only (POST /api/license/activate is @admin_required).
+    // Non-admins still see the read-only 授權 tab (GET /api/license is @login_required).
+    const licAdmin = document.getElementById('lic-admin');
+    if (licAdmin) licAdmin.hidden = false;
     loadUsers();
     loadAudit();
   }
