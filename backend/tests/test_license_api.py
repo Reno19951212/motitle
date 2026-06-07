@@ -66,3 +66,23 @@ def test_deactivate_clears(api):
     client.post("/api/license/activate", json={"token": mint()})
     assert client.post("/api/license/deactivate").status_code == 200
     assert client.get("/api/license").get_json()["state"] == "none"
+
+
+def test_activate_expired_past_grace_clears_token(api):
+    # exp + grace window both well in the past → evaluate() returns "expired"
+    # AFTER save_token, so the route must clear_token() and 400. Verify no
+    # useless token is left installed.
+    client, mint, _ = api
+    expired_exp = int(time.time()) - 100 * DAY  # grace_days=30 → grace_cutoff ~70d ago
+    r = client.post("/api/license/activate", json={"token": mint(exp=expired_exp)})
+    assert r.status_code == 400 and r.get_json()["error"] == "expired"
+    # Token was cleared, not left installed.
+    assert ls.read_token() is None
+    assert client.get("/api/license").get_json()["state"] == "none"
+
+
+def test_activate_non_string_token_rejected(api):
+    # A present-but-non-string token must 400 (token required), not 500.
+    client, _, _ = api
+    r = client.post("/api/license/activate", json={"token": 12345})
+    assert r.status_code == 400 and r.get_json()["error"] == "token required"

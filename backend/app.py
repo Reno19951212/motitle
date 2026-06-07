@@ -2070,9 +2070,10 @@ def get_license_status():
 @app.post("/api/license/activate")
 @admin_required
 def activate_license():
-    token_str = (request.get_json(silent=True) or {}).get("token", "").strip()
-    if not token_str:
+    raw_token = (request.get_json(silent=True) or {}).get("token")
+    if not isinstance(raw_token, str) or not raw_token.strip():
         return jsonify({"error": "token required"}), 400
+    token_str = raw_token.strip()
     # Validate BEFORE persisting: verify signature, machine bind, not past grace.
     try:
         claims = _license_token.verify_signature(token_str)
@@ -2091,7 +2092,8 @@ def activate_license():
                   target_kind="license", target_id=claims.get("customer"),
                   details={"plan": claims.get("plan"), "exp": claims.get("exp")})
     except Exception:
-        pass
+        # Audit write must never fail the activation; log it rather than swallow.
+        app.logger.exception("license.activate audit write failed")
     return jsonify(_license_status_payload())
 
 
@@ -2102,7 +2104,8 @@ def deactivate_license():
     try:
         log_audit(AUTH_DB_PATH, current_user.id, "license.deactivate", target_kind="license")
     except Exception:
-        pass
+        # Audit write must never fail the deactivation; log it rather than swallow.
+        app.logger.exception("license.deactivate audit write failed")
     return jsonify(_license_status_payload())
 
 

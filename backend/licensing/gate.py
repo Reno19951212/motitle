@@ -18,9 +18,6 @@ ALLOWLIST_EXACT = {
 # Static asset prefixes needed to render login + the licence wall.
 ALLOWLIST_PREFIXES = ("/js/", "/css/")
 
-# Page (HTML) routes that should 302 to the wall instead of returning JSON 403.
-PAGE_PREFIXES_NONAPI = True  # any non-/api GET that isn't allowlisted → redirect
-
 
 def _allowed(path: str) -> bool:
     if path in ALLOWLIST_EXACT:
