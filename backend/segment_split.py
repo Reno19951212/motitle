@@ -79,9 +79,22 @@ def parse_split_response(
         except Exception:
             return None
     parts = obj.get("parts") if isinstance(obj, dict) else None
-    if not isinstance(parts, list) or len(parts) != 2:
+    if not isinstance(parts, list):
         return None
-    p1, p2 = parts
+    n = len(texts_by_lang)
+    if len(parts) == 2 and all(isinstance(p, dict) for p in parts):
+        # Expected shape: exactly two dicts, each carrying all languages.
+        p1, p2 = parts
+    elif n >= 1 and len(parts) == 2 * n and all(isinstance(p, dict) and len(p) == 1 for p in parts):
+        # Tolerant shape: some models emit ONE {lang: text} dict per language per half
+        # (e.g. [{"yue":前},{"zh":前},{"yue":後},{"zh":後}]). Regroup by first/second
+        # occurrence of each language → first half / second half.
+        p1, p2 = {}, {}
+        for d in parts:
+            (lang, txt), = d.items()
+            (p2 if lang in p1 else p1)[lang] = txt
+    else:
+        return None
     if not isinstance(p1, dict) or not isinstance(p2, dict):
         return None
     out: Dict[str, Tuple[str, str]] = {}

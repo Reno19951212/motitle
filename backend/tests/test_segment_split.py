@@ -53,6 +53,27 @@ def test_parse_split_response_plain_json_bilingual():
     assert out == {"yue": ("你好", "世界"), "en": ("hello", "world")}
 
 
+def test_parse_split_response_flat_per_language_format():
+    # Regression: some models emit ONE {lang: text} dict per language per half
+    # (4 elements for 2 langs) instead of two all-language dicts. Must regroup,
+    # not fall back to mechanical. (Bug: multi-language AI split → mechanical.)
+    raw = ('{"parts": [{"yue": "你好"}, {"en": "hello"}, '
+           '{"yue": "世界"}, {"en": "world"}]}')
+    texts = {"yue": "你好世界", "en": "hello world"}
+    out = ss.parse_split_response(raw, texts, content_lang="yue")
+    assert out == {"yue": ("你好", "世界"), "en": ("hello", "world")}
+
+
+def test_parse_split_response_flat_format_grouped_by_lang():
+    # Same flat shape but grouped per-language ([yue1, yue2, en1, en2]) — regroup
+    # still maps first occurrence → half 1, second → half 2.
+    raw = ('{"parts": [{"yue": "你好"}, {"yue": "世界"}, '
+           '{"en": "hello"}, {"en": "world"}]}')
+    texts = {"yue": "你好世界", "en": "hello world"}
+    out = ss.parse_split_response(raw, texts, content_lang="yue")
+    assert out == {"yue": ("你好", "世界"), "en": ("hello", "world")}
+
+
 def test_parse_split_response_strips_markdown_fence():
     raw = '```json\n{"parts": [{"yue": "你好"}, {"yue": "世界"}]}\n```'
     out = ss.parse_split_response(raw, {"yue": "你好世界"}, content_lang="yue")
