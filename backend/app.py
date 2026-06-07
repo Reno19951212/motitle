@@ -326,7 +326,19 @@ def _make_ollama_llm_call_engine():
 
 
 def _make_ollama_llm_call():
-    """(system, user) -> str LLM client for cross-lang MT + the 書面語 refiner."""
+    """(system, user) -> str LLM client for cross-lang MT + the 書面語 refiner.
+
+    Beta test mode ON → route to OpenRouter (qwen/qwen3.5-35b-a3b); same temp 0.3
+    for parity. OFF → local Ollama (unchanged).
+    """
+    if _profile_manager.get_beta_mode():
+        import beta_mode
+        from translation.openrouter_engine import OpenRouterTranslationEngine
+        eng = OpenRouterTranslationEngine({
+            "openrouter_model": beta_mode.BETA_LLM_MODEL,
+            "api_key": os.environ.get("OPENROUTER_API_KEY", ""),
+        })
+        return lambda system, user: eng._call_ollama(system, user, 0.3)
     eng = _make_ollama_llm_call_engine()
     return lambda system, user: eng._call_ollama(system, user, 0.3)
 
