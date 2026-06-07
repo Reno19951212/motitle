@@ -1421,7 +1421,7 @@ git commit -m "feat(licensing): user.html 授權 tab + grace banner on app pages
 Run: `"$VENV" -m pytest tests/test_license_token.py tests/test_license_state.py tests/test_license_validator.py tests/test_license_sign_cli.py tests/test_license_gate.py tests/test_license_api.py tests/test_license_worker.py -q`
 Expected: ALL PASS.
 
-- [ ] **Step 2: End-to-end curl smoke (real server)**
+- [x] **Step 2: End-to-end curl smoke (real server)** — performed 2026-06-07
 
 ```bash
 # Start server (separate shell): cd backend && python app.py
@@ -1434,6 +1434,15 @@ curl -s -b cookies -X POST localhost:5001/api/license/activate \
   -H 'Content-Type: application/json' -d '{"token":"<TOKEN>"}'   # state:active
 ```
 > (Auth cookies: log in via `/login` first; or run with an admin session.)
+
+**Result (real server, isolated temp AUTH_DB; baked dev pubkey ↔ owner private key verified to match):**
+1. Login as admin → `{"ok":true,...}`; `GET /api/license` → `state:"none"`, `unlocked:false`, `install_id:"e817f08c6968452a81abf4dcac799e9c"`. App locked: `GET /api/files` → `403 {"error":"licence required","license_state":"none"}`.
+2. Minted a `sub-3mo` token bound to that install-id via `sign_license.py` (321-char token).
+3. `POST /api/license/activate` → `state:"active"`, `unlocked:true`, `customer:"DEV"`, `plan:"sub-3mo"`, `days_left:89`, `grace_days:30`. App unlocked: `GET /api/files` → `200`.
+4. `POST /api/license/deactivate` → `state:"none"`, `unlocked:false`; `GET /api/files` → `403` again (relocked).
+5. Negative paths: token bound to a different install-id → `400 {"error":"wrong_machine"}`; garbage token → `400 {"error":"invalid"}`.
+
+All transient artifacts (temp DB, gitignored `config/license.json`, `/tmp` ledger) were cleaned up; worktree left pristine.
 
 - [ ] **Step 3: Update CLAUDE.md**
 
