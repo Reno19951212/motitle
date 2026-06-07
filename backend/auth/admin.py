@@ -10,6 +10,7 @@ from auth.users import (
     list_all_users, count_admins, get_user_by_id, update_remarks,
 )
 from auth.audit import log_audit
+import beta_mode
 
 
 bp = Blueprint("admin", __name__)
@@ -229,3 +230,44 @@ def list_audit_route():
     actor_id = request.args.get("actor_id")
     actor_id = int(actor_id) if actor_id else None
     return jsonify(list_audit(db, limit=limit, actor_id=actor_id)), 200
+
+
+@bp.get("/api/admin/beta-mode")
+@admin_required
+def get_beta_mode_route():
+    pm = current_app.config["PROFILE_MANAGER"]
+    return jsonify({
+        "enabled": pm.get_beta_mode(),
+        "key_configured": beta_mode.key_status(),
+        "llm_model": beta_mode.BETA_LLM_MODEL,
+    }), 200
+
+
+@bp.put("/api/admin/beta-mode")
+@admin_required
+def update_beta_mode_route():
+    pm = current_app.config["PROFILE_MANAGER"]
+    data = request.get_json(silent=True) or {}
+
+    if "api_key" in data:
+        try:
+            beta_mode.set_key(data.get("api_key") or "")
+        except ValueError:
+            return jsonify({"error": "OpenRouter API key 不能為空"}), 400
+
+    enabled = bool(data.get("enabled", pm.get_beta_mode()))
+    if enabled and not beta_mode.key_status():
+        return jsonify({"error": "請先設定 OpenRouter API key 先可以開啟 Beta 模式"}), 400
+
+    pm.set_beta_mode(enabled)
+    try:
+        log_audit(current_app.config["AUTH_DB_PATH"], actor_id=getattr(current_user, "id", None),
+                  action="beta.toggle", target_kind="settings", target_id="beta_openrouter",
+                  details={"enabled": enabled})
+    except Exception:
+        pass
+    return jsonify({
+        "enabled": enabled,
+        "key_configured": beta_mode.key_status(),
+        "llm_model": beta_mode.BETA_LLM_MODEL,
+    }), 200

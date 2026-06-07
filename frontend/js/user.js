@@ -88,6 +88,8 @@ async function loadMe() {
     document.getElementById('navAudit').hidden = false;
     loadUsers();
     loadAudit();
+    document.getElementById('navBeta').hidden = false;
+    loadBetaMode();
   }
 }
 
@@ -418,3 +420,35 @@ document.getElementById('auditFilter').addEventListener('click', (e) => {
 
 window.toggleAuditDetail = toggleAuditDetail;
 window.copyJson = copyJson;
+
+// ---- beta test mode (admin) ----
+async function loadBetaMode() {
+  const r = await fetch('/api/admin/beta-mode', { credentials: 'same-origin' });
+  if (!r.ok) return;
+  const d = await r.json();
+  document.getElementById('betaEnabled').checked = !!d.enabled;
+  document.getElementById('betaLlmModel').textContent = d.llm_model || '—';
+  document.getElementById('betaKeyStatus').textContent =
+    d.key_configured ? '✓ API key 已設定' : '✕ 未設定 API key';
+}
+
+document.getElementById('betaSaveBtn').addEventListener('click', async () => {
+  const msg = document.getElementById('betaMsg');
+  msg.textContent = ''; msg.className = 'pw-msg';
+  const body = { enabled: document.getElementById('betaEnabled').checked };
+  const key = document.getElementById('betaApiKey').value.trim();
+  if (key) body.api_key = key;
+  const r = await fetch('/api/admin/beta-mode', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin', body: JSON.stringify(body),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (r.ok) {
+    msg.textContent = '✓ 已儲存'; msg.className = 'pw-msg ok';
+    document.getElementById('betaApiKey').value = '';
+    showToast('Beta 設定已儲存', 'success');
+    loadBetaMode();
+  } else {
+    msg.textContent = '✕ ' + (d.error || `HTTP ${r.status}`); msg.className = 'pw-msg err';
+  }
+});

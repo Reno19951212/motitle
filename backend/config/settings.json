@@ -2,6 +2,7 @@
   "active_profile": "dev-default",
   "active_kind": "pipeline_v6",
   "active_id": "4696bbaa-b988-49bd-859c-e742cb365634",
+  "beta_openrouter": false,
   "font": {
     "family": "Noto Sans TC",
     "size": 36,
