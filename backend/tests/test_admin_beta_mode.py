@@ -29,7 +29,6 @@ def test_get_beta_mode_default(client):
     data = r.get_json()
     assert data["enabled"] is False
     assert data["key_configured"] is False
-    assert data["asr_model"] == "openai/whisper-large-v3"
     assert data["llm_model"] == "qwen/qwen3.5-35b-a3b"
 
 

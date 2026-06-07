@@ -239,7 +239,6 @@ def get_beta_mode_route():
     return jsonify({
         "enabled": pm.get_beta_mode(),
         "key_configured": beta_mode.key_status(),
-        "asr_model": beta_mode.BETA_ASR_MODEL,
         "llm_model": beta_mode.BETA_LLM_MODEL,
     }), 200
 
@@ -270,6 +269,5 @@ def update_beta_mode_route():
     return jsonify({
         "enabled": enabled,
         "key_configured": beta_mode.key_status(),
-        "asr_model": beta_mode.BETA_ASR_MODEL,
         "llm_model": beta_mode.BETA_LLM_MODEL,
     }), 200

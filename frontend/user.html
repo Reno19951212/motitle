@@ -324,10 +324,10 @@
 
             <!-- PANE: beta -->
             <div class="u-pane" id="pane-beta">
-              <div class="pane-head"><div class="h-title">Beta 測試模式</div><div class="h-sub">將後台 ASR + LLM 切換去 OpenRouter 雲端 · Cloud model test mode</div></div>
+              <div class="pane-head"><div class="h-title">Beta 測試模式</div><div class="h-sub">將後台 LLM 切換去 OpenRouter 雲端 · Cloud LLM test mode</div></div>
               <section class="ucard" id="betaSection">
                 <div class="ucard-head"><span class="lead"></span>OpenRouter 雲端模型</div>
-                <div class="pw-hint" style="margin-bottom:14px;"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5.5v3M8 11h0"/></svg>開啟後，語音轉文字（Whisper）同翻譯/書面語（Qwen3.5）會改用 OpenRouter 雲端，按用量計費。失敗唔會自動退回本地。</div>
+                <div class="pw-hint" style="margin-bottom:14px;"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5.5v3M8 11h0"/></svg>開啟後，翻譯／書面語（Qwen3.5）會改用 OpenRouter 雲端，按用量計費。語音轉文字（ASR）維持本地處理，不受影響。失敗唔會自動退回本地。</div>
                 <div class="field" style="margin-bottom:12px;">
                   <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
                     <input type="checkbox" id="betaEnabled"> <b>啟用 Beta 測試模式</b>
@@ -339,8 +339,8 @@
                   <div class="pw-hint" id="betaKeyStatus" style="margin-top:6px;"></div>
                 </div>
                 <div class="field" style="margin-bottom:12px;font-size:12.5px;color:var(--text-dim);">
-                  <div>ASR 模型：<span id="betaAsrModel" style="font-family:var(--font-mono);">—</span></div>
-                  <div>LLM 模型：<span id="betaLlmModel" style="font-family:var(--font-mono);">—</span></div>
+                  <div>LLM 模型（雲端）：<span id="betaLlmModel" style="font-family:var(--font-mono);">—</span></div>
+                  <div>ASR：本地 mlx-whisper large-v3（不受 Beta 影響）</div>
                 </div>
                 <button type="button" class="btn-primary" id="betaSaveBtn" style="align-self:flex-start;">儲存</button>
                 <span id="betaMsg" class="pw-msg"></span>

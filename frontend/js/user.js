@@ -427,7 +427,6 @@ async function loadBetaMode() {
   if (!r.ok) return;
   const d = await r.json();
   document.getElementById('betaEnabled').checked = !!d.enabled;
-  document.getElementById('betaAsrModel').textContent = d.asr_model || '—';
   document.getElementById('betaLlmModel').textContent = d.llm_model || '—';
   document.getElementById('betaKeyStatus').textContent =
     d.key_configured ? '✓ API key 已設定' : '✕ 未設定 API key';

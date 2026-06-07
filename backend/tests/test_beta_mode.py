@@ -9,8 +9,7 @@ import beta_mode
 from profiles import ProfileManager
 
 
-def test_beta_model_constants_are_parity():
-    assert beta_mode.BETA_ASR_MODEL == "openai/whisper-large-v3"
+def test_beta_llm_constant():
     assert beta_mode.BETA_LLM_MODEL == "qwen/qwen3.5-35b-a3b"
 
 

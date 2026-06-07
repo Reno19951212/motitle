@@ -2,14 +2,13 @@
 """Central state + constants for the Admin Beta test mode (OpenRouter cloud models).
 
 Beta mode is a single global flag (settings.json 'beta_openrouter'). When ON, the
-output_lang pipeline's ASR + LLM route to OpenRouter instead of local mlx-whisper /
-Ollama. Model ids are hardcoded parity with the local production stack.
+output_lang pipeline's LLM routes to OpenRouter instead of local Ollama. ASR always
+stays local (mlx-whisper). The LLM model id is hardcoded parity with the local stack.
 """
 import os
 from pathlib import Path
 
 # Hardcoded parity with the local production stack (not user-editable).
-BETA_ASR_MODEL = "openai/whisper-large-v3"
 BETA_LLM_MODEL = "qwen/qwen3.5-35b-a3b"
 
 _ENV_PATH = Path(__file__).parent / ".env"   # backend/.env (gitignored)
