@@ -39,3 +39,11 @@ def test_llm_call_uses_ollama_when_beta_off(pm, monkeypatch):
                         lambda: type("E", (), {"_call_ollama": lambda self, s, u, t: "LOCAL"})())
     call = app_module._make_ollama_llm_call()
     assert call("sys", "usr") == "LOCAL"
+
+
+def test_llm_call_raises_when_beta_on_key_missing(pm, monkeypatch):
+    pm.set_beta_mode(True)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    call = app_module._make_ollama_llm_call()
+    with pytest.raises(ConnectionError):
+        call("sys", "usr")
