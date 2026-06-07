@@ -133,6 +133,10 @@ def app_mod(monkeypatch):
     monkeypatch.setenv("FLASK_SECRET_KEY", "test-secret-only-for-pytest-do-not-deploy")
     import app as _a
     importlib.reload(_a)
+    # The reloaded app is a fresh Flask object that misses the conftest autouse
+    # R5_LICENSE_BYPASS; set it here so the worker license guard is a no-op for
+    # these direct-handler dispatch tests (mirrors conftest._isolate_app_data).
+    _a.app.config["R5_LICENSE_BYPASS"] = True
     return _a
 
 

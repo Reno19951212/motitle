@@ -2059,7 +2059,18 @@ import time as _time_for_license
 
 
 def _license_guard_or_raise():
-    """Defense-in-depth: AI workers refuse to run without an unlocked licence."""
+    """Defense-in-depth: AI workers refuse to run without an unlocked licence.
+
+    Honours the R5_LICENSE_BYPASS test flag via the module-level `app` object.
+    Worker threads have no request context, so `current_app` is unavailable
+    here (unlike the HTTP gate); the concrete app object's config is always
+    readable. Mirroring the gate's bypass keeps the test suite's handler tests
+    (which drive _asr_handler / _mt_handler / _auto_translate directly) from
+    being blocked by the guard. The flag is config-only and never set in
+    production.
+    """
+    if app.config.get("R5_LICENSE_BYPASS"):
+        return
     if not _license_validator.evaluate().unlocked:
         raise RuntimeError("licence required: AI job refused")
 
