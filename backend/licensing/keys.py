@@ -4,4 +4,4 @@ app stays locked (fail-closed). Replace via `scripts/licensing/keygen.py`.
 Read this constant dynamically (keys.PUBLIC_KEY_B64) so tests can monkeypatch it.
 """
 
-PUBLIC_KEY_B64 = ""  # base64 of the 32-byte Ed25519 verify key
+PUBLIC_KEY_B64 = "wUYQBWjokleK6ePZ2nR5HnWK41s3HXCaya6+Z4mFG84="  # base64 of the 32-byte Ed25519 verify key
