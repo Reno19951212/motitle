@@ -1,0 +1,16 @@
+{
+  "id": "2bd9d660-971d-492e-a95f-8af0e6cf47b7",
+  "name": "HK 賽馬 (zh same-lang)",
+  "description": "v3.8 cascade-fix preset",
+  "engine": "mlx-whisper",
+  "model_size": "large-v3",
+  "mode": "same-lang",
+  "language": "zh",
+  "initial_prompt": "以下係香港賽馬新聞，繁體中文。",
+  "condition_on_previous_text": false,
+  "simplified_to_traditional": true,
+  "device": "auto",
+  "user_id": 4758,
+  "created_at": 1779169637,
+  "updated_at": 1779169637
+}

@@ -1,0 +1,16 @@
+{
+  "id": "2af8f65f-b532-4dea-8688-d3634e790e0e",
+  "name": "中文",
+  "description": "",
+  "engine": "mlx-whisper",
+  "model_size": "large-v3",
+  "mode": "same-lang",
+  "language": "zh",
+  "initial_prompt": "",
+  "condition_on_previous_text": false,
+  "simplified_to_traditional": false,
+  "device": "auto",
+  "user_id": 627,
+  "created_at": 1779168972,
+  "updated_at": 1779168972
+}

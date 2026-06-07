@@ -1,0 +1,12 @@
+{
+  "name": "A2 smoke ZH-EN",
+  "source_lang": "zh",
+  "target_lang": "en",
+  "llm_profile_id": "603811c1-c36a-43b7-9acd-04396e39a0dd",
+  "prompt_template_id": "translator/zh_to_en_default",
+  "id": "5b317124-da2d-4e43-b37d-827e7db5afff",
+  "user_id": 5006,
+  "shared": false,
+  "created_at": 1779233731.283678,
+  "updated_at": 1779233731.283678
+}
