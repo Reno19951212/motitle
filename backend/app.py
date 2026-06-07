@@ -984,7 +984,13 @@ def _mt_handler(job, cancel_event=None):
 
     cancel_event (Phase 4): threading.Event forwarded to _auto_translate so
     that it can raise JobCancelled between translation engine calls when set.
+
+    Defense-in-depth (Task 8): guard at the handler entry — mirrors
+    _asr_handler — so EVERY AI sub-path (translate-second, profile/
+    _auto_translate) fails fast if the licence lapses mid-session, including
+    the _translate_second_handler branch which runs real LLM work.
     """
+    _license_guard_or_raise()
     file_id = job["file_id"]
 
     # Bug #22: snapshot both decision-fields atomically under the lock so we
