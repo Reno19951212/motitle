@@ -165,7 +165,7 @@ def _isolate_app_data(request, tmp_path, monkeypatch):
     # teardown, so mixing the two would let monkeypatch re-apply a stale value
     # on top of our authoritative restore. Owning the full lifecycle here keeps
     # the post-test state deterministic.
-    _AUTH_FLAG_KEYS = ("LOGIN_DISABLED", "R5_AUTH_BYPASS")
+    _AUTH_FLAG_KEYS = ("LOGIN_DISABLED", "R5_AUTH_BYPASS", "R5_LICENSE_BYPASS")
     _MISSING = object()
     _auth_flag_snapshot = {
         k: app.app.config.get(k, _MISSING) for k in _AUTH_FLAG_KEYS
@@ -179,6 +179,13 @@ def _isolate_app_data(request, tmp_path, monkeypatch):
     else:
         app.app.config["LOGIN_DISABLED"] = True
         app.app.config["R5_AUTH_BYPASS"] = True
+
+    # License gate (Task 7) is a global before_request that 403s every /api/*
+    # call when no licence is installed. The vast majority of existing tests
+    # never install a licence, so bypass the gate by default — exactly like
+    # R5_AUTH_BYPASS above. The licensing test suites flip this OFF in their
+    # own fixtures to exercise the real gate.
+    app.app.config["R5_LICENSE_BYPASS"] = True
 
     # Also replace the module-level _subtitle_renderer instance, which was
     # constructed at import time with the real RENDERS_DIR.

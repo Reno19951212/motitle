@@ -209,6 +209,8 @@ from auth.routes import bp as auth_bp, _LoginUser
 from auth.decorators import login_required, require_file_owner, admin_required
 from flask_login import LoginManager, current_user
 
+from licensing import gate as _license_gate
+
 AUTH_DB_PATH = os.environ.get(
     'AUTH_DB_PATH', str(DATA_DIR / 'app.db')
 )
@@ -230,6 +232,11 @@ def _load_user(uid: str):
 
 
 app.register_blueprint(auth_bp)
+
+# License gate (Task 7) — global before_request enforcement. Allowlisted paths
+# (auth + licence mgmt + health + the licence wall + its static assets) work
+# without a licence; everything else requires evaluate().unlocked.
+_license_gate.register(app)
 
 from auth.admin import bp as admin_bp
 from auth.audit import init_audit_log
@@ -1932,6 +1939,12 @@ def serve_login_page():
     return send_from_directory(_FRONTEND_DIR, "login.html")
 
 
+@app.get("/license.html")
+def serve_license_page():
+    """Licence wall — reachable without a licence (allowlisted in the gate)."""
+    return send_from_directory(_FRONTEND_DIR, "license.html")
+
+
 @app.get("/")
 def serve_index():
     """Dashboard root. Redirect to /login.html when no session, otherwise
@@ -2026,6 +2039,71 @@ def ready_check():
     if not all(t.is_alive() for t in _job_queue._workers):
         return jsonify({"ready": False, "error": "job workers not running"}), 503
     return jsonify({"ready": True}), 200
+
+
+# ============================================================
+# License API Routes (Task 7) — status / activate / deactivate
+# ============================================================
+from licensing import validator as _license_validator
+from licensing import license_state as _license_state
+from licensing import token as _license_token
+from auth.audit import log_audit
+import time as _time_for_license
+
+
+def _license_status_payload():
+    st = _license_validator.evaluate()
+    return {
+        "state": st.state, "unlocked": st.unlocked, "customer": st.customer,
+        "plan": st.plan, "expires_at": st.expires_at, "days_left": st.days_left,
+        "grace_days": st.grace_days, "features": st.features,
+        "install_id": _license_state.get_or_create_install_id(),
+    }
+
+
+@app.get("/api/license")
+@login_required
+def get_license_status():
+    return jsonify(_license_status_payload())
+
+
+@app.post("/api/license/activate")
+@admin_required
+def activate_license():
+    token_str = (request.get_json(silent=True) or {}).get("token", "").strip()
+    if not token_str:
+        return jsonify({"error": "token required"}), 400
+    # Validate BEFORE persisting: verify signature, machine bind, not past grace.
+    try:
+        claims = _license_token.verify_signature(token_str)
+    except _license_token.InvalidToken:
+        return jsonify({"error": "invalid"}), 400
+    if claims.get("install_id") != _license_state.get_or_create_install_id():
+        return jsonify({"error": "wrong_machine"}), 400
+    # Persist, then evaluate to catch expired-past-grace tokens.
+    _license_state.save_token(token_str, now=_time_for_license.time())
+    st = _license_validator.evaluate()
+    if not st.unlocked:
+        _license_state.clear_token()
+        return jsonify({"error": st.state}), 400
+    try:
+        log_audit(AUTH_DB_PATH, current_user.id, "license.activate",
+                  target_kind="license", target_id=claims.get("customer"),
+                  details={"plan": claims.get("plan"), "exp": claims.get("exp")})
+    except Exception:
+        pass
+    return jsonify(_license_status_payload())
+
+
+@app.post("/api/license/deactivate")
+@admin_required
+def deactivate_license():
+    _license_state.clear_token()
+    try:
+        log_audit(AUTH_DB_PATH, current_user.id, "license.deactivate", target_kind="license")
+    except Exception:
+        pass
+    return jsonify(_license_status_payload())
 
 
 @app.route('/api/models', methods=['GET'])
