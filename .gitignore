@@ -74,3 +74,7 @@ backend/data/certs/
 # Private / commercially sensitive docs (client assessments, internal notes).
 # Kept local only — MUST NOT be pushed to public repo.
 docs/private/
+
+# Token licensing — per-deployment state + owner's issuance ledger (never commit)
+backend/config/license.json
+scripts/licensing/issued_licenses.csv

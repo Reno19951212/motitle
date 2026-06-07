@@ -30,3 +30,6 @@ silero-vad>=6.2.1
 # Subtitle custom-font upload: read the real family name from a font's `name`
 # table so the live preview (@font-face) and burn-in (libass :fontsdir) match.
 fonttools>=4.40.0
+
+# Token licensing — Ed25519 offline signature
+PyNaCl>=1.5.0
