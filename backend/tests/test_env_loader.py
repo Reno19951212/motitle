@@ -32,3 +32,9 @@ def test_load_env_file_ignores_malformed_lines(tmp_path, monkeypatch):
     monkeypatch.delenv("GOOD_BETA_TEST", raising=False)
     app_module._load_env_file(env)
     assert os.environ["GOOD_BETA_TEST"] == "v"
+
+
+def test_load_env_file_binary_is_silent(tmp_path):
+    env = tmp_path / ".env"
+    env.write_bytes(b"\xff\xfe\x00\x01 binary garbage \x80\x81")
+    app_module._load_env_file(env)   # must NOT raise (UnicodeDecodeError is a ValueError)

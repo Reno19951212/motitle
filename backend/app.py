@@ -94,7 +94,7 @@ def _load_env_file(path) -> None:
             k, v = k.strip(), v.strip()
             if k and k not in os.environ:
                 os.environ[k] = v
-    except OSError:
+    except (OSError, ValueError):
         pass
 
 
