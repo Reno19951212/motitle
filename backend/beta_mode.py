@@ -17,7 +17,11 @@ _KEY_NAME = "OPENROUTER_API_KEY"
 
 
 def key_status() -> bool:
-    """True when an OpenRouter API key is present in the environment."""
+    """True when an OpenRouter API key is present in the environment.
+
+    Reads from os.environ only. A key written by set_key() is live immediately
+    (set_key also calls os.environ); after a server restart it is only visible
+    if .env is loaded into the environment at startup."""
     return bool(os.environ.get(_KEY_NAME))
 
 
@@ -46,4 +50,6 @@ def _write_env_var(path: Path, name: str, value: str) -> None:
             out.append(ln)
     if not replaced:
         out.append(new_line)
-    path.write_text("\n".join(out) + "\n", encoding="utf-8")
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    tmp_path.write_text("\n".join(out) + "\n", encoding="utf-8")
+    os.replace(tmp_path, path)

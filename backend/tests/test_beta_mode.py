@@ -1,7 +1,9 @@
 # backend/tests/test_beta_mode.py
-import os
 import json
+import os
 from pathlib import Path
+
+import pytest
 
 import beta_mode
 from profiles import ProfileManager
@@ -13,11 +15,16 @@ def test_beta_model_constants_are_parity():
 
 
 def test_profile_manager_beta_flag_roundtrip(tmp_path):
+    (tmp_path / "settings.json").write_text(
+        '{"active_profile": "p1", "beta_openrouter": false}', encoding="utf-8"
+    )
     pm = ProfileManager(tmp_path)
     assert pm.get_beta_mode() is False           # default off
     assert pm.set_beta_mode(True) is True
     assert pm.get_beta_mode() is True
-    # persisted to settings.json, other keys preserved
+    # the immutable update must preserve sibling keys
+    raw = json.loads((tmp_path / "settings.json").read_text(encoding="utf-8"))
+    assert raw["active_profile"] == "p1"
     pm.set_beta_mode(False)
     assert pm.get_beta_mode() is False
 
@@ -38,6 +45,5 @@ def test_set_key_writes_env_and_environ(tmp_path, monkeypatch):
 
 def test_set_key_rejects_empty(tmp_path, monkeypatch):
     monkeypatch.setattr(beta_mode, "_ENV_PATH", tmp_path / ".env")
-    import pytest
     with pytest.raises(ValueError):
         beta_mode.set_key("   ")
