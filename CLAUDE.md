@@ -157,11 +157,17 @@ motitle/
 │       ├── step-diagram.js     # Kind-agnostic step-diagram renderer
 │       └── files-page.js       # Files.html logic
 ├── docs/superpowers/           # Design specs and implementation plans
+├── docs/deployment/            # Operator runbooks
+│   └── macos-server.md         # macOS Apple Silicon server-appliance install (launchd)
+├── packaging/macos/            # LaunchDaemon plists + launcher + service management CLI
 ├── setup.sh                    # One-shot environment setup
+├── setup-mac.sh                # macOS Apple Silicon server setup (deps + venv + admin user + launchd)
 ├── start.sh                    # Start backend + open browser
 ├── CLAUDE.md                   # This file
 └── README.md                   # User-facing documentation (Traditional Chinese)
 ```
+
+> **macOS server-appliance deployment** — `setup-mac.sh` installs Homebrew deps, mlx-whisper venv, bootstraps the admin user, writes `backend/.env` (FLASK_SECRET_KEY), generates a self-signed HTTPS cert, pulls `qwen3.5:35b-a3b-mlx-bf16`, and optionally installs two LaunchDaemons (`com.motitle.server` + `com.motitle.ollama`) via `packaging/macos/motitle-service.sh`. Full operator runbook: [docs/deployment/macos-server.md](docs/deployment/macos-server.md).
 
 ---
 
@@ -395,7 +401,7 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 1. **CLAUDE.md** (this file) — Architecture, REST endpoints, current state (full history → [docs/history.md](docs/history.md))
 2. **README.md** (user-facing, **must be written in Traditional Chinese**)
-3. **docs/PRD.md** — Update feature status markers (📋 → ✅)
+3. **docs/PRD.md** — Update feature status markers (📋 → ✅). Note: PRD.md predates the `output_lang` pipeline and may be stale for pipeline features — treat its pipeline sections as historical and prefer this file's Current State section.
 4. **Validation-First tracker** — for any ASR/MT change, a `docs/superpowers/specs/YYYY-MM-DD-...-validation-tracker.md` recording empirical results (✅ Validated / ❌ Rejected / ⚠️ Partial)
 5. **Design + plan pair** — a matching `docs/superpowers/specs/...-design.md` and `docs/superpowers/plans/...-plan.md`
 

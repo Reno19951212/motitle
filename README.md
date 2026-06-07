@@ -44,6 +44,8 @@ source backend/.env && cd backend && source venv/bin/activate && python app.py
 python backend\app.py
 ```
 
+> **Windows 提示**：`setup-win.ps1` 可能喺安裝 `whisper-streaming` 時失敗（`pyalsaaudio` / `opus-fast-mosestokenizer` 喺 Windows build 唔到）— 屬已知問題，跳過該依賴即可，詳見下面〈[Windows 常見問題](#windows-常見問題)〉。另外暫時**未有 `start-win.ps1`**，請手動啟動（上面嘅 `Activate.ps1` + `python backend\app.py`）或自行註冊為 Windows service。
+
 **Linux (Ubuntu/Debian, NVIDIA GB10 或任何 CUDA GPU)**：
 ```bash
 ./setup-linux-gb10.sh
@@ -90,6 +92,60 @@ source backend/.env && cd backend && source venv/bin/activate && python app.py
 
 - **Queued job**：`DELETE /api/queue/<id>` → 200，DB 即時 cancelled。
 - **Running job**：`DELETE /api/queue/<id>` → 202 + `{ok:true, status:"cancelling"}`。Worker 喺下一個 checkpoint 自動停（ASR：每 segment 之間，~1 秒；MT：每 batch 之間，~30 秒最差情況）。最終 status flip 出現喺 next polling round。
+
+---
+
+## macOS 伺服器部署
+
+如需將 MoTitle 安裝成一部**長開、開機自啟**的 Apple Silicon Mac 伺服器（LaunchDaemon 模式），請參閱完整 operator runbook：[docs/deployment/macos-server.md](docs/deployment/macos-server.md)。
+
+以下為快速概覽。
+
+### 一鍵安裝
+
+```bash
+git clone https://github.com/your-org/motitle.git
+cd motitle
+./setup-mac.sh
+```
+
+`setup-mac.sh` 會自動：安裝 Homebrew 依賴（python@3.11、ffmpeg、ollama）、建立 venv 並安裝 mlx-whisper、建立管理員帳戶、生成 `FLASK_SECRET_KEY` 寫入 `backend/.env`、生成自簽 HTTPS 憑證、拉取 `qwen3.5:35b-a3b-mlx-bf16` 模型（約 70 GB，需 ~90 GB 可用磁碟空間），最後可選安裝 LaunchDaemon 服務。腳本可多次執行（冪等）。
+
+> **硬件要求**：Apple Silicon（M1/M2/M3/M4）；建議 64 GB 以上統一記憶體（35B bf16 模型運行需要）；需接交流電（伺服器長開模式）。
+
+### 服務管理
+
+安裝完 LaunchDaemon 後，以 `sudo` 使用管理腳本：
+
+```bash
+sudo packaging/macos/motitle-service.sh install    # 安裝並立即啟動兩個 LaunchDaemon
+sudo packaging/macos/motitle-service.sh status     # 查看運行狀態 + 健康檢查
+sudo packaging/macos/motitle-service.sh restart    # 重啟（更新代碼或 .env 後使用）
+sudo packaging/macos/motitle-service.sh logs       # 即時追蹤伺服器日誌
+sudo packaging/macos/motitle-service.sh stop       # 停止（下次開機前不會自動重啟）
+sudo packaging/macos/motitle-service.sh start      # 重新啟動已停止的服務
+sudo packaging/macos/motitle-service.sh uninstall  # 移除 LaunchDaemon（不刪除資料）
+```
+
+兩個 LaunchDaemon（`com.motitle.server` + `com.motitle.ollama`）均設 `RunAtLoad` + `KeepAlive`，開機自啟、崩潰自重啟，無需用戶登入。
+
+### 客戶端連入
+
+```bash
+ipconfig getifaddr en0    # 查看 Mac 的 LAN IP
+```
+
+客戶端瀏覽器打開：
+
+```
+http://<mac-ip>:5001
+```
+
+**macOS 防火牆提示**：首次連入時 macOS 可能彈出允許傳入連線的提示，按 **Allow（允許）**。
+
+**HTTPS 自簽憑證**：setup 會自動生成自簽憑證，啟用 `https://<mac-ip>:5001`。瀏覽器首次訪問會顯示安全警告，在 Safari 選「訪問此網站」、在 Chrome/Edge 選「繼續前往」即可。如需消除警告，可將 `backend/data/certs/server.crt` 匯入至各客戶端的系統鑰匙圈並設為「永遠信任」。
+
+建議在路由器為 Mac 保留固定 DHCP IP（或設定靜態 IP），以確保 LAN 地址穩定。
 
 ---
 

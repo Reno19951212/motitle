@@ -17,6 +17,8 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 
+from ffmpeg_locate import find_ffmpeg
+
 
 _SAMPLE_RATE = 8000
 
@@ -44,7 +46,7 @@ def compute_waveform_peaks(
     """
     media_path = str(media_path)
     cmd = [
-        "ffmpeg",
+        find_ffmpeg(),
         "-nostdin",
         "-i", media_path,
         "-vn",                # strip video
