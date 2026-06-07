@@ -76,6 +76,31 @@ except ImportError:
 
 # Initialize Flask app
 app = Flask(__name__)
+
+
+def _load_env_file(path) -> None:
+    """Load KEY=VAL lines from a .env file into os.environ WITHOUT overriding
+    already-exported vars. Dependency-free (no python-dotenv). Silent if absent.
+
+    This lets values an operator/admin persists to backend/.env (e.g. the
+    OpenRouter API key saved via the Beta admin pane) survive a restart, while
+    still letting an explicit shell `export` take precedence."""
+    try:
+        for raw in Path(path).read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, _, v = line.partition("=")
+            k, v = k.strip(), v.strip()
+            if k and k not in os.environ:
+                os.environ[k] = v
+    except OSError:
+        pass
+
+
+_load_env_file(Path(__file__).parent / ".env")
+
+
 # R5 Phase 5 T1.3: FLASK_SECRET_KEY is required. A weak or absent secret
 # means session cookies can be forged, so we refuse to boot rather than
 # silently using the placeholder.
