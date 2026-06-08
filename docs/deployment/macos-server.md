@@ -23,6 +23,7 @@ This runbook covers deploying MoTitle as a persistent server appliance on an App
 **Network**
 
 - The Mac must be reachable at a stable LAN IP. Either configure a static IP in System Settings → Network, or reserve the DHCP lease on your router.
+- The default pipeline is **fully local** (no internet needed at runtime). Only if you enable **Beta (OpenRouter) mode** (Section 7) does the server need outbound HTTPS to `openrouter.ai:443`. Test with `curl https://openrouter.ai/api/v1/models`.
 
 ---
 
@@ -53,6 +54,45 @@ What the script does, in order:
 11. **LAN URL** — prints the Mac's LAN IP address so you can test from another device immediately.
 
 After a successful run the server is accessible at `http://<mac-ip>:5001` (or `https://<mac-ip>:5001` if HTTPS certs are present).
+
+---
+
+## 2.5 License Activation (REQUIRED before first use)
+
+> **This build gates all AI features behind a signed license.** A fresh install
+> is intentionally locked: until a valid license token is activated, every
+> functional route returns `403 {"error":"licence required"}` and the browser is
+> redirected to a License Activation page. **This is expected, not a fault.**
+
+What still works without a license: logging in, the License Activation page
+(`/license.html`), and the health endpoint. Everything else (transcribe,
+translate, render, model load) is blocked until activation.
+
+**Activation steps (one-time, per machine):**
+
+1. Open `http://<mac-ip>:5001` — you will be redirected to `/license.html`.
+2. Log in with the admin account created during setup.
+3. On the activation page, copy the **install ID** (this Mac's hardware-bound identifier).
+4. Send the install ID to the vendor. The vendor returns a **signed license token**
+   (Ed25519-signed; tied to this install ID; offline — no internet required).
+5. Paste the token on `/license.html` and submit. The token is stored at
+   `backend/config/license.json`. The gate unlocks immediately (no restart needed).
+
+**Verify activation:**
+```bash
+curl -s http://localhost:5001/api/files
+# Before activation: {"error":"licence required"}
+# After activation:  a normal JSON response (not the licence error)
+```
+
+**Notes:**
+- The license is **air-gapped**: no call-home, no online revocation. Expiry +
+  manual re-issue is the renewal path.
+- `backend/config/license.json` is per-deployment (gitignored). Back it up; on a
+  rebuild you can restore it instead of re-activating, as long as the install ID
+  is unchanged.
+- For an internal/demo machine you control, ask the vendor for a long-validity
+  token rather than bypassing the gate.
 
 ---
 
@@ -257,4 +297,32 @@ The following are **not** removed by uninstall and must be cleaned up manually i
 - `backend/data/` — uploads, renders, database, logs, and HTTPS certificates
 - Homebrew packages (`python@3.11`, `ffmpeg`, `ollama`) — remove with `brew uninstall`
 - Ollama model — remove with `ollama rm qwen3.5:35b-a3b-mlx-bf16` (~70 GB freed)
+- `backend/config/license.json` — the activated license (keep it if you may reinstall)
 - The repository clone itself — `rm -rf motitle/`
+
+---
+
+## 7. Optional features
+
+### Beta (OpenRouter) mode — cloud LLM
+
+By default translation runs on the local Ollama model. An admin can flip a global
+**Beta** toggle so the translation/refiner LLM routes to OpenRouter instead (ASR
+**always** stays local mlx-whisper). This is useful for comparison or when local
+LLM capacity is constrained.
+
+- Enable it from the admin UI; it sets `beta_openrouter` in `backend/config/settings.json`.
+- Provide an OpenRouter API key via the admin Beta pane. The key is persisted to
+  `backend/.env` as `OPENROUTER_API_KEY` (file kept at `chmod 600`) and re-loaded
+  on every boot by `app.py`, so it survives restarts — no need to add it to the
+  launchd passthrough list.
+- Requires outbound HTTPS to `openrouter.ai:443` (see Prerequisites → Network).
+- There is **no fallback**: if Beta is on and the key is missing/invalid, translation
+  fails rather than silently reverting to local. Turn Beta off to return to local.
+
+### Custom subtitle fonts
+
+Operators can upload custom fonts through the admin UI (`/api/fonts` GET/POST/DELETE).
+Uploaded fonts are stored under `backend/assets/fonts/` and become selectable in the
+render options — no pre-configuration or restart needed. The LaunchDaemon installer
+ensures this directory is owned by the service user so uploads succeed.
