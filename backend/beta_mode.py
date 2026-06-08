@@ -52,3 +52,10 @@ def _write_env_var(path: Path, name: str, value: str) -> None:
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     tmp_path.write_text("\n".join(out) + "\n", encoding="utf-8")
     os.replace(tmp_path, path)
+    # .env holds secrets (FLASK_SECRET_KEY, OPENROUTER_API_KEY). os.replace does
+    # NOT preserve the original 0o600 perms set at install time, so re-assert them
+    # here — otherwise the file lands world-readable (umask default) on every save.
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass

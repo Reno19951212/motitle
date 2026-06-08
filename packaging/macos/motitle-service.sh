@@ -59,6 +59,12 @@ cmd_install() {
   mkdir -p "${REPO_ROOT}/backend/data/logs"
   chmod 700 "${REPO_ROOT}/backend/data/logs"
   chown "${INSTALL_USER}" "${REPO_ROOT}/backend/data/logs"
+  # The launchd daemon runs as INSTALL_USER and writes runtime files to these
+  # dirs: backend/config (license.json from license activation, profile managers)
+  # and backend/assets/fonts (custom font uploads). If setup-mac.sh was run by a
+  # different user, ensure the service user owns them or activation/upload fails.
+  mkdir -p "${REPO_ROOT}/backend/assets/fonts"
+  chown -R "${INSTALL_USER}" "${REPO_ROOT}/backend/config" "${REPO_ROOT}/backend/assets/fonts"
   sudo -u "${INSTALL_USER}" brew services stop ollama 2>/dev/null || true
   _render "${SCRIPT_DIR}/com.motitle.ollama.plist.template" "${LDAEMONS}/${OLLAMA_LABEL}.plist"
   _render "${SCRIPT_DIR}/com.motitle.server.plist.template" "${LDAEMONS}/${SERVER_LABEL}.plist"

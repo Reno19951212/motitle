@@ -46,3 +46,17 @@ def test_set_key_rejects_empty(tmp_path, monkeypatch):
     monkeypatch.setattr(beta_mode, "_ENV_PATH", tmp_path / ".env")
     with pytest.raises(ValueError):
         beta_mode.set_key("   ")
+
+
+def test_write_env_var_enforces_600_perms(tmp_path):
+    """.env holds secrets; os.replace drops perms, so _write_env_var must
+    re-assert 0o600 even if the file started world-readable."""
+    import stat
+    env_path = tmp_path / ".env"
+    env_path.write_text("FLASK_SECRET_KEY=abc\n", encoding="utf-8")
+    os.chmod(env_path, 0o644)  # simulate a default-umask world-readable state
+    beta_mode._write_env_var(env_path, "OPENROUTER_API_KEY", "sk-test")
+    assert stat.S_IMODE(os.stat(env_path).st_mode) == 0o600
+    content = env_path.read_text(encoding="utf-8")
+    assert "OPENROUTER_API_KEY=sk-test" in content
+    assert "FLASK_SECRET_KEY=abc" in content  # other secret preserved
