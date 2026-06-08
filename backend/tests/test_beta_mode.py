@@ -60,3 +60,5 @@ def test_write_env_var_enforces_600_perms(tmp_path):
     content = env_path.read_text(encoding="utf-8")
     assert "OPENROUTER_API_KEY=sk-test" in content
     assert "FLASK_SECRET_KEY=abc" in content  # other secret preserved
+    # atomic write must leave no temp file behind
+    assert not list(tmp_path.glob(".env.*.tmp"))

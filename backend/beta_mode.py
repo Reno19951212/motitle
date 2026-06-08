@@ -6,6 +6,7 @@ output_lang pipeline's LLM routes to OpenRouter instead of local Ollama. ASR alw
 stays local (mlx-whisper). The LLM model id is hardcoded parity with the local stack.
 """
 import os
+import tempfile
 from pathlib import Path
 
 # Hardcoded parity with the local production stack (not user-editable).
@@ -49,12 +50,22 @@ def _write_env_var(path: Path, name: str, value: str) -> None:
             out.append(ln)
     if not replaced:
         out.append(new_line)
-    tmp_path = path.with_suffix(path.suffix + ".tmp")
-    tmp_path.write_text("\n".join(out) + "\n", encoding="utf-8")
-    os.replace(tmp_path, path)
-    # .env holds secrets (FLASK_SECRET_KEY, OPENROUTER_API_KEY). os.replace does
-    # NOT preserve the original 0o600 perms set at install time, so re-assert them
-    # here — otherwise the file lands world-readable (umask default) on every save.
+    # .env holds secrets (FLASK_SECRET_KEY, OPENROUTER_API_KEY). Write atomically
+    # via a same-dir temp file that is 0o600 FROM CREATION (mkstemp), so the secret
+    # is never world-readable — not even briefly. os.replace then gives the live
+    # .env the temp's 0o600 perms (os.replace inherits the source's mode); the final
+    # os.chmod is belt-and-suspenders.
+    fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=path.name + ".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write("\n".join(out) + "\n")
+        os.replace(tmp_name, path)
+    except BaseException:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
     try:
         os.chmod(path, 0o600)
     except OSError:
