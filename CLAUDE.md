@@ -112,6 +112,7 @@ motitle/
 ├── backend/
 │   ├── app.py                  # Flask server — REST API + WebSocket events
 │   ├── profiles.py             # Profile management (ASR + Translation model routing)
+│   ├── beta_mode.py            # Beta test mode flag + OpenRouter API key mgmt
 │   ├── glossary.py             # Glossary management (EN→ZH term mappings)
 │   ├── renderer.py             # Subtitle renderer (ASS generation + FFmpeg burn-in)
 │   ├── asr/                    # ASR engine abstraction
@@ -157,11 +158,17 @@ motitle/
 │       ├── step-diagram.js     # Kind-agnostic step-diagram renderer
 │       └── files-page.js       # Files.html logic
 ├── docs/superpowers/           # Design specs and implementation plans
+├── docs/deployment/            # Operator runbooks
+│   └── macos-server.md         # macOS Apple Silicon server-appliance install (launchd)
+├── packaging/macos/            # LaunchDaemon plists + launcher + service management CLI
 ├── setup.sh                    # One-shot environment setup
+├── setup-mac.sh                # macOS Apple Silicon server setup (deps + venv + admin user + launchd)
 ├── start.sh                    # Start backend + open browser
 ├── CLAUDE.md                   # This file
 └── README.md                   # User-facing documentation (Traditional Chinese)
 ```
+
+> **macOS server-appliance deployment** — `setup-mac.sh` installs Homebrew deps, mlx-whisper venv, bootstraps the admin user, writes `backend/.env` (FLASK_SECRET_KEY), generates a self-signed HTTPS cert, pulls `qwen3.5:35b-a3b-mlx-bf16`, and optionally installs two LaunchDaemons (`com.motitle.server` + `com.motitle.ollama`) via `packaging/macos/motitle-service.sh`. Full operator runbook: [docs/deployment/macos-server.md](docs/deployment/macos-server.md).
 
 ---
 
@@ -315,6 +322,10 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 > `PATCH /api/admin/users/<id>/remarks` — Admin-only: set a user's remarks (≤500 chars); audits `user.update_remarks`; 404 for unknown user / 400 for over-length.
 >
 > `GET /api/me` now also returns the caller's own `remarks` (read-only, shown on 我的帳戶 tab).
+>
+> `GET /api/admin/beta-mode` — Admin-only: Beta test mode status `{enabled, key_configured, llm_model}`.
+>
+> `PUT /api/admin/beta-mode` — Admin-only: toggle Beta mode and/or set OpenRouter API key; body `{enabled?: bool, api_key?: string}`; enabling without a key configured → 400.
 
 ### Frontend
 
@@ -398,7 +409,7 @@ Whenever a new feature is completed or existing functionality is modified, you *
 
 1. **CLAUDE.md** (this file) — Architecture, REST endpoints, current state (full history → [docs/history.md](docs/history.md))
 2. **README.md** (user-facing, **must be written in Traditional Chinese**)
-3. **docs/PRD.md** — Update feature status markers (📋 → ✅)
+3. **docs/PRD.md** — Update feature status markers (📋 → ✅). Note: PRD.md predates the `output_lang` pipeline and may be stale for pipeline features — treat its pipeline sections as historical and prefer this file's Current State section.
 4. **Validation-First tracker** — for any ASR/MT change, a `docs/superpowers/specs/YYYY-MM-DD-...-validation-tracker.md` recording empirical results (✅ Validated / ❌ Rejected / ⚠️ Partial)
 5. **Design + plan pair** — a matching `docs/superpowers/specs/...-design.md` and `docs/superpowers/plans/...-plan.md`
 
@@ -472,6 +483,16 @@ This section summarises the CURRENT behaviour a developer needs; older entries l
 - The subtitle font system is **bundled-font driven**: drop/upload `.ttf`/`.otf` into `backend/assets/fonts/` → `GET /api/fonts` lists them → `font-preview.js` injects one `@font-face` per file (live preview) AND `renderer.py` passes `:fontsdir=<FONTS_DIR>` to libass (burn-in), so preview glyphs match the rendered output.
 - **Custom fonts can now be uploaded in-app** (no more manual server file-drop). The 字幕設定 panel on **proofread + index** has a **「＋ 新增字型」** button → `POST /api/fonts` (validates extension + size ≤32MB + sfnt magic bytes; `secure_filename` with a uuid fallback for CJK filenames). The font `<select>` is now driven by `/api/fonts` (actually-available fonts, grouped 「已上載字型」/「系統字型」) via `FontPreview.fontOptionsHtml()` / `refreshFonts()` / `getFonts()` — so switching a font produces a real change instead of silently falling back to a system font. `DELETE /api/fonts/<file>` removes one.
 - `fonttools` (in `requirements.txt`) reads the **real family name** from each font's `name` table, so the picker value == the `@font-face` family == the ASS Style family libass resolves via `:fontsdir`. Font config (family/size/color/outline/margin) still persists to the active Profile or `settings.json` `font` via the existing 「儲存為預設」 flow.
+
+### Admin Beta 測試模式 (LLM-only, NEW)
+
+- Global toggle stored as `settings.json:beta_openrouter` (boolean, default `false`). Managed by `ProfileManager.get_beta_mode()` / `set_beta_mode()` and surfaced via `GET/PUT /api/admin/beta-mode` (admin-only).
+- **When ON**: the output_lang pipeline's LLM (`_make_ollama_llm_call`) routes to **OpenRouter `qwen/qwen3.5-35b-a3b`** @ temp 0.3 (via `OpenRouterTranslationEngine`) instead of local Ollama. This covers both cross-lang MT and the 書面語 refiner — both share the same `_make_ollama_llm_call` injection point.
+- **ASR stays LOCAL** (mlx-whisper large-v3) in Beta mode. Routing ASR to OpenRouter was investigated and **REJECTED** — OpenRouter's `/api/v1/audio/transcriptions` does not return segment/word timestamps, which the subtitle pipeline requires. Evidence: Validation-First Phase 0, 2026-06-07 — see [docs/superpowers/specs/2026-06-07-beta-openrouter-validation-tracker.md](docs/superpowers/specs/2026-06-07-beta-openrouter-validation-tracker.md).
+- **Hard-fail, no automatic fallback**: a failed OpenRouter LLM call marks the job `failed` with the error surfaced. Enabling the toggle without an API key → HTTP 400.
+- **API key**: entered in the admin UI (password field, write-only), persisted to `backend/.env` as `OPENROUTER_API_KEY` (gitignored) and set in `os.environ` immediately. Loaded at app boot by `_load_env_file()` so it survives a restart.
+- **New module** `backend/beta_mode.py`: constants (`BETA_LLM_MODEL = "qwen/qwen3.5-35b-a3b"`), `key_status()`, `set_key()`.
+- **Frontend**: admin-only 「Beta 測試模式」 nav tab in `user.html` (我的帳戶 page) — enable toggle, API key input, and status display. States clearly that ASR stays local.
 
 ### Retired UI / removed dead code (cleaned up 2026-06-06)
 

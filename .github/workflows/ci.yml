@@ -39,3 +39,34 @@ jobs:
             tests/test_asr_profiles_platform.py \
             tests/test_qwen_venv_path.py \
             -v
+
+  # This job is heavier than platform-unit: the curated install pulls torch
+  # (a transitive dependency of openai-whisper), so the first run on a fresh
+  # cache can take several minutes and may need first-run tuning. It installs
+  # the minimal set of deps required to import app.py and run the wiring test,
+  # deliberately omitting Apple-only mlx-whisper and the build-fragile
+  # whisper-streaming package (ALSA/Moses toolchain).
+  wiring-test:
+    name: app.py wiring (ASR override + Ollama engine) on Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install minimal deps to import app
+        run: |
+          python -m pip install --upgrade pip
+          pip install flask flask-cors flask-socketio werkzeug python-socketio \
+            eventlet flask-login flask-limiter bcrypt numpy openai-whisper \
+            faster-whisper pysbd opencc-python-reimplemented librosa soundfile
+
+      - name: Run platform-backend wiring test
+        working-directory: backend
+        env:
+          FLASK_SECRET_KEY: ci-test-secret-not-for-deploy
+        run: |
+          python -m pytest tests/test_platform_backend_wiring.py -v

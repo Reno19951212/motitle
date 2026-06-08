@@ -434,6 +434,17 @@ class ProfileManager:
         self._write_settings(settings)
         return merged
 
+    def get_beta_mode(self) -> bool:
+        """Global Beta test mode flag (settings.json 'beta_openrouter'). Default False."""
+        return bool(self._read_settings().get("beta_openrouter", False))
+
+    def set_beta_mode(self, enabled: bool) -> bool:
+        """Persist the Beta mode flag (immutable update — other keys preserved).
+        Returns the new boolean value."""
+        settings = self._read_settings()
+        self._write_settings({**settings, "beta_openrouter": bool(enabled)})
+        return bool(enabled)
+
 
 # ---------------------------------------------------------------------------
 # Internal validation helpers (pure functions, no mutation)

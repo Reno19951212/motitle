@@ -53,6 +53,7 @@ from profiles import ProfileManager
 from glossary import GlossaryManager
 from language_config import LanguageConfigManager, DEFAULT_ASR_CONFIG, DEFAULT_TRANSLATION_CONFIG
 from renderer import SubtitleRenderer, DEFAULT_FONT_CONFIG
+from ffmpeg_locate import find_ffmpeg, find_ffprobe
 from subtitle_text import (
     resolve_segment_text,
     resolve_subtitle_source as _resolve_subtitle_source_helper,
@@ -75,6 +76,31 @@ except ImportError:
 
 # Initialize Flask app
 app = Flask(__name__)
+
+
+def _load_env_file(path) -> None:
+    """Load KEY=VAL lines from a .env file into os.environ WITHOUT overriding
+    already-exported vars. Dependency-free (no python-dotenv). Silent if absent.
+
+    This lets values an operator/admin persists to backend/.env (e.g. the
+    OpenRouter API key saved via the Beta admin pane) survive a restart, while
+    still letting an explicit shell `export` take precedence."""
+    try:
+        for raw in Path(path).read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, _, v = line.partition("=")
+            k, v = k.strip(), v.strip()
+            if k and k not in os.environ:
+                os.environ[k] = v
+    except (OSError, ValueError):
+        pass
+
+
+_load_env_file(Path(__file__).parent / ".env")
+
+
 # R5 Phase 5 T1.3: FLASK_SECRET_KEY is required. A weak or absent secret
 # means session cookies can be forged, so we refuse to boot rather than
 # silently using the placeholder.
@@ -308,22 +334,44 @@ def _reset_progress_for_job(file_id, job_id, pipeline_kind, stage_index,
 def _output_lang_asr_override():
     """Return a FRESH override dict for the output-language ASR pass.
 
-    mlx large-v3 with condition_on_previous_text=False (the validated engine;
-    cond=False breaks the head-hallucination cascade loop). A new dict is built
-    per call so no downstream mutation can leak into a shared module global.
+    Backend chosen by platform_backend (env R5_ASR_BACKEND + platform detect).
+    macOS/auto == the validated mlx large-v3 cond=False dict (unchanged).
     """
-    return {"asr": {
-        "engine": "mlx-whisper",
-        "model_size": "large-v3",
-        "condition_on_previous_text": False,
-    }}
+    import platform_backend as _pb
+    return _pb.resolve_asr_override(os.environ, _pb.detect_platform())
+
+
+def _make_ollama_llm_call_engine():
+    """Build the Ollama engine bound to the platform-resolved model + URL.
+
+    Split out for testability; _make_ollama_llm_call wraps it into a callable.
+    """
+    import platform_backend as _pb
+    from translation.ollama_engine import OllamaTranslationEngine
+    info = _pb.detect_platform()
+    eng = OllamaTranslationEngine({
+        "engine": "qwen3.5-35b-a3b",
+        "ollama_url": _pb.resolve_ollama_url(os.environ),
+    })
+    eng._model = _pb.resolve_ollama_model(os.environ, info)
+    return eng
 
 
 def _make_ollama_llm_call():
-    """Build a (system, user) -> str LLM client bound to the production MT model
-    (Ollama qwen3.5:35b-a3b-mlx-bf16), reused for cross-lang MT + the 書面語 refiner."""
-    from translation.ollama_engine import OllamaTranslationEngine
-    eng = OllamaTranslationEngine({"engine": "qwen3.5-35b-a3b"})
+    """(system, user) -> str LLM client for cross-lang MT + the 書面語 refiner.
+
+    Beta test mode ON → route to OpenRouter (qwen/qwen3.5-35b-a3b); same temp 0.3
+    for parity. OFF → local Ollama (unchanged).
+    """
+    if _profile_manager.get_beta_mode():
+        import beta_mode
+        from translation.openrouter_engine import OpenRouterTranslationEngine
+        eng = OpenRouterTranslationEngine({
+            "openrouter_model": beta_mode.BETA_LLM_MODEL,
+            "api_key": os.environ.get("OPENROUTER_API_KEY", ""),
+        })
+        return lambda system, user: eng._call_ollama(system, user, 0.3)
+    eng = _make_ollama_llm_call_engine()
     return lambda system, user: eng._call_ollama(system, user, 0.3)
 
 
@@ -1112,10 +1160,8 @@ app.config["LLM_PROFILE_MANAGER"] = _llm_profile_manager
 app.config["REFINER_PROFILE_MANAGER"] = _refiner_profile_manager
 
 # V6 environment health check — disables V6 in UI if Qwen3 subprocess venv missing
-from pathlib import Path as _Path
-_qwen_venv_python = (
-    _Path(__file__).resolve().parent / "scripts/v5_prototype/venv_qwen/bin/python"
-)
+from engines.transcribe.qwen3_vad_engine import default_qwen_venv_python as _default_qwen_venv_python
+_qwen_venv_python = _default_qwen_venv_python()
 if not _qwen_venv_python.exists():
     print("[V6] WARNING: Qwen3 subprocess venv missing — V6 pipelines unavailable")
     print(f"[V6]   Run: bash {_qwen_venv_python.parent.parent.parent}/setup_v6.sh")
@@ -1450,7 +1496,7 @@ def get_media_duration(file_path: str) -> float:
     """Get media duration in seconds using ffprobe"""
     try:
         cmd = [
-            'ffprobe', '-v', 'quiet',
+            find_ffprobe(), '-v', 'quiet',
             '-print_format', 'json',
             '-show_format',
             file_path
@@ -1468,7 +1514,7 @@ def extract_audio(video_path: str, output_path: str) -> bool:
     """Extract audio from video file using ffmpeg"""
     try:
         cmd = [
-            'ffmpeg', '-i', video_path,
+            find_ffmpeg(), '-i', video_path,
             '-vn',  # No video
             '-acodec', 'pcm_s16le',  # PCM 16-bit
             '-ar', '16000',  # 16kHz sample rate (Whisper requirement)
@@ -2139,12 +2185,31 @@ def deactivate_license():
     return jsonify(_license_status_payload())
 
 
+def _whisper_cache_dir():
+    """Return the OS-appropriate whisper model cache directory.
+
+    Precedence: a non-empty XDG_CACHE_HOME (its /whisper subdir) wins; otherwise
+    a non-empty HF_HOME is used as a cache-root fallback (its /whisper subdir).
+    Empty or unset env vars are skipped (a blank XDG_CACHE_HOME must not resolve
+    to a relative "whisper" dir). On Windows uses %LOCALAPPDATA%; on macOS/Linux
+    with no override returns the conventional ~/.cache/whisper (identical to the
+    previous hard-coded value, so macOS behaviour is unchanged).
+    """
+    import os as _os
+    cache_root = _os.environ.get("XDG_CACHE_HOME") or _os.environ.get("HF_HOME")
+    if cache_root:
+        return Path(cache_root) / "whisper"
+    if _os.name == "nt":
+        return Path(_os.environ.get("LOCALAPPDATA") or Path.home()) / "whisper"
+    return Path.home() / ".cache" / "whisper"
+
+
 @app.route('/api/models', methods=['GET'])
 @login_required
 def list_models():
     """List available Whisper models with download/loaded status"""
     # Check which models are downloaded on disk
-    cache_dir = Path.home() / '.cache' / 'whisper'
+    cache_dir = _whisper_cache_dir()
     downloaded = set()
     if cache_dir.exists():
         for f in cache_dir.iterdir():

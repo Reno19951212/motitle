@@ -54,6 +54,9 @@ Remove-Item Env:ADMIN_PW
 # Secret key
 $secret = python -c "import secrets; print(secrets.token_hex(32))"
 "FLASK_SECRET_KEY=$secret" | Out-File -FilePath .env -Encoding utf8
+# Tighten ACL: remove inheritance, grant only the current user read/write.
+$envPath = (Resolve-Path .env).Path
+icacls $envPath /inheritance:r /grant:r "${env:USERNAME}:(R,W)" | Out-Null
 
 # Generate self-signed HTTPS cert
 Write-Host "`n=== Generate self-signed HTTPS cert ==="

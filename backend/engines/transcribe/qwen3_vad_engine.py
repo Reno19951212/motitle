@@ -31,9 +31,25 @@ from threading import Event
 # audio/numpy surface area).
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_DEFAULT_QWEN_VENV_PYTHON = (
-    _REPO_ROOT / "backend" / "scripts" / "v5_prototype" / "venv_qwen" / "bin" / "python"
-)
+
+
+def default_qwen_venv_python(_os_name: str | None = None) -> Path:
+    """Path to the py3.11 Qwen3 subprocess interpreter, OS-aware + env-overridable.
+
+    Args:
+        _os_name: override ``os.name`` for testing (``"posix"`` / ``"nt"``).
+                  Production callers should omit this argument.
+    """
+    override = os.environ.get("V6_QWEN_VENV_PYTHON")
+    if override:
+        return Path(override)
+    target_os = _os_name if _os_name is not None else os.name
+    venv = _REPO_ROOT / "backend" / "scripts" / "v5_prototype" / "venv_qwen"
+    if target_os == "nt":
+        return venv / "Scripts" / "python.exe"
+    return venv / "bin" / "python"
+
+
 _DEFAULT_SUBPROCESS_SCRIPT = (
     _REPO_ROOT / "backend" / "scripts" / "v5_prototype" / "qwen3_vad_subprocess.py"
 )
@@ -157,8 +173,9 @@ def _drain_subprocess(
 
 def _load_audio_ffmpeg(audio_path: str, sr: int = 16000):
     import numpy as np  # lazy — see module docstring
+    from ffmpeg_locate import find_ffmpeg  # lazy — keeps module importable without backend sys.path
     cmd = [
-        "ffmpeg", "-hide_banner", "-loglevel", "error",
+        find_ffmpeg(), "-hide_banner", "-loglevel", "error",
         "-i", audio_path, "-ac", "1", "-ar", str(sr), "-f", "f32le", "-",
     ]
     proc = subprocess.run(cmd, capture_output=True, check=True)
@@ -181,9 +198,7 @@ class Qwen3VadEngine:
         self._context = context
         self._post_s2hk = post_s2hk
         self._model = model
-        self._venv_python = Path(venv_python or os.environ.get(
-            "V6_QWEN_VENV_PYTHON", str(_DEFAULT_QWEN_VENV_PYTHON)
-        ))
+        self._venv_python = Path(venv_python) if venv_python else default_qwen_venv_python()
         self._subprocess_script = Path(subprocess_script or str(_DEFAULT_SUBPROCESS_SCRIPT))
 
     def transcribe_regions(

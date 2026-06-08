@@ -44,6 +44,8 @@ source backend/.env && cd backend && source venv/bin/activate && python app.py
 python backend\app.py
 ```
 
+> **Windows 提示**：`setup-win.ps1` 可能喺安裝 `whisper-streaming` 時失敗（`pyalsaaudio` / `opus-fast-mosestokenizer` 喺 Windows build 唔到）— 屬已知問題，跳過該依賴即可，詳見下面〈[Windows 常見問題](#windows-常見問題)〉。另外暫時**未有 `start-win.ps1`**，請手動啟動（上面嘅 `Activate.ps1` + `python backend\app.py`）或自行註冊為 Windows service。
+
 **Linux (Ubuntu/Debian, NVIDIA GB10 或任何 CUDA GPU)**：
 ```bash
 ./setup-linux-gb10.sh
@@ -122,6 +124,57 @@ MoTitle 採用**完全離線**嘅軟件授權機制 —— 唔會連去任何授
 - **簽發 token**：`scripts/licensing/sign_license.py --customer "客戶名" --plan {sub-3mo|sub-1yr|perpetual} --install-id <客戶 install-id>`；每次簽發會喺 `issued_licenses.csv` 加一行作審計記錄（只記 token 嘅 sha256 前綴）。
 - **私鑰洩漏**：必須 rotate —— 重新 `keygen` 出新 keypair，將新公鑰換入 `backend/licensing/keys.py`，**出新版軟件**畀客戶（舊公鑰失效，舊 token 全部作廢，要重新簽發）。
 - **出貨排除**：`scripts/licensing/`（CLI + ledger）同 `backend/config/license.json`（每部機自己嘅啟用狀態）都唔應該打包出貨；後兩者已經喺 `.gitignore` 排除。
+## macOS 伺服器部署
+
+如需將 MoTitle 安裝成一部**長開、開機自啟**的 Apple Silicon Mac 伺服器（LaunchDaemon 模式），請參閱完整 operator runbook：[docs/deployment/macos-server.md](docs/deployment/macos-server.md)。
+
+以下為快速概覽。
+
+### 一鍵安裝
+
+```bash
+git clone https://github.com/your-org/motitle.git
+cd motitle
+./setup-mac.sh
+```
+
+`setup-mac.sh` 會自動：安裝 Homebrew 依賴（python@3.11、ffmpeg、ollama）、建立 venv 並安裝 mlx-whisper、建立管理員帳戶、生成 `FLASK_SECRET_KEY` 寫入 `backend/.env`、生成自簽 HTTPS 憑證、拉取 `qwen3.5:35b-a3b-mlx-bf16` 模型（約 70 GB，需 ~90 GB 可用磁碟空間），最後可選安裝 LaunchDaemon 服務。腳本可多次執行（冪等）。
+
+> **硬件要求**：Apple Silicon（M1/M2/M3/M4）；建議 64 GB 以上統一記憶體（35B bf16 模型運行需要）；需接交流電（伺服器長開模式）。
+
+### 服務管理
+
+安裝完 LaunchDaemon 後，以 `sudo` 使用管理腳本：
+
+```bash
+sudo packaging/macos/motitle-service.sh install    # 安裝並立即啟動兩個 LaunchDaemon
+sudo packaging/macos/motitle-service.sh status     # 查看運行狀態 + 健康檢查
+sudo packaging/macos/motitle-service.sh restart    # 重啟（更新代碼或 .env 後使用）
+sudo packaging/macos/motitle-service.sh logs       # 即時追蹤伺服器日誌
+sudo packaging/macos/motitle-service.sh stop       # 停止（下次開機前不會自動重啟）
+sudo packaging/macos/motitle-service.sh start      # 重新啟動已停止的服務
+sudo packaging/macos/motitle-service.sh uninstall  # 移除 LaunchDaemon（不刪除資料）
+```
+
+兩個 LaunchDaemon（`com.motitle.server` + `com.motitle.ollama`）均設 `RunAtLoad` + `KeepAlive`，開機自啟、崩潰自重啟，無需用戶登入。
+
+### 客戶端連入
+
+```bash
+ipconfig getifaddr en0    # 查看 Mac 的 LAN IP
+```
+
+客戶端瀏覽器打開：
+
+```
+http://<mac-ip>:5001
+```
+
+**macOS 防火牆提示**：首次連入時 macOS 可能彈出允許傳入連線的提示，按 **Allow（允許）**。
+
+**HTTPS 自簽憑證**：setup 會自動生成自簽憑證，啟用 `https://<mac-ip>:5001`。瀏覽器首次訪問會顯示安全警告，在 Safari 選「訪問此網站」、在 Chrome/Edge 選「繼續前往」即可。如需消除警告，可將 `backend/data/certs/server.crt` 匯入至各客戶端的系統鑰匙圈並設為「永遠信任」。
+
+建議在路由器為 Mac 保留固定 DHCP IP（或設定靜態 IP），以確保 LAN 地址穩定。
 
 ---
 
@@ -555,6 +608,24 @@ ollama signin
   # 然後喺前端 MT step 彈出嘅 OpenRouter modal 填入你自己嘅 api_key
   ```
 - 避開 reasoning models（如 `qwen/qwen3.5-122b-a10b`）除非你要深度推理 — 呢啲 model 每 call 有長長嘅 `reasoning` field，延遲可達 30–60 秒
+
+## Beta 測試模式（管理員）
+
+管理員可喺「我的帳戶 → Beta 測試模式」開啟全局 Beta 測試開關。
+
+**開啟後的效果：**
+- **翻譯 / 書面語精修**：改用 OpenRouter 雲端 Qwen3.5（`qwen/qwen3.5-35b-a3b`），按用量計費。
+- **語音轉文字（ASR）維持本地**：mlx-whisper large-v3 本地運作，不走雲端。OpenRouter ASR 因無法回傳 segment 時間戳，已驗證不可行（Validation-First Phase 0, 2026-06-07）。
+
+**設定步驟：**
+1. 以管理員帳號登入，進入「我的帳戶 → Beta 測試模式」。
+2. 輸入 OpenRouter API Key（格式 `sk-or-v1-…`；儲存後寫入 `backend/.env`，重啟後自動載入）。
+3. 勾選「啟用 Beta 測試模式」並儲存。
+
+**注意事項：**
+- 必須先設定 API Key 才能開啟 Beta 模式（未填 key 直接啟用 → 400 錯誤）。
+- 雲端 LLM 失敗會直接顯示錯誤並標記任務失敗，**不會自動退回本地**。
+- 僅影響 output_lang pipeline 的 LLM 呼叫；ASR、渲染等其他步驟不受影響。
 
 #### 語言參數
 
