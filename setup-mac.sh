@@ -30,6 +30,11 @@ else
   pip install mlx-whisper
 fi
 
+# Validate PyNaCl (licensing gate) actually imports — a failed native build on
+# arm64 can leave pip exit 0 but the app crashes at boot importing `nacl`.
+python -c "from nacl.signing import SigningKey" 2>/dev/null \
+  || { echo "ERROR: PyNaCl import failed (licensing needs it). Try: pip install --force-reinstall PyNaCl"; exit 1; }
+
 # Bootstrap admin
 echo ""
 echo "=== Set up admin user ==="
@@ -108,4 +113,10 @@ echo ""
 echo "=================================================="
 echo "  Clients on the LAN open:  http://${IP}:5001"
 echo "  (first connection may trigger a macOS firewall prompt — Allow)"
+echo ""
+echo "  ⚠️  LICENSE REQUIRED: this build gates AI features behind a license."
+echo "      On first open the app redirects to a License Activation page."
+echo "      Log in as admin, copy the install ID, get a signed token from the"
+echo "      vendor, then paste it at  http://${IP}:5001/license.html"
+echo "      Full steps: docs/deployment/macos-server.md (License Activation)."
 echo "=================================================="

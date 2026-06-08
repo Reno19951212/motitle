@@ -15,16 +15,18 @@ if [[ ! -f .env ]]; then
   echo "[motitle] FATAL: $BACKEND_DIR/.env missing (run setup-mac.sh)" >&2
   exit 1
 fi
-FLASK_SECRET_KEY="$(grep -m1 -E '^FLASK_SECRET_KEY=' .env | cut -d= -f2-)"
+# -a: treat .env as text so a corrupted/binary file yields an empty value
+# (caught below) instead of grep's "Binary file matches" becoming the secret.
+FLASK_SECRET_KEY="$(grep -a -m1 -E '^FLASK_SECRET_KEY=' .env | cut -d= -f2-)"
 if [[ -z "${FLASK_SECRET_KEY:-}" ]]; then
-  echo "[motitle] FATAL: FLASK_SECRET_KEY empty in .env" >&2
+  echo "[motitle] FATAL: FLASK_SECRET_KEY empty or unreadable in .env" >&2
   exit 1
 fi
 export FLASK_SECRET_KEY
 
 # --- optional .env passthroughs ---
 for _k in R5_HTTPS R5_HTTPS_CERT_DIR R5_OLLAMA_URL R5_ASR_BACKEND R5_OLLAMA_MODEL; do
-  _v="$(grep -m1 -E "^${_k}=" .env | cut -d= -f2- || true)"
+  _v="$(grep -a -m1 -E "^${_k}=" .env | cut -d= -f2- || true)"
   [[ -n "${_v:-}" ]] && export "${_k}=${_v}"
 done
 

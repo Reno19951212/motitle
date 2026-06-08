@@ -94,8 +94,10 @@ def _load_env_file(path) -> None:
             k, v = k.strip(), v.strip()
             if k and k not in os.environ:
                 os.environ[k] = v
-    except (OSError, ValueError):
-        pass
+    except (OSError, ValueError) as e:
+        # Don't crash boot, but DO surface it — a corrupted/binary .env would
+        # otherwise silently drop OPENROUTER_API_KEY and other persisted vars.
+        print(f"[env] WARNING: could not load {path}: {e}", file=sys.stderr)
 
 
 _load_env_file(Path(__file__).parent / ".env")
