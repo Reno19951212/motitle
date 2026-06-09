@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from ffmpeg_locate import find_ffmpeg
+from platform_backend import resolve_subtitle_font_family
 
 # Re-export from the new shared resolver so existing callers keep working
 # without importing from the new module directly.
@@ -111,6 +112,7 @@ class SubtitleRenderer:
         bilingual_order: str = "en_top",
         first_field: Optional[str] = None,
         second_field: Optional[str] = None,
+        platform_info: Optional[dict] = None,
     ) -> str:
         """Generate an ASS subtitle file string from segments and font config.
 
@@ -118,8 +120,14 @@ class SubtitleRenderer:
         bilingual_order: only used when subtitle_source == "bilingual".
         first_field: explicit seg-dict key for the "first" role (Task 2b).
         second_field: explicit seg-dict key for the "second" role (Task 2b).
+        platform_info: detected-platform dict (defaults to live detection). The
+            requested font family is remapped to a host-present equivalent so
+            libass does not silently fall back to a glyph-less font (CJK tofu).
         """
-        family = font_config.get("family", DEFAULT_FONT_CONFIG["family"])
+        family = resolve_subtitle_font_family(
+            font_config.get("family", DEFAULT_FONT_CONFIG["family"]),
+            platform_info,
+        )
         size = font_config.get("size", DEFAULT_FONT_CONFIG["size"])
         primary = hex_to_ass_color(font_config.get("color", DEFAULT_FONT_CONFIG["color"]))
         outline = hex_to_ass_color(font_config.get("outline_color", DEFAULT_FONT_CONFIG["outline_color"]))

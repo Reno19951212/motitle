@@ -103,3 +103,52 @@ def resolve_ollama_url(env: dict) -> str:
         )
         return _OLLAMA_URL_DEFAULT
     return val
+
+
+# ---------------------------------------------------------------------------
+# Task 5: resolve_subtitle_font_family  (subtitle burn-in CJK fallback)
+# ---------------------------------------------------------------------------
+
+# macOS ships NO "Noto Sans *" / "Microsoft *" / "Source Han Sans *" CJK family.
+# The subtitle font picker offers those names, and the shipped default profile
+# uses "Noto Sans TC". When libass (CoreText provider on macOS) is handed an
+# unknown CJK family it SILENTLY substitutes Helvetica (Latin-only): ASCII
+# digits render but every Han glyph becomes tofu (□). macOS always has PingFang,
+# so remap the known-absent web/Windows CJK families to the native PingFang
+# script-equivalent. Other platforms keep the requested family (they have their
+# own Noto/Microsoft CJK fonts), and any unrecognised family — uploaded brand
+# fonts (served to libass via :fontsdir=), PingFang, Heiti — passes through.
+_DARWIN_CJK_FALLBACK = {
+    "noto sans tc": "PingFang TC",
+    "noto sans hk": "PingFang HK",
+    "noto sans sc": "PingFang SC",
+    "noto sans cjk tc": "PingFang TC",
+    "noto sans cjk hk": "PingFang HK",
+    "noto sans cjk sc": "PingFang SC",
+    "source han sans tc": "PingFang TC",
+    "source han sans hk": "PingFang HK",
+    "source han sans sc": "PingFang SC",
+    "microsoft jhenghei": "PingFang TC",  # JhengHei = Traditional Chinese
+    "microsoft yahei": "PingFang SC",      # YaHei = Simplified Chinese
+}
+
+
+def resolve_subtitle_font_family(family, info: dict = None):
+    """Map an absent CJK font family to a present native one for burn-in.
+
+    The ASS Style 'Fontname' is handed to libass; if the family is not installed
+    on the render host, macOS CoreText falls back to Helvetica and Chinese
+    becomes tofu. On darwin we remap the known-absent web/Windows CJK families
+    to their PingFang equivalent (PingFang is always present). On every other
+    platform, and for any family not in the map, the value is returned unchanged.
+
+    Empty / None / non-str inputs are returned as-is (the caller's defaulting
+    logic owns those cases).
+    """
+    if not family or not isinstance(family, str):
+        return family
+    if info is None:
+        info = detect_platform()
+    if info.get("os") != "darwin":
+        return family
+    return _DARWIN_CJK_FALLBACK.get(family.strip().lower(), family)

@@ -137,3 +137,52 @@ def test_resolve_ollama_url_no_scheme_falls_back(capsys):
 def test_resolve_ollama_url_blank_is_silent(capsys):
     assert pb.resolve_ollama_url({"R5_OLLAMA_URL": "   "}) == "http://localhost:11434"
     assert capsys.readouterr().err == ""
+
+
+# ---------------------------------------------------------------------------
+# Task 5: resolve_subtitle_font_family()  (subtitle burn-in CJK fallback)
+# ---------------------------------------------------------------------------
+
+_DARWIN = {"os": "darwin", "arch": "arm64", "has_cuda": False}
+_LINUX = {"os": "linux", "arch": "x86_64", "has_cuda": False}
+
+
+def test_subtitle_font_darwin_maps_noto_tc_to_pingfang_tc():
+    assert pb.resolve_subtitle_font_family("Noto Sans TC", _DARWIN) == "PingFang TC"
+
+
+def test_subtitle_font_darwin_maps_noto_hk_to_pingfang_hk():
+    assert pb.resolve_subtitle_font_family("Noto Sans HK", _DARWIN) == "PingFang HK"
+
+
+def test_subtitle_font_darwin_maps_msjhenghei_to_pingfang_tc():
+    assert pb.resolve_subtitle_font_family("Microsoft JhengHei", _DARWIN) == "PingFang TC"
+
+
+def test_subtitle_font_darwin_maps_source_han_hk():
+    assert pb.resolve_subtitle_font_family("Source Han Sans HK", _DARWIN) == "PingFang HK"
+
+
+def test_subtitle_font_darwin_case_and_space_insensitive():
+    assert pb.resolve_subtitle_font_family("  noto sans tc  ", _DARWIN) == "PingFang TC"
+
+
+def test_subtitle_font_darwin_keeps_present_pingfang():
+    # PingFang already resolves natively — must not be touched.
+    assert pb.resolve_subtitle_font_family("PingFang HK", _DARWIN) == "PingFang HK"
+
+
+def test_subtitle_font_darwin_keeps_unknown_uploaded_font():
+    # A user-uploaded font (provided to libass via :fontsdir=) passes through.
+    assert pb.resolve_subtitle_font_family("My Brand Font", _DARWIN) == "My Brand Font"
+
+
+def test_subtitle_font_non_darwin_passthrough():
+    # Windows/Linux ship their own Noto/Microsoft CJK fonts — never remap.
+    assert pb.resolve_subtitle_font_family("Noto Sans TC", _LINUX) == "Noto Sans TC"
+    assert pb.resolve_subtitle_font_family("Microsoft JhengHei", _LINUX) == "Microsoft JhengHei"
+
+
+def test_subtitle_font_empty_or_none_is_safe():
+    assert pb.resolve_subtitle_font_family("", _DARWIN) == ""
+    assert pb.resolve_subtitle_font_family(None, _DARWIN) is None

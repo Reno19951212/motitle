@@ -102,14 +102,37 @@ def test_generate_ass_structure(tmp_path):
     assert "[Events]" in ass
 
 
+_LINUX_INFO = {"os": "linux", "arch": "x86_64", "has_cuda": False}
+_DARWIN_INFO = {"os": "darwin", "arch": "arm64", "has_cuda": False}
+
+
 def test_generate_ass_style_line(tmp_path):
     from renderer import SubtitleRenderer
     renderer = SubtitleRenderer(tmp_path)
-    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT)
+    # Pin a non-darwin platform so the family passes through verbatim
+    # (host-independent — on macOS "Noto Sans TC" is remapped to PingFang).
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT, platform_info=_LINUX_INFO)
     assert "Noto Sans TC" in ass
     assert ",48," in ass
     assert "&H00FFFFFF" in ass
     assert "&H00000000" in ass
+
+
+def test_generate_ass_darwin_remaps_noto_to_pingfang(tmp_path):
+    # macOS has no "Noto Sans TC"; libass/CoreText would silently fall back to
+    # Helvetica (Latin-only) → Chinese tofu. The renderer must remap to PingFang.
+    from renderer import SubtitleRenderer
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT, platform_info=_DARWIN_INFO)
+    assert "PingFang TC" in ass
+    assert "Noto Sans TC" not in ass
+
+
+def test_generate_ass_non_darwin_keeps_noto(tmp_path):
+    from renderer import SubtitleRenderer
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT, platform_info=_LINUX_INFO)
+    assert "Noto Sans TC" in ass
 
 
 def test_generate_ass_dialogue_lines(tmp_path):
