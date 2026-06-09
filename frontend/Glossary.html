@@ -259,6 +259,16 @@
       font-size: 13px; font-weight: 600; color: var(--text);
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
+    .gli-del {
+      flex-shrink: 0; margin-left: 2px;
+      width: 22px; height: 22px; line-height: 20px; text-align: center;
+      border-radius: 6px; font-size: 13px; color: var(--text-dim);
+      opacity: 0; cursor: pointer;
+      transition: opacity 0.1s, background 0.1s, color 0.1s;
+    }
+    .gl-list-item:hover .gli-del,
+    .gl-list-item.active .gli-del { opacity: 1; }
+    .gli-del:hover { background: color-mix(in srgb, #e5484d 18%, transparent); color: #e5484d; }
     .gli-meta {
       display: flex; align-items: center; gap: 6px;
       font-size: 11px; color: var(--text-mid); font-family: var(--font-mono);
@@ -805,6 +815,7 @@
           <div class="gli-row">
             <span class="gli-dot"></span>
             <span class="gli-name">${escapeHtml(g.name || '(未命名)')}</span>
+            <span class="gli-del" data-del="${escapeHtml(g.id)}" role="button" tabindex="0" title="刪除呢個術語表" aria-label="刪除術語表">✕</span>
           </div>
           <div class="gli-meta">
             <span>${srcLang} → ${tgtLang}</span>
@@ -822,6 +833,27 @@
         renderHeader();
         await loadEntries(id);
       });
+    });
+    // Per-glossary delete (whole glossary). stopPropagation so it doesn't also
+    // select the item; confirm first since deletion is irreversible.
+    wrap.querySelectorAll('.gli-del').forEach(del => {
+      const onDelete = async (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const id = del.dataset.del;
+        const g = state.glossaries.find(x => x.id === id);
+        const nm = g ? (g.name || '(未命名)') : id;
+        if (!confirm(`確定刪除術語表「${nm}」？\n連同入面所有術語，此操作無法復原。`)) return;
+        try {
+          await apiJson('DELETE', `/api/glossaries/${encodeURIComponent(id)}`);
+          if (state.activeId === id) state.activeId = null;
+          await loadGlossaries();
+        } catch (err) {
+          alert('刪除失敗：' + (err.message || err));
+        }
+      };
+      del.addEventListener('click', onDelete);
+      del.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') onDelete(e); });
     });
   }
 
