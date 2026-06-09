@@ -273,7 +273,7 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | POST | `/api/profiles/<id>/activate` | Set active profile |
 | GET | `/api/settings/font` | Global subtitle-font preset (used by render + live preview when no active profile — V6 / output_lang) |
 | PUT | `/api/settings/font` | Update the global font preset (settings.json `font`); emits `profile_updated` |
-| GET | `/api/fonts` | List subtitle fonts in `backend/assets/fonts/` (`{file, family}`); drives the font picker + `@font-face` injection |
+| GET | `/api/fonts` | List uploaded subtitle fonts (`fonts: [{file, family}]`) + `system_fonts: [...]` (CJK families the burn-in renderer can actually use on this host — daemon-safe; drives the font picker + `@font-face` injection) |
 | POST | `/api/fonts` | Upload a custom subtitle font (.ttf/.otf; validates extension + size ≤32MB + sfnt magic bytes); returns `{file, family}` (family read from the font `name` table via fontTools) |
 | DELETE | `/api/fonts/<filename>` | Delete an uploaded custom font (resolved-path confined to `assets/fonts/`) |
 | GET | `/fonts/<filename>` | Serve a font file (for `@font-face` live preview + libass `:fontsdir` burn-in) |
@@ -483,6 +483,13 @@ This section summarises the CURRENT behaviour a developer needs; older entries l
 - The subtitle font system is **bundled-font driven**: drop/upload `.ttf`/`.otf` into `backend/assets/fonts/` → `GET /api/fonts` lists them → `font-preview.js` injects one `@font-face` per file (live preview) AND `renderer.py` passes `:fontsdir=<FONTS_DIR>` to libass (burn-in), so preview glyphs match the rendered output.
 - **Custom fonts can now be uploaded in-app** (no more manual server file-drop). The 字幕設定 panel on **proofread + index** has a **「＋ 新增字型」** button → `POST /api/fonts` (validates extension + size ≤32MB + sfnt magic bytes; `secure_filename` with a uuid fallback for CJK filenames). The font `<select>` is now driven by `/api/fonts` (actually-available fonts, grouped 「已上載字型」/「系統字型」) via `FontPreview.fontOptionsHtml()` / `refreshFonts()` / `getFonts()` — so switching a font produces a real change instead of silently falling back to a system font. `DELETE /api/fonts/<file>` removes one.
 - `fonttools` (in `requirements.txt`) reads the **real family name** from each font's `name` table, so the picker value == the `@font-face` family == the ASS Style family libass resolves via `:fontsdir`. Font config (family/size/color/outline/margin) still persists to the active Profile or `settings.json` `font` via the existing 「儲存為預設」 flow.
+
+#### Daemon-safe CJK font resolution (NEW, 2026-06-09)
+
+macOS subtitle burn-in runs through libass's **CoreText** provider, and the production server is a **session-less LaunchDaemon**. In that context CoreText CANNOT load **on-demand AssetsV2 fonts** (`PingFang` lives under `/System/Library/AssetsV2/`) NOR absent fonts (`Noto Sans TC` is not installed on macOS) — both silently fall back to **Helvetica → Chinese renders as tofu (□)**, only ASCII digits survive. Only `/System/Library/Fonts/` **proper** CJK fonts (**STHeiti** = `Heiti TC`/`Heiti SC`) load reliably under a daemon (empirically confirmed; even bundling `PingFang.ttc` via `:fontsdir=` fails — CoreText shadows the known family). Two pieces fix this:
+
+- **`platform_backend.resolve_subtitle_font_family(family, info)`** — on darwin, remaps absent + AssetsV2 CJK families (`Noto*`/`Microsoft*`/`Source Han*`/`PingFang*`/`Songti*`/`Kaiti*`/`STSong`…) to `Heiti TC`/`Heiti SC`. Non-darwin and unknown families (uploaded brand fonts) pass through. Applied in **`renderer.generate_ass`** (the single burn-in chokepoint, which also scrubs `,{}`/newlines out of the Fontname field). It is a rescue allowlist for legacy/out-of-band values, not the primary guard.
+- **`platform_backend.available_subtitle_fonts(info)`** — the picker's source of truth. On darwin it returns only families whose file is present in `/System/Library/Fonts/` proper (`Heiti TC`/`Heiti SC`; `PingFang`/`Noto` excluded), file-verified at runtime. Exposed via `GET /api/fonts` as **`system_fonts`**; `font-preview.js` builds the 「系統字型」 group from it (no more hard-coded per-page font arrays), so the picker never offers a family that would tofu. Win/Linux fall back to a curated best-effort list (not host-verified yet).
 
 ### Admin Beta 測試模式 (LLM-only, NEW)
 
