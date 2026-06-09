@@ -101,3 +101,65 @@ def test_delete_missing_font_404(api_client):
 def test_delete_rejects_traversal(api_client):
     r = api_client.delete("/api/fonts/..%2f..%2fapp.py")
     assert r.status_code in (400, 404)
+
+
+# ---------------------------------------------------------------------------
+# _ensure_renderable_font — burn-in last-line-of-defense against CJK tofu
+# (a stale client / direct API PUT could persist a non-CJK family like 'Arial')
+# ---------------------------------------------------------------------------
+
+_DARWIN = {"os": "darwin", "arch": "arm64", "has_cuda": False}
+_LINUX = {"os": "linux", "arch": "x86_64", "has_cuda": False}
+
+
+def test_ensure_renderable_coerces_latin_to_cjk(monkeypatch):
+    import app as _app
+    import platform_backend as pb
+    monkeypatch.setattr(pb, "detect_platform", lambda: _DARWIN)
+    monkeypatch.setattr(pb, "available_subtitle_fonts", lambda info=None: ["Heiti TC", "Heiti SC"])
+    out = _app._ensure_renderable_font({"family": "Arial", "size": 35})
+    assert out["family"] == "Heiti TC"   # Latin-only → coerced
+    assert out["size"] == 35             # other fields preserved (immutable copy)
+
+
+def test_ensure_renderable_keeps_safe_cjk(monkeypatch):
+    import app as _app
+    import platform_backend as pb
+    monkeypatch.setattr(pb, "detect_platform", lambda: _DARWIN)
+    monkeypatch.setattr(pb, "available_subtitle_fonts", lambda info=None: ["Heiti TC", "Heiti SC"])
+    assert _app._ensure_renderable_font({"family": "Heiti SC"})["family"] == "Heiti SC"
+
+
+def test_ensure_renderable_maps_pingfang_into_safe(monkeypatch):
+    # PingFang → resolve_subtitle_font_family maps to Heiti TC (a safe family) → kept.
+    import app as _app
+    import platform_backend as pb
+    monkeypatch.setattr(pb, "detect_platform", lambda: _DARWIN)
+    monkeypatch.setattr(pb, "available_subtitle_fonts", lambda info=None: ["Heiti TC", "Heiti SC"])
+    assert _app._ensure_renderable_font({"family": "PingFang TC"})["family"] == "Heiti TC"
+
+
+def test_ensure_renderable_non_darwin_passthrough(monkeypatch):
+    # Non-darwin available list is best-effort/unverified → don't override.
+    import app as _app
+    import platform_backend as pb
+    monkeypatch.setattr(pb, "detect_platform", lambda: _LINUX)
+    assert _app._ensure_renderable_font({"family": "Arial"})["family"] == "Arial"
+
+
+def test_ensure_renderable_keeps_uploaded_font(monkeypatch, isolated_fonts_dir):
+    # An uploaded font (present in FONTS_DIR) is trusted even if not a system CJK
+    # font — the operator deliberately added it for :fontsdir= burn-in.
+    import app as _app
+    import platform_backend as pb
+    monkeypatch.setattr(pb, "detect_platform", lambda: _DARWIN)
+    monkeypatch.setattr(pb, "available_subtitle_fonts", lambda info=None: ["Heiti TC"])
+    (isolated_fonts_dir / "BrandFont.ttf").write_bytes(b"\x00\x01\x00\x00" + b"\x00" * 256)
+    assert _app._ensure_renderable_font({"family": "BrandFont"})["family"] == "BrandFont"
+
+
+def test_api_fonts_includes_system_fonts_list(api_client):
+    r = api_client.get("/api/fonts")
+    assert r.status_code == 200
+    body = r.get_json()
+    assert isinstance(body.get("system_fonts"), list)

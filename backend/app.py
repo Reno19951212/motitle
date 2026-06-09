@@ -1887,6 +1887,38 @@ def _font_family_name(font_path: Path) -> str:
     return font_path.stem
 
 
+def _ensure_renderable_font(font_config: dict) -> dict:
+    """Return font_config with a family guaranteed to render CJK on this host.
+
+    The picker only offers daemon-safe CJK fonts (available_subtitle_fonts) plus
+    uploaded fonts, but the persisted font family can still be set out-of-band
+    (a stale client, a direct /api/settings/font PUT) to something that cannot
+    render Chinese — e.g. a Latin 'Arial' → tofu. This is the burn-in's last line
+    of defense: on macOS, any family that is neither a verified daemon-safe CJK
+    family, an uploaded font, nor a known-remappable CJK name is coerced to the
+    first daemon-safe CJK font. Non-darwin passes through (its available list is
+    best-effort/unverified, so we don't override the operator's choice there).
+    Immutable: returns a new dict, never mutates the input.
+    """
+    from platform_backend import (
+        available_subtitle_fonts, detect_platform, resolve_subtitle_font_family,
+    )
+    fc = dict(font_config or {})
+    requested = fc.get("family") or DEFAULT_FONT_CONFIG["family"]
+    mapped = resolve_subtitle_font_family(requested)
+    fc["family"] = mapped
+    if detect_platform().get("os") != "darwin":
+        return fc
+    safe = available_subtitle_fonts()
+    uploaded = {_font_family_name(p) for p in _list_font_files()}
+    if mapped not in (set(safe) | uploaded):
+        coerced = safe[0] if safe else DEFAULT_FONT_CONFIG["family"]
+        print(f"[render] font {requested!r} is not daemon-renderable; "
+              f"coercing to {coerced!r} to avoid CJK tofu")
+        fc["family"] = coerced
+    return fc
+
+
 @app.route('/api/fonts', methods=['GET'])
 @login_required
 def api_list_fonts():
@@ -3996,6 +4028,11 @@ def api_start_render():
     # output_lang) fall back to the GLOBAL font preset (settings.json), not the hardcoded
     # default — so 「儲存為預設」 actually reaches the burn-in.
     font_config = active_profile.get("font", DEFAULT_FONT_CONFIG) if active_profile else _profile_manager.get_global_font()
+    # Last line of defense: coerce an unrenderable font family to a daemon-safe
+    # CJK one so Chinese subtitles can NEVER tofu, even if a stale client or a
+    # direct API call persisted e.g. a Latin 'Arial' as the font (the picker only
+    # offers safe fonts, but config can be set out-of-band).
+    font_config = _ensure_renderable_font(font_config)
 
     # Snapshot translations to pass into thread (immutable)
     # O1: paired bilingual renders the 1:1-aligned view when present.
