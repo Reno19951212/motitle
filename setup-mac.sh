@@ -10,8 +10,31 @@ if [[ "$(uname -m)" != "arm64" ]]; then
   exit 1
 fi
 
-# --- Prerequisites (auto-install via Homebrew when missing) ---
-command -v brew >/dev/null || { echo "Homebrew required: https://brew.sh"; exit 1; }
+# --- macOS privacy (TCC) guard ---
+# Background services (launchd) CANNOT execute files under ~/Documents, ~/Desktop
+# or ~/Downloads — they fail at boot with "Operation not permitted" and crash-loop.
+# Catch it HERE, before building the venv, so relocating is cheap (no broken venv).
+case "${SCRIPT_ROOT}/" in
+  "$HOME"/Documents/*|"$HOME"/Desktop/*|"$HOME"/Downloads/*)
+    echo "ERROR: $SCRIPT_ROOT is under a macOS privacy-protected folder"
+    echo "(Documents / Desktop / Downloads). A background service (launchd) cannot run"
+    echo "from here — you'd hit 'Operation not permitted'. Move the app to /opt first:"
+    echo ""
+    echo "  sudo mv \"$SCRIPT_ROOT\" /opt/motitle"
+    echo "  sudo chown -R \"$(whoami)\" /opt/motitle"
+    echo "  cd /opt/motitle && ./setup-mac.sh"
+    exit 1
+    ;;
+esac
+
+# --- Prerequisites ---
+if ! command -v brew >/dev/null; then
+  echo "Homebrew not found — installing (you'll be asked to press Return + your password)…"
+  /bin/bash -c "$(/usr/bin/curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" \
+    || { echo "ERROR: Homebrew install failed — install it from https://brew.sh then re-run."; exit 1; }
+  # Put brew on PATH for the rest of this script (Apple Silicon prefix).
+  eval "$(/opt/homebrew/bin/brew shellenv)" 2>/dev/null || true
+fi
 command -v python3 >/dev/null || brew install python@3.11 || { echo "ERROR: brew install python@3.11 failed"; exit 1; }
 command -v ffmpeg  >/dev/null || brew install ffmpeg || { echo "ERROR: brew install ffmpeg failed"; exit 1; }
 command -v ollama  >/dev/null || brew install ollama || { echo "ERROR: brew install ollama failed"; exit 1; }
@@ -63,9 +86,16 @@ except ValueError as e:
 "
 
 echo ""
-echo "=== Generate Flask SECRET_KEY ==="
-SECRET=$(python -c "import secrets; print(secrets.token_hex(32))")
-echo "FLASK_SECRET_KEY=$SECRET" > .env
+echo "=== Flask SECRET_KEY ==="
+# Preserve an existing key on re-run — overwriting would rotate the secret
+# (invalidating sessions) AND wipe other vars like OPENROUTER_API_KEY.
+if [[ -f .env ]] && grep -q '^FLASK_SECRET_KEY=' .env; then
+  echo "FLASK_SECRET_KEY already in backend/.env — keeping it (and any other vars)."
+else
+  SECRET=$(python -c "import secrets; print(secrets.token_hex(32))")
+  printf 'FLASK_SECRET_KEY=%s\n' "$SECRET" >> .env   # append, don't clobber
+  echo "Generated FLASK_SECRET_KEY into backend/.env."
+fi
 chmod 600 .env
 echo "Saved backend/.env (gitignored). Source it before running app.py:"
 echo ""
@@ -76,24 +106,7 @@ python scripts/generate_https_cert.py data/certs && \
   echo "Cert: backend/data/certs/server.crt" || \
   echo "Cert generation failed (HTTPS will be disabled; install mkcert or openssl to enable)"
 echo ""
-echo "=== Ollama model (qwen3.5:35b-a3b-mlx-bf16) ==="
-MODEL_TAG="qwen3.5:35b-a3b-mlx-bf16"
-# bf16 35B is large (~70GB); require generous free space on the boot volume.
-NEED_GB=90
-FREE_GB=$(df -g / | awk 'NR==2 {print $4}')
-# Guard: non-numeric df output (e.g. unexpected locale/format) must not crash arithmetic.
-[[ "$FREE_GB" =~ ^[0-9]+$ ]] || FREE_GB=0
-if ollama list 2>/dev/null | grep -q "qwen3.5:35b-a3b-mlx-bf16"; then
-  echo "Model already pulled — skipping."
-elif (( FREE_GB < NEED_GB )); then
-  echo "WARNING: only ${FREE_GB}GB free (need ~${NEED_GB}GB for ${MODEL_TAG})."
-  echo "  Free up space then run:  ollama pull ${MODEL_TAG}"
-else
-  echo "Pulling ${MODEL_TAG} (large download)…"
-  ollama pull "${MODEL_TAG}"
-fi
-echo ""
-echo "Setup complete."
+echo "Core setup complete (venv, admin, secret, cert)."
 
 echo ""
 echo "=== Auto-start service (launchd) ==="
@@ -106,6 +119,35 @@ if [[ "${INSTALL_SVC:-N}" =~ ^[Yy]$ ]]; then
 else
   echo "Skipped. To install later:  sudo packaging/macos/motitle-service.sh install"
   echo "Or run in foreground:        ./start.sh"
+fi
+
+# --- Ollama model (done AFTER the service decision on purpose) ---
+# Pulling here means the download runs against the now-stable ollama server
+# (the motitle launchd daemon if the service was installed), so installing the
+# service can't interrupt an in-progress pull. It runs in the BACKGROUND, so the
+# install never waits ~70GB before finishing.
+echo ""
+echo "=== Ollama model (qwen3.5:35b-a3b-mlx-bf16) ==="
+MODEL_TAG="qwen3.5:35b-a3b-mlx-bf16"
+NEED_GB=90
+FREE_GB=$(df -g / | awk 'NR==2 {print $4}')
+[[ "$FREE_GB" =~ ^[0-9]+$ ]] || FREE_GB=0
+mkdir -p data/logs
+# Ensure an ollama server is reachable (a fresh brew install does not auto-start
+# one; the motitle daemon, if installed, is already up on 0.0.0.0:11434).
+if ! ollama list >/dev/null 2>&1; then
+  brew services start ollama >/dev/null 2>&1 || (ollama serve >/dev/null 2>&1 &)
+  for _i in $(seq 1 15); do ollama list >/dev/null 2>&1 && break; sleep 1; done
+fi
+if ollama list 2>/dev/null | grep -q "qwen3.5:35b-a3b-mlx-bf16"; then
+  echo "Model already pulled — skipping."
+elif (( FREE_GB < NEED_GB )); then
+  echo "WARNING: only ${FREE_GB}GB free (need ~${NEED_GB}GB). Skipping model pull."
+  echo "  Free space then run:  ollama pull ${MODEL_TAG}"
+else
+  echo "Pulling ${MODEL_TAG} in the BACKGROUND (~70GB) — install does not wait."
+  echo "  Watch progress:  tail -f \"$(pwd)/data/logs/ollama-pull.log\"   (or: ollama list)"
+  nohup ollama pull "${MODEL_TAG}" > data/logs/ollama-pull.log 2>&1 &
 fi
 
 IP=$(ipconfig getifaddr en0 2>/dev/null || echo "<this-mac-ip>")

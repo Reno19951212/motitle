@@ -56,6 +56,14 @@ _render() {
 cmd_install() {
   _need_root
   _need_install_user
+  # macOS TCC: launchd cannot execute from ~/Documents/Desktop/Downloads — refuse
+  # (defense-in-depth; setup-mac.sh guards this too).
+  case "${REPO_ROOT}/" in
+    "/Users/${INSTALL_USER}/Documents/"*|"/Users/${INSTALL_USER}/Desktop/"*|"/Users/${INSTALL_USER}/Downloads/"*)
+      echo "ERROR: ${REPO_ROOT} is under a macOS privacy-protected folder (Documents/Desktop/Downloads)." >&2
+      echo "launchd cannot run from here. Move the app to /opt/motitle and re-install." >&2
+      exit 1 ;;
+  esac
   mkdir -p "${REPO_ROOT}/backend/data/logs"
   chmod 700 "${REPO_ROOT}/backend/data/logs"
   chown "${INSTALL_USER}" "${REPO_ROOT}/backend/data/logs"
@@ -68,6 +76,10 @@ cmd_install() {
   sudo -u "${INSTALL_USER}" brew services stop ollama 2>/dev/null || true
   _render "${SCRIPT_DIR}/com.motitle.ollama.plist.template" "${LDAEMONS}/${OLLAMA_LABEL}.plist"
   _render "${SCRIPT_DIR}/com.motitle.server.plist.template" "${LDAEMONS}/${SERVER_LABEL}.plist"
+  # bootout any already-loaded instance first so re-running install is idempotent
+  # (bootstrap on an already-bootstrapped label fails, which would abort under set -e).
+  launchctl bootout "system/${OLLAMA_LABEL}" 2>/dev/null || true
+  launchctl bootout "system/${SERVER_LABEL}" 2>/dev/null || true
   launchctl bootstrap system "${LDAEMONS}/${OLLAMA_LABEL}.plist"
   launchctl bootstrap system "${LDAEMONS}/${SERVER_LABEL}.plist"
   echo "Installed + loaded: ${OLLAMA_LABEL}, ${SERVER_LABEL}"
@@ -110,7 +122,15 @@ cmd_status() {
   launchctl print "system/${SERVER_LABEL}" 2>/dev/null | grep -E "state =|pid =" || echo "${SERVER_LABEL}: not loaded"
   launchctl print "system/${OLLAMA_LABEL}" 2>/dev/null | grep -E "state =|pid =" || echo "${OLLAMA_LABEL}: not loaded"
   echo "== health =="
-  curl -sk "http://localhost:${PORT}/api/ready" || echo "(server not responding on ${PORT})"
+  # The app defaults to HTTPS when a cert exists (setup generates one), so try
+  # https FIRST, then fall back to http — otherwise a healthy server reads as down.
+  if curl -fsk "https://localhost:${PORT}/api/ready" 2>/dev/null; then
+    echo "  (responding on https)"
+  elif curl -fs "http://localhost:${PORT}/api/ready" 2>/dev/null; then
+    echo "  (responding on http)"
+  else
+    echo "(server not responding on ${PORT} — tried https + http)"
+  fi
   echo ""
   "${OLLAMA_BIN}" ps 2>/dev/null || echo "(ollama not responding)"
 }
