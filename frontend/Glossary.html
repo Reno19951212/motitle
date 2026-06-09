@@ -849,7 +849,14 @@
           if (state.activeId === id) state.activeId = null;
           await loadGlossaries();
         } catch (err) {
-          alert('刪除失敗：' + (err.message || err));
+          const msg = String((err && err.message) || err);
+          // 403 = 共享術語表只可由管理員刪除（後端 can_edit 拒絕非管理員）。
+          // 出清楚提示，唔好令用戶以為係功能壞咗。
+          if (/HTTP 403/.test(msg)) {
+            alert('你唔係管理員（Admin）帳戶，無權刪除共享術語表。\n如需刪除，請聯絡管理員。');
+          } else {
+            alert('刪除失敗：' + msg);
+          }
         }
       };
       del.addEventListener('click', onDelete);
