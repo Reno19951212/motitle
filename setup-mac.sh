@@ -35,7 +35,15 @@ if ! command -v brew >/dev/null; then
   # Put brew on PATH for the rest of this script (Apple Silicon prefix).
   eval "$(/opt/homebrew/bin/brew shellenv)" 2>/dev/null || true
 fi
-command -v ffmpeg >/dev/null || brew install ffmpeg || { echo "ERROR: brew install ffmpeg failed"; exit 1; }
+# ffmpeg WITH libass — subtitle burn-in uses the `ass` filter. Homebrew's lean
+# `ffmpeg` formula no longer bundles libass (the `ass`/`subtitles` filters are
+# missing → render fails), so use `ffmpeg-full` (keg-only; force-link onto PATH).
+if ! ffmpeg -hide_banner -h filter=ass 2>&1 | grep -qi "^Filter ass"; then
+  echo "Installing ffmpeg-full (libass for subtitle burn-in)…"
+  brew install ffmpeg-full || { echo "ERROR: brew install ffmpeg-full failed"; exit 1; }
+  brew unlink ffmpeg >/dev/null 2>&1 || true
+  brew link --overwrite --force ffmpeg-full >/dev/null 2>&1 || true
+fi
 command -v ollama >/dev/null || brew install ollama || { echo "ERROR: brew install ollama failed"; exit 1; }
 # uv provides a self-contained standalone CPython for the venv. Do NOT rely on
 # brew's python: on bleeding-edge macOS its pyexpat can fail to load (a libexpat

@@ -52,7 +52,7 @@ What the script does, in order:
 
 1. **Architecture + location check** — aborts on Intel (`x86_64`); refuses to run from `~/Documents`, `~/Desktop`, or `~/Downloads` (macOS TCC; see "Install location") and prints the `mv`-to-`/opt` commands.
 2. **Homebrew** — auto-installs Homebrew if absent, then `eval "$(brew shellenv)"` to put it on PATH.
-3. **Dependencies** — `brew install ffmpeg ollama uv` (skips already-installed packages); creates the runtime `data/` directories.
+3. **Dependencies** — `brew install ollama uv` + **`ffmpeg-full`** (the lean `ffmpeg` formula lacks libass, so the `ass` subtitle-burn-in filter is missing and renders fail; `ffmpeg-full` bundles libass and is force-linked onto PATH). Skips already-installed packages; creates the runtime `data/` directories.
 4. **Python venv** — `uv venv --seed --python 3.11` creates `backend/venv/` with a self-contained CPython, then installs all packages from `backend/requirements.txt` + `mlx-whisper` via `uv pip`. (`whisper-streaming` is intentionally excluded — Linux-only.)
 5. **PyNaCl check** — verifies the licensing crypto library imports (fails fast if a native build went wrong).
 6. **Admin user bootstrap** — **loops** prompting for an admin username + password until a valid one is accepted (min 8 chars, not a common password), then writes the account into `backend/data/app.db`. Skipped on re-runs if an admin already exists. (It no longer silently skips a weak password.)
