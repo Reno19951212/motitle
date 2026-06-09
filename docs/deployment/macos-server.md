@@ -17,8 +17,12 @@ This runbook covers deploying MoTitle as a persistent server appliance on an App
 
 - macOS Sonoma 14 or later (Sequoia 15 recommended)
 - Xcode Command Line Tools (`xcode-select --install`)
-- Homebrew — `setup-mac.sh` installs Homebrew if absent; if you prefer to pre-install it, see https://brew.sh.
+- Homebrew — `setup-mac.sh` auto-installs Homebrew if absent (you'll be asked to press Return + your password); or pre-install it from https://brew.sh.
 - Python 3.11, FFmpeg, and Ollama are pulled via Homebrew by the script.
+
+**Install location (IMPORTANT)**
+
+- Put the app under a **non-protected** path such as **`/opt/motitle`**. Do **NOT** install under `~/Documents`, `~/Desktop`, or `~/Downloads` — macOS privacy protection (TCC) blocks **background services (launchd)** from executing files there, so the server crash-loops with `Operation not permitted`. `setup-mac.sh` refuses to run from those folders and prints the `mv` commands to relocate.
 
 **Network**
 
@@ -29,31 +33,35 @@ This runbook covers deploying MoTitle as a persistent server appliance on an App
 
 ## 2. Install
 
-Clone the repository and run the setup script:
+Place the app under `/opt/motitle` (see "Install location" above) and run the setup script:
 
 ```bash
-git clone https://github.com/your-org/motitle.git
-cd motitle
+# get the source onto /opt (clone, or copy the folder there)
+sudo git clone https://github.com/your-org/motitle.git /opt/motitle
+sudo chown -R "$(whoami)" /opt/motitle
+cd /opt/motitle
 ./setup-mac.sh
 ```
 
-The script is **idempotent** — re-running it after a partial failure or an update is safe. Each step is skipped if it has already been completed.
+Re-running the script is **safe**: the admin user, the `FLASK_SECRET_KEY` (and any other `backend/.env` vars such as `OPENROUTER_API_KEY`), and an already-downloaded model are all preserved; the HTTPS cert is regenerated.
+
+> The ~70 GB model is pulled in the **background**, and only **after** the launchd-service step — the installer does **not** wait for it, so the server can be installed and the licence activated while the model downloads. Watch it with `tail -f /opt/motitle/backend/data/logs/ollama-pull.log` or `ollama list`.
 
 What the script does, in order:
 
-1. **Architecture check** — aborts with a clear error on Intel (`x86_64`).
-2. **Homebrew** — installs Homebrew if absent; runs `brew update`.
+1. **Architecture + location check** — aborts on Intel (`x86_64`); refuses to run from `~/Documents`, `~/Desktop`, or `~/Downloads` (macOS TCC; see "Install location") and prints the `mv`-to-`/opt` commands.
+2. **Homebrew** — auto-installs Homebrew if absent, then `eval "$(brew shellenv)"` to put it on PATH.
 3. **Dependencies** — `brew install python@3.11 ffmpeg ollama` (skips already-installed packages).
 4. **Python venv** — creates `backend/venv/` and installs all Python packages from `backend/requirements.txt`, including `mlx-whisper` for Apple Silicon.
-5. **Admin user bootstrap** — prompts for an admin username and password (minimum 8 characters, must not be a common password). Writes the account into `backend/data/app.db`. Safe to skip on re-runs if the user already exists.
-6. **`FLASK_SECRET_KEY`** — generates a 64-character hex secret with `python -c "import secrets; print(secrets.token_hex(32))"` and writes it to `backend/.env` (gitignored). The server will refuse to start without this value.
-7. **Self-signed HTTPS certificate** — generates `backend/data/certs/server.{crt,key}` with OpenSSL (2048-bit RSA, 10-year validity). Clients will see a browser warning on first connection; see Section 4 for workarounds.
-8. **Disk space check** — warns if fewer than 90 GB are free before attempting the model pull.
-9. **`ollama pull qwen3.5:35b-a3b-mlx-bf16`** — downloads the ~70 GB model. This takes 15–60 minutes depending on bandwidth. Progress is printed to the terminal.
-10. **Optional LaunchDaemon install** — prompts whether to install the two LaunchDaemons now. If you answer yes, it calls `sudo packaging/macos/motitle-service.sh install`. You can also do this later (see Section 3).
-11. **LAN URL** — prints the Mac's LAN IP address so you can test from another device immediately.
+5. **PyNaCl check** — verifies the licensing crypto library imports (fails fast if a native build went wrong).
+6. **Admin user bootstrap** — prompts for an admin username and password. Writes the account into `backend/data/app.db`. Skipped on re-runs if the user already exists.
+7. **`FLASK_SECRET_KEY`** — generates a 64-character hex secret into `backend/.env` (gitignored, `chmod 600`) on first run; preserved on re-run. The server refuses to start without it.
+8. **Self-signed HTTPS certificate** — generates `backend/data/certs/server.{crt,key}` (2048-bit RSA, 10-year). Clients see a browser warning on first connection; see Section 4.
+9. **`Core setup complete`** then **Optional LaunchDaemon install** — prompts whether to install the two LaunchDaemons now (`sudo packaging/macos/motitle-service.sh install`). You can also do it later (Section 3).
+10. **Ollama model** — runs **after** the service decision: ensures the ollama server is up, then pulls `qwen3.5:35b-a3b-mlx-bf16` (~70 GB) in the **background** (disk-checked; skipped if already present). Progress goes to `backend/data/logs/ollama-pull.log`.
+11. **LAN URL + licence banner** — prints the Mac's LAN IP and the licence-activation reminder.
 
-After a successful run the server is accessible at `http://<mac-ip>:5001` (or `https://<mac-ip>:5001` if HTTPS certs are present).
+After a successful run the server is accessible at `https://<mac-ip>:5001` (HTTPS is the default once the cert exists; `http://<mac-ip>:5001` only if no cert).
 
 ---
 
@@ -80,7 +88,7 @@ translate, render, model load) is blocked until activation.
 
 **Verify activation:**
 ```bash
-curl -s http://localhost:5001/api/files
+curl -sk https://localhost:5001/api/files   # -k: self-signed cert; http:// only if no cert
 # Before activation: {"error":"licence required"}
 # After activation:  a normal JSON response (not the licence error)
 ```
@@ -111,7 +119,7 @@ sudo packaging/macos/motitle-service.sh <subcommand>
 | `start` | Re-bootstraps both daemons from their plists on disk. Use this after a manual `stop` or after `install` if you need to start without rebooting. |
 | `stop` | Calls `launchctl bootout` on both daemons. They will NOT restart until you run `start` or reboot the machine. `KeepAlive` only restarts after a crash, not after an operator-initiated `bootout`. |
 | `restart` | `bootout` both → `bootstrap` both. Useful after changing `backend/.env` or updating the code. |
-| `status` | Prints the launchd state and PID for both daemons, then hits `http://localhost:5001/api/ready` and runs `ollama ps` to show which models are loaded. |
+| `status` | Prints the launchd state and PID for both daemons, then health-checks `https://localhost:5001/api/ready` (falling back to `http://`) and runs `ollama ps` to show which models are loaded. |
 | `logs` | Tails the last 50 lines of `backend/data/logs/server.out.log` and `server.out.log` together, then follows both live (Ctrl-C to quit). Ollama logs are at `backend/data/logs/ollama.{out,err}.log`. |
 
 **Bootstrap vs kickstart**: the `start` subcommand uses `launchctl bootstrap … <plist>` (not `kickstart`). Because the plists have `RunAtLoad true`, the daemon starts the moment it is bootstrapped — no separate kickstart needed.
