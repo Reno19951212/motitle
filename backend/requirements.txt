@@ -14,8 +14,11 @@ gevent>=23.9.0
 gevent-websocket>=0.10.1
 pysbd>=0.3.4
 opencc-python-reimplemented>=0.1.7
-# Optional: streaming mode (low-latency live transcription)
-whisper-streaming>=0.1.0
+# Optional: streaming mode (low-latency live transcription) — DISABLED by default.
+# whisper-streaming pulls Linux-only `pyalsaaudio` (needs ALSA headers) and cannot
+# build on macOS/Windows, which aborts the whole install. Streaming was removed in
+# v2.0 and its import is guarded in app.py. Install manually only on Linux if needed:
+#   pip install whisper-streaming
 librosa>=0.10.0
 soundfile>=0.12.0
 # R5 Phase 1: server mode auth + password hashing

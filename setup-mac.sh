@@ -35,22 +35,31 @@ if ! command -v brew >/dev/null; then
   # Put brew on PATH for the rest of this script (Apple Silicon prefix).
   eval "$(/opt/homebrew/bin/brew shellenv)" 2>/dev/null || true
 fi
-command -v python3 >/dev/null || brew install python@3.11 || { echo "ERROR: brew install python@3.11 failed"; exit 1; }
-command -v ffmpeg  >/dev/null || brew install ffmpeg || { echo "ERROR: brew install ffmpeg failed"; exit 1; }
-command -v ollama  >/dev/null || brew install ollama || { echo "ERROR: brew install ollama failed"; exit 1; }
+command -v ffmpeg >/dev/null || brew install ffmpeg || { echo "ERROR: brew install ffmpeg failed"; exit 1; }
+command -v ollama >/dev/null || brew install ollama || { echo "ERROR: brew install ollama failed"; exit 1; }
+# uv provides a self-contained standalone CPython for the venv. Do NOT rely on
+# brew's python: on bleeding-edge macOS its pyexpat can fail to load (a libexpat
+# symbol mismatch), which breaks pip/venv creation entirely.
+command -v uv >/dev/null || brew install uv || { echo "ERROR: brew install uv failed"; exit 1; }
 
 # Backend venv (idempotent — reuse if mlx-whisper already imports)
 cd backend
+# Runtime dirs must exist before init_db / cert / logs write into them
+# (a fresh checkout has no data/ — it is gitignored).
+mkdir -p data data/certs data/logs data/uploads data/results data/renders
 if [[ -d venv ]] && venv/bin/python -c "import mlx_whisper" 2>/dev/null; then
   echo "venv present and mlx-whisper importable — skipping rebuild"
   source venv/bin/activate
 else
-  python3 -m venv venv
+  # Self-contained Python 3.11 via uv (bundles its own expat/ssl).
+  uv venv --seed --python 3.11 venv || { echo "ERROR: uv venv failed"; exit 1; }
   # shellcheck disable=SC1091
   source venv/bin/activate
-  pip install --upgrade pip
-  pip install -r requirements.txt
-  pip install mlx-whisper
+  # NB: whisper-streaming is intentionally NOT in requirements.txt — it pulls
+  # Linux-only pyalsaaudio and cannot build on macOS/Windows; streaming was
+  # removed in v2.0 and its import is guarded in app.py.
+  uv pip install -r requirements.txt || { echo "ERROR: dependency install failed"; exit 1; }
+  uv pip install mlx-whisper || { echo "ERROR: mlx-whisper install failed"; exit 1; }
 fi
 
 # Validate PyNaCl (licensing gate) actually imports — a failed native build on
@@ -58,32 +67,42 @@ fi
 python -c "from nacl.signing import SigningKey" 2>/dev/null \
   || { echo "ERROR: PyNaCl import failed (licensing needs it). Try: pip install --force-reinstall PyNaCl"; exit 1; }
 
-# Bootstrap admin
+# Bootstrap admin — loop until a valid admin exists; do NOT silently skip a
+# weak/mismatched password (that previously left the DB with zero accounts and
+# nobody able to log in).
 echo ""
 echo "=== Set up admin user ==="
-read -p "Admin username [admin]: " ADMIN_USER
-ADMIN_USER=${ADMIN_USER:-admin}
-read -s -p "Admin password: " ADMIN_PW
-echo ""
-read -s -p "Confirm password: " ADMIN_PW2
-echo ""
-[[ "$ADMIN_PW" == "$ADMIN_PW2" ]] || { echo "Passwords don't match"; exit 1; }
-
-# Pass username + password via env (NOT string interpolation) so values
-# containing quotes / shell metacharacters can't break out.
-ADMIN_USER="$ADMIN_USER" ADMIN_PW="$ADMIN_PW" python -c "
-import os
+if python -c "import sys; from auth.users import init_db, count_admins; init_db('data/app.db'); sys.exit(0 if count_admins('data/app.db') > 0 else 1)" 2>/dev/null; then
+  echo "An admin already exists — skipping admin creation."
+else
+  while true; do
+    read -p "Admin username [admin]: " ADMIN_USER
+    ADMIN_USER=${ADMIN_USER:-admin}
+    read -s -p "Admin password (min 8 chars, not a common password): " ADMIN_PW
+    echo ""
+    read -s -p "Confirm password: " ADMIN_PW2
+    echo ""
+    if [[ "$ADMIN_PW" != "$ADMIN_PW2" ]]; then
+      echo "  Passwords don't match — try again."
+      continue
+    fi
+    # Pass via env (NOT string interpolation) so quotes / metacharacters are safe.
+    if ADMIN_USER="$ADMIN_USER" ADMIN_PW="$ADMIN_PW" python -c "
+import os, sys
 from auth.users import init_db, create_user
 init_db('data/app.db')
 try:
-    create_user('data/app.db',
-                os.environ['ADMIN_USER'],
-                os.environ['ADMIN_PW'],
-                is_admin=True)
-    print('Admin created.')
-except ValueError as e:
-    print(f'Skipped: {e}')
-"
+    create_user('data/app.db', os.environ['ADMIN_USER'], os.environ['ADMIN_PW'], is_admin=True)
+    print('  Admin created.')
+except Exception as e:
+    print(f'  REJECTED: {e}')
+    sys.exit(1)
+"; then
+      break
+    fi
+    echo "  Please try again with a stronger password (or a different username)."
+  done
+fi
 
 echo ""
 echo "=== Flask SECRET_KEY ==="
