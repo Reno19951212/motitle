@@ -132,6 +132,11 @@ const FontPreview = (() => {
   // overlay actually has @font-face rules for — guaranteeing every option
   // renders (and matches the burn-in) instead of silently falling back.
   let _fonts = [];
+  // CJK system fonts the BURN-IN renderer can actually use on the server host
+  // (from /api/fonts `system_fonts`). Server-verified so the picker never
+  // offers a family that would tofu (e.g. macOS PingFang on a daemon, or an
+  // uninstalled Noto). Replaces the old hard-coded per-page font lists.
+  let _systemFonts = [];
 
   function _injectFaces(fonts) {
     // Replace (not append) the style element so a refresh after upload/delete
@@ -158,6 +163,7 @@ const FontPreview = (() => {
       if (!r.ok) return _fonts;
       const data = await r.json();
       _fonts = (data && data.fonts) || [];
+      _systemFonts = (data && data.system_fonts) || [];
       _injectFaces(_fonts);
       // Eagerly load each face so the first overlay paint already has the glyph
       // in cache; otherwise the very first segment can flash fallback metrics.
@@ -218,10 +224,13 @@ const FontPreview = (() => {
 
   // Build <optgroup>/<option> HTML for a subtitle font <select>, shared by the
   // Dashboard + Proofread settings panels so both pickers behave identically:
-  //   - "已上載字型": the actually-available uploaded fonts (real @font-face +
-  //     libass :fontsdir → guaranteed to render AND match the burn-in)
-  //   - "系統字型（需已安裝）": legacy system-font names (only render if the
-  //     viewer/render host has them installed) — kept for back-compat.
+  //   - "已上載字型": uploaded fonts (real @font-face + libass :fontsdir →
+  //     guaranteed to render AND match the burn-in)
+  //   - "系統字型": CJK families the SERVER reports the burn-in renderer can
+  //     actually use on this host (`system_fonts` from /api/fonts) — so the
+  //     picker never offers a family that would tofu in the rendered video.
+  // `systemFonts` arg is optional and only overrides the server list (callers
+  // should omit it and let the server be the source of truth).
   // The current value is always present + selected even if it is neither.
   function fontOptionsHtml(current, systemFonts) {
     const cur = current || '';
@@ -230,20 +239,23 @@ const FontPreview = (() => {
     _fonts.forEach((f) => {
       if (f.family && !seen.has(f.family)) { seen.add(f.family); uploaded.push(f.family); }
     });
-    const sys = (systemFonts || []).filter((s) => !seen.has(s));
+    const sys = (systemFonts || _systemFonts || []).filter((s) => !seen.has(s));
     const opt = (fam) => `<option value="${_esc(fam)}"${fam === cur ? ' selected' : ''}>${_esc(fam)}</option>`;
     let html = '';
     if (uploaded.length) html += `<optgroup label="已上載字型">${uploaded.map(opt).join('')}</optgroup>`;
-    if (sys.length) html += `<optgroup label="系統字型（需已安裝）">${sys.map(opt).join('')}</optgroup>`;
+    if (sys.length) html += `<optgroup label="系統字型">${sys.map(opt).join('')}</optgroup>`;
     if (cur && !seen.has(cur) && !sys.includes(cur)) {
       html = `<option value="${_esc(cur)}" selected>${_esc(cur)}</option>` + html;
     }
     return html;
   }
 
+  // Snapshot of the server-verified usable CJK system fonts (families).
+  function getSystemFonts() { return _systemFonts.slice(); }
+
   // Re-fetch /api/fonts + re-inject @font-face. Call after a font upload or
   // delete so the new face is live in the overlay and getFonts() is current.
   async function refreshFonts() { return _loadFonts(); }
 
-  return { init, updateText, applyFontConfig, getFonts, refreshFonts, fontOptionsHtml };
+  return { init, updateText, applyFontConfig, getFonts, getSystemFonts, refreshFonts, fontOptionsHtml };
 })();

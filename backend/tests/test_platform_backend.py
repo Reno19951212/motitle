@@ -147,42 +147,110 @@ _DARWIN = {"os": "darwin", "arch": "arm64", "has_cuda": False}
 _LINUX = {"os": "linux", "arch": "x86_64", "has_cuda": False}
 
 
-def test_subtitle_font_darwin_maps_noto_tc_to_pingfang_tc():
-    assert pb.resolve_subtitle_font_family("Noto Sans TC", _DARWIN) == "PingFang TC"
+# Target = STHeiti ("Heiti TC"/"Heiti SC"): /System/Library/Fonts/ proper, the
+# only CJK family a session-less LaunchDaemon can fully load (PingFang lives in
+# AssetsV2 and tofu's under a daemon; Noto/Microsoft are absent on macOS).
+
+def test_subtitle_font_darwin_maps_noto_tc_to_heiti_tc():
+    assert pb.resolve_subtitle_font_family("Noto Sans TC", _DARWIN) == "Heiti TC"
 
 
-def test_subtitle_font_darwin_maps_noto_hk_to_pingfang_hk():
-    assert pb.resolve_subtitle_font_family("Noto Sans HK", _DARWIN) == "PingFang HK"
+def test_subtitle_font_darwin_maps_noto_hk_to_heiti_tc():
+    assert pb.resolve_subtitle_font_family("Noto Sans HK", _DARWIN) == "Heiti TC"
 
 
-def test_subtitle_font_darwin_maps_msjhenghei_to_pingfang_tc():
-    assert pb.resolve_subtitle_font_family("Microsoft JhengHei", _DARWIN) == "PingFang TC"
+def test_subtitle_font_darwin_maps_noto_sc_to_heiti_sc():
+    assert pb.resolve_subtitle_font_family("Noto Sans SC", _DARWIN) == "Heiti SC"
 
 
-def test_subtitle_font_darwin_maps_source_han_hk():
-    assert pb.resolve_subtitle_font_family("Source Han Sans HK", _DARWIN) == "PingFang HK"
+def test_subtitle_font_darwin_maps_msjhenghei_to_heiti_tc():
+    assert pb.resolve_subtitle_font_family("Microsoft JhengHei", _DARWIN) == "Heiti TC"
+
+
+def test_subtitle_font_darwin_maps_msyahei_to_heiti_sc():
+    assert pb.resolve_subtitle_font_family("Microsoft YaHei", _DARWIN) == "Heiti SC"
+
+
+def test_subtitle_font_darwin_maps_source_han_hk_to_heiti_tc():
+    assert pb.resolve_subtitle_font_family("Source Han Sans HK", _DARWIN) == "Heiti TC"
 
 
 def test_subtitle_font_darwin_case_and_space_insensitive():
-    assert pb.resolve_subtitle_font_family("  noto sans tc  ", _DARWIN) == "PingFang TC"
+    assert pb.resolve_subtitle_font_family("  noto sans tc  ", _DARWIN) == "Heiti TC"
 
 
-def test_subtitle_font_darwin_keeps_present_pingfang():
-    # PingFang already resolves natively — must not be touched.
-    assert pb.resolve_subtitle_font_family("PingFang HK", _DARWIN) == "PingFang HK"
+def test_subtitle_font_darwin_remaps_pingfang_tc_to_heiti():
+    # PingFang is "installed" but lives in on-demand AssetsV2 → a session-less
+    # daemon cannot load its glyphs (tofu). Must be remapped to Heiti.
+    assert pb.resolve_subtitle_font_family("PingFang TC", _DARWIN) == "Heiti TC"
 
 
-def test_subtitle_font_darwin_keeps_unknown_uploaded_font():
-    # A user-uploaded font (provided to libass via :fontsdir=) passes through.
+def test_subtitle_font_darwin_remaps_pingfang_sc_to_heiti_sc():
+    assert pb.resolve_subtitle_font_family("PingFang SC", _DARWIN) == "Heiti SC"
+
+
+def test_subtitle_font_darwin_remaps_other_assetsv2_cjk_to_heiti():
+    # Songti/Kaiti/STSong also live in AssetsV2 → daemon-inaccessible; rescued.
+    assert pb.resolve_subtitle_font_family("Songti SC", _DARWIN) == "Heiti SC"
+    assert pb.resolve_subtitle_font_family("Kaiti TC", _DARWIN) == "Heiti TC"
+    assert pb.resolve_subtitle_font_family("STSong", _DARWIN) == "Heiti SC"
+
+
+def test_subtitle_font_darwin_keeps_heiti_and_unknown():
+    # Heiti is already daemon-safe; uploaded brand fonts (via :fontsdir=) and
+    # other proper-dir fonts pass through untouched.
+    assert pb.resolve_subtitle_font_family("Heiti TC", _DARWIN) == "Heiti TC"
+    assert pb.resolve_subtitle_font_family("Hiragino Sans GB", _DARWIN) == "Hiragino Sans GB"
     assert pb.resolve_subtitle_font_family("My Brand Font", _DARWIN) == "My Brand Font"
 
 
 def test_subtitle_font_non_darwin_passthrough():
     # Windows/Linux ship their own Noto/Microsoft CJK fonts — never remap.
     assert pb.resolve_subtitle_font_family("Noto Sans TC", _LINUX) == "Noto Sans TC"
-    assert pb.resolve_subtitle_font_family("Microsoft JhengHei", _LINUX) == "Microsoft JhengHei"
+    assert pb.resolve_subtitle_font_family("PingFang TC", _LINUX) == "PingFang TC"
 
 
 def test_subtitle_font_empty_or_none_is_safe():
     assert pb.resolve_subtitle_font_family("", _DARWIN) == ""
     assert pb.resolve_subtitle_font_family(None, _DARWIN) is None
+
+
+# ---------------------------------------------------------------------------
+# Task 6: available_subtitle_fonts()  (font-picker source of truth)
+# ---------------------------------------------------------------------------
+
+def test_available_fonts_darwin_includes_heiti_when_file_present(monkeypatch):
+    # STHeiti present in /System/Library/Fonts/ proper → Heiti TC + SC offered.
+    # Hiragino Sans GB is intentionally NOT a candidate (GB/Simplified-oriented).
+    monkeypatch.setattr(pb.os.path, "exists", lambda p: "STHeiti" in p)
+    assert pb.available_subtitle_fonts(_DARWIN) == ["Heiti TC", "Heiti SC"]
+
+
+def test_available_fonts_empty_info_falls_through_no_crash():
+    # A degenerate/empty info dict must not raise; it falls through to the
+    # non-darwin branch and returns the linux curated list.
+    assert pb.available_subtitle_fonts({}) == list(pb._LINUX_CJK)
+
+
+def test_available_fonts_darwin_excludes_when_files_missing(monkeypatch):
+    monkeypatch.setattr(pb.os.path, "exists", lambda p: False)
+    assert pb.available_subtitle_fonts(_DARWIN) == []
+
+
+def test_available_fonts_darwin_never_offers_pingfang(monkeypatch):
+    # Even with everything "present", PingFang must never appear — it lives in
+    # AssetsV2 and a session-less daemon cannot load it (would tofu).
+    monkeypatch.setattr(pb.os.path, "exists", lambda p: True)
+    fonts = pb.available_subtitle_fonts(_DARWIN)
+    assert not any("PingFang" in f for f in fonts)
+    assert not any("Noto" in f for f in fonts)
+
+
+def test_available_fonts_windows_curated():
+    fonts = pb.available_subtitle_fonts({"os": "win32", "arch": "x86_64", "has_cuda": False})
+    assert "Microsoft JhengHei" in fonts
+
+
+def test_available_fonts_linux_curated():
+    fonts = pb.available_subtitle_fonts(_LINUX)
+    assert any("Noto Sans CJK" in f for f in fonts)

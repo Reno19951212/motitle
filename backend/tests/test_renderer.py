@@ -118,13 +118,14 @@ def test_generate_ass_style_line(tmp_path):
     assert "&H00000000" in ass
 
 
-def test_generate_ass_darwin_remaps_noto_to_pingfang(tmp_path):
+def test_generate_ass_darwin_remaps_noto_to_heiti(tmp_path):
     # macOS has no "Noto Sans TC"; libass/CoreText would silently fall back to
-    # Helvetica (Latin-only) → Chinese tofu. The renderer must remap to PingFang.
+    # Helvetica (Latin-only) → Chinese tofu. The renderer must remap to a
+    # daemon-loadable family (STHeiti / "Heiti TC").
     from renderer import SubtitleRenderer
     renderer = SubtitleRenderer(tmp_path)
     ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT, platform_info=_DARWIN_INFO)
-    assert "PingFang TC" in ass
+    assert "Heiti TC" in ass
     assert "Noto Sans TC" not in ass
 
 
@@ -133,6 +134,35 @@ def test_generate_ass_non_darwin_keeps_noto(tmp_path):
     renderer = SubtitleRenderer(tmp_path)
     ass = renderer.generate_ass(SAMPLE_SEGMENTS, DEFAULT_FONT, platform_info=_LINUX_INFO)
     assert "Noto Sans TC" in ass
+
+
+def test_generate_ass_sanitizes_comma_in_family(tmp_path):
+    # A comma in the family would shift the comma-delimited [V4+ Styles] fields;
+    # it must be scrubbed so the Fontname can't break out of its field.
+    from renderer import SubtitleRenderer
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(
+        SAMPLE_SEGMENTS, {"family": "Evil, Font", "size": 48},
+        platform_info=_LINUX_INFO,
+    )
+    style = [l for l in ass.splitlines() if l.startswith("Style:")][0]
+    # The Style line keeps its 13 commas (14 fields) — the injected comma is gone.
+    assert style.count(",") == 13
+    assert "Evil, Font" not in ass
+    assert "Evil  Font" in style
+
+
+def test_generate_ass_braces_in_family_scrubbed(tmp_path):
+    # Braces are ASS inline-override delimiters; they must not survive in the
+    # Fontname field (else a font name could smuggle in style overrides).
+    from renderer import SubtitleRenderer
+    renderer = SubtitleRenderer(tmp_path)
+    ass = renderer.generate_ass(
+        SAMPLE_SEGMENTS, {"family": "Bad{x}Name", "size": 48},
+        platform_info=_LINUX_INFO,
+    )
+    style = [l for l in ass.splitlines() if l.startswith("Style:")][0]
+    assert "{" not in style and "}" not in style
 
 
 def test_generate_ass_dialogue_lines(tmp_path):

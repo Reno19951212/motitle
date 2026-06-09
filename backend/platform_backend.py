@@ -6,6 +6,7 @@ the historical hard-coded values exactly (byte-identical behaviour on Apple
 Silicon). See docs/superpowers/specs/2026-06-06-cross-platform-delivery-design.md
 """
 
+import os
 import platform
 import shutil
 import sys
@@ -109,38 +110,67 @@ def resolve_ollama_url(env: dict) -> str:
 # Task 5: resolve_subtitle_font_family  (subtitle burn-in CJK fallback)
 # ---------------------------------------------------------------------------
 
-# macOS ships NO "Noto Sans *" / "Microsoft *" / "Source Han Sans *" CJK family.
-# The subtitle font picker offers those names, and the shipped default profile
-# uses "Noto Sans TC". When libass (CoreText provider on macOS) is handed an
-# unknown CJK family it SILENTLY substitutes Helvetica (Latin-only): ASCII
-# digits render but every Han glyph becomes tofu (□). macOS always has PingFang,
-# so remap the known-absent web/Windows CJK families to the native PingFang
-# script-equivalent. Other platforms keep the requested family (they have their
-# own Noto/Microsoft CJK fonts), and any unrecognised family — uploaded brand
-# fonts (served to libass via :fontsdir=), PingFang, Heiti — passes through.
+# macOS subtitle burn-in runs through libass's CoreText provider. Two failure
+# modes produce CJK tofu (□ Han glyphs, only ASCII digits survive):
+#   1. ABSENT family ("Noto Sans TC", "Microsoft JhengHei", "Source Han Sans"):
+#      not installed → CoreText substitutes Helvetica (Latin-only).
+#   2. ON-DEMAND family ("PingFang *"): PingFang.ttc lives under
+#      /System/Library/AssetsV2/ (downloadable font assets). The production
+#      server runs as a LaunchDaemon with NO GUI/user session, and CoreText
+#      cannot load AssetsV2 fonts without a session → it "matches" PingFang but
+#      fails to load its glyphs → tofu. (Confirmed empirically 2026-06-09: a
+#      daemon render with PingFang TC tofu'd; Heiti TC rendered cleanly. Even
+#      bundling PingFang.ttc via :fontsdir= does not help — CoreText shadows it.)
+# Both classes are remapped to STHeiti ("Heiti TC"/"Heiti SC"), which lives in
+# /System/Library/Fonts/ PROPER and is therefore always fully loadable by a
+# daemon. Other platforms keep the requested family (they ship their own Noto/
+# Microsoft CJK fonts); unknown families (uploaded brand fonts via :fontsdir=,
+# Hiragino, …) pass through untouched.
+# NB: this is a RESCUE allowlist for legacy / out-of-band font values, not a
+# complete CJK safety net — the font picker (available_subtitle_fonts) is the
+# real guard that stops new bad picks. Any family here is remapped to the only
+# daemon-loadable CJK faces (STHeiti). For serif/script source fonts (Songti,
+# Kaiti) that means a sans substitution — accepted, since the alternative under
+# a session-less daemon is tofu.
 _DARWIN_CJK_FALLBACK = {
-    "noto sans tc": "PingFang TC",
-    "noto sans hk": "PingFang HK",
-    "noto sans sc": "PingFang SC",
-    "noto sans cjk tc": "PingFang TC",
-    "noto sans cjk hk": "PingFang HK",
-    "noto sans cjk sc": "PingFang SC",
-    "source han sans tc": "PingFang TC",
-    "source han sans hk": "PingFang HK",
-    "source han sans sc": "PingFang SC",
-    "microsoft jhenghei": "PingFang TC",  # JhengHei = Traditional Chinese
-    "microsoft yahei": "PingFang SC",      # YaHei = Simplified Chinese
+    # Absent web/Windows families (Traditional → Heiti TC)
+    "noto sans tc": "Heiti TC",
+    "noto sans hk": "Heiti TC",
+    "noto sans cjk tc": "Heiti TC",
+    "noto sans cjk hk": "Heiti TC",
+    "source han sans tc": "Heiti TC",
+    "source han sans hk": "Heiti TC",
+    "microsoft jhenghei": "Heiti TC",  # JhengHei = Traditional Chinese
+    # Absent web/Windows families (Simplified → Heiti SC)
+    "noto sans sc": "Heiti SC",
+    "noto sans cjk sc": "Heiti SC",
+    "source han sans sc": "Heiti SC",
+    "microsoft yahei": "Heiti SC",      # YaHei = Simplified Chinese
+    # On-demand AssetsV2 families — "installed" but daemon-inaccessible.
+    "pingfang tc": "Heiti TC",
+    "pingfang hk": "Heiti TC",
+    "pingfang sc": "Heiti SC",
+    "songti tc": "Heiti TC",
+    "kaiti tc": "Heiti TC",
+    "songti sc": "Heiti SC",
+    "kaiti sc": "Heiti SC",
+    "stsong": "Heiti SC",
+    "stkaiti": "Heiti SC",
+    "stfangsong": "Heiti SC",
+    "yuanti tc": "Heiti TC",
+    "yuanti sc": "Heiti SC",
 }
 
 
 def resolve_subtitle_font_family(family, info: dict = None):
-    """Map an absent CJK font family to a present native one for burn-in.
+    """Map an absent / daemon-inaccessible CJK family to a daemon-safe one.
 
-    The ASS Style 'Fontname' is handed to libass; if the family is not installed
-    on the render host, macOS CoreText falls back to Helvetica and Chinese
-    becomes tofu. On darwin we remap the known-absent web/Windows CJK families
-    to their PingFang equivalent (PingFang is always present). On every other
-    platform, and for any family not in the map, the value is returned unchanged.
+    The ASS Style 'Fontname' is handed to libass; on macOS an absent family
+    (Noto/Microsoft/Source Han) OR an on-demand AssetsV2 family (PingFang, which
+    a session-less LaunchDaemon cannot load) both yield Helvetica/tofu. On
+    darwin we remap those to STHeiti ("Heiti TC"/"Heiti SC"), which lives in
+    /System/Library/Fonts/ proper and is always loadable. Other platforms and
+    any unrecognised family pass through unchanged.
 
     Empty / None / non-str inputs are returned as-is (the caller's defaulting
     logic owns those cases).
@@ -152,3 +182,56 @@ def resolve_subtitle_font_family(family, info: dict = None):
     if info.get("os") != "darwin":
         return family
     return _DARWIN_CJK_FALLBACK.get(family.strip().lower(), family)
+
+
+# ---------------------------------------------------------------------------
+# Task 6: available_subtitle_fonts  (font-picker source of truth)
+# ---------------------------------------------------------------------------
+
+# CJK subtitle fonts that the burn-in renderer can ACTUALLY use on each
+# platform — i.e. that libass loads without producing tofu. The font picker is
+# built from this list (plus uploaded fonts) so it never offers a family that
+# would silently fall back.
+#
+# macOS: only families whose file lives in /System/Library/Fonts/ PROPER are
+# included. PingFang / Songti / Kaiti etc. live under /System/Library/AssetsV2/
+# (on-demand assets) and are DELIBERATELY excluded — the production server runs
+# as a session-less LaunchDaemon and CoreText cannot load AssetsV2 fonts there
+# (confirmed 2026-06-09). Each entry is runtime-verified by file existence.
+# Heiti TC + Heiti SC (STHeiti) cover Traditional + Simplified and are both
+# daemon-loadable. Hiragino Sans GB is deliberately NOT offered: it is GB
+# (Simplified national-standard) oriented, so for this app's primary Traditional
+# output it would render Simplified glyph variants — daemon-safe but typographically
+# wrong. STHeiti's TC/SC split avoids that.
+_MACOS_CJK_CANDIDATES = (
+    ("Heiti TC", ("/System/Library/Fonts/STHeiti Medium.ttc",
+                  "/System/Library/Fonts/STHeiti Light.ttc")),
+    ("Heiti SC", ("/System/Library/Fonts/STHeiti Medium.ttc",
+                  "/System/Library/Fonts/STHeiti Light.ttc")),
+)
+# Conventional bundled CJK families per OS. BEST-EFFORT ONLY — unlike the darwin
+# list these are NOT file-verified (no Windows/Linux host to test against), so a
+# fresh box missing them could still surface an unrenderable pick. Host-specific
+# verification (Windows C:\Windows\Fonts\*.ttc, Linux fc-list) is a TODO once a
+# non-macOS appliance exists. macOS is the only verified-correct platform today.
+_WINDOWS_CJK = ("Microsoft JhengHei", "Microsoft YaHei", "MingLiU", "SimSun")
+_LINUX_CJK = ("Noto Sans CJK TC", "Noto Sans CJK SC", "WenQuanYi Zen Hei")
+
+
+def available_subtitle_fonts(info: dict = None) -> list:
+    """Return the CJK system-font families usable by the burn-in renderer here.
+
+    On darwin, only families whose file is present in /System/Library/Fonts/
+    proper are returned (AssetsV2 on-demand fonts are excluded — a session-less
+    daemon cannot load them). Other platforms return their conventional CJK
+    families. The picker combines this with uploaded fonts (assets/fonts/).
+    """
+    if info is None:
+        info = detect_platform()
+    os_name = info.get("os")
+    if os_name == "darwin":
+        return [fam for fam, paths in _MACOS_CJK_CANDIDATES
+                if any(os.path.exists(p) for p in paths)]
+    if os_name == "win32":
+        return list(_WINDOWS_CJK)
+    return list(_LINUX_CJK)

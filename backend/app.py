@@ -1900,7 +1900,16 @@ def api_list_fonts():
         {"file": p.name, "family": _font_family_name(p)}
         for p in _list_font_files()
     ]
-    return jsonify({"fonts": items, "fonts_dir": str(FONTS_DIR)})
+    # system_fonts = CJK families the burn-in renderer can actually use on THIS
+    # host (e.g. excludes macOS AssetsV2 fonts a daemon can't load). The picker
+    # is built from uploaded fonts + this list so it never offers a family that
+    # would tofu. See platform_backend.available_subtitle_fonts.
+    from platform_backend import available_subtitle_fonts
+    return jsonify({
+        "fonts": items,
+        "fonts_dir": str(FONTS_DIR),
+        "system_fonts": available_subtitle_fonts(),
+    })
 
 
 @app.route('/fonts/<path:filename>', methods=['GET'])

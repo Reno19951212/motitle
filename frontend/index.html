@@ -3845,7 +3845,7 @@
             <div class="ss-row">
               <label>字型</label>
               <select id="dashFontSelect" onchange="updateFontConfig('family', this.value)">
-                ${FontPreview.fontOptionsHtml(fontConfig.family, ['Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', 'Source Han Sans HK'])}
+                ${FontPreview.fontOptionsHtml(fontConfig.family)}
               </select>
             </div>
             <div class="ss-row">
@@ -3933,7 +3933,7 @@
         await FontPreview.refreshFonts();
         fontConfig.family = data.family;
         const sel = document.getElementById('dashFontSelect');
-        if (sel) sel.innerHTML = FontPreview.fontOptionsHtml(fontConfig.family, ['Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', 'Source Han Sans HK']);
+        if (sel) sel.innerHTML = FontPreview.fontOptionsHtml(fontConfig.family);
         applySubtitleStyle();
         const m2 = document.getElementById('dashFontUploadMsg');
         if (m2) { m2.textContent = `✓ 已新增「${data.family}」，記得撳「儲存為預設」`; m2.style.color = 'var(--success)'; }

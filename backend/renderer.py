@@ -1,6 +1,7 @@
 """Subtitle renderer — generates ASS subtitles and burns them into video via FFmpeg."""
 
 import os
+import re
 import subprocess
 from pathlib import Path
 from typing import List, Optional
@@ -128,6 +129,16 @@ class SubtitleRenderer:
             font_config.get("family", DEFAULT_FONT_CONFIG["family"]),
             platform_info,
         )
+        # The ASS [V4+ Styles] line is comma-delimited and uses {} for inline
+        # overrides; scrub those (and newlines) out of the family so a stray
+        # character in a saved font name can never break out of the Fontname
+        # field. Fall back to the (mapped) default if scrubbing empties it.
+        if isinstance(family, str):
+            family = re.sub(r"[,{}\r\n]", " ", family).strip()
+        if not family:
+            family = resolve_subtitle_font_family(
+                DEFAULT_FONT_CONFIG["family"], platform_info
+            )
         size = font_config.get("size", DEFAULT_FONT_CONFIG["size"])
         primary = hex_to_ass_color(font_config.get("color", DEFAULT_FONT_CONFIG["color"]))
         outline = hex_to_ass_color(font_config.get("outline_color", DEFAULT_FONT_CONFIG["outline_color"]))
