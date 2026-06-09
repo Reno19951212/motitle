@@ -18,7 +18,8 @@ This runbook covers deploying MoTitle as a persistent server appliance on an App
 - macOS Sonoma 14 or later (Sequoia 15 recommended)
 - Xcode Command Line Tools (`xcode-select --install`)
 - Homebrew — `setup-mac.sh` auto-installs Homebrew if absent (you'll be asked to press Return + your password); or pre-install it from https://brew.sh.
-- Python 3.11, FFmpeg, and Ollama are pulled via Homebrew by the script.
+- FFmpeg, Ollama, and `uv` are pulled via Homebrew by the script.
+- The Python venv uses a **self-contained CPython 3.11 via `uv`** (not Homebrew's python). This avoids a class of failures on bleeding-edge macOS where Homebrew's python has a broken `pyexpat` (libexpat symbol mismatch) that breaks `pip`/`venv`.
 
 **Install location (IMPORTANT)**
 
@@ -51,10 +52,10 @@ What the script does, in order:
 
 1. **Architecture + location check** — aborts on Intel (`x86_64`); refuses to run from `~/Documents`, `~/Desktop`, or `~/Downloads` (macOS TCC; see "Install location") and prints the `mv`-to-`/opt` commands.
 2. **Homebrew** — auto-installs Homebrew if absent, then `eval "$(brew shellenv)"` to put it on PATH.
-3. **Dependencies** — `brew install python@3.11 ffmpeg ollama` (skips already-installed packages).
-4. **Python venv** — creates `backend/venv/` and installs all Python packages from `backend/requirements.txt`, including `mlx-whisper` for Apple Silicon.
+3. **Dependencies** — `brew install ffmpeg ollama uv` (skips already-installed packages); creates the runtime `data/` directories.
+4. **Python venv** — `uv venv --seed --python 3.11` creates `backend/venv/` with a self-contained CPython, then installs all packages from `backend/requirements.txt` + `mlx-whisper` via `uv pip`. (`whisper-streaming` is intentionally excluded — Linux-only.)
 5. **PyNaCl check** — verifies the licensing crypto library imports (fails fast if a native build went wrong).
-6. **Admin user bootstrap** — prompts for an admin username and password. Writes the account into `backend/data/app.db`. Skipped on re-runs if the user already exists.
+6. **Admin user bootstrap** — **loops** prompting for an admin username + password until a valid one is accepted (min 8 chars, not a common password), then writes the account into `backend/data/app.db`. Skipped on re-runs if an admin already exists. (It no longer silently skips a weak password.)
 7. **`FLASK_SECRET_KEY`** — generates a 64-character hex secret into `backend/.env` (gitignored, `chmod 600`) on first run; preserved on re-run. The server refuses to start without it.
 8. **Self-signed HTTPS certificate** — generates `backend/data/certs/server.{crt,key}` (2048-bit RSA, 10-year). Clients see a browser warning on first connection; see Section 4.
 9. **`Core setup complete`** then **Optional LaunchDaemon install** — prompts whether to install the two LaunchDaemons now (`sudo packaging/macos/motitle-service.sh install`). You can also do it later (Section 3).
