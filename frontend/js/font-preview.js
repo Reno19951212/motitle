@@ -30,7 +30,10 @@
  *   FontPreview.updateText(text)     // call from timeupdate / segment switch
  */
 const FontPreview = (() => {
-  const _apiBase = (typeof API_BASE !== 'undefined' ? API_BASE : 'http://localhost:5001');
+  // Same-origin relative base. Must NOT fall back to http://localhost:5001 — when
+  // the page is viewed from a machine that runs its own server on :5001, the font
+  // fetch + socket would hit THAT server (no session there) → 401 → login loop.
+  const _apiBase = (typeof API_BASE !== 'undefined' ? API_BASE : '');
   const SVG_NS = 'http://www.w3.org/2000/svg';
 
   // Must match backend/renderer.py:73-74 (PlayResX / PlayResY in ASS [Script Info]).
