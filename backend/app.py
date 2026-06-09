@@ -1887,6 +1887,35 @@ def _font_family_name(font_path: Path) -> str:
     return font_path.stem
 
 
+# A usable CJK subtitle font must cover common Han ideographs. We probe a few
+# (中 港 文 的) so a Latin-only upload (e.g. an Arial.ttf the operator added by
+# mistake) is never offered for, nor trusted by, the Chinese burn-in — it would
+# render every Han glyph as tofu.
+_CJK_PROBE_CODEPOINTS = (0x4E2D, 0x6E2F, 0x6587, 0x7684)  # 中 港 文 的
+
+
+def _font_has_cjk(font_path) -> bool:
+    """True iff the font covers common Han ideographs (usable for CJK subtitles).
+
+    Unreadable / parse-failure fonts return False (treated as non-CJK) so the
+    burn-in guard coerces them to a known-good family rather than risking tofu.
+    """
+    try:
+        from fontTools.ttLib import TTFont
+        tt = TTFont(str(font_path), lazy=True, fontNumber=0)
+        cmap = tt.getBestCmap()
+        return any(cp in cmap for cp in _CJK_PROBE_CODEPOINTS)
+    except Exception:
+        return False
+
+
+def _uploaded_cjk_families() -> set:
+    """Family names of uploaded fonts that actually cover CJK (burn-in-trustworthy)."""
+    return {
+        _font_family_name(p) for p in _list_font_files() if _font_has_cjk(p)
+    }
+
+
 def _ensure_renderable_font(font_config: dict) -> dict:
     """Return font_config with a family guaranteed to render CJK on this host.
 
@@ -1910,7 +1939,7 @@ def _ensure_renderable_font(font_config: dict) -> dict:
     if detect_platform().get("os") != "darwin":
         return fc
     safe = available_subtitle_fonts()
-    uploaded = {_font_family_name(p) for p in _list_font_files()}
+    uploaded = _uploaded_cjk_families()  # only CJK-capable uploads are trusted
     if mapped not in (set(safe) | uploaded):
         coerced = safe[0] if safe else DEFAULT_FONT_CONFIG["family"]
         print(f"[render] font {requested!r} is not daemon-renderable; "
@@ -1928,8 +1957,10 @@ def api_list_fonts():
     The frontend uses this to inject @font-face rules so the live preview
     uses the exact same font that FFmpeg/libass will burn into the video.
     """
+    # `cjk` flags whether the upload covers Han ideographs — the picker only
+    # offers CJK-capable uploads (a Latin-only font would tofu Chinese subtitles).
     items = [
-        {"file": p.name, "family": _font_family_name(p)}
+        {"file": p.name, "family": _font_family_name(p), "cjk": _font_has_cjk(p)}
         for p in _list_font_files()
     ]
     # system_fonts = CJK families the burn-in renderer can actually use on THIS

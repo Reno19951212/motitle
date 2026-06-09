@@ -147,19 +147,41 @@ def test_ensure_renderable_non_darwin_passthrough(monkeypatch):
     assert _app._ensure_renderable_font({"family": "Arial"})["family"] == "Arial"
 
 
-def test_ensure_renderable_keeps_uploaded_font(monkeypatch, isolated_fonts_dir):
-    # An uploaded font (present in FONTS_DIR) is trusted even if not a system CJK
-    # font — the operator deliberately added it for :fontsdir= burn-in.
+def test_ensure_renderable_keeps_cjk_uploaded_font(monkeypatch, isolated_fonts_dir):
+    # An uploaded font WITH CJK coverage is trusted (operator added it for the
+    # :fontsdir= burn-in) even though it is not a system CJK font.
     import app as _app
     import platform_backend as pb
     monkeypatch.setattr(pb, "detect_platform", lambda: _DARWIN)
     monkeypatch.setattr(pb, "available_subtitle_fonts", lambda info=None: ["Heiti TC"])
+    monkeypatch.setattr(_app, "_font_has_cjk", lambda p: True)  # pretend it covers Han
     (isolated_fonts_dir / "BrandFont.ttf").write_bytes(b"\x00\x01\x00\x00" + b"\x00" * 256)
     assert _app._ensure_renderable_font({"family": "BrandFont"})["family"] == "BrandFont"
 
 
-def test_api_fonts_includes_system_fonts_list(api_client):
+def test_ensure_renderable_coerces_non_cjk_uploaded_font(monkeypatch, isolated_fonts_dir):
+    # A Latin-only upload (e.g. ARIAL.ttf) must NOT be trusted — it tofus Chinese.
+    import app as _app
+    import platform_backend as pb
+    monkeypatch.setattr(pb, "detect_platform", lambda: _DARWIN)
+    monkeypatch.setattr(pb, "available_subtitle_fonts", lambda info=None: ["Heiti TC"])
+    monkeypatch.setattr(_app, "_font_has_cjk", lambda p: False)  # Latin-only
+    (isolated_fonts_dir / "Arial.ttf").write_bytes(b"\x00\x01\x00\x00" + b"\x00" * 256)
+    assert _app._ensure_renderable_font({"family": "Arial"})["family"] == "Heiti TC"
+
+
+def test_font_has_cjk_false_for_tableless_font(isolated_fonts_dir):
+    # The minimal table-less sfnt has no usable cmap → treated as non-CJK.
+    import app as _app
+    p = isolated_fonts_dir / "x.ttf"
+    p.write_bytes(b"\x00\x01\x00\x00" + b"\x00" * 256)
+    assert _app._font_has_cjk(p) is False
+
+
+def test_api_fonts_items_have_cjk_flag_and_system_fonts(api_client, isolated_fonts_dir):
+    (isolated_fonts_dir / "x.ttf").write_bytes(b"\x00\x01\x00\x00" + b"\x00" * 256)
     r = api_client.get("/api/fonts")
     assert r.status_code == 200
     body = r.get_json()
     assert isinstance(body.get("system_fonts"), list)
+    assert all("cjk" in f for f in body.get("fonts", []))

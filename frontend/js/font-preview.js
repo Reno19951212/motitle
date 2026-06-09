@@ -237,6 +237,9 @@ const FontPreview = (() => {
     const uploaded = [];
     const seen = new Set();
     _fonts.forEach((f) => {
+      // Skip Latin-only uploads (cjk === false) — they would tofu Chinese
+      // subtitles in the burn-in. Older backends omit the flag → keep listing.
+      if (f.cjk === false) return;
       if (f.family && !seen.has(f.family)) { seen.add(f.family); uploaded.push(f.family); }
     });
     const sys = (systemFonts || _systemFonts || []).filter((s) => !seen.has(s));
