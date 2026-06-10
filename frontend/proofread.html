@@ -738,6 +738,53 @@
       text-align: center;
     }
 
+    /* AI 輔助修改（ae-*）— spec 2026-06-10-proofread-ai-edit-design.md */
+    .ae-btn {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 9px; border-radius: 6px;
+      font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em;
+      color: var(--accent-2); background: var(--accent-soft);
+      border: 1px solid var(--accent-ring); cursor: pointer;
+      text-transform: none; font-family: inherit;
+      transition: background .12s;
+    }
+    .ae-btn:hover { background: rgba(108,99,255,0.22); }
+    .ae-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 3000; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .ae-overlay.open { opacity: 1; pointer-events: auto; }
+    .ae-modal {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+      width: 520px; max-width: calc(100vw - 40px); max-height: 80vh;
+      display: flex; flex-direction: column; box-shadow: var(--shadow);
+    }
+    .ae-header {
+      padding: 14px 18px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 13px; font-weight: 700;
+    }
+    .ae-header .ae-sub { color: var(--text-dim); font-weight: 500; margin-left: 6px; }
+    .ae-close { background: none; border: none; color: var(--text-dim); font-size: 18px; cursor: pointer; padding: 0 4px; line-height: 1; }
+    .ae-close:hover { color: var(--text); }
+    .ae-body { flex: 1; overflow-y: auto; padding: 14px 18px; display: flex; flex-direction: column; gap: 12px; }
+    .ae-sec { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); }
+    .ae-before { padding: 10px 12px; background: var(--surface-2); border-left: 2px solid var(--border-strong); border-radius: 0 6px 6px 0; font-size: 14px; line-height: 1.6; color: var(--text-mid); }
+    .ae-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .ae-chip { padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); font-size: 12px; font-weight: 600; color: var(--text-mid); cursor: pointer; font-family: inherit; }
+    .ae-chip:hover { border-color: var(--accent-ring); color: var(--accent-2); }
+    .ae-chip.on { background: var(--accent-soft); border-color: var(--accent-ring); color: var(--accent-2); }
+    .ae-inst { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 7px; padding: 10px 12px; font-family: inherit; font-size: 13.5px; line-height: 1.5; min-height: 54px; resize: vertical; width: 100%; }
+    .ae-inst:focus { outline: 2px solid var(--accent-ring); border-color: var(--accent); }
+    .ae-result { padding: 10px 12px; background: rgba(34,197,94,0.07); border-left: 2px solid var(--success); border-radius: 0 6px 6px 0; font-size: 15px; line-height: 1.6; display: none; }
+    .ae-result.show { display: block; }
+    .ae-loading { display: none; align-items: center; gap: 9px; font-size: 12.5px; color: var(--text-mid); padding: 4px 2px; }
+    .ae-loading.show { display: flex; }
+    .ae-spin { width: 14px; height: 14px; border: 2px solid var(--border-strong); border-top-color: var(--accent-2); border-radius: 50%; animation: aespin .7s linear infinite; }
+    @keyframes aespin { to { transform: rotate(360deg); } }
+    .ae-footer { display: flex; align-items: center; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--border); }
+
     /* Toast */
     .toast-stack {
       position: fixed; bottom: 18px; right: 18px;
@@ -2496,6 +2543,7 @@
             <span>${escapeHtml(enLabel)}</span>
             ${confStub}
             ${cpsFirstHtml}
+            ${isOutputLang ? `<button class="ae-btn" onclick="openAiEditModal('first')" title="AI 輔助修改第一語言">✦ AI</button>` : ''}
           </div>
           <textarea class="rv-b-detail-input" id="enInput"
                     oninput="onEnInput()"
@@ -2510,6 +2558,7 @@
             <span>${escapeHtml(zhLabel)}</span>
             ${confStub}
             ${cpsSecondHtml}
+            ${isOutputLang ? `<button class="ae-btn" onclick="openAiEditModal('second')" title="AI 輔助修改第二語言">✦ AI</button>` : ''}
           </div>
           <textarea class="rv-b-detail-input" id="zhInput"
                     oninput="onZhInput()"
@@ -2818,6 +2867,130 @@
     } catch (e) {
       showToast(`儲存原文失敗: ${e.message}`, 'error');
       return false;
+    }
+  }
+
+  // ============================================================
+  // AI 輔助修改（ae-*）— spec 2026-06-10-proofread-ai-edit-design.md
+  // suggest: POST /api/files/<id>/ai-edit；套用: 現有 PATCH /translations/<idx>
+  // ============================================================
+  let _aeState = null;   // { idx, role, beforeText, resultText, busy }
+
+  function openAiEditModal(role) {
+    const s = segs[cursorIdx];
+    if (!s) return;
+    const beforeText = role === 'first' ? (s.en || '') : (s.zh || '');
+    _aeState = { idx: s.idx, role, beforeText, resultText: null, busy: false };
+    document.getElementById('aeTitleSub').textContent =
+      ' · ' + (role === 'first' ? (_outputLangLabel('first') || '第一語言') : (_outputLangLabel('second') || '第二語言'));
+    document.getElementById('aeBefore').textContent = beforeText || '（空白）';
+    document.getElementById('aeInst').value = '';
+    document.querySelectorAll('#aeChips .ae-chip').forEach(c => c.classList.remove('on'));
+    // 對照翻譯 chip 要有另一語言先有意義
+    const hasOther = role === 'first' ? !!s._hasSecond : true;
+    document.querySelector('#aeChips [data-k="translate"]').style.display = hasOther ? '' : 'none';
+    _aeResetResult();
+    document.getElementById('aeOverlay').classList.add('open');
+  }
+
+  function closeAiEditModal() {
+    document.getElementById('aeOverlay').classList.remove('open');
+    _aeState = null;
+  }
+
+  function aePickChip(el) {
+    document.querySelectorAll('#aeChips .ae-chip').forEach(c => c.classList.toggle('on', c === el));
+    const role = _aeState ? _aeState.role : 'first';
+    const otherLabel = role === 'first'
+      ? (_outputLangLabel('second') || '第二語言')
+      : (_outputLangLabel('first') || '第一語言');
+    const texts = {
+      translate: `根據${otherLabel}嘅意思，重新翻譯呢段字幕`,
+      written: '將語氣改得更書面正式',
+      spoken: '將語氣改得更口語自然',
+      concise: '喺唔改變意思嘅前提下精簡呢句字幕',
+    };
+    document.getElementById('aeInst').value = texts[el.dataset.k] || '';
+    _aeResetResult();
+  }
+
+  function _aeResetResult() {
+    document.getElementById('aeResult').classList.remove('show');
+    document.getElementById('aeAfterHead').style.display = 'none';
+    document.getElementById('aeApply').style.display = 'none';
+    document.getElementById('aeRetry').style.display = 'none';
+    document.getElementById('aeGen').style.display = '';
+    document.getElementById('aeLoading').classList.remove('show');
+  }
+
+  async function aeGenerate() {
+    if (!_aeState || _aeState.busy) return;
+    const inst = document.getElementById('aeInst').value.trim();
+    if (!inst) { showToast('請輸入指令或撳快速選項', 'warning'); return; }
+    if (inst.length > 500) { showToast('指令唔可以超過 500 字', 'warning'); return; }
+    _aeState.busy = true;
+    const genBtn = document.getElementById('aeGen');
+    const retryBtn = document.getElementById('aeRetry');
+    genBtn.disabled = true; retryBtn.disabled = true;
+    document.getElementById('aeLoading').classList.add('show');
+    try {
+      const r = await fetch(`${API_BASE}/api/files/${fileId}/ai-edit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pos: _aeState.idx, role: _aeState.role, instruction: inst }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+      if (!_aeState) return;            // 生成期間用戶閂咗 modal — 棄置結果
+      _aeState.resultText = data.text;
+      document.getElementById('aeResult').textContent = data.text;
+      document.getElementById('aeResult').classList.add('show');
+      document.getElementById('aeAfterHead').style.display = '';
+      genBtn.style.display = 'none';
+      retryBtn.style.display = '';
+      document.getElementById('aeApply').style.display = '';
+    } catch (e) {
+      showToast(`AI 生成失敗：${e.message}`, 'error');
+    } finally {
+      if (_aeState) _aeState.busy = false;
+      genBtn.disabled = false; retryBtn.disabled = false;
+      document.getElementById('aeLoading').classList.remove('show');
+    }
+  }
+
+  async function aeApply() {
+    if (!_aeState || !_aeState.resultText) return;
+    const { idx, role, resultText } = _aeState;
+    try {
+      const r = await fetch(`${API_BASE}/api/files/${fileId}/translations/${idx}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: resultText, role }),
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        throw new Error(d.error || `HTTP ${r.status}`);
+      }
+      // 用 idx 搵返段（唔靠 cursorIdx — 防 modal 開住時 cursor 變）
+      const s = segs.find(x => x.idx === idx);
+      if (s) {
+        const dur = (s.out - s.in) / 1000;
+        if (role === 'first') {
+          s.en = resultText;
+          s.cps = dur > 0 ? Math.round((resultText.length / dur) * 10) / 10 : 0;
+        } else {
+          s.zh = resultText;
+          s._cpsSecond = dur > 0 ? Math.round((resultText.length / dur) * 10) / 10 : 0;
+        }
+        s.edited = true;
+        s.approved = true;   // PATCH 後端 auto-approve，前端鏡返
+      }
+      closeAiEditModal();
+      renderDetail();
+      renderSegList();
+      showToast('已套用 AI 修改 ✓', 'success');
+    } catch (e) {
+      showToast(`套用失敗：${e.message}`, 'error');
     }
   }
 
@@ -3211,6 +3384,12 @@
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (e.target && e.target.tagName === 'TEXTAREA') return;
+    const ae = document.getElementById('aeOverlay');
+    if (ae?.classList.contains('open')) {
+      closeAiEditModal();
+      e.preventDefault();
+      return;
+    }
     const ga = document.getElementById('gaOverlay');
     if (ga?.classList.contains('open')) {
       ga.classList.remove('open');
@@ -3250,6 +3429,39 @@
     <div class="ga-footer" id="gaFooter">
       <button class="btn btn-ghost" onclick="closeGlossaryApplyModal()">取消</button>
       <button class="btn btn-primary" id="gaApplyBtn" onclick="applySelectedViolations()">套用選中 (0)</button>
+    </div>
+  </div>
+</div>
+
+<!-- AI 輔助修改 Modal -->
+<div class="ae-overlay" id="aeOverlay">
+  <div class="ae-modal">
+    <div class="ae-header">
+      <span>✦ AI 輔助修改<span class="ae-sub" id="aeTitleSub"></span></span>
+      <button class="ae-close" onclick="closeAiEditModal()" aria-label="關閉 AI 輔助修改">&times;</button>
+    </div>
+    <div class="ae-body">
+      <div class="ae-sec">修改前</div>
+      <div class="ae-before" id="aeBefore"></div>
+      <div class="ae-sec">快速選項（撳完可再修改指令）</div>
+      <div class="ae-chips" id="aeChips">
+        <button class="ae-chip" data-k="translate" onclick="aePickChip(this)">⇄ 對照翻譯</button>
+        <button class="ae-chip" data-k="written" onclick="aePickChip(this)">改更書面</button>
+        <button class="ae-chip" data-k="spoken" onclick="aePickChip(this)">改更口語</button>
+        <button class="ae-chip" data-k="concise" onclick="aePickChip(this)">精簡句子</button>
+      </div>
+      <div class="ae-sec">指令</div>
+      <textarea class="ae-inst" id="aeInst" placeholder="輸入你想 AI 點樣修改呢段字幕，例如：將「傷感」改做「難過」"></textarea>
+      <div class="ae-loading" id="aeLoading"><span class="ae-spin"></span>AI 生成中…</div>
+      <div class="ae-sec" id="aeAfterHead" style="display:none">修改後（預覽）</div>
+      <div class="ae-result" id="aeResult"></div>
+    </div>
+    <div class="ae-footer">
+      <button class="btn btn-ghost" onclick="closeAiEditModal()">取消</button>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" id="aeRetry" onclick="aeGenerate()" style="display:none">↻ 再生成</button>
+      <button class="btn btn-primary" id="aeGen" onclick="aeGenerate()">生成</button>
+      <button class="btn btn-primary" id="aeApply" onclick="aeApply()" style="display:none">✓ 套用</button>
     </div>
   </div>
 </div>
