@@ -597,7 +597,9 @@
       background: var(--accent-soft);
       box-shadow: inset 0 0 0 1px var(--accent-ring);
     }
-    .rv-b-rail-item.ap { opacity: 0.6; }
+    /* 已批核行：成行字幕文字轉綠（spec 2026-06-10-proofread-ai-rerun）。 */
+    .rv-b-rail-item.ap .rv-b-rail-text-1,
+    .rv-b-rail-item.ap .rv-b-rail-text-2 { color: var(--success); }
     .rv-b-rail-num { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); font-weight: 700; text-align: right; padding-top: 1px; }
     /* In (accent) stacked over Out (dimmed) — both timecodes per row. */
     .rv-b-rail-ts { font-family: var(--font-mono); font-size: 10px; line-height: 1.3; color: var(--accent-2); padding-top: 1px; display: flex; flex-direction: column; gap: 1px; white-space: nowrap; }
@@ -937,6 +939,13 @@
           <div class="rv-b-rail">
             <div class="rv-b-rail-head">
               <span>段列表 · <span id="segCount">0</span> 段</span>
+              <span class="rv-b-rerun-cluster" id="bulkRerunCluster" style="display:none;">
+                <button class="btn btn-ghost btn-sm" id="bulkRerunBtn" onclick="startBulkRerun()"
+                        title="將全部未批核段落重新 ASR + 翻譯">⟳ Rerun 未批核 (<span id="bulkRerunCount">0</span>)</button>
+                <span id="bulkRerunProg" style="display:none;font-size:11px;color:var(--text-mid);"></span>
+                <button class="btn btn-ghost btn-sm" id="bulkRerunCancel" onclick="cancelRerun()"
+                        style="display:none;color:var(--warning);">取消</button>
+              </span>
               <span class="rv-b-rail-legend">
                 <span class="lg-ai" title="AI 智能分割（Ctrl+Shift+S）">
                   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M8 3l1.4 3.6L13 8l-3.6 1.4L8 13l-1.4-3.6L3 8l3.6-1.4z"/></svg>智能</span>
@@ -2041,6 +2050,7 @@
 
       // Load segments + translations
       await loadSegments();
+      _rerunUiSync();
 
       // Load video
       const v = document.getElementById('videoPlayer');
@@ -2534,6 +2544,7 @@
           const c = f.type === 'review' || f.type.startsWith('low-') || f.type === 'untranslated' ? 'rose' : 'amber';
           return `<div class="qa-flag qa-flag-${c}" title="${escapeHtml(f.msg || '')}">${flagLabel(f.type)}</div>`;
         }).join('')}
+        ${isOutputLang ? `<button class="ae-btn" onclick="startSegmentRerun(${s.idx})" ${_rerunJob ? 'disabled' : ''} title="重新行 ASR + 翻譯鏈（淨係呢段）">⟳ AI Rerun</button>` : ''}
         ${s.approved ? '<span class="qa-flag" style="background:rgba(34,197,94,0.14);color:#4ade80;">✓ 已批核</span>' : ''}
       </div>
 
@@ -3007,6 +3018,113 @@
     }
   }
 
+  // ============================================================
+  // AI Rerun（單段 + 批量）— spec 2026-06-10-proofread-ai-rerun-design.md
+  // POST /api/files/<id>/rerun {positions} → poll GET /api/reruns/<job_id>
+  // ============================================================
+  let _rerunJob = null;   // { jobId, total, lastDone, timer }
+
+  function _rerunUiSync() {
+    const isOL = fileInfo && fileInfo.active_kind === 'output_lang';
+    const cluster = document.getElementById('bulkRerunCluster');
+    if (!cluster) return;
+    cluster.style.display = isOL ? '' : 'none';
+    if (!isOL) return;
+    const pending = segs.filter(s => !s.approved).length;
+    document.getElementById('bulkRerunCount').textContent = pending;
+    const running = !!_rerunJob;
+    document.getElementById('bulkRerunBtn').style.display = running ? 'none' : '';
+    document.getElementById('bulkRerunBtn').disabled = pending === 0;
+    document.getElementById('bulkRerunProg').style.display = running ? '' : 'none';
+    document.getElementById('bulkRerunCancel').style.display = running ? '' : 'none';
+  }
+
+  async function _startRerun(positions) {
+    if (_rerunJob) { showToast('已有 AI Rerun 進行中', 'warning'); return; }
+    try {
+      const r = await fetch(`${API_BASE}/api/files/${fileId}/rerun`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ positions }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+      _rerunJob = { jobId: d.job_id, total: d.total, lastDone: 0, timer: null };
+      _rerunJob.timer = setInterval(_pollRerun, 1500);
+      _rerunUiSync();
+      renderDetail();   // disable 單段掣
+      showToast(`AI Rerun 開始（${d.total} 段）`, 'info');
+    } catch (e) {
+      showToast(`AI Rerun 開唔到：${e.message}`, 'error');
+    }
+  }
+
+  function startSegmentRerun(pos) { _startRerun([pos]); }
+
+  function startBulkRerun() {
+    const positions = segs.filter(s => !s.approved).map(s => s.idx);
+    if (!positions.length) { showToast('冇未批核段落', 'info'); return; }
+    if (!window.confirm(`將 ${positions.length} 段未批核段落重新 ASR + 翻譯？現有文字會被覆蓋並 reset 做未批核。`)) return;
+    _startRerun(positions);
+  }
+
+  async function _pollRerun() {
+    if (!_rerunJob) return;
+    const me = _rerunJob;
+    try {
+      const r = await fetch(`${API_BASE}/api/reruns/${me.jobId}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const d = await r.json();
+      if (_rerunJob !== me) return;
+      document.getElementById('bulkRerunProg').textContent = `Rerun 中… ${d.done}/${d.total}`;
+      if (d.done > me.lastDone) {
+        me.lastDone = d.done;
+        await _rerunRefresh();
+      }
+      if (d.status !== 'running') {
+        clearInterval(me.timer);
+        _rerunJob = null;
+        await _rerunRefresh();
+        const failed = (d.failed_positions || []).length;
+        if (d.status === 'cancelled') showToast(`已取消 — 完成咗 ${d.done - failed} 段`, 'info');
+        else if (failed) showToast(`Rerun 完成：${d.done - failed} 段成功，${failed} 段失敗`, 'warning');
+        else showToast(`Rerun 完成 ✓ ${d.total} 段（請再審核）`, 'success');
+      }
+    } catch (e) {
+      if (_rerunJob !== me) return;
+      clearInterval(me.timer);
+      _rerunJob = null;
+      _rerunUiSync();
+      renderDetail();
+      showToast(`Rerun 狀態查詢失敗：${e.message}`, 'error');
+    }
+  }
+
+  async function _rerunRefresh() {
+    const keep = cursorIdx;
+    await loadSegments();
+    cursorIdx = (keep != null && keep < segs.length) ? keep : (segs.length ? 0 : null);
+    renderProgress();
+    renderSegList();
+    renderWaveformRegions();
+    renderDetail();
+    _rerunUiSync();
+  }
+
+  async function cancelRerun() {
+    if (!_rerunJob) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/reruns/${_rerunJob.jobId}`, { method: 'DELETE' });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        throw new Error(d.error || `HTTP ${r.status}`);
+      }
+      showToast('取消緊… 現段做完即停', 'info');
+    } catch (e) {
+      showToast(`取消失敗：${e.message}`, 'error');
+    }
+  }
+
   async function approveAndAdvance() {
     const s = segs[cursorIdx];
     if (!s) return;
@@ -3028,6 +3146,7 @@
     renderProgress();
     renderSegList();
     renderWaveformRegions();
+    _rerunUiSync();
     // Advance to next non-approved
     let next = cursorIdx + 1;
     while (next < segs.length && segs[next].approved) next++;
@@ -3049,6 +3168,7 @@
       renderSegList();
       renderDetail();
       renderWaveformRegions();
+      _rerunUiSync();
       showToast('全部已批核', 'success');
     } catch (e) {
       showToast(`批核失敗: ${e.message}`, 'error');
@@ -3109,6 +3229,7 @@
     renderSegList();
     renderWaveformRegions();
     renderDetail();
+    _rerunUiSync();
     showToast('已取消批核', 'success');
   }
 
