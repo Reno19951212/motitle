@@ -299,6 +299,7 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | POST | `/api/files/<id>/glossary-reapply` | output_lang only — 重新套用詞彙表，由 cached content base 1:1 re-derive（無 re-ASR）；非 output_lang / 無 content base / 未知 glossary → 400 |
 | POST | `/api/files/<id>/segments/<pos>/split` | output_lang only — split cue at 0-indexed `pos` into two; body `{mode: "ai"\|"mechanical"}` (ai = LLM semantic split, mechanical = 50/50 midpoint + duplicate text); syncs segments/translations/aligned_bilingual/content_asr_segments; 400 non-output_lang / <0.4s, 409 render-in-progress / concurrent-edit |
 | POST | `/api/files/<id>/segments/<pos>/merge-next` | output_lang only — merge cue `pos` with `pos+1` (join text, union time, reset pending); 400 last-cue / non-output_lang, 409 render-in-progress |
+| POST | `/api/files/<id>/ai-edit` | output_lang only — AI 輔助修改（suggest-only）：body `{pos, role: first\|second, instruction ≤500字}`；LLM 按指令重寫該段該語言字幕，回 `{text, source_text}`；**唔寫 registry**（前端經 PATCH /translations/<idx> 套用）；400 非 output_lang/壞參數、404 段落唔存在、422 LLM 輸出無法解析、502 LLM 冇回應 |
 | GET | `/api/languages` | List language configs |
 | GET | `/api/languages/<id>` | Get language config |
 | PATCH | `/api/languages/<id>` | Update language config |
@@ -477,6 +478,12 @@ This section summarises the CURRENT behaviour a developer needs; older entries l
 
 - Each segment row has two left-side buttons — **AI 切割** (Ollama `qwen3.5:35b-a3b` splits every language at one aligned semantic/punctuation boundary; time split by content-language char ratio clamped 0.15–0.85) and **機械式硬切割** (50/50 midpoint, both halves duplicate the text) — plus a right-side **合併下一段**. Keyboard: `Ctrl+Shift+S` / `Ctrl+Shift+D` / `Ctrl+Shift+M`. Buttons are gated to output_lang rows only; rows under 0.4 s have split buttons disabled.
 - Pure logic in `backend/segment_split.py`; routes in `app.py` (AI path snapshots under `_registry_lock`, calls the LLM lock-free, re-acquires + conflict-checks). The cascade keeps `segments`/`translations`/`aligned_bilingual`/`content_asr_segments` positionally aligned and renumbers `translations[].idx`, so SRT export / render / glossary-reapply / add-second-language stay correct. AI failure (bad JSON, reconstruction mismatch, empty source part) falls back to mechanical automatically.
+
+### Proofread AI 輔助修改 (output_lang, NEW 2026-06-10)
+
+- Detail panel 每個語言欄 label 行有「✦ AI」掣（output_lang 檔先出現；第二語言欄要檔案真係有第二語言）→ ae-* popup：修改前 → 快速 chips（對照翻譯／改更書面／改更口語／精簡句子，填入指令框可再修改）→ 生成（`POST /api/files/<id>/ai-edit`，suggest-only）→ 修改後預覽 → 套用（行現有 `PATCH /translations/<idx>` + `{text, role}`，auto-approve）。生成中閂 modal 再開另一段，舊 response 會被 identity-guard 棄置（唔會錯綁）。
+- LLM 同 output_lang pipeline 共用 `_make_ollama_llm_call()`（qwen3.5:35b-a3b @0.3；Beta 模式自動行 OpenRouter）。Prompt／解析喺 `backend/ai_edit.py`（pure module，`tests/test_ai_edit.py` 19 tests）。Prompt 有 register-preserve 規則（Validation-First 2026-06-10：「精簡」曾將書面語 drift 去口語，已修 — 見 [docs/superpowers/specs/2026-06-10-proofread-ai-edit-validation-tracker.md](docs/superpowers/specs/2026-06-10-proofread-ai-edit-validation-tracker.md)）。
+- **PATCH 同步修正**：`PATCH /translations/<idx>` 而家會同步 `aligned_bilingual[idx].by_lang[lang]`（之前單欄文字編輯唔會反映落雙語匯出／render — 已修，手動編輯同 AI 套用都受惠）。
 
 ### Subtitle custom-font upload (NEW, 2026-06-06)
 
