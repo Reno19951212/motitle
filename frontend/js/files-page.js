@@ -158,6 +158,8 @@
     return `
       <div class="row-acts">
         ${canProof ? `<a class="btn btn-sm btn-outline" href="proofread.html?file_id=${esc(f.id)}">校對 →</a>` : ''}
+        ${canProof ? `<button class="btn btn-sm btn-secondary" data-export-sub="${esc(f.id)}" title="輸出字幕檔（SRT / VTT / TXT）"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M4 7l4 4 4-4M2 13h12"/></svg>字幕</button>` : ''}
+        ${canProof ? `<button class="btn btn-sm btn-secondary" data-export-vid="${esc(f.id)}" title="輸出燒入字幕影片（MP4 / MXF / XDCAM）"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 6h12M2 10h12M5 3v10M11 3v10"/></svg>影片</button>` : ''}
         <div class="menu-wrap">
           <button class="btn-icon" data-menu="${esc(f.id)}" title="更多"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="8" cy="13" r="1.4"/></svg></button>
         </div>
@@ -210,6 +212,21 @@
     // wire row menus
     tbody.querySelectorAll('[data-menu]').forEach((el) => {
       el.onclick = (e) => { e.stopPropagation(); openMenu(el, el.dataset.menu); };
+    });
+    // wire export popups (字幕 / 影片) — logic lives in js/files-export.js
+    tbody.querySelectorAll('[data-export-sub]').forEach((el) => {
+      el.onclick = (e) => {
+        e.stopPropagation();
+        const f = FILES.find((x) => x.id === el.dataset.exportSub);
+        if (f && window.FilesExport) FilesExport.openSubtitle(f);
+      };
+    });
+    tbody.querySelectorAll('[data-export-vid]').forEach((el) => {
+      el.onclick = (e) => {
+        e.stopPropagation();
+        const f = FILES.find((x) => x.id === el.dataset.exportVid);
+        if (f && window.FilesExport) FilesExport.openVideo(f);
+      };
     });
     syncBulk(); syncCheckAll();
   }
@@ -396,6 +413,7 @@
   }
 
   /* ---- boot ---- */
+  if (window.FilesExport) FilesExport.init({ toast });
   loadUser();
   const _logoutBtn = document.getElementById('userChipLogout');
   if (_logoutBtn) _logoutBtn.addEventListener('click', () => { if (window.logout) window.logout(); });
