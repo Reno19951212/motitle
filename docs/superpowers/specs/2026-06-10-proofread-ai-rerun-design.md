@@ -1,6 +1,6 @@
 # 校對頁 AI Rerun（per-segment 全鏈重跑）+ 已批核綠色顯示 — Design
 
-日期：2026-06-10 ｜ 狀態：草稿（待用戶檢視）｜ Branch: `worktree-proofread-ai-rerun`（base `dev` @ `f01c9b2`）
+日期：2026-06-10 ｜ 狀態：✅ 用戶已批准（2026-06-10）；實施後按 review 對齊咗 2 個細節（見內文標註）｜ Branch: `worktree-proofread-ai-rerun`（base `dev` @ `f01c9b2`）
 
 ## 目標（三個功能）
 
@@ -58,10 +58,10 @@
 
 - `_rerun_jobs: dict` + `_rerun_jobs_lock`（仿 `_render_jobs` app.py:194-226，含 eviction）；`_file_has_active_rerun(file_id)` helper
 - **POST `/api/files/<id>/rerun`** ＋ `@require_file_owner`，body `{positions: [int,…]}`（去重、排序）：
-  - 400：非 output_lang／positions 空或越界／無 `content_asr_segments` 而又無 `segments` fallback
+  - 400：非 output_lang／positions 空或越界／無輸出語言資料（cue timing 來自 translations rows；segments/content_asr_segments 寫入有 length guard，唔使另設 400）
   - 409：`_file_has_active_render(file_id)`（渲染中）／`_file_has_active_rerun(file_id)`（已有 rerun）
   - 建 job（snapshot positions＋每段 start/end＋entry 設定）→ daemon thread → 202 `{job_id, total}`
-- **Thread 逐段**：slice → ASR → derive → `_registry_lock` 內寫入 → `_save_registry()` → 更新 job `done`/`done_positions`。**每段開始前 check**：(a) cancel flag → 停（status `cancelled`）；(b) 該段 start/end 同 snapshot 唔一致（中途俾 split/merge 改咗？理論上已被互鎖擋）→ skip 該段記入 `skipped`
+- **Thread 逐段**：slice → ASR → derive → `_registry_lock` 內寫入 → `_save_registry()` → 更新 job `done`/`done_positions`。**每段開始前 check**：(a) cancel flag → 停（status `cancelled`）；(b) 該段 start/end 同 snapshot 唔一致（中途俾 split/merge 改咗？理論上已被互鎖擋）→ 該段記入 `failed_positions`（實施時同一般失敗統一處理，無獨立 skipped list）
   - 單段失敗（ASR 爆／LLM 爆）→ 記入 `failed_positions` 繼續做下一段；全部完成 status `done`
 - **GET `/api/reruns/<job_id>`** → `{status: running|done|cancelled, total, done, current_pos, done_positions, failed_positions}`；**DELETE** → set cancel flag
 - **互鎖（反方向）**：split／merge／glossary-reapply／render 開始前加 `_file_has_active_rerun` → 409「AI Rerun 進行中」

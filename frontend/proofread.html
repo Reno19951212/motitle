@@ -3080,6 +3080,9 @@
       if (d.done > me.lastDone) {
         me.lastDone = d.done;
         await _rerunRefresh();
+        // refresh await 期間可能有另一個 tick 已經 finalize 咗呢個 job（甚至開咗新
+        // job）— 唔好用 stale 嘅 d 行落去 terminal 分支搞亂新 job 嘅 state。
+        if (_rerunJob !== me) return;
       }
       if (d.status !== 'running') {
         clearInterval(me.timer);
@@ -3102,12 +3105,16 @@
 
   async function _rerunRefresh() {
     const keep = cursorIdx;
+    // PATCH 編輯冇被 rerun lock 住（係預期工作流）— 用戶喺 detail 欄打緊字時，
+    // 唔好重繪 detail pane 抹走佢未儲存嘅輸入；段落表/進度照 refresh。
+    const ae = document.activeElement;
+    const editingDetail = (ae && (ae.id === 'enInput' || ae.id === 'zhInput')) || dirty || enDirty;
     await loadSegments();
     cursorIdx = (keep != null && keep < segs.length) ? keep : (segs.length ? 0 : null);
     renderProgress();
     renderSegList();
     renderWaveformRegions();
-    renderDetail();
+    if (!editingDetail) renderDetail();
     _rerunUiSync();
   }
 

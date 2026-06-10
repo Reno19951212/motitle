@@ -5646,27 +5646,34 @@ def _rerun_worker(job_id, file_id, snap):
         _patch_job(status="error", error=str(e), current_pos=None)
         return
 
-    for cue in snap["cues"]:
+    # Top-level safety net: a crash anywhere below would otherwise leave the job
+    # 'running' forever — and a non-terminal job 409-blocks render/split/merge/
+    # rerun for this file until server restart (evict only sweeps terminal jobs).
+    try:
+        for cue in snap["cues"]:
+            with _rerun_jobs_lock:
+                job = _rerun_jobs.get(job_id) or {}
+                if job.get("cancelled"):
+                    _rerun_jobs[job_id] = {**job, "status": "cancelled", "current_pos": None}
+                    return
+                _rerun_jobs[job_id] = {**job, "current_pos": cue["pos"]}
+            try:
+                _rerun_one_cue(file_id, cue, snap, engine, content_lang, llm, glossaries)
+                key = "done_positions"
+            except Exception as e:
+                app.logger.error("rerun failed file=%s pos=%s: %s", file_id, cue["pos"], e)
+                key = "failed_positions"
+            with _rerun_jobs_lock:
+                job = _rerun_jobs.get(job_id) or {}
+                _rerun_jobs[job_id] = {**job, "done": job.get("done", 0) + 1,
+                                       key: list(job.get(key) or []) + [cue["pos"]]}
         with _rerun_jobs_lock:
             job = _rerun_jobs.get(job_id) or {}
-            if job.get("cancelled"):
-                _rerun_jobs[job_id] = {**job, "status": "cancelled", "current_pos": None}
-                return
-            _rerun_jobs[job_id] = {**job, "current_pos": cue["pos"]}
-        try:
-            _rerun_one_cue(file_id, cue, snap, engine, content_lang, llm, glossaries)
-            key = "done_positions"
-        except Exception as e:
-            app.logger.error("rerun failed file=%s pos=%s: %s", file_id, cue["pos"], e)
-            key = "failed_positions"
-        with _rerun_jobs_lock:
-            job = _rerun_jobs.get(job_id) or {}
-            _rerun_jobs[job_id] = {**job, "done": job.get("done", 0) + 1,
-                                   key: list(job.get(key) or []) + [cue["pos"]]}
-    with _rerun_jobs_lock:
-        job = _rerun_jobs.get(job_id) or {}
-        final = "cancelled" if job.get("cancelled") else "done"
-        _rerun_jobs[job_id] = {**job, "status": final, "current_pos": None}
+            final = "cancelled" if job.get("cancelled") else "done"
+            _rerun_jobs[job_id] = {**job, "status": final, "current_pos": None}
+    except Exception as e:
+        app.logger.error("rerun worker crashed file=%s: %s", file_id, e)
+        _patch_job(status="error", error=str(e), current_pos=None)
 
 
 @app.route('/api/files/<file_id>/rerun', methods=['POST'])
@@ -5721,6 +5728,12 @@ def start_segment_rerun(file_id):
     _evict_old_rerun_jobs()
     job_id = uuid.uuid4().hex[:12]
     with _rerun_jobs_lock:
+        # Atomic re-check + insert — the earlier _file_has_active_rerun check is a
+        # separate critical section, so two concurrent POSTs could both pass it
+        # and double-run the file. The single-rerun invariant is enforced HERE.
+        if any(j.get("file_id") == file_id and j.get("status") == "running"
+               for j in _rerun_jobs.values()):
+            return jsonify({"error": "已有 AI Rerun 進行中"}), 409
         _rerun_jobs[job_id] = {
             "file_id": file_id, "status": "running", "cancelled": False,
             "total": len(positions), "done": 0, "current_pos": None,
