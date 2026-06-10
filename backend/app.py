@@ -64,6 +64,7 @@ from subtitle_text import (
     SUPPORTED_OUTPUT_LANGS,
 )
 import segment_split as ss
+import ai_edit
 
 # Try to import faster-whisper for better performance
 try:
@@ -5491,6 +5492,77 @@ def merge_next_segment(file_id, pos):
             return jsonify({"error": "段落操作內部錯誤"}), 500
         return jsonify({"segments": list(entry["segments"]),
                         "translations": list(entry["translations"])}), 200
+
+
+@app.route('/api/files/<file_id>/ai-edit', methods=['POST'])
+@require_file_owner
+def ai_edit_segment(file_id):
+    """AI 輔助修改（suggest-only）：LLM 按用戶指令重寫一段一個語言欄嘅字幕。
+
+    唔寫 registry — 前端預覽後經 PATCH /translations/<idx> 套用。
+    Spec: docs/superpowers/specs/2026-06-10-proofread-ai-edit-design.md
+    """
+    data = request.get_json(silent=True) or {}
+    instruction = (data.get("instruction") or "").strip()
+    role = data.get("role")
+    pos = data.get("pos")
+    if not instruction or len(instruction) > ai_edit.MAX_INSTRUCTION_CHARS:
+        return jsonify({"error": "指令唔可以係空，亦唔可以超過 500 字"}), 400
+    if role not in ("first", "second"):
+        return jsonify({"error": "role 必須係 first 或 second"}), 400
+    if not isinstance(pos, int) or isinstance(pos, bool):
+        return jsonify({"error": "pos 必須係整數"}), 400
+
+    # Phase 1 — snapshot under lock（LLM call 喺 lock 外做）
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+        if not entry:
+            return jsonify({"error": "文件不存在"}), 404
+        if entry.get("active_kind") != "output_lang":
+            return jsonify({"error": "AI 輔助修改只支援輸出語言流程"}), 400
+        translations = entry.get("translations") or []
+        if not (0 <= pos < len(translations)):
+            return jsonify({"error": "段落不存在"}), 404
+        outs = entry.get("output_languages") or []
+        if not outs:
+            return jsonify({"error": "檔案冇輸出語言資料"}), 400
+        if role == "second" and len(outs) < 2:
+            return jsonify({"error": "呢個檔案冇第二語言"}), 400
+        target_lang = outs[0] if role == "first" else outs[1]
+        other_lang = (outs[1] if (role == "first" and len(outs) > 1)
+                      else (outs[0] if role == "second" else None))
+        row = translations[pos]
+
+        def _text_of(lang):
+            if not lang:
+                return ""
+            bl = (row.get("by_lang") or {}).get(lang) or {}
+            return (bl.get("text") or row.get(f"{lang}_text") or "").strip()
+
+        target_text = _text_of(target_lang)
+        other_text = _text_of(other_lang)
+        labels = {l.get("role"): (l.get("label") or l.get("lang") or "")
+                  for l in (entry.get("languages") or [])}
+        target_label = labels.get(role) or target_lang
+        other_label = labels.get("first" if role == "second" else "second") or (other_lang or "")
+
+    # Phase 2 — LLM call，lock 外（慢）；suggest-only 所以唔使 Phase-3 conflict check
+    llm = _make_ollama_llm_call()
+    try:
+        raw = llm(
+            ai_edit.build_system_prompt(target_label),
+            ai_edit.build_user_prompt(target_label, target_text,
+                                      other_label, other_text, instruction),
+        )
+    except (ConnectionError, RuntimeError) as e:
+        app.logger.error("ai-edit LLM call failed file=%s pos=%s: %s", file_id, pos, e)
+        return jsonify({"error": "AI 服務暫時冇回應，請再試"}), 502
+
+    text = ai_edit.parse_response(raw)
+    if text is None:
+        return jsonify({"error": "AI 輸出無法解析，請再試或修改指令"}), 422
+    return jsonify({"ok": True, "text": text, "source_text": target_text,
+                    "pos": pos, "role": role}), 200
 
 
 @app.route('/api/files/<file_id>', methods=['PATCH'])
