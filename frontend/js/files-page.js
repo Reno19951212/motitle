@@ -310,30 +310,20 @@
     if (openMenuEl) { const was = openMenuEl.dataset.for === id; closeMenu(); if (was) return; }
     const f = FILES.find((x) => x.id === id);
     if (!f) return;
-    const st = statusOf(f);
-    const canProof = st.key === 'done' || st.key === 'review';
     const menu = document.createElement('div');
     menu.className = 'menu';
     menu.dataset.for = id;
     menu.innerHTML = `
-      ${canProof ? `<button data-act="open"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4a1 1 0 011-1h3l1.5 2H13a1 1 0 011 1v6a1 1 0 01-1 1H3a1 1 0 01-1-1z"/></svg>打開</button>` : ''}
-      ${canProof ? '<div class="sep"></div>' : ''}
       <button class="danger" data-act="delete"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h10M6 4V3h4v1M5 4l.5 9h5L11 4"/></svg>刪除檔案</button>`;
     anchor.parentElement.appendChild(menu);
     openMenuEl = menu;
-    menu.querySelectorAll('[data-act]').forEach((b) => {
-      b.onclick = async (e) => {
-        e.stopPropagation();
-        const act = b.dataset.act;
-        closeMenu();
-        if (act === 'open') location.href = 'proofread.html?file_id=' + id;
-        else if (act === 'delete') {
-          if (!window.confirm(`確定刪除「${f.original_name}」？此操作無法復原。`)) return;
-          try { await deleteFile(id); selected.delete(id); await refresh(); toast('已刪除檔案', 'info'); }
-          catch (err) { toast(err.message || '刪除失敗', 'error'); }
-        }
-      };
-    });
+    menu.querySelector('[data-act="delete"]').onclick = async (e) => {
+      e.stopPropagation();
+      closeMenu();
+      if (!window.confirm(`確定刪除「${f.original_name}」？此操作無法復原。`)) return;
+      try { await deleteFile(id); selected.delete(id); await refresh(); toast('已刪除檔案', 'info'); }
+      catch (err) { toast(err.message || '刪除失敗', 'error'); }
+    };
   }
   // Close on any outside click. Capture phase, so row buttons that call
   // e.stopPropagation() (checkboxes, 字幕/影片 export, another row's 三點)
