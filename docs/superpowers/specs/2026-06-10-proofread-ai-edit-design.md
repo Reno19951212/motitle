@@ -1,6 +1,8 @@
 # 校對頁 AI 輔助修改（per-segment AI edit）— Design
 
-日期：2026-06-10 ｜ 狀態：✅ 用戶已批准設計 ｜ Branch: `worktree-proofread-glossary-ai`
+日期：2026-06-10 ｜ 狀態：✅ 用戶已批准設計 + ✅ UI 已經互動 mockup 確認（visual companion，「接近完美」）｜ Branch: `worktree-proofread-glossary-ai`
+
+> UI mockup 存檔：`.superpowers/brainstorm/89682-1781070476/content/ai-edit-preview.html`（真版 CSS 高保真互動原型 — ✦ AI 掣位置喺 label 行 CPS 隔籬、ae-* popup 流程：修改前 → chips 填指令框 → 生成 spinner → 綠色修改後預覽 → 套用/再生成/取消）。實施時 frontend 以呢個 mockup 為視覺基準。
 
 ## 目標
 
