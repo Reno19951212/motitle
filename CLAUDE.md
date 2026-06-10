@@ -257,7 +257,7 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | GET | `/Files.html` | Files library page (login-required static page) |
 | GET | `/api/models` | Available Whisper model list |
 | POST | `/api/transcribe` | Upload + async transcription → auto-translate. Form fields: `output_languages` (JSON, 1-2 of `{yue,zh,cmn,en,ja}` → forces `active_kind=output_lang`), `source_language` (`{yue,cmn,en,ja}`), `script` (`trad`/`simp`, default `trad`), `mt_style` (`racing`/`sportsnews`/`generic`), `glossary_ids` (JSON array, ordered glossary ids), `glossary_llm` (`"1"`/`"0"`, default `"1"`) |
-| GET | `/api/files` | List all uploaded files with status |
+| GET | `/api/files` | List all uploaded files with status（2026-06-10 起每檔附 `output_languages/source_language/script/mt_style/glossary_ids/glossary_llm` — 重新處理 popup 預填用） |
 | GET | `/api/files/<id>/media` | Serve original media file |
 | GET | `/api/files/<id>/subtitle.<fmt>` | Download subtitle (srt/vtt/txt)；接 `?source=` + `?order=` query params |
 | PATCH | `/api/files/<id>` | Update file-level settings (subtitle_source / bilingual_order) |
@@ -300,6 +300,7 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | POST | `/api/files/<id>/segments/<pos>/split` | output_lang only — split cue at 0-indexed `pos` into two; body `{mode: "ai"\|"mechanical"}` (ai = LLM semantic split, mechanical = 50/50 midpoint + duplicate text); syncs segments/translations/aligned_bilingual/content_asr_segments; 400 non-output_lang / <0.4s, 409 render-in-progress / concurrent-edit |
 | POST | `/api/files/<id>/segments/<pos>/merge-next` | output_lang only — merge cue `pos` with `pos+1` (join text, union time, reset pending); 400 last-cue / non-output_lang, 409 render-in-progress |
 | POST | `/api/files/<id>/ai-edit` | output_lang only — AI 輔助修改（suggest-only）：body `{pos, role: first\|second, instruction ≤500字}`；LLM 按指令重寫該段該語言字幕，回 `{text, source_text}`；**唔寫 registry**（前端經 PATCH /translations/<idx> 套用）；400 非 output_lang/壞參數、404 段落唔存在、422 LLM 輸出無法解析、502 LLM 冇回應 |
+| POST | `/api/files/<id>/transcribe` | 重跑整條 pipeline。**2026-06-10 起接受 optional body** `{output_languages, source_language, script, mt_style, glossary_ids, glossary_llm}`（重新處理 popup — 覆寫檔案設定並 force output_lang；驗證同 /api/transcribe 一致）；無 body 時 output_lang 檔保留自有設定、其他 kind re-snapshot 現時 active；AI Rerun 進行中 409 |
 | POST | `/api/files/<id>/rerun` | output_lang only — AI Rerun：body `{positions:[int,…]}`；對每段重截音訊（短 cue pad 至 ≥1.2s）→ mlx-whisper 重轉錄 → derive 所有輸出語言（pass/refine/MT+OpenCC+詞彙表）→ 直接寫入並 reset pending；202 `{job_id,total}`；400 非 output_lang/壞 positions、409 渲染中/已有 rerun |
 | GET | `/api/reruns/<job_id>` | Rerun job 進度 `{status, total, done, current_pos, done_positions, failed_positions}`（in-memory，仿 render job） |
 | DELETE | `/api/reruns/<job_id>` | 取消 rerun（現段做完即停，已完成段保留） |
