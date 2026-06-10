@@ -316,8 +316,7 @@
     menu.className = 'menu';
     menu.dataset.for = id;
     menu.innerHTML = `
-      ${canProof ? `<button data-act="proof"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M11 2l3 3-8 8H3v-3z"/></svg>開啟校對</button>` : ''}
-      ${canProof ? `<button data-act="srt"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10V3M8 10L5.5 7.5M8 10l2.5-2.5M3 13h10"/></svg>下載 SRT</button>` : ''}
+      ${canProof ? `<button data-act="open"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4a1 1 0 011-1h3l1.5 2H13a1 1 0 011 1v6a1 1 0 01-1 1H3a1 1 0 01-1-1z"/></svg>打開</button>` : ''}
       ${canProof ? '<div class="sep"></div>' : ''}
       <button class="danger" data-act="delete"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h10M6 4V3h4v1M5 4l.5 9h5L11 4"/></svg>刪除檔案</button>`;
     anchor.parentElement.appendChild(menu);
@@ -327,8 +326,7 @@
         e.stopPropagation();
         const act = b.dataset.act;
         closeMenu();
-        if (act === 'proof') location.href = 'proofread.html?file_id=' + id;
-        else if (act === 'srt') { downloadSrt(id); toast('已開始下載 SRT', 'info'); }
+        if (act === 'open') location.href = 'proofread.html?file_id=' + id;
         else if (act === 'delete') {
           if (!window.confirm(`確定刪除「${f.original_name}」？此操作無法復原。`)) return;
           try { await deleteFile(id); selected.delete(id); await refresh(); toast('已刪除檔案', 'info'); }
@@ -337,7 +335,19 @@
       };
     });
   }
-  document.addEventListener('click', () => closeMenu());
+  // Close on any outside click. Capture phase, so row buttons that call
+  // e.stopPropagation() (checkboxes, 字幕/影片 export, another row's 三點)
+  // can no longer strand an open menu on screen.
+  document.addEventListener('click', (e) => {
+    if (!openMenuEl) return;
+    const t = e.target;
+    if (openMenuEl.contains(t)) return; // menu item clicks close themselves
+    // Clicking the SAME row's 三點 button must fall through to its own
+    // toggle handler (close), not close-here-then-reopen-there.
+    const btn = t && t.closest ? t.closest('[data-menu]') : null;
+    if (btn && btn.dataset.menu === openMenuEl.dataset.for) return;
+    closeMenu();
+  }, true);
 
   /* ---- toolbar wires ---- */
   document.getElementById('search').oninput = (e) => { query = e.target.value; renderRows(); };
