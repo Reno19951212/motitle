@@ -229,3 +229,32 @@ def test_ai_edit_second_role_single_lang_400(client, monkeypatch):
     r = client.post("/api/files/f-single/ai-edit",
                     json={"pos": 0, "role": "second", "instruction": "x"})
     assert r.status_code == 400
+
+
+# ---------- PATCH /translations/<idx> aligned_bilingual sync（修現有 bug） ----------
+
+def test_patch_translation_syncs_aligned_bilingual(client, monkeypatch):
+    monkeypatch.setattr(appmod, "_save_registry", lambda: None)
+    fid = _seed_bilingual_file("f-patch-sync")
+    r = client.patch(f"/api/files/{fid}/translations/0",
+                     json={"text": "無人比我更傷感。", "role": "first"})
+    assert r.status_code == 200
+    with appmod._registry_lock:
+        entry = appmod._file_registry[fid]
+        # by_lang + mirror（原有行為）
+        assert entry["translations"][0]["by_lang"]["zh"]["text"] == "無人比我更傷感。"
+        assert entry["translations"][0]["zh_text"] == "無人比我更傷感。"
+        # ★ 新行為：aligned grid 跟住改（雙語匯出/render 讀呢度）
+        assert entry["aligned_bilingual"][0]["by_lang"]["zh"] == "無人比我更傷感。"
+        # 另一語言唔受影響
+        assert entry["aligned_bilingual"][0]["by_lang"]["en"].startswith("I don't think")
+
+
+def test_patch_translation_without_aligned_grid_no_crash(client, monkeypatch):
+    monkeypatch.setattr(appmod, "_save_registry", lambda: None)
+    fid = _seed_bilingual_file("f-patch-noal")
+    with appmod._registry_lock:
+        appmod._file_registry[fid].pop("aligned_bilingual", None)
+    r = client.patch(f"/api/files/{fid}/translations/0",
+                     json={"text": "改咗", "role": "first"})
+    assert r.status_code == 200

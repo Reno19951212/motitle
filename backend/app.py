@@ -3593,6 +3593,14 @@ def api_update_translation(file_id, idx):
                 updated["by_lang"] = by_lang
         new_translations[idx] = updated
         entry["translations"] = new_translations
+        # Keep the paired bilingual grid in sync — bilingual export (subtitle.<fmt>)
+        # and bilingual render read aligned_bilingual DIRECTLY, so a single-language
+        # text edit must land there too (values are plain strings, not dicts).
+        aligned = entry.get("aligned_bilingual")
+        if by_lang_key and aligned and 0 <= idx < len(aligned):
+            new_cue = dict(aligned[idx])
+            new_cue["by_lang"] = {**(new_cue.get("by_lang") or {}), by_lang_key: new_text}
+            entry["aligned_bilingual"] = aligned[:idx] + [new_cue] + aligned[idx + 1:]
         _save_registry()
         return jsonify({"translation": _normalize_translation_for_api(new_translations[idx])})
 
