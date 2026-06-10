@@ -532,6 +532,14 @@
     .rv-b-video-sub text {
       transition: opacity 0.15s ease;
     }
+    /* Fullscreen swaps to the container (video + overlay) so the subtitle
+       preview stays visible — see js/video-fullscreen.js. */
+    .rv-b-video:fullscreen {
+      aspect-ratio: auto;
+      max-height: none;
+      border: none;
+      border-radius: 0;
+    }
     .rv-b-video-controls {
       position: absolute; left: 0; right: 0; bottom: 0;
       padding: 10px 14px;
@@ -997,6 +1005,7 @@
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/font-preview.js"></script>
+<script src="js/video-fullscreen.js"></script>
 <script>
   // topbar chip: identity + logout (logout from auth.js)
   (async () => {
@@ -1957,6 +1966,11 @@
     // changes from any tab propagate live and the preview matches burnt-in output.
     if (typeof FontPreview !== 'undefined') {
       FontPreview.init(null);
+    }
+    // Keep the subtitle overlay visible in fullscreen (native button swaps to container).
+    if (typeof VideoFullscreen !== 'undefined') {
+      const fsVideo = document.getElementById('videoPlayer');
+      VideoFullscreen.wire(fsVideo, fsVideo ? fsVideo.closest('.rv-b-video') : null);
     }
 
     if (!fileId) {

@@ -6,6 +6,7 @@
   <title>MoTitle — 廣播字幕製作系統</title>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script src="js/font-preview.js"></script>
+  <script src="js/video-fullscreen.js"></script>
   <style>
     /* ============================================================
        MoTitle Dashboard (Bold redesign)
@@ -593,6 +594,12 @@
     }
     .subtitle-overlay text {
       transition: opacity 0.15s ease;
+    }
+    /* Fullscreen swaps to the container (video + overlay) so the subtitle
+       preview stays visible — see js/video-fullscreen.js. */
+    .video-area:fullscreen {
+      background: #000;
+      border-radius: 0;
     }
     .waveform-strip {
       /* Bolts directly to the bottom of the video area — no border/gap so it reads
@@ -5619,6 +5626,10 @@
     // Wire SVG subtitle overlay to active profile + Socket.IO updates so the
     // preview matches burnt-in libass output (font-preview.js handles styling).
     if (typeof FontPreview !== 'undefined') FontPreview.init(socket);
+    // Keep the subtitle overlay visible in fullscreen (native button swaps to container).
+    if (typeof VideoFullscreen !== 'undefined') {
+      VideoFullscreen.wire(document.getElementById('videoPlayer'), document.getElementById('videoArea'));
+    }
     _fetchMyActiveState()
       .then(fetchActiveProfile)
       .then(fetchActivePipeline)
