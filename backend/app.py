@@ -1362,7 +1362,17 @@ def _resnapshot_active_for_rerun(file_id):
 
     V6: re-fills active_pipeline_snapshot with the new pipeline JSON. Profile:
     clears the snapshot (the profile path reads the active profile directly).
+
+    output_lang files are EXEMPT: their language list is a per-upload choice
+    (the upload popup), not the global active selection — re-snapshotting used
+    to clobber them onto the active V6/profile pipeline (active_kind flipped,
+    output_languages emptied), so a simple retry silently changed the whole
+    processing flow. Retry now re-runs the same output_lang configuration.
     """
+    with _registry_lock:
+        entry = _file_registry.get(file_id) or {}
+        if entry.get("active_kind") == "output_lang" and (entry.get("output_languages") or []):
+            return
     snap_kind, snap_aid, snap_output_languages = _current_active_snapshot()
     _update_file(file_id, active_kind=snap_kind, active_id=snap_aid,
                  active_pipeline_snapshot=None,
