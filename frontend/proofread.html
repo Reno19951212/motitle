@@ -918,7 +918,7 @@
         <div class="rv-prog-num"><b id="rvProgDone">0</b>/<span id="rvProgTotal">0</span></div>
       </div>
       <div class="rv-kbd-hint">
-        <span class="kbd">J</span><span class="kbd">K</span><span>導航</span>
+        <span class="kbd">↑</span><span class="kbd">↓</span><span>導航</span>
         <span class="kbd">⌘↵</span><span>批核</span>
       </div>
       <div class="rv-header-source" style="display:inline-flex;gap:6px;align-items:center;margin-left:12px;font-size:11px;">
@@ -1074,8 +1074,8 @@
                 <span><span id="curDur">—</span>s</span>
               </div>
               <div class="rv-b-wave-ctrl-r">
-                <button class="btn btn-ghost btn-sm" onclick="nav(-1)" title="上一段 (J)" aria-label="上一段">◀</button>
-                <button class="btn btn-ghost btn-sm" onclick="nav(1)" title="下一段 (K)" aria-label="下一段">▶</button>
+                <button class="btn btn-ghost btn-sm" onclick="nav(-1)" title="上一段 (↑)" aria-label="上一段">◀</button>
+                <button class="btn btn-ghost btn-sm" onclick="nav(1)" title="下一段 (↓)" aria-label="下一段">▶</button>
               </div>
             </div>
           </div>
@@ -2640,10 +2640,10 @@
 
       <div class="rv-b-detail-footer">
         <button class="btn btn-ghost" onclick="nav(-1)" aria-label="上一段">
-          ◀ 上一段 <span class="kbd">J</span>
+          ◀ 上一段 <span class="kbd">↑</span>
         </button>
         <button class="btn btn-ghost" onclick="nav(1)" aria-label="下一段">
-          下一段 ▶ <span class="kbd">K</span>
+          下一段 ▶ <span class="kbd">↓</span>
         </button>
         <div class="spacer"></div>
         ${s.approved ? `<button class="btn btn-ghost" style="color:var(--warning)" onclick="unapproveSegment(${s.idx})" aria-label="取消批核此段">取消批核</button>` : ''}

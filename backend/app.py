@@ -4730,9 +4730,46 @@ def re_transcribe_file(file_id):
     if not os.path.exists(file_path):
         return jsonify({'error': '原始視頻檔案已不存在於磁碟'}), 404
 
-    # Re-run with the pipeline the user currently has selected in the strip
-    # (not the stale upload-time snapshot). See _resnapshot_active_for_rerun.
-    _resnapshot_active_for_rerun(file_id)
+    if _file_has_active_rerun(file_id):
+        return jsonify({'error': 'AI Rerun 進行中，請等完成再重新處理'}), 409
+
+    # 重新處理（2026-06-10）：optional body 帶新 output_lang 設定 — 用戶喺重新處理
+    # popup 改咗語言/風格/詞彙表。有 output_languages 就覆寫檔案設定並 force
+    # active_kind=output_lang；冇就照舊行為（output_lang 檔保留自有設定，其他
+    # kind re-snapshot 現時 active — 見 _resnapshot_active_for_rerun）。
+    data = request.get_json(silent=True) or {}
+    _raw_langs = data.get('output_languages')
+    if _raw_langs is not None:
+        if not isinstance(_raw_langs, list) or not (1 <= len(_raw_langs) <= 2):
+            return jsonify({"error": "output_languages must contain 1 or 2 entries"}), 400
+        for _lang in _raw_langs:
+            if not isinstance(_lang, str) or _lang not in SUPPORTED_OUTPUT_LANGS:
+                return jsonify({"error": "unsupported output language"}), 400
+        _src = data.get('source_language')
+        if _src not in _SUPPORTED_SOURCE_LANGS:
+            return jsonify({"error": "source_language must be one of yue/cmn/en/ja"}), 400
+        _script = data.get('script') or 'trad'
+        if _script not in {"trad", "simp"}:
+            return jsonify({"error": "script must be trad or simp"}), 400
+        _style = data.get('mt_style') or 'generic'
+        if _style not in {"racing", "sportsnews", "generic"}:
+            _style = 'generic'
+        _gids = data.get('glossary_ids') or []
+        if not isinstance(_gids, list) or not all(isinstance(g, str) and g for g in _gids):
+            return jsonify({"error": "glossary_ids must be a list of ids"}), 400
+        for _gid in _gids:
+            if _glossary_manager.get(_gid) is None:
+                return jsonify({"error": "未知詞彙表: " + _gid}), 400
+        _update_file(file_id, active_kind='output_lang', active_id='output_lang',
+                     active_pipeline_snapshot=None,
+                     output_languages=list(_raw_langs), source_language=_src,
+                     script=_script, mt_style=_style,
+                     glossary_ids=list(_gids),
+                     glossary_llm=bool(data.get('glossary_llm', True)))
+    else:
+        # Re-run with the pipeline the user currently has selected
+        # (not the stale upload-time snapshot). See _resnapshot_active_for_rerun.
+        _resnapshot_active_for_rerun(file_id)
 
     # Reset pipeline state so the worker treats this as a fresh run.
     _update_file(
@@ -5089,6 +5126,13 @@ def list_files():
             'active_kind': kind,                                 # v3.19 Sprint 1 A-1
             'active_id': entry.get('active_id'),                 # v3.19 Sprint 1 A-1
             'languages': resolve_language_descriptor(entry, _active_cfg),  # Task 2a
+            # 重新處理 modal 預填（2026-06-10，add-only）— output_lang 上載時設定
+            'output_languages': entry.get('output_languages'),
+            'source_language': entry.get('source_language'),
+            'script': entry.get('script'),
+            'mt_style': entry.get('mt_style'),
+            'glossary_ids': entry.get('glossary_ids'),
+            'glossary_llm': entry.get('glossary_llm'),
         })
     # Newest first
     files.sort(key=lambda f: f['uploaded_at'], reverse=True)

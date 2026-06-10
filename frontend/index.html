@@ -2343,12 +2343,12 @@
       const translateBtnLabel = isTranslating
         ? '⏳ 翻譯中…'
         : hasTrans
-          ? '🔄 重新執行'
+          ? '🔄 重新處理'
           : '▶ 翻譯';
       const translateBtnTooltip = isTranslating
         ? '翻譯進行中，請等待完成'
         : hasTrans
-          ? '重新走整條 Pipeline：ASR + 翻譯（會清掉現有 segments、譯文、批核狀態）'
+          ? '重新處理：可重新揀輸出語言／風格／詞彙表再走 ASR + 翻譯（會清掉現有字幕同批核狀態）'
           : '用當前 Profile 開始翻譯';
       const translateBtnHandler = hasTrans ? 'rerunPipeline' : 'reTranslateFile';
 
@@ -4544,7 +4544,84 @@
     // 取消 — abandon this upload entirely.
     function cancelOutputLangModal() {
       closeOutputLangModal();
+      pendingRerunFileId = null;
       clearPending();
+    }
+
+    // ============================================================
+    // 重新處理（2026-06-10）— 對已完成檔案重開語言設定 popup，改設定再重跑
+    // ============================================================
+    let pendingRerunFileId = null;
+
+    function openReprocessModal(fileId) {
+      const f = uploadedFiles[fileId];
+      if (!f) return;
+      pendingRerunFileId = fileId;
+      // 左側 preview：用現有 media endpoint（唔係 local File object）
+      const video = document.getElementById('olPreviewVideo');
+      if (video) {
+        if (_olPreviewUrl) { try { URL.revokeObjectURL(_olPreviewUrl); } catch (_) {} _olPreviewUrl = null; }
+        video.src = `${API_BASE}/api/files/${encodeURIComponent(fileId)}/media`;
+      }
+      const nameEl = document.getElementById('olFileName');
+      if (nameEl) nameEl.textContent = f.original_name || '';
+      const timeEl = document.getElementById('olUploadTime');
+      if (timeEl) timeEl.textContent = _formatNow();
+      const sizeEl = document.getElementById('olFileSize');
+      if (sizeEl) sizeEl.textContent = f.size ? `${(f.size / 1024 / 1024).toFixed(1)} MB` : '—';
+      const warn = document.getElementById('olWarn');
+      if (warn) {
+        warn.textContent = '重新處理會清掉現有字幕、譯文同批核狀態，重新生成。';
+        warn.style.display = 'block';
+      }
+      // 預填返檔案而家嘅設定（source → 先 sync 語言選項，再 set 語言值）
+      const srcEl = document.getElementById('olSourceLang');
+      if (srcEl && f.source_language) srcEl.value = f.source_language;
+      const scriptEl = document.getElementById('olScript');
+      if (scriptEl && f.script) scriptEl.value = f.script;
+      const styleEl = document.getElementById('mtStyle');
+      if (styleEl && f.mt_style) styleEl.value = f.mt_style;
+      syncFirstLangToSource();
+      const outs = Array.isArray(f.output_languages) ? f.output_languages : [];
+      const firstEl = document.getElementById('olFirstLang');
+      if (firstEl && outs[0]) firstEl.value = outs[0];
+      const secondEl = document.getElementById('olSecondLang');
+      if (secondEl) secondEl.value = outs[1] || '';
+      _populateGlossarySelector().then(() => {
+        const sel = document.getElementById('olGlossary');
+        if (sel && Array.isArray(f.glossary_ids)) {
+          Array.from(sel.options).forEach(o => { o.selected = f.glossary_ids.includes(o.value); });
+        }
+      });
+      _openModalWithFocus('olOverlay', document.activeElement);
+    }
+
+    async function startReprocess(fileId) {
+      try {
+        const resp = await fetch(`${API_BASE}/api/files/${encodeURIComponent(fileId)}/transcribe`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sid: socket?.id || null,
+            output_languages: pendingOutputLangs,
+            source_language: pendingSourceLanguage,
+            script: pendingScript,
+            mt_style: pendingMtStyle,
+            glossary_ids: pendingGlossaryIds,
+            glossary_llm: pendingGlossaryLlm,
+          }),
+        });
+        if (resp.ok) {
+          showToast('重新處理已開始 — 會清掉舊字幕重新生成', 'info');
+          await fetchFileList();
+        } else {
+          const err = await resp.json().catch(() => ({}));
+          showToast(err.error || `重新處理失敗 (HTTP ${resp.status})`, 'error');
+        }
+      } catch (e) {
+        showToast(`重新處理失敗: ${e.message || '網絡錯誤'}`, 'error');
+      } finally {
+        pendingOutputLangs = [];
+      }
     }
 
     // 開始處理 — collect languages, store in state, then start the upload.
@@ -4573,6 +4650,13 @@
       const llmCheck = document.getElementById('olGlossaryLlm');
       pendingGlossaryLlm = llmCheck ? llmCheck.checked : true;
       closeOutputLangModal();
+      // 重新處理模式：對已上載檔案以新設定重跑（唔係 fresh upload）。
+      if (pendingRerunFileId) {
+        const fid = pendingRerunFileId;
+        pendingRerunFileId = null;
+        startReprocess(fid);
+        return;
+      }
       startTranscription();
     }
 
@@ -4739,6 +4823,12 @@
     }
 
     async function rerunPipeline(id) {
+      // output_lang 檔：開重新處理 popup（可改語言/風格/詞彙表）— 2026-06-10
+      const f = uploadedFiles[id];
+      if (f && f.active_kind === 'output_lang') {
+        openReprocessModal(id);
+        return;
+      }
       if (!confirm('重新走整條 Pipeline 會清掉現有 segments、譯文、批核狀態，確定？')) return;
       try {
         const resp = await fetch(`${API_BASE}/api/files/${encodeURIComponent(id)}/transcribe`, {

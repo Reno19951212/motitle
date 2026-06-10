@@ -66,3 +66,54 @@ def test_retry_preserves_output_lang_config(client, tmp_path, monkeypatch):
         assert entry["active_kind"] == "output_lang"
         assert entry["output_languages"] == ["yue", "en"]
         assert entry["source_language"] == "yue"
+
+
+def _mock_queue(monkeypatch):
+    monkeypatch.setattr(appmod, "_save_registry", lambda: None)
+    monkeypatch.setattr(appmod._job_queue, "enqueue", lambda **kw: "jid", raising=False)
+    monkeypatch.setattr(appmod._job_queue, "position", lambda jid: 0, raising=False)
+
+
+def test_reprocess_with_new_settings_updates_entry(client, tmp_path, monkeypatch):
+    """重新處理（2026-06-10）：body 帶新 output_lang 設定 → 覆寫檔案設定。"""
+    _mock_queue(monkeypatch)
+    fid = _seed_errored_output_lang_file(tmp_path, "f-reproc")
+    r = client.post(f"/api/files/{fid}/transcribe",
+                    json={"output_languages": ["yue"], "source_language": "yue",
+                          "script": "simp", "mt_style": "sportsnews",
+                          "glossary_ids": [], "glossary_llm": False})
+    assert r.status_code == 202, r.get_data(as_text=True)
+    with appmod._registry_lock:
+        e = appmod._file_registry[fid]
+        assert e["active_kind"] == "output_lang"
+        assert e["output_languages"] == ["yue"]
+        assert e["script"] == "simp"
+        assert e["mt_style"] == "sportsnews"
+        assert e["glossary_llm"] is False
+
+
+def test_reprocess_validation_400(client, tmp_path, monkeypatch):
+    _mock_queue(monkeypatch)
+    fid = _seed_errored_output_lang_file(tmp_path, "f-reproc-v")
+    assert client.post(f"/api/files/{fid}/transcribe",
+                       json={"output_languages": ["klingon"],
+                             "source_language": "yue"}).status_code == 400
+    assert client.post(f"/api/files/{fid}/transcribe",
+                       json={"output_languages": ["yue"],
+                             "source_language": "xx"}).status_code == 400
+    assert client.post(f"/api/files/{fid}/transcribe",
+                       json={"output_languages": []}).status_code == 400
+
+
+def test_reprocess_409_while_ai_rerun_active(client, tmp_path, monkeypatch):
+    import time as _t
+    _mock_queue(monkeypatch)
+    fid = _seed_errored_output_lang_file(tmp_path, "f-reproc-lk")
+    with appmod._rerun_jobs_lock:
+        appmod._rerun_jobs["rp-test"] = {"file_id": fid, "status": "running",
+                                         "cancelled": False, "created_at": _t.time()}
+    try:
+        assert client.post(f"/api/files/{fid}/transcribe", json={}).status_code == 409
+    finally:
+        with appmod._rerun_jobs_lock:
+            appmod._rerun_jobs.pop("rp-test", None)
