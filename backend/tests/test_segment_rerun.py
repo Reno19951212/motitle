@@ -249,3 +249,21 @@ def test_rerun_cancel_before_start_stops_everything(client, tmp_path, monkeypatc
 def test_rerun_get_unknown_job_404(client):
     assert client.get("/api/reruns/nope").status_code == 404
     assert client.delete("/api/reruns/nope").status_code == 404
+
+
+def test_other_ops_409_while_rerun_active(client, tmp_path, monkeypatch):
+    _patch_rerun_stack(monkeypatch)
+    fid = _seed_rerun_file(tmp_path, "f-rerun-lock")
+    with appmod._rerun_jobs_lock:
+        appmod._rerun_jobs["lk-test"] = {"file_id": fid, "status": "running",
+                                         "cancelled": False, "created_at": _time.time()}
+    try:
+        assert client.post(f"/api/files/{fid}/segments/0/split",
+                           json={"mode": "mechanical"}).status_code == 409
+        assert client.post(f"/api/files/{fid}/segments/0/merge-next").status_code == 409
+        assert client.post(f"/api/files/{fid}/glossary-reapply", json={}).status_code == 409
+        assert client.post("/api/render",
+                           json={"file_id": fid, "format": "mp4"}).status_code == 409
+    finally:
+        with appmod._rerun_jobs_lock:
+            appmod._rerun_jobs.pop("lk-test", None)

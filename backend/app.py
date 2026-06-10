@@ -3995,6 +3995,9 @@ def api_start_render():
     ):
         return jsonify({"error": "forbidden"}), 403
 
+    if _file_has_active_rerun(file_id):
+        return jsonify({"error": "AI Rerun 進行中，請等完成再渲染"}), 409
+
     # R6 audit S5 — per-user concurrent-render cap. Render bypasses the
     # JobQueue's 3-MT-worker bottleneck (each call spawns its own
     # threading.Thread + FFmpeg subprocess), so without this cap an authed
@@ -4913,6 +4916,8 @@ def glossary_reapply(file_id):
     from output_lang_aligned import derive_aligned_output, build_aligned_bilingual
 
     data = request.get_json(silent=True) or {}
+    if _file_has_active_rerun(file_id):
+        return jsonify({"error": "AI Rerun 進行中，無法修改段落"}), 409
 
     # ----- Phase 1: read-only validation + snapshot under the lock -----------
     with _registry_lock:
@@ -5450,6 +5455,8 @@ def split_segment(file_id, pos):
         return jsonify({"error": "未知分割模式"}), 400
     if _file_has_active_render(file_id):
         return jsonify({"error": "正在渲染中，無法修改段落"}), 409
+    if _file_has_active_rerun(file_id):
+        return jsonify({"error": "AI Rerun 進行中，無法修改段落"}), 409
 
     # Phase 1 — snapshot under lock
     with _registry_lock:
@@ -5515,6 +5522,8 @@ def merge_next_segment(file_id, pos):
     """Merge cue at `pos` with the next cue (pos+1)."""
     if _file_has_active_render(file_id):
         return jsonify({"error": "正在渲染中，無法修改段落"}), 409
+    if _file_has_active_rerun(file_id):
+        return jsonify({"error": "AI Rerun 進行中，無法修改段落"}), 409
     with _registry_lock:
         entry = _file_registry.get(file_id)
         if not entry:
