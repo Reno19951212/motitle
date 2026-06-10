@@ -231,6 +231,38 @@ def _evict_old_render_jobs():
         except Exception:
             pass
 
+
+# ---- AI Rerun jobs（仿 _render_jobs：in-memory + lock + TTL evict） ----
+_rerun_jobs = {}
+_rerun_jobs_lock = threading.Lock()
+_RERUN_JOB_TTL_SEC = 24 * 60 * 60
+
+
+def _evict_old_rerun_jobs():
+    now = time.time()
+    with _rerun_jobs_lock:
+        for rid, job in list(_rerun_jobs.items()):
+            if job.get("status") not in ("done", "error", "cancelled"):
+                continue
+            if (now - (job.get("created_at") or 0)) < _RERUN_JOB_TTL_SEC:
+                continue
+            _rerun_jobs.pop(rid, None)
+
+
+def _file_has_active_rerun(file_id):
+    with _rerun_jobs_lock:
+        return any(
+            j.get("file_id") == file_id and j.get("status") == "running"
+            for j in _rerun_jobs.values()
+        )
+
+
+def _rerun_asr_engine():
+    """Fresh ASR engine for rerun slices — separable for test monkeypatching."""
+    from asr import create_asr_engine
+    return create_asr_engine(_output_lang_asr_override()["asr"])
+
+
 # Auth setup (R5 Phase 1) — bootstrap SQLite users table, register Flask-Login,
 # wire auth blueprint, optionally bootstrap an admin user from env on first run.
 from auth.users import init_db as _auth_init_db, get_user_by_id as _auth_get_user_by_id, create_user as _auth_create_user
@@ -5510,6 +5542,210 @@ def merge_next_segment(file_id, pos):
             return jsonify({"error": "段落操作內部錯誤"}), 500
         return jsonify({"segments": list(entry["segments"]),
                         "translations": list(entry["translations"])}), 200
+
+
+def _rerun_one_cue(file_id, cue, snap, engine, content_lang, llm, glossaries):
+    """Slice → ASR → derive all outputs → atomic single-row write. Raises on failure."""
+    import segment_rerun as sr
+    from output_lang_aligned import derive_aligned_output
+
+    pos, start, end = cue["pos"], cue["start"], cue["end"]
+    tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+    tmp.close()
+    try:
+        sr.slice_audio(snap["file_path"], start, end, tmp.name)
+        asr_segs = engine.transcribe(tmp.name, language=content_lang)
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
+    new_text = sr.join_asr_text(asr_segs)
+    if not new_text:
+        raise RuntimeError(f"rerun ASR returned empty text for pos={pos}")
+
+    base_cue = {"start": start, "end": end, "text": new_text}
+    derived = {
+        o: derive_aligned_output([base_cue], content_lang, o, snap["script"], llm,
+                                 style=snap["mt_style"], glossaries=glossaries,
+                                 glossary_llm=snap["glossary_llm"])
+        for o in snap["outs"]
+    }
+    by_lang_texts = {o: (derived[o][0].get("text", "") if derived[o] else "")
+                     for o in snap["outs"]}
+    glossary_changes = []
+    for o in snap["outs"]:
+        if derived[o]:
+            for gc in (derived[o][0].get("glossary_changes") or []):
+                if gc not in glossary_changes:
+                    glossary_changes.append(gc)
+
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+        if not entry:
+            raise RuntimeError("file deleted during rerun")
+        translations = entry.get("translations") or []
+        if pos >= len(translations):
+            raise RuntimeError("grid changed during rerun")
+        row = translations[pos]
+        if (abs(float(row.get("start") or 0.0) - start) > 1e-6
+                or abs(float(row.get("end") or 0.0) - end) > 1e-6):
+            raise RuntimeError("cue timing changed during rerun")
+        new_row = sr.build_rerun_row(row, snap["outs"], by_lang_texts, glossary_changes)
+        entry["translations"] = translations[:pos] + [new_row] + translations[pos + 1:]
+        segs_l = entry.get("segments") or []
+        if pos < len(segs_l):
+            entry["segments"] = (segs_l[:pos]
+                                 + [{**segs_l[pos], "text": new_text}]
+                                 + segs_l[pos + 1:])
+        cas = entry.get("content_asr_segments") or []
+        if pos < len(cas):
+            entry["content_asr_segments"] = (cas[:pos]
+                                             + [{**cas[pos], "text": new_text}]
+                                             + cas[pos + 1:])
+        aligned = entry.get("aligned_bilingual")
+        if aligned and pos < len(aligned):
+            cue_a = dict(aligned[pos])
+            cue_a["by_lang"] = {**(cue_a.get("by_lang") or {}),
+                                **{o: by_lang_texts[o] for o in snap["outs"]}}
+            entry["aligned_bilingual"] = aligned[:pos] + [cue_a] + aligned[pos + 1:]
+        entry["text"] = " ".join((s.get("text") or "") for s in (entry.get("segments") or []))
+        _save_registry()
+
+
+def _rerun_worker(job_id, file_id, snap):
+    """Daemon thread: process snapshot cues sequentially; per-cue failures don't stop the batch."""
+    def _patch_job(**kw):
+        with _rerun_jobs_lock:
+            job = _rerun_jobs.get(job_id)
+            if job is not None:
+                _rerun_jobs[job_id] = {**job, **kw}
+
+    try:
+        _license_guard_or_raise()
+    except RuntimeError as e:
+        _patch_job(status="error", error=str(e), current_pos=None)
+        return
+    try:
+        from output_lang_router import content_asr_lang
+        glossaries = _load_glossaries(snap["glossary_ids"]) if snap["glossary_ids"] else None
+        content_lang = content_asr_lang(snap["source_language"])
+        llm = _make_ollama_llm_call()
+        engine = _rerun_asr_engine()
+    except Exception as e:
+        app.logger.error("rerun setup failed file=%s: %s", file_id, e)
+        _patch_job(status="error", error=str(e), current_pos=None)
+        return
+
+    for cue in snap["cues"]:
+        with _rerun_jobs_lock:
+            job = _rerun_jobs.get(job_id) or {}
+            if job.get("cancelled"):
+                _rerun_jobs[job_id] = {**job, "status": "cancelled", "current_pos": None}
+                return
+            _rerun_jobs[job_id] = {**job, "current_pos": cue["pos"]}
+        try:
+            _rerun_one_cue(file_id, cue, snap, engine, content_lang, llm, glossaries)
+            key = "done_positions"
+        except Exception as e:
+            app.logger.error("rerun failed file=%s pos=%s: %s", file_id, cue["pos"], e)
+            key = "failed_positions"
+        with _rerun_jobs_lock:
+            job = _rerun_jobs.get(job_id) or {}
+            _rerun_jobs[job_id] = {**job, "done": job.get("done", 0) + 1,
+                                   key: list(job.get(key) or []) + [cue["pos"]]}
+    with _rerun_jobs_lock:
+        job = _rerun_jobs.get(job_id) or {}
+        final = "cancelled" if job.get("cancelled") else "done"
+        _rerun_jobs[job_id] = {**job, "status": final, "current_pos": None}
+
+
+@app.route('/api/files/<file_id>/rerun', methods=['POST'])
+@require_file_owner
+def start_segment_rerun(file_id):
+    """AI Rerun：將指定 positions 嘅 cue 重新 ASR + derive（output_lang only）。
+
+    202 + {job_id, total}；前端 poll GET /api/reruns/<job_id>。
+    Spec: docs/superpowers/specs/2026-06-10-proofread-ai-rerun-design.md
+    """
+    data = request.get_json(silent=True) or {}
+    positions = data.get("positions")
+    if (not isinstance(positions, list) or not positions
+            or not all(isinstance(p, int) and not isinstance(p, bool) for p in positions)):
+        return jsonify({"error": "positions 必須係非空整數陣列"}), 400
+    positions = sorted(set(positions))
+    if _file_has_active_render(file_id):
+        return jsonify({"error": "正在渲染中，無法重跑段落"}), 409
+    if _file_has_active_rerun(file_id):
+        return jsonify({"error": "已有 AI Rerun 進行中"}), 409
+
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+        if not entry:
+            return jsonify({"error": "文件不存在"}), 404
+        if entry.get("active_kind") != "output_lang":
+            return jsonify({"error": "AI Rerun 只支援輸出語言流程"}), 400
+        translations = entry.get("translations") or []
+        if positions[0] < 0 or positions[-1] >= len(translations):
+            return jsonify({"error": "段落唔存在"}), 400
+        outs = list(entry.get("output_languages") or [])
+        if not outs:
+            return jsonify({"error": "檔案冇輸出語言資料"}), 400
+        known_gids = [g for g in (entry.get("glossary_ids") or [])
+                      if _glossary_manager.get(g) is not None]
+        snap = {
+            "file_path": _resolve_file_path(entry),
+            "source_language": entry.get("source_language") or "yue",
+            "script": entry.get("script") or "trad",
+            "mt_style": entry.get("mt_style") or "generic",
+            "glossary_ids": known_gids,
+            "glossary_llm": bool(entry.get("glossary_llm", True)),
+            "outs": outs,
+            "cues": [{"pos": p,
+                      "start": float(translations[p].get("start") or 0.0),
+                      "end": float(translations[p].get("end") or 0.0)}
+                     for p in positions],
+        }
+    if not os.path.exists(snap["file_path"]):
+        return jsonify({"error": "原始視頻檔案已不存在於磁碟"}), 404
+
+    _evict_old_rerun_jobs()
+    job_id = uuid.uuid4().hex[:12]
+    with _rerun_jobs_lock:
+        _rerun_jobs[job_id] = {
+            "file_id": file_id, "status": "running", "cancelled": False,
+            "total": len(positions), "done": 0, "current_pos": None,
+            "done_positions": [], "failed_positions": [],
+            "created_at": time.time(),
+        }
+    threading.Thread(target=_rerun_worker, args=(job_id, file_id, snap), daemon=True).start()
+    return jsonify({"job_id": job_id, "total": len(positions)}), 202
+
+
+@app.route('/api/reruns/<job_id>', methods=['GET'])
+@login_required
+def get_rerun_status(job_id):
+    with _rerun_jobs_lock:
+        job = _rerun_jobs.get(job_id)
+        if not job:
+            return jsonify({"error": "Rerun job not found"}), 404
+        return jsonify({k: job[k] for k in
+                        ("status", "total", "done", "current_pos",
+                         "done_positions", "failed_positions", "file_id")
+                        if k in job})
+
+
+@app.route('/api/reruns/<job_id>', methods=['DELETE'])
+@login_required
+def cancel_rerun(job_id):
+    with _rerun_jobs_lock:
+        job = _rerun_jobs.get(job_id)
+        if not job:
+            return jsonify({"error": "Rerun job not found"}), 404
+        if job.get("status") != "running":
+            return jsonify({"error": "Rerun 已經完結"}), 400
+        _rerun_jobs[job_id] = {**job, "cancelled": True}
+    return jsonify({"ok": True})
 
 
 @app.route('/api/files/<file_id>/ai-edit', methods=['POST'])
