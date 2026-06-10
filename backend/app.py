@@ -5562,7 +5562,10 @@ def ai_edit_segment(file_id):
             ai_edit.build_user_prompt(target_label, target_text,
                                       other_label, other_text, instruction),
         )
-    except (ConnectionError, RuntimeError) as e:
+    except Exception as e:
+        # Ollama raises ConnectionError; the Beta/OpenRouter path can surface
+        # other types (ValueError/KeyError from response extraction) — keep
+        # the documented 502 contract for ANY LLM-call failure.
         app.logger.error("ai-edit LLM call failed file=%s pos=%s: %s", file_id, pos, e)
         return jsonify({"error": "AI 服務暫時冇回應，請再試"}), 502
 

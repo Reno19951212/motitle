@@ -2929,6 +2929,9 @@
     if (!inst) { showToast('請輸入指令或撳快速選項', 'warning'); return; }
     if (inst.length > 500) { showToast('指令唔可以超過 500 字', 'warning'); return; }
     _aeState.busy = true;
+    // 鎖定本次請求對應嘅 state object — 閂咗再開另一段時，舊 response 必須棄置，
+    // 否則舊建議會錯綁落新段/新語言（identity check，唔係 null check）。
+    const myState = _aeState;
     const genBtn = document.getElementById('aeGen');
     const retryBtn = document.getElementById('aeRetry');
     genBtn.disabled = true; retryBtn.disabled = true;
@@ -2937,12 +2940,12 @@
       const r = await fetch(`${API_BASE}/api/files/${fileId}/ai-edit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pos: _aeState.idx, role: _aeState.role, instruction: inst }),
+        body: JSON.stringify({ pos: myState.idx, role: myState.role, instruction: inst }),
       });
       const data = await r.json().catch(() => ({}));
+      if (_aeState !== myState) return; // 生成期間 modal 閂咗/換咗段 — 棄置結果
       if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
-      if (!_aeState) return;            // 生成期間用戶閂咗 modal — 棄置結果
-      _aeState.resultText = data.text;
+      myState.resultText = data.text;
       document.getElementById('aeResult').textContent = data.text;
       document.getElementById('aeResult').classList.add('show');
       document.getElementById('aeAfterHead').style.display = '';
@@ -2952,14 +2955,19 @@
     } catch (e) {
       showToast(`AI 生成失敗：${e.message}`, 'error');
     } finally {
-      if (_aeState) _aeState.busy = false;
-      genBtn.disabled = false; retryBtn.disabled = false;
-      document.getElementById('aeLoading').classList.remove('show');
+      myState.busy = false;
+      if (_aeState === myState) {
+        genBtn.disabled = false; retryBtn.disabled = false;
+        document.getElementById('aeLoading').classList.remove('show');
+      }
     }
   }
 
   async function aeApply() {
-    if (!_aeState || !_aeState.resultText) return;
+    if (!_aeState || !_aeState.resultText || _aeState.busy) return;
+    _aeState.busy = true;
+    const applyBtn = document.getElementById('aeApply');
+    applyBtn.disabled = true;
     const { idx, role, resultText } = _aeState;
     try {
       const r = await fetch(`${API_BASE}/api/files/${fileId}/translations/${idx}`, {
@@ -2991,6 +2999,9 @@
       showToast('已套用 AI 修改 ✓', 'success');
     } catch (e) {
       showToast(`套用失敗：${e.message}`, 'error');
+      if (_aeState) _aeState.busy = false;
+    } finally {
+      applyBtn.disabled = false;
     }
   }
 
