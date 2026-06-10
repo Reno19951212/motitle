@@ -41,6 +41,7 @@ def test_system_prompt_contains_rules_and_label():
     assert '{"text"' in sp           # 輸出格式
     assert "專有名詞" in sp           # byte-preserve 規則
     assert "語體" in sp              # register-preserve 規則（validation round 2 加入）
+    assert "絕對唔可以輸出其他語言" in sp   # 輸出語言絕對規則（validation round 3：en 欄曾被譯返做中文）
 
 def test_user_prompt_includes_other_lang_reference():
     up = ai_edit.build_user_prompt("中文書面語", "我想沒有人比我更傷感了。",

@@ -2904,8 +2904,10 @@
     const otherLabel = role === 'first'
       ? (_outputLangLabel('second') || '第二語言')
       : (_outputLangLabel('first') || '第一語言');
+    const targetLabel = _outputLangLabel(role) || (role === 'first' ? '第一語言' : '第二語言');
     const texts = {
-      translate: `根據${otherLabel}嘅意思，重新翻譯呢段字幕`,
+      // 目標語言要講明 — 唔係 LLM 會將「重新翻譯」理解成譯去參考語言（曾經 en 欄出返中文）
+      translate: `根據${otherLabel}嘅意思，將呢段字幕重新翻譯做${targetLabel}`,
       written: '將語氣改得更書面正式',
       spoken: '將語氣改得更口語自然',
       concise: '喺唔改變意思嘅前提下精簡呢句字幕',
