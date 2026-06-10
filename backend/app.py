@@ -5562,7 +5562,10 @@ def _rerun_one_cue(file_id, cue, snap, engine, content_lang, llm, glossaries):
     tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
     tmp.close()
     try:
-        sr.slice_audio(snap["file_path"], start, end, tmp.name)
+        # 短 cue pad 到最少 1.2s 窗口 — sub-second slice 會令 whisper 幻聽
+        # （Validation 2026-06-10）；cue 本身嘅 start/end 不變，只係 ASR 聽闊啲。
+        slice_start, slice_end = sr.padded_window(start, end)
+        sr.slice_audio(snap["file_path"], slice_start, slice_end, tmp.name)
         asr_segs = engine.transcribe(tmp.name, language=content_lang)
     finally:
         try:

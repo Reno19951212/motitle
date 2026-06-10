@@ -64,6 +64,22 @@ def test_slice_audio_extracts_correct_duration(tmp_path):
         assert abs(dur - 1.0) < 0.1
         assert w.getframerate() == 16000 and w.getnchannels() == 1
 
+def test_padded_window_short_cue_expands_symmetrically():
+    s, e = sr.padded_window(1.10, 1.65)          # 0.55s → pad (1.2-0.55)/2 = 0.325/side
+    assert abs(s - 0.775) < 1e-9 and abs(e - 1.975) < 1e-9
+
+def test_padded_window_long_cue_unchanged():
+    assert sr.padded_window(10.0, 12.0) == (10.0, 12.0)
+
+def test_padded_window_clamps_left_at_zero():
+    s, e = sr.padded_window(0.1, 0.5)            # pad 0.4/side，左邊 clamp 0
+    assert s == 0.0 and abs(e - 0.9) < 1e-9
+
+def test_padded_window_pad_capped():
+    s, e = sr.padded_window(5.0, 5.06, min_window=10.0)   # 需 pad 4.97/side → cap 0.5
+    assert abs(s - 4.5) < 1e-9 and abs(e - 5.56) < 1e-9
+
+
 def test_slice_audio_rejects_bad_range(tmp_path):
     with pytest.raises(ValueError):
         sr.slice_audio("whatever.mp4", 2.0, 2.0, str(tmp_path / "o.wav"))

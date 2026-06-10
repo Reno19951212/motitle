@@ -5,9 +5,30 @@ No Flask, no registry access — app.py's rerun worker owns those.
 Spec: docs/superpowers/specs/2026-06-10-proofread-ai-rerun-design.md
 """
 import subprocess
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 MIN_SLICE_SEC = 0.05
+# Validation 2026-06-10: whisper on a sub-second slice hallucinates（0.55s →「各位CG」垃圾），
+# padding the window to ≥1.2s recovers the real speech（±0.5s →「女士主打嚟」）。
+# ≥1.2s cues validated fine WITHOUT padding — so padding only kicks in below the floor.
+MIN_ASR_WINDOW_SEC = 1.2
+MAX_PAD_SEC = 0.5
+
+
+def padded_window(start: float, end: float,
+                  min_window: float = MIN_ASR_WINDOW_SEC,
+                  max_pad: float = MAX_PAD_SEC) -> Tuple[float, float]:
+    """Expand a too-short cue window symmetrically for ASR context.
+
+    Cues at/above min_window are returned unchanged. Shorter cues get equal
+    padding each side (capped at max_pad/side), clamped at 0.0 on the left —
+    lost left-pad is NOT shifted right (keeps the window centred on the cue).
+    """
+    dur = end - start
+    if dur >= min_window:
+        return start, end
+    pad = min((min_window - dur) / 2.0, max_pad)
+    return max(0.0, start - pad), end + pad
 
 
 def slice_audio(file_path: str, start: float, end: float, out_wav: str) -> None:
