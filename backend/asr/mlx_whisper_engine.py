@@ -19,13 +19,32 @@ MODEL_REPO = {
 _model_lock = threading.Lock()
 
 
+def resolve_repo_local_first(repo: str) -> str:
+    """Return the LOCAL snapshot path for `repo` when fully cached, else the repo id.
+
+    mlx_whisper resolves a repo id through huggingface_hub, which phones home to
+    check the revision on EVERY transcribe — a transient network/SSL failure then
+    kills ASR even though the model is fully cached (2026-06-10 incident:
+    huggingface.co SSL EOF failed three uploads + rerun cues in a row). Passing
+    the cached snapshot directory instead makes transcription zero-network.
+    Fresh installs (not cached yet) fall through to the repo id so the normal
+    online download still happens.
+    """
+    try:
+        from huggingface_hub import snapshot_download
+        return snapshot_download(repo, local_files_only=True)
+    except Exception:
+        return repo
+
+
 class MlxWhisperEngine(ASREngine):
     """Whisper via MLX — uses Metal GPU on Apple Silicon for 30-40% faster inference."""
 
     def __init__(self, config: dict):
         self._config = config
         self._model_size = config.get("model_size", "large-v3")
-        self._repo = MODEL_REPO.get(self._model_size, MODEL_REPO["large-v3"])
+        self._repo = resolve_repo_local_first(
+            MODEL_REPO.get(self._model_size, MODEL_REPO["large-v3"]))
 
     def transcribe(self, audio_path: str, language: str = "en") -> list[Segment]:
         if not MLX_WHISPER_AVAILABLE:

@@ -3244,14 +3244,19 @@
       }
     }
 
-    // Auto-follow cursor while playing: advance segment rail + timeline region +
-    // detail panel to whichever segment contains the current playback time.
-    // Skip when the user is editing the ZH textarea so we don't yank focus / lose
-    // unsaved changes mid-edit.
-    if (active >= 0 && active !== cursorIdx) {
+    // Auto-follow cursor while PLAYING only: advance segment rail + timeline
+    // region + detail panel to whichever segment contains playback time.
+    // 暫停狀態嘅 seek（鍵盤導航 setCursor 觸發）絕對唔可以扯 cursor — seek 落地
+    // 時間可以早過目標 cue 開頭一微秒（編碼 frame 量化，例如 32.300s 嘅 cue
+    // seek 落地 32.299999s），tMs 被歸入上一段 → J/K/↑↓ 啱跳完即被彈返
+    // （2026-06-10 root cause）。播放中再加 30ms 容差，同一種 fractional 落地
+    // 都唔會閃跳。Skip when editing the ZH textarea so we don't yank focus.
+    if (!v.paused && active >= 0 && active !== cursorIdx) {
+      const tolIdx = segs.findIndex(s => (tMs + 30) >= s.in && (tMs + 30) < s.out);
+      const followTo = tolIdx >= 0 ? tolIdx : active;
       const editingZh = document.activeElement && document.activeElement.id === 'zhInput';
-      if (!editingZh) {
-        setCursor(active, false);  // false = don't re-seek video (we're already here)
+      if (followTo !== cursorIdx && !editingZh) {
+        setCursor(followTo, false);  // false = don't re-seek video (we're already here)
       }
     }
   }
