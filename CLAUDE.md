@@ -494,7 +494,7 @@ This section summarises the CURRENT behaviour a developer needs; older entries l
 - **全鏈**：ffmpeg 截 `[start,end]`（`segment_rerun.padded_window` — <1.2s cue 對稱 pad，sub-second slice 會幻聽，validation 2026-06-10）→ mlx-whisper（`content_asr_lang`）→ `derive_aligned_output([cue])` per 輸出語言 → `_registry_lock` 內原子寫 segments/content_asr_segments/translations/aligned_bilingual/text 五位同步，row reset pending。Cue start/end 永不變（grid 安全）。
 - **互鎖**：rerun ↔ render/split/merge/glossary-reapply 雙向 409。單段失敗記 `failed_positions` 唔斷批次；worker 有 top-level crash safety net（防 job 卡 running 永久 409）。
 - **已知限制**（tracker: [2026-06-10-proofread-ai-rerun-validation-tracker.md](docs/superpowers/specs/2026-06-10-proofread-ai-rerun-validation-tracker.md)）：真實邊界 cue（≥1s）質量好（間中修正原 ASR 錯誤）；clause-split 插值超短 cue 結果反映窗口真實音訊（可能同原文字分配唔同）— 建議先「合併下一段」再 rerun。
-- **已批核行全綠**：`.rv-b-rail-item.ap` 兩行字幕文字轉 `var(--success)` 綠色（取代舊 opacity 0.6；所有檔案類型生效）。
+- **已批核行全綠**：`.rv-b-rail-item.ap` 成行淺綠背景（hover 加深）+ 兩行字幕文字 `var(--success)` 綠色（取代舊 opacity 0.6；所有檔案類型生效）。批量 Rerun 掣住喺段落表 header 之下嘅專屬欄 `.rv-b-rail-rerun`（唔同 header 爭位）。段落導航：`↑`/`↓`（IME-safe）+ `J`/`K`。
 - Pure 邏輯 `backend/segment_rerun.py`（`tests/test_segment_rerun.py` 18 tests）。
 
 ### Subtitle custom-font upload (NEW, 2026-06-06)
