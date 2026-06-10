@@ -300,6 +300,9 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | POST | `/api/files/<id>/segments/<pos>/split` | output_lang only — split cue at 0-indexed `pos` into two; body `{mode: "ai"\|"mechanical"}` (ai = LLM semantic split, mechanical = 50/50 midpoint + duplicate text); syncs segments/translations/aligned_bilingual/content_asr_segments; 400 non-output_lang / <0.4s, 409 render-in-progress / concurrent-edit |
 | POST | `/api/files/<id>/segments/<pos>/merge-next` | output_lang only — merge cue `pos` with `pos+1` (join text, union time, reset pending); 400 last-cue / non-output_lang, 409 render-in-progress |
 | POST | `/api/files/<id>/ai-edit` | output_lang only — AI 輔助修改（suggest-only）：body `{pos, role: first\|second, instruction ≤500字}`；LLM 按指令重寫該段該語言字幕，回 `{text, source_text}`；**唔寫 registry**（前端經 PATCH /translations/<idx> 套用）；400 非 output_lang/壞參數、404 段落唔存在、422 LLM 輸出無法解析、502 LLM 冇回應 |
+| POST | `/api/files/<id>/rerun` | output_lang only — AI Rerun：body `{positions:[int,…]}`；對每段重截音訊（短 cue pad 至 ≥1.2s）→ mlx-whisper 重轉錄 → derive 所有輸出語言（pass/refine/MT+OpenCC+詞彙表）→ 直接寫入並 reset pending；202 `{job_id,total}`；400 非 output_lang/壞 positions、409 渲染中/已有 rerun |
+| GET | `/api/reruns/<job_id>` | Rerun job 進度 `{status, total, done, current_pos, done_positions, failed_positions}`（in-memory，仿 render job） |
+| DELETE | `/api/reruns/<job_id>` | 取消 rerun（現段做完即停，已完成段保留） |
 | GET | `/api/languages` | List language configs |
 | GET | `/api/languages/<id>` | Get language config |
 | PATCH | `/api/languages/<id>` | Update language config |
@@ -484,6 +487,15 @@ This section summarises the CURRENT behaviour a developer needs; older entries l
 - Detail panel 每個語言欄 label 行有「✦ AI」掣（output_lang 檔先出現；第二語言欄要檔案真係有第二語言）→ ae-* popup：修改前 → 快速 chips（對照翻譯／改更書面／改更口語／精簡句子，填入指令框可再修改）→ 生成（`POST /api/files/<id>/ai-edit`，suggest-only）→ 修改後預覽 → 套用（行現有 `PATCH /translations/<idx>` + `{text, role}`，auto-approve）。生成中閂 modal 再開另一段，舊 response 會被 identity-guard 棄置（唔會錯綁）。
 - LLM 同 output_lang pipeline 共用 `_make_ollama_llm_call()`（qwen3.5:35b-a3b @0.3；Beta 模式自動行 OpenRouter）。Prompt／解析喺 `backend/ai_edit.py`（pure module，`tests/test_ai_edit.py` 19 tests）。Prompt 有 register-preserve 規則（Validation-First 2026-06-10：「精簡」曾將書面語 drift 去口語，已修 — 見 [docs/superpowers/specs/2026-06-10-proofread-ai-edit-validation-tracker.md](docs/superpowers/specs/2026-06-10-proofread-ai-edit-validation-tracker.md)）。
 - **PATCH 同步修正**：`PATCH /translations/<idx>` 而家會同步 `aligned_bilingual[idx].by_lang[lang]`（之前單欄文字編輯唔會反映落雙語匯出／render — 已修，手動編輯同 AI 套用都受惠）。
+
+### Proofread AI Rerun + 已批核綠色行 (output_lang, NEW 2026-06-10)
+
+- **單段**：detail head「✓ 已批核」badge 左邊「⟳ AI Rerun」掣；**批量**：段落表 header「⟳ Rerun 未批核 (N)」掣（進度 `done/total` + 取消）。兩者同一條路：`POST /api/files/<id>/rerun {positions}` → in-memory job（`_rerun_jobs`，仿 `_render_jobs`）+ daemon thread 逐段做 → 前端 1.5s poll。
+- **全鏈**：ffmpeg 截 `[start,end]`（`segment_rerun.padded_window` — <1.2s cue 對稱 pad，sub-second slice 會幻聽，validation 2026-06-10）→ mlx-whisper（`content_asr_lang`）→ `derive_aligned_output([cue])` per 輸出語言 → `_registry_lock` 內原子寫 segments/content_asr_segments/translations/aligned_bilingual/text 五位同步，row reset pending。Cue start/end 永不變（grid 安全）。
+- **互鎖**：rerun ↔ render/split/merge/glossary-reapply 雙向 409。單段失敗記 `failed_positions` 唔斷批次；worker 有 top-level crash safety net（防 job 卡 running 永久 409）。
+- **已知限制**（tracker: [2026-06-10-proofread-ai-rerun-validation-tracker.md](docs/superpowers/specs/2026-06-10-proofread-ai-rerun-validation-tracker.md)）：真實邊界 cue（≥1s）質量好（間中修正原 ASR 錯誤）；clause-split 插值超短 cue 結果反映窗口真實音訊（可能同原文字分配唔同）— 建議先「合併下一段」再 rerun。
+- **已批核行全綠**：`.rv-b-rail-item.ap` 兩行字幕文字轉 `var(--success)` 綠色（取代舊 opacity 0.6；所有檔案類型生效）。
+- Pure 邏輯 `backend/segment_rerun.py`（`tests/test_segment_rerun.py` 18 tests）。
 
 ### Subtitle custom-font upload (NEW, 2026-06-06)
 
