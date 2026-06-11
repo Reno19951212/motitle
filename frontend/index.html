@@ -4395,7 +4395,15 @@
       if (file) setPendingFile(file);
     }
 
+    // 同後端 app.config['MAX_CONTENT_LENGTH']（backend/app.py:131, 5GB）保持同步
+    const MAX_UPLOAD_BYTES = 5 * 1024 * 1024 * 1024;
+
     function setPendingFile(file) {
+      if (file.size > MAX_UPLOAD_BYTES) {
+        const gb = (file.size / 1024 / 1024 / 1024).toFixed(2);
+        showToast(`檔案太大（${gb} GB），超出 5GB 上限`, 'error');
+        return;
+      }
       selectedFile = file;
       uploadedFiles['__pending__'] = {
         id: '__pending__',
