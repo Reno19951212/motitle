@@ -3552,6 +3552,9 @@ def api_update_translation(file_id, idx):
         #   behave EXACTLY as before → write zh_text + dual-write by_lang[src_lang].
         # When role='first' or role='second': write the matching field.
         role = data.get("role")  # "first" | "second" | None
+        # find-replace「取代（保持狀態）」— True 時唔 auto-approve（row + by_lang 狀態都唔郁）。
+        # 唔傳 = False = 照舊 auto-approve（現有 callers 零影響）。
+        keep_status = bool(data.get("keep_status"))
         # Resolve the text to write: prefer explicit "text" key if provided,
         # fall back to "zh_text" for backward-compat.
         new_text = data.get("text") or data.get("zh_text") or ""
@@ -3613,7 +3616,7 @@ def api_update_translation(file_id, idx):
         updated = {
             **translations[idx],
             write_field: new_text,
-            "status": "approved",
+            "status": translations[idx].get("status", "pending") if keep_status else "approved",
             "flags": [],
             # Manual edit becomes the new baseline; any prior glossary-apply
             # history is wiped so future glossary deletions don't revert past
@@ -3631,7 +3634,9 @@ def api_update_translation(file_id, idx):
         if do_by_lang_write:
             by_lang = dict(updated.get("by_lang") or {})
             if by_lang_key and by_lang_key in by_lang:
-                by_lang[by_lang_key] = {**by_lang[by_lang_key], "text": new_text, "status": "approved"}
+                _bl_st = (by_lang[by_lang_key].get("status", "pending")
+                          if keep_status else "approved")
+                by_lang[by_lang_key] = {**by_lang[by_lang_key], "text": new_text, "status": _bl_st}
                 updated["by_lang"] = by_lang
         new_translations[idx] = updated
         entry["translations"] = new_translations
