@@ -521,34 +521,6 @@
     }
     .ga-progress { padding: 24px 18px; text-align: center; color: var(--text-mid); font-size: 13px; }
 
-    /* ============================================================
-       Find & Replace bar
-       ============================================================ */
-    .find-bar {
-      position: sticky; top: 0; z-index: 200;
-      background: var(--surface); border-bottom: 1px solid var(--border);
-      padding: 7px 14px;
-      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-      box-shadow: var(--shadow-sm);
-    }
-    .find-bar[hidden] { display: none; }
-    .find-bar-input {
-      background: var(--surface-2); border: 1px solid var(--border);
-      border-radius: 5px; color: var(--text); font-size: 12px;
-      padding: 4px 8px; width: 160px;
-    }
-    .find-bar-input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
-    .find-bar-sep { color: var(--border-strong); font-size: 11px; }
-    .find-bar-count { font-size: 11px; color: var(--text-dim); font-family: var(--font-mono); min-width: 40px; }
-    .find-bar-group { display: flex; align-items: center; gap: 4px; }
-    mark.fb-match {
-      background: rgba(108,99,255,0.3); color: var(--text);
-      border-radius: 2px; padding: 0 1px;
-    }
-    mark.fb-match.fb-cur {
-      background: rgba(245,158,11,0.5); color: #fff;
-    }
-
     .rv-b-video {
       position: relative; background: #000;
       border: 1px solid var(--border); border-radius: 8px;
@@ -895,40 +867,6 @@
 </head>
 <body>
 
-<!-- Find & Replace bar -->
-<div id="findBar" class="find-bar" hidden role="search" aria-label="尋找與取代工具列">
-  <div class="find-bar-group">
-    <input class="find-bar-input" id="fbFind" type="text" placeholder="尋找…" aria-label="尋找" oninput="fbSearch()">
-    <button class="btn btn-ghost btn-sm" onclick="fbNav(-1)" aria-label="上一個匹配">▲</button>
-    <button class="btn btn-ghost btn-sm" onclick="fbNav(1)" aria-label="下一個匹配">▼</button>
-    <span class="find-bar-count" id="fbCount">—</span>
-  </div>
-  <div class="find-bar-group">
-    <input class="find-bar-input" id="fbReplace" type="text" placeholder="取代為…" aria-label="取代為">
-  </div>
-  <div class="find-bar-group">
-    <label style="font-size:11px;color:var(--text-mid);display:flex;align-items:center;gap:4px;cursor:pointer;">
-      <input type="checkbox" id="fbOnlyPending"> 只搜未批核
-    </label>
-  </div>
-  <div class="find-bar-group">
-    <label style="font-size:11px;color:var(--text-mid);display:flex;align-items:center;gap:4px;cursor:pointer;">
-      <input type="radio" name="fbField" value="zh" checked> 搜 ZH
-    </label>
-    <label style="font-size:11px;color:var(--text-mid);display:flex;align-items:center;gap:4px;cursor:pointer;">
-      <input type="radio" name="fbField" value="en"> 搜 EN
-    </label>
-    <label style="font-size:11px;color:var(--text-mid);display:flex;align-items:center;gap:4px;cursor:pointer;">
-      <input type="radio" name="fbField" value="both"> 搜兩者
-    </label>
-  </div>
-  <div class="find-bar-group">
-    <button class="btn btn-secondary btn-sm" onclick="fbReplaceCurrent()">取代當前</button>
-    <button class="btn btn-secondary btn-sm" onclick="fbReplaceAll()">全部取代</button>
-    <button class="btn btn-ghost btn-sm" onclick="closeFindBar()" aria-label="關閉尋找工具列">關閉 ✕</button>
-  </div>
-</div>
-
 <div class="bold">
 
   <!-- Persistent rail (mirrors Dashboard's). All non-active buttons return
@@ -1151,6 +1089,7 @@
 <script src="js/auth.js"></script>
 <script src="js/font-preview.js"></script>
 <script src="js/video-fullscreen.js"></script>
+<script src="js/find-replace.js"></script>
 <script>
   // topbar chip: identity + logout (logout from auth.js)
   (async () => {
@@ -3593,191 +3532,10 @@
     }
   }
 
-  // ============================================================
-  // Find & Replace
-  // ============================================================
-  let fbMatches = [];    // [{idx, field}]
-  let fbCurMatch = -1;
-
-  function openFindBar() {
-    const bar = document.getElementById('findBar');
-    bar.hidden = false;
-    document.getElementById('fbFind').focus();
-    document.getElementById('fbFind').select();
-    fbSearch();
-  }
-
-  function closeFindBar() {
-    document.getElementById('findBar').hidden = true;
-    fbMatches = [];
-    fbCurMatch = -1;
-    document.getElementById('fbCount').textContent = '—';
-    // Re-render to remove highlights
-    renderSegList();
-  }
-
-  function fbGetField() {
-    const radios = document.querySelectorAll('input[name="fbField"]');
-    for (const r of radios) { if (r.checked) return r.value; }
-    return 'zh';
-  }
-
-  function fbSearch() {
-    const query = (document.getElementById('fbFind').value || '').trim();
-    const onlyPending = document.getElementById('fbOnlyPending').checked;
-    const field = fbGetField();
-    fbMatches = [];
-    if (!query) {
-      fbCurMatch = -1;
-      document.getElementById('fbCount').textContent = '—';
-      renderSegList();
-      return;
-    }
-    const lq = query.toLowerCase();
-    segs.forEach((s, i) => {
-      if (onlyPending && s.approved) return;
-      const searchZh = field === 'zh' || field === 'both';
-      const searchEn = field === 'en' || field === 'both';
-      if (searchZh && (s.zh || '').toLowerCase().includes(lq)) {
-        fbMatches.push({ idx: i, field: 'zh' });
-      } else if (searchEn && (s.en || '').toLowerCase().includes(lq)) {
-        fbMatches.push({ idx: i, field: 'en' });
-      }
-    });
-    if (fbCurMatch >= fbMatches.length) fbCurMatch = fbMatches.length - 1;
-    if (fbCurMatch < 0 && fbMatches.length > 0) fbCurMatch = 0;
-    document.getElementById('fbCount').textContent =
-      fbMatches.length > 0 ? `${fbCurMatch + 1}/${fbMatches.length}` : '0 個';
-    renderSegList();
-    if (fbMatches.length > 0) {
-      const m = fbMatches[fbCurMatch];
-      if (m) {
-        setCursor(m.idx, false);
-        scrollSegIntoView(m.idx);
-      }
-    }
-  }
-
-  function fbNav(dir) {
-    if (!fbMatches.length) return;
-    fbCurMatch = (fbCurMatch + dir + fbMatches.length) % fbMatches.length;
-    document.getElementById('fbCount').textContent = `${fbCurMatch + 1}/${fbMatches.length}`;
-    const m = fbMatches[fbCurMatch];
-    if (m) {
-      setCursor(m.idx, false);
-      scrollSegIntoView(m.idx);
-    }
-    renderSegList();
-  }
-
-  async function fbReplaceCurrent() {
-    if (!fbMatches.length || fbCurMatch < 0) return;
-    const m = fbMatches[fbCurMatch];
-    if (!m) return;
-    if (m.field !== 'zh') { showToast('取代僅支援 ZH 欄位', 'warning'); return; }
-    const query = document.getElementById('fbFind').value;
-    const replacement = document.getElementById('fbReplace').value;
-    const s = segs[m.idx];
-    if (!s) return;
-    const newZh = (s.zh || '').replaceAll(query, replacement);
-    if (newZh === s.zh) return;
-    try {
-      const r = await fetch(`${API_BASE}/api/files/${fileId}/translations/${s.idx}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ zh_text: newZh }),
-      });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const data = await r.json();
-      segs = segs.map((seg, i) => i === s.idx ? { ...seg, zh: newZh, approved: data.translation?.status === 'approved', edited: true } : seg);
-      fbSearch();
-      showToast('已取代', 'success');
-    } catch (e) {
-      showToast(`取代失敗: ${e.message}`, 'error');
-    }
-  }
-
-  async function fbReplaceAll() {
-    if (!fbMatches.length) return;
-    const query = document.getElementById('fbFind').value;
-    const replacement = document.getElementById('fbReplace').value;
-    const zhMatches = fbMatches.filter(m => m.field === 'zh');
-    if (!zhMatches.length) { showToast('無可取代的 ZH 匹配', 'warning'); return; }
-    // R6 audit E3 — track failure count + first error message so the user
-    // knows when some PATCHes silently failed (e.g. backend 403 / 500).
-    // Pre-fix the loop did `if (!r.ok) continue;` with no count, leaving
-    // the user to think "已取代 N 處" was the full picture when it might
-    // have been partial.
-    let count = 0;
-    let failCount = 0;
-    let firstErr = '';
-    for (const m of zhMatches) {
-      const s = segs[m.idx];
-      if (!s) continue;
-      const newZh = (s.zh || '').replaceAll(query, replacement);
-      if (newZh === s.zh) continue;
-      try {
-        const r = await fetch(`${API_BASE}/api/files/${fileId}/translations/${s.idx}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ zh_text: newZh }),
-        });
-        if (!r.ok) {
-          failCount++;
-          if (!firstErr) {
-            const body = await r.json().catch(() => ({}));
-            firstErr = body.error || `HTTP ${r.status}`;
-          }
-          continue;
-        }
-        const repData = await r.json();
-        segs = segs.map((seg, i) => i === s.idx ? { ...seg, zh: newZh, approved: repData.translation?.status === 'approved', edited: true } : seg);
-        count++;
-      } catch (e) {
-        failCount++;
-        if (!firstErr) firstErr = e.message || '網絡錯誤';
-      }
-    }
-    if (failCount > 0) {
-      showToast(`已取代 ${count} 處，${failCount} 處失敗（${firstErr}）`, count > 0 ? 'warning' : 'error');
-    } else {
-      showToast(`已取代 ${count} 處`, 'success');
-    }
-    fbSearch();
-  }
-
-  // renderSegList — wraps _renderSegListBase to add find-bar match highlights
+  // renderSegList — wraps _renderSegListBase so FindReplace can decorate rail matches
   function renderSegList() {
     _renderSegListBase();
-    const query = (document.getElementById('fbFind')?.value || '').trim();
-    if (!query || document.getElementById('findBar')?.hidden) return;
-    // Add highlight marks to matched rail items
-    fbMatches.forEach((m, mi) => {
-      const row = document.querySelector(`.rv-b-rail-item[data-idx="${m.idx}"]`);
-      if (!row) return;
-      // Source/first matches highlight line 1; translation/second matches line 2.
-      const textEl = m.field === 'zh'
-        ? row.querySelector('.rv-b-rail-text-2')
-        : row.querySelector('.rv-b-rail-text-1');
-      if (!textEl) return;
-      const isCur = mi === fbCurMatch;
-      const s = segs[m.idx];
-      if (!s) return;
-      const raw = m.field === 'zh' ? (s.zh || '(未翻譯)') : (s.en || '');
-      const cls = isCur ? 'fb-match fb-cur' : 'fb-match';
-      const lq = query.toLowerCase();
-      let out = '';
-      let last = 0;
-      let idx = raw.toLowerCase().indexOf(lq, last);
-      while (idx !== -1) {
-        out += escapeHtml(raw.slice(last, idx));
-        out += `<mark class="${cls}">${escapeHtml(raw.slice(idx, idx + query.length))}</mark>`;
-        last = idx + query.length;
-        idx = raw.toLowerCase().indexOf(lq, last);
-      }
-      out += escapeHtml(raw.slice(last));
-      textEl.innerHTML = out;
-    });
+    if (window.FindReplace) FindReplace.decorateRail();
   }
 
   // ============================================================
@@ -3787,25 +3545,15 @@
     const tag = e.target.tagName;
     const inInput = tag === 'TEXTAREA' || tag === 'INPUT';
 
-    // Cmd+F / Ctrl+F → open find bar (intercept even in inputs)
+    // Cmd+F / Ctrl+F → open find & replace popup (intercept even in inputs)
     if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
       e.preventDefault();
-      openFindBar();
+      FindReplace.open();
       return;
     }
-    // Escape → close find bar first; if not open, let the GA modal listener handle it
+    // Escape → close find & replace first; if not open, let the GA modal listener handle it
     if (e.key === 'Escape') {
-      const bar = document.getElementById('findBar');
-      if (!bar.hidden) { closeFindBar(); e.preventDefault(); return; }
-    }
-    // Cmd+F / Ctrl+F handled above — skip everything else
-    // Enter / Shift+Enter in find input → navigate
-    if (inInput && e.target.id === 'fbFind') {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        fbNav(e.shiftKey ? -1 : 1);
-        return;
-      }
+      if (window.FindReplace && FindReplace.isOpen()) { FindReplace.close(); e.preventDefault(); return; }
     }
 
     // Segment split/merge — fire even while editing a textarea (before inInput guard).
