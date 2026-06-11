@@ -112,21 +112,29 @@
   const key = (m) => `${m.idx}:${m.col}`;
 
   // ---------- 文字 utils（大小寫不敏感）----------
-  function countCI(raw, q) {
+  function ciPair(raw, q) {
+    // 罕見 Unicode case fold 會變長（如 İ）→ 索引漂移會寫壞文字；嗰陣轉精確匹配
     const lraw = raw.toLowerCase(), lq = q.toLowerCase();
+    if (lraw.length !== raw.length || lq.length !== q.length) return [raw, q];
+    return [lraw, lq];
+  }
+  function countCI(raw, q) {
+    if (!q) return 0;
+    const [lraw, lq] = ciPair(raw, q);
     let n = 0, at = lraw.indexOf(lq);
     while (at !== -1) { n++; at = lraw.indexOf(lq, at + lq.length); }
     return n;
   }
   function replaceAllCI(raw, q, rep) {
     if (!q) return raw;
-    const lraw = raw.toLowerCase(), lq = q.toLowerCase();
+    const [lraw, lq] = ciPair(raw, q);
     let out = '', last = 0, at = lraw.indexOf(lq);
     while (at !== -1) { out += raw.slice(last, at) + rep; last = at + q.length; at = lraw.indexOf(lq, last); }
     return out + raw.slice(last);
   }
   function markCI(raw, q, cls) {
-    const lraw = raw.toLowerCase(), lq = q.toLowerCase();
+    if (!q) return escapeHtml(raw);
+    const [lraw, lq] = ciPair(raw, q);
     let out = '', last = 0, at = lraw.indexOf(lq);
     while (at !== -1) {
       out += escapeHtml(raw.slice(last, at));
@@ -224,7 +232,9 @@
   }
 
   // ---------- 搜尋 ----------
+  let searchedLen = -1;   // 上次搜尋時嘅 segs.length — split/merge 後過期偵測
   function runSearch() {
+    searchedLen = segs.length;
     matches = [];
     const q = query.trim();
     if (q) {
@@ -263,6 +273,9 @@
         right = st === 'replaced_approved'
           ? '<span class="fr-tag okap">✓ 已取代＋批核</span>'
           : '<span class="fr-tag ok">✓ 已取代</span>';
+      } else if (st === 'inflight') {
+        txt = markCI(raw, q, 'fr-old');
+        right = '<span class="fr-tag rot">…</span>';
       } else if (st === 'skipped') {
         txt = markCI(raw, q, 'fr-old');
         right = '<button class="fr-b skip" data-act="unskip">已略過 · 還原</button>';
@@ -307,12 +320,37 @@
   // ---------- 取代 ----------
   function doReplace(m, approve) {
     const q = query.trim();
+    const rep = replaceText;            // click 時 snapshot — 防止排隊期間改「取代為」影響已撳嘅行
+    const st0 = states.get(key(m));
+    if (st0 && st0 !== 'skipped') return chain;   // inflight/已完成 — 防 double-click 疊加（馬→賽馬→賽賽馬）
+    states.set(key(m), 'inflight');
+    renderList();
     chain = chain.then(async () => {
       const s = segs[m.idx];
-      if (!s) return;
+      if (!s) { states.delete(key(m)); renderList(); return; }
       const raw = colText(s, m.col);
-      const newText = replaceAllCI(raw, q, replaceText);
-      if (newText === raw) { states.set(key(m), approve ? 'replaced_approved' : 'replaced'); m.after = raw; renderList(); return; }
+      if (countCI(raw, q) === 0) {
+        // 行已經唔再匹配（期間被其他編輯/rerun 改咗）— 唔好亂寫，重搜
+        states.delete(key(m));
+        showToast('段落已變更，已重新搜尋', 'info');
+        runSearch();
+        return;
+      }
+      const newText = replaceAllCI(raw, q, rep);
+      if (newText === raw) {
+        // 取代結果同原文一樣（rep == 匹配字）：「取代並批核」一樣要真係批核，唔可以齋顯示
+        if (approve) {
+          const r0 = await fetch(`${API_BASE}/api/files/${fileId}/translations/${s.idx}/approve`, { method: 'POST' });
+          if (!r0.ok) throw new Error(`HTTP ${r0.status}`);
+          segs = segs.map((seg, i) => i === m.idx ? { ...seg, approved: true } : seg);
+          renderSegList();
+          if (cursorIdx === m.idx) renderDetail();
+        }
+        states.set(key(m), approve ? 'replaced_approved' : 'replaced');
+        m.after = raw;
+        renderList();
+        return;
+      }
       const body = { text: newText };
       if (isOL()) body.role = m.col;       // legacy 譯文欄：唔傳 role（寫 zh_text）
       if (!approve) body.keep_status = true;
@@ -329,14 +367,23 @@
         : seg);
       states.set(key(m), approve ? 'replaced_approved' : 'replaced');
       m.after = newText;
+      m.count = countCI(newText, q);   // badge 計數即時反映（通常變 0）
       renderSegList();
       if (cursorIdx === m.idx) renderDetail();
       renderList();
-    }).catch((e) => { showToast(`取代失敗：${e.message}`, 'error'); });
+    }).catch((e) => {
+      states.delete(key(m));           // 失敗 → 解鎖行，俾用戶重試
+      renderList();
+      showToast(`取代失敗：${e.message}`, 'error');
+    });
     return chain;
   }
 
+  let bulkRunning = false;
   async function bulkReplace() {
+    if (bulkRunning) return;
+    bulkRunning = true;
+    try {
     const todo = pendingMatches();
     if (!todo.length) return;
     let ok = 0, fail = 0;
@@ -345,11 +392,18 @@
       if (states.get(key(m)) === 'replaced') ok++; else fail++;
     }
     showToast(fail ? `全部取代：成功 ${ok}，失敗 ${fail}` : `已取代 ${ok} 行`, fail ? 'warning' : 'success');
+    } finally { bulkRunning = false; }
   }
 
   // ---------- rail highlight（由 renderSegList wrapper call）----------
   function decorateRail() {
     if (!open) return;
+    if (searchedLen !== -1 && segs.length !== searchedLen) {
+      // split/merge/rerun 改咗 grid → 全部 match 索引過期；重搜（setTimeout 防同步遞歸）
+      states = new Map();
+      setTimeout(runSearch, 0);
+      return;
+    }
     const q = query.trim();
     if (!q) return;
     matches.forEach((m) => {

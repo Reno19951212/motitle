@@ -3547,13 +3547,14 @@
 
     // Cmd+F / Ctrl+F → open find & replace popup (intercept even in inputs)
     if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
-      e.preventDefault();
-      FindReplace.open();
+      if (window.FindReplace) { e.preventDefault(); FindReplace.open(); }
       return;
     }
     // Escape → close find & replace first; if not open, let the GA modal listener handle it
     if (e.key === 'Escape') {
-      if (window.FindReplace && FindReplace.isOpen()) { FindReplace.close(); e.preventDefault(); return; }
+      const _modalOpen = document.getElementById('aeOverlay')?.classList.contains('open')
+                      || document.getElementById('gaOverlay')?.classList.contains('open');
+      if (!_modalOpen && window.FindReplace && FindReplace.isOpen()) { FindReplace.close(); e.preventDefault(); return; }
     }
 
     // Segment split/merge — fire even while editing a textarea (before inInput guard).
