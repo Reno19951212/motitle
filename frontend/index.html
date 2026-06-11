@@ -4652,6 +4652,47 @@
       startTranscription();
     }
 
+    // 進行中嘅上傳 XHR — 同一時間最多一個（isProcessing 已鎖 UI）。
+    // 取消上傳 = abort() → onabort → startTranscription catch 統一清理。
+    let _activeUploadXhr = null;
+
+    // fetch() 冇 upload progress API — 用 XHR 包裝做 promise。
+    // resolve {status, json}（json 容忍非 JSON body，例如 werkzeug 413 HTML → null）。
+    function uploadWithProgress(url, formData, onProgress) {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        _activeUploadXhr = xhr;
+        xhr.open('POST', url);
+        xhr.upload.onprogress = (e) => {
+          // lengthComputable=false → null = indeterminate（badge 顯示「上傳中…」無 %）
+          onProgress(e.lengthComputable ? Math.min(100, Math.floor((e.loaded / e.total) * 100)) : null);
+        };
+        xhr.onload = () => {
+          _activeUploadXhr = null;
+          let json = null;
+          try { json = JSON.parse(xhr.responseText); } catch {}
+          resolve({ status: xhr.status, json });
+        };
+        xhr.onerror = () => {
+          _activeUploadXhr = null;
+          // XHR 下超 5GB cap 可能表現為中途連線錯誤而唔係乾淨 413
+          reject(new Error('網絡錯誤或連線中斷 — 請檢查網絡，或確認檔案未超過 5GB 上限'));
+        };
+        xhr.onabort = () => {
+          _activeUploadXhr = null;
+          reject(Object.assign(new Error('已取消上傳'), { _aborted: true }));
+        };
+        xhr.send(formData);
+      });
+    }
+
+    // 上傳取消：有 XHR 就 abort（清理由 onabort → catch 做）；
+    // 未開始上傳（popup 階段）就直接清 pending 卡。
+    function cancelUpload() {
+      if (_activeUploadXhr) { _activeUploadXhr.abort(); return; }
+      clearPending();
+    }
+
     async function startTranscription() {
       // Re-run path: a completed (or errored) already-uploaded file is selected
       // and there is no pending new upload. Re-run uses the pipeline currently
@@ -4772,8 +4813,8 @@
 
     // 2-step delete: first click arms (red pulse), second click within 3s confirms.
     function armOrConfirmDelete(id) {
-      // Local pending entry: just clear
-      if (uploadedFiles[id]?._local) { clearPending(); return; }
+      // Local pending entry: 上傳中 abort（onabort 統一清理），未上傳就直接清
+      if (uploadedFiles[id]?._local) { cancelUpload(); return; }
       if (deleteArmedId === id) {
         deleteFile(id);
         return;
