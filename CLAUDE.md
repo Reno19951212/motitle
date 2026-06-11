@@ -301,6 +301,7 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | POST | `/api/files/<id>/segments/<pos>/merge-next` | output_lang only — merge cue `pos` with `pos+1` (join text, union time, reset pending); 400 last-cue / non-output_lang, 409 render-in-progress |
 | POST | `/api/files/<id>/ai-edit` | output_lang only — AI 輔助修改（suggest-only）：body `{pos, role: first\|second, instruction ≤500字}`；LLM 按指令重寫該段該語言字幕，回 `{text, source_text}`；**唔寫 registry**（前端經 PATCH /translations/<idx> 套用）；400 非 output_lang/壞參數、404 段落唔存在、422 LLM 輸出無法解析、502 LLM 冇回應 |
 | POST | `/api/files/<id>/transcribe` | 重跑整條 pipeline。**2026-06-10 起接受 optional body** `{output_languages, source_language, script, mt_style, glossary_ids, glossary_llm}`（重新處理 popup — 覆寫檔案設定並 force output_lang；驗證同 /api/transcribe 一致）；無 body 時 output_lang 檔保留自有設定、其他 kind re-snapshot 現時 active；AI Rerun 進行中 409 |
+| PATCH | `/api/files/<id>/segments/<pos>/timing` | output_lang only — 調整 cue In/Out：body `{in_ms?, out_ms?}`（絕對毫秒，至少一個）；**roll-on-contact**（相連邊界連鄰段一齊郁，0.4s floor）、gap clamp 永不重疊；四庫同步（translations/segments/content_asr_segments/aligned_bilingual）；**批核狀態保留**；回 `{rows:[{idx,start,end}…], clamped}`；409 render/rerun 中 |
 | POST | `/api/files/<id>/rerun` | output_lang only — AI Rerun：body `{positions:[int,…]}`；對每段重截音訊（短 cue pad 至 ≥1.2s）→ mlx-whisper 重轉錄 → derive 所有輸出語言（pass/refine/MT+OpenCC+詞彙表）→ 直接寫入並 reset pending；202 `{job_id,total}`；400 非 output_lang/壞 positions、409 渲染中/已有 rerun |
 | GET | `/api/reruns/<job_id>` | Rerun job 進度 `{status, total, done, current_pos, done_positions, failed_positions}`（in-memory，仿 render job） |
 | DELETE | `/api/reruns/<job_id>` | 取消 rerun（現段做完即停，已完成段保留） |
@@ -497,6 +498,13 @@ This section summarises the CURRENT behaviour a developer needs; older entries l
 - **已知限制**（tracker: [2026-06-10-proofread-ai-rerun-validation-tracker.md](docs/superpowers/specs/2026-06-10-proofread-ai-rerun-validation-tracker.md)）：真實邊界 cue（≥1s）質量好（間中修正原 ASR 錯誤）；clause-split 插值超短 cue 結果反映窗口真實音訊（可能同原文字分配唔同）— 建議先「合併下一段」再 rerun。
 - **已批核行全綠**：`.rv-b-rail-item.ap` 成行淺綠背景（hover 加深）+ 兩行字幕文字 `var(--success)` 綠色（取代舊 opacity 0.6；所有檔案類型生效）。批量 Rerun 掣住喺段落表 header 之下嘅專屬欄 `.rv-b-rail-rerun`（唔同 header 爭位）。段落導航：`↑`/`↓`（IME-safe）+ `J`/`K`。
 - Pure 邏輯 `backend/segment_rerun.py`（`tests/test_segment_rerun.py` 18 tests）。
+
+### Proofread segment timing trim (output_lang, NEW 2026-06-11)
+
+- 時間軸有**縮放**（`.rv-b-tlh-r` toolbar：⊡全片/−/＋/⌖對焦本段；viewport+`#waveformInner` 結構，放大後橫向捲動，peaks 按 zoom 重取樣 `?bins=`、ticks 自適應）。縮放全 kind 可用；以下編輯功能 output_lang only。
+- **調整 cue In/Out 三種方法**：①當前段 region 左右**拖拉把手**（拖拉中 suppress regions 重建、浮動 timecode、視窗外鬆手自動 commit、拖完 stray click 被 capture guard 截）②`I`/`O` 鍵 + ctrl row `⤓I`/`⤓O` 掣 = 設為播放頭（有 modifier guard — Ctrl+O 等組合鍵唔會誤觸）③ctrl row `#curIn`/`#curOut` 變 editable timecode input（MM:SS.ss，秒 ≥60 拒絕）。
+- 全部寫入 `PATCH /segments/<pos>/timing`（roll-on-contact 語義；planner 喺 `backend/segment_timing.py`，end-first 雙邊 clamp + 最終 invariant guard；`tests/test_segment_timing.py` 16 tests）。PATCH 串行化防亂序 reconcile。
+- UX 研究 + 用戶兩輪 mockup 反饋：[docs/superpowers/specs/2026-06-11-segment-timing-ux-research.md](docs/superpowers/specs/2026-06-11-segment-timing-ux-research.md)。
 
 ### Subtitle custom-font upload (NEW, 2026-06-06)
 
