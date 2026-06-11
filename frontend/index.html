@@ -2324,6 +2324,12 @@
                         onclick="cancelJob('${f.job_id}')">取消</button>
               </div>
             ` : ''}
+            ${cat === 'pending' && f.uploadProgress !== undefined ? `
+              <div class="q-actions" onclick="event.stopPropagation()">
+                <button class="btn-secondary" data-testid="upload-cancel"
+                        onclick="cancelUpload()">取消上傳</button>
+              </div>
+            ` : ''}
           </div>`;
       }).join('');
     }
@@ -4685,25 +4691,25 @@
         _activeUploadXhr = xhr;
         xhr.open('POST', url);
         xhr.upload.onprogress = (e) => {
-          // lengthComputable=false → null = indeterminate（badge 顯示「上傳中…」無 %）
-          onProgress(e.lengthComputable ? Math.min(100, Math.floor((e.loaded / e.total) * 100)) : null);
+          // lengthComputable=false（或 total=0）→ null = indeterminate（badge 顯示「上傳中…」無 %）
+          onProgress((e.lengthComputable && e.total > 0) ? Math.min(100, Math.floor((e.loaded / e.total) * 100)) : null);
         };
         xhr.onload = () => {
-          _activeUploadXhr = null;
           let json = null;
           try { json = JSON.parse(xhr.responseText); } catch {}
           resolve({ status: xhr.status, json });
         };
         xhr.onerror = () => {
-          _activeUploadXhr = null;
           // XHR 下超 5GB cap 可能表現為中途連線錯誤而唔係乾淨 413
           reject(new Error('網絡錯誤或連線中斷 — 請檢查網絡，或確認檔案未超過 5GB 上限'));
         };
         xhr.onabort = () => {
-          _activeUploadXhr = null;
           reject(Object.assign(new Error('已取消上傳'), { _aborted: true }));
         };
-        xhr.send(formData);
+        // 單一 chokepoint 清 tracker（onload/onerror/onabort 之後一定會行 loadend）
+        xhr.onloadend = () => { if (_activeUploadXhr === xhr) _activeUploadXhr = null; };
+        try { xhr.send(formData); }
+        catch (e) { _activeUploadXhr = null; throw e; }
       });
     }
 
@@ -4755,23 +4761,24 @@
       }
 
       try {
-        const resp = await fetch(`${API_BASE}/api/transcribe`, { method: 'POST', body: formData });
+        // 上傳開始 — badge 入「上傳中 0%」，full render 令「取消上傳」掣出現
+        if (uploadedFiles['__pending__']) {
+          uploadedFiles['__pending__'] = { ...uploadedFiles['__pending__'], uploadProgress: 0 };
+          renderQueue();
+        }
+        const { status, json } = await uploadWithProgress(
+          `${API_BASE}/api/transcribe`, formData, _setUploadProgress);
 
         // 413 returns HTML from werkzeug — surface a specific message instead of JSON parse error
-        if (resp.status === 413) {
+        if (status === 413) {
           const mb = (selectedFile.size / 1024 / 1024).toFixed(1);
           throw new Error(`檔案太大（${mb} MB），超出後端 5GB 上限`);
         }
-        // R6 audit E9 — surface 415 (wrong type) as a clear message
-        if (resp.status === 415) {
-          throw new Error('檔案類型不支援，請使用 MP4 / MOV / MKV / MXF / WAV / MP3 等格式');
+        if (status < 200 || status >= 300) {
+          throw new Error((json && json.error) ? json.error : `HTTP ${status}`);
         }
-        if (!resp.ok) {
-          let msg = `HTTP ${resp.status}`;
-          try { const err = await resp.json(); if (err.error) msg = err.error; } catch {}
-          throw new Error(msg);
-        }
-        const data = await resp.json();
+        const data = json;
+        if (!data) throw new Error('伺服器回應格式錯誤');
         if (data.error) throw new Error(data.error);
 
         delete uploadedFiles['__pending__'];
@@ -4808,7 +4815,8 @@
         // failure. Otherwise the queueList shows a phantom "pending" row
         // forever and the user has to manually delete it.
         clearPending();
-        showToast(`上傳失敗: ${err.message}`, 'error');
+        // 用戶主動取消（xhr.abort）— 安靜清理，唔彈錯誤
+        if (!err._aborted) showToast(`上傳失敗: ${err.message}`, 'error');
         isProcessing = false;
       }
     }
