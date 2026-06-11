@@ -275,6 +275,32 @@
       padding: 1px 6px; font-family: var(--font-mono); font-size: 10px; color: var(--accent-2);
       z-index: 4; display: none; white-space: nowrap; pointer-events: none;
     }
+    .rv-tc-input {
+      width: 70px; text-align: center;
+      font-family: var(--font-mono); font-size: 11.5px; color: var(--accent-2);
+      background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+      padding: 2px 2px;
+    }
+    .rv-tc-input:focus { outline: 2px solid var(--accent-ring); border-color: var(--accent); }
+    .rv-tc-input[disabled] { color: var(--text-mid); background: transparent; border-color: transparent; }
+    .rv-ph-btn {
+      height: 20px; padding: 0 6px; display: inline-grid; place-items: center;
+      background: var(--accent-soft); border: 1px solid var(--accent-ring); border-radius: 5px;
+      color: var(--accent-2); cursor: pointer; font-size: 10px; font-weight: 700;
+      font-family: inherit; user-select: none;
+    }
+    .rv-ph-btn:hover { background: rgba(108,99,255,0.22); }
+    .rv-ph-btn[disabled] { opacity: 0.35; pointer-events: none; }
+    .rv-wave-grip {
+      position: absolute; top: 0; bottom: 0; width: 12px; cursor: ew-resize; z-index: 3;
+    }
+    .rv-wave-grip.l { left: -6px; } .rv-wave-grip.r { right: -6px; }
+    .rv-wave-grip::after {
+      content: ""; position: absolute; top: 50%; transform: translateY(-50%);
+      left: 4px; width: 4px; height: 22px; border-radius: 2px;
+      background: var(--accent-2); box-shadow: 0 0 0 1px rgba(0,0,0,0.45);
+    }
+    .rv-wave-grip:hover::after, .rv-wave-grip.dragging::after { background: #fff; }
     .rv-wave-bars {
       position: absolute; inset: 0 0 14px 0;
       display: flex; align-items: center; padding: 0 6px; gap: 0;
@@ -1095,9 +1121,17 @@
               <div class="rv-b-wave-ctrl-l">
                 <span>當前：段 #<span id="curId">—</span></span>
                 <span class="dot">·</span>
-                <span class="mono">In <span id="curIn">—</span></span>
+                <span class="mono">In <input class="rv-tc-input" id="curIn" value="—"
+                  onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"
+                  onchange="commitTimingField('in')" disabled></span>
+                <button class="rv-ph-btn" id="phInBtn" onclick="setEdgeToPlayhead('in')"
+                        title="In = 播放頭位置（快捷鍵 I）" disabled>⤓I</button>
                 <span class="dot">·</span>
-                <span class="mono">Out <span id="curOut">—</span></span>
+                <span class="mono">Out <input class="rv-tc-input" id="curOut" value="—"
+                  onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"
+                  onchange="commitTimingField('out')" disabled></span>
+                <button class="rv-ph-btn" id="phOutBtn" onclick="setEdgeToPlayhead('out')"
+                        title="Out = 播放頭位置（快捷鍵 O）" disabled>⤓O</button>
                 <span class="dot">·</span>
                 <span><span id="curDur">—</span>s</span>
               </div>
@@ -2721,19 +2755,24 @@
   }
 
   function renderWaveformRegions() {
+    if (_wfDrag) return;   // 拖拉中唔好 innerHTML 重建（會殺 drag state）
     const el = document.getElementById('waveformRegions');
     if (!el || !totalMs || segs.length === 0) { if (el) el.innerHTML = ''; return; }
+    const isOL = fileInfo && fileInfo.active_kind === 'output_lang';
     el.innerHTML = segs.map((s, i) => {
       const left = (s.in / totalMs) * 100;
       const width = ((s.out - s.in) / totalMs) * 100;
       const cur = i === cursorIdx ? 'cur' : '';
       const ap = s.approved ? 'approved' : '';
       const fl = s.flags.length > 0 ? 'flagged' : '';
+      const grips = (cur && isOL)
+        ? '<div class="rv-wave-grip l" data-grip="in"></div><div class="rv-wave-grip r" data-grip="out"></div>'
+        : '';
       return `<div class="rv-wave-region ${cur} ${ap} ${fl}" data-idx="${i}"
                 style="left:${left}%;width:${width}%;"
                 onclick="setCursor(${i}, true)"
                 title="#${s.id} · ${escapeHtml(s.tsIn)}">
-                <span class="rv-wave-region-label">${s.id}</span>
+                ${grips}<span class="rv-wave-region-label">${s.id}</span>
               </div>`;
     }).join('');
   }
@@ -2796,6 +2835,147 @@
     setWfZoom(Math.round(Math.min(64, Math.max(1, totalMs / (dur * 4)))), (s.in + s.out) / 2);
   }
 
+  // ===== 拖拉把手 + timing 儲存（spec 2026-06-11-segment-timing） =====
+  const TIMING_MIN_MS = 400;
+  let _wfDrag = null;   // { edge: 'in'|'out', pos }
+
+  function _timingRefreshRow(i) {
+    const s = segs[i];
+    if (!s) return;
+    s.tsIn = fmtMs(s.in); s.tsOut = fmtMs(s.out);
+    s.duration = ((s.out - s.in) / 1000).toFixed(1);
+    const el = document.querySelector(`.rv-wave-region[data-idx="${i}"]`);
+    if (el && totalMs) {
+      el.style.left = (s.in / totalMs * 100) + '%';
+      el.style.width = ((s.out - s.in) / totalMs * 100) + '%';
+    }
+  }
+
+  function _wfApplyLocal(pos, edge, targetMs) {
+    // client 端 mirror planner（roll-on-contact + clamp）— 拖拉即時反映；
+    // mouseup 先 PATCH，server 回值 reconcile（server 先係真相）。
+    const s = segs[pos];
+    if (!s) return null;
+    let v;
+    if (edge === 'in') {
+      const prev = segs[pos - 1];
+      const butt = !!(prev && Math.abs(prev.out - s.in) < 1);
+      const lo = prev ? (butt ? prev.in + TIMING_MIN_MS : prev.out) : 0;
+      const hi = s.out - TIMING_MIN_MS;
+      v = Math.round(Math.min(hi, Math.max(lo, targetMs)));
+      s.in = v;
+      if (butt) { prev.out = v; _timingRefreshRow(pos - 1); }
+    } else {
+      const nxt = segs[pos + 1];
+      const butt = !!(nxt && Math.abs(nxt.in - s.out) < 1);
+      const lo = s.in + TIMING_MIN_MS;
+      const hi = nxt ? (butt ? nxt.out - TIMING_MIN_MS : nxt.in) : (totalMs || s.out + 600000);
+      v = Math.round(Math.min(hi, Math.max(lo, targetMs)));
+      s.out = v;
+      if (butt) { nxt.in = v; _timingRefreshRow(pos + 1); }
+    }
+    _timingRefreshRow(pos);
+    if (cursorIdx === pos) {
+      document.getElementById('curIn').value = s.tsIn;
+      document.getElementById('curOut').value = s.tsOut;
+      document.getElementById('curDur').textContent = s.duration;
+    }
+    return v;
+  }
+
+  // 把手 mousedown（delegation — regions 會 innerHTML 重建）
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('waveformRegions').addEventListener('mousedown', (e) => {
+      const g = e.target.closest('.rv-wave-grip');
+      if (!g) return;
+      e.preventDefault(); e.stopPropagation();
+      _wfDrag = { edge: g.dataset.grip, pos: cursorIdx };
+      g.classList.add('dragging');
+    });
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (!_wfDrag) return;
+    const r = document.getElementById('waveformInner').getBoundingClientRect();
+    const ms = Math.max(0, Math.min(totalMs, (e.clientX - r.left) / r.width * totalMs));
+    const v = _wfApplyLocal(_wfDrag.pos, _wfDrag.edge, ms);
+    const tip = document.getElementById('wfDragTip');
+    if (tip && v != null && totalMs) {
+      tip.style.display = 'block';
+      tip.style.left = (v / totalMs * 100) + '%';
+      tip.textContent = fmtMs(v);
+    }
+  });
+  document.addEventListener('mouseup', async () => {
+    if (!_wfDrag) return;
+    const d = _wfDrag;
+    _wfDrag = null;
+    document.querySelectorAll('.rv-wave-grip.dragging').forEach(g => g.classList.remove('dragging'));
+    const tip = document.getElementById('wfDragTip');
+    if (tip) tip.style.display = 'none';
+    const s = segs[d.pos];
+    if (!s) return;
+    await _saveTiming(d.pos,
+      d.edge === 'in' ? { in_ms: Math.round(s.in) } : { out_ms: Math.round(s.out) });
+  });
+
+  async function _saveTiming(pos, body) {
+    try {
+      const r = await fetch(`${API_BASE}/api/files/${fileId}/segments/${pos}/timing`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+      for (const row of (d.rows || [])) {
+        const s = segs[row.idx];
+        if (!s) continue;
+        s.in = Math.round(row.start * 1000);
+        s.out = Math.round(row.end * 1000);
+        s.tsIn = fmtMs(s.in); s.tsOut = fmtMs(s.out);
+        s.duration = ((s.out - s.in) / 1000).toFixed(1);
+      }
+      renderWaveformRegions();
+      renderSegList();
+      renderDetail();
+      const s = segs[cursorIdx];
+      if (s) {
+        document.getElementById('curIn').value = s.tsIn;
+        document.getElementById('curOut').value = s.tsOut;
+        document.getElementById('curDur').textContent = s.duration;
+      }
+      showToast(d.clamped ? '時間已調整（部分值被限制：最少 0.4s／唔可重疊）' : '時間已調整 ✓',
+                d.clamped ? 'info' : 'success');
+    } catch (e) {
+      showToast(`時間調整失敗：${e.message}`, 'error');
+      await loadSegments();
+      renderSegList(); renderDetail(); renderWaveformRegions();
+    }
+  }
+
+  function parseTc(str) {
+    const m = String(str).trim().match(/^(\d{1,3}):(\d{1,2}(?:\.\d{1,3})?)$/);
+    return m ? Math.round((+m[1] * 60 + +m[2]) * 1000) : null;
+  }
+  function commitTimingField(edge) {
+    const s = segs[cursorIdx];
+    if (!s || !(fileInfo && fileInfo.active_kind === 'output_lang')) return;
+    const el = document.getElementById(edge === 'in' ? 'curIn' : 'curOut');
+    const v = parseTc(el.value);
+    if (v == null) {
+      showToast('時間格式：MM:SS.ss', 'warning');
+      el.value = edge === 'in' ? s.tsIn : s.tsOut;
+      return;
+    }
+    _saveTiming(cursorIdx, edge === 'in' ? { in_ms: v } : { out_ms: v });
+  }
+  function setEdgeToPlayhead(edge) {
+    const s = segs[cursorIdx];
+    const v = document.getElementById('videoPlayer');
+    if (!s || !v || !(fileInfo && fileInfo.active_kind === 'output_lang')) return;
+    const ms = Math.round(v.currentTime * 1000);
+    _saveTiming(cursorIdx, edge === 'in' ? { in_ms: ms } : { out_ms: ms });
+  }
+
   // Click on waveform (empty area) → seek
   document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('waveform').addEventListener('click', (e) => {
@@ -2816,8 +2996,13 @@
     cursorIdx = i;
     const s = segs[i];
     document.getElementById('curId').textContent = s.id;
-    document.getElementById('curIn').textContent = s.tsIn;
-    document.getElementById('curOut').textContent = s.tsOut;
+    document.getElementById('curIn').value = s.tsIn;
+    document.getElementById('curOut').value = s.tsOut;
+    const _isOL = fileInfo && fileInfo.active_kind === 'output_lang';
+    for (const _tid of ['curIn', 'curOut', 'phInBtn', 'phOutBtn']) {
+      const _tel = document.getElementById(_tid);
+      if (_tel) _tel.disabled = !_isOL;
+    }
     document.getElementById('curDur').textContent = s.duration;
     renderDetail();
     renderSegList();
@@ -3618,6 +3803,8 @@
     if (e.isComposing) return;
     if (e.key === 'j' || e.key === 'J' || e.key === 'ArrowUp') { e.preventDefault(); nav(-1); }
     else if (e.key === 'k' || e.key === 'K' || e.key === 'ArrowDown') { e.preventDefault(); nav(1); }
+    else if (e.key === 'i' || e.key === 'I') { e.preventDefault(); setEdgeToPlayhead('in'); }
+    else if (e.key === 'o' || e.key === 'O') { e.preventDefault(); setEdgeToPlayhead('out'); }
     else if (e.key === ' ') {
       e.preventDefault();
       const v = document.getElementById('videoPlayer');
