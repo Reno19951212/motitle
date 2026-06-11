@@ -147,6 +147,33 @@ def test_add_entry(glossary_dir):
     assert len(updated["entries"]) == 1
     assert updated["entries"][0]["source"] == "hello"
 
+def test_add_entry_appends_last_and_returns_full_glossary(glossary_dir):
+    """Pins the contract Glossary.html relies on (frontend addEntry/saveEntryField):
+    add_entry returns the FULL updated glossary with the new entry appended at
+    the END, and update_entry preserves the entry id and its position."""
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    created = mgr.create(VALID_GLOSSARY)
+
+    after_first = mgr.add_entry(created["id"], {"source": "Happy Valley", "target": "跑馬地"})
+    after_second = mgr.add_entry(created["id"], {"source": "Sha Tin", "target": "沙田"})
+
+    # Full glossary shape (not a bare entry)
+    assert after_second["id"] == created["id"]
+    assert isinstance(after_second.get("entries"), list)
+
+    # New entry is appended at the END each time
+    assert after_first["entries"][-1]["source"] == "Happy Valley"
+    assert after_second["entries"][-1]["source"] == "Sha Tin"
+
+    # update_entry preserves the entry id and position, order untouched
+    eid = after_first["entries"][-1]["id"]
+    pos = next(i for i, e in enumerate(after_second["entries"]) if e.get("id") == eid)
+    patched = mgr.update_entry(created["id"], eid, {"target": "快活谷"})
+    assert patched["entries"][pos]["id"] == eid
+    assert patched["entries"][pos]["target"] == "快活谷"
+    assert patched["entries"][-1]["source"] == "Sha Tin"
+
 def test_add_entry_invalid_raises(glossary_dir):
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)

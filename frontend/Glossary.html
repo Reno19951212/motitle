@@ -777,7 +777,14 @@
     if (state.activeId) await loadEntries(state.activeId);
   }
 
+  /* Guards stale async re-syncs of state.entries: bumped on every glossary
+     (re)load and on every save, so only the NEWEST in-flight response may
+     overwrite the entries list (e.g. a slow PATCH landing after the user
+     switched to another glossary must not clobber it). */
+  let _entriesSyncSeq = 0;
+
   async function loadEntries(glossaryId) {
+    _entriesSyncSeq++;
     const data = await apiJson('GET', `/api/glossaries/${encodeURIComponent(glossaryId)}`);
     state.entries = data.entries || [];
     state.selectedEntryId = null;
@@ -978,13 +985,19 @@
     const entry = state.entries.find(e => e.id === state.selectedEntryId);
     if (!entry) return;
     if (entry[field] === value) return; // unchanged → skip
+    const gid = state.activeId;
+    const seq = ++_entriesSyncSeq;
     try {
+      // Backend contract: PATCH /entries/<eid> returns the FULL updated
+      // glossary (not the entry) — re-sync the whole entries list from it.
       const updated = await apiJson('PATCH',
-        `/api/glossaries/${encodeURIComponent(state.activeId)}/entries/${encodeURIComponent(entry.id)}`,
+        `/api/glossaries/${encodeURIComponent(gid)}/entries/${encodeURIComponent(entry.id)}`,
         { [field]: value });
-      Object.assign(entry, updated);
-      renderTable();
-      if (field === 'target_aliases') renderDetail();
+      if (gid === state.activeId && seq === _entriesSyncSeq) {
+        state.entries = updated.entries || [];
+        renderTable();
+        if (field === 'target_aliases') renderDetail();
+      }
       toast('已儲存', 'success');
     } catch (e) {
       toast(`儲存失敗: ${e.message}`, 'error');
@@ -997,18 +1010,27 @@
     if (!source || !source.trim()) return;
     const target = prompt(`譯文 for "${source.trim()}"：`);
     if (!target || !target.trim()) return;
+    const gid = state.activeId;
+    const seq = ++_entriesSyncSeq;
     try {
-      const created = await apiJson('POST',
-        `/api/glossaries/${encodeURIComponent(state.activeId)}/entries`,
+      // Backend contract: POST /entries returns the FULL updated glossary
+      // (new entry appended at the end), not the created entry itself.
+      const updated = await apiJson('POST',
+        `/api/glossaries/${encodeURIComponent(gid)}/entries`,
         { source: source.trim(), target: target.trim() });
-      state.entries.push(created);
-      state.selectedEntryId = created.id;
-      // Bump entry_count locally so the list reflects immediately.
-      const g = state.glossaries.find(x => x.id === state.activeId);
-      if (g) g.entry_count = state.entries.length;
+      const entries = updated.entries || [];
+      // Bump entry_count on the glossary it was added TO (the list shows it
+      // even if the user has switched away meanwhile).
+      const g = state.glossaries.find(x => x.id === gid);
+      if (g) g.entry_count = entries.length;
       renderList();
-      renderTable();
-      renderDetail();
+      if (gid === state.activeId && seq === _entriesSyncSeq) {
+        state.entries = entries;
+        const newEntry = entries[entries.length - 1];
+        state.selectedEntryId = newEntry ? newEntry.id : null;
+        renderTable();
+        renderDetail();
+      }
       toast('已加入術語', 'success');
     } catch (e) {
       toast(`加入失敗: ${e.message}`, 'error');
