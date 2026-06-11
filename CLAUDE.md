@@ -309,7 +309,7 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | GET | `/api/languages/<id>` | Get language config |
 | PATCH | `/api/languages/<id>` | Update language config |
 | GET | `/api/files/<id>/translations` | Get translations with approval status |
-| PATCH | `/api/files/<id>/translations/<idx>` | Update translation text (auto-approve) |
+| PATCH | `/api/files/<id>/translations/<idx>` | Update translation text (auto-approve)；body 接受可選 `keep_status: true`（尋找取代「取代」用 — 文字改、row+by_lang 批核狀態保持原狀；唔傳照舊 auto-approve） |
 | POST | `/api/files/<id>/translations/<idx>/approve` | Approve single translation |
 | POST | `/api/files/<id>/translations/<idx>/unapprove` | Flip a single translation back to `pending` |
 | POST | `/api/files/<id>/translations/approve-all` | Approve all pending |
@@ -498,6 +498,14 @@ This section summarises the CURRENT behaviour a developer needs; older entries l
 - **已知限制**（tracker: [2026-06-10-proofread-ai-rerun-validation-tracker.md](docs/superpowers/specs/2026-06-10-proofread-ai-rerun-validation-tracker.md)）：真實邊界 cue（≥1s）質量好（間中修正原 ASR 錯誤）；clause-split 插值超短 cue 結果反映窗口真實音訊（可能同原文字分配唔同）— 建議先「合併下一段」再 rerun。
 - **已批核行全綠**：`.rv-b-rail-item.ap` 成行淺綠背景（hover 加深）+ 兩行字幕文字 `var(--success)` 綠色（取代舊 opacity 0.6；所有檔案類型生效）。批量 Rerun 掣住喺段落表 header 之下嘅專屬欄 `.rv-b-rail-rerun`（唔同 header 爭位）。段落導航：`↑`/`↓`（IME-safe）+ `J`/`K`。
 - Pure 邏輯 `backend/segment_rerun.py`（`tests/test_segment_rerun.py` 18 tests）。
+
+### Proofread 尋找與取代（⌘F, NEW 2026-06-11）
+
+- `⌘F` 彈 **680px 非阻擋浮動視窗**（可拖頭部移動；無 overlay — 開住照撳段落表/播片；Esc 關、重開保留上次查詢），**成套取代咗舊 find bar**（`#findBar`+`fb*` JS 已剷）。全部 code 喺 `frontend/js/find-replace.js`（`window.FindReplace`，classic script 共享 page globals）。
+- **即時搜尋**（150ms debounce，純前端搜 `segs[]`）：全部語言欄（第一/第二 or 原文/譯文）、拉丁大小寫不敏感（fold 變長安全回退精確匹配）、「只搜未批核」filter；match 列表每行 段號+timecode+語言tag+before→after 預覽；**撳行跳段+影片 seek**；段落表 match 行同步 highlight（`renderSegList` wrapper → `FindReplace.decorateRail()`）。
+- **逐行取代**：「取代」（`keep_status:true` — 批核狀態保持）/「取代並批核」（auto-approve；rep==原文時都會真 POST approve）/「略過」（可還原）；「全部取代 (N)」批量行「取代」語義。PATCH 串行 chain + inflight 行鎖（防雙擊疊加）+ click 時 snapshot 查詢/取代詞；split/merge 改 grid 後自動重搜（segs.length 過期偵測）。
+- **欄位規則**：output_lang 兩欄都可取代（role first/second）；profile/V6 檔原文欄一律唯讀（顯示「唯讀」tag）、譯文欄可取代（無 role → zh_text）。
+- 測試：`tests/test_find_replace_patch.py`（keep_status 4 tests）+ Playwright E2E。
 
 ### Proofread segment timing trim (output_lang, NEW 2026-06-11)
 
