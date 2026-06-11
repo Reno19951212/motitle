@@ -2893,8 +2893,27 @@
       g.classList.add('dragging');
     });
   });
+  let _wfDragEndAt = 0;
+  function _wfFinishDrag() {
+    const d = _wfDrag;
+    if (!d) return null;
+    _wfDrag = null;
+    _wfDragEndAt = Date.now();
+    document.querySelectorAll('.rv-wave-grip.dragging').forEach(g => g.classList.remove('dragging'));
+    const tip = document.getElementById('wfDragTip');
+    if (tip) tip.style.display = 'none';
+    return d;
+  }
   document.addEventListener('mousemove', (e) => {
     if (!_wfDrag) return;
+    // 喺視窗外鬆手 mouseup 唔會 fire — 一見到無 button 就當 mouseup 處理，
+    // 否則 drag state 卡住、regions 重建被永久 suppress（review finding）。
+    if (e.buttons === 0) {
+      const d = _wfFinishDrag();
+      const s = d && segs[d.pos];
+      if (s) _saveTiming(d.pos, d.edge === 'in' ? { in_ms: Math.round(s.in) } : { out_ms: Math.round(s.out) });
+      return;
+    }
     const r = document.getElementById('waveformInner').getBoundingClientRect();
     const ms = Math.max(0, Math.min(totalMs, (e.clientX - r.left) / r.width * totalMs));
     const v = _wfApplyLocal(_wfDrag.pos, _wfDrag.edge, ms);
@@ -2906,19 +2925,27 @@
     }
   });
   document.addEventListener('mouseup', async () => {
-    if (!_wfDrag) return;
-    const d = _wfDrag;
-    _wfDrag = null;
-    document.querySelectorAll('.rv-wave-grip.dragging').forEach(g => g.classList.remove('dragging'));
-    const tip = document.getElementById('wfDragTip');
-    if (tip) tip.style.display = 'none';
+    const d = _wfFinishDrag();
+    if (!d) return;
     const s = segs[d.pos];
     if (!s) return;
     await _saveTiming(d.pos,
       d.edge === 'in' ? { in_ms: Math.round(s.in) } : { out_ms: Math.round(s.out) });
   });
+  // 拖完嗰下 click（mousedown/mouseup 共同祖先會 fire click）唔好變成 seek／setCursor
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('waveform').addEventListener('click', (e) => {
+      if (Date.now() - _wfDragEndAt < 250) { e.stopPropagation(); e.preventDefault(); }
+    }, true);   // capture — 連 region 嘅 inline onclick 都截到
+  });
 
-  async function _saveTiming(pos, body) {
+  let _saveTimingChain = Promise.resolve();
+  function _saveTiming(pos, body) {
+    // 串行化：連續拖拉／I/O 連按嘅 PATCH 唔可以亂序 reconcile（review finding）
+    _saveTimingChain = _saveTimingChain.then(() => _saveTimingNow(pos, body)).catch(() => {});
+    return _saveTimingChain;
+  }
+  async function _saveTimingNow(pos, body) {
     try {
       const r = await fetch(`${API_BASE}/api/files/${fileId}/segments/${pos}/timing`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
@@ -2954,7 +2981,9 @@
 
   function parseTc(str) {
     const m = String(str).trim().match(/^(\d{1,3}):(\d{1,2}(?:\.\d{1,3})?)$/);
-    return m ? Math.round((+m[1] * 60 + +m[2]) * 1000) : null;
+    if (!m) return null;
+    if (+m[2] >= 60) return null;   // 「1:75」唔係合法 timecode — 唔好靜默當 135s
+    return Math.round((+m[1] * 60 + +m[2]) * 1000);
   }
   function commitTimingField(edge) {
     const s = segs[cursorIdx];
@@ -3798,6 +3827,9 @@
 
     // Cmd+Enter works even in textarea (handled by onZhKey) — skip here
     if (inInput) return;
+    // 唔好食 browser/OS 組合鍵（Ctrl+O 開檔、Cmd+I 等）— I/O 係會寫數據嘅快捷鍵，
+    // 誤觸代價高（review 2026-06-11 finding）。
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
     // 中文輸入法 composition 期間字母鍵會被 IME 食咗（e.key='Process'）— J/K 會「死」。
     // 箭咀鍵唔受 IME 影響，所以 ↑/↓ 係更可靠嘅段落導航（README 一直記載），J/K 保留。
     if (e.isComposing) return;

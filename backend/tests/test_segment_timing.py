@@ -64,6 +64,25 @@ def test_both_edges_in_one_call():
     assert changes == [(1, 1.8, 4.2)]
     assert clamped is False
 
+def test_dual_edge_cannot_break_min_dur():
+    # review 2026-06-11 違規 case 1：start+end 同時推遠 — end 先 clamp，start 用
+    # clamp 後嘅 end 做上限 → cue 1 保證 ≥0.4s
+    changes, clamped = st.plan_timing_change(ROWS, 1, new_start=5.5, new_end=10.0)
+    m = {i: (s, e) for i, s, e in changes}
+    assert clamped is True
+    assert m[1][1] - m[1][0] >= 0.4 - 1e-9
+    # 鄰段都唔可以細過 0.4s／重疊
+    assert m[2][1] - m[2][0] >= 0.4 - 1e-9 if 2 in m else True
+
+def test_dual_edge_cannot_drag_neighbour_illegally():
+    # review 違規 case 2：start+end 同時推前 — next.start 唔可以被拉到 0.6
+    changes, clamped = st.plan_timing_change(ROWS, 1, new_start=0.5, new_end=0.6)
+    m = {i: (s, e) for i, s, e in changes}
+    assert clamped is True
+    for i, (s, e) in m.items():
+        assert e - s >= 0.4 - 1e-9, (i, s, e)
+
+
 def test_errors():
     with pytest.raises(ValueError):
         st.plan_timing_change(ROWS, 9, new_start=1.0)
