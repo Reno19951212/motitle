@@ -5817,6 +5817,70 @@ def cancel_rerun(job_id):
     return jsonify({"ok": True})
 
 
+@app.route('/api/files/<file_id>/segments/<int:pos>/timing', methods=['PATCH'])
+@require_file_owner
+def patch_segment_timing(file_id, pos):
+    """調整 cue In/Out（roll-on-contact；只限 output_lang；批核狀態保留）。
+
+    Body {in_ms?, out_ms?}（絕對毫秒，至少一個）。四庫同步照 split cascade。
+    Spec: docs/superpowers/specs/2026-06-11-segment-timing-design.md
+    """
+    data = request.get_json(silent=True) or {}
+    in_ms = data.get('in_ms')
+    out_ms = data.get('out_ms')
+    for v in (in_ms, out_ms):
+        if v is not None and (not isinstance(v, int) or isinstance(v, bool) or v < 0):
+            return jsonify({"error": "in_ms/out_ms 必須係非負整數毫秒"}), 400
+    if in_ms is None and out_ms is None:
+        return jsonify({"error": "至少要提供 in_ms 或 out_ms"}), 400
+    if _file_has_active_render(file_id):
+        return jsonify({"error": "正在渲染中，無法調整時間"}), 409
+    if _file_has_active_rerun(file_id):
+        return jsonify({"error": "AI Rerun 進行中，無法調整時間"}), 409
+
+    import segment_timing as st
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+        if not entry:
+            return jsonify({"error": "文件不存在"}), 404
+        if entry.get("active_kind") != "output_lang":
+            return jsonify({"error": "時間調整只支援輸出語言流程"}), 400
+        translations = entry.get("translations") or []
+        if not (0 <= pos < len(translations)):
+            return jsonify({"error": "段落不存在"}), 404
+        try:
+            changes, clamped = st.plan_timing_change(
+                translations, pos,
+                new_start=(in_ms / 1000.0) if in_ms is not None else None,
+                new_end=(out_ms / 1000.0) if out_ms is not None else None)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
+        new_translations = list(translations)
+        segs_l = list(entry.get("segments") or [])
+        cas = list(entry.get("content_asr_segments") or [])
+        aligned = list(entry.get("aligned_bilingual") or [])
+        for idx, s, e2 in changes:
+            new_translations[idx] = {**new_translations[idx], "start": s, "end": e2}
+            if idx < len(segs_l):
+                segs_l[idx] = {**segs_l[idx], "start": s, "end": e2}
+            if idx < len(cas):
+                cas[idx] = {**cas[idx], "start": s, "end": e2}
+            if idx < len(aligned):
+                aligned[idx] = {**aligned[idx], "start": s, "end": e2}
+        entry["translations"] = new_translations
+        if segs_l:
+            entry["segments"] = segs_l
+        if cas:
+            entry["content_asr_segments"] = cas
+        if aligned:
+            entry["aligned_bilingual"] = aligned
+        _save_registry()
+        return jsonify({"rows": [{"idx": i, "start": s, "end": e2}
+                                 for i, s, e2 in changes],
+                        "clamped": clamped})
+
+
 @app.route('/api/files/<file_id>/ai-edit', methods=['POST'])
 @require_file_owner
 def ai_edit_segment(file_id):

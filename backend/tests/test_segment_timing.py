@@ -69,3 +69,121 @@ def test_errors():
         st.plan_timing_change(ROWS, 9, new_start=1.0)
     with pytest.raises(ValueError):
         st.plan_timing_change(ROWS, 1)
+
+
+# ---------- route PATCH /segments/<pos>/timing ----------
+import time as _time
+
+pytest.importorskip("flask")
+import app as appmod
+
+
+@pytest.fixture
+def client(tmp_path, monkeypatch):
+    from profiles import ProfileManager
+    monkeypatch.setattr("app._profile_manager", ProfileManager(tmp_path))
+    appmod.app.config["TESTING"] = True
+    appmod.app.config["R5_AUTH_BYPASS"] = True
+    appmod.app.config["LOGIN_DISABLED"] = True
+    with appmod.app.test_client() as c:
+        yield c
+    appmod.app.config.pop("R5_AUTH_BYPASS", None)
+    appmod.app.config.pop("LOGIN_DISABLED", None)
+
+
+def _seed_timing_file(fid="f-timing"):
+    base = [
+        {"start": 0.0, "end": 2.0, "text": "一"},
+        {"start": 2.0, "end": 4.0, "text": "二"},
+        {"start": 4.0, "end": 6.0, "text": "三"},
+    ]
+    trans = []
+    for i, b in enumerate(base):
+        trans.append({"idx": i, "start": b["start"], "end": b["end"],
+                      "status": "approved",                     # 驗 approval 保留
+                      "by_lang": {"yue": {"text": b["text"], "status": "approved", "flags": []}},
+                      "yue_text": b["text"], "glossary_changes": []})
+    with appmod._registry_lock:
+        appmod._file_registry[fid] = {
+            "id": fid, "user_id": "u1", "status": "done",
+            "active_kind": "output_lang", "output_languages": ["yue"],
+            "source_language": "yue",
+            "segments": [dict(s) for s in base],
+            "content_asr_segments": [dict(s) for s in base],
+            "translations": trans,
+            "aligned_bilingual": [{"start": b["start"], "end": b["end"],
+                                   "by_lang": {"yue": b["text"]}} for b in base],
+        }
+    return fid
+
+
+def test_timing_patch_syncs_four_stores_and_rolls(client, monkeypatch):
+    monkeypatch.setattr(appmod, "_save_registry", lambda: None)
+    fid = _seed_timing_file()
+    r = client.patch(f"/api/files/{fid}/segments/1/timing", json={"in_ms": 2300})
+    assert r.status_code == 200, r.get_data(as_text=True)
+    d = r.get_json()
+    assert d["clamped"] is False
+    assert d["rows"] == [{"idx": 0, "start": 0.0, "end": 2.3},
+                         {"idx": 1, "start": 2.3, "end": 4.0}]
+    with appmod._registry_lock:
+        e = appmod._file_registry[fid]
+        for store in ("translations", "segments", "content_asr_segments", "aligned_bilingual"):
+            assert e[store][0]["end"] == 2.3, store
+            assert e[store][1]["start"] == 2.3, store
+        # 批核狀態 + 文字 + idx 完全唔郁
+        assert e["translations"][1]["status"] == "approved"
+        assert e["translations"][1]["yue_text"] == "二"
+        assert e["translations"][1]["idx"] == 1
+        assert e["aligned_bilingual"][1]["by_lang"]["yue"] == "二"
+
+
+def test_timing_patch_clamped_flag(client, monkeypatch):
+    monkeypatch.setattr(appmod, "_save_registry", lambda: None)
+    fid = _seed_timing_file("f-timing-c")
+    r = client.patch(f"/api/files/{fid}/segments/1/timing", json={"in_ms": 100})
+    assert r.status_code == 200
+    d = r.get_json()
+    assert d["clamped"] is True
+    assert d["rows"][0] == {"idx": 0, "start": 0.0, "end": 0.4}
+
+
+def test_timing_patch_validation(client, monkeypatch):
+    monkeypatch.setattr(appmod, "_save_registry", lambda: None)
+    fid = _seed_timing_file("f-timing-v")
+    assert client.patch(f"/api/files/{fid}/segments/1/timing", json={}).status_code == 400
+    assert client.patch(f"/api/files/{fid}/segments/1/timing",
+                        json={"in_ms": -5}).status_code == 400
+    assert client.patch(f"/api/files/{fid}/segments/1/timing",
+                        json={"in_ms": "2300"}).status_code == 400
+    assert client.patch(f"/api/files/{fid}/segments/99/timing",
+                        json={"in_ms": 1}).status_code == 404
+    with appmod._registry_lock:
+        appmod._file_registry["f-t-v6"] = {"id": "f-t-v6", "user_id": "u1",
+                                           "active_kind": "pipeline_v6",
+                                           "translations": [{"idx": 0, "start": 0, "end": 1}]}
+    assert client.patch("/api/files/f-t-v6/segments/0/timing",
+                        json={"in_ms": 1}).status_code == 400
+
+
+def test_timing_patch_409_guards(client, monkeypatch):
+    monkeypatch.setattr(appmod, "_save_registry", lambda: None)
+    fid = _seed_timing_file("f-timing-g")
+    with appmod._render_jobs_lock:
+        appmod._render_jobs["tj"] = {"file_id": fid, "status": "processing",
+                                     "cancelled": False, "created_at": _time.time()}
+    try:
+        assert client.patch(f"/api/files/{fid}/segments/1/timing",
+                            json={"in_ms": 2300}).status_code == 409
+    finally:
+        with appmod._render_jobs_lock:
+            appmod._render_jobs.pop("tj", None)
+    with appmod._rerun_jobs_lock:
+        appmod._rerun_jobs["tj2"] = {"file_id": fid, "status": "running",
+                                     "cancelled": False, "created_at": _time.time()}
+    try:
+        assert client.patch(f"/api/files/{fid}/segments/1/timing",
+                            json={"in_ms": 2300}).status_code == 409
+    finally:
+        with appmod._rerun_jobs_lock:
+            appmod._rerun_jobs.pop("tj2", None)
