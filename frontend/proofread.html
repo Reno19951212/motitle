@@ -986,10 +986,6 @@
           <option value="zh_top">ZH 上 / EN 下</option>
         </select>
       </div>
-      <div class="health-cluster" id="healthCluster">
-        <span class="hpill"><span class="led"></span><span class="hk">WHISPER</span><span class="hv">mlx-whisper</span></span>
-        <span class="hpill"><span class="led"></span><span class="hk">CLOUD</span><span class="hv">qwen3.5</span></span>
-      </div>
       <span id="userChip" data-testid="user-chip" style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--border);border-radius:14px;font-size:12px;color:var(--text-mid);">
         <span id="userChipName">—</span>
         <a id="adminLink" data-testid="admin-link" href="/user.html" style="display:none;color:var(--accent);text-decoration:none;font-size:11px;margin-right:6px;" title="管理">⚙</a>
@@ -2602,7 +2598,7 @@
       ? (_outputLangLabel('second') || '第二語言')
       : '譯文 · ZH';
     const enReadonly = (!isOutputLang) && fileInfo && fileInfo.active_kind === 'pipeline_v6';
-    const enTitle = enReadonly ? 'Qwen3 ASR 原文（V6 mode read-only — 改譯文喺 ZH 欄做）' : '';
+    const enTitle = enReadonly ? '原文（唯讀 — 改譯文喺 ZH 欄做）' : '';
     // 有第二語言才顯示 zhInput 欄位（output_lang 單語言時隱藏）
     const showZhField = !isOutputLang || (s._hasSecond === true);
     // output_lang 時第一語言也顯示 CPS

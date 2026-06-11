@@ -2204,8 +2204,8 @@
         const _COLD_STAGES = {
           profile: [{ key: 'asr', label: '轉錄' }, { key: 'mt', label: '翻譯' }, { key: 'proofread', label: '校對' }],
           pipeline_v6: [
-            { key: 'vad', label: 'VAD 切段' }, { key: 'qwen3', label: 'Qwen3 識別' },
-            { key: 'mlx', label: 'mlx 對齊' }, { key: 'merge', label: '時間合併' },
+            { key: 'vad', label: 'VAD 切段' }, { key: 'qwen3', label: '語音識別' },
+            { key: 'mlx', label: '時間對齊' }, { key: 'merge', label: '時間合併' },
             { key: 'refiner', label: 'Refiner 校對' },
           ],
           // T8 — output-language pipeline: Whisper runs once per output language.
@@ -3599,9 +3599,6 @@
 
     function renderHealthCluster() {
       const el = document.getElementById('healthCluster');
-      const asrDevice = activeProfile?.asr?.device === 'cuda' ? 'cuda'
-                      : activeProfile?.asr?.device === 'cpu' ? 'cpu' : 'auto';
-      const mtEngine = (activeProfile?.translation?.engine || '—').replace(/-cloud$/, '');
       const pendingCount = Object.values(uploadedFiles).filter(f => {
         const c = fileStatusCategory(f);
         return c === 'transcribing' || c === 'translating' || c === 'pending';
@@ -3614,16 +3611,6 @@
           <span class="led"></span>
           <span class="hk">連線</span>
           <span class="hv">${connected ? 'OK' : '離線'}</span>
-        </div>
-        <div class="health-pill ok" title="ASR 模型設定">
-          <span class="led"></span>
-          <span class="hk">ASR</span>
-          <span class="hv">${escapeHtml(asrDevice)}</span>
-        </div>
-        <div class="health-pill ok" title="MT 翻譯引擎">
-          <span class="led"></span>
-          <span class="hk">MT</span>
-          <span class="hv">${escapeHtml(mtEngine)}</span>
         </div>
         <div class="health-pill ${pendingCount > 0 ? 'warn' : 'ok'}" title="處理中或排隊">
           <span class="led"></span>
@@ -4063,9 +4050,6 @@
         return;
       }
 
-      const asrEngine = activeProfile?.asr?.engine || f.backend || 'whisper';
-      const asrModel = f.model || activeProfile?.asr?.model_size || '—';
-      const mtEngine = f.translation_engine || activeProfile?.translation?.engine || '—';
       const asrTime = f.asr_seconds != null ? formatDuration(f.asr_seconds) : '—';
       const mtTime = f.translation_seconds != null ? formatDuration(f.translation_seconds) : '—';
       const totTime = f.pipeline_seconds != null ? formatDuration(f.pipeline_seconds)
@@ -4086,16 +4070,14 @@
         <div class="info-group">
           <div class="info-title">Pipeline</div>
           <dl class="info-dl">
-            <dt>ASR</dt><dd>${escapeHtml(asrEngine)} · ${escapeHtml(asrModel)}</dd>
-            <dt>MT</dt><dd>${escapeHtml(mtEngine)}</dd>
             <dt>語言</dt><dd>${escapeHtml(f.language || activeProfile?.asr?.language || '—')}</dd>
           </dl>
         </div>
         <div class="info-group">
           <div class="info-title">處理時間</div>
           <dl class="info-dl">
-            <dt>ASR</dt><dd>${asrTime}</dd>
-            <dt>MT</dt><dd>${mtTime}</dd>
+            <dt>轉錄</dt><dd>${asrTime}</dd>
+            <dt>翻譯</dt><dd>${mtTime}</dd>
             <dt>總計</dt><dd>${totTime}</dd>
           </dl>
         </div>`;

@@ -253,11 +253,11 @@ def update_beta_mode_route():
         try:
             beta_mode.set_key(data.get("api_key") or "")
         except ValueError:
-            return jsonify({"error": "OpenRouter API key 不能為空"}), 400
+            return jsonify({"error": "API 金鑰不能為空"}), 400
 
     enabled = bool(data.get("enabled", pm.get_beta_mode()))
     if enabled and not beta_mode.key_status():
-        return jsonify({"error": "請先設定 OpenRouter API key 先可以開啟 Beta 模式"}), 400
+        return jsonify({"error": "請先設定 API 金鑰先可以開啟 Beta 模式"}), 400
 
     pm.set_beta_mode(enabled)
     try:

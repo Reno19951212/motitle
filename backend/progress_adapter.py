@@ -39,8 +39,8 @@ PIPELINE_STAGES: Dict[str, List[Dict[str, str]]] = {
     ],
     "pipeline_v6": [
         {"key": "vad",     "label": "VAD 切段"},
-        {"key": "qwen3",   "label": "Qwen3 識別"},
-        {"key": "mlx",     "label": "mlx 對齊"},
+        {"key": "qwen3",   "label": "語音識別"},
+        {"key": "mlx",     "label": "時間對齊"},
         {"key": "merge",   "label": "時間合併"},
         {"key": "refiner", "label": "Refiner 校對"},
     ],

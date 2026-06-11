@@ -239,10 +239,6 @@
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="4"/><path d="M10 10l3 3"/></svg>
             <span>搜尋檔案、術語、Profile…</span><span style="margin-left:auto;" class="kbd">⌘K</span>
           </div>
-          <div class="health-cluster" id="healthCluster">
-            <span class="hpill"><span class="led"></span><span class="hk">WHISPER</span><span class="hv">mlx-whisper</span></span>
-            <span class="hpill"><span class="led"></span><span class="hk">CLOUD</span><span class="hv">qwen3.5</span></span>
-          </div>
           <span id="userChip" data-testid="user-chip" style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--border);border-radius:14px;font-size:12px;color:var(--text-mid);">
             <span id="userChipName">—</span>
             <a id="adminLink" data-testid="admin-link" href="/user.html" style="display:none;color:var(--accent);text-decoration:none;font-size:11px;margin-right:6px;" title="管理">⚙</a>
@@ -357,23 +353,19 @@
 
             <!-- PANE: beta -->
             <div class="u-pane" id="pane-beta">
-              <div class="pane-head"><div class="h-title">Beta 測試模式</div><div class="h-sub">將後台 LLM 切換去 OpenRouter 雲端 · Cloud LLM test mode</div></div>
+              <div class="pane-head"><div class="h-title">Beta 測試模式</div><div class="h-sub">將 AI 文字處理切換去外部服務</div></div>
               <section class="ucard" id="betaSection">
-                <div class="ucard-head"><span class="lead"></span>OpenRouter 雲端模型</div>
-                <div class="pw-hint" style="margin-bottom:14px;"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5.5v3M8 11h0"/></svg>開啟後，翻譯／書面語（Qwen3.5）會改用 OpenRouter 雲端，按用量計費。語音轉文字（ASR）維持本地處理，不受影響。失敗唔會自動退回本地。</div>
+                <div class="ucard-head"><span class="lead"></span>外部 AI 服務</div>
+                <div class="pw-hint" style="margin-bottom:14px;"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5.5v3M8 11h0"/></svg>開啟後，翻譯／書面語處理會改用外部 AI 服務，按用量計費。語音轉文字維持本機處理，不受影響。失敗唔會自動退回本機。</div>
                 <div class="field" style="margin-bottom:12px;">
                   <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
                     <input type="checkbox" id="betaEnabled"> <b>啟用 Beta 測試模式</b>
                   </label>
                 </div>
                 <div class="field" style="margin-bottom:12px;">
-                  <label>OpenRouter API Key</label>
+                  <label>API 金鑰</label>
                   <input type="password" id="betaApiKey" placeholder="sk-or-…（留空 = 不變更）" autocomplete="off">
                   <div class="pw-hint" id="betaKeyStatus" style="margin-top:6px;"></div>
-                </div>
-                <div class="field" style="margin-bottom:12px;font-size:12.5px;color:var(--text-dim);">
-                  <div>LLM 模型（雲端）：<span id="betaLlmModel" style="font-family:var(--font-mono);">—</span></div>
-                  <div>ASR：本地 mlx-whisper large-v3（不受 Beta 影響）</div>
                 </div>
                 <button type="button" class="btn-primary" id="betaSaveBtn" style="align-self:flex-start;">儲存</button>
                 <span id="betaMsg" class="pw-msg"></span>

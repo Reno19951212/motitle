@@ -144,7 +144,7 @@ def test_v6_shim_stage_progress_uses_stage_type():
                          stage_type="qwen3_per_region",
                          stage_percent=50, total_stages=5)
     assert emitted[-1][1]["stage_index"] == 1
-    assert emitted[-1][1]["stage_label"] == "Qwen3 識別"
+    assert emitted[-1][1]["stage_label"] == "語音識別"
 
     # time_anchored_merge at 50% → stage_index=3
     report_from_v6_stage(adapter, file_id="f1", job_id="j1",
