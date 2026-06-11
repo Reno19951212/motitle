@@ -4426,6 +4426,10 @@
     const MAX_UPLOAD_BYTES = 5 * 1024 * 1024 * 1024;
 
     function setPendingFile(file) {
+      if (isProcessing) {
+        showToast('上傳進行中，請等完成或取消後再揀檔', 'warning');
+        return;
+      }
       if (file.size > MAX_UPLOAD_BYTES) {
         const gb = (file.size / 1024 / 1024 / 1024).toFixed(2);
         showToast(`檔案太大（${gb} GB），超出 5GB 上限`, 'error');
@@ -5583,6 +5587,11 @@
         // Preserve the currently-active file if the server response doesn't include it
         // (e.g. it was injected locally or not yet committed to the server registry).
         if (prevActive && !newFiles[prevActive.id]) newFiles[prevActive.id] = prevActive;
+        // Carry over the __pending__ card so a mid-upload fetchFileList (e.g. socket
+        // reconnect) doesn't erase the upload card and its cancel button.
+        if (uploadedFiles['__pending__'] && !newFiles['__pending__']) {
+          newFiles['__pending__'] = uploadedFiles['__pending__'];
+        }
         uploadedFiles = newFiles;
         renderAll();
       } catch (e) {
