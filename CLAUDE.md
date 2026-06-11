@@ -528,6 +528,7 @@ macOS subtitle burn-in runs through libass's **CoreText** provider, and the prod
 - **API key**: entered in the admin UI (password field, write-only), persisted to `backend/.env` as `OPENROUTER_API_KEY` (gitignored) and set in `os.environ` immediately. Loaded at app boot by `_load_env_file()` so it survives a restart.
 - **New module** `backend/beta_mode.py`: constants (`BETA_LLM_MODEL = "qwen/qwen3.5-35b-a3b"`), `key_status()`, `set_key()`.
 - **Frontend**: admin-only 「Beta 測試模式」 nav tab in `user.html` (我的帳戶 page) — enable toggle, API key input, and status display. States clearly that ASR stays local.
+- **2026-06-11 起 UI 全面唔顯示引擎/型號/供應商名**（Whisper/mlx/qwen/OpenRouter/Ollama/雲端）：4 頁假 health pills（`WHISPER mlx-whisper`/`CLOUD qwen3.5`）已剷；index 動態 pills 剩 連線+佇列；V6 stage 標籤改「語音識別」「時間對齊」（`progress_adapter.py` + index `_COLD_STAGES` 兩邊）；inspector Pipeline 組唔再列 ASR/MT 引擎名；Beta pane 用「外部 AI 服務」「API 金鑰」中性字眼（後端 `auth/admin.py` 錯誤字串同步）；死代碼 OpenRouter modal 加 `display:none` 防 innerText/a11y 漏字。內部代碼/註釋/死代碼識別字唔受影響。
 
 ### Retired UI / removed dead code (cleaned up 2026-06-06)
 
