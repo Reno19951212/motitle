@@ -255,6 +255,26 @@
       cursor: pointer;
       user-select: none;
     }
+    /* 時間軸縮放（spec 2026-06-11-segment-timing）— viewport 捲動 + inner 放大 */
+    .rv-wave { overflow-x: auto; overflow-y: hidden; }
+    .rv-wave::-webkit-scrollbar { height: 7px; }
+    .rv-wave::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+    .rv-wave-inner { position: relative; height: 100%; min-width: 100%; }
+    .rv-wf-zb {
+      height: 20px; min-width: 24px; padding: 0 6px;
+      display: inline-grid; place-items: center;
+      background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px;
+      color: var(--text-mid); cursor: pointer; font-size: 10.5px; font-family: inherit;
+      user-select: none;
+    }
+    .rv-wf-zb:hover { border-color: var(--accent-ring); color: var(--accent-2); }
+    .rv-wf-zlab { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); min-width: 30px; text-align: center; }
+    .rv-wf-drag-tip {
+      position: absolute; top: 0; transform: translateX(-50%);
+      background: var(--surface-3); border: 1px solid var(--accent-ring); border-radius: 5px;
+      padding: 1px 6px; font-family: var(--font-mono); font-size: 10px; color: var(--accent-2);
+      z-index: 4; display: none; white-space: nowrap; pointer-events: none;
+    }
     .rv-wave-bars {
       position: absolute; inset: 0 0 14px 0;
       display: flex; align-items: center; padding: 0 6px; gap: 0;
@@ -1053,15 +1073,23 @@
                 <span>撳條波形跳至該位置</span>
               </div>
               <div class="rv-b-tlh-r">
+                <button class="rv-wf-zb" onclick="setWfZoom(1)" title="顯示全片">⊡ 全片</button>
+                <button class="rv-wf-zb" onclick="wfZoomBy(0.5)" title="縮細">−</button>
+                <span class="rv-wf-zlab" id="wfZoomLab">1×</span>
+                <button class="rv-wf-zb" onclick="wfZoomBy(2)" title="放大">＋</button>
+                <button class="rv-wf-zb" onclick="wfZoomToCue()" title="Zoom 到當前段前後">⌖ 對焦本段</button>
               </div>
             </div>
             <div class="rv-wave" id="waveform" style="height:clamp(70px,9.5vh,112px);">
-              <div class="rv-wave-bars" id="waveformBars"></div>
-              <div class="rv-wave-regions" id="waveformRegions"></div>
-              <div class="rv-wave-playhead" id="waveformPlayhead" style="left:0%;display:none;">
-                <div class="rv-wave-playhead-dot"></div>
+              <div class="rv-wave-inner" id="waveformInner">
+                <div class="rv-wave-bars" id="waveformBars"></div>
+                <div class="rv-wave-regions" id="waveformRegions"></div>
+                <div class="rv-wave-playhead" id="waveformPlayhead" style="left:0%;display:none;">
+                  <div class="rv-wave-playhead-dot"></div>
+                </div>
+                <div class="rv-wave-ticks" id="waveformTicks"></div>
+                <div class="rv-wf-drag-tip" id="wfDragTip"></div>
               </div>
-              <div class="rv-wave-ticks" id="waveformTicks"></div>
             </div>
             <div class="rv-b-wave-ctrl">
               <div class="rv-b-wave-ctrl-l">
@@ -2713,21 +2741,67 @@
   function renderWaveformTicks() {
     const el = document.getElementById('waveformTicks');
     if (!el || !totalMs) return;
-    const n = 6;
-    el.innerHTML = Array.from({length: n}).map((_, i) => {
-      const ms = (i / (n - 1)) * totalMs;
-      const s = Math.floor(ms / 1000);
-      const m = Math.floor(s / 60);
-      const ss = s - m * 60;
-      return `<div class="rv-wave-tick" style="left:${(i / (n - 1)) * 100}%;">${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}</div>`;
-    }).join('');
+    // tick 密度跟 zoom：目標每 ~90px 一個
+    const vp = document.getElementById('waveform');
+    const pxTotal = (vp ? vp.clientWidth : 800) * wfZoom;
+    const approx = Math.max(2, pxTotal / 90);
+    const steps = [1000, 2000, 5000, 10000, 30000, 60000, 120000, 300000, 600000];
+    let step = steps[steps.length - 1];
+    for (const s of steps) { if (totalMs / s <= approx) { step = s; break; } }
+    let html = '';
+    for (let ms = 0; ms <= totalMs; ms += step) {
+      const sec = Math.floor(ms / 1000);
+      const m = Math.floor(sec / 60);
+      const ss = sec - m * 60;
+      html += `<div class="rv-wave-tick" style="left:${(ms / totalMs) * 100}%;">${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}</div>`;
+    }
+    el.innerHTML = html;
+  }
+
+  // ===== 時間軸縮放（spec 2026-06-11-segment-timing） =====
+  let wfZoom = 1;
+  let _wfPeaksTimer = null;
+
+  function setWfZoom(z, centerMs) {
+    wfZoom = Math.max(1, Math.min(64, z));
+    document.getElementById('waveformInner').style.width = (wfZoom * 100) + '%';
+    document.getElementById('wfZoomLab').textContent =
+      (wfZoom >= 10 ? Math.round(wfZoom) : Math.round(wfZoom * 10) / 10) + '×';
+    renderWaveformTicks();
+    renderWaveformRegions();
+    // 高 zoom 重新取樣 peaks（debounce；endpoint 接受 bins 參數）
+    clearTimeout(_wfPeaksTimer);
+    _wfPeaksTimer = setTimeout(async () => {
+      try {
+        const bins = Math.min(4096, Math.round(480 * wfZoom));
+        const r = await fetch(`${API_BASE}/api/files/${fileId}/waveform?bins=${bins}`);
+        if (!r.ok) return;
+        const d = await r.json();
+        if (d.peaks) { waveformPeaks = d.peaks; renderWaveformBars(); }
+      } catch (e) { /* keep old bars */ }
+    }, 300);
+    if (centerMs != null && totalMs) {
+      const vp = document.getElementById('waveform');
+      vp.scrollLeft = (centerMs / totalMs) * vp.clientWidth * wfZoom - vp.clientWidth / 2;
+    }
+  }
+  function wfZoomBy(f) {
+    const s = segs[cursorIdx];
+    setWfZoom(wfZoom * f, s ? (s.in + s.out) / 2 : null);
+  }
+  function wfZoomToCue() {
+    const s = segs[cursorIdx];
+    if (!s || !totalMs) return;
+    const dur = Math.max(200, s.out - s.in);
+    setWfZoom(Math.round(Math.min(64, Math.max(1, totalMs / (dur * 4)))), (s.in + s.out) / 2);
   }
 
   // Click on waveform (empty area) → seek
   document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('waveform').addEventListener('click', (e) => {
       if (e.target.closest('.rv-wave-region')) return;  // region clicks handled via setCursor
-      const rect = e.currentTarget.getBoundingClientRect();
+      if (e.target.closest('.rv-wave-grip')) return;   // 拖拉把手唔係 seek
+      const rect = document.getElementById('waveformInner').getBoundingClientRect();
       const ratio = (e.clientX - rect.left) / rect.width;
       const v = document.getElementById('videoPlayer');
       if (v && v.duration) v.currentTime = Math.max(0, Math.min(v.duration, v.duration * ratio));
