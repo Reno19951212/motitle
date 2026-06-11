@@ -2156,8 +2156,16 @@
           return `<span class="badge badge--awaiting-asr"><span class="dot"></span> 排隊中</span>`;
         case 'error':
           return `<span class="badge badge--error">✕ 錯誤</span>`;
-        case 'pending':
-          return `<span class="badge badge--idle">待上傳</span>`;
+        case 'pending': {
+          const up = f.uploadProgress;
+          // undefined = 未開始上傳（popup 階段）— 行為不變
+          if (up === undefined) return `<span class="badge badge--idle">待上傳</span>`;
+          // null = lengthComputable false（indeterminate）
+          if (up === null) return `<span class="badge badge--processing"><span class="dot" style="animation:pulse 1.3s infinite"></span> 上傳中…</span>`;
+          // bytes 送晒，等 server file.save/註冊/入隊回 202 — 呢段空窗大檔好明顯
+          if (up >= 100) return `<span class="badge badge--processing"><span class="dot" style="animation:pulse 1.3s infinite"></span> 處理緊…</span>`;
+          return `<span class="badge badge--processing"><span class="dot" style="animation:pulse 1.3s infinite"></span> 上傳中 ${up}%</span>`;
+        }
         default: {
           // V6 files have no separate MT job (refiner is inline), so
           // translation_status stays null even at full completion.
@@ -2169,6 +2177,19 @@
           return `<span class="badge badge--queued"><span class="dot"></span> 待翻譯</span>`;
         }
       }
+    }
+
+    // 上傳進度寫入 + 靶向更新 badge。onprogress 發射頻率高（可達每秒幾十次），
+    // 只喺整數百分比變化時先郁 DOM；只換 badge outerHTML，唔重建成個 queue list
+    // （避免 hover/取消掣俾 innerHTML rebuild 打斷）。
+    function _setUploadProgress(pct) {
+      const p = uploadedFiles['__pending__'];
+      if (!p || p.uploadProgress === pct) return;
+      uploadedFiles['__pending__'] = { ...p, uploadProgress: pct };
+      const host = document.querySelector('.queue-item[data-file-id="__pending__"] .qh');
+      if (!host) { renderQueue(); return; }
+      const badge = host.querySelector('.badge');
+      if (badge) badge.outerHTML = stageBadgeHtml(uploadedFiles['__pending__']);
     }
 
     // ============================================================
