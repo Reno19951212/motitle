@@ -1994,6 +1994,7 @@
     let pendingMtStyle = 'generic';
     let pendingGlossaryIds = [];   // glossary-v2: ordered array of selected glossary IDs
     let pendingGlossaryLlm = true; // glossary-v2: whether to LLM-refine glossary substitutions
+    let _olGlossaryOrder = [];     // tick-order of #olGlossary checkboxes — THIS is the priority sent to the backend (1 = first ticked = highest)
     let _olPreviewUrl = null;  // object URL for the popup's <video> preview (revoked on close)
 
     // V6 — Dual-ASR Pipeline state (v3.19)
@@ -4512,12 +4513,13 @@
     }
 
     // glossary-v2: populate the #olGlossary checkbox list from GET /api/glossaries.
-    // Selection order = list order (top of list wins), same semantics as the
-    // old <select multiple> — only the interaction changed (tick instead of
-    // Cmd/Ctrl+click).
+    // Priority = TICK ORDER: the first glossary ticked gets badge「1」(highest
+    // priority), the second「2」, etc. — _olGlossaryOrder records the sequence
+    // and is what gets submitted as glossary_ids (first-wins on the backend).
     async function _populateGlossarySelector() {
       const sel = document.getElementById('olGlossary');
       if (!sel) return;
+      _olGlossaryOrder = [];
       try {
         const resp = await fetch(`${API_BASE}/api/glossaries`);
         if (!resp.ok) { sel.innerHTML = ''; return; }
@@ -4532,11 +4534,45 @@
           return `<label style="display:flex;flex-direction:row;align-items:center;gap:6px;padding:3px 6px;border-radius:4px;cursor:pointer;font-size:12px;">
             <input type="checkbox" value="${g.id}" style="accent-color:var(--accent);flex-shrink:0;margin:0;">
             <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(g.name)}${pair}</span>
+            <span class="olg-prio" style="display:none;margin-left:auto;min-width:18px;height:18px;align-items:center;justify-content:center;background:var(--accent);color:#fff;border-radius:9px;font-size:10px;font-weight:700;font-family:var(--font-mono);padding:0 5px;flex-shrink:0;"></span>
           </label>`;
         }).join('');
+        if (!sel._olWired) {
+          sel.addEventListener('change', _onOlGlossaryToggle);
+          sel._olWired = true;
+        }
       } catch (e) {
         sel.innerHTML = '';
       }
+    }
+
+    // Tick/untick handler — maintains the tick-order array + renumbers badges.
+    function _onOlGlossaryToggle(e) {
+      const cb = e.target;
+      if (!cb || cb.type !== 'checkbox') return;
+      if (cb.checked) {
+        if (!_olGlossaryOrder.includes(cb.value)) _olGlossaryOrder.push(cb.value);
+      } else {
+        _olGlossaryOrder = _olGlossaryOrder.filter(id => id !== cb.value);
+      }
+      _refreshOlGlossaryBadges();
+    }
+
+    function _refreshOlGlossaryBadges() {
+      const sel = document.getElementById('olGlossary');
+      if (!sel) return;
+      sel.querySelectorAll('label').forEach(row => {
+        const cb = row.querySelector('input[type="checkbox"]');
+        const badge = row.querySelector('.olg-prio');
+        if (!cb || !badge) return;
+        const idx = _olGlossaryOrder.indexOf(cb.value);
+        if (cb.checked && idx >= 0) {
+          badge.textContent = String(idx + 1);
+          badge.style.display = 'inline-flex';
+        } else {
+          badge.style.display = 'none';
+        }
+      });
     }
 
     function openOutputLangModal(file) {
@@ -4624,6 +4660,10 @@
           sel.querySelectorAll('input[type="checkbox"]').forEach(cb => {
             cb.checked = f.glossary_ids.includes(cb.value);
           });
+          // Restore the file's saved priority order as the tick order.
+          _olGlossaryOrder = f.glossary_ids.filter(id =>
+            sel.querySelector(`input[value="${id}"]`));
+          _refreshOlGlossaryBadges();
         }
       });
       _openModalWithFocus('olOverlay', document.activeElement);
@@ -4675,11 +4715,14 @@
       pendingSourceLanguage = (document.getElementById('olSourceLang') || {}).value || 'yue';
       pendingScript = (document.getElementById('olScript') || {}).value || 'trad';
       pendingMtStyle = (document.getElementById('mtStyle') || {}).value || 'generic';
-      // glossary-v2: collect ticked glossary IDs in DOM order (top = priority)
+      // glossary-v2: collect ticked glossary IDs in TICK order (badge number =
+      // priority). Filter against checked boxes as a consistency guard.
       const glossarySel = document.getElementById('olGlossary');
       pendingGlossaryIds = glossarySel
-        ? Array.from(glossarySel.querySelectorAll('input[type="checkbox"]:checked'))
-            .map(cb => cb.value).filter(Boolean)
+        ? _olGlossaryOrder.filter(id => {
+            const cb = glossarySel.querySelector(`input[value="${id}"]`);
+            return cb && cb.checked;
+          })
         : [];
       const llmCheck = document.getElementById('olGlossaryLlm');
       pendingGlossaryLlm = llmCheck ? llmCheck.checked : true;
@@ -6059,7 +6102,7 @@
                  先揀到多個，冇任何提示 — 改成剔選即用）。外層唔可以用 <label>，
                  否則撳任何位置都會 toggle 第一個 checkbox。 -->
             <div style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-              <span style="font-weight:600;">詞彙表（剔選使用，可選多個 — 清單上方者優先）</span>
+              <span style="font-weight:600;">詞彙表（可選多個 — 數字 = 優先次序，按剔選先後）</span>
               <div id="olGlossary" class="or-input" style="max-height:120px;overflow-y:auto;padding:4px;display:flex;flex-direction:column;gap:2px;">
                 <span style="color:var(--text-dim);padding:3px 6px;">載入中…</span>
               </div>
