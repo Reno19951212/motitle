@@ -425,3 +425,199 @@ def align_quality(span, name):
         if q > best[0]:
             best = (q, False)
     return best
+
+
+# ======================================================= Stage 2 LLM judge ==
+# Port: b4_pipeline.py JUDGE_SYS / llm_tier_filter / prune_candidates /
+# build_judge_user / parse_accepts — 原樣（build_judge_user adapt 做 positional
+# index；prompt 行格式不變 — 改格式要重跑驗證）。
+
+THINK_RE = re.compile(r'<think>.*?</think>', re.S)
+
+JUDGE_SYS = (
+    '你係香港賽馬評述字幕嘅校對員。輸入係粵語 ASR 字幕（會有同音錯字），'
+    '同埋一批「候選修正」：每個候選指出本句某個片段可能係詞彙表入面'
+    '某個馬名／賽馬術語嘅同音錯認，並附兩者嘅粵拼讀音對照。\n'
+    '你嘅任務：逐個候選判斷 accept 定 reject。\n'
+    '規則：\n'
+    '1. ASR 經常將馬名／賽馬術語錯認成同音或近音嘅日常詞。如果候選同原文'
+    '片段粵拼相同或極近（懶音 n/l、吞字、聲調差），而且喺賽馬評述語境入面'
+    '候選詞先至講得通，就 accept。\n'
+    '2. 原文片段本身係通順、自然嘅日常用語，而粵拼對照顯示兩者讀音明顯有別'
+    '（成個音節唔同）→ reject。唔肯定 → reject。\n'
+    '2b. 但如果原文片段喺句子入面根本讀唔通（似 ASR 亂碼，例如唔成詞嘅字串），'
+    '而候選詞放返入句子之後通順、又同賽事上下文夾，就應該 accept — '
+    '呢啲正正係 ASR 錯認嘅典型情況，就算讀音差一個音節都應該修。\n'
+    '3. 大部分候選係噪音，全部 reject 係正常結果。注意 span 可能只係句中'
+    '兩個正常詞嘅交界切片 — 判斷要睇成句通順度，唔好淨係睇 span 本身；'
+    '原句本身通順就 reject。\n'
+    '4. 候選如果係馬名而唔喺「已確認出賽馬」名單入面，要格外懷疑，'
+    '除非上下文極強烈支持。\n'
+    '5. 你唔可以自由改寫任何文字，只可以對候選 accept／reject。\n'
+    '例子（賽馬評述描述馬匹位置）：\n'
+    '  原文「大愛當係翠紅」候選「大愛當→大外檔」(daai6 oi3 dong3 vs '
+    'daai6 ngoi6 dong3) — 讀音極近，賽馬語境「大外檔」先講得通 → accept。\n'
+    '  原文「一起步的時候」候選「時候→殿後」(si4 hau6 vs din6 hau6) — '
+    '「時候」本身通順，首音節 si/din 明顯唔同 → reject。\n'
+    '輸出純 JSON（無 markdown fence、無其他文字）：{"accepts": [<候選編號>...]}；'
+    '冇一個 accept 就輸出 {"accepts": []}。')
+
+
+def llm_tier_filter(c):
+    if c['glossary_name'] in c['span']:
+        return False    # span 已包含正名 — 替換=刪周邊字, 唔係同音修復
+    eligible = (
+        (c['match_level'] == 3 and c['fuzzy_dist'] == 1
+         and c['target_len'] >= MIN_TARGET_LEN)
+        # 2字術語只可能嚟自 supplement 靜態術語表（尾二/殿後…），交 LLM 判決
+        or (c['source_index'] == 'supplement' and c['target_len'] == 2))
+    if not eligible:
+        return False
+    # near-substitution gate: d=1 substitution 嘅差異音節對必須 share onset/rime
+    # （頂出 ceot vs 殿後 hau 零共通 → 唔係 plausible 錯聽, 剔走）
+    _q, far = align_quality(c['span'], c['glossary_name'])
+    return not far
+
+
+def prune_candidates(cands, per_span_top=3, per_seg_cap=12):
+    by_range = {}
+    for c in sorted(cands, key=lambda c: -c['score']):
+        by_range.setdefault((c['start'], c['end']), []).append(c)
+    kept = []
+    for _rng, lst in by_range.items():
+        kept.extend(lst[:per_span_top])
+    kept.sort(key=lambda c: -c['score'])
+    return sorted(kept[:per_seg_cap], key=lambda c: (c['start'], -c['score']))
+
+
+def _jp(text):
+    syls = jyut_seq(text)
+    return ' '.join(syls) if syls else '?'
+
+
+def build_judge_user(segs, i, cands, roster, ctx=3):
+    """Per-seg judge user prompt（proto 格式原樣；segment 編號 adapt 做 positional）。"""
+    parts = []
+    if roster:
+        parts.append('本場已確認出賽馬（全文已偵測正名）：' + '、'.join(roster))
+    before = [(k, segs[k]) for k in range(max(0, i - ctx), i)]
+    after = [(k, segs[k]) for k in range(i + 1, min(len(segs), i + ctx + 1))]
+    if before:
+        parts.append('前文：\n' + '\n'.join(
+            '[{}] {}'.format(k, s.get('text') or '') for k, s in before))
+    parts.append('本句：\n[{}] {}'.format(i, segs[i].get('text') or ''))
+    if after:
+        parts.append('後文：\n' + '\n'.join(
+            '[{}] {}'.format(k, s.get('text') or '') for k, s in after))
+    lines = []
+    for k, c in enumerate(cands, 1):
+        src = '馬名詞彙表' if c['source_index'] == 'glossary' else '賽馬術語表'
+        lines.append('{}. 原文「{}」({}) → 候選「{}」({})（{}）'.format(
+            k, c['span'], _jp(c['span']),
+            c['glossary_name'], _jp(c['glossary_name']), src))
+    parts.append('候選修正：\n' + '\n'.join(lines))
+    return '\n\n'.join(parts)
+
+
+def parse_accepts(raw, n_cands):
+    txt = THINK_RE.sub('', raw or '').strip()
+    m = re.search(r'\{.*\}', txt, re.S)
+    if not m:
+        return [], 'no_json'
+    try:
+        obj = json.loads(m.group())
+    except Exception:
+        return [], 'bad_json'
+    ids = obj.get('accepts', [])
+    if not isinstance(ids, list):
+        return [], 'bad_shape'
+    ok = sorted({int(x) for x in ids
+                 if isinstance(x, (int, str)) and str(x).isdigit()
+                 and 1 <= int(x) <= n_cands})
+    return ok, 'ok'
+
+
+def judge_tier(segments: List[dict], index: dict, llm_call,
+               votes: int = 3,
+               cancel_check: Optional[Callable[[], None]] = None
+               ) -> Tuple[List[dict], List[List[dict]]]:
+    """L3 d=1 候選 → 受限 LLM 判決（accept/reject only）→ 機械 apply。
+
+    五重 guardrail（B4 原樣）：①輸出限 {"accepts":[id…]} ②正名保護
+    ③near-substitution onset/rime gate ④votes-run majority（2 字候選要全票）
+    ⑤音節對齊 tie-break。每段判決前 call cancel_check。
+
+    Judge 失敗（LLM 異常／JSON 爆）→ 該段保留原文、changes 空 — fail-open
+    唔 fail-job；cancel_check 嘅 exception 照傳（喺 try 之外 call）。"""
+    changes: List[List[dict]] = [[] for _ in segments]
+    new_segs = [{**s} for s in segments]
+    if llm_call is None or not index['entries']:
+        return new_segs, changes
+    name_set = set(index['meta'])
+    cands, _noop = match_segments(new_segs, index)
+    glossary_names = {n for n, m in index['meta'].items()
+                      if m['source'] == 'glossary'}
+    roster = sorted({n for n in glossary_names
+                     if any(n in (s.get('text') or '') for s in new_segs)})
+    by_seg: Dict[int, List[dict]] = {}
+    for c in cands:
+        if not llm_tier_filter(c):
+            continue
+        prot = verbatim_name_ranges(new_segs[c['seg_idx']].get('text') or '', name_set)
+        if blocked_by_protection(c, prot):
+            continue
+        by_seg.setdefault(c['seg_idx'], []).append(c)
+    need = votes // 2 + 1       # majority（proto VOTES=3, NEED=2）
+    for i, s in enumerate(new_segs):
+        cl = prune_candidates(by_seg.get(i, []))
+        if not cl:
+            continue
+        if cancel_check is not None:
+            cancel_check()      # 喺 try 之外 — cancel 一定要傳上去
+        user = build_judge_user(new_segs, i, cl, roster)
+        try:
+            vote_sets = []
+            for _v in range(votes):
+                raw = llm_call(JUDGE_SYS, user)
+                ids, _status = parse_accepts(raw, len(cl))
+                vote_sets.append(set(ids))
+            tally = {k: sum(1 for vs in vote_sets if k in vs)
+                     for k in set().union(*vote_sets)}
+            # 2 字候選要全票（B4 seg17 FP 教訓）；≥3 字 majority 即可
+            ids = sorted(k for k, v in tally.items()
+                         if v >= (votes if cl[k - 1]['target_len'] == 2 else need))
+            accepted = [cl[k - 1] for k in ids]
+            if not accepted:
+                continue
+            new_text, applied, _amb = greedy_apply(
+                s.get('text') or '', accepted, 2, tie_break='phonetic')
+            new_segs[i] = {**s, 'text': new_text}
+            changes[i] = _changes_from_applied(applied, JUDGE_TAG)
+        except Exception:
+            continue            # fail-open: 該段保留原文、changes 空
+    return new_segs, changes
+
+
+# ============================================================= orchestrator =
+def correct_segments(segments: List[dict], glossaries: Optional[List[dict]] = None,
+                     mt_style: str = "generic", llm_call=None,
+                     cancel_check: Optional[Callable[[], None]] = None,
+                     use_llm: bool = True, votes: int = 3
+                     ) -> Tuple[List[dict], List[List[dict]]]:
+    """三層 orchestrator。回 (new_segments, per_seg_changes)，changes 同 segments 等長。
+    中文判定由 caller 負責（呢度唔 gate 語言）。入參唔 mutate。"""
+    lexicon = load_lexicon(mt_style)
+    index = build_index(glossaries, lexicon)
+    out: List[dict] = []
+    all_changes: List[List[dict]] = []
+    for s in segments:
+        t, ch = stage0_rules(s.get("text") or "", mt_style)
+        out.append({**s, "text": t})
+        all_changes.append(ch)
+    out, auto_ch = auto_tier(out, index)
+    all_changes = [a + b for a, b in zip(all_changes, auto_ch)]
+    if use_llm and llm_call is not None and index["entries"]:
+        out, judge_ch = judge_tier(out, index, llm_call, votes=votes,
+                                   cancel_check=cancel_check)
+        all_changes = [a + b for a, b in zip(all_changes, judge_ch)]
+    return out, all_changes

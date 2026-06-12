@@ -70,3 +70,109 @@ def test_english_content_noop():
     idx = pc.build_index(GLOSS, LEX)
     segs, changes = pc.auto_tier(_segs("the quick brown fox"), idx)
     assert segs[0]["text"] == "the quick brown fox"
+
+
+# ---------- Stage 2 受限 LLM 判決 ----------
+# 注意（deviation from plan 樣板）：proto build_judge_user 嘅候選行格式係
+# 「N. 原文「…」(jp) → 候選「…」(jp)（來源）」；「[N] …」係前後文 context 行
+# （segment 編號）。fake 要對住候選行 parse，唔係 context 行。
+
+def _candidate_ids(user):
+    import re
+    return [int(i) for i in re.findall(r'^(\d+)\. ', user, flags=re.M)]
+
+
+def _fake_llm_accept_all(system, user):
+    # build_judge_user 逐行列 candidates「N. …」；fake 全 accept
+    return json.dumps({"accepts": _candidate_ids(user)})
+
+
+def _fake_llm_reject_all(system, user):
+    return json.dumps({"accepts": []})
+
+
+def test_judge_tier_accepts_d1_candidate():
+    idx = pc.build_index(GLOSS, LEX)
+    # 內藍米字 vs 內欄位置：d=1 fuzzy（研究實證 case）→ AUTO 唔郁，判決 tier 接手
+    segs = _segs("內藍米字錶之星河")
+    segs1, ch1 = pc.auto_tier(segs, idx)
+    segs2, ch2 = pc.judge_tier(segs1, idx, _fake_llm_accept_all, votes=1)
+    assert "內欄位置" in segs2[0]["text"]
+    assert any(c["glossary"] == pc.JUDGE_TAG for c in ch2[0])
+
+
+def test_judge_tier_reject_keeps_text():
+    idx = pc.build_index(GLOSS, LEX)
+    segs, ch = pc.judge_tier(_segs("內藍米字錶之星河"), idx, _fake_llm_reject_all, votes=1)
+    assert segs[0]["text"] == "內藍米字錶之星河"
+    assert ch[0] == []
+
+
+def test_judge_majority_vote():
+    idx = pc.build_index(GLOSS, LEX)
+    calls = {"n": 0}
+
+    def flaky(system, user):
+        calls["n"] += 1
+        return _fake_llm_accept_all(system, user) if calls["n"] != 2 else _fake_llm_reject_all(system, user)
+    segs, ch = pc.judge_tier(_segs("內藍米字錶之星河"), idx, flaky, votes=3)
+    assert "內欄位置" in segs[0]["text"]       # 2/3 票 accept（≥3 字候選）
+
+
+def test_judge_two_char_needs_unanimous():
+    idx = pc.build_index(GLOSS, LEX)
+    calls = {"n": 0}
+
+    def two_of_three(system, user):
+        calls["n"] += 1
+        return _fake_llm_accept_all(system, user) if calls["n"] != 2 else _fake_llm_reject_all(system, user)
+    # 電流→殿後（2 字候選）2/3 票 → 唔准（seg17 FP 教訓：2 字要全票）
+    segs, ch = pc.judge_tier(_segs("暫時電流精算暴雪"), idx, two_of_three, votes=3)
+    assert "電流" in segs[0]["text"]
+
+
+def test_judge_cancel_check_raises():
+    class _C(Exception):
+        pass
+
+    def boom():
+        raise _C()
+    idx = pc.build_index(GLOSS, LEX)
+    with pytest.raises(_C):
+        pc.judge_tier(_segs("內藍米字錶之星河"), idx, _fake_llm_accept_all, votes=1, cancel_check=boom)
+
+
+def test_judge_llm_error_fails_open():
+    def explode(system, user):
+        raise RuntimeError("llm down")
+    idx = pc.build_index(GLOSS, LEX)
+    segs, ch = pc.judge_tier(_segs("內藍米字錶之星河"), idx, explode, votes=1)
+    assert segs[0]["text"] == "內藍米字錶之星河"     # fail-open 唔 fail-job
+    assert ch[0] == []
+
+
+# ---------- orchestrator ----------
+
+def test_correct_segments_end_to_end():
+    segs = _segs("M2 升制快車內藍米字")
+    out, changes = pc.correct_segments(segs, glossaries=GLOSS, mt_style="racing",
+                                       llm_call=_fake_llm_accept_all, use_llm=True, votes=1)
+    t = out[0]["text"]
+    assert t.startswith("尾二") and "星際快車" in t and "內欄位置" in t
+    assert len(changes) == len(segs)
+    tags = {c["glossary"] for c in changes[0]}
+    assert pc.AUTO_TAG in tags                       # stage0+auto 都記做 AUTO_TAG 或 stage0 自己 tag
+
+
+def test_correct_segments_no_glossary_only_stage0():
+    out, changes = pc.correct_segments(_segs("M3 升制快車"), glossaries=None, mt_style="racing",
+                                       llm_call=None, use_llm=False)
+    assert out[0]["text"].startswith("尾三")
+    assert "升制快車" in out[0]["text"]              # 無 glossary → 馬名層唔行（lexicon 照行）
+    assert isinstance(changes, list) and len(changes) == 1
+
+
+def test_correct_segments_immutable():
+    segs = _segs("升制快車")
+    pc.correct_segments(segs, glossaries=GLOSS, mt_style="racing", use_llm=False)
+    assert segs[0]["text"] == "升制快車"             # 入參唔准 mutate
