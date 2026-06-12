@@ -705,6 +705,9 @@ def scan_track(
                 "glossary_id": cand.get("glossary_id"),
                 "glossary": cand["glossary"],
                 "approved": row_approved,
+                # 掃描嗰刻嘅權威 row 文字 — 前端攞嚟做 highlight 顯示 +
+                # apply-item 嘅 expected_text（衝突檢查基準）
+                "row_text": text,
             })
 
         for cand in _filter_target_side(text, glossaries, output_lang,
@@ -726,6 +729,7 @@ def scan_track(
                 "glossary_id": cand.get("glossary_id"),
                 "glossary": cand["glossary"],
                 "approved": row_approved,
+                "row_text": text,
             })
 
     return {

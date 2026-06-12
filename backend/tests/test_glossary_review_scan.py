@@ -25,6 +25,7 @@ def test_target_side_alias_hit_is_fix():
     assert len(items) == 1 and items[0]["kind"] == "fix"
     assert items[0]["alias"] == "快活谷" and items[0]["canonical"] == "跑馬地"
     assert items[0]["idx"] == 0 and items[0]["entry_id"] == "e-1"
+    assert items[0]["row_text"] == "快活谷今晚有賽事。"
     assert items[0]["approved"] is False
 
 
