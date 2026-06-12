@@ -732,12 +732,16 @@ def _run_output_lang_second(file_id, job, audio_path, cancel_event):
             # so a zh-source glossary routes correctly in the paired derive.
             aligned = build_aligned_bilingual(base2, outs2, content_asr_lang(src2), scr2,
                                               _make_ollama_llm_call(),
-                                              glossaries=glossaries, glossary_llm=glossary_llm)
+                                              glossaries=glossaries, glossary_llm=glossary_llm,
+                                              cancel_check=_make_cancel_check(cancel_event))
             with _registry_lock:
                 if file_id in _file_registry:
                     _file_registry[file_id]["aligned_bilingual"] = aligned
                     _save_registry()
-    except Exception:
+    except Exception as _e_o1:
+        from jobqueue.queue import JobCancelled
+        if isinstance(_e_o1, JobCancelled):
+            raise          # 用戶取消唔係 best-effort — 一定要傳上去變 cancelled
         pass  # aligned view is best-effort; single-language output already persisted
 
 

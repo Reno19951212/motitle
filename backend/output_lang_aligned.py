@@ -69,11 +69,13 @@ def derive_aligned_output(base: List[dict], content_lang: str, output_lang: str,
 def build_aligned_bilingual(base: List[dict], output_languages: List[str], content_lang: str,
                             script: str, llm_call: Callable[[str, str], str],
                             glossaries: Optional[List[dict]] = None,
-                            glossary_llm: bool = True) -> List[dict]:
+                            glossary_llm: bool = True,
+                            cancel_check: Optional[Callable[[], None]] = None) -> List[dict]:
     """Assemble [{start,end,by_lang:{lang:text}}] on the base grid (all outputs 1:1).
     `glossaries` (if supplied) is threaded into each output's derive_aligned_output."""
     derived = {ol: derive_aligned_output(base, content_lang, ol, script, llm_call,
-                                         glossaries=glossaries, glossary_llm=glossary_llm)
+                                         glossaries=glossaries, glossary_llm=glossary_llm,
+                                         cancel_check=cancel_check)
                for ol in output_languages}
     aligned: List[dict] = []
     for i, b in enumerate(base):
