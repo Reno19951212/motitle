@@ -5045,6 +5045,82 @@ def glossary_reapply(file_id):
     }), 200
 
 
+@app.route('/api/files/<file_id>/glossary-preview', methods=['POST'])
+@require_file_owner
+def api_glossary_preview(file_id):
+    """Mechanical glossary scan (dry-run, ZERO side effects) — spec 2026-06-12 §4.
+
+    For every output-language track, runs the SAME ``route_for_output`` +
+    candidate-filter rules as the pipeline's ``glossary_stage`` so a 'fix' here
+    is exactly what the pipeline would have acted on. No LLM, no registry write.
+
+    Body (optional): ``{"glossary_ids": [...]}`` — defaults to the entry's
+    stored ids. The override path exists only for tests; the frontend PATCHes
+    the file first, then scans (one source of truth).
+
+    Returns 200 ``{tracks: [...], totals: {fix, ok, rows}}``.
+    """
+    from output_lang_glossary import scan_track
+    from output_lang_router import content_asr_lang
+    from output_lang_aligned import derive_mode as _derive_mode
+
+    data = request.get_json(silent=True) or {}
+
+    # ----- Phase 1: read-only snapshot under the lock ------------------------
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+        if not entry:
+            return jsonify({"error": "文件不存在"}), 404
+        if entry.get("active_kind") != "output_lang":
+            return jsonify({"error": "glossary-preview 只支援 output_lang 檔案"}), 400
+        rows = list(entry.get("translations") or [])
+        content_segs = list(entry.get("content_asr_segments") or [])
+        output_langs = list(entry.get("output_languages") or [])
+        source_language = entry.get("source_language") or "yue"
+        if "glossary_ids" in data and data["glossary_ids"] is not None:
+            glossary_ids = list(data["glossary_ids"])
+        else:
+            glossary_ids = list(entry.get("glossary_ids") or [])
+
+    # Validate each glossary id (outside the lock — manager has its own lock).
+    for gid in glossary_ids:
+        if _glossary_manager.get(gid) is None:
+            return jsonify({"error": f"未知詞彙表: {gid}"}), 400
+    glossaries = _load_glossaries(glossary_ids)
+
+    # content_lang / derive_mode — same routing maths as glossary-reapply.
+    content_lang = content_asr_lang(source_language)
+    src_texts = [s.get("text", "") for s in content_segs]
+    approved = [(r.get("status") == "approved") for r in rows]
+
+    tracks = []
+    for lang in output_langs:
+        texts = [((r.get("by_lang") or {}).get(lang) or {}).get("text")
+                 or r.get(f"{lang}_text") or "" for r in rows]
+        mode = _derive_mode(content_lang, lang)
+        trk = scan_track(
+            texts=texts,
+            src_texts=src_texts if mode == "mt" else None,
+            glossaries=glossaries,
+            output_lang=lang,
+            content_lang=content_lang,
+            derive_mode=mode,
+            approved=approved,
+        )
+        # Annotate each item with the cue start time (frontend seek/jump).
+        for it in trk["items"]:
+            i = it["idx"]
+            it["start"] = rows[i].get("start") if i < len(rows) else None
+        tracks.append(trk)
+
+    totals = {
+        "fix": sum(1 for t in tracks for i in t["items"] if i["kind"] == "fix"),
+        "ok": sum(1 for t in tracks for i in t["items"] if i["kind"] == "ok"),
+        "rows": len(rows),
+    }
+    return jsonify({"tracks": tracks, "totals": totals})
+
+
 @app.route('/api/transcribe/sync', methods=['POST'])
 @admin_required
 def transcribe_sync():
