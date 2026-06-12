@@ -235,6 +235,20 @@ def _isolate_app_data(request, tmp_path, monkeypatch):
         # Managers not importable in this test context — non-V6 tests are fine.
         pass
 
+    # Same leak class for the glossary manager (missed in v3.19): API-level
+    # glossary tests (e.g. test_glossary_multilingual's route tests) wrote
+    # real files into backend/config/glossaries/ — dozens of duplicate-named
+    # "T"/"EN-ZH"/"JA-ZH"/"ZH-ZH style" stubs accumulated on dev machines and
+    # made the Glossary page look like deletion was broken (delete one, six
+    # identically-named copies remain).
+    try:
+        from glossary import GlossaryManager
+        monkeypatch.setattr(
+            app, "_glossary_manager", GlossaryManager(test_managers_config)
+        )
+    except ImportError:
+        pass
+
     # Snapshot and clear the registry under the same lock production code uses.
     with app._registry_lock:
         original_registry = app._file_registry.copy()
