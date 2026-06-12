@@ -969,7 +969,9 @@
       </div>
       <div class="rv-kbd-hint">
         <span class="kbd">↑</span><span class="kbd">↓</span><span>導航</span>
-        <span class="kbd">⌘↵</span><span>批核</span>
+        <span class="kbd">→</span><span>批核前進</span>
+        <span class="kbd">←</span><span>取消批核</span>
+        <span class="kbd">⌘↵</span><span>編輯中批核</span>
       </div>
       <div class="rv-header-source" style="display:inline-flex;gap:6px;align-items:center;margin-left:12px;font-size:11px;">
         <span style="color:var(--text-dim);">字幕來源</span>
@@ -2877,10 +2879,10 @@
           下一段 ▶ <span class="kbd">↓</span>
         </button>
         <div class="spacer"></div>
-        ${s.approved ? `<button class="btn btn-ghost" style="color:var(--warning)" onclick="unapproveSegment(${s.idx})" aria-label="取消批核此段">取消批核</button>` : ''}
+        ${s.approved ? `<button class="btn btn-ghost" style="color:var(--warning)" onclick="unapproveSegment(${s.idx})" aria-label="取消批核此段">取消批核 <span class="kbd">←</span></button>` : ''}
         <button class="btn btn-ghost" onclick="approveAll()">✓ 全批核</button>
         <button class="btn btn-primary" onclick="approveAndAdvance()" ${s.approved ? 'disabled' : ''}>
-          ✓ 批核並前進 <span class="kbd">⌘↵</span>
+          ✓ 批核並前進 <span class="kbd">→</span>
         </button>
       </div>`;
     // Fresh DOM matches segment data — reset dirty flags so a stale flag
