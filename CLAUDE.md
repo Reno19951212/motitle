@@ -427,6 +427,12 @@ Full chronological feature/version history → [docs/history.md](docs/history.md
 
 This section summarises the CURRENT behaviour a developer needs; older entries live in history.md.
 
+### Upload progress badge (dashboard, NEW 2026-06-12)
+
+- 上傳影片期間，檔案卡 badge 實時顯示「上傳中 N%」（XHR `upload.onprogress`，fetch 已換走）→ bytes 送晒後「處理緊…」（server file.save/註冊/入隊空窗）→ 202 後接返現有「排隊中/轉錄中」。`lengthComputable=false` 時顯示「上傳中…」無 %。
+- 「取消上傳」掣（`q-actions` 模式）+ pending 卡 ✕ 都行 `cancelUpload()`（`xhr.abort()` → 安靜清理）；揀檔時前置 5GB size check（同 `MAX_CONTENT_LENGTH` 同步，`app.py:131`）+ isProcessing guard（上傳中再揀檔會俾 warning toast 擋走）；`fetchFileList` 全量重建保留 `__pending__` 卡。
+- 純前端（`index.html` 單檔）：`uploadWithProgress()` helper（onloadend 單一 chokepoint 清 tracker）、`uploadedFiles['__pending__'].uploadProgress` field、`stageBadgeHtml` pending case 四態、`_setUploadProgress()` 節流靶向 badge 更新。**零後端改動**；`#topProgress` 同 queue panel 上傳期間維持原狀（用戶揀咗最簡方案 — spec: docs/superpowers/specs/2026-06-11-upload-progress-design.md）。死代碼 415 分支已清（後端實際回 400）。
+
 ### Token Licensing (on-prem offline activation)
 
 - **What it is**: a fully offline, per-deployment software licence. The whole app is gated behind a signed Ed25519 token so an unlicensed install is locked (read-only auth + licence-management surface only). No phone-home — verification is 100% local against an embedded public key.
