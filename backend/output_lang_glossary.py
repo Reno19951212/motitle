@@ -653,3 +653,84 @@ def _filter_target_side(
                         break
 
     return candidates
+
+
+# ---------------------------------------------------------------------------
+# Proofread-page review scan (pure, read-only — spec 2026-06-12 §4)
+# ---------------------------------------------------------------------------
+
+def scan_track(
+    texts: List[str],
+    src_texts: Optional[List[str]],
+    glossaries: List[dict],
+    output_lang: str,
+    content_lang: str,
+    derive_mode: str,
+    approved: List[bool],
+) -> dict:
+    """Dry-run glossary scan for ONE output-language track.
+
+    Reuses the SAME matching filters as the pipeline's glossary_stage so a
+    'fix' item here is exactly what the pipeline would have acted on. No LLM,
+    no mutation — classification only.
+
+    Returns {lang, mode, side, applicable_glossaries, inapplicable_glossaries,
+             items:[{idx, kind: 'fix'|'ok', alias, canonical, source,
+                     entry_id, glossary_id, glossary, approved}]}.
+    """
+    side = None
+    applicable, inapplicable = [], []
+    for g in glossaries:
+        s = route_for_output(g, output_lang, content_lang, derive_mode)
+        if s is None:
+            inapplicable.append(g.get("name", ""))
+        else:
+            applicable.append(g.get("name", ""))
+            side = side or s
+
+    items: List[dict] = []
+    for i, text in enumerate(texts):
+        row_approved = bool(approved[i]) if i < len(approved) else False
+        src_text = src_texts[i] if (src_texts is not None and i < len(src_texts)) else text
+
+        for cand in _filter_source_side(src_text, glossaries, output_lang,
+                                        content_lang, derive_mode):
+            kind = "ok" if cand["target"] in text else "fix"
+            items.append({
+                "idx": i, "kind": kind,
+                "alias": cand["source"],          # source term 係觸發詞
+                "canonical": cand["target"],
+                "source": cand["source"],
+                "entry_id": cand.get("entry_id"),
+                "glossary_id": cand.get("glossary_id"),
+                "glossary": cand["glossary"],
+                "approved": row_approved,
+            })
+
+        for cand in _filter_target_side(text, glossaries, output_lang,
+                                        content_lang, derive_mode):
+            hit_alias = next((a for a in cand.get("aliases", [])
+                              if a and len(a) > 2 and a in text), None)
+            if hit_alias:
+                kind, alias = "fix", hit_alias
+            elif cand["target"] in text:
+                kind, alias = "ok", cand["target"]
+            else:
+                continue
+            items.append({
+                "idx": i, "kind": kind,
+                "alias": alias,
+                "canonical": cand["target"],
+                "source": cand.get("source", ""),
+                "entry_id": cand.get("entry_id"),
+                "glossary_id": cand.get("glossary_id"),
+                "glossary": cand["glossary"],
+                "approved": row_approved,
+            })
+
+    return {
+        "lang": output_lang, "mode": derive_mode, "side": side,
+        "applicable_glossaries": applicable,
+        "inapplicable_glossaries": inapplicable,
+        "items": items,
+    }
