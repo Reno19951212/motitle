@@ -5165,6 +5165,10 @@ def api_glossary_apply_item(file_id):
             return jsonify({"error": "文件不存在"}), 404
         if entry.get("active_kind") != "output_lang":
             return jsonify({"error": "只支援 output_lang 檔案"}), 400
+        # Boundary validation: a bogus lang would otherwise CREATE a brand-new
+        # by_lang track + {lang}_text field (review finding).
+        if lang not in (entry.get("output_languages") or []):
+            return jsonify({"error": "lang 必須係檔案輸出語言之一"}), 400
         rows = entry.get("translations") or []
         if not (0 <= idx < len(rows)):
             return jsonify({"error": "idx 出界"}), 400
@@ -5178,6 +5182,10 @@ def api_glossary_apply_item(file_id):
                    or row.get(f"{lang}_text") or "")
         if current != expected_text:
             return jsonify({"error": "段落已被修改 — 請重新掃描"}), 409
+        # Cue-timing snapshot: a MECHANICAL split duplicates the full text into
+        # both halves, so a text-only conflict check would pass while idx now
+        # points at a shortened cue (review finding) — re-checked in Phase 3.
+        row_start, row_end = row.get("start"), row.get("end")
         # mt-track source reference (best-effort — used only when present).
         segs = entry.get("content_asr_segments") or []
         src_text = segs[idx].get("text", "") if idx < len(segs) else ""
@@ -5223,6 +5231,10 @@ def api_glossary_apply_item(file_id):
         current2 = (((row.get("by_lang") or {}).get(lang) or {}).get("text")
                     or row.get(f"{lang}_text") or "")
         if current2 != expected_text:
+            return jsonify({"error": "段落已被修改 — 請重新掃描"}), 409
+        if row.get("start") != row_start or row.get("end") != row_end:
+            # Same text but the cue moved/shrank (e.g. mechanical split at this
+            # position during the LLM window) — content check can't see it.
             return jsonify({"error": "段落已被修改 — 請重新掃描"}), 409
 
         bl = row.setdefault("by_lang", {}).setdefault(lang, {})

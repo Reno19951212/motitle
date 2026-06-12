@@ -374,3 +374,42 @@ def test_reapply_not_blocked_when_render_other_file(client_with_entry, monkeypat
     finally:
         with app_module._render_jobs_lock:
             app_module._render_jobs.pop("rj-other", None)
+
+
+# ---------------------------------------------------------------------------
+# Review follow-ups (adversarial review 2026-06-12)
+# ---------------------------------------------------------------------------
+
+def test_apply_item_unknown_lang_400(client_with_entry):
+    """lang 必須係檔案 output_languages 之一 — 否則會被惡意/壞 client 創造
+    出全新嘅 by_lang 軌（boundary validation gap, review LOW）。"""
+    client, fid, _ = client_with_entry
+    r = client.post(f"/api/files/{fid}/glossary-apply-item", json={
+        "idx": 0, "lang": "ja", "alias": "快活谷", "canonical": "跑馬地",
+        "expected_text": ""})
+    assert r.status_code == 400
+
+
+def test_apply_item_409_when_timing_changed_mid_llm(client_with_entry, monkeypatch):
+    """Mechanical split 喺 LLM 窗口期間令 idx 嘅文字不變但 cue 時間變咗 —
+    純文字 expected_text 比較會錯誤放行（review MEDIUM）。Phase 3 必須連
+    cue start/end 一齊 re-check。呢度用 mock LLM 喺鎖外窗口改 row end 模擬。"""
+    import app as app_module
+    client, fid, app_mod = client_with_entry
+
+    def _mutating_llm():
+        def call(system, user):
+            row = app_mod._file_registry[fid]["translations"][0]
+            row["end"] = round(float(row.get("end") or 2.0) / 2, 3)  # 模擬 split 截短
+            return '{"text": "跑馬地今晚有賽事。"}'
+        return call
+
+    monkeypatch.setattr(app_mod, "_make_ollama_llm_call", _mutating_llm)
+    entry = app_mod._file_registry[fid]
+    before = entry["translations"][0]["by_lang"]["yue"]["text"]
+    r = client.post(f"/api/files/{fid}/glossary-apply-item", json={
+        "idx": 0, "lang": "yue", "alias": "快活谷", "canonical": "跑馬地",
+        "glossary": "賽馬", "expected_text": before})
+    assert r.status_code == 409
+    # 冇寫入
+    assert app_mod._file_registry[fid]["translations"][0]["by_lang"]["yue"]["text"] == before

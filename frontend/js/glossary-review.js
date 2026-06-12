@@ -91,7 +91,13 @@
     const tracks = scanData.tracks || [];
     const totals = scanData.totals || {};
 
-    // Header subtitle
+    // Header title + subtitle（spec §3.2：標題帶實際用緊嘅詞彙表名）
+    const glNames = [];
+    tracks.forEach(t => (t.applicable_glossaries || []).forEach(n => {
+      if (n && !glNames.includes(n)) glNames.push(n);
+    }));
+    _el('grTitle').textContent = glNames.length
+      ? `詞彙表掃描 — ${glNames.join('、')}` : '詞彙表掃描';
     const totalFix = totals.fix || 0;
     const totalOk = totals.ok || 0;
     _el('grSubtitle').textContent =

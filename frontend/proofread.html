@@ -1751,14 +1751,21 @@
         return `<label class="glp-row">
           <input type="checkbox" value="${escapeHtml(g.id)}" ${checked}>
           <span class="glp-name" data-glid="${escapeHtml(g.id)}" data-glname="${escapeHtml(g.name)}"
-                title="撳名睇條目" style="cursor:pointer;text-decoration:underline dotted;"
-                onclick="event.preventDefault();_glSelectForEdit('${escapeHtml(g.id)}','${escapeHtml(g.name.replace(/'/g,"\\\'"))}')">${escapeHtml(g.name)}</span>
+                title="撳名睇條目" style="cursor:pointer;text-decoration:underline dotted;">${escapeHtml(g.name)}</span>
           <span class="glp-pair">${escapeHtml(pair)}</span>
           <span class="glp-prio" style="display:none;"></span>
         </label>`;
       }).join('');
       if (!box._wired) {
         box.addEventListener('change', _onGlPanelToggle);
+        // 表名 click 用 event delegation 讀 data-* — 唔好將 g.name 插入
+        // inline onclick JS 源碼（escapeHtml 唔處理反斜線，可被構造 XSS）。
+        box.addEventListener('click', (e) => {
+          const nm = e.target && e.target.closest ? e.target.closest('.glp-name') : null;
+          if (!nm) return;
+          e.preventDefault();
+          _glSelectForEdit(nm.dataset.glid, nm.dataset.glname);
+        });
         box._wired = true;
       }
       _refreshGlPanelBadges();
@@ -1774,20 +1781,26 @@
       _glPanelOrder = _glPanelOrder.filter(id => id !== cb.value);
     }
     _refreshGlPanelBadges();
-    try {
-      const r = await fetch(`${API_BASE}/api/files/${fileId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ glossary_ids: _glPanelOrder }),
-      });
-      if (!r.ok) throw new Error(((await r.json().catch(() => ({}))).error) || `HTTP ${r.status}`);
-      if (fileInfo) fileInfo.glossary_ids = _glPanelOrder.slice();
-      showToast('詞彙表設定已儲存', 'success');
-    } catch (err) {
-      showToast(`儲存失敗: ${err.message}`, 'error');
-      await renderGlossaryPanelList();   // 還原 UI 到後端真相
-    }
+    // PATCH 串行化（同 segment-timing 嘅串行化理由一致）：快速連剔兩下唔可以
+    // 出兩個並發 PATCH 亂序 reconcile。body 用「發請求嗰刻」嘅順序快照。
+    const orderAtRequest = _glPanelOrder.slice();
+    _glPanelPatchChain = _glPanelPatchChain.then(async () => {
+      try {
+        const r = await fetch(`${API_BASE}/api/files/${fileId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ glossary_ids: orderAtRequest }),
+        });
+        if (!r.ok) throw new Error(((await r.json().catch(() => ({}))).error) || `HTTP ${r.status}`);
+        if (fileInfo) fileInfo.glossary_ids = orderAtRequest.slice();
+        showToast('詞彙表設定已儲存', 'success');
+      } catch (err) {
+        showToast(`儲存失敗: ${err.message}`, 'error');
+        await renderGlossaryPanelList();   // 還原 UI 到後端真相
+      }
+    });
   }
+  let _glPanelPatchChain = Promise.resolve();
 
   function _refreshGlPanelBadges() {
     const box = document.getElementById('glPanelList');
@@ -3774,9 +3787,15 @@
     // Escape → close find & replace first; if not open, let the GA modal listener handle it
     if (e.key === 'Escape') {
       const _modalOpen = document.getElementById('aeOverlay')?.classList.contains('open')
-                      || document.getElementById('gaOverlay')?.classList.contains('open');
+                      || document.getElementById('gaOverlay')?.classList.contains('open')
+                      || document.getElementById('grOverlay')?.classList.contains('open');
       if (!_modalOpen && window.FindReplace && FindReplace.isOpen()) { FindReplace.close(); e.preventDefault(); return; }
     }
+
+    // 詞彙表掃描 modal 開住時，page-level mutation 快捷鍵（split/merge/I/O）
+    // 全部停用 — 佢哋會改 modal 掃描快照嘅基準文字（review finding；modal
+    // 自己嘅 Esc/close 由 glossary-review.js 處理）。
+    if (document.getElementById('grOverlay')?.classList.contains('open')) return;
 
     // Segment split/merge — fire even while editing a textarea (before inInput guard).
     // Note: Ctrl+Shift+D / Ctrl+Shift+M may be shadowed by browser shortcuts on some
