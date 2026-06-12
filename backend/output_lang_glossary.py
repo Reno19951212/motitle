@@ -300,6 +300,8 @@ def deterministic_apply(
                         "before": alias,
                         "after": t,
                         "glossary": cand["glossary"],
+                        "entry_id": cand.get("entry_id"),
+                        "glossary_id": cand.get("glossary_id"),
                     })
                     replaced_alias = True
                     break  # one alias replacement per candidate
@@ -377,6 +379,8 @@ def llm_review(
                     "before": before,
                     "after": target,
                     "glossary": c["glossary"],
+                    "entry_id": c.get("entry_id"),
+                    "glossary_id": c.get("glossary_id"),
                 })
 
     # Fallback: if text changed but no candidate matched, record a generic change
@@ -386,6 +390,8 @@ def llm_review(
             "before": zh_text,
             "after": new_zh,
             "glossary": cands[0]["glossary"] if cands else "",
+            "entry_id": cands[0].get("entry_id") if cands else None,
+            "glossary_id": cands[0].get("glossary_id") if cands else None,
         })
 
     return new_zh, changes
@@ -529,6 +535,10 @@ def glossary_stage(
         if strip_names:
             current_text = strip_name_brackets(current_text, strip_names)
 
+        # Stamp the language-track code onto every change so downstream persistence
+        # (output_lang_persist union) keeps per-track attribution (add-only field).
+        all_changes = [{**c, "lang": output_lang} for c in all_changes]
+
         # Build new segment dict immutably
         new_seg = {**seg, "text": current_text, "glossary_changes": all_changes}
         result.append(new_seg)
@@ -575,6 +585,8 @@ def _filter_source_side(
                     "glossary": g.get("name", ""),
                     "side": "source",
                     "aliases": _get_aliases(e),
+                    "entry_id": e.get("id"),
+                    "glossary_id": g.get("id"),
                 })
 
     return candidates
@@ -621,6 +633,8 @@ def _filter_target_side(
                     "glossary": g.get("name", ""),
                     "side": "target",
                     "aliases": aliases,
+                    "entry_id": e.get("id"),
+                    "glossary_id": g.get("id"),
                 })
             else:
                 # Check aliases
@@ -633,6 +647,8 @@ def _filter_target_side(
                             "glossary": g.get("name", ""),
                             "side": "target",
                             "aliases": aliases,
+                            "entry_id": e.get("id"),
+                            "glossary_id": g.get("id"),
                         })
                         break
 

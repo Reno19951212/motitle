@@ -356,3 +356,38 @@ def test_glossary_stage_multiple_segments():
     # First two segments should have changes; third should not
     assert result[0]["glossary_changes"] != [] or "火悟空" in result[0]["text"]
     assert result[2]["glossary_changes"] == []
+
+
+# ---------------------------------------------------------------------------
+# Task 1: candidates carry entry_id/glossary_id + changes carry lang (add-only)
+# ---------------------------------------------------------------------------
+
+def _gl(entries, name="測試表", gid="g-1", src="en", tgt="zh"):
+    return {"id": gid, "name": name, "source_lang": src, "target_lang": tgt,
+            "entries": entries}
+
+
+def test_filter_candidates_carry_entry_and_glossary_ids():
+    from output_lang_glossary import _filter_source_side, _filter_target_side
+    g = _gl([{"id": "e-77", "source": "Happy Valley", "target": "跑馬地",
+              "target_aliases": ["快活谷"]}])
+    src_cands = _filter_source_side("Races at Happy Valley tonight.", [g],
+                                    output_lang="zh", content_lang="en", derive_mode="mt")
+    assert src_cands and src_cands[0]["entry_id"] == "e-77"
+    assert src_cands[0]["glossary_id"] == "g-1"
+    tgt_cands = _filter_target_side("快活谷今晚有賽事。", [g],
+                                    output_lang="zh", content_lang="yue", derive_mode="refine")
+    assert tgt_cands and tgt_cands[0]["entry_id"] == "e-77"
+    assert tgt_cands[0]["glossary_id"] == "g-1"
+
+
+def test_glossary_stage_changes_carry_lang():
+    from output_lang_glossary import glossary_stage
+    g = _gl([{"id": "e-1", "source": "Happy Valley", "target": "跑馬地",
+              "target_aliases": ["快活谷"]}])
+    segs = [{"text": "快活谷今晚有賽事。", "start": 0.0, "end": 2.0}]
+    out = glossary_stage(segs, [g], output_lang="yue", content_lang="yue",
+                         derive_mode="pass", llm_call=lambda s, u: "", use_llm=False)
+    chs = out[0]["glossary_changes"]
+    assert chs and chs[0]["lang"] == "yue"
+    assert chs[0]["before"] == "快活谷" and chs[0]["after"] == "跑馬地"
