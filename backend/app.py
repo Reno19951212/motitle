@@ -4964,6 +4964,8 @@ def glossary_reapply(file_id):
     from output_lang_aligned import derive_aligned_output, build_aligned_bilingual
 
     data = request.get_json(silent=True) or {}
+    if _file_has_active_render(file_id):
+        return jsonify({"error": "正在渲染中，無法修改段落"}), 409
     if _file_has_active_rerun(file_id):
         return jsonify({"error": "AI Rerun 進行中，無法修改段落"}), 409
 
@@ -6190,6 +6192,18 @@ def patch_file(file_id):
         )
         if errs:
             return jsonify({"error": "; ".join(errs)}), 400
+    # Glossary v2: ordered glossary_ids (first-wins) + glossary_llm toggle.
+    # Validate every id against the manager NOW (same as the upload path,
+    # app.py:4669-4687) so a bad id fails fast with a clean 400.
+    if "glossary_ids" in data:
+        v = data["glossary_ids"]
+        if not isinstance(v, list) or not all(isinstance(x, str) and x for x in v):
+            return jsonify({"error": "glossary_ids must be a list of non-empty strings"}), 400
+        for gid in v:
+            if _glossary_manager.get(gid) is None:
+                return jsonify({"error": "未知詞彙表: " + gid}), 400
+    if "glossary_llm" in data and not isinstance(data["glossary_llm"], bool):
+        return jsonify({"error": "glossary_llm must be a boolean"}), 400
 
     with _registry_lock:
         entry = _file_registry.get(file_id)
@@ -6201,6 +6215,10 @@ def patch_file(file_id):
             entry["bilingual_order"] = data["bilingual_order"]
         if "prompt_overrides" in data:
             entry["prompt_overrides"] = data["prompt_overrides"]
+        if "glossary_ids" in data:
+            entry["glossary_ids"] = list(data["glossary_ids"])
+        if "glossary_llm" in data:
+            entry["glossary_llm"] = data["glossary_llm"]
         _save_registry()
         result = dict(entry)
 

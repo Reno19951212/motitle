@@ -299,3 +299,78 @@ def test_apply_item_missing_canonical_in_output_422(client_with_entry, monkeypat
     })
     assert r.status_code == 422
     assert app_module._file_registry[fid]["translations"][0]["by_lang"]["yue"]["text"] == before
+
+
+# ===========================================================================
+# Task 6 — PATCH glossary_ids/glossary_llm + glossary-reapply render-409
+# ===========================================================================
+
+def test_patch_file_glossary_ids(client_with_entry):
+    client, fid, app_module = client_with_entry
+    r = client.patch(f"/api/files/{fid}", json={"glossary_ids": ["g-1"], "glossary_llm": False})
+    assert r.status_code == 200, r.get_data(as_text=True)
+    e = app_module._file_registry[fid]
+    assert e["glossary_ids"] == ["g-1"] and e["glossary_llm"] is False
+
+
+def test_patch_file_glossary_ids_unknown_400(client_with_entry):
+    client, fid, _ = client_with_entry
+    r = client.patch(f"/api/files/{fid}", json={"glossary_ids": ["nope"]})
+    assert r.status_code == 400
+
+
+def test_patch_file_glossary_ids_not_a_list_400(client_with_entry):
+    client, fid, _ = client_with_entry
+    r = client.patch(f"/api/files/{fid}", json={"glossary_ids": "g-1"})
+    assert r.status_code == 400
+
+
+def test_patch_file_glossary_llm_not_bool_400(client_with_entry):
+    client, fid, _ = client_with_entry
+    r = client.patch(f"/api/files/{fid}", json={"glossary_llm": "yes"})
+    assert r.status_code == 400
+
+
+def test_patch_file_glossary_ids_persists_order(client_with_entry):
+    """First-wins ordering is preserved verbatim (glossary_ids stays a list)."""
+    client, fid, app_module = client_with_entry
+    # Seed a 2nd id on the manager so an ordered 2-element list is valid.
+    app_module._glossary_manager._by_id["g-2"] = {  # type: ignore[attr-defined]
+        "id": "g-2", "name": "備用", "source_lang": "en", "target_lang": "zh",
+        "entries": [],
+    }
+    r = client.patch(f"/api/files/{fid}", json={"glossary_ids": ["g-2", "g-1"]})
+    assert r.status_code == 200, r.get_data(as_text=True)
+    assert app_module._file_registry[fid]["glossary_ids"] == ["g-2", "g-1"]
+
+
+def test_reapply_blocked_during_render(client_with_entry, monkeypatch):
+    """A render currently processing this file → reapply 409 (matches split/merge).
+
+    _file_has_active_render() keys off status == 'processing' (app.py), so the
+    seeded job uses that status — NOT the plan snippet's literal 'running'.
+    """
+    client, fid, app_module = client_with_entry
+    with app_module._render_jobs_lock:
+        app_module._render_jobs["rj-1"] = {"file_id": fid, "status": "processing"}
+    try:
+        r = client.post(f"/api/files/{fid}/glossary-reapply", json={})
+        assert r.status_code == 409
+    finally:
+        with app_module._render_jobs_lock:
+            app_module._render_jobs.pop("rj-1", None)
+
+
+def test_reapply_not_blocked_when_render_other_file(client_with_entry, monkeypatch):
+    """A render for a DIFFERENT file must not block reapply on this one."""
+    client, fid, app_module = client_with_entry
+    monkeypatch.setattr(app_module, "_make_ollama_llm_call",
+                        _mock_llm('{"text": "x"}'))
+    with app_module._render_jobs_lock:
+        app_module._render_jobs["rj-other"] = {"file_id": "some-other", "status": "processing"}
+    try:
+        r = client.post(f"/api/files/{fid}/glossary-reapply", json={})
+        assert r.status_code != 409, r.get_data(as_text=True)
+    finally:
+        with app_module._render_jobs_lock:
+            app_module._render_jobs.pop("rj-other", None)
