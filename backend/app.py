@@ -468,14 +468,20 @@ def _produce_output_lang(audio_path, source_language, output_lang, script,
         base = (res or {}).get("segments") or []
         # 粵拼語音糾錯（P0+P1）：post-process 之前修正同音錯字（中文 base only）。
         # 研究：docs/superpowers/specs/2026-06-13-lang-quality-research/（34/36 修復 @ 1 FP）
-        if base and content_lang in ("yue", "zh"):
-            from phonetic_correction import correct_segments as _pc_correct
-            # LLM client 係 lazy — whisper-direct 路徑本身唔行 MT，無 judge
-            # 候選時唔好白建 engine（test_produce_whisper_direct_same_dialect 嘅 invariant）。
-            base, _pc2 = _pc_correct(base, glossaries=glossaries, mt_style=mt_style,
-                                     llm_call=(lambda s, u: _make_ollama_llm_call()(s, u)),
-                                     cancel_check=_make_cancel_check(cancel_event),
-                                     use_llm=glossary_llm)
+        # 只限 yue：粵拼同音類對普通話 ASR 未驗證（cmn→zh 路徑零實驗 — 過咗
+        # cmn clip 驗證先開）。ToJyutping 缺失 → fail-open 跳過糾錯，唔好炒 job
+        #（git-pull 冇 pip install 係實際發生過嘅部署模式）。
+        if base and content_lang == "yue":
+            try:
+                from phonetic_correction import correct_segments as _pc_correct
+                # LLM client 係 lazy — whisper-direct 路徑本身唔行 MT，無 judge
+                # 候選時唔好白建 engine（test_produce_whisper_direct_same_dialect 嘅 invariant）。
+                base, _pc2 = _pc_correct(base, glossaries=glossaries, mt_style=mt_style,
+                                         llm_call=(lambda s, u: _make_ollama_llm_call()(s, u)),
+                                         cancel_check=_make_cancel_check(cancel_event),
+                                         use_llm=glossary_llm)
+            except ImportError as _pc_e:
+                print(f"[phonetic] 跳過語音糾錯（依賴缺失）: {_pc_e}", flush=True)
     else:
         if "segments" not in content_asr_cache:
             cres = transcribe_with_segments(
@@ -649,11 +655,15 @@ def _run_output_lang_bound_base(file_id, job, audio_path, cancel_event, outs,
         # 粵拼語音糾錯（P0+P1）：derive 之前修正 base 同音錯字 — 口語/書面語/MT 全 track 繼承。
         # 研究：docs/superpowers/specs/2026-06-13-lang-quality-research/（34/36 修復 @ 1 FP）
         _pc_changes = None
-        if content_lang in ("yue", "zh"):
-            from phonetic_correction import correct_segments as _pc_correct
-            base, _pc_changes = _pc_correct(base, glossaries=glossaries, mt_style=mt_style,
-                                            llm_call=llm, cancel_check=cancel_check,
-                                            use_llm=glossary_llm)
+        # 只限 yue（cmn→zh 未驗證）；ToJyutping 缺失 fail-open（見 _produce hook 註）。
+        if content_lang == "yue":
+            try:
+                from phonetic_correction import correct_segments as _pc_correct
+                base, _pc_changes = _pc_correct(base, glossaries=glossaries, mt_style=mt_style,
+                                                llm_call=llm, cancel_check=cancel_check,
+                                                use_llm=glossary_llm)
+            except ImportError as _pc_e:
+                print(f"[phonetic] 跳過語音糾錯（依賴缺失）: {_pc_e}", flush=True)
         derived = {o: derive_aligned_output(base, content_lang, o, script, llm, style=mt_style,
                                             glossaries=glossaries, glossary_llm=glossary_llm,
                                             cancel_check=cancel_check)
