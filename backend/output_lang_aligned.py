@@ -31,7 +31,8 @@ def derive_aligned_output(base: List[dict], content_lang: str, output_lang: str,
                           script: str, llm_call: Callable[[str, str], str],
                           style: str = "generic",
                           glossaries: Optional[List[dict]] = None,
-                          glossary_llm: bool = True) -> List[dict]:
+                          glossary_llm: bool = True,
+                          cancel_check: Optional[Callable[[], None]] = None) -> List[dict]:
     """1:1 derive output_lang from base (no clause-split). New list, base untouched.
     `style` selects the domain prompt for BOTH the en->zh MT (crosslang_mt) and the
     書面語 refiner (formal_refine): 'racing' → racing prompt, else neutral default.
@@ -40,11 +41,14 @@ def derive_aligned_output(base: List[dict], content_lang: str, output_lang: str,
     it canonicalizes entity/horse names and records per-segment changes in
     seg["glossary_changes"] = [{source, before, after, glossary}]. `glossaries=None`
     (or empty) → behaviour byte-identical to the no-glossary path (no extra key)."""
+    if cancel_check is not None:
+        cancel_check()      # ASR 完成後第一個檢查點 — 取消唔使等 LLM
     mode = derive_mode(content_lang, output_lang)
     if mode == "mt":
-        out = crosslang_mt.translate_segments(base, content_lang, output_lang, llm_call, style=style)
+        out = crosslang_mt.translate_segments(base, content_lang, output_lang, llm_call,
+                                              style=style, cancel_check=cancel_check)
     elif mode == "refine":
-        out = olp.formal_refine(base, llm_call, style=style)
+        out = olp.formal_refine(base, llm_call, style=style, cancel_check=cancel_check)
     else:
         out = [{"start": s.get("start", 0.0), "end": s.get("end", 0.0), "text": s.get("text", "")}
                for s in base]
@@ -57,7 +61,8 @@ def derive_aligned_output(base: List[dict], content_lang: str, output_lang: str,
         out = olg.glossary_stage(
             out, glossaries, output_lang, content_lang, mode, llm_call,
             use_llm=glossary_llm,
-            src_texts=[s.get("text", "") for s in base])
+            src_texts=[s.get("text", "") for s in base],
+            cancel_check=cancel_check)
     return out
 
 

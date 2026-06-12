@@ -9,7 +9,7 @@ All immutable: new lists; inputs untouched.
 import json
 import os
 import re
-from typing import Callable, List
+from typing import Callable, List, Optional
 
 from asr.cn_convert import convert_segments_s2t
 from stages.v6.clause_split import clause_split_segment
@@ -56,12 +56,16 @@ def clause_split_all(segments: List[dict], char_cap: int = 18, min_dur: float = 
 
 
 def formal_refine(segments: List[dict], llm_call: Callable[[str, str], str],
-                  style: str = "generic") -> List[dict]:
+                  style: str = "generic",
+                  cancel_check: Optional[Callable[[], None]] = None) -> List[dict]:
     """中文書面語 register refiner. `style='racing'` → racing-domain prompt; anything else
-    (default) → the neutral de-raced prompt. Parses {action,text} JSON or plain. New list."""
+    (default) → the neutral de-raced prompt. Parses {action,text} JSON or plain. New list.
+    cancel_check（如有）每個 cue 之前 call 一次（取消響應，2026-06-12）。"""
     sysp = _refiner_prompt(style)
     out: List[dict] = []
     for s in segments:
+        if cancel_check is not None:
+            cancel_check()
         txt = (s.get("text") or "").strip()
         if not txt:
             out.append({**s})

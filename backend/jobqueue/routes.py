@@ -65,7 +65,11 @@ def list_queue():
 
     _adapter = _get_progress_adapter()
     registry = current_app.config.get("FILE_REGISTRY", {})
+    _q = _get_job_queue()
     for row in rows:
+        # 取消已要求但 handler 未行到檢查點 → UI 顯示「取消中…」而唔係慳水慳力嘅 toast
+        row["cancel_requested"] = bool(
+            _q and row.get("status") == "running" and _q.is_cancel_requested(row.get("id", "")))
         fid = row.get("file_id")
         snap = _adapter.get_snapshot(fid) if fid else None
         if snap is not None:

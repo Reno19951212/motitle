@@ -162,6 +162,12 @@ class JobQueue:
         for t in self._workers:
             t.join(timeout=timeout)
 
+    def is_cancel_requested(self, job_id: str) -> bool:
+        """running job 嘅 cancel flag 設咗未 — /api/queue 注釋 cancel_requested 用。"""
+        with self._cancel_events_lock:
+            ev = self._cancel_events.get(job_id)
+        return bool(ev and ev.is_set())
+
     def cancel_job(self, job_id: str) -> bool:
         """Set the cancel event for a running job. Returns True if the
         job was found in the active set; False if not currently running."""

@@ -106,6 +106,12 @@ class OpenRouterTranslationEngine(OllamaTranslationEngine):
         # skip the chain-of-thought step — much faster + cheaper for subtitle
         # translation which rarely benefits from deep reasoning.
         self._reasoning_enabled = bool(config.get("openrouter_reasoning", False))
+        # 網絡卡死保護（2026-06-12）：每次 request 嘅 socket timeout + 總嘗試次數。
+        # 預設保持舊行為（180s × 4 attempts — profile-mode 大 batch 要長）；
+        # Beta per-cue 路徑會收緊（60s × 2），令卡網時每個 cue 嘅最壞等待
+        # 由 ~12 分鐘變 ~2 分鐘。
+        self._request_timeout = int(config.get("request_timeout", 180))
+        self._max_attempts = max(1, int(config.get("max_attempts", 4)))
 
     def _is_thinking_model(self) -> bool:
         """OpenRouter models don't use Ollama's `think` flag."""
@@ -148,20 +154,20 @@ class OpenRouterTranslationEngine(OllamaTranslationEngine):
         }
 
         last_error: Optional[Exception] = None
-        for attempt in range(4):
+        for attempt in range(self._max_attempts):
             req = urllib.request.Request(
                 f"{self._base_url}/chat/completions",
                 data=body,
                 headers=headers,
             )
             try:
-                with urllib.request.urlopen(req, timeout=180) as resp:
+                with urllib.request.urlopen(req, timeout=self._request_timeout) as resp:
                     raw = resp.read().decode("utf-8").strip()
                 return _extract_openai_content(raw)
             except urllib.error.HTTPError as e:
                 last_error = e
                 # 429 = rate limit (with long backoff); 5xx = transient
-                if e.code in (429, 502, 503, 504) and attempt < 3:
+                if e.code in (429, 502, 503, 504) and attempt < self._max_attempts - 1:
                     wait = 2 ** (attempt + 1) if e.code == 429 else 2 ** attempt
                     print(
                         f"[openrouter] retry {attempt + 1}/3 after HTTP {e.code}, waiting {wait}s",
@@ -179,7 +185,7 @@ class OpenRouterTranslationEngine(OllamaTranslationEngine):
                 )
             except urllib.error.URLError as e:
                 last_error = e
-                if attempt < 3:
+                if attempt < self._max_attempts - 1:
                     time.sleep(2 ** attempt)
                     continue
                 raise ConnectionError(

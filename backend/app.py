@@ -392,6 +392,19 @@ def _make_ollama_llm_call_engine():
     return eng
 
 
+def _make_cancel_check(cancel_event):
+    """cancel_event → callable，cancel flag 設咗就 raise JobCancelled。
+
+    傳入 derive/MT/refine/glossary 嘅 per-cue loop（2026-06-12 bug：呢啲 loop
+    之前完全唔睇 cancel flag，「取消中」會等成個 derive 階段做完先生效 —
+    卡網時即係永遠）。"""
+    def _check():
+        if cancel_event is not None and cancel_event.is_set():
+            from jobqueue.queue import JobCancelled
+            raise JobCancelled("cancelled during translation/derive")
+    return _check
+
+
 def _make_ollama_llm_call():
     """(system, user) -> str LLM client for cross-lang MT + the 書面語 refiner.
 
@@ -404,6 +417,9 @@ def _make_ollama_llm_call():
         eng = OpenRouterTranslationEngine({
             "openrouter_model": beta_mode.BETA_LLM_MODEL,
             "api_key": os.environ.get("OPENROUTER_API_KEY", ""),
+            # per-cue 短 prompt — 卡網時唔好 180s×4 咁等（最壞 ~12 分鐘/cue）
+            "request_timeout": 60,
+            "max_attempts": 2,
         })
         return lambda system, user: eng._call_ollama(system, user, 0.3)
     eng = _make_ollama_llm_call_engine()
@@ -454,13 +470,15 @@ def _produce_output_lang(audio_path, source_language, output_lang, script,
                 lang_override=content_lang, task_override="transcribe")
             content_asr_cache["segments"] = (cres or {}).get("segments") or []
         base = crosslang_mt.translate_segments(
-            content_asr_cache["segments"], content_lang, output_lang, _make_ollama_llm_call())
+            content_asr_cache["segments"], content_lang, output_lang, _make_ollama_llm_call(),
+            cancel_check=_make_cancel_check(cancel_event))
 
     if output_lang in ("yue", "zh", "cmn"):
         if method == "asr_mt":
             base = olp.clause_split_all(base, char_cap=18)
         if output_lang == "zh":
-            base = olp.formal_refine(base, _make_ollama_llm_call())
+            base = olp.formal_refine(base, _make_ollama_llm_call(),
+                                     cancel_check=_make_cancel_check(cancel_event))
         base = olp.apply_script(base, script)
     elif output_lang == "ja" and method == "asr_mt":
         base = olp.clause_split_all(base, char_cap=18)
@@ -476,7 +494,8 @@ def _produce_output_lang(audio_path, source_language, output_lang, script,
             src_texts = [s.get("text", "") for s in base]
         base = olg.glossary_stage(
             base, glossaries, output_lang, content_lang, mode,
-            _make_ollama_llm_call(), use_llm=glossary_llm, src_texts=src_texts)
+            _make_ollama_llm_call(), use_llm=glossary_llm, src_texts=src_texts,
+            cancel_check=_make_cancel_check(cancel_event))
     return base
 
 
@@ -600,8 +619,10 @@ def _run_output_lang_bound_base(file_id, job, audio_path, cancel_event, outs,
         if do_clause_split and _OL_FAMILY.get(source_language) == "zh":
             base = olp.clause_split_all(base, char_cap=18)
         llm = _make_ollama_llm_call()
+        cancel_check = _make_cancel_check(cancel_event)
         derived = {o: derive_aligned_output(base, content_lang, o, script, llm, style=mt_style,
-                                            glossaries=glossaries, glossary_llm=glossary_llm)
+                                            glossaries=glossaries, glossary_llm=glossary_llm,
+                                            cancel_check=cancel_check)
                    for o in outs}
         rows = build_output_translations(base, [(o, derived[o]) for o in outs])
         aligned = [{"start": base[i]["start"], "end": base[i]["end"],
@@ -661,6 +682,7 @@ def _run_output_lang_second(file_id, job, audio_path, cancel_event):
         _reset_progress_for_job(file_id, job.get("id", ""), "output_lang", 1,
                                 num_output_langs=max(2, len(outs)))
         _run_output_lang_second_cross(file_id, target, source_language, script, mt_style,
+                                      cancel_event=cancel_event,
                                       glossaries=glossaries, glossary_llm=glossary_llm)
         return
     _reset_progress_for_job(file_id, job.get("id", ""), "output_lang", 1,
@@ -720,6 +742,7 @@ def _run_output_lang_second(file_id, job, audio_path, cancel_event):
 
 
 def _run_output_lang_second_cross(file_id, target, source_language, script, mt_style="generic",
+                                  cancel_event=None,
                                   glossaries=None, glossary_llm=True):
     """Cross-language on-demand add: derive `target` 1:1 from the cached content base
     and append it to translations + aligned_bilingual on the SAME grid (no index-merge).
@@ -735,7 +758,8 @@ def _run_output_lang_second_cross(file_id, target, source_language, script, mt_s
     # so a zh-source glossary routes correctly on this on-demand second language.
     seg2 = derive_aligned_output(base, content_asr_lang(source_language), target, script,
                                  _make_ollama_llm_call(),
-                                 style=mt_style, glossaries=glossaries, glossary_llm=glossary_llm)
+                                 style=mt_style, glossaries=glossaries, glossary_llm=glossary_llm,
+                                 cancel_check=_make_cancel_check(cancel_event))
     with _registry_lock:
         if file_id not in _file_registry:
             return

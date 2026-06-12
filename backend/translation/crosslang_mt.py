@@ -5,7 +5,7 @@ is injected (production: Ollama qwen3.5:35b via OllamaTranslationEngine._call_ol
 """
 import os
 import re
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Optional
 
 _MT_TARGET_NAME: Dict[str, str] = {
     "yue": "香港口語廣東話（用口語字眼如 嘅/係/喺/咗/唔/睇，繁體字）",
@@ -72,14 +72,20 @@ def _clean(raw: str) -> str:
 
 def translate_segments(content_segments: List[dict], source_language: str,
                        output_lang: str, llm_call: Callable[[str, str], str],
-                       style: str = "generic") -> List[dict]:
+                       style: str = "generic",
+                       cancel_check: Optional[Callable[[], None]] = None) -> List[dict]:
     """1:1 MT of content segments -> output language. New list; inputs untouched.
 
     Guard: an empty or prompt-leaked LLM reply falls back to the SOURCE text so a
-    pathological cue never ships (never empty, never the prompt template)."""
+    pathological cue never ships (never empty, never the prompt template).
+
+    cancel_check（如有）每個 cue 之前 call 一次 — 俾上游喺用戶撳取消時
+    即刻 raise 中止（2026-06-12 前成個 MT 階段不可取消）。"""
     sysp = build_mt_system_prompt(source_language, output_lang, style)
     out: List[dict] = []
     for s in content_segments:
+        if cancel_check is not None:
+            cancel_check()
         txt = (s.get("text") or "").strip()
         tr = _clean(llm_call(sysp, txt)) if txt else ""
         if txt and (not tr or _LEAK_RE.search(tr)):

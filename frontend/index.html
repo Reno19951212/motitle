@@ -1798,6 +1798,7 @@
     // langProgress: per-file per-target-language progress from /api/queue
     // (realtime). file_id → [{ role, label, lang, pct, state }, ...]
     const langProgress = {};
+    const _jobCancelReq = {};   // job_id → 取消已要求（/api/queue cancel_requested）
     // cardSubtitle: per-file live streaming caption text (pipeline_segment for V6
     // final refiner; subtitle_segment for Profile ASR active file).
     const cardSubtitle = {};
@@ -1921,6 +1922,7 @@
         (Array.isArray(rows) ? rows : []).forEach((row) => {
           if (!row || !row.file_id) return;
           const fid = row.file_id;
+          _jobCancelReq[row.id] = !!row.cancel_requested;
           _applyCardProgress(fid, {
             stages: Array.isArray(row.stages) ? row.stages : null,
             stage_index: row.stage_index != null ? row.stage_index : null,
@@ -2320,9 +2322,12 @@
             ` : ''}
             ${(f.status === 'uploaded' || f.status === 'transcribing' || f.translation_status === 'translating') && f.job_id ? `
               <div class="q-actions" onclick="event.stopPropagation()">
-                <button class="btn-secondary" id="queueCancelBtn-${f.job_id}"
+                ${_jobCancelReq[f.job_id]
+                  ? `<button class="btn-secondary" disabled
+                             title="已要求取消 — 等緊任務行到取消檢查點">取消中…</button>`
+                  : `<button class="btn-secondary" id="queueCancelBtn-${f.job_id}"
                         data-testid="queue-cancel"
-                        onclick="cancelJob('${f.job_id}')">取消</button>
+                        onclick="cancelJob('${f.job_id}')">取消</button>`}
               </div>
             ` : ''}
             ${cat === 'pending' && f.uploadProgress !== undefined ? `

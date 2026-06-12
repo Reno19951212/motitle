@@ -448,6 +448,7 @@ def glossary_stage(
     *,
     use_llm: bool = True,
     src_texts: Optional[List[str]] = None,
+    cancel_check: Optional[Callable] = None,
 ) -> List[dict]:
     """Apply glossary review to a list of output segments.
 
@@ -493,6 +494,8 @@ def glossary_stage(
     result: List[dict] = []
 
     for i, seg in enumerate(segments):
+        if cancel_check is not None:
+            cancel_check()
         # Determine source text for source-side candidate filtering
         if src_texts is not None and i < len(src_texts):
             src_text = src_texts[i]

@@ -177,7 +177,10 @@ function renderQueueRows(jobs) {
               <span class="qp-pct" style="font-size:11px;color:var(--accent);min-width:30px;text-align:right;">${_escape(initialPctText)}</span>
             </div>`
 
-      const cancelBtn = showCancel
+      const cancelBtn = j.cancel_requested
+        ? `<span data-testid="queue-cancelling" title="已要求取消 — 等緊任務行到取消檢查點"
+                 style="font-size:10px;color:var(--warning, #f0b429);flex-shrink:0;white-space:nowrap;">取消中…</span>`
+        : showCancel
         ? `<button data-testid="queue-cancel" id="queueCancelBtn-${j.id}"
                    onclick="cancelJob('${j.id}')" title="取消"
                    style="background:none;border:0;color:var(--text-dim);cursor:pointer;padding:0 2px;flex-shrink:0;">×</button>`
