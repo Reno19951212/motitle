@@ -146,6 +146,13 @@ def cancel_job(job_id):
         # status='running' transition and the job would run to completion
         # despite returning 200 to the caller.
         if cancel_if_queued(db_path, job_id):
+            # 檔案卡同步標「已取消」（否則 file status 留喺 uploaded → UI 永遠「排隊中」）
+            _hook = current_app.config.get("FILE_CANCEL_HOOK")
+            if _hook and job.get("file_id"):
+                try:
+                    _hook(job["file_id"])
+                except Exception:
+                    pass
             _broadcast_queue_changed()
             return jsonify({"ok": True}), 200
         # Fall through — the worker has just transitioned to running.

@@ -2137,6 +2137,7 @@
     // Classify a file into one of: done / transcribing / translating / queued / pending / error
     function fileStatusCategory(f) {
       if (f.status === 'error') return 'error';
+      if (f.status === 'cancelled') return 'cancelled';
       if (f.status === 'transcribing') return 'transcribing';
       if (f.status === 'pending' || f._local) return 'pending';
       if (f.status === 'uploaded') return 'queued';
@@ -2157,6 +2158,8 @@
           const pct = tp.percent || 0;
           return `<span class="badge badge--processing"><span class="dot"></span> 翻譯中 ${pct}%</span>`;
         }
+        case 'cancelled':
+          return `<span class="badge badge--idle">⊘ 已取消</span>`;
         case 'queued':
           return `<span class="badge badge--awaiting-asr"><span class="dot"></span> 排隊中</span>`;
         case 'error':
@@ -2315,11 +2318,11 @@
             </div>
             <div class="card-step-diagram" style="margin:3px 0 2px;">${cardDiagramHtml}</div>
             ${_stageLabelHtml}${_capHtml}
-            ${f.status === 'error' ? `
+            ${f.status === 'error' || f.status === 'cancelled' ? `
               <div class="q-actions" onclick="event.stopPropagation()">
                 <button class="btn-secondary" id="queueRetryBtn-${id}"
                         data-testid="queue-retry"
-                        onclick="retryFile('${id}')">🔄 重試</button>
+                        onclick="retryFile('${id}')">${f.status === 'cancelled' ? '🔄 重新處理' : '🔄 重試'}</button>
               </div>
             ` : ''}
             ${(f.status === 'uploaded' || f.status === 'transcribing' || f.translation_status === 'translating') && f.job_id ? `

@@ -569,8 +569,8 @@ def _run_output_lang(file_id, job, audio_path, cancel_event):
     except Exception as e:
         from jobqueue.queue import JobCancelled
         if isinstance(e, JobCancelled):
-            # 用戶取消：file 退返「待處理」可重跑，唔好顯示錯誤
-            _update_file(file_id, status='uploaded', error=None)
+            # 用戶取消：獨立「已取消」狀態（卡片顯示 已取消 + 重新處理掣），唔係錯誤
+            _update_file(file_id, status='cancelled', error=None)
         else:
             _update_file(file_id, status='error', error=str(e))
         raise
@@ -640,8 +640,8 @@ def _run_output_lang_bound_base(file_id, job, audio_path, cancel_event, outs,
     except Exception as e:
         from jobqueue.queue import JobCancelled
         if isinstance(e, JobCancelled):
-            # 用戶取消：file 退返「待處理」可重跑，唔好顯示錯誤
-            _update_file(file_id, status='uploaded', error=None)
+            # 用戶取消：獨立「已取消」狀態（卡片顯示 已取消 + 重新處理掣），唔係錯誤
+            _update_file(file_id, status='cancelled', error=None)
         else:
             _update_file(file_id, status='error', error=str(e))
         raise
@@ -903,7 +903,7 @@ def _asr_handler(job, cancel_event=None):
         except Exception as e:
             from jobqueue.queue import JobCancelled
             if isinstance(e, JobCancelled):
-                _update_file(file_id, status='uploaded', error=None)
+                _update_file(file_id, status='cancelled', error=None)
             else:
                 _update_file(file_id, status='error', error=str(e))
             raise
@@ -941,8 +941,8 @@ def _asr_handler(job, cancel_event=None):
     except Exception as e:
         from jobqueue.queue import JobCancelled
         if isinstance(e, JobCancelled):
-            # 用戶取消：file 退返「待處理」可重跑，唔好顯示錯誤
-            _update_file(file_id, status='uploaded', error=None)
+            # 用戶取消：獨立「已取消」狀態（卡片顯示 已取消 + 重新處理掣），唔係錯誤
+            _update_file(file_id, status='cancelled', error=None)
         else:
             _update_file(file_id, status='error', error=str(e))
         raise
@@ -1173,6 +1173,27 @@ _job_queue.start_workers()
 # Make the live instances reachable from routes via current_app — avoids
 # 'from app import' which creates a separate (broken) module copy.
 app.config["JOB_QUEUE"] = _job_queue
+
+
+def _mark_file_cancelled(file_id):
+    """queued-cancel hook（jobqueue/routes DELETE 用）— 將檔案標做「已取消」。
+
+    只喺檔案仲處於 pre-done 狀態先郁手：cancel 同舊 job 完成 race、或者
+    re-process 之前已 done 嘅檔，唔好 clobber 佢嘅 done 狀態。"""
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+        if not entry or entry.get("status") not in ("uploaded", "pending", "transcribing"):
+            return
+        entry["status"] = "cancelled"
+        entry["error"] = None
+        _save_registry()
+    try:
+        socketio.emit('file_updated', {'id': file_id, 'status': 'cancelled'})
+    except Exception:
+        pass
+
+
+app.config["FILE_CANCEL_HOOK"] = _mark_file_cancelled
 app.config["SOCKETIO"] = socketio
 
 app.register_blueprint(queue_bp)

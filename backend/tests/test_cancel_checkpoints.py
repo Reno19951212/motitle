@@ -154,3 +154,40 @@ def test_is_cancel_requested(tmp_path):
     assert q.is_cancel_requested("j1") is False   # 未 set
     ev.set()
     assert q.is_cancel_requested("j1") is True
+
+
+# ---------- 檔案「已取消」狀態 ----------
+
+def test_mark_file_cancelled_flips_pre_done_states():
+    import app as appmod
+    fid = "f-cancel-state"
+    with appmod._registry_lock:
+        appmod._file_registry[fid] = {"id": fid, "status": "uploaded", "error": "old"}
+    try:
+        appmod._mark_file_cancelled(fid)
+        with appmod._registry_lock:
+            e = appmod._file_registry[fid]
+            assert e["status"] == "cancelled"
+            assert e["error"] is None
+    finally:
+        with appmod._registry_lock:
+            appmod._file_registry.pop(fid, None)
+
+
+def test_mark_file_cancelled_never_clobbers_done():
+    import app as appmod
+    fid = "f-cancel-done"
+    with appmod._registry_lock:
+        appmod._file_registry[fid] = {"id": fid, "status": "done"}
+    try:
+        appmod._mark_file_cancelled(fid)
+        with appmod._registry_lock:
+            assert appmod._file_registry[fid]["status"] == "done"
+    finally:
+        with appmod._registry_lock:
+            appmod._file_registry.pop(fid, None)
+
+
+def test_mark_file_cancelled_unknown_file_noop():
+    import app as appmod
+    appmod._mark_file_cancelled("no-such-file")   # 唔可以 throw
