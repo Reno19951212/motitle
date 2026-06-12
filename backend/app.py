@@ -428,7 +428,7 @@ def _make_ollama_llm_call():
 
 def _produce_output_lang(audio_path, source_language, output_lang, script,
                          cancel_event, content_asr_cache,
-                         glossaries=None, glossary_llm=True):
+                         glossaries=None, glossary_llm=True, mt_style="generic"):
     """Produce one output language's segments via the routed method + post-processing.
 
     content_asr_cache: dict shared across a file's output languages — the content-
@@ -438,6 +438,10 @@ def _produce_output_lang(audio_path, source_language, output_lang, script,
     When `glossaries` is supplied (non-empty), a glossary stage runs AFTER OpenCC:
     it canonicalizes entity/horse names and attaches seg["glossary_changes"] to each
     segment. `glossaries=None` (or empty) → behaviour byte-identical to before.
+
+    `mt_style` drives the 粵拼語音糾錯 hook on the whisper-direct Chinese path
+    (stage0 M-rule + lexicon selection); it does NOT alter MT/refine prompts here
+    (this legacy path never threaded style into those).
     """
     from output_lang_router import route_output, whisper_direct_params, content_asr_lang
     from translation import crosslang_mt
@@ -454,6 +458,7 @@ def _produce_output_lang(audio_path, source_language, output_lang, script,
     content_lang = content_asr_lang(source_language)
 
     method = route_output(source_language, output_lang)
+    _pc2 = None     # 粵拼語音糾錯 per-seg changes（whisper-direct 中文路徑先有）
     if method == "whisper":
         res = transcribe_with_segments(
             audio_path, cancel_event=cancel_event,
@@ -461,6 +466,16 @@ def _produce_output_lang(audio_path, source_language, output_lang, script,
             progress_kind="output_lang", progress_stage_index=0,
             **whisper_direct_params(output_lang))
         base = (res or {}).get("segments") or []
+        # 粵拼語音糾錯（P0+P1）：post-process 之前修正同音錯字（中文 base only）。
+        # 研究：docs/superpowers/specs/2026-06-13-lang-quality-research/（34/36 修復 @ 1 FP）
+        if base and content_lang in ("yue", "zh"):
+            from phonetic_correction import correct_segments as _pc_correct
+            # LLM client 係 lazy — whisper-direct 路徑本身唔行 MT，無 judge
+            # 候選時唔好白建 engine（test_produce_whisper_direct_same_dialect 嘅 invariant）。
+            base, _pc2 = _pc_correct(base, glossaries=glossaries, mt_style=mt_style,
+                                     llm_call=(lambda s, u: _make_ollama_llm_call()(s, u)),
+                                     cancel_check=_make_cancel_check(cancel_event),
+                                     use_llm=glossary_llm)
     else:
         if "segments" not in content_asr_cache:
             cres = transcribe_with_segments(
@@ -496,6 +511,11 @@ def _produce_output_lang(audio_path, source_language, output_lang, script,
             base, glossaries, output_lang, content_lang, mode,
             _make_ollama_llm_call(), use_llm=glossary_llm, src_texts=src_texts,
             cancel_check=_make_cancel_check(cancel_event))
+    # 粵拼糾正記錄 merge 喺 glossary_stage 之後 — glossary_stage 會 OVERWRITE
+    # seg["glossary_changes"]（fast path 直接 []），先 merge 會被冲走。
+    if _pc2 and any(_pc2):
+        base = [({**s, "glossary_changes": (_pc2[i] + (s.get("glossary_changes") or []))}
+                 if i < len(_pc2) and _pc2[i] else s) for i, s in enumerate(base)]
     return base
 
 
@@ -565,7 +585,8 @@ def _run_output_lang(file_id, job, audio_path, cancel_event):
     _first_start = time.time()
     try:
         segs1 = _produce_output_lang(audio_path, source_language, first, script, cancel_event,
-                                     content_cache, glossaries=glossaries, glossary_llm=glossary_llm)
+                                     content_cache, glossaries=glossaries, glossary_llm=glossary_llm,
+                                     mt_style=mt_style)
     except Exception as e:
         from jobqueue.queue import JobCancelled
         if isinstance(e, JobCancelled):
@@ -625,11 +646,23 @@ def _run_output_lang_bound_base(file_id, job, audio_path, cancel_event, outs,
             base = olp.clause_split_all(base, char_cap=18)
         llm = _make_ollama_llm_call()
         cancel_check = _make_cancel_check(cancel_event)
+        # 粵拼語音糾錯（P0+P1）：derive 之前修正 base 同音錯字 — 口語/書面語/MT 全 track 繼承。
+        # 研究：docs/superpowers/specs/2026-06-13-lang-quality-research/（34/36 修復 @ 1 FP）
+        _pc_changes = None
+        if content_lang in ("yue", "zh"):
+            from phonetic_correction import correct_segments as _pc_correct
+            base, _pc_changes = _pc_correct(base, glossaries=glossaries, mt_style=mt_style,
+                                            llm_call=llm, cancel_check=cancel_check,
+                                            use_llm=glossary_llm)
         derived = {o: derive_aligned_output(base, content_lang, o, script, llm, style=mt_style,
                                             glossaries=glossaries, glossary_llm=glossary_llm,
                                             cancel_check=cancel_check)
                    for o in outs}
         rows = build_output_translations(base, [(o, derived[o]) for o in outs])
+        if _pc_changes:
+            rows = [({**r, "glossary_changes": (_pc_changes[i] + (r.get("glossary_changes") or []))}
+                     if i < len(_pc_changes) and _pc_changes[i] else r)
+                    for i, r in enumerate(rows)]
         aligned = [{"start": base[i]["start"], "end": base[i]["end"],
                     "by_lang": {o: (derived[o][i].get("text", "") if i < len(derived[o]) else "") for o in outs}}
                    for i in range(len(base))]
@@ -700,7 +733,8 @@ def _run_output_lang_second(file_id, job, audio_path, cancel_event):
     content_cache = {"segments": cached} if cached else {}
     _second_start = time.time()
     segs2 = _produce_output_lang(audio_path, source_language, target, script, cancel_event,
-                                 content_cache, glossaries=glossaries, glossary_llm=glossary_llm)
+                                 content_cache, glossaries=glossaries, glossary_llm=glossary_llm,
+                                 mt_style=mt_style)
 
     with _registry_lock:
         live = _file_registry.get(file_id, {}).get("translations") or []
