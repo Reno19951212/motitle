@@ -4511,7 +4511,10 @@
       }
     }
 
-    // glossary-v2: populate the #olGlossary multi-select from GET /api/glossaries
+    // glossary-v2: populate the #olGlossary checkbox list from GET /api/glossaries.
+    // Selection order = list order (top of list wins), same semantics as the
+    // old <select multiple> — only the interaction changed (tick instead of
+    // Cmd/Ctrl+click).
     async function _populateGlossarySelector() {
       const sel = document.getElementById('olGlossary');
       if (!sel) return;
@@ -4521,12 +4524,15 @@
         const data = await resp.json();
         const glossaries = data.glossaries || data || [];
         if (!glossaries.length) {
-          sel.innerHTML = '<option value="" disabled style="color:var(--text-dim);">（尚未建立詞彙表）</option>';
+          sel.innerHTML = '<span style="color:var(--text-dim);padding:3px 6px;">（尚未建立詞彙表）</span>';
           return;
         }
         sel.innerHTML = glossaries.map(g => {
           const pair = (g.source_lang && g.target_lang) ? ` (${g.source_lang}→${g.target_lang})` : '';
-          return `<option value="${g.id}">${escapeHtml(g.name)}${pair}</option>`;
+          return `<label style="display:flex;flex-direction:row;align-items:center;gap:6px;padding:3px 6px;border-radius:4px;cursor:pointer;font-size:12px;">
+            <input type="checkbox" value="${g.id}" style="accent-color:var(--accent);flex-shrink:0;margin:0;">
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(g.name)}${pair}</span>
+          </label>`;
         }).join('');
       } catch (e) {
         sel.innerHTML = '';
@@ -4615,7 +4621,9 @@
       _populateGlossarySelector().then(() => {
         const sel = document.getElementById('olGlossary');
         if (sel && Array.isArray(f.glossary_ids)) {
-          Array.from(sel.options).forEach(o => { o.selected = f.glossary_ids.includes(o.value); });
+          sel.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            cb.checked = f.glossary_ids.includes(cb.value);
+          });
         }
       });
       _openModalWithFocus('olOverlay', document.activeElement);
@@ -4667,10 +4675,11 @@
       pendingSourceLanguage = (document.getElementById('olSourceLang') || {}).value || 'yue';
       pendingScript = (document.getElementById('olScript') || {}).value || 'trad';
       pendingMtStyle = (document.getElementById('mtStyle') || {}).value || 'generic';
-      // glossary-v2: collect selected glossary IDs in DOM order
+      // glossary-v2: collect ticked glossary IDs in DOM order (top = priority)
       const glossarySel = document.getElementById('olGlossary');
       pendingGlossaryIds = glossarySel
-        ? Array.from(glossarySel.selectedOptions).map(o => o.value).filter(Boolean)
+        ? Array.from(glossarySel.querySelectorAll('input[type="checkbox"]:checked'))
+            .map(cb => cb.value).filter(Boolean)
         : [];
       const llmCheck = document.getElementById('olGlossaryLlm');
       pendingGlossaryLlm = llmCheck ? llmCheck.checked : true;
@@ -6046,12 +6055,15 @@
                 <option value="racing">馬會賽馬</option>
               </select>
             </label>
-            <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-              <span style="font-weight:600;">詞彙表（可多選，清單上方者優先）</span>
-              <select id="olGlossary" class="or-input" multiple style="min-height:60px;resize:vertical;">
-                <option value="" disabled style="color:var(--text-dim);">載入中…</option>
-              </select>
-            </label>
+            <!-- 詞彙表多選：checkbox 清單（舊版係 <select multiple>，要 Cmd/Ctrl+click
+                 先揀到多個，冇任何提示 — 改成剔選即用）。外層唔可以用 <label>，
+                 否則撳任何位置都會 toggle 第一個 checkbox。 -->
+            <div style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+              <span style="font-weight:600;">詞彙表（剔選使用，可選多個 — 清單上方者優先）</span>
+              <div id="olGlossary" class="or-input" style="max-height:120px;overflow-y:auto;padding:4px;display:flex;flex-direction:column;gap:2px;">
+                <span style="color:var(--text-dim);padding:3px 6px;">載入中…</span>
+              </div>
+            </div>
             <label style="display:flex;flex-direction:row;align-items:center;gap:6px;font-size:12px;cursor:pointer;">
               <input type="checkbox" id="olGlossaryLlm" checked style="accent-color:var(--accent);">
               <span>LLM 精修（建議開）</span>
