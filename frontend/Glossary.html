@@ -966,20 +966,33 @@
     sourceInput.addEventListener('blur', () => saveEntryField('source', sourceInput.value.trim()));
     targetInput.addEventListener('blur', () => saveEntryField('target', targetInput.value.trim()));
 
-    /* Alias chip × buttons */
+    /* Alias chip × buttons. _aliasSaveBusy serializes alias PATCHes: the
+       handlers close over the `aliases` array captured at render time, so a
+       second click before the first PATCH re-renders would compute its
+       payload from the pre-first-click array and undo the first change on
+       the server. Ignore clicks while one save is in flight. */
     document.querySelectorAll('#dAliases .gl-chip button').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const idx = parseInt(btn.dataset.idx, 10);
-        const next = aliases.slice(); next.splice(idx, 1);
-        saveEntryField('target_aliases', next);
+      btn.addEventListener('click', async () => {
+        if (_aliasSaveBusy) return;
+        _aliasSaveBusy = true;
+        try {
+          const idx = parseInt(btn.dataset.idx, 10);
+          const next = aliases.slice(); next.splice(idx, 1);
+          await saveEntryField('target_aliases', next);
+        } finally { _aliasSaveBusy = false; }
       });
     });
-    document.getElementById('dAliasAdd').addEventListener('click', () => {
+    document.getElementById('dAliasAdd').addEventListener('click', async () => {
+      if (_aliasSaveBusy) return;
       const v = prompt('加入別名：');
       if (!v || !v.trim()) return;
-      saveEntryField('target_aliases', [...aliases, v.trim()]);
+      _aliasSaveBusy = true;
+      try {
+        await saveEntryField('target_aliases', [...aliases, v.trim()]);
+      } finally { _aliasSaveBusy = false; }
     });
   }
+  let _aliasSaveBusy = false;
 
   async function saveEntryField(field, value) {
     const entry = state.entries.find(e => e.id === state.selectedEntryId);
@@ -996,7 +1009,15 @@
       if (gid === state.activeId && seq === _entriesSyncSeq) {
         state.entries = updated.entries || [];
         renderTable();
-        if (field === 'target_aliases') renderDetail();
+        if (field === 'target_aliases') {
+          renderDetail();
+        } else if (state.selectedEntryId === entry.id) {
+          // Echo the server-normalized value (e.g. wrapping quotes stripped)
+          // back into the input — without a full re-render so focus is kept.
+          const el = document.getElementById(field === 'source' ? 'dSource' : 'dTarget');
+          const fresh = state.entries.find(e => e.id === entry.id);
+          if (el && fresh && document.activeElement !== el) el.value = fresh[field] || '';
+        }
       }
       toast('已儲存', 'success');
     } catch (e) {
@@ -1065,7 +1086,12 @@
     try {
       const created = await apiJson('POST', '/api/glossaries',
         { name: name.trim(), description: '', source_lang: sourceLang, target_lang: targetLang });
-      state.glossaries.push(created);
+      // POST returns the full glossary (no entry_count field — that only
+      // exists on list summaries); derive it so the list shows 「0 條」
+      // instead of '—', and keep the backend's name-sorted order.
+      state.glossaries.push({ ...created, entry_count: (created.entries || []).length });
+      state.glossaries.sort((a, b) =>
+        ((a.name || '').toLowerCase()).localeCompare((b.name || '').toLowerCase()));
       state.activeId = created.id;
       renderList();
       renderHeader();
@@ -1119,18 +1145,35 @@
     }
   }
 
-  function exportCsv() {
+  async function exportCsv() {
     if (!state.activeId) {
       toast('請先揀一個術語表', 'error');
       return;
     }
-    const url = `${API_BASE}/api/glossaries/${encodeURIComponent(state.activeId)}/export`;
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = '';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    // fetch-then-blob instead of a blind anchor download, so an error
+    // response (403/404 JSON) shows a toast instead of being saved as a .csv.
+    try {
+      const r = await fetch(
+        `${API_BASE}/api/glossaries/${encodeURIComponent(state.activeId)}/export`,
+        { credentials: 'same-origin' });
+      if (!r.ok) {
+        let msg = `HTTP ${r.status}`;
+        try { msg = (await r.json()).error || msg; } catch (e) { /* keep HTTP code */ }
+        toast(`匯出失敗: ${msg}`, 'error');
+        return;
+      }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${state.activeId}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast(`匯出失敗: ${e.message}`, 'error');
+    }
   }
 
   /* ============================================================
