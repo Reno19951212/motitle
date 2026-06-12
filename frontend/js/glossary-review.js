@@ -215,6 +215,7 @@
   function _grJumpSeg(idx) {
     if (typeof setCursor === 'function') setCursor(idx, true);
   }
+  window._grJumpSeg = _grJumpSeg;
 
   // ── select-all per track ────────────────────────────────────
   window._grSelectAll = function (saEl, ti) {
