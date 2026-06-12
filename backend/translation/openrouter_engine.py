@@ -170,7 +170,7 @@ class OpenRouterTranslationEngine(OllamaTranslationEngine):
                 if e.code in (429, 502, 503, 504) and attempt < self._max_attempts - 1:
                     wait = 2 ** (attempt + 1) if e.code == 429 else 2 ** attempt
                     print(
-                        f"[openrouter] retry {attempt + 1}/3 after HTTP {e.code}, waiting {wait}s",
+                        f"[openrouter] retry {attempt + 1}/{self._max_attempts - 1} after HTTP {e.code}, waiting {wait}s",
                         file=sys.stderr,
                     )
                     time.sleep(wait)

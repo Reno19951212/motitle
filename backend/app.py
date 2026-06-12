@@ -567,7 +567,12 @@ def _run_output_lang(file_id, job, audio_path, cancel_event):
         segs1 = _produce_output_lang(audio_path, source_language, first, script, cancel_event,
                                      content_cache, glossaries=glossaries, glossary_llm=glossary_llm)
     except Exception as e:
-        _update_file(file_id, status='error', error=str(e))
+        from jobqueue.queue import JobCancelled
+        if isinstance(e, JobCancelled):
+            # 用戶取消：file 退返「待處理」可重跑，唔好顯示錯誤
+            _update_file(file_id, status='uploaded', error=None)
+        else:
+            _update_file(file_id, status='error', error=str(e))
         raise
     if not segs1:
         _update_file(file_id, status='error', error='output-lang produced empty')
@@ -633,7 +638,12 @@ def _run_output_lang_bound_base(file_id, job, audio_path, cancel_event, outs,
                      content_asr_segments=base, text=" ".join(s["text"] for s in base),
                      asr_seconds=round(time.time() - _t0, 1))
     except Exception as e:
-        _update_file(file_id, status='error', error=str(e))
+        from jobqueue.queue import JobCancelled
+        if isinstance(e, JobCancelled):
+            # 用戶取消：file 退返「待處理」可重跑，唔好顯示錯誤
+            _update_file(file_id, status='uploaded', error=None)
+        else:
+            _update_file(file_id, status='error', error=str(e))
         raise
 
 
@@ -891,7 +901,11 @@ def _asr_handler(job, cancel_event=None):
                 cancel_event=cancel_event,
             )
         except Exception as e:
-            _update_file(file_id, status='error', error=str(e))
+            from jobqueue.queue import JobCancelled
+            if isinstance(e, JobCancelled):
+                _update_file(file_id, status='uploaded', error=None)
+            else:
+                _update_file(file_id, status='error', error=str(e))
             raise
         _update_file(file_id, status='done')
 
@@ -925,7 +939,12 @@ def _asr_handler(job, cancel_event=None):
                                           job_user_id=job["user_id"],
                                           cancel_event=cancel_event)
     except Exception as e:
-        _update_file(file_id, status='error', error=str(e))
+        from jobqueue.queue import JobCancelled
+        if isinstance(e, JobCancelled):
+            # 用戶取消：file 退返「待處理」可重跑，唔好顯示錯誤
+            _update_file(file_id, status='uploaded', error=None)
+        else:
+            _update_file(file_id, status='error', error=str(e))
         raise
 
     if not result:

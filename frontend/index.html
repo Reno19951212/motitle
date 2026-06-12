@@ -1919,6 +1919,8 @@
         const rows = await r.json();
         const nowActive = new Set();
         let _activeTouched = false;
+        const _liveJobIds = new Set((Array.isArray(rows) ? rows : []).map(r => r && r.id).filter(Boolean));
+        Object.keys(_jobCancelReq).forEach((k) => { if (!_liveJobIds.has(k)) delete _jobCancelReq[k]; });
         (Array.isArray(rows) ? rows : []).forEach((row) => {
           if (!row || !row.file_id) return;
           const fid = row.file_id;
