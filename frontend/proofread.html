@@ -832,6 +832,9 @@
     .gl-after  { color: var(--accent-2); font-weight: 600; }
     .gl-src    { color: var(--text-dim); font-size: .85em; }
     .gl-empty  { color: var(--text-dim); font-size: .85em; font-style: italic; }
+    /* glossary detail panel v3: lang chip rows + empty-state */
+    .rv-gc-row  { font-size: 12px; line-height: 1.5; display: flex; align-items: baseline; gap: 3px; flex-wrap: wrap; }
+    .rv-gc-empty { color: var(--text-dim); font-size: .85em; font-style: italic; }
 
     .rv-b-detail-footer {
       display: flex; align-items: center; gap: 8px;
@@ -2716,6 +2719,38 @@
     return `${entry.label || entry.lang} · ${(entry.lang || '').toUpperCase()}`;
   }
 
+  // Helper: lang code (e.g. "yue", "en") → 顯示 label（從 _olLangs 搵；fallback 大楷 code）
+  function _langCodeLabel(code) {
+    if (!code) return '';
+    const entry = _olLangs.find(l => l.lang === code);
+    if (entry) return entry.label ? `${entry.label} · ${code.toUpperCase()}` : code.toUpperCase();
+    return code.toUpperCase();
+  }
+
+  // 詞彙對照：lang chip + 觸發詞 + 空狀態分流（spec 2026-06-12 §3.3）
+  // 容忍舊記錄缺 lang/source 欄。
+  function _renderGlossaryChanges(seg) {
+    const chs = seg.glossary_changes || [];
+    if (!chs.length) {
+      const noGl = !fileInfo || !(fileInfo.glossary_ids || []).length;
+      return `<div class="rv-gc-empty">${noGl ? '— 未設定詞彙表 —' : '— 此段冇命中詞條 —'}</div>`;
+    }
+    return `<div style="display:flex;flex-direction:column;gap:4px;padding:6px 0;">${
+      chs.map(gc => {
+        const langChip = gc.lang
+          ? `<span class="gc-lang">${escapeHtml(_langCodeLabel(gc.lang))}</span>` : '';
+        const src = gc.source && gc.source !== gc.before
+          ? `<span class="gc-src">"${escapeHtml(gc.source)}"</span> ` : '';
+        return `<div class="rv-gc-row">${langChip}${src}` +
+          `<span class="gl-before">${escapeHtml(gc.before)}</span>` +
+          ` → ` +
+          `<span class="gl-after">${escapeHtml(gc.after)}</span>` +
+          ` <span class="gc-gl">· ${escapeHtml(gc.glossary || '')}</span>` +
+          `</div>`;
+      }).join('')
+    }</div>`;
+  }
+
   function renderDetail() {
     const el = document.getElementById('detailPanel');
     if (cursorIdx == null || !segs[cursorIdx]) {
@@ -2817,19 +2852,7 @@
           <div class="rv-b-detail-label">
             <span>詞彙對照</span>
           </div>
-          ${(s.glossary_changes && s.glossary_changes.length)
-            ? `<div style="display:flex;flex-direction:column;gap:4px;padding:6px 0;">${
-                s.glossary_changes.map(gc =>
-                  `<div style="font-size:12px;line-height:1.5;">` +
-                  `<span class="gl-before">${escapeHtml(gc.before)}</span>` +
-                  ` → ` +
-                  `<span class="gl-after">${escapeHtml(gc.after)}</span>` +
-                  ` <span class="gl-src">· ${escapeHtml(gc.glossary || '')}</span>` +
-                  `</div>`
-                ).join('')
-              }</div>`
-            : `<div class="gl-empty">— 此段無詞彙表詞條（未涉及）—</div>`
-          }
+          ${_renderGlossaryChanges(s)}
         </div>
       </div>
 
