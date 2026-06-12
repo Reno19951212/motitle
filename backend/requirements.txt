@@ -36,3 +36,6 @@ fonttools>=4.40.0
 
 # Token licensing — Ed25519 offline signature
 PyNaCl>=1.5.0
+
+# 粵拼語音糾錯 (phonetic correction) — char→jyutping for homophone repair
+ToJyutping
