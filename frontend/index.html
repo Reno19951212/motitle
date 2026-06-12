@@ -2156,8 +2156,16 @@
           return `<span class="badge badge--awaiting-asr"><span class="dot"></span> 排隊中</span>`;
         case 'error':
           return `<span class="badge badge--error">✕ 錯誤</span>`;
-        case 'pending':
-          return `<span class="badge badge--idle">待上傳</span>`;
+        case 'pending': {
+          const up = f.uploadProgress;
+          // undefined = 未開始上傳（popup 階段）— 行為不變
+          if (up === undefined) return `<span class="badge badge--idle">待上傳</span>`;
+          // null = lengthComputable false（indeterminate）
+          if (up === null) return `<span class="badge badge--processing"><span class="dot" style="animation:pulse 1.3s infinite"></span> 上傳中…</span>`;
+          // bytes 送晒，等 server file.save/註冊/入隊回 202 — 呢段空窗大檔好明顯
+          if (up >= 100) return `<span class="badge badge--processing"><span class="dot" style="animation:pulse 1.3s infinite"></span> 處理緊…</span>`;
+          return `<span class="badge badge--processing"><span class="dot" style="animation:pulse 1.3s infinite"></span> 上傳中 ${up}%</span>`;
+        }
         default: {
           // V6 files have no separate MT job (refiner is inline), so
           // translation_status stays null even at full completion.
@@ -2169,6 +2177,19 @@
           return `<span class="badge badge--queued"><span class="dot"></span> 待翻譯</span>`;
         }
       }
+    }
+
+    // 上傳進度寫入 + 靶向更新 badge。onprogress 發射頻率高（可達每秒幾十次），
+    // 只喺整數百分比變化時先郁 DOM；只換 badge outerHTML，唔重建成個 queue list
+    // （避免 hover/取消掣俾 innerHTML rebuild 打斷）。
+    function _setUploadProgress(pct) {
+      const p = uploadedFiles['__pending__'];
+      if (!p || p.uploadProgress === pct) return;
+      uploadedFiles['__pending__'] = { ...p, uploadProgress: pct };
+      const host = document.querySelector('.queue-item[data-file-id="__pending__"] .qh');
+      if (!host) { renderQueue(); return; }
+      const badge = host.querySelector('.badge');
+      if (badge) badge.outerHTML = stageBadgeHtml(uploadedFiles['__pending__']);
     }
 
     // ============================================================
@@ -2301,6 +2322,12 @@
                 <button class="btn-secondary" id="queueCancelBtn-${f.job_id}"
                         data-testid="queue-cancel"
                         onclick="cancelJob('${f.job_id}')">取消</button>
+              </div>
+            ` : ''}
+            ${cat === 'pending' && f.uploadProgress !== undefined ? `
+              <div class="q-actions" onclick="event.stopPropagation()">
+                <button class="btn-secondary" data-testid="upload-cancel"
+                        onclick="cancelUpload()">取消上傳</button>
               </div>
             ` : ''}
           </div>`;
@@ -4395,7 +4422,23 @@
       if (file) setPendingFile(file);
     }
 
+    // 同後端 app.config['MAX_CONTENT_LENGTH']（backend/app.py:131, 5GB）保持同步
+    const MAX_UPLOAD_BYTES = 5 * 1024 * 1024 * 1024;
+
     function setPendingFile(file) {
+      if (isProcessing || _activeUploadXhr) {
+        showToast('上傳進行中，請等完成或取消後再揀檔', 'warning');
+        const input = document.getElementById('fileInput');
+        if (input) input.value = '';
+        return;
+      }
+      if (file.size > MAX_UPLOAD_BYTES) {
+        const gb = (file.size / 1024 / 1024 / 1024).toFixed(2);
+        showToast(`檔案太大（${gb} GB），超出 5GB 上限`, 'error');
+        const input = document.getElementById('fileInput');
+        if (input) input.value = '';
+        return;
+      }
       selectedFile = file;
       uploadedFiles['__pending__'] = {
         id: '__pending__',
@@ -4642,6 +4685,47 @@
       startTranscription();
     }
 
+    // 進行中嘅上傳 XHR — 同一時間最多一個（isProcessing 已鎖 UI）。
+    // 取消上傳 = abort() → onabort → startTranscription catch 統一清理。
+    let _activeUploadXhr = null;
+
+    // fetch() 冇 upload progress API — 用 XHR 包裝做 promise。
+    // resolve {status, json}（json 容忍非 JSON body，例如 werkzeug 413 HTML → null）。
+    function uploadWithProgress(url, formData, onProgress) {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        _activeUploadXhr = xhr;
+        xhr.open('POST', url);
+        xhr.upload.onprogress = (e) => {
+          // lengthComputable=false（或 total=0）→ null = indeterminate（badge 顯示「上傳中…」無 %）
+          onProgress((e.lengthComputable && e.total > 0) ? Math.min(100, Math.floor((e.loaded / e.total) * 100)) : null);
+        };
+        xhr.onload = () => {
+          let json = null;
+          try { json = JSON.parse(xhr.responseText); } catch {}
+          resolve({ status: xhr.status, json });
+        };
+        xhr.onerror = () => {
+          // XHR 下超 5GB cap 可能表現為中途連線錯誤而唔係乾淨 413
+          reject(new Error('網絡錯誤或連線中斷 — 請檢查網絡，或確認檔案未超過 5GB 上限'));
+        };
+        xhr.onabort = () => {
+          reject(Object.assign(new Error('已取消上傳'), { _aborted: true }));
+        };
+        // 單一 chokepoint 清 tracker（onload/onerror/onabort 之後一定會行 loadend）
+        xhr.onloadend = () => { if (_activeUploadXhr === xhr) _activeUploadXhr = null; };
+        try { xhr.send(formData); }
+        catch (e) { _activeUploadXhr = null; throw e; }
+      });
+    }
+
+    // 上傳取消：有 XHR 就 abort（清理由 onabort → catch 做）；
+    // 未開始上傳（popup 階段）就直接清 pending 卡。
+    function cancelUpload() {
+      if (_activeUploadXhr) { _activeUploadXhr.abort(); return; }
+      clearPending();
+    }
+
     async function startTranscription() {
       // Re-run path: a completed (or errored) already-uploaded file is selected
       // and there is no pending new upload. Re-run uses the pipeline currently
@@ -4653,7 +4737,7 @@
           return rerunPipeline(activeFileId);
         }
       }
-      if (!selectedFile || isProcessing) return;
+      if (!selectedFile || isProcessing || _activeUploadXhr) return;
       // T8 — a fresh local file must go through the output-language popup first.
       // If the Run button fires before languages are chosen (popup not yet open),
       // open the popup. Cmd+Enter while the popup is OPEN is intercepted by the
@@ -4683,23 +4767,24 @@
       }
 
       try {
-        const resp = await fetch(`${API_BASE}/api/transcribe`, { method: 'POST', body: formData });
+        // 上傳開始 — badge 入「上傳中 0%」，full render 令「取消上傳」掣出現
+        if (uploadedFiles['__pending__']) {
+          uploadedFiles['__pending__'] = { ...uploadedFiles['__pending__'], uploadProgress: 0 };
+          renderQueue();
+        }
+        const { status, json } = await uploadWithProgress(
+          `${API_BASE}/api/transcribe`, formData, _setUploadProgress);
 
         // 413 returns HTML from werkzeug — surface a specific message instead of JSON parse error
-        if (resp.status === 413) {
+        if (status === 413) {
           const mb = (selectedFile.size / 1024 / 1024).toFixed(1);
           throw new Error(`檔案太大（${mb} MB），超出後端 5GB 上限`);
         }
-        // R6 audit E9 — surface 415 (wrong type) as a clear message
-        if (resp.status === 415) {
-          throw new Error('檔案類型不支援，請使用 MP4 / MOV / MKV / MXF / WAV / MP3 等格式');
+        if (status < 200 || status >= 300) {
+          throw new Error((json && json.error) ? json.error : `HTTP ${status}`);
         }
-        if (!resp.ok) {
-          let msg = `HTTP ${resp.status}`;
-          try { const err = await resp.json(); if (err.error) msg = err.error; } catch {}
-          throw new Error(msg);
-        }
-        const data = await resp.json();
+        const data = json;
+        if (!data) throw new Error('伺服器回應格式錯誤');
         if (data.error) throw new Error(data.error);
 
         delete uploadedFiles['__pending__'];
@@ -4736,7 +4821,8 @@
         // failure. Otherwise the queueList shows a phantom "pending" row
         // forever and the user has to manually delete it.
         clearPending();
-        showToast(`上傳失敗: ${err.message}`, 'error');
+        // 用戶主動取消（xhr.abort）— 安靜清理，唔彈錯誤
+        if (!err._aborted) showToast(`上傳失敗: ${err.message}`, 'error');
         isProcessing = false;
       }
     }
@@ -4762,8 +4848,8 @@
 
     // 2-step delete: first click arms (red pulse), second click within 3s confirms.
     function armOrConfirmDelete(id) {
-      // Local pending entry: just clear
-      if (uploadedFiles[id]?._local) { clearPending(); return; }
+      // Local pending entry: 上傳中 abort（onabort 統一清理），未上傳就直接清
+      if (uploadedFiles[id]?._local) { cancelUpload(); return; }
       if (deleteArmedId === id) {
         deleteFile(id);
         return;
@@ -5503,6 +5589,11 @@
         // Preserve the currently-active file if the server response doesn't include it
         // (e.g. it was injected locally or not yet committed to the server registry).
         if (prevActive && !newFiles[prevActive.id]) newFiles[prevActive.id] = prevActive;
+        // Carry over the __pending__ card so a mid-upload fetchFileList (e.g. socket
+        // reconnect) doesn't erase the upload card and its cancel button.
+        if (uploadedFiles['__pending__'] && !newFiles['__pending__']) {
+          newFiles['__pending__'] = uploadedFiles['__pending__'];
+        }
         uploadedFiles = newFiles;
         renderAll();
       } catch (e) {
