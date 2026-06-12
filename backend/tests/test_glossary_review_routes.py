@@ -169,3 +169,133 @@ def test_preview_approved_row_flag_passthrough(client_with_entry):
     yue = next(t for t in r.get_json()["tracks"] if t["lang"] == "yue")
     fixes = [i for i in yue["items"] if i["kind"] == "fix"]
     assert fixes and fixes[0]["approved"] is True
+
+
+# ===========================================================================
+# Task 5 — POST /api/files/<id>/glossary-apply-item
+#
+# _make_ollama_llm_call() returns a (system, user) -> str callable; the route
+# calls it once per item. Mock it to a fixed JSON string.
+# ===========================================================================
+
+def _mock_llm(text_json):
+    """Return a _make_ollama_llm_call replacement → a (system, user)->str fn."""
+    return lambda: (lambda system, user: text_json)
+
+
+def test_apply_item_writes_three_stores_keep_status(client_with_entry, monkeypatch):
+    client, fid, app_module = client_with_entry
+    monkeypatch.setattr(app_module, "_make_ollama_llm_call",
+                        _mock_llm('{"text": "跑馬地今晚有賽事。"}'))
+    entry = app_module._file_registry[fid]
+    row = entry["translations"][0]
+    row["status"] = "approved"          # keep_status 驗證
+    before_text = row["by_lang"]["yue"]["text"]
+    r = client.post(f"/api/files/{fid}/glossary-apply-item", json={
+        "idx": 0, "lang": "yue", "alias": "快活谷", "canonical": "跑馬地",
+        "glossary_id": "g-1", "entry_id": "e-1", "glossary": "賽馬",
+        "expected_text": before_text,
+    })
+    assert r.status_code == 200, r.get_data(as_text=True)
+    body = r.get_json()
+    assert "跑馬地" in body["text"]
+    row = app_module._file_registry[fid]["translations"][0]
+    assert row["by_lang"]["yue"]["text"] == body["text"]
+    assert row["yue_text"] == body["text"]                       # mirror
+    assert app_module._file_registry[fid]["aligned_bilingual"][0]["by_lang"]["yue"] == body["text"]
+    assert row["status"] == "approved"                            # keep_status
+    ch = row["glossary_changes"][-1]
+    assert ch["lang"] == "yue" and ch["entry_id"] == "e-1" and ch["after"] == "跑馬地"
+
+
+def test_apply_item_conflict_409(client_with_entry, monkeypatch):
+    client, fid, app_module = client_with_entry
+    monkeypatch.setattr(app_module, "_make_ollama_llm_call",
+                        _mock_llm('{"text": "跑馬地今晚有賽事。"}'))
+    r = client.post(f"/api/files/{fid}/glossary-apply-item", json={
+        "idx": 0, "lang": "yue", "alias": "快活谷", "canonical": "跑馬地",
+        "glossary_id": "g-1", "entry_id": "e-1", "glossary": "賽馬",
+        "expected_text": "已經被人改咗嘅文字",
+    })
+    assert r.status_code == 409
+
+
+def test_apply_item_bad_llm_output_422(client_with_entry, monkeypatch):
+    client, fid, app_module = client_with_entry
+    monkeypatch.setattr(app_module, "_make_ollama_llm_call",
+                        _mock_llm('not json at all'))
+    entry = app_module._file_registry[fid]
+    before = entry["translations"][0]["by_lang"]["yue"]["text"]
+    r = client.post(f"/api/files/{fid}/glossary-apply-item", json={
+        "idx": 0, "lang": "yue", "alias": "快活谷", "canonical": "跑馬地",
+        "glossary_id": "g-1", "entry_id": "e-1", "glossary": "賽馬",
+        "expected_text": before,
+    })
+    assert r.status_code == 422
+    # 唔合格唔寫入 — 原句不變
+    assert app_module._file_registry[fid]["translations"][0]["by_lang"]["yue"]["text"] == before
+
+
+def test_apply_item_validations(client_with_entry):
+    client, fid, _ = client_with_entry
+    # 壞 body
+    assert client.post(f"/api/files/{fid}/glossary-apply-item", json={}).status_code == 400
+    # idx 出界
+    r = client.post(f"/api/files/{fid}/glossary-apply-item", json={
+        "idx": 999, "lang": "yue", "alias": "x", "canonical": "y",
+        "expected_text": "z"})
+    assert r.status_code == 400
+
+
+def test_apply_item_rejects_non_output_lang(client_with_profile_entry, monkeypatch):
+    client, fid = client_with_profile_entry
+    import app as _app
+    monkeypatch.setattr(_app, "_make_ollama_llm_call",
+                        _mock_llm('{"text": "x"}'))
+    r = client.post(f"/api/files/{fid}/glossary-apply-item", json={
+        "idx": 0, "lang": "yue", "alias": "x", "canonical": "y",
+        "expected_text": "z"})
+    assert r.status_code == 400
+
+
+def test_apply_item_missing_file_404(client_with_entry):
+    client, _fid, _ = client_with_entry
+    r = client.post("/api/files/does-not-exist/glossary-apply-item", json={
+        "idx": 0, "lang": "yue", "alias": "x", "canonical": "y",
+        "expected_text": "z"})
+    assert r.status_code == 404
+
+
+def test_apply_item_blocked_during_rerun(client_with_entry, monkeypatch):
+    client, fid, app_module = client_with_entry
+    monkeypatch.setattr(app_module, "_make_ollama_llm_call",
+                        _mock_llm('{"text": "跑馬地今晚有賽事。"}'))
+    # Seed an active rerun job for this file → apply-item must 409.
+    with app_module._rerun_jobs_lock:
+        app_module._rerun_jobs["rj-apply"] = {"file_id": fid, "status": "running"}
+    try:
+        before = app_module._file_registry[fid]["translations"][0]["by_lang"]["yue"]["text"]
+        r = client.post(f"/api/files/{fid}/glossary-apply-item", json={
+            "idx": 0, "lang": "yue", "alias": "快活谷", "canonical": "跑馬地",
+            "glossary_id": "g-1", "entry_id": "e-1", "glossary": "賽馬",
+            "expected_text": before,
+        })
+        assert r.status_code == 409
+    finally:
+        with app_module._rerun_jobs_lock:
+            app_module._rerun_jobs.pop("rj-apply", None)
+
+
+def test_apply_item_missing_canonical_in_output_422(client_with_entry, monkeypatch):
+    """LLM 輸出唔含標準寫法 → validate_applied 422，唔寫入。"""
+    client, fid, app_module = client_with_entry
+    monkeypatch.setattr(app_module, "_make_ollama_llm_call",
+                        _mock_llm('{"text": "快活谷今晚有夜馬。"}'))  # 冇「跑馬地」
+    before = app_module._file_registry[fid]["translations"][0]["by_lang"]["yue"]["text"]
+    r = client.post(f"/api/files/{fid}/glossary-apply-item", json={
+        "idx": 0, "lang": "yue", "alias": "快活谷", "canonical": "跑馬地",
+        "glossary_id": "g-1", "entry_id": "e-1", "glossary": "賽馬",
+        "expected_text": before,
+    })
+    assert r.status_code == 422
+    assert app_module._file_registry[fid]["translations"][0]["by_lang"]["yue"]["text"] == before

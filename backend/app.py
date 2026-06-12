@@ -5121,6 +5121,132 @@ def api_glossary_preview(file_id):
     return jsonify({"tracks": tracks, "totals": totals})
 
 
+@app.route('/api/files/<file_id>/glossary-apply-item', methods=['POST'])
+@require_file_owner
+def api_glossary_apply_item(file_id):
+    """Apply ONE glossary fix to ONE output-language cue via the LLM — spec §4.
+
+    Flow mirrors the AI segment-split path: validate + snapshot under the lock →
+    slow LLM call OUTSIDE the lock → re-acquire the lock + ``expected_text``
+    conflict check → atomic three-store write (``by_lang[lang].text`` +
+    ``{lang}_text`` mirror + ``aligned_bilingual[idx].by_lang[lang]``) + a
+    ``glossary_changes`` record (carrying ``lang`` + ``entry_id``).
+
+    ``keep_status`` semantics: the row's batch-approval status is NEVER touched
+    by a glossary fix (a fix is a correction, not a re-review).
+
+    Body: ``{idx, lang, alias, canonical, expected_text, [source, glossary,
+    glossary_id, entry_id]}``.
+
+    Returns 200 ``{text, change}``. 400 bad body / non-output_lang / idx out of
+    range; 404 missing file; 409 conflict or AI Rerun in progress; 422 LLM
+    output unusable.
+    """
+    import glossary_review as gr
+
+    data = request.get_json(silent=True) or {}
+    try:
+        idx = int(data["idx"])
+        lang = str(data["lang"])
+        alias = str(data["alias"])
+        canonical = str(data["canonical"])
+        expected_text = str(data["expected_text"])
+    except (KeyError, TypeError, ValueError):
+        return jsonify({"error": "需要 idx/lang/alias/canonical/expected_text"}), 400
+    if isinstance(data.get("idx"), bool):  # bool is an int subclass — reject it
+        return jsonify({"error": "idx 必須係整數"}), 400
+
+    # ----- Phase 1: validate + snapshot under the lock -----------------------
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+        if not entry:
+            return jsonify({"error": "文件不存在"}), 404
+        if entry.get("active_kind") != "output_lang":
+            return jsonify({"error": "只支援 output_lang 檔案"}), 400
+        rows = entry.get("translations") or []
+        if not (0 <= idx < len(rows)):
+            return jsonify({"error": "idx 出界"}), 400
+        # Rerun rebuilds rows wholesale — refuse to race it (same gate as reapply
+        # / split / merge). Render is allowed (render uses a start-of-job
+        # snapshot, like a manual PATCH edit — spec §7).
+        if _file_has_active_rerun(file_id):
+            return jsonify({"error": "AI Rerun 進行中，無法修改段落"}), 409
+        row = rows[idx]
+        current = (((row.get("by_lang") or {}).get(lang) or {}).get("text")
+                   or row.get(f"{lang}_text") or "")
+        if current != expected_text:
+            return jsonify({"error": "段落已被修改 — 請重新掃描"}), 409
+        # mt-track source reference (best-effort — used only when present).
+        segs = entry.get("content_asr_segments") or []
+        src_text = segs[idx].get("text", "") if idx < len(segs) else ""
+        # Friendly label for the prompt; fall back to the lang code.
+        lang_label = next(
+            (l.get("label") for l in (entry.get("languages") or [])
+             if l.get("lang") == lang and l.get("label")),
+            lang,
+        )
+
+    # ----- Phase 2: slow LLM call (OUTSIDE the lock) -------------------------
+    # target-side = the alias already sits in the cue text (canonicalize it);
+    # source-side = the alias is in the original audio, ensure the cue uses the
+    # standard rendering. The source-side prompt only makes sense with a src ref.
+    side = "source" if (src_text and alias not in current) else "target"
+    llm = _make_ollama_llm_call()
+    try:
+        raw = llm(
+            gr.build_apply_system_prompt(lang_label, side=side),
+            gr.build_apply_user_prompt(current, src_text, alias, canonical),
+        )
+    except Exception as e:
+        app.logger.error("glossary-apply-item LLM call failed file=%s idx=%s lang=%s: %s",
+                         file_id, idx, lang, e)
+        return jsonify({"error": "AI 服務暫時冇回應，請再試"}), 502
+
+    new_text = gr.parse_response(raw)
+    if new_text is None:
+        return jsonify({"error": "AI 輸出無法解析"}), 422
+    err = gr.validate_applied(new_text, canonical, current)
+    if err:
+        return jsonify({"error": f"AI 輸出唔合格：{err}"}), 422
+
+    # ----- Phase 3: re-acquire lock + conflict re-check + atomic write -------
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+        if not entry:
+            return jsonify({"error": "文件不存在"}), 404
+        rows = entry.get("translations") or []
+        if not (0 <= idx < len(rows)):
+            return jsonify({"error": "段落已被修改 — 請重新掃描"}), 409
+        row = rows[idx]
+        current2 = (((row.get("by_lang") or {}).get(lang) or {}).get("text")
+                    or row.get(f"{lang}_text") or "")
+        if current2 != expected_text:
+            return jsonify({"error": "段落已被修改 — 請重新掃描"}), 409
+
+        bl = row.setdefault("by_lang", {}).setdefault(lang, {})
+        bl["text"] = new_text                       # by_lang[lang].text
+        row[f"{lang}_text"] = new_text              # {lang}_text mirror
+        aligned = entry.get("aligned_bilingual")    # aligned_bilingual cue
+        if isinstance(aligned, list) and idx < len(aligned):
+            cue = aligned[idx]
+            cue.setdefault("by_lang", {})[lang] = new_text
+        change = {
+            "source": data.get("source", alias),
+            "before": alias,
+            "after": canonical,
+            "glossary": data.get("glossary", ""),
+            "lang": lang,
+            "entry_id": data.get("entry_id"),
+            "glossary_id": data.get("glossary_id"),
+        }
+        row.setdefault("glossary_changes", []).append(change)
+        # keep_status: row["status"] / bl["status"] / flags are intentionally
+        # left untouched — a glossary correction is not a re-review.
+        _save_registry()
+
+    return jsonify({"text": new_text, "change": change})
+
+
 @app.route('/api/transcribe/sync', methods=['POST'])
 @admin_required
 def transcribe_sync():
