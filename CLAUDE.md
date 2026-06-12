@@ -260,7 +260,7 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | GET | `/api/files` | List all uploaded files with status（2026-06-10 起每檔附 `output_languages/source_language/script/mt_style/glossary_ids/glossary_llm` — 重新處理 popup 預填用） |
 | GET | `/api/files/<id>/media` | Serve original media file |
 | GET | `/api/files/<id>/subtitle.<fmt>` | Download subtitle (srt/vtt/txt)；接 `?source=` + `?order=` query params |
-| PATCH | `/api/files/<id>` | Update file-level settings (subtitle_source / bilingual_order) |
+| PATCH | `/api/files/<id>` | Update file-level settings (subtitle_source / bilingual_order)；output_lang 檔亦接受 `glossary_ids`（ordered list of glossary ids，每個逐一驗存在否，未知 id → 400）+ `glossary_llm`（boolean） |
 | GET | `/api/files/<id>/segments` | Get transcription segments |
 | PATCH | `/api/files/<id>/segments/<seg_id>` | Update segment text |
 | DELETE | `/api/files/<id>` | Delete file |
@@ -296,7 +296,9 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | GET | `/api/glossaries/<id>/export` | Export CSV |
 | POST | `/api/files/<id>/glossary-scan` | Scan translations for glossary violations (string match) |
 | POST | `/api/files/<id>/glossary-apply` | Apply glossary corrections via LLM smart replacement |
-| POST | `/api/files/<id>/glossary-reapply` | output_lang only — 重新套用詞彙表，由 cached content base 1:1 re-derive（無 re-ASR）；非 output_lang / 無 content base / 未知 glossary → 400 |
+| POST | `/api/files/<id>/glossary-preview` | output_lang only — **機械掃描（純讀零副作用）**：對每條輸出語言軌行同 pipeline 一致嘅 `route_for_output` + 別名 matching；body 可選 `{glossary_ids?}`（缺省用檔案設定；測試用 override，前端永遠唔送 override — 改選先 PATCH 落檔再掃描）；回 `{tracks:[{lang, mode, side, applicable_glossaries, inapplicable_glossaries, items:[{idx, start, kind: fix\|ok, alias, canonical, entry_id, glossary_id, glossary, approved}]}], totals}`；400 非 output_lang / 含未知 glossary id；零 LLM、零 registry 寫入 |
+| POST | `/api/files/<id>/glossary-apply-item` | output_lang only — **逐項 AI 詞彙套用（keep_status）**：body `{idx, lang, alias, canonical, expected_text, glossary_id?, entry_id?, glossary?}`；鎖內 snapshot → 鎖外 LLM（「只改呢個詞」prompt，Beta-aware）→ 重鎖 + `expected_text` 衝突檢查 → 三庫原子寫入（`by_lang[lang].text` + `{lang}_text` mirror + `aligned_bilingual[idx].by_lang[lang]`）+ append `glossary_changes`（帶 `lang`/`entry_id`）；**status 唔郁**（keep_status）；回 `{text, change}`；400 壞 body/idx 出界/非 output_lang、409 expected_text 衝突/AI Rerun 中、422 AI 輸出無法解析/唔合格；prompt/parse/validate 在 `backend/glossary_review.py`（pure module） |
+| POST | `/api/files/<id>/glossary-reapply` | output_lang only — **全量重新生成**（前端改名「全部重新生成」+ 破壞性警告 confirm）；由 cached content base 1:1 re-derive（無 re-ASR）；非 output_lang / 無 content base / 未知 glossary → 400；**render 進行中 → 409**（補閘，之前只擋 rerun） |
 | POST | `/api/files/<id>/segments/<pos>/split` | output_lang only — split cue at 0-indexed `pos` into two; body `{mode: "ai"\|"mechanical"}` (ai = LLM semantic split, mechanical = 50/50 midpoint + duplicate text); syncs segments/translations/aligned_bilingual/content_asr_segments; 400 non-output_lang / <0.4s, 409 render-in-progress / concurrent-edit |
 | POST | `/api/files/<id>/segments/<pos>/merge-next` | output_lang only — merge cue `pos` with `pos+1` (join text, union time, reset pending); 400 last-cue / non-output_lang, 409 render-in-progress |
 | POST | `/api/files/<id>/ai-edit` | output_lang only — AI 輔助修改（suggest-only）：body `{pos, role: first\|second, instruction ≤500字}`；LLM 按指令重寫該段該語言字幕，回 `{text, source_text}`；**唔寫 registry**（前端經 PATCH /translations/<idx> 套用）；400 非 output_lang/壞參數、404 段落唔存在、422 LLM 輸出無法解析、502 LLM 冇回應 |
@@ -543,6 +545,35 @@ macOS subtitle burn-in runs through libass's **CoreText** provider, and the prod
 - **New module** `backend/beta_mode.py`: constants (`BETA_LLM_MODEL = "qwen/qwen3.5-35b-a3b"`), `key_status()`, `set_key()`.
 - **Frontend**: admin-only 「Beta 測試模式」 nav tab in `user.html` (我的帳戶 page) — enable toggle, API key input, and status display. States clearly that ASR stays local.
 - **2026-06-11 起 UI 全面唔顯示引擎/型號/供應商名**（Whisper/mlx/qwen/OpenRouter/Ollama/雲端）：4 頁假 health pills（`WHISPER mlx-whisper`/`CLOUD qwen3.5`）已剷；index 動態 pills 剩 連線+佇列；V6 stage 標籤改「語音識別」「時間對齊」（`progress_adapter.py` + index `_COLD_STAGES` 兩邊）；inspector Pipeline 組唔再列 ASR/MT 引擎名；Beta pane 用「外部 AI 服務」「API 金鑰」中性字眼（後端 `auth/admin.py` 錯誤字串同步）；死代碼 OpenRouter modal 加 `display:none` 防 innerText/a11y 漏字。內部代碼/註釋/死代碼識別字唔受影響。
+
+### Proofread Glossary Review — 詞彙表掃描／逐項套用（output_lang, NEW 2026-06-12）
+
+**問題背景**：舊校對頁詞彙表互動有三大痛點：(1) 覆蓋率不可見 — `glossary_changes` 只記有改動嘅段，verbatim 命中唔記；(2) 語言歸屬丟失 — `glossary_changes` 無 `lang` 欄，兩軌 union 喺 persist 嗰刻攤平；(3) 無逐項確認 — 「重新套用」係全量 re-derive 核彈（29–47s、清所有人手編輯、批核全 reset、無 preview）。解決方案：翻新舊 C 線骨架，搬入現時校對介面做主力互動。
+
+**詞彙表 panel 重設計**（`frontend/proofread.html`，output_lang only）：
+- 假 dropdown 改成**真多選清單**（所有可見術語表 + checkbox，剔選順序 = 優先次序，數字 badge）；剔/改即 `PATCH /api/files/<id>`（`glossary_ids` 有序列表），toast 確認。
+- 主掣「🔍 掃描詞彙表」→ 開掃描 modal；副掣「⟳ 全部重新生成」（原「重新套用詞彙表」）→ **confirm 警告**（覆寫人手編輯 + 批核全 reset）再呼叫 reapply。
+
+**掃描 modal**（`frontend/js/glossary-review.js`）：
+- `POST /api/files/<id>/glossary-preview`（純讀毫秒掃描）→ 按語言軌分區顯示：每軌標題寫明生效方向（refine/pass 軌 = target-side；mt 軌 = source-side 命中 + 譯文注入）。
+- 軌內兩 section：**待修正**（checkbox，已批核行 default **唔剔**，badge 標注）＋ **已符合**（pure display，dimmed）。
+- 每行：`別名 → 標準名` + 來源表 tag + `#段號 時間碼`（撳得 → `setCursor` 跳段 + seek）+ 字幕原句（別名黃 highlight）+ hint「AI 將判斷修改位置，套用唔改批核狀態」。
+- Footer「套用選中 (N)」→ 串行呼叫 `POST /api/files/<id>/glossary-apply-item`（仿 ⌘F promise chain）；行內即時 ✓ / ✗（可重試）；完成 toast 總結；「重新掃描」刷新。
+
+**逐項 AI 套用**（`backend/glossary_review.py` pure module）：
+- Prompt：「只改呢個詞、句子其他部分逐字保留、語體唔可以 drift」（三個已知 failure mode 全部加守則）。
+- **keep_status 語義**：三庫原子寫入 + append `glossary_changes`，`status`/批核狀態一律唔郁。
+- 鎖模式跟 AI 切割：LLM 喺 `_registry_lock` 外行、寫前 re-acquire + `expected_text` 衝突檢查 → 409 如果中途段落被編輯。
+- `validate_applied`：canonical 必須喺輸出 + 改動唔超過單詞範圍（>60% 字符替換 → 422 拒絕）。
+
+**數據模型更新（add-only）**：
+- `glossary_changes` 每 item 加 `lang`（語言軌）+ `entry_id`（詞彙表條目 id）；pipeline `glossary_stage` 同步加 `lang`（per-軌行所以有源頭值）；舊記錄缺欄 → 前端容忍。
+- `_filter_source_side` / `_filter_target_side` 候選 dict 加 `entry_id` + `glossary_id`（add-only，pipeline 不受影響）。
+- **scan_track** pure function（`output_lang_glossary.py`）：同 pipeline 共用同一套 matching helpers，保證「掃描話有 = pipeline 套得中」。
+
+**「詞彙對照」升級**（段落 detail panel）：每行加語言 chip + 觸發詞；空狀態分流（無 glossary_ids →「未設定詞彙表」；有設但此段無命中 →「此段冇命中詞條」）。
+
+**Tests**：`tests/test_output_lang_glossary.py`（+2 tests entry_id/lang）、`tests/test_glossary_review_scan.py`（6 tests scan_track）、`tests/test_glossary_review_module.py`（7 tests prompt/parse/validate）、`tests/test_glossary_review_routes.py`（12 tests preview/apply-item/PATCH/reapply）。
 
 ### Retired UI / removed dead code (cleaned up 2026-06-06)
 
