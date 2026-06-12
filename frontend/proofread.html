@@ -3820,6 +3820,14 @@
     if (e.isComposing) return;
     if (e.key === 'j' || e.key === 'J' || e.key === 'ArrowUp') { e.preventDefault(); nav(-1); }
     else if (e.key === 'k' || e.key === 'K' || e.key === 'ArrowDown') { e.preventDefault(); nav(1); }
+    // ←/→ 批核快捷鍵（2026-06-12 用戶要求）：→ 核准並前進、← 取消批核當前段。
+    // 同 ↑/↓ 一樣行 IME-safe 箭咀鍵；inInput/modal guard 喺上面已擋。
+    else if (e.key === 'ArrowRight') { e.preventDefault(); approveAndAdvance(); }
+    else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const s = (cursorIdx != null && cursorIdx >= 0) ? segs[cursorIdx] : null;
+      if (s && s.approved) unapproveSegment(s.idx);
+    }
     else if (e.key === 'i' || e.key === 'I') { e.preventDefault(); setEdgeToPlayhead('in'); }
     else if (e.key === 'o' || e.key === 'O') { e.preventDefault(); setEdgeToPlayhead('out'); }
     else if (e.key === ' ') {
