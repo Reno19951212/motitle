@@ -354,6 +354,36 @@ def test_import_csv_nonexistent_raises(glossary_dir):
     assert result is None
     assert added == 0
 
+def test_import_csv_holds_per_glossary_lock(glossary_dir, monkeypatch):
+    """import_csv is a read-modify-write — it must serialize under the same
+    per-glossary lock as add_entry/update_entry/delete_entry, otherwise a CSV
+    import racing a concurrent POST /entries clobbers the just-added entry."""
+    import glossary as glossary_mod
+    mgr = glossary_mod.GlossaryManager(glossary_dir)
+    created = mgr.create({"name": "T", "source_lang": "en", "target_lang": "zh"})
+
+    acquired = []
+    real_get = glossary_mod._get_gm_lock
+
+    def spying_get(gid):
+        lock = real_get(gid)
+
+        class Spy:
+            def __enter__(self):
+                acquired.append(gid)
+                return lock.__enter__()
+
+            def __exit__(self, *a):
+                return lock.__exit__(*a)
+
+        return Spy()
+
+    monkeypatch.setattr(glossary_mod, "_get_gm_lock", spying_get)
+    updated, added = mgr.import_csv(created["id"], "source,target\nhi,嗨\n")
+    assert added == 1
+    assert created["id"] in acquired
+
+
 def test_export_csv(glossary_dir):
     from glossary import GlossaryManager
     mgr = GlossaryManager(glossary_dir)

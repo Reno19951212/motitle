@@ -3009,10 +3009,16 @@ def api_import_glossary_csv(glossary_id):
 @app.route('/api/glossaries/<glossary_id>/export', methods=['GET'])
 @login_required
 def api_export_glossary_csv(glossary_id):
-    """Export glossary entries as CSV text."""
-    if not app.config.get("R5_AUTH_BYPASS") and not _glossary_manager.can_edit(
+    """Export glossary entries as CSV text.
+
+    Read-only — gated on can_view (not can_edit) so any user who can READ a
+    shared glossary via GET /api/glossaries/<id> can also export the same
+    data (previously non-admins got a 403 JSON body saved as a .csv)."""
+    if not app.config.get("R5_AUTH_BYPASS") and not _glossary_manager.can_view(
         glossary_id, current_user.id, current_user.is_admin
     ):
+        if _glossary_manager.get(glossary_id) is None:
+            return jsonify({"error": "Glossary not found"}), 404
         return jsonify({"error": "forbidden"}), 403
     csv_text = _glossary_manager.export_csv(glossary_id)
     if csv_text is None:

@@ -520,61 +520,65 @@ class GlossaryManager:
 
         v3.x cutover: the old `en,zh` header is rejected with a clear
         error pointing at the new format.
+
+        RMW under the per-id lock (same as add_entry/update_entry) so an
+        import racing a concurrent entry mutation doesn't clobber it.
         """
-        glossary = self.get(glossary_id)
-        if glossary is None:
-            return None, 0
+        with _get_gm_lock(glossary_id):
+            glossary = self.get(glossary_id)
+            if glossary is None:
+                return None, 0
 
-        same_lang = (
-            glossary.get("source_lang") == glossary.get("target_lang")
-            and is_supported_lang(glossary.get("source_lang"))
-        )
-
-        reader = csv.reader(io.StringIO(csv_content))
-        try:
-            header = next(reader)
-        except StopIteration:
-            return glossary, 0
-
-        header_stripped = [h.strip().lower() for h in header]
-        if header_stripped == ["source", "target"]:
-            has_aliases_col = False
-        elif header_stripped == ["source", "target", "target_aliases"]:
-            has_aliases_col = True
-        else:
-            raise ValueError(
-                "CSV must use columns: source, target, target_aliases "
-                f"(got: {', '.join(header)}). "
-                "Update the header row and re-import."
+            same_lang = (
+                glossary.get("source_lang") == glossary.get("target_lang")
+                and is_supported_lang(glossary.get("source_lang"))
             )
 
-        added = 0
-        new_entries = list(glossary.get("entries") or [])
-        for row in reader:
-            if not row or all(not c.strip() for c in row):
-                continue
-            source = (row[0] if len(row) > 0 else "").strip()
-            target = (row[1] if len(row) > 1 else "").strip()
-            aliases_raw = (row[2] if has_aliases_col and len(row) > 2 else "").strip()
-            aliases = [a.strip() for a in aliases_raw.split(";") if a.strip()] if aliases_raw else []
+            reader = csv.reader(io.StringIO(csv_content))
+            try:
+                header = next(reader)
+            except StopIteration:
+                return glossary, 0
 
-            entry = {"source": source, "target": target}
-            if aliases:
-                entry["target_aliases"] = aliases
+            header_stripped = [h.strip().lower() for h in header]
+            if header_stripped == ["source", "target"]:
+                has_aliases_col = False
+            elif header_stripped == ["source", "target", "target_aliases"]:
+                has_aliases_col = True
+            else:
+                raise ValueError(
+                    "CSV must use columns: source, target, target_aliases "
+                    f"(got: {', '.join(header)}). "
+                    "Update the header row and re-import."
+                )
 
-            normalized = _normalize_entry(entry)
-            errors = self.validate_entry(normalized, same_lang=same_lang)
-            if errors:
-                # Skip silently — same behavior as the pre-cutover importer.
-                continue
-            normalized["id"] = str(uuid.uuid4())
-            new_entries.append(normalized)
-            added += 1
+            added = 0
+            new_entries = list(glossary.get("entries") or [])
+            for row in reader:
+                if not row or all(not c.strip() for c in row):
+                    continue
+                source = (row[0] if len(row) > 0 else "").strip()
+                target = (row[1] if len(row) > 1 else "").strip()
+                aliases_raw = (row[2] if has_aliases_col and len(row) > 2 else "").strip()
+                aliases = [a.strip() for a in aliases_raw.split(";") if a.strip()] if aliases_raw else []
 
-        updated = dict(glossary)
-        updated["entries"] = new_entries
-        self._write_glossary(glossary_id, updated)
-        return updated, added
+                entry = {"source": source, "target": target}
+                if aliases:
+                    entry["target_aliases"] = aliases
+
+                normalized = _normalize_entry(entry)
+                errors = self.validate_entry(normalized, same_lang=same_lang)
+                if errors:
+                    # Skip silently — same behavior as the pre-cutover importer.
+                    continue
+                normalized["id"] = str(uuid.uuid4())
+                new_entries.append(normalized)
+                added += 1
+
+            updated = dict(glossary)
+            updated["entries"] = new_entries
+            self._write_glossary(glossary_id, updated)
+            return updated, added
 
     def export_csv(self, glossary_id: str) -> Optional[str]:
         """

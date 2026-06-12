@@ -75,6 +75,31 @@ def alice_client(monkeypatch, tmp_path):
     yield c, gm
 
 
+def test_api_export_shared_glossary_allowed_for_non_admin(alice_client):
+    """Export is read-only — it must follow the VIEW gate (can_view), not the
+    edit gate. A non-admin can already read a shared glossary's entries via
+    GET /api/glossaries/<id>, so exporting the same data must not 403
+    (previously the anchor-download saved the 403 JSON body as a .csv)."""
+    client, gm = alice_client
+    shared = gm.create({
+        "name": "S", "user_id": None, "source_lang": "en", "target_lang": "zh",
+        "entries": [{"source": "hello", "target": "你好"}],
+    })
+    r = client.get(f"/api/glossaries/{shared['id']}/export")
+    assert r.status_code == 200
+    body = r.get_data(as_text=True)
+    assert "source,target" in body and "hello" in body
+
+
+def test_api_export_others_private_glossary_forbidden(alice_client):
+    client, gm = alice_client
+    me = client.get("/api/me").get_json()
+    other = gm.create({"name": "B", "user_id": me["id"] + 999,
+                       "source_lang": "en", "target_lang": "zh"})
+    r = client.get(f"/api/glossaries/{other['id']}/export")
+    assert r.status_code == 403
+
+
 def test_api_glossaries_get_filters_by_owner(alice_client):
     client, gm = alice_client
     gm.create({"name": "S", "user_id": None, "source_lang": "en", "target_lang": "zh"})
