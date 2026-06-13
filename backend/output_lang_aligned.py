@@ -48,7 +48,8 @@ def derive_aligned_output(base: List[dict], content_lang: str, output_lang: str,
         out = crosslang_mt.translate_segments(base, content_lang, output_lang, llm_call,
                                               style=style, cancel_check=cancel_check)
     elif mode == "refine":
-        out = olp.formal_refine(base, llm_call, style=style, cancel_check=cancel_check)
+        out = olp.formal_refine(base, llm_call, style=style, glossaries=glossaries,
+                                cancel_check=cancel_check)
     else:
         out = [{"start": s.get("start", 0.0), "end": s.get("end", 0.0), "text": s.get("text", "")}
                for s in base]

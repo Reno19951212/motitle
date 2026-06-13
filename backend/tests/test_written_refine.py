@@ -123,3 +123,20 @@ def test_glossary_import_failopen(monkeypatch):
     out = olp.formal_refine(_segs("好友心得"), llm, style="racing", glossaries=GLOSS, context_window=0)
     assert len(out) == 1                                # 唔 crash
     assert "本句保護詞" not in calls[0][0]               # 冇 name set → 冇注入
+
+
+def test_derive_threads_glossaries_into_refine(monkeypatch):
+    import output_lang_aligned as ola
+    seen = {}
+
+    def fake_refine(segments, llm_call, style="generic", glossaries=None,
+                    context_window=2, cancel_check=None):
+        seen["glossaries"] = glossaries
+        seen["style"] = style
+        return [{**s} for s in segments]
+    monkeypatch.setattr(ola.olp, "formal_refine", fake_refine)
+    base = [{"start": 0.0, "end": 1.0, "text": "尾三紅衫好友心得"}]
+    # yue→zh = refine mode
+    ola.derive_aligned_output(base, "yue", "zh", "trad", lambda s, u: "x",
+                              style="racing", glossaries=GLOSS)
+    assert seen["glossaries"] == GLOSS and seen["style"] == "racing"

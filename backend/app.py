@@ -498,7 +498,8 @@ def _produce_output_lang(audio_path, source_language, output_lang, script,
         if method == "asr_mt":
             base = olp.clause_split_all(base, char_cap=18)
         if output_lang == "zh":
-            base = olp.formal_refine(base, _make_ollama_llm_call(),
+            base = olp.formal_refine(base, _make_ollama_llm_call(), style=mt_style,
+                                     glossaries=glossaries,
                                      cancel_check=_make_cancel_check(cancel_event))
         base = olp.apply_script(base, script)
     elif output_lang == "ja" and method == "asr_mt":
