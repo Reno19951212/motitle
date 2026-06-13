@@ -41,6 +41,63 @@ def _refiner_prompt(style: str) -> str:
 _THINK_RE = re.compile(r"<think>.*?</think>", re.S)
 
 
+# ── 書面語 refiner W6 機制（port 自 2026-06-13 written-quality 研究）──────────
+_POS_TERMS = ["尾二", "尾三", "尾四"]
+
+_GARBLED_GUARD = (
+    "\n\n⚠️ 亂碼／殘缺句保護：如果本句似係 ASR 亂碼或語意殘缺（出現你無法理解嘅字組合），"
+    "**只做最低限度 register 轉換、照字面保留**，**唔准**用上下文／賽事知識去補完、自創或推測一個完整意思。"
+    "寧願保留殘句，都唔好幻覺。")
+
+_WIN_INSTR = (
+    "\n\n你會收到【前文】【本句】【後文】三部分。前文同後文淨係畀你理解上下文意思"
+    "（例如判斷某個詞係馬名、衫色花紋定係距離／位置），**唔好改寫亦唔好輸出佢哋**。"
+    "只可以改寫【本句】，輸出只係【本句】嘅書面語 JSON {\"action\":\"keep\",\"text\":\"...\"}，唔好包含前後文。")
+
+
+def _glossary_name_set(glossaries) -> set:
+    """Glossary target 正名集（strip 編號）— roster 注入用。
+    phonetic_correction 攞唔到（ImportError）→ 空 set（fail-open，唔阻 refine）。"""
+    if not glossaries:
+        return set()
+    try:
+        import phonetic_correction as _pc
+        idx = _pc.build_index(list(glossaries), [])
+        return set(idx.get("meta") or {})
+    except Exception:
+        return set()
+
+
+def _inject_roster(base_sysp: str, names: List[str], pos_terms: List[str]) -> str:
+    """本句命中嘅 glossary 名 + 位置術語逐字注入 SYSTEM（W4 P2，必須 SYSTEM）。"""
+    if not names and not pos_terms:
+        return base_sysp
+    extra = "\n\n【本句保護詞（轉換時必須逐字原樣保留，唔准當普通詞拆開、改寫或合併）】\n"
+    if names:
+        extra += "馬名／賽事名：" + "、".join(names) + "。\n"
+    if pos_terms:
+        extra += ("賽馬名次術語（名次標籤，原樣保留，唔好改成「第X匹」「最後X匹」）："
+                  + "、".join(pos_terms)
+                  + "（尾二=倒數第二、尾三=倒數第三、尾四=倒數第四）。\n")
+    extra += "唔好輸出呢段提示，唔好將呢啲詞加入冇提及佢哋嘅句子。"
+    return base_sysp + extra
+
+
+def _refine_window_user(texts: List[str], i: int, ctx: int) -> str:
+    """【前文 ±ctx】【本句】【後文 ±ctx】（前後文只讀）。ctx<=0 → 純本句。"""
+    if ctx <= 0:
+        return texts[i]
+    before = [t for t in texts[max(0, i - ctx):i] if t]
+    after = [t for t in texts[i + 1:i + 1 + ctx] if t]
+    parts = []
+    if before:
+        parts.append("【前文】\n" + "\n".join(before))
+    parts.append("【本句】\n" + texts[i])
+    if after:
+        parts.append("【後文】\n" + "\n".join(after))
+    return "\n\n".join(parts)
+
+
 def apply_script(segments: List[dict], script: str) -> List[dict]:
     """script 'trad' -> s2hk (繁HK) ; 'simp' -> t2s (簡). New list."""
     mode = "t2s" if script == "simp" else "s2hk"
@@ -56,26 +113,41 @@ def clause_split_all(segments: List[dict], char_cap: int = 18, min_dur: float = 
 
 
 def formal_refine(segments: List[dict], llm_call: Callable[[str, str], str],
-                  style: str = "generic",
+                  style: str = "generic", glossaries: Optional[List[dict]] = None,
+                  context_window: int = 2,
                   cancel_check: Optional[Callable[[], None]] = None) -> List[dict]:
-    """中文書面語 register refiner. `style='racing'` → racing-domain prompt; anything else
-    (default) → the neutral de-raced prompt. Parses {action,text} JSON or plain. New list.
-    cancel_check（如有）每個 cue 之前 call 一次（取消響應，2026-06-12）。"""
-    sysp = _refiner_prompt(style)
+    """中文書面語 register refiner（W6：鐵則 prompt + 逐句正名注入 + ±N 上下文窗口
+    + name-diff flag）。`style='racing'` → racing prompt + 位置術語注入；其他 → neutral。
+    `glossaries` 供逐句馬名注入（無 → 唔注入）；`context_window` 前後文句數（0 → 逐段無窗口）。
+    cancel_check 每段前 call。研究：docs/superpowers/specs/2026-06-13-written-quality-research/。"""
+    base_sysp = _refiner_prompt(style) + _GARBLED_GUARD
+    if context_window > 0:
+        base_sysp += _WIN_INSTR
+    name_set = _glossary_name_set(glossaries)
+    pos_enabled = (style == "racing")
+    texts = [(s.get("text") or "").strip() for s in segments]
     out: List[dict] = []
-    for s in segments:
+    for i, s in enumerate(segments):
         if cancel_check is not None:
             cancel_check()
-        txt = (s.get("text") or "").strip()
+        txt = texts[i]
         if not txt:
             out.append({**s})
             continue
-        raw = _THINK_RE.sub("", llm_call(sysp, txt) or "").strip()
+        names_here = [n for n in name_set if n in txt]
+        pos_here = [p for p in _POS_TERMS if p in txt] if pos_enabled else []
+        sysp = _inject_roster(base_sysp, names_here, pos_here)
+        user = _refine_window_user(texts, i, context_window)
+        raw = _THINK_RE.sub("", llm_call(sysp, user) or "").strip()
         refined = raw
         if raw.startswith("{"):
             try:
                 refined = json.loads(raw).get("text", raw)
             except Exception:
                 refined = raw
-        out.append({**s, "text": refined})
+        new_seg = {**s, "text": refined}
+        dropped = [n for n in names_here if n not in refined]
+        if dropped:
+            new_seg["refine_name_dropped"] = dropped     # flag-only backstop（唔自動還原）
+        out.append(new_seg)
     return out
