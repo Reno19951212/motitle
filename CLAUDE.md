@@ -507,6 +507,13 @@ This section summarises the CURRENT behaviour a developer needs; older entries l
 - **已批核行全綠**：`.rv-b-rail-item.ap` 成行淺綠背景（hover 加深）+ 兩行字幕文字 `var(--success)` 綠色（取代舊 opacity 0.6；所有檔案類型生效）。批量 Rerun 掣住喺段落表 header 之下嘅專屬欄 `.rv-b-rail-rerun`（唔同 header 爭位）。段落導航：`↑`/`↓`（IME-safe）+ `J`/`K`。
 - Pure 邏輯 `backend/segment_rerun.py`（`tests/test_segment_rerun.py` 18 tests）。
 
+### 書面語 Refiner 質量提升（P0+P1, NEW 2026-06-13）
+
+- **yue→zh 書面語 refine（`formal_refine`）由逐段裸文字 → 鐵則 prompt + 逐句正名注入 + ±2 上下文窗口 + name-diff flag**（`output_lang_postprocess.py`）。修正兩大系統性錯：①位置術語「尾二/尾三/尾四」（＝倒數第N匹）由 0/5 正確 → 100%（統一寫「倒數第N」）②馬名被當普通詞改走（好友心得→獲好評、幸運有您→拆散）由 87.5% → 100% 保留。
+- 三件（全 byte-identical port 自驗證 proto）：①**racing prompt 鐵則前置**（`zh_written_register_v6.json`：名詞保護→位置術語 gloss→反幻覺，行 register 轉換前；generic prompt **不變**，只套機制）②**逐句 glossary 正名注入 SYSTEM**（`_inject_roster`，只注入本句命中、**≥3 字**名 — `_ROSTER_MIN_LEN=3` 防大表 ≤2 字名 substring 假命中；**必須 SYSTEM**，USER turn 會 48/48 echo 污染字幕）③**±2 cue 上下文窗口 USER**（`_refine_window_user`，前後文只讀做語義錨點，解短句誤解；N=2 register-safe）④**name-diff flag**（`seg["refine_name_dropped"]`，純記錄唔還原）。
+- glossary 經 `derive_aligned_output`（refine 分支）+ `_produce_output_lang`（zh 分支）thread 入 `formal_refine`。ImportError fail-open。
+- 實證：研究 clip 理想達成 68.8→91.7-93.8%、位置 0→100%、名詞 87.5→100%、意思忠實 0/9→6/9（[研究](docs/superpowers/specs/2026-06-13-written-quality-research/)）；P1.5 3-clip gating PASS（racing 100%／generic+racing#2 零 regression／大詞彙表 ≥3 gate 乾淨 — [tracker](docs/superpowers/specs/2026-06-13-written-refine-validation-tracker.md)）；E2E 重新處理真檔 zh 軌位置 5×「倒數」/馬名 13 全留/口語殘留 0。已知限制：真 garbled cue（要上游 ASR）、generic prompt 未升級（只套機制）、cmn 未驗、AI Rerun cue 唔過新 refine（P2）。**REJECT 咗 C2 全文一次過（register 崩 54%）、phonetic 後處理還原（recall 0.40 吞句）。**
+
 ### 粵拼語音糾錯（Phonetic Correction P0+P1, NEW 2026-06-13）
 
 - **yue 源檔嘅中文 ASR base 喺 derive 之前過三層糾錯**（`backend/phonetic_correction.py`，pure module）：Stage 0 機械規則（`M(\d)`→尾X，racing style）→ Stage 1 粵拼 AUTO 替換（詞彙表馬名＋`config/phonetic_lexicons/racing_terms.json` 術語；L1 全同音/L2 聲調差 ≥3字、L3 懶音合併 ≥4字 — P1.5 實證 3字 fuzzy 會撞日常語「整個過→靖哥哥」）→ Stage 2 受限 LLM 判決（L3-d1 候選，qwen3.5 只准 accept/reject，五重 guardrail＋3-run 多數票、2字候選全票）。
