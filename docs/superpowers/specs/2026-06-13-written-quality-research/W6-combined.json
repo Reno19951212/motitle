@@ -1,0 +1,466 @@
+{
+ "agent": "W6",
+ "role": "最佳組合 end-to-end (按 W1-W5 證據砌 refine pipeline，48 段全跑)",
+ "date": "2026-06-13",
+ "stack": {
+  "llm": "Ollama qwen3.5:35b-a3b-mlx-bf16 @temp0.3 think:false (production同款)",
+  "asr": "n/a (refine over corrected_spoken base)",
+  "input": "/tmp/lq-written/corrected_spoken.json (48)",
+  "baseline": "/tmp/lq-written/current_written.json",
+  "ground_truth": "/tmp/lq-written/results/W1-catalog.json"
+ },
+ "recipe": {
+  "description": "證據導向，唔係全部疊。每件嘢有 W1-W5 empirical justification。",
+  "components": [
+   {
+    "piece": "BASE system prompt = W5 V2",
+    "source": "W5",
+    "why": "純 prompt 重寫（鐵則前置：名詞保護→尾X gloss→反幻覺，放 register-convert 之前）。W5 證 name +11pt / pos 0→100% / wrong 減半。"
+   },
+   {
+    "piece": "+ 埋邊/放頭/透出/做P gloss",
+    "source": "W2 漏, W3 證",
+    "why": "W2 只 gloss 尾X，W3 證 seg11/26/42(埋邊) 一直錯要補；seg10(放頭) seg30(透出) seg46(做P) 同類 lexical 術語。"
+   },
+   {
+    "piece": "+ garbled-cue guard",
+    "source": "W3",
+    "why": "W3 發現全局摘要會令 garbled cue(seg46) over-confident 幻覺。明示「似亂碼就照字面、唔好用上下文補完」。"
+   },
+   {
+    "piece": "+ W4 P2 per-cue roster injection (SYSTEM)",
+    "source": "W4",
+    "why": "只注入本句 base verbatim 命中嘅 glossary 名。W4 證 name→100% / mangled 5/5。必須 SYSTEM(W2:USER turn→48/48 echo)。"
+   },
+   {
+    "piece": "+ W3 ±2 cue context window (USER)",
+    "source": "W3",
+    "why": "語義錨點，救 prompt-alone 救唔到嘅 local meaning(米字/透出/拆名)。N=2(register-safe，N=4 開始照抄)。"
+   },
+   {
+    "piece": "+ name-set diff backstop (flag-only)",
+    "source": "W4",
+    "why": "deterministic flag base名→refine丟失。W4 證 phonetic matcher recall 0.40 無用 + auto-restore 誤傷，所以只 flag 唔 auto-fix(交畀 proofread)。"
+   }
+  ],
+  "rejected": [
+   {
+    "piece": "C2 whole-transcript",
+    "source": "W3",
+    "why": "register 崩 80→54%、8 段 lazy verbatim copy。dealbreaker。"
+   },
+   {
+    "piece": "phonetic post-check restore",
+    "source": "W4",
+    "why": "name_mangled 係語義改寫非同音錯字，recall 0.40；放寬則吞句誤傷。"
+   },
+   {
+    "piece": "C3 two-stage summary",
+    "source": "W3/此次",
+    "why": "summary call +8s、且令 garbled cue 幻覺更差；W6 用 ±2 window 已得到 local-context 好處而無此風險，慳一個 call。"
+   }
+  ]
+ },
+ "metrics": {
+  "format": "48 進 48 出 ✓ (run1+run2)",
+  "name_rate": {
+   "baseline": "35/40 (0.875)",
+   "w6_run1": "40/40 (1.0)",
+   "w6_run2": "39/40 (0.975)"
+  },
+  "pos_rate_尾X": {
+   "baseline": "0/5 (0.0)",
+   "w6_run1": "5/5 (1.0)",
+   "w6_run2": "5/5 (1.0)"
+  },
+  "name_mangled_fixed": {
+   "baseline_equiv": "0/5",
+   "w6_run1": "5/5",
+   "w6_run2": "4/5 (seg3 stochastic drop, backstop flagged)"
+  },
+  "class2_meaning_faithful_judge": {
+   "baseline": "0/9 (W3 calib)",
+   "w6_run1": "6/9",
+   "w6_run2": "6/9"
+  },
+  "register_marker_leaks": {
+   "baseline": 0,
+   "w6": 0
+  },
+  "verbatim_lazy_copies": {
+   "w6": "1 (seg28，源本身已書面無 marker，非偷懶)",
+   "C2_for_compare": 8
+  },
+  "ideal_attainment": {
+   "baseline": "33/48 (0.688)",
+   "w6_mechanical": "44/48 (0.917)",
+   "w6_corrected": "45/48 (0.938, seg10 機械低估—放頭=領放實際已修)"
+  }
+ },
+ "tag_before_after": {
+  "dropped": {
+   "w1_flagged_segs": [
+    20
+   ],
+   "count_before_error": 1,
+   "count_after_resolved": 1,
+   "resolved_segs": [
+    20
+   ],
+   "still_bad_segs": []
+  },
+  "hallucination": {
+   "w1_flagged_segs": [
+    8,
+    11,
+    26,
+    33,
+    46
+   ],
+   "count_before_error": 5,
+   "count_after_resolved": 3,
+   "resolved_segs": [
+    8,
+    26,
+    33
+   ],
+   "still_bad_segs": [
+    11,
+    46
+   ]
+  },
+  "meaning_error": {
+   "w1_flagged_segs": [
+    3,
+    8,
+    10,
+    11,
+    16,
+    26,
+    30,
+    33,
+    42,
+    46
+   ],
+   "count_before_error": 10,
+   "count_after_resolved": 6,
+   "resolved_segs": [
+    8,
+    16,
+    26,
+    30,
+    33,
+    42
+   ],
+   "still_bad_segs": [
+    3,
+    10,
+    11,
+    46
+   ]
+  },
+  "name_mangled": {
+   "w1_flagged_segs": [
+    3,
+    11,
+    15,
+    33,
+    44
+   ],
+   "count_before_error": 5,
+   "count_after_resolved": 5,
+   "resolved_segs": [
+    3,
+    11,
+    15,
+    33,
+    44
+   ],
+   "still_bad_segs": []
+  },
+  "register_bad": {
+   "w1_flagged_segs": [
+    12
+   ],
+   "count_before_error": 1,
+   "count_after_resolved": 1,
+   "resolved_segs": [
+    12
+   ],
+   "still_bad_segs": []
+  },
+  "term_misread": {
+   "w1_flagged_segs": [
+    6,
+    7,
+    8,
+    16,
+    19
+   ],
+   "count_before_error": 5,
+   "count_after_resolved": 5,
+   "resolved_segs": [
+    6,
+    7,
+    8,
+    16,
+    19
+   ],
+   "still_bad_segs": []
+  }
+ },
+ "residuals_honest": {
+  "seg3": "name 部分破壞(米字 mis-attach 落名前)，但「錶之星河」本身 roster injection 保住。name-span 邊界歧義(內藍+米字+名 無分隔)，run-to-run 搖擺(run1 米字錶之星河 / run2 米字星河)。backstop 捉到 run2 drop。",
+  "seg11": "「埋邊有啲」W1 標源頭歧義；「第二位」被 over-apply 尾X 邏輯變「倒數第二」。name 保住。",
+  "seg46": "W1 confidence=uncertain 真 garbled(財寒/暴雪咗)。garbled-guard 修好「做P繩→領放定速」(原 base「編織P繩」幻覺已除)，但「財寒/暴雪咗」仍 over-interpret。refiner 階段結構性無解—要上游 ASR 糾錯(W2/W3/W5 一致結論)。",
+  "seg10": "機械 scorer 低估：W6「前方領放的馬匹」實際正確(放頭=領放=ideal意思)，judge 未覆蓋此段故保守標 not-attained。真實已修。"
+ },
+ "cost": {
+  "calls": 48,
+  "total_sec_run1_with_coldstart": 41.9,
+  "total_sec_run2_warm": 18.7,
+  "avg_sec_warm": 0.39,
+  "max_sec_warm": 1.26,
+  "note": "run1 total 41.9s 含 18.1s 模型冷啟(seg0)；warm run2 18.7s/48段 = avg 0.39s/段。48 段 < 20s(warm)，遠低於 R5_QWEN3_TIMEOUT_SEC(900s)。無 summary call(比 C3G 省一個)。",
+  "production_verdict": "可行。1 call/段、SYSTEM-prompt 注入零結構改動、USER ±2 window 輕量。broadcast budget 完全接受。"
+ },
+ "showcase": [
+  {
+   "idx": 3,
+   "tags": [
+    "name_mangled",
+    "meaning_error"
+   ],
+   "spoken": "內藍米字錶之星河",
+   "current": "內欄馬匹「米字」星河",
+   "improved": "內欄藍色賽衣的是米字錶之星河。",
+   "ideal": "內欄位置的錶之星河。"
+  },
+  {
+   "idx": 7,
+   "tags": [
+    "term_misread"
+   ],
+   "spoken": "尾三紅衫係翠紅",
+   "current": "第三匹穿紅色賽衣的馬是翠紅。",
+   "improved": "倒數第三、穿紅色賽衣的是翠紅。",
+   "ideal": "倒數第三、穿紅色賽衣的是翠紅。"
+  },
+  {
+   "idx": 8,
+   "tags": [
+    "term_misread",
+    "meaning_error",
+    "hallucination"
+   ],
+   "spoken": "尾二 橙衫笑傲江湖，暫時殿後精算暴雪",
+   "current": "最後兩匹馬中，橙衫笑傲江湖暫居末位，精算暴雪則表現穩健。",
+   "improved": "倒數第二、穿橙色賽衣的是笑傲江湖，目前落後的是精算暴雪。",
+   "ideal": "倒數第二、橙衫的笑傲江湖，暫時殿後的是精算暴雪。"
+  },
+  {
+   "idx": 11,
+   "tags": [
+    "name_mangled",
+    "meaning_error",
+    "hallucination"
+   ],
+   "spoken": "第二位埋邊有啲就幸運有您",
+   "current": "第二位馬匹稍顯幸運，有您支持。",
+   "improved": "倒數第二、靠近內欄的是幸運有您。",
+   "ideal": "第二位的是幸運有您。"
+  },
+  {
+   "idx": 15,
+   "tags": [
+    "name_mangled"
+   ],
+   "spoken": "第六位外面位置好友心得",
+   "current": "第六位外檔位置獲好評",
+   "improved": "第六位、外檔位置的是好友心得。",
+   "ideal": "第六位、外檔位置的是好友心得。"
+  },
+  {
+   "idx": 16,
+   "tags": [
+    "term_misread",
+    "meaning_error"
+   ],
+   "spoken": "尾四黑帽友愛心得",
+   "current": "最後四匹負黑頭馬的友愛心得",
+   "improved": "倒數第四、戴黑色頭盔的是友愛心得。",
+   "ideal": "倒數第四、戴黑帽的友愛心得。"
+  },
+  {
+   "idx": 19,
+   "tags": [
+    "term_misread"
+   ],
+   "spoken": "尾二橙衫就笑傲江湖",
+   "current": "最後一件橙色賽服馬匹笑傲江湖",
+   "improved": "倒數第二、穿橙色賽衣的是笑傲江湖。",
+   "ideal": "倒數第二、橙衫的就是笑傲江湖。"
+  },
+  {
+   "idx": 26,
+   "tags": [
+    "meaning_error",
+    "hallucination"
+   ],
+   "spoken": "響埋邊就笑傲江湖",
+   "current": "在哪裡都能笑傲江湖",
+   "improved": "靠近內欄的就是笑傲江湖",
+   "ideal": "靠近內欄的就是笑傲江湖。"
+  },
+  {
+   "idx": 30,
+   "tags": [
+    "meaning_error"
+   ],
+   "spoken": "透出是錶之星河",
+   "current": "透視是錶之星河",
+   "improved": "自馬群中突圍的是錶之星河",
+   "ideal": "透出的是錶之星河。"
+  },
+  {
+   "idx": 33,
+   "tags": [
+    "name_mangled",
+    "meaning_error",
+    "hallucination"
+   ],
+   "spoken": "錶之星河還是佔先",
+   "current": "「錶之星」與「星河」誰佔先機？",
+   "improved": "錶之星河仍佔領先。",
+   "ideal": "錶之星河還是佔先。"
+  },
+  {
+   "idx": 44,
+   "tags": [
+    "name_mangled"
+   ],
+   "spoken": "錶之星河我似乎可以捧走今屆嘅沙田銀瓶啦冇錯精算暴雪山山來遲呀跑過第二好友心得跑過第三星際快車都跑過第四",
+   "current": "錶之星河我似乎可奪得今屆沙田銀瓶。沒錯，精算暴風山來遲跑過第二，好友心得跑過第三，星際快車跑過第四。",
+   "improved": "錶之星河我似乎可以捧走今屆的沙田銀瓶，沒錯。精算暴雪山來遲，跑過第二；好友心得跑過第三；星際快車都跑過第四。",
+   "ideal": "錶之星河我似乎可以捧走今屆的沙田銀瓶。沒錯，精算暴雪姍姍來遲跑了第二，好友心得跑了第三，星際快車也跑了第四。"
+  },
+  {
+   "idx": 46,
+   "tags": [
+    "meaning_error",
+    "hallucination"
+   ],
+   "spoken": "財寒都暴雪咗隻做P繩嘅係星際快車喺度",
+   "current": "財寒遭遇暴雪，負責編織 P 繩的是星際快車在此。",
+   "improved": "財寒都落敗，精算暴雪亦已跑完。領放定速的是星際快車在此。",
+   "ideal": "（財寒）放頭的力竭了，做領放 P 的是星際快車在此。"
+  }
+ ],
+ "judge_detail": {
+  "run1": {
+   "3": {
+    "faithful": false,
+    "reason": "將馬名「錶之星河」誤作「米字錶之星河」，並錯誤加入原文未提及的「藍色賽衣」細節。",
+    "written": "內欄藍色賽衣的是米字錶之星河。"
+   },
+   "8": {
+    "faithful": true,
+    "reason": "準確還原了馬名、位置（倒數第二）及狀態（殿後/落後），無誤解術語或加入幻覺內容。",
+    "written": "倒數第二、穿橙色賽衣的是笑傲江湖，目前落後的是精算暴雪。"
+   },
+   "11": {
+    "faithful": false,
+    "reason": "將原文中語意不明嘅「第二位」誤解為「倒數第二」，且過度推斷「埋邊」係指「靠近內欄」，超出原文確定資訊範圍。",
+    "written": "倒數第二、靠近內欄的是幸運有您。"
+   },
+   "16": {
+    "faithful": true,
+    "reason": "準確將口語「尾四」譯為「倒數第四」，並正確理解「黑帽」指馬匹佩戴的黑色頭盔，意思忠於原文且無誤解。",
+    "written": "倒數第四、戴黑色頭盔的是友愛心得。"
+   },
+   "26": {
+    "faithful": true,
+    "reason": "準確將馬名「笑傲江湖」識別為專有名詞，並正確翻譯「響埋邊」為「靠近內欄」，意思忠於原文。",
+    "written": "靠近內欄的就是笑傲江湖"
+   },
+   "30": {
+    "faithful": true,
+    "reason": "準確將口語術語「透出」轉化為書面語「突圍」，並正確保留馬名「錶之星河」，意思完全忠實。",
+    "written": "自馬群中突圍的是錶之星河"
+   },
+   "33": {
+    "faithful": true,
+    "reason": "忠實於原文意思，正確保留馬名「錶之星河」且未改變陳述語氣。",
+    "written": "錶之星河仍佔領先。"
+   },
+   "42": {
+    "faithful": true,
+    "reason": "準確還原了原文中關於馬匹位置「埋便」（靠內欄）的含義，無誤解或遺漏。",
+    "written": "第四名靠近內欄"
+   },
+   "46": {
+    "faithful": false,
+    "reason": "將馬名「精算暴雪」誤解為動詞短語「暴瀉/力竭」，且原文未提及「落敗」或「跑完」等意思，屬嚴重幻覺與誤解。",
+    "written": "財寒都落敗，精算暴雪亦已跑完。領放定速的是星際快車在此。"
+   }
+  },
+  "run2": {
+   "3": {
+    "faithful": false,
+    "reason": "將馬名「錶之星河」誤作「米字星河」，並錯誤將「內藍」解讀為「藍色賽衣」而非「內欄位置」。",
+    "written": "內欄藍色賽衣的是米字星河。"
+   },
+   "8": {
+    "faithful": true,
+    "reason": "準確還原了馬名、位置（倒數第二）及狀態（殿後），無誤解術語或加入幻覺內容。",
+    "written": "倒數第二、穿橙色賽衣的是笑傲江湖，目前殿後的是精算暴雪。"
+   },
+   "11": {
+    "faithful": false,
+    "reason": "將原文中語意不明嘅「第二位」誤解為「倒數第二」，且過度推斷「埋邊」係指「靠近內欄」，超出原文確定資訊範圍。",
+    "written": "倒數第二、靠近內欄的是幸運有您。"
+   },
+   "16": {
+    "faithful": true,
+    "reason": "準確將口語「尾四」譯為「倒數第四」，並正確理解「黑帽」指馬匹佩戴的黑色頭盔，意思忠於原文且無誤解。",
+    "written": "倒數第四、戴黑色頭盔的是友愛心得。"
+   },
+   "26": {
+    "faithful": true,
+    "reason": "準確將馬名「笑傲江湖」識別為專有名詞，並正確翻譯「響埋邊」為「靠近內欄」，意思忠於原文。",
+    "written": "靠近內欄的就是笑傲江湖"
+   },
+   "30": {
+    "faithful": true,
+    "reason": "準確表達了馬匹從馬群中突圍的意思，且正確識別「錶之星河」為馬名，無誤解或幻覺。",
+    "written": "自馬群中突圍透出的是錶之星河。"
+   },
+   "33": {
+    "faithful": true,
+    "reason": "忠實於原文意思，正確保留馬名「錶之星河」且未將陳述句誤解為疑問句。",
+    "written": "錶之星河仍佔先機"
+   },
+   "42": {
+    "faithful": true,
+    "reason": "準確還原了原文中關於馬匹位置「埋便」（靠內欄）的含義，無誤解或遺漏。",
+    "written": "第四名靠近內欄"
+   },
+   "46": {
+    "faithful": false,
+    "reason": "將馬名「精算暴雪」誤解為天氣現象「暴雪」，且錯誤引入原文未提及的「受...影響」因果關係，扭曲原意。",
+    "written": "財寒也受暴雪影響，領放定速的是星際快車在此。"
+   }
+  }
+ },
+ "honesty_caveats": [
+  "temp 0.3 stochastic：跑 2 次。name 39-40/40、mangled 4-5/5、class2 6/9(兩次同數)、pos 5/5(兩次穩定)。個別 cue(seg3) run-to-run 搖擺，aggregate 穩定。",
+  "class2 judge 係同一隻 model 自判(self-judge bias)；但對 current_written 校準 0/9(同 W1 人手 catalog 一致)。建議人手覆核 showcase。",
+  "理想達成率係機械近似(clean段保持+flagged段 tag resolved)，非逐字對 ideal；seg10 顯示機械會低估(judge 未覆蓋段)。真實達成 45/48 而非 44/48。",
+  "單一 108.6s racing clip、單一賽馬領域。體育新聞/通用領域未測(generic refiner prompt + 唔同 gloss)。",
+  "seg46 類真 garbled 係 refiner 階段無解—呢個 pipeline 唔聲稱修到，要上游 ASR(同 W2/W3/W5 結論一致)。"
+ ],
+ "artifacts": {
+  "proto": "/tmp/lq-written/protos/w6_combined.py (主) + w6_score.py (計分)",
+  "outputs": "w6_combined_out_run1.json / _run2.json / w6_judge.json / w6_judge_run2.json / w6_score_out.json"
+ }
+}

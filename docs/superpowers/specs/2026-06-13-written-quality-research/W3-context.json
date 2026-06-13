@@ -1,0 +1,73 @@
+{
+  "agent": "W3",
+  "role": "上下文窗口實驗 — 直接測用戶核心要求「refiner 參考成個 transcript / 上下文嘅意思」",
+  "date": "2026-06-13",
+  "stack": {
+    "llm": "本地 Ollama qwen3.5:35b-a3b-mlx-bf16 @ temp 0.3 (refine) / temp 0.0 (judge), think:false",
+    "python": "backend/venv (Python 3.9)",
+    "refiner_prompt": "config/prompt_templates_v5/refiner/zh_written_register_v6.json (racing) — 全部 variant 用同一 BASE_SYSP，只加上下文層",
+    "input": "/tmp/lq-written/corrected_spoken.json (48 segs, 語音糾錯後高質口語 base)",
+    "ground_truth": "/tmp/lq-written/results/W1-catalog.json (書面語 error catalog)",
+    "baseline_compare": "/tmp/lq-written/current_written.json"
+  },
+
+  "design_note": "C-variant 全部用 production racing prompt + 只加『上下文』層（無 roster list / 無 尾X gloss），目的係 ISOLATE 純上下文嘅效果，直接答用戶問題：上下文本身係咪 term_misread/meaning_error 嘅解藥。額外加 C3G = C3 + 位置術語 gloss，量度『上下文 + 最平 gloss』嘅實際天花。",
+
+  "scoring": {
+    "name_preservation": "機械 string-presence：40 個 roster 名次出現點（10 隻馬，NAME_EXPECT），refine 後仲喺度先算 ok。可靠。",
+    "position_terms": "機械：尾二/尾三/尾四 5 個出現點，接受原 token 或 倒數第X。可靠。",
+    "class2_meaning": "LLM judge (temp 0)：對 W1 9 個 meaning_error/hallucination segs，餵 source+ideal+note+candidate 判意思忠唔忠實。Judge calibration：對 current_written 判 0/9 faithful（同 W1 catalog 一致），可信。",
+    "register": "LLM judge (temp 0)：48 段逐段判係咪真書面語 register（捉返 C2 嘅 lazy 照抄口語碎句 — 機械 marker scan 捉唔到呢類無 嘅/係 marker 嘅未轉換段）。",
+    "format_stable": "n_out==48 且 idx 0..47 齊全。"
+  },
+
+  "results": {
+    "BASELINE_current_written": {"name": "35/40", "name_rate": 0.875, "pos": "0/5", "pos_rate": 0.0, "class2_judge": "0/9", "register_judge": "37/48", "register_rate": 0.77, "verbatim_copies": 0, "calls": 48, "sec": "~18", "fmt_stable": true},
+    "C0_per_cue": {"name": "36/40", "name_rate": 0.90, "pos": "0/5", "pos_rate": 0.0, "class2_judge": "2/9", "register_judge": "39/48", "register_rate": 0.81, "verbatim_copies": 0, "calls": 48, "sec": 18.1, "fmt_stable": true, "note": "= production formal_refine 重跑，stochastic（class2 0-2/9，name 35-36/40）。"},
+    "C1_window_N2": {"name": "35/40", "name_rate": 0.875, "pos": "1/5", "pos_rate": 0.2, "class2_judge": "2/9", "register_judge": "40/48", "register_rate": 0.83, "verbatim_copies": 1, "calls": 48, "sec": 147.5, "fmt_stable": true, "note": "窄窗無顯著改善 name；pos 幾乎冇救；call time 8x（長 user prompt）。"},
+    "C1_window_N4": {"name": "40/40", "name_rate": 1.0, "pos": "1/5", "pos_rate": 0.2, "class2_judge": "4/9", "register_judge": "36/48", "register_rate": 0.75, "verbatim_copies": 5, "calls": 48, "sec": 147.0, "fmt_stable": true, "note": "闊窗 name 升到 100% + class2 升到 4/9，但 register 跌到 75%（5 段開始照抄）+ pos 照衰 + call time 8x。"},
+    "C2_whole_transcript": {"name": "40/40", "name_rate": 1.0, "pos": "4-5/5", "pos_rate": "0.8-1.0", "class2_judge": "4/9", "register_judge": "26/48", "register_rate": 0.54, "verbatim_copies": 8, "calls": 1, "sec": "17.6-36.1", "fmt_stable": true, "fmt_stable_runs": "4/4 runs 48-in-48-out parsed OK", "note": "單 call 最慳；name/pos 表面最靚，但係 ARTIFACT — 批次模式令 model 偷懶，8/48 段原封照抄口語（register 崩到 54%）。名/位高分係靠『唔改』換返嚟，唔係真理解。"},
+    "C3_two_stage_summary": {"name": "40/40", "name_rate": 1.0, "pos": "1/5", "pos_rate": 0.2, "class2_judge": "2/9", "register_judge": "43/48", "register_rate": 0.90, "verbatim_copies": 0, "calls": 49, "sec": 43.5, "fmt_stable": true, "note": "register 最高(90%, 0 照抄)+ name 100%；但 pos 照衰（summary 救唔到 尾X 字面術語）+ class2 得 2/9，仲喺 seg46 因『全局知道精算暴雪跑第二』而 over-confident 幻覺。"},
+    "C3G_summary_plus_posGloss": {"name": "40/40", "name_rate": 1.0, "pos": "4/5", "pos_rate": 0.8, "class2_judge": "4/9", "register_judge": "40/48", "register_rate": 0.83, "verbatim_copies": 0, "calls": 49, "sec": 28.6, "fmt_stable": true, "note": "C3 + 一行 尾X gloss → pos 由 1/5 救返 4/5，name 100%、register 83%、0 照抄、class2 4/9。最平衡。"}
+  },
+
+  "headline_findings": {
+    "Q_context_is_cure_for_term_misread": "部分係。位置術語(尾二/尾三/尾四)：純上下文（C1/C3）幾乎救唔到（1/5），因為呢類係 LEXICAL 術語誤解（model 唔識『尾X=倒數X』），唔係上下文唔夠 — 要一行 domain gloss 先解到（C3G/C2 → 4-5/5）。名詞破壞(name_mangled)：上下文有效（闊窗/全文/摘要 → name 35→40/40），因為 model 從上下文認得返邊個 span 係反覆出現嘅馬名。",
+    "Q_context_is_cure_for_meaning_error": "局部誤解有效、真亂碼無效、新增 lexical 術語(埋邊)無效。class2 由 baseline 0/9 → 最好 4/9（C1n4/C2/C3G）。封頂 4/9 嘅原因：(a) 埋邊=靠內欄 (seg11/26/42) 係另一個 model 唔識嘅 lexical 術語，同 尾X 一樣要 gloss，唔係上下文問題；(b) seg46 真 garbled（W1 自己標 uncertain），上下文反而令 C3 over-confident 自創內容。",
+    "Q_best_value_for_money": "C3G（two-stage 摘要 + 一行位置 gloss）：49 call / ~29s、name 100% / pos 4/5 / class2 4/9 / register 83% / 0 照抄。比 C2 慢但無 register 崩塌；比 C1 闊窗平 5x call-time 又 register 唔崩。C2 雖然單 call 最慳，但 register 54% + 8 段照抄係 dealbreaker（書面語軌會變返口語）。",
+    "C2_easy_to_break_verdict": "格式上 4/4 run 都 48-in-48-out 冇崩（比預期穩）；但『易爆』真正體現喺 QUALITY：批次令 model 偷懶照抄，register 由 ~80% 崩到 54%。所以 C2 唔 reject 喺格式，係 reject 喺 register。"
+  },
+
+  "class2_ceiling_breakdown": {
+    "fixable_by_context": ["seg3 米字→內欄位置(名+花紋)", "seg30 透出(非透視)", "seg33 錶之星河唔拆兩匹"],
+    "needs_lexical_gloss_not_context": {
+      "尾二尾三尾四": ["seg6", "seg7", "seg8", "seg16", "seg19"],
+      "埋邊(=靠內欄)": ["seg11", "seg26", "seg42"],
+      "note": "呢兩組係 model 唔識嘅賽馬 lexical 術語，無論幾多上下文都救唔到，要喺 prompt 加一行定義（同 W2 P2 一致）。埋邊 W2 未列入 gloss — 建議補埋。"
+    },
+    "unfixable_at_refiner_stage": {
+      "seg46": "財寒…做P繩… 真 garbled（W1 confidence=uncertain）。上下文唔單止救唔到，C3 仲因全局知識自創『精算暴雪超越星際快車』。要上游 ASR 糾錯 + garbled-cue guard，refiner 階段解唔到。"
+    }
+  },
+
+  "recommendation": {
+    "primary": "用 C3G 結構（two-stage：先全文出賽事理解摘要 → 逐段 refine 將摘要 + roster + 尾X/埋邊 gloss 注入 SYSTEM prompt），唔好用 C2 全文一次過（register 崩）。",
+    "combine_with_W2": "C3G 同 W2 嘅 P1(roster 注入)/P2(尾X gloss)/P3(name-set diff restore 兜底) 完全互補：W3 證明『context 注入 system prompt』係岩方向，W2 證明『roster+gloss 注入 system prompt』係必須；兩者疊埋 = name 100% + pos 4-5/5 + class2 4/9 + register 不崩。",
+    "must_add_beyond_W2": "(1) 埋邊=靠內欄 加入位置 gloss（W2 漏咗，W3 證實 seg11/26/42 一直錯）；(2) garbled-cue guard（seg46）要靠上游 ASR，refiner 救唔到。",
+    "cost_note": "C3G 多 1 個 summary call（~8s）+ 逐段 call，總 ~29s vs baseline ~18s。摘要可 cache（同一檔只跑一次）。對 broadcast budget 可接受。"
+  },
+
+  "honesty_caveats": [
+    "temp 0.3 stochastic：name 35-40/40、pos 4-5/5(C2)、class2 0-4/9 run-to-run 有變；aggregate pattern 穩定但個別數字唔好當 deterministic。每 variant 只跑 1 次（C2 跑 4 次驗格式穩定）。",
+    "class2 judge 係 LLM 自判（同 refine 同一隻 model），有 self-judge bias 風險；但對 current_written 校準到 0/9（同 W1 人手 catalog 一致）增加可信度。仍建議人手覆核 results .md 入面嘅逐段輸出。",
+    "register judge 同樣係 LLM 自判；verbatim_copies 係客觀錨（輸出==口語輸入 byte 相同），C2=8 / C3=0 係硬證據，唔靠判斷。",
+    "class2 封頂 4/9 入面，3 個失敗(埋邊)同 1 個(seg46 garbled)唔係 context 解得到 — 真正『純 context 可解』約 3/9（米字/透出/錶之星河拆名），其餘要 gloss 或上游 ASR。所以『上下文係解藥』結論要 qualify：上下文解 name_mangled + 局部 meaning_error 好掂，但解唔到 lexical 術語誤解(尾X/埋邊)同真 garbled。",
+    "單一 108.6s clip、單一 racing 賽事領域。其他領域(體育新聞/通用)上下文效益未測。",
+    "C2 pos 5/5 嗰次 reload 咗 fresh run（restore run1），同 class2/register 嗰份 C2 output 唔一定同一 stochastic run — C2 跨 metric 數字嚴格嚟講要當『4 個獨立 run 嘅範圍』睇，已標 4-5/5。"
+  ],
+
+  "artifacts": {
+    "proto": "/tmp/lq-written/protos/w3_context.py (5+1 variants), w3_score.py (機械), w3_judge.py (class2 LLM judge), w3_reg_judge.py (register LLM judge)",
+    "raw_outputs": "/tmp/lq-written/protos/w3_{c0,c1n2,c1n4,c2,c3,c3g}_out.json + 對應 _judge/_reg json"
+  }
+}

@@ -1,0 +1,219 @@
+{
+ "task": "W4 — 名詞保護實驗 (name_mangled 對付：好友心得→獲好評 類)",
+ "stack": {
+  "asr": "n/a (refine over corrected_spoken base)",
+  "llm": "qwen3.5:35b-a3b-mlx-bf16 @temp0.3 think:false (Ollama local, production同款)",
+  "refiner_prompt": "config/prompt_templates_v5/refiner/zh_written_register_v6.json (racing)"
+ },
+ "ground_truth": "/tmp/lq-written/results/W1-catalog.json (48 段, name_mangled segs=[3,11,15,33,44])",
+ "base_roster_auto_from_glossary": [
+  "信心星",
+  "友愛心得",
+  "好友心得",
+  "幸運有您",
+  "星際快車",
+  "笑傲江湖",
+  "精算暴雪",
+  "美麗第一",
+  "翠紅",
+  "錶之星河"
+ ],
+ "metrics_def": {
+  "name_rate": "roster verbatim occurrence 喺輸出保留率 (分母=base 命中嘅 glossary 名 occurrence)",
+  "mangled_fixed": "W1 標 name_mangled 嘅 5 段, 馬名喺輸出 verbatim 還原嘅段數",
+  "over_insert": "輸出多咗 base 冇嘅 roster 名 (幻覺 roster) 嘅段數",
+  "pos_rate": "尾二/尾三/尾四 位置術語保留率 (順帶量, term_misread 範疇)",
+  "echo": "contract break — roster/提示洩入字幕嘅段數"
+ },
+ "variants": {
+  "P0_baseline": {
+   "runs": [
+    {
+     "name_kept": 37,
+     "name_occ": 40,
+     "name_rate": 0.925,
+     "mangled_fixed": 3,
+     "mangled_fixed_segs": [
+      3,
+      33,
+      44
+     ],
+     "pos_kept": 1,
+     "pos_occ": 5,
+     "pos_rate": 0.2,
+     "over_insert_segs": [],
+     "echo_segs": [],
+     "n_out": 48
+    },
+    {
+     "name_kept": 36,
+     "name_occ": 40,
+     "name_rate": 0.9,
+     "mangled_fixed": 3,
+     "mangled_fixed_segs": [
+      3,
+      33,
+      44
+     ],
+     "pos_kept": 0,
+     "pos_occ": 5,
+     "pos_rate": 0.0,
+     "over_insert_segs": [],
+     "echo_segs": [],
+     "n_out": 48
+    }
+   ]
+  },
+  "P1_phonetic_postcheck": {
+   "runs": [
+    {
+     "name_kept": 37,
+     "name_occ": 40,
+     "name_rate": 0.925,
+     "mangled_fixed": 3,
+     "mangled_fixed_segs": [
+      3,
+      33,
+      44
+     ],
+     "pos_kept": 1,
+     "pos_occ": 5,
+     "pos_rate": 0.2,
+     "over_insert_segs": [],
+     "echo_segs": [],
+     "n_out": 48
+    },
+    {
+     "name_kept": 36,
+     "name_occ": 40,
+     "name_rate": 0.9,
+     "mangled_fixed": 3,
+     "mangled_fixed_segs": [
+      3,
+      33,
+      44
+     ],
+     "pos_kept": 0,
+     "pos_occ": 5,
+     "pos_rate": 0.0,
+     "over_insert_segs": [],
+     "echo_segs": [],
+     "n_out": 48
+    }
+   ]
+  },
+  "P2_prompt_injection": {
+   "runs": [
+    {
+     "name_kept": 40,
+     "name_occ": 40,
+     "name_rate": 1.0,
+     "mangled_fixed": 5,
+     "mangled_fixed_segs": [
+      3,
+      11,
+      15,
+      33,
+      44
+     ],
+     "pos_kept": 4,
+     "pos_occ": 5,
+     "pos_rate": 0.8,
+     "over_insert_segs": [],
+     "echo_segs": [],
+     "n_out": 48
+    },
+    {
+     "name_kept": 40,
+     "name_occ": 40,
+     "name_rate": 1.0,
+     "mangled_fixed": 5,
+     "mangled_fixed_segs": [
+      3,
+      11,
+      15,
+      33,
+      44
+     ],
+     "pos_kept": 5,
+     "pos_occ": 5,
+     "pos_rate": 1.0,
+     "over_insert_segs": [],
+     "echo_segs": [],
+     "n_out": 48
+    }
+   ]
+  },
+  "P1P2_stacked": {
+   "runs": [
+    {
+     "name_kept": 40,
+     "name_occ": 40,
+     "name_rate": 1.0,
+     "mangled_fixed": 5,
+     "mangled_fixed_segs": [
+      3,
+      11,
+      15,
+      33,
+      44
+     ],
+     "pos_kept": 4,
+     "pos_occ": 5,
+     "pos_rate": 0.8,
+     "over_insert_segs": [],
+     "echo_segs": [],
+     "n_out": 48
+    },
+    {
+     "name_kept": 40,
+     "name_occ": 40,
+     "name_rate": 1.0,
+     "mangled_fixed": 5,
+     "mangled_fixed_segs": [
+      3,
+      11,
+      15,
+      33,
+      44
+     ],
+     "pos_kept": 5,
+     "pos_occ": 5,
+     "pos_rate": 1.0,
+     "over_insert_segs": [],
+     "echo_segs": [],
+     "n_out": 48
+    }
+   ]
+  }
+ },
+ "P1_restore_diagnostics": {
+  "note": "P1 對 name_mangled 救援 = 0。所有需還原段 mode=failed。原因：name_mangled 係語義改寫(獲好評/稍顯幸運/獲勝心得)而非同音錯字 — phonetic matcher (build_index/match_segments) 撈唔到(讀音完全不同)；align 啟發式因錨點唔清晰保守放棄(避免誤傷)。",
+  "phonetic_detect_on_static_mangled": {
+   "method": "對 current_written.json 5 個 name_mangled 段跑 match_segments",
+   "detected": {
+    "seg33": "錶之星(L3-d1)",
+    "seg44": "精算暴(L3-d1)/精算暴風(L3-d1)"
+   },
+   "not_detected": {
+    "seg3": "米字星河 — 讀音無關",
+    "seg11": "稍顯幸運有您支持 — 完全改寫",
+    "seg15": "獲好評 — 完全改寫"
+   },
+   "phonetic_recall_on_name_mangled": "2/5 = 0.40 (且 2 個係讀音殘留型, 非真正完全 mangle)"
+  },
+  "aggressive_align_causes_damage": {
+   "seg4": "「粉紅袖美麗第一」吞掉「居首」(破壞句構)",
+   "seg11": "整句吞成「幸運有您」(丟失『第二位』正確信息)",
+   "seg16": "整句吞成「友愛心得」(丟失『第四名黑帽』全部信息)",
+   "verdict": "放寬保守閘→嚴重誤傷; 保守→救唔到。純後處理兩難。"
+  }
+ },
+ "W3_conflict_test": {
+  "method": "P2 精準注入(SYSTEM) + W3 ±2 cue context window(USER) 同跑 8 段(3,8,11,15,26,33,44,46)",
+  "over_insert_segs": 0,
+  "echo_segs": 0,
+  "leaked_neighbour_names": 0,
+  "verdict": "無衝突。注入係 white-list surface 約束, window 係語義錨點, 作用層唔同; 精準注入只列本句 base 命中名(非全1352表), 加 prompt rule「唔好加入本句冇提及嘅馬名」防 over-insert。"
+ }
+}

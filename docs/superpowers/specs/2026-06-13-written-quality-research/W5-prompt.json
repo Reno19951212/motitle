@@ -1,0 +1,57 @@
+{
+ "tested_model": "qwen3.5:35b-a3b-mlx-bf16 @temp0.3 think:false",
+ "protocol": "per-cue refine, NO context NO structure change (mirrors formal_refine loop); ground-truth=W1 catalog ideal_written+error_tags; baseline=current_written.json",
+ "winner": "V2 (三條鐵則前置版)",
+ "variants_tried": [
+  "V1 保守加規則",
+  "V2 三鐵則前置+6例子",
+  "V3 兩步think-then-write"
+ ],
+ "metrics": {
+  "name_preservation_rate": {
+   "baseline": 0.857,
+   "V2": 0.968,
+   "stable_over_runs": true
+  },
+  "position_term_rate": {
+   "baseline": 0.133,
+   "V2": 1.0,
+   "baseline_runs": [
+    1,
+    1,
+    0
+   ],
+   "V2_runs": [
+    5,
+    5,
+    5
+   ]
+  },
+  "meaning_faithful_rate_llmjudge": {
+   "baseline": 0.465,
+   "V2": 0.698
+  },
+  "meaning_wrong_rate_llmjudge": {
+   "baseline": 0.395,
+   "V2": 0.163
+  },
+  "format_48in48out": true,
+  "register_canto_leak": 0
+ },
+ "per_type_repair": {
+  "name_mangled (5 segs: 3,11,15,33,44)": "修復 4/5: seg15好友心得✓ seg33錶之星河合返✓ seg44精算暴雪✓ seg11名保住✓(但位置over-translate) / 救唔到 seg3(米字錶之星河 — 需roster)",
+  "term_misread 尾二三四 (5 instance)": "修復 5/5 穩定 (baseline 0/5)，位置gloss單靠prompt足夠救",
+  "meaning_error/hallucination (10 segs)": "LLM-judge wrong 17→7。修復 seg8表現穩健幻覺✓ seg26馬名當成語✓ seg33疑問句幻覺✓ / 救唔到 seg46真garbled財寒 + seg3米字 + seg11garbled",
+  "register_bad (1)": "clean，零口語洩漏"
+ },
+ "ceiling_answer": {
+  "prompt_only_ceiling": "name ~96-98%, pos 100%, meaning faithful ~70% / wrong ~16%",
+  "pos_term_救唔救到": "YES — 尾二/尾三/尾四 逐段冇上下文都救得到，只要prompt明示gloss(尾N=倒數第N，反例列正數N係錯)。baseline 0% → V2 100% 且3次穩定。位置術語係DOMAIN KNOWLEDGE缺失，唔係context缺失，所以純prompt可補。",
+  "prompt救唔到的residual": "(1)名詞span辨識 seg3米字錶之星河 — model認唔出邊段係馬名(W2 Probe證:需SYSTEM-prompt roster注入才到100%) (2)真garbled cue seg46/seg11 — 需上游ASR或±window context (3)逐段孤立的代詞/位置回指(seg8殿後指代)偶有殘留"
+ },
+ "cost": {
+  "baseline_avg_s": 0.46,
+  "V2_avg_s": 2.97,
+  "note": "prompt變長令avg 0.46→~3s/call(48段~2.4min)，仍遠低於R5_QWEN3_TIMEOUT；可接受"
+ }
+}

@@ -1,0 +1,526 @@
+[
+ {
+  "idx": 0,
+  "spoken": "旺記舉例",
+  "corrected_spoken": "旺記舉例",
+  "current_written": "旺記舉例",
+  "ideal_written": "旺記舉例",
+  "error_tags": [],
+  "confidence": "uncertain",
+  "note": "A1 標 garbled、suspected_truth=null（重轉錄得「忘記歸/旺記歸」），原意無法確定。current 原樣保留，無破壞，故無 error tag；但 ideal 本身 uncertain（源頭口語都唔肯定）。"
+ },
+ {
+  "idx": 1,
+  "spoken": "好,一起步的時候,幸運有您快",
+  "corrected_spoken": "好,一起步的時候,幸運有您快",
+  "current_written": "好，起步時「幸運有您」領先。",
+  "ideal_written": "好，起步時，幸運有您領先。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "馬名「幸運有您」保留正確，意思（起步領先）忠實，register 書面。current 用咗書名號包馬名（風格瑕疵但唔算 error）。"
+ },
+ {
+  "idx": 2,
+  "spoken": "見到最出紫色衫星際快車",
+  "corrected_spoken": "見到最出紫色衫星際快車",
+  "current_written": "見最外穿紫色衫的星際快車",
+  "ideal_written": "見到最外側穿紫色賽衣的星際快車。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "馬名「星際快車」正確，「最出」=最外側（最外檔）忠實，register 書面。current OK。"
+ },
+ {
+  "idx": 3,
+  "spoken": "內藍米字錶之星河",
+  "corrected_spoken": "內藍米字錶之星河",
+  "current_written": "內欄馬匹「米字」星河",
+  "ideal_written": "內欄位置的錶之星河。",
+  "error_tags": [
+   "name_mangled",
+   "meaning_error"
+  ],
+  "confidence": "ok",
+  "note": "馬名應為「錶之星河」（glossary J343），current 寫成『「米字」星河』— 馬名被破壞（「錶之」誤作「米字」）。「內藍米字」實為「內欄位置」（A1 high conf），current 誤解成「內欄馬匹『米字』」。"
+ },
+ {
+  "idx": 4,
+  "spoken": "外面信心星走上去,中間粉紅袖美麗第一",
+  "corrected_spoken": "外面信心星走上去,中間粉紅袖美麗第一",
+  "current_written": "「信心星」走上前，中間粉紅袖「美麗第一」。",
+  "ideal_written": "外側的信心星向前推進，中間粉紅袖的美麗第一。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "兩個馬名「信心星」「美麗第一」正確，意思忠實，register 書面。current OK（用書名號包馬名為風格瑕疵）。"
+ },
+ {
+  "idx": 5,
+  "spoken": "留守住個五、六位仲係好友心得",
+  "corrected_spoken": "留守住個五、六位仲係好友心得",
+  "current_written": "保持第五、六名仍屬好友心得。",
+  "ideal_written": "留守第五、六位的仍是好友心得。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "馬名「好友心得」正確，意思（守第五六位）忠實，register 書面。current OK。"
+ },
+ {
+  "idx": 6,
+  "spoken": "內欄位置友愛心得大約尾四",
+  "corrected_spoken": "內欄位置友愛心得大約尾四",
+  "current_written": "內欄位置友愛心得約列第四",
+  "ideal_written": "內欄位置的友愛心得大約排在倒數第四。",
+  "error_tags": [
+   "term_misread"
+  ],
+  "confidence": "ok",
+  "note": "馬名「友愛心得」正確、「內欄位置」正確；但「尾四」=倒數第四，current 寫成「約列第四」— 位置術語誤解（尾四→第四）。"
+ },
+ {
+  "idx": 7,
+  "spoken": "尾三紅衫係翠紅",
+  "corrected_spoken": "尾三紅衫係翠紅",
+  "current_written": "第三匹穿紅色賽衣的馬是翠紅。",
+  "ideal_written": "倒數第三、穿紅色賽衣的是翠紅。",
+  "error_tags": [
+   "term_misread"
+  ],
+  "confidence": "ok",
+  "note": "馬名「翠紅」正確；但「尾三」=倒數第三，current 寫成「第三匹」— 位置術語誤解（尾三→第三匹）。"
+ },
+ {
+  "idx": 8,
+  "spoken": "尾二 橙衫笑傲江湖，暫時殿後精算暴雪",
+  "corrected_spoken": "尾二 橙衫笑傲江湖，暫時殿後精算暴雪",
+  "current_written": "最後兩匹馬中，橙衫笑傲江湖暫居末位，精算暴雪則表現穩健。",
+  "ideal_written": "倒數第二、橙衫的笑傲江湖，暫時殿後的是精算暴雪。",
+  "error_tags": [
+   "term_misread",
+   "meaning_error",
+   "hallucination"
+  ],
+  "confidence": "ok",
+  "note": "馬名「笑傲江湖」「精算暴雪」正確；但 (a)「尾二」=倒數第二（指笑傲江湖嘅位置），current 寫成「最後兩匹馬中」— 術語誤解；(b)「暫時殿後」應修飾精算暴雪（A1：殿後 medium conf，下文 seg20「包尾」=精算暴雪印證），current 將殿後/末位掉去笑傲江湖；(c)「精算暴雪則表現穩健」=幻覺，原文係「殿後」（包尾），唔係「表現穩健」。"
+ },
+ {
+  "idx": 9,
+  "spoken": "過呢個800米段處",
+  "corrected_spoken": "過呢個800米段處",
+  "current_written": "經過此 800 米路段",
+  "ideal_written": "經過這個 800 米段柱。",
+  "error_tags": [],
+  "confidence": "uncertain",
+  "note": "「段柱」（距離柱）A1 標 low conf（處/柱 tone diff）。current「路段」意思接近、無破壞馬名、register 書面 — 唔當 error，但 ideal 本身因源頭 uncertain 而標 uncertain。"
+ },
+ {
+  "idx": 10,
+  "spoken": "前面放既碼就星際快車",
+  "corrected_spoken": "前面放既碼就星際快車",
+  "current_written": "前方出閘之馬匹為星際快車。",
+  "ideal_written": "前方放頭的馬匹是星際快車。",
+  "error_tags": [
+   "meaning_error"
+  ],
+  "confidence": "ok",
+  "note": "馬名「星際快車」正確；但「放（頭）嘅馬」=領放/放頭嘅馬，current 寫成「出閘之馬匹」— 輕微意思偏移（放頭≠出閘；出閘係起步動作，放頭係跑法），標 meaning_error（輕微）。"
+ },
+ {
+  "idx": 11,
+  "spoken": "第二位埋邊有啲就幸運有您",
+  "corrected_spoken": "第二位埋邊有啲就幸運有您",
+  "current_written": "第二位馬匹稍顯幸運，有您支持。",
+  "ideal_written": "第二位的是幸運有您。",
+  "error_tags": [
+   "name_mangled",
+   "meaning_error",
+   "hallucination"
+  ],
+  "confidence": "ok",
+  "note": "馬名「幸運有您」(glossary E356) 被完全拆散成普通詞「稍顯幸運，有您支持」— 嚴重 name_mangled + 幻覺。「埋邊有啲」A1 標 garbled（low conf）原意不明，但「幸運有您」係 high-conf 馬名，無論如何唔應拆。ideal 取確定部分（第二位＝幸運有您）。"
+ },
+ {
+  "idx": 12,
+  "spoken": "響出邊就信心星",
+  "corrected_spoken": "響出邊就信心星",
+  "current_written": "在出邊即信心星",
+  "ideal_written": "在外側的就是信心星。",
+  "error_tags": [
+   "register_bad"
+  ],
+  "confidence": "ok",
+  "note": "馬名「信心星」正確、意思正確；但「出邊」係口語（=外側/外檔），current 照搬「出邊」未轉書面 — register 未到位。"
+ },
+ {
+  "idx": 13,
+  "spoken": "第四位美麗第一",
+  "corrected_spoken": "第四位美麗第一",
+  "current_written": "第四名是美麗第一",
+  "ideal_written": "第四位是美麗第一。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "馬名「美麗第一」正確，意思忠實，register 書面。current OK。"
+ },
+ {
+  "idx": 14,
+  "spoken": "內欄第五就錶之星河",
+  "corrected_spoken": "內欄第五就錶之星河",
+  "current_written": "內欄第五位是錶之星河",
+  "ideal_written": "內欄第五位是錶之星河。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "馬名「錶之星河」正確（本段 ASR 已對），意思忠實，register 書面。current OK。"
+ },
+ {
+  "idx": 15,
+  "spoken": "第六位外面位置好友心得",
+  "corrected_spoken": "第六位外面位置好友心得",
+  "current_written": "第六位外檔位置獲好評",
+  "ideal_written": "第六位、外檔位置的是好友心得。",
+  "error_tags": [
+   "name_mangled"
+  ],
+  "confidence": "ok",
+  "note": "馬名「好友心得」(glossary H303) 被當普通詞改成「獲好評」— 嚴重 name_mangled（成隻馬消失，變成評語）。「外檔位置」轉得啱。"
+ },
+ {
+  "idx": 16,
+  "spoken": "尾四黑帽友愛心得",
+  "corrected_spoken": "尾四黑帽友愛心得",
+  "current_written": "最後四匹負黑頭馬的友愛心得",
+  "ideal_written": "倒數第四、戴黑帽的友愛心得。",
+  "error_tags": [
+   "term_misread",
+   "meaning_error"
+  ],
+  "confidence": "ok",
+  "note": "馬名「友愛心得」正確；但「尾四」=倒數第四（指友愛心得位置），current 寫成「最後四匹」— 術語誤解。另「黑帽」(頭盔/帽) 寫成「負黑頭馬」語意混亂（負＝負磅？黑頭？）— meaning_error。"
+ },
+ {
+  "idx": 17,
+  "spoken": "後面三匹馬",
+  "corrected_spoken": "後面三匹馬",
+  "current_written": "後方三匹賽駒",
+  "ideal_written": "後方三匹馬。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "無馬名，意思忠實，register 書面（賽駒＝馬，正式用詞）。current OK。"
+ },
+ {
+  "idx": 18,
+  "spoken": "紅眼罩紅衫頂出大外檔係翠紅",
+  "corrected_spoken": "紅眼罩紅衫頂出大外檔係翠紅",
+  "current_written": "佩戴紅眼罩及身穿紅衫的馬匹由大外檔出發，該駒為翠紅。",
+  "ideal_written": "戴紅眼罩、穿紅衫，頂出大外檔的是翠紅。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "馬名「翠紅」正確，「大外檔」正確（A1 corrected 大愛當→大外檔），意思忠實，register 書面。current 偏冗長但無 error。"
+ },
+ {
+  "idx": 19,
+  "spoken": "尾二橙衫就笑傲江湖",
+  "corrected_spoken": "尾二橙衫就笑傲江湖",
+  "current_written": "最後一件橙色賽服馬匹笑傲江湖",
+  "ideal_written": "倒數第二、橙衫的就是笑傲江湖。",
+  "error_tags": [
+   "term_misread"
+  ],
+  "confidence": "ok",
+  "note": "馬名「笑傲江湖」正確；但「尾二」=倒數第二，current 寫成「最後一件」（甚至「件」量詞用錯落馬度）— 術語嚴重誤解（尾二→最後一件）。"
+ },
+ {
+  "idx": 20,
+  "spoken": "包尾直路係精算暴雪",
+  "corrected_spoken": "包尾直路係精算暴雪",
+  "current_written": "包尾直路是精算暴雪",
+  "ideal_written": "包尾入直路的是精算暴雪。",
+  "error_tags": [
+   "dropped"
+  ],
+  "confidence": "ok",
+  "note": "馬名「精算暴雪」正確；A1 corrected 補返漏字「入」（包尾【入】直路 medium conf）。current 漏咗「入」字 — dropped（輕微）。意思大致保留。"
+ },
+ {
+  "idx": 21,
+  "spoken": "最後300多米",
+  "corrected_spoken": "最後300多米",
+  "current_written": "最後 300 多米",
+  "ideal_written": "最後 300 多米。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "無馬名、數字保留，意思忠實。current OK。"
+ },
+ {
+  "idx": 22,
+  "spoken": "星際快車仲有半個馬位優勢",
+  "corrected_spoken": "星際快車仲有半個馬位優勢",
+  "current_written": "星際快車仍保持半個馬位優勢",
+  "ideal_written": "星際快車仍有半個馬位優勢。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "馬名「星際快車」正確，「馬位優勢」正確（A1 corrected 馬威有勢→馬位優勢），意思忠實，register 書面。current OK。"
+ },
+ {
+  "idx": 23,
+  "spoken": "中間位置信心星開始上嚟",
+  "corrected_spoken": "中間位置信心星開始上嚟",
+  "current_written": "位於中段的信心星開始上前",
+  "ideal_written": "中間位置的信心星開始上前。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "馬名「信心星」正確，意思忠實，register 書面（上嚟→上前）。current OK。"
+ },
+ {
+  "idx": 24,
+  "spoken": "中檔打開咗啦",
+  "corrected_spoken": "中檔打開咗啦",
+  "current_written": "中檔已經打開。",
+  "ideal_written": "中檔已經打開。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "無馬名，意思忠實，register 書面（口語「咗啦」轉「已經」）。current OK。"
+ },
+ {
+  "idx": 25,
+  "spoken": "錶之星河亦都追",
+  "corrected_spoken": "錶之星河亦都追",
+  "current_written": "錶之星河亦跟進",
+  "ideal_written": "錶之星河亦都追上來。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "馬名「錶之星河」正確，意思忠實（追/跟進），register 書面。current OK。"
+ },
+ {
+  "idx": 26,
+  "spoken": "響埋邊就笑傲江湖",
+  "corrected_spoken": "響埋邊就笑傲江湖",
+  "current_written": "在哪裡都能笑傲江湖",
+  "ideal_written": "靠近內欄的就是笑傲江湖。",
+  "error_tags": [
+   "meaning_error",
+   "hallucination"
+  ],
+  "confidence": "ok",
+  "note": "馬名「笑傲江湖」係馬，唔係成語！「響埋邊」=喺埋欄/靠邊（位置描述）。current「在哪裡都能笑傲江湖」將馬名當成成語典故 — 嚴重 meaning_error + hallucination（整句意思扭曲）。（「埋邊」=埋欄/內欄側，全片一致用法 seg36/42。）"
+ },
+ {
+  "idx": 27,
+  "spoken": "出面位置是精算暴雪",
+  "corrected_spoken": "出面位置是精算暴雪",
+  "current_written": "外檔位置是精算暴雪",
+  "ideal_written": "外側位置的是精算暴雪。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "馬名「精算暴雪」正確（A1 corrected 精算部説→精算暴雪），「出面」=外側/外檔轉得啱，意思忠實，register 書面。current OK。"
+ },
+ {
+  "idx": 28,
+  "spoken": "中檔位置還有好友心得",
+  "corrected_spoken": "中檔位置還有好友心得",
+  "current_written": "處於中檔位置，另有好友心得",
+  "ideal_written": "中檔位置還有好友心得。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "馬名「好友心得」正確（A1 corrected 好有心得→好友心得），意思忠實，register 書面。current OK。"
+ },
+ {
+  "idx": 29,
+  "spoken": "最後百多米到",
+  "corrected_spoken": "最後百多米到",
+  "current_written": "最後一百多米處",
+  "ideal_written": "到了最後一百多米。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "無馬名，數字保留，意思忠實，register 書面。current OK。"
+ },
+ {
+  "idx": 30,
+  "spoken": "透出是錶之星河",
+  "corrected_spoken": "透出是錶之星河",
+  "current_written": "透視是錶之星河",
+  "ideal_written": "透出的是錶之星河。",
+  "error_tags": [
+   "meaning_error"
+  ],
+  "confidence": "ok",
+  "note": "馬名「錶之星河」正確；但「透出」（馬匹自馬群中透出/突圍）係跑法術語，current 寫成「透視」— 意思偏移（透視 ≠ 透出突圍）。"
+ },
+ {
+  "idx": 31,
+  "spoken": "精算暴雪一直衝上來",
+  "corrected_spoken": "精算暴雪一直衝上來",
+  "current_written": "精算暴雪一直衝上",
+  "ideal_written": "精算暴雪一直衝上來。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "馬名「精算暴雪」正確，意思忠實，register 書面。current OK（「衝上」略簡但無誤）。"
+ },
+ {
+  "idx": 32,
+  "spoken": "接近中間",
+  "corrected_spoken": "接近中間",
+  "current_written": "接近中檔",
+  "ideal_written": "接近中間。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "無馬名，意思忠實（中間/中檔同義），register 書面。current OK。"
+ },
+ {
+  "idx": 33,
+  "spoken": "錶之星河還是佔先",
+  "corrected_spoken": "錶之星河還是佔先",
+  "current_written": "「錶之星」與「星河」誰佔先機？",
+  "ideal_written": "錶之星河還是佔先。",
+  "error_tags": [
+   "name_mangled",
+   "meaning_error",
+   "hallucination"
+  ],
+  "confidence": "ok",
+  "note": "馬名「錶之星河」(glossary J343) 被拆成兩匹「錶之星」同「星河」並改成疑問句「誰佔先機？」— 嚴重 name_mangled（一匹拆兩匹）+ meaning_error（陳述變疑問）+ hallucination（無中生有嘅對決）。"
+ },
+ {
+  "idx": 34,
+  "spoken": "外面追精算暴雪",
+  "corrected_spoken": "外面追精算暴雪",
+  "current_written": "外圍緊追精算暴雪",
+  "ideal_written": "外側追上的是精算暴雪。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "馬名「精算暴雪」正確，意思忠實，register 書面（外面→外圍）。current OK。"
+ },
+ {
+  "idx": 35,
+  "spoken": "贏馬那匹是錶之星河",
+  "corrected_spoken": "贏馬那匹是錶之星河",
+  "current_written": "勝出馬匹為錶之星河",
+  "ideal_written": "勝出的那匹是錶之星河。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "馬名「錶之星河」正確，意思忠實，register 書面。current OK。"
+ },
+ {
+  "idx": 36,
+  "spoken": "埋便",
+  "corrected_spoken": "埋便",
+  "current_written": "靠邊",
+  "ideal_written": "靠近內欄。",
+  "error_tags": [],
+  "confidence": "uncertain",
+  "note": "「埋便」=埋邊（靠內欄）口語碎句。current「靠邊」意思接近、register 可接受。源頭過短、孤立，ideal 標 uncertain（但無 error tag）。"
+ },
+ {
+  "idx": 37,
+  "spoken": "看看有沒有機會捧走沙田銀瓶",
+  "corrected_spoken": "看看有沒有機會捧走沙田銀瓶",
+  "current_written": "檢視是否有機會奪得沙田銀瓶",
+  "ideal_written": "看看有沒有機會捧走沙田銀瓶。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "賽事/獎盃名「沙田銀瓶」正確（A1 corrected 沙田銀平→沙田銀瓶），意思忠實，register 書面。current OK。"
+ },
+ {
+  "idx": 38,
+  "spoken": "一直追上來",
+  "corrected_spoken": "一直追上來",
+  "current_written": "持續追趕",
+  "ideal_written": "一直追上來。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "無馬名，意思忠實，register 書面。current OK。"
+ },
+ {
+  "idx": 39,
+  "spoken": "精算暴雪真的追很多",
+  "corrected_spoken": "精算暴雪真的追很多",
+  "current_written": "精算暴雪確實追趕甚多。",
+  "ideal_written": "精算暴雪真的追近了很多。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "馬名「精算暴雪」正確，意思忠實，register 書面。current OK。"
+ },
+ {
+  "idx": 40,
+  "spoken": "後面的馬",
+  "corrected_spoken": "後面的馬",
+  "current_written": "後方的馬匹",
+  "ideal_written": "後方的馬。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "無馬名，意思忠實，register 書面。current OK。"
+ },
+ {
+  "idx": 41,
+  "spoken": "好友心得中檔跑第三",
+  "corrected_spoken": "好友心得中檔跑第三",
+  "current_written": "好友心得於中檔跑第三",
+  "ideal_written": "好友心得在中檔跑第三。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "馬名「好友心得」正確（A1 corrected 好有心得→好友心得），意思忠實，register 書面。current OK。"
+ },
+ {
+  "idx": 42,
+  "spoken": "第四名埋便",
+  "corrected_spoken": "第四名埋便",
+  "current_written": "第四名附近",
+  "ideal_written": "第四名靠近內欄。",
+  "error_tags": [
+   "meaning_error"
+  ],
+  "confidence": "ok",
+  "note": "「埋便」=埋邊（靠內欄，位置），current「附近」誤解成「近第四名」— 輕微 meaning_error（位置術語丟失）。"
+ },
+ {
+  "idx": 43,
+  "spoken": "星際快車",
+  "corrected_spoken": "星際快車",
+  "current_written": "星際快車",
+  "ideal_written": "星際快車。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "馬名「星際快車」正確（本段 ASR 已對）。current OK。"
+ },
+ {
+  "idx": 44,
+  "spoken": "錶之星河我似乎可以捧走今屆嘅沙田銀瓶啦冇錯精算暴雪山山來遲呀跑過第二好友心得跑過第三星際快車都跑過第四",
+  "corrected_spoken": "錶之星河我似乎可以捧走今屆嘅沙田銀瓶啦冇錯精算暴雪山山來遲呀跑過第二好友心得跑過第三星際快車都跑過第四",
+  "current_written": "錶之星河我似乎可奪得今屆沙田銀瓶。沒錯，精算暴風山來遲跑過第二，好友心得跑過第三，星際快車跑過第四。",
+  "ideal_written": "錶之星河我似乎可以捧走今屆的沙田銀瓶。沒錯，精算暴雪姍姍來遲跑了第二，好友心得跑了第三，星際快車也跑了第四。",
+  "error_tags": [
+   "name_mangled"
+  ],
+  "confidence": "ok",
+  "note": "長句多馬名：「錶之星河」「好友心得」「星際快車」「沙田銀瓶」current 全部對；但「精算暴雪」被改成「精算暴風」— name_mangled（雪→風，glossary H368 應為精算暴雪）。「山山來遲」A1 corrected 為成語「姍姍來遲」，current 保留咗「山來遲」（漏一字）為輕微瑕疵但主要 error 係馬名。"
+ },
+ {
+  "idx": 45,
+  "spoken": "推小步都唔得呀因為步步緊迫呀即係精算暴雪",
+  "corrected_spoken": "推小步都唔得呀因為步步緊迫呀即係精算暴雪",
+  "current_written": "推進小步亦不可行，因步步緊迫，實乃精算暴雪。",
+  "ideal_written": "推少一步都不行，因為步步緊迫，說的就是精算暴雪。",
+  "error_tags": [],
+  "confidence": "ok",
+  "note": "馬名「精算暴雪」正確，意思（騎師無法鬆一步、緊迫）大致忠實，register 書面。current OK（「推進小步」略偏但可接受）。"
+ },
+ {
+  "idx": 46,
+  "spoken": "財寒都暴雪咗隻做P繩嘅係星際快車喺度",
+  "corrected_spoken": "財寒都暴雪咗隻做P繩嘅係星際快車喺度",
+  "current_written": "財寒遭遇暴雪，負責編織 P 繩的是星際快車在此。",
+  "ideal_written": "（財寒）放頭的力竭了，做領放 P 的是星際快車在此。",
+  "error_tags": [
+   "meaning_error",
+   "hallucination"
+  ],
+  "confidence": "uncertain",
+  "note": "馬名「星際快車」對。但 (a)「財寒」A1 標 garbled（low conf）原意不明；(b)「暴雪咗」A1 疑為「暴瀉」（放頭馬力竭）low conf；(c)「做P繩」current 解成「編織P繩」=幻覺（賽馬「做 P」指 pace/領放，唔係織繩）。current 整句意思扭曲（meaning_error + hallucination）。但因源頭多處 A1 low conf，ideal 標 uncertain。"
+ },
+ {
+  "idx": 47,
+  "spoken": "兩方",
+  "corrected_spoken": "兩方",
+  "current_written": "雙方",
+  "ideal_written": "兩方。",
+  "error_tags": [],
+  "confidence": "uncertain",
+  "note": "A1 標片尾截斷、語意不明（garbled, low conf）。current「雙方」無破壞。ideal uncertain（源頭不明）。"
+ }
+]

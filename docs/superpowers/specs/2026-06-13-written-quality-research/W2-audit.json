@@ -1,0 +1,130 @@
+{
+  "agent": "W2",
+  "role": "existing refiner audit (中文書面語 formal_refine)",
+  "date": "2026-06-13",
+  "stack": {
+    "llm": "local Ollama qwen3.5:35b-a3b-mlx-bf16 @ temp 0.3, think:false",
+    "python": "backend/venv",
+    "refiner_prompt": "config/prompt_templates_v5/refiner/zh_written_register_v6.json (racing)",
+    "input": "/tmp/lq-written/corrected_spoken.json (48 segs)",
+    "baseline_compare": "/tmp/lq-written/current_written.json"
+  },
+
+  "step1_code_audit": {
+    "formal_refine_location": "backend/output_lang_postprocess.py:58-81",
+    "per_cue_isolation_confirmed": true,
+    "evidence": "loop `for s in segments: ... llm_call(sysp, txt)` — sysp 係靜態 system prompt，user turn 淨係單段 txt，零前後文/零 transcript/零 roster。",
+    "json_parse": "raw.startswith('{') → json.loads(raw).get('text', raw)；非 JSON 直接當 plain（line 73-79）。robust enough，但無 schema 驗證。",
+    "cancel_check": "每段 llm_call 前 call cancel_check()（line 67-68），無 try/except 包住（cancel exception 會傳上去，正確）。",
+    "style_picker": "_refiner_prompt(style): style=='racing' → zh_written_register_v6.json；其他 → generic（line 30-38）。",
+    "racing_prompt_rules_count": 7,
+    "racing_prompt_examples_count": 3,
+    "racing_prompt_rule6_verbatim": "必須 byte-for-byte 保留唔變：人名、地名、賽馬術語、英文詞、賽事名（袁幸堯、潘頓、沙田、HIGHLAND BLINK…）",
+    "racing_prompt_rule5_numbers": "數字、時間保留阿拉伯數字原狀（1650 米）",
+    "robustness_note": "formal_refine 無 fail-open：llm_call 拋異常會整條 job 死（對比 phonetic_correction.judge_tier 有 fail-open）。"
+  },
+
+  "step2_baseline_reproduction": {
+    "reproduced": true,
+    "n_in": 48, "n_out": 48,
+    "total_sec": 17.6, "avg_sec_per_cue": 0.37, "max_sec": 0.96, "min_sec": 0.26,
+    "think_false_confirmed": "0.37s 平均，think:true 會 90s+/call — confirm think:false 生效。",
+    "reproduction_fidelity": "W-class 錯誤喺 temp 0.3 重現（米字破壞 seg3、幸運有您破壞 seg11、好友心得破壞 seg15、錶之星河 split seg33、尾X 誤解 seg6/7/8/16/19）。byte 唔完全一致（stochastic）但錯誤類別 100% 重現。"
+  },
+
+  "step3_diagnosis_measured": {
+    "current_written_baseline": {
+      "name_occurrences": 40,
+      "names_preserved": 35,
+      "name_preservation_rate": 0.875,
+      "names_destroyed_segs": {
+        "3": "錶之星河 → 「米字」星河",
+        "11": "幸運有您 → 幸運…有您支持",
+        "15": "好友心得 → 獲好評",
+        "33": "錶之星河 → 「錶之星」與「星河」",
+        "44": "精算暴雪 → 精算暴風"
+      },
+      "pos_term_occurrences": 5,
+      "pos_terms_correct": 0,
+      "pos_term_correct_rate": 0.0,
+      "pos_term_errors_segs": {
+        "6": "尾四 → 約列第四",
+        "7": "尾三 → 第三匹",
+        "8": "尾二 → 最後兩匹馬中",
+        "16": "尾四 → 最後四匹",
+        "19": "尾二 → 最後一件"
+      }
+    },
+    "root_cause_attribution": {
+      "class1_name_destruction": {
+        "cause": "ZERO ROSTER CONTEXT — 逐段獨立，refiner 唔知邊個 span 係馬名，所以將佢當普通詞『改靚』。Rule 6 救唔到係因為個 model 根本認唔出邊段係名（rule 6 講『保留馬名』，但 model 無 roster 就無法 apply）。",
+        "probe_A_evidence": "同一 cue、同一 prompt、同一 temp：plain refine 0/4 名保留；user message 注入 roster list → 4/4 名保留。唯一變量 = 話俾佢知邊啲 string 係受保護嘅名。",
+        "verdict": "係 CONTEXT 問題，唔係 prompt 表達問題；rule 6 措辭再強都救唔到一個認唔出名嘅 model。"
+      },
+      "class1_position_terms": {
+        "cause": "NO DOMAIN GLOSS — model 唔知 尾二/尾三/尾四 係賽馬名次標籤（倒數第二/三/四），所以照字面理解：尾三→第三匹（=正數第三，意思相反）、尾四→列第四。",
+        "probe_B_evidence": "plain refine 4 段中 2 段錯（尾三→第三匹、尾四→列第四）且唔穩定；注入一行 gloss（尾二=倒數第二…）→ 4/4 正確保留。",
+        "verdict": "係 prompt 缺 domain 定義；加 gloss 即可。"
+      },
+      "class2_meaning_error_hallucination": {
+        "cause": "ZERO TRANSCRIPT CONTEXT — 逐段孤立 → (a) 誤解局部詞（米字=衫上花紋，被當距離幻覺成『1650米』）；(b) garbled ASR cue（seg46 財寒…P繩…）冇上下文錨點 → 自由發揮自創內容。",
+        "probe_window_evidence": "seg3 米字：per-cue 丟『米字』或幻覺距離；±2 cue window → 『內欄藍色米字衫為錶之星河』正確保留花紋+名。seg46 garbled：per-cue 同 window 都照樣幻覺（財寒→換上/對手），window 救唔到。",
+        "verdict": "(a) 局部誤解 → transcript window 有效；(b) 真 garbled cue → refiner stage 根本無法修，要上游 ASR 糾錯 + 『亂碼留字面』guard。"
+      }
+    }
+  },
+
+  "step4_actionable_changes": {
+    "P1_system_prompt_roster_injection": {
+      "where": "backend/output_lang_postprocess.py:58-81 (formal_refine) + 64 (sysp 組裝)",
+      "scope": "在 formal_refine sysp 後 append 一段【本場語境】，列出本場 roster（出賽馬名）+ 尾X gloss。roster 由 caller（_run_output_lang_*）由 glossary / phonetic_correction roster 推導後傳入；尾X gloss 靜態。",
+      "critical_gotcha": "MUST inject into SYSTEM prompt，NOT user turn。實測：放 user turn → model 將成段 context block echo 入字幕（48/48 段污染，contract break）。放 system prompt → 0 echo。",
+      "measured_effect": "name 35/40→40/40 (87.5%→100%)、pos 0/5→5/5 (run1) / 4/5 (run2，stochastic)。",
+      "risk": "pos term run2 仍有 1 段 stochastic drop（尾三→第三名）——非 deterministic，需配 P3 後處理兜底。"
+    },
+    "P2_position_term_gloss": {
+      "where": "同 P1（同一 system-prompt append；或加做 rule 8）",
+      "scope": "靜態加一行：尾二=倒數第二、尾三=倒數第三、尾四=倒數第四，係名次標籤要原樣保留。",
+      "measured_effect": "pos 0/5→4-5/5。最低成本、最高 ROI。",
+      "note": "亦可考慮喺 phonetic_correction.stage0_rules 已有 M([2-9])→尾X 機制之後，refiner 唔好再改走 尾X — 兩處要一致。"
+    },
+    "P3_phonetic_post_check_name_restore": {
+      "where": "新增：formal_refine 之後 call backend/phonetic_correction.correct_segments(refined, glossaries=[本場 glossary], mt_style='racing', llm_call=...)",
+      "scope": "用現有 B1 matcher 對 refine 後文字再對 glossary/術語表，捉返被改壞嘅名（safety net，唔靠 LLM 自律）。",
+      "measured_effect": "FIX1+phonetic 跑：name 仍 40/40（P1 已 100% 時無額外得益，但係 deterministic 兜底，防 stochastic drop）。",
+      "risk": "phonetic matcher 設計係對 ASR 同音錯字，refine 後文字未必同音錯（係語義改寫，例 好友心得→獲好評 唔同音）——所以 phonetic 對 class1 LLM 破壞嘅 recall 有限；真正 deterministic 兜底應該係『refine 前後 diff，被刪嘅 roster 名 restore』而唔係靠粵拼。建議改用『name-set diff restore』而非 phonetic。",
+      "recommend": "用輕量 post-check：refine 前 input 含嘅 roster 名如果 refine 後唔見咗 → flag/restore，比 phonetic matcher 更直接命中 class1。"
+    },
+    "P4_transcript_window": {
+      "where": "backend/output_lang_postprocess.py formal_refine 改成接收前後 ctx（±2 cue），user turn 帶【前文】【本句】【後文】marker，system prompt 加『只改本句、用前後文理解』。",
+      "scope": "解 class2(a) 局部誤解（米字→花紋 vs 距離）。",
+      "measured_effect": "seg3 米字：window 正確保留花紋+名；per-cue 會丟或幻覺。",
+      "risk": "成本上升（user prompt 長 ~3-5x）；avg 0.37s→~0.5s 仍可接受。需防 model echo 前後文（同 P1 gotcha：要明確『只輸出本句』+ 收貨後驗證無前後文殘留）。",
+      "limit": "救唔到真 garbled cue（seg46）。"
+    },
+    "P5_garbled_cue_guard": {
+      "where": "formal_refine system prompt + 可選後處理",
+      "scope": "加 rule：『若本句似 ASR 亂碼/讀唔通，保留可辨字面、唔好自創內容』。",
+      "measured_effect": "部分有效（減少自創）但 seg46 仍幻覺；單靠 prompt 救唔晒。真解係上游 ASR 糾錯（W/B 線）先。",
+      "risk": "over-trigger 會令正常 cue 唔夠書面（seg45 windowed 變返口語）——register vs fidelity tradeoff，要 tune。"
+    }
+  },
+
+  "headline_numbers": {
+    "baseline_name_rate": 0.875,
+    "baseline_pos_rate": 0.0,
+    "fix_P1P2_name_rate": 1.0,
+    "fix_P1P2_pos_rate_run1": 1.0,
+    "fix_P1P2_pos_rate_run2": 0.8,
+    "avg_sec_per_cue": 0.37,
+    "n_segments": 48
+  },
+
+  "honesty_caveats": [
+    "temp 0.3 stochastic：個別 cue 結果 run-to-run 有變（pos term run1 5/5 vs run2 4/5），但 aggregate pattern 穩定可重現。",
+    "name/pos 指標係 string-presence 機械量度（對 10 隻 roster + 3 個 尾X），未涵蓋全部 W-class（殿後、register drift、米字幻覺呢類意思錯冇入指標分母）。",
+    "class2 幻覺（米字→1650米、garbled seg46）roster 注入救唔到；window 救到局部誤解但救唔到真 garbled cue。",
+    "P3 phonetic post-check 對 class1 LLM 語義破壞 recall 有限（非同音錯）——建議改用 name-set diff restore。",
+    "未對住 W1-catalog.json 計（W1 未產出）；用 A1-catalog 嘅 canonical roster 做 ground-truth。"
+  ]
+}

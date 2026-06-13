@@ -1,0 +1,71 @@
+{
+ "segments_total": 48,
+ "segments_with_errors": 17,
+ "segments_clean": 31,
+ "tag_distribution": {
+  "name_mangled": 5,
+  "term_misread": 5,
+  "meaning_error": 10,
+  "hallucination": 5,
+  "register_bad": 1,
+  "dropped": 1
+ },
+ "name_mangled": {
+  "segments": [
+   3,
+   11,
+   15,
+   33,
+   44
+  ],
+  "unique_horse_names_affected": 4,
+  "horse_names": {
+   "錶之星河": [
+    3,
+    33
+   ],
+   "幸運有您": [
+    11
+   ],
+   "好友心得": [
+    15
+   ],
+   "精算暴雪": [
+    44
+   ]
+  }
+ },
+ "term_misread": {
+  "segments": [
+   6,
+   7,
+   8,
+   16,
+   19
+  ],
+  "terms_involved": {
+   "尾四": [
+    6,
+    16
+   ],
+   "尾三": [
+    7
+   ],
+   "尾二": [
+    8,
+    19
+   ]
+  }
+ },
+ "confidence": {
+  "ok": 43,
+  "uncertain": 5
+ },
+ "uncertain_segments": [
+  0,
+  9,
+  36,
+  46,
+  47
+ ]
+}
