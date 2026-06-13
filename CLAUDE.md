@@ -507,6 +507,12 @@ This section summarises the CURRENT behaviour a developer needs; older entries l
 - **已批核行全綠**：`.rv-b-rail-item.ap` 成行淺綠背景（hover 加深）+ 兩行字幕文字 `var(--success)` 綠色（取代舊 opacity 0.6；所有檔案類型生效）。批量 Rerun 掣住喺段落表 header 之下嘅專屬欄 `.rv-b-rail-rerun`（唔同 header 爭位）。段落導航：`↑`/`↓`（IME-safe）+ `J`/`K`。
 - Pure 邏輯 `backend/segment_rerun.py`（`tests/test_segment_rerun.py` 18 tests）。
 
+### 粵拼語音糾錯（Phonetic Correction P0+P1, NEW 2026-06-13）
+
+- **yue 源檔嘅中文 ASR base 喺 derive 之前過三層糾錯**（`backend/phonetic_correction.py`，pure module）：Stage 0 機械規則（`M(\d)`→尾X，racing style）→ Stage 1 粵拼 AUTO 替換（詞彙表馬名＋`config/phonetic_lexicons/racing_terms.json` 術語；L1 全同音/L2 聲調差 ≥3字、L3 懶音合併 ≥4字 — P1.5 實證 3字 fuzzy 會撞日常語「整個過→靖哥哥」）→ Stage 2 受限 LLM 判決（L3-d1 候選，qwen3.5 只准 accept/reject，五重 guardrail＋3-run 多數票、2字候選全票）。
+- 掛喺 `_run_output_lang_bound_base`（base 修一次全 track 繼承）＋`_produce_output_lang` 中文路徑；`use_llm` 跟檔案 `glossary_llm`；**cmn 內容暫 gate**（零驗證）；ToJyutping 缺失 fail-open。糾正記錄入 rows `glossary_changes`（tag 語音糾正／語音糾正(AI判決)）— proofread 詞彙對照直接顯示可覆核。
+- 實證：研究 clip 34/36=94.4% 修復（書面語錯名殘留 18/36→0/36）；4-clip gating 驗證 PASS（tracker: [2026-06-13-phonetic-correction-validation-tracker.md](docs/superpowers/specs/2026-06-13-phonetic-correction-validation-tracker.md)；研究全卷: [2026-06-13-lang-quality-research/](docs/superpowers/specs/2026-06-13-lang-quality-research/)）。已知限制：AI Rerun 重做嘅 cue 唔過糾錯（P2）。新依賴 `ToJyutping`。
+
 ### Proofread 尋找與取代（⌘F, NEW 2026-06-11）
 
 - `⌘F` 彈 **680px 非阻擋浮動視窗**（可拖頭部移動；無 overlay — 開住照撳段落表/播片；Esc 關、重開保留上次查詢），**成套取代咗舊 find bar**（`#findBar`+`fb*` JS 已剷）。全部 code 喺 `frontend/js/find-replace.js`（`window.FindReplace`，classic script 共享 page globals）。
