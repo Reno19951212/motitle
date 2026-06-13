@@ -307,9 +307,17 @@ def blocked_by_protection(cand, prot_ranges):
 # ============================================================ Stage 1 AUTO ==
 # Port: b4_pipeline.py in_auto_tier / greedy_apply — 原樣（MIN_TARGET_LEN 常數化）。
 
+AUTO_FUZZY_MIN_LEN = 4   # P1.5 gating 實證收緊：L3-d0（懶音 fuzzy 合併）3 字 target
+                         # 會撞中日常語（「整個過」→馬名「靖哥哥」，gw/g 合併）——
+                         # 3 字 L3-d0 降級做 judge 候選，4 字以上先准自動。
+
+
 def in_auto_tier(c):
-    return c['target_len'] >= MIN_TARGET_LEN and (
-        c['match_level'] <= 2 or c['fuzzy_dist'] == 0)
+    if c['target_len'] < MIN_TARGET_LEN:
+        return False
+    if c['match_level'] <= 2:
+        return True                      # L1 全同音 / L2 聲調差 — 研究實證 precision 1.0
+    return c['fuzzy_dist'] == 0 and c['target_len'] >= AUTO_FUZZY_MIN_LEN
 
 
 def greedy_apply(text, cands, stage_tag, tie_break='level'):
@@ -469,6 +477,9 @@ def llm_tier_filter(c):
     eligible = (
         (c['match_level'] == 3 and c['fuzzy_dist'] == 1
          and c['target_len'] >= MIN_TARGET_LEN)
+        # P1.5 收緊：3 字 L3-d0（懶音 fuzzy）由 AUTO 降級到 judge（靖哥哥 FP 教訓）
+        or (c['match_level'] == 3 and c['fuzzy_dist'] == 0
+            and MIN_TARGET_LEN <= c['target_len'] < AUTO_FUZZY_MIN_LEN)
         # 2字術語只可能嚟自 supplement 靜態術語表（尾二/殿後…），交 LLM 判決
         or (c['source_index'] == 'supplement' and c['target_len'] == 2))
     if not eligible:

@@ -176,3 +176,34 @@ def test_correct_segments_immutable():
     segs = _segs("升制快車")
     pc.correct_segments(segs, glossaries=GLOSS, mt_style="racing", use_llm=False)
     assert segs[0]["text"] == "升制快車"             # 入參唔准 mutate
+
+
+# ---------- P1.5 gating 實證 FP regression（2026-06-13 多 clip 驗證）----------
+
+GLOSS_FP = [{"name": "賽馬", "entries": [
+    {"source": "KING GLORIOUS", "target": "靖哥哥 (G123)"}]}]
+
+
+def test_auto_tier_lazy_sound_3char_demoted():
+    """「在整個過程之中」唔准 AUTO 變「在靖哥哥程之中」— gw/g 懶音合併 + 3 字
+    target 係 P1.5 驗證捉到嘅真 FP；3 字 L3-d0 要降級俾 judge。"""
+    idx = pc.build_index(GLOSS_FP, [])
+    segs, changes = pc.auto_tier(_segs("在整個過程之中"), idx)
+    assert segs[0]["text"] == "在整個過程之中"
+    assert changes[0] == []
+
+
+def test_lazy_sound_3char_routed_to_judge_and_rejectable():
+    idx = pc.build_index(GLOSS_FP, [])
+    # judge 收到候選；reject-all fake → 原文不變（production qwen3.5 有 context 應 reject）
+    segs, ch = pc.judge_tier(_segs("在整個過程之中"), idx, _fake_llm_reject_all, votes=1)
+    assert segs[0]["text"] == "在整個過程之中"
+
+
+def test_fuzzy_4char_still_auto():
+    # 4 字 L3-d0 維持 AUTO（內藍米字→內欄位置 級數嘅長 target 撞日常語機率極低）
+    g = [{"name": "T", "entries": [{"source": "X", "target": "內欄位置 (Z001)"}]}]
+    idx = pc.build_index(g, [])
+    # 內藍米子 vs 內欄位置: laam/laan(coda 弱化) + mai/wai 係 d1 唔係 d0 — 改用純聲調/懶音變體
+    segs, changes = pc.auto_tier(_segs("企喺內欄位置度"), idx)
+    assert segs[0]["text"] == "企喺內欄位置度"      # verbatim 唔郁（sanity）
