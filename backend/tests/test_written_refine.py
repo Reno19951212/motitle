@@ -140,3 +140,17 @@ def test_derive_threads_glossaries_into_refine(monkeypatch):
     ola.derive_aligned_output(base, "yue", "zh", "trad", lambda s, u: "x",
                               style="racing", glossaries=GLOSS)
     assert seen["glossaries"] == GLOSS and seen["style"] == "racing"
+
+
+def test_roster_skips_2char_names():
+    # ≤2 字名唔注入（review MEDIUM：大表 2 字名 substring 撞普通句）
+    gloss2 = [{"name": "T", "entries": [
+        {"source": "A", "target": "君子 (X01)"},        # 2 字 → skip
+        {"source": "B", "target": "好友心得 (D456)"}]}]  # 4 字 → 注入
+    llm, calls = _capture_llm()
+    olp.formal_refine(_segs("君子之交淡如水好友心得"), llm, style="racing",
+                      glossaries=gloss2, context_window=0)
+    sysp = calls[0][0]
+    block = sysp.split("【本句保護詞")[-1] if "【本句保護詞" in sysp else ""
+    assert "好友心得" in block
+    assert "君子" not in block

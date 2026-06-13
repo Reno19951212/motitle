@@ -55,15 +55,21 @@ _WIN_INSTR = (
     "只可以改寫【本句】，輸出只係【本句】嘅書面語 JSON {\"action\":\"keep\",\"text\":\"...\"}，唔好包含前後文。")
 
 
+_ROSTER_MIN_LEN = 3   # 只注入 ≥3 字名（同語音糾錯 AUTO tier MIN_TARGET_LEN 一致）：
+                      # ≤2 字名（君子/事理/同心…）substring 撞普通句太頻，會亂注入保護指示。
+
+
 def _glossary_name_set(glossaries) -> set:
-    """Glossary target 正名集（strip 編號）— roster 注入用。
-    phonetic_correction 攞唔到（ImportError）→ 空 set（fail-open，唔阻 refine）。"""
+    """Glossary target 正名集（strip 編號，≥3 字）— roster 注入用。
+    phonetic_correction 攞唔到（ImportError）→ 空 set（fail-open，唔阻 refine）。
+    ≥3 字 gate：大詞彙表（1290 名）有 ~129 個 ≤2 字名，substring 命中普通句會
+    亂注入「保留呢個詞」指示（review 2026-06-13 MEDIUM）；賽馬要保護嘅名全 ≥3 字。"""
     if not glossaries:
         return set()
     try:
         import phonetic_correction as _pc
         idx = _pc.build_index(list(glossaries), [])
-        return set(idx.get("meta") or {})
+        return {n for n in (idx.get("meta") or {}) if len(n) >= _ROSTER_MIN_LEN}
     except Exception:
         return set()
 
