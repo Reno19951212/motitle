@@ -167,6 +167,10 @@ class GlossaryManager:
                 + ", ".join(sorted(SUPPORTED_LANGS.keys()))
             )
 
+        nb = data.get("name_brackets")
+        if nb is not None and nb not in ("off", "zh", "all"):
+            errors.append("name_brackets must be one of: off, zh, all")
+
         same_lang = (src == tgt and is_supported_lang(src))
 
         entries = data.get("entries")
@@ -254,6 +258,7 @@ class GlossaryManager:
             "entries": list(data.get("entries") or []),
             "created_at": time.time(),
             "user_id": data.get("user_id"),
+            "name_brackets": data.get("name_brackets", "off"),
         }
         self._write_glossary(glossary_id, glossary)
         return glossary
@@ -367,6 +372,8 @@ class GlossaryManager:
             "description": data.get("description", existing.get("description", "")),
             "source_lang": data.get("source_lang", existing.get("source_lang")),
             "target_lang": data.get("target_lang", existing.get("target_lang")),
+            "name_brackets": data.get("name_brackets",
+                                      existing.get("name_brackets", "off")),
             "id": glossary_id,
         }
 
