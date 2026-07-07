@@ -482,6 +482,16 @@ def _produce_output_lang(audio_path, source_language, output_lang, script,
                                          use_llm=glossary_llm)
             except ImportError as _pc_e:
                 print(f"[phonetic] 跳過語音糾錯（依賴缺失）: {_pc_e}", flush=True)
+        elif base and content_lang == "en":
+            # 英文詞彙糾錯 — whisper-direct en 路徑（單 en 輸出）。lazy LLM 同 phonetic 一致。
+            try:
+                from en_correction import correct_segments_en as _en_correct
+                base, _pc2 = _en_correct(base, glossaries=glossaries,
+                                         llm_call=(lambda s, u: _make_ollama_llm_call()(s, u)),
+                                         cancel_check=_make_cancel_check(cancel_event),
+                                         use_llm=glossary_llm)
+            except ImportError as _en_e:
+                print(f"[en-correct] 跳過英文糾錯（模組缺失）: {_en_e}", flush=True)
     else:
         if "segments" not in content_asr_cache:
             cres = transcribe_with_segments(
@@ -665,6 +675,16 @@ def _run_output_lang_bound_base(file_id, job, audio_path, cancel_event, outs,
                                                 use_llm=glossary_llm)
             except ImportError as _pc_e:
                 print(f"[phonetic] 跳過語音糾錯（依賴缺失）: {_pc_e}", flush=True)
+        elif content_lang == "en":
+            # 英文詞彙糾錯（AUTO+JUDGE）：derive 之前修正 base — en/zh/ja 全 track 繼承。
+            # 實證：docs/superpowers/specs/2026-07-07-en-glossary-correction-validation-tracker.md
+            try:
+                from en_correction import correct_segments_en as _en_correct
+                base, _pc_changes = _en_correct(base, glossaries=glossaries,
+                                                llm_call=llm, cancel_check=cancel_check,
+                                                use_llm=glossary_llm)
+            except ImportError as _en_e:
+                print(f"[en-correct] 跳過英文糾錯（模組缺失）: {_en_e}", flush=True)
         derived = {o: derive_aligned_output(base, content_lang, o, script, llm, style=mt_style,
                                             glossaries=glossaries, glossary_llm=glossary_llm,
                                             cancel_check=cancel_check)
