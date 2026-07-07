@@ -15,12 +15,14 @@ _THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
 _TEXT_KEY_RE = re.compile(r'"text"\s*:\s*"((?:[^"\\]|\\.)*)"')
 
 
-def build_apply_system_prompt(lang_label: str, side: str) -> str:
+def build_apply_system_prompt(lang_label: str, side: str,
+                              brackets: bool = False) -> str:
     direction = (
         "字幕入面有一個寫法唔啱嘅詞，你要將佢改成標準寫法"
         if side == "target" else
         "原文入面有一個專有名詞，你要確保字幕用咗佢嘅標準譯名"
     )
+    bracket_rule = ("5. 標準寫法必須用「」括住（例：「奮鬥心」）。\n" if brackets else "")
     return (
         "你係廣播字幕詞彙審核員。" + direction + "。\n"
         "規則：\n"
@@ -29,7 +31,8 @@ def build_apply_system_prompt(lang_label: str, side: str) -> str:
         "（書面語定口語）— 絕對唔可以改語氣。\n"
         "3. 修改後句子必須包含標準寫法。\n"
         "4. 如果個詞喺句中有屈折變化／前後接字，照語法自然咁接駁。\n"
-        '5. 只輸出 JSON：{"text": "修改後字幕"}。冇 markdown、冇解釋、冇思考標籤。'
+        + bracket_rule +
+        '只輸出 JSON：{"text": "修改後字幕"}。冇 markdown、冇解釋、冇思考標籤。'
     )
 
 
@@ -85,3 +88,11 @@ def validate_applied(new_text: str, canonical: str, before_text: str) -> Optiona
     if base and kept / len(base) < 0.4:
         return "改動超出單一詞範圍（疑似重寫成句）"
     return None
+
+
+def ensure_brackets(text: str, canonical: str) -> str:
+    """機械兜底：canonical 喺文中但未括 → 用「」括（冪等）。LLM 唔聽話都保證一致。"""
+    if canonical and canonical in text:
+        return re.sub("(?<!「)" + re.escape(canonical) + "(?!」)",
+                      "「" + canonical + "」", text)
+    return text

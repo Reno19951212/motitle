@@ -5329,6 +5329,15 @@ def api_glossary_apply_item(file_id):
             lang,
         )
 
+    # 名詞括號：apply-item 跟返 glossary 嘅 name_brackets 設定
+    _nb_brackets = False
+    _nb_gid = data.get("glossary_id")
+    if _nb_gid:
+        _nb_g = _glossary_manager.get(_nb_gid)
+        if _nb_g:
+            import output_lang_glossary as _olg_nb
+            _nb_brackets = _olg_nb.brackets_enabled(_nb_g, lang)
+
     # ----- Phase 2: slow LLM call (OUTSIDE the lock) -------------------------
     # target-side = the alias already sits in the cue text (canonicalize it);
     # source-side = the alias is in the original audio, ensure the cue uses the
@@ -5337,7 +5346,7 @@ def api_glossary_apply_item(file_id):
     llm = _make_ollama_llm_call()
     try:
         raw = llm(
-            gr.build_apply_system_prompt(lang_label, side=side),
+            gr.build_apply_system_prompt(lang_label, side=side, brackets=_nb_brackets),
             gr.build_apply_user_prompt(current, src_text, alias, canonical),
         )
     except Exception as e:
@@ -5351,6 +5360,9 @@ def api_glossary_apply_item(file_id):
     err = gr.validate_applied(new_text, canonical, current)
     if err:
         return jsonify({"error": f"AI 輸出唔合格：{err}"}), 422
+
+    if _nb_brackets:
+        new_text = gr.ensure_brackets(new_text, canonical)
 
     # ----- Phase 3: re-acquire lock + conflict re-check + atomic write -------
     with _registry_lock:
