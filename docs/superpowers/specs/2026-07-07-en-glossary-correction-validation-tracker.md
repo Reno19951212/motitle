@@ -73,8 +73,16 @@ qwen3.5:35b-a3b-mlx-bf16 受限判決（accept/reject only，3 票多數）× 11
 - **原始 JUDGE 閘（單 token d2）**：over→LOVERO/number→NUMBERS 類噪音大（V4）。
 - **裸 AUTO（無降級閘）**：機械誤判 7% 唔可接受（V1）。
 
-## 實施後 gating（merge 前必行）
+## 實施後 gating 結果（2026-07-07，真 module `gating_real_module.py`）
 
-1. 真 module 重跑兩片：AUTO 機械誤判 0（降級閘生效）、#221/#552 重推命中、括號誤括 0 + 2 字名命中。
-2. 1 條 generic（非賽馬）片全鏈零 regression。
-3. JUDGE 判決準確率達標（V5 數字為 baseline）。
+| Gate | 結果 |
+|---|---|
+| GATE1 AUTO 零已知誤判 | ✅ PASS — 145 rewrites（180→145：降級閘移走全常用詞條），V1 十個已知 FP 位 0/10 再現 |
+| GATE1b 真名 AUTO 保留 | ✅ PASS — SUPREME AGILITY／SUPERB GUY／BULL ATTITUDE 照改寫 |
+| GATE2 #221 重推（代表 case） | ✅ PASS 2/2 —「奮鬥心」兩輪都落地（baseline 歷史 miss） |
+| GATE2 #552 重推（斷句 run-on cue） | ⚠️ Partial — 健康 MT 輪次 1/3 落「疾風財子」；EN 軌 AUTO 改寫恆定 ✓；成因＝llm_review 對黐句保守（規則1「普通詞唔好改」），對比 baseline（直接 miss）無退步、非 regression。另紀錄：3 輪 MT 輸出「在中段稍微」爛句 — 事後 A/B 證實原文/全大寫都健康，屬 judge 馬拉松後 Ollama 短暫異常，與 feature 無關 |
+| GATE3 括號 | ✅ PASS — 2 字名（球星/玩笑）經 mt 軌命中括到；「關鍵所在」巧合位唔括；祝願已括（冪等 no-op） |
+| GATE4 無詞彙表零改動 | ✅ PASS — texts byte-identical + changes 全空 |
+| V5 JUDGE 準確率 | ⚠️ 見上 — 噪音 reject 99%／真聽錯 recall 24%（安全但保守） |
+
+**P1 follow-up（未實施，一併記錄）**：judge prompt v2 + llm_review prompt 加「候選名來自官方馬名表」權威框架 — 預期同時提升 JUDGE recall（24%→）同 #552 類黐句嘅 zh 換名穩定性。屬 prompt 改動，另一輪 Validation-First。
