@@ -629,6 +629,14 @@
                   <option value="recent">最新加入</option>
                 </select>
               </div>
+              <div class="gl-sort" id="glBracketsWrap" style="display:none" title="出字幕時將呢個表嘅馬名／騎師名用「」括住">
+                <span>名詞括號</span>
+                <select id="glBrackets">
+                  <option value="off">唔括</option>
+                  <option value="zh">只中文軌</option>
+                  <option value="all">全部軌</option>
+                </select>
+              </div>
             </div>
             <div class="gl-table">
               <div class="gl-tr gl-th">
@@ -824,6 +832,7 @@
             <span>${srcLang} → ${tgtLang}</span>
             <span>·</span>
             <span>${g.entry_count != null ? g.entry_count + ' 條' : '—'}</span>
+            ${g.name_brackets && g.name_brackets !== 'off' ? '<span>·</span><span title="名詞括號已開啟">「」</span>' : ''}
           </div>
         </button>`;
     }).join('');
@@ -873,10 +882,14 @@
     if (!active) {
       titleEl.textContent = '— 未選擇 —';
       titleEl.style.setProperty('--g-color', 'var(--text-dim)');
+      document.getElementById('glBracketsWrap').style.display = 'none';
       return;
     }
     titleEl.textContent = active.name || '(未命名)';
     titleEl.style.setProperty('--g-color', colorFor(active.id));
+    const bw = document.getElementById('glBracketsWrap');
+    bw.style.display = '';
+    document.getElementById('glBrackets').value = active.name_brackets || 'off';
   }
 
   /* ============================================================
@@ -1232,6 +1245,26 @@
   document.getElementById('glSort').addEventListener('change', e => {
     state.sort = e.target.value;
     renderTable();
+  });
+  document.getElementById('glBrackets').addEventListener('change', async (e) => {
+    const id = state.activeId;
+    if (!id) return;
+    const v = e.target.value;
+    try {
+      await apiJson('PATCH', `/api/glossaries/${encodeURIComponent(id)}`, { name_brackets: v });
+      const g = state.glossaries.find(x => x.id === id);
+      if (g) g.name_brackets = v;
+      renderList();
+    } catch (err) {
+      const msg = String((err && err.message) || err);
+      if (/HTTP 403/.test(msg)) {
+        alert('你唔係管理員（Admin）帳戶，無權修改共享術語表。');
+      } else {
+        alert('儲存失敗：' + msg);
+      }
+      const g = state.glossaries.find(x => x.id === id);
+      e.target.value = (g && g.name_brackets) || 'off';   // 還原
+    }
   });
   document.getElementById('glAddListBtn').addEventListener('click', addGlossary);
   document.getElementById('glAddEntryBtn').addEventListener('click', addEntry);
