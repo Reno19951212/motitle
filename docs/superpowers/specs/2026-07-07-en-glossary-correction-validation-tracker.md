@@ -45,9 +45,20 @@ Synthetic（production `_filter_source_side` 直接調用）：`'golden  sixty'`
 - 真捕獲（人手 ground truth）：SPEEDY SMARTIE 全 10 變體、ONLY U×3、TAI VICTORY(d1)、NIGHT PUROSANGUE、GLORIOUS RYDER、COLOURFUL GAN、WOLF COMING(d1)、BLASTED TALENT+s(d1)、MALPENSA(d1)、STARRY SHOW(d1)、ONE MAN SHOW×4、ROMANTIC SON(d1)×2、TELECOM POWER、AURORA PATCH、BLAZING WIND(d1)、TALENTS AMBITION(d1)、SHINYU KOKOROE(d1)、GOOD LUCK BABE、P.I. LEGEND×2 ≈ **~35 個真聽錯/串錯**。
 - 主要噪音：number→NUMBERS(d1)×22、on the class→ON THE LASH×9、first time→FIGHT TIME×6、go for→GOR GOR 等 — 留畀 AI 判決。
 
-## V5 — JUDGE AI 判決準確率 ⏳ 行緊
+## V5 — JUDGE AI 判決準確率 ⚠️ Partial（安全但過分保守）
 
-qwen3.5:35b-a3b 受限判決（accept/reject only，3 票多數）× 110 候選 — 本地 35B 判決中，完成即補（accept 準確率／reject 準確率／同 ground truth 對照）。
+qwen3.5:35b-a3b-mlx-bf16 受限判決（accept/reject only，3 票多數）× 110 候選（4.7 小時，~50s/call）對照 V4 人手 ground truth：
+
+| 類別 | n | 判決 | 比率 |
+|---|---|---|---|
+| 噪音（普通英文短語） | 72 | reject 71 | **99% 正確拒絕** ✅ |
+| 真聽錯馬名 | 34 | accept 8 | **24% recall** ⚠️ |
+| 曖昧 | 4 | accept 0 | — |
+
+- **安全面達標**：唯一誤收 `on the class`→ON THE LASH（2/3 票，851 句 1 個誤改）。「唔確定就 false」規則生效。
+- **保守成因分析**：prompt 只俾句子+片段+候選名，冇話俾 model 知候選名係**權威詞彙表馬名**、影片係賽馬評述 — 所以 `Speedy Smarty`→`SPEEDY SMARTIE`（10/10 reject）、`Only You`→`ONLY U`（3/3 reject）、`Wolff coming`→`WOLF COMING` 呢類近乎相同嘅串法變體被當「可能本身啱」而拒。
+- **淨效果**：+8 真修正／-1 誤改（相對無 JUDGE tier），正收益但遠低於潛力上限。
+- **P1 改良方向（未實施）**：judge prompt v2 — 加「候選名來自官方馬名表」+「串法變體/複數/標點差異極可能係同一匹馬」框架，重驗同一批 110 候選。屬 prompt 改動 → 另一輪 Validation-First。
 
 ## V6 — 括號 wrap 模擬 ✅ Validated（帶修訂②）
 
