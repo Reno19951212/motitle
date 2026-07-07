@@ -121,3 +121,137 @@ def stage_auto(segments: List[dict], entries: List[dict]
         out.append({**seg, "text": text})
         all_changes.append(ch)
     return out, all_changes
+
+
+# ---------------------------------------------------------------------------
+# JUDGE tier（V4 閘：多 token d≤2／單 token 只准 d1／fold 長度 ≥6／上限 200）
+# ---------------------------------------------------------------------------
+
+_JUDGE_SYS = (
+    "你係廣播字幕糾錯判決員。判斷英文句子入面嘅片段係咪語音辨識(ASR)聽錯咗嘅指定名稱"
+    "（馬名／騎師名）。只准回覆 JSON：{\"accept\": true} 或 {\"accept\": false}。"
+    "如果片段係普通英文詞語、意思通順、唔似聽錯名，必須回 false。唔確定就 false。"
+)
+_ACCEPT_RE = re.compile(r'"accept"\s*:\s*(true|false)')
+
+
+def _lev(a: str, b: str, cap: int = 2) -> int:
+    """Banded Levenshtein，超 cap 即回 cap+1（純 stdlib，無新依賴）。"""
+    if abs(len(a) - len(b)) > cap:
+        return cap + 1
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        best = i
+        for j, cb in enumerate(b, 1):
+            v = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb))
+            cur.append(v)
+            best = min(best, v)
+        if best > cap:
+            return cap + 1
+        prev = cur
+    return prev[-1]
+
+
+def judge_candidates(segments: List[dict], entries: List[dict]) -> List[dict]:
+    """滑窗近字候選。閘（V4 實證）：多 token 1≤d≤2；單 token 只准 d=1；
+    全常用詞條收 d0（AUTO 降級落嚟）；fold 長度 ≥6；span==原樣 → 跳過。"""
+    by_ntok: dict = {}
+    for en in entries:
+        if len(en["fold"]) >= MIN_FOLD_LEN:
+            by_ntok.setdefault(en["ntok"], []).append(en)
+    cands: List[dict] = []
+    seen: set = set()
+    for i, seg in enumerate(segments):
+        text = seg.get("text") or ""
+        toks = [(m.start(), m.end()) for m in re.finditer(r"\S+", text)]
+        for n, ens in by_ntok.items():
+            for w in range(0, len(toks) - n + 1):
+                s, e = toks[w][0], toks[w + n - 1][1]
+                span = text[s:e]
+                fs = _fold(span)
+                for en in ens:
+                    if span == en["source"]:
+                        continue
+                    d = _lev(fs, en["fold"], cap=2)
+                    lo = 0 if en["all_common"] else 1
+                    hi = 2 if en["ntok"] >= 2 else 1
+                    if not (lo <= d <= hi):
+                        continue
+                    key = (i, span, en["source"])
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    cands.append({"idx": i, "span": span, "start": s, "end": e,
+                                  "dist": d, "source": en["source"],
+                                  "glossary": en["glossary"],
+                                  "glossary_id": en["glossary_id"],
+                                  "entry_id": en["entry_id"]})
+    if len(cands) > MAX_JUDGE_CANDS:
+        print(f"[en-correct] JUDGE 候選 {len(cands)} 超上限 {MAX_JUDGE_CANDS}，截斷",
+              flush=True)
+        cands = cands[:MAX_JUDGE_CANDS]
+    return cands
+
+
+def judge_tier(segments: List[dict], entries: List[dict], llm_call: Callable,
+               votes: int = 3, cancel_check: Optional[Callable] = None
+               ) -> Tuple[List[dict], List[List[dict]]]:
+    """受限 LLM 判決：多數票 accept 先改；LLM error 票 = None（fail-open）。"""
+    cands = judge_candidates(segments, entries)
+    accepted_by_seg: dict = {}
+    for c in cands:
+        if cancel_check is not None:
+            cancel_check()
+        user = (f"句子：{segments[c['idx']].get('text') or ''}\n"
+                f"片段：「{c['span']}」\n候選名稱：「{c['source']}」\n"
+                f"呢個片段係咪 ASR 聽錯咗嘅候選名稱？")
+        vs = []
+        for _ in range(max(1, votes)):
+            try:
+                m = _ACCEPT_RE.search(llm_call(_JUDGE_SYS, user) or "")
+                vs.append(bool(m and m.group(1) == "true"))
+            except Exception:
+                vs.append(None)
+        if sum(1 for v in vs if v) >= (max(1, votes) // 2 + 1):
+            accepted_by_seg.setdefault(c["idx"], []).append(c)
+
+    out: List[dict] = []
+    all_changes: List[List[dict]] = []
+    for i, seg in enumerate(segments):
+        text = seg.get("text") or ""
+        ch: List[dict] = []
+        # 由右至左套用，offset 唔會互相污染；重疊 span 先到先得。
+        taken: List[Tuple[int, int]] = []
+        for c in sorted(accepted_by_seg.get(i, []), key=lambda x: -x["start"]):
+            if any(not (c["end"] <= s or c["start"] >= e) for s, e in taken):
+                continue
+            if text[c["start"]:c["end"]] != c["span"]:
+                continue    # AUTO 之後 text 冇變過先會啱位；唔啱就安全跳過
+            text = text[:c["start"]] + c["source"] + text[c["end"]:]
+            taken.append((c["start"], c["end"]))
+            ch.append({"source": c["source"], "before": c["span"],
+                       "after": c["source"], "glossary": JUDGE_TAG,
+                       "entry_id": c["entry_id"], "glossary_id": c["glossary_id"]})
+        out.append({**seg, "text": text})
+        all_changes.append(list(reversed(ch)))
+    return out, all_changes
+
+
+def correct_segments_en(segments: List[dict],
+                        glossaries: Optional[List[dict]] = None,
+                        llm_call: Optional[Callable] = None,
+                        cancel_check: Optional[Callable] = None,
+                        use_llm: bool = True, votes: int = 3
+                        ) -> Tuple[List[dict], List[List[dict]]]:
+    """兩層 orchestrator。回 (new_segments, per_seg_changes)，changes 同 segments 等長。
+    en 判定由 caller 負責（呢度唔 gate 語言）。入參唔 mutate。"""
+    entries = build_index(glossaries)
+    if not entries:
+        return [dict(s) for s in segments], [[] for _ in segments]
+    out, all_changes = stage_auto(segments, entries)
+    if use_llm and llm_call is not None:
+        out, judge_ch = judge_tier(out, entries, llm_call, votes=votes,
+                                   cancel_check=cancel_check)
+        all_changes = [a + b for a, b in zip(all_changes, judge_ch)]
+    return out, all_changes
