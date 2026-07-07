@@ -287,7 +287,7 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | GET | `/api/glossaries` | List all glossaries |
 | POST | `/api/glossaries` | Create glossary |
 | GET | `/api/glossaries/<id>` | Get glossary with entries |
-| PATCH | `/api/glossaries/<id>` | Update glossary |
+| PATCH | `/api/glossaries/<id>` | Update glossary（含 `name_brackets`: `off`/`zh`/`all` — 名詞括號三檔；壞值 → 422） |
 | DELETE | `/api/glossaries/<id>` | Delete glossary |
 | POST | `/api/glossaries/<id>/entries` | Add glossary entry |
 | PATCH | `/api/glossaries/<id>/entries/<eid>` | Update entry |
@@ -513,6 +513,14 @@ This section summarises the CURRENT behaviour a developer needs; older entries l
 - 三件（全 byte-identical port 自驗證 proto）：①**racing prompt 鐵則前置**（`zh_written_register_v6.json`：名詞保護→位置術語 gloss→反幻覺，行 register 轉換前；generic prompt **不變**，只套機制）②**逐句 glossary 正名注入 SYSTEM**（`_inject_roster`，只注入本句命中、**≥3 字**名 — `_ROSTER_MIN_LEN=3` 防大表 ≤2 字名 substring 假命中；**必須 SYSTEM**，USER turn 會 48/48 echo 污染字幕）③**±2 cue 上下文窗口 USER**（`_refine_window_user`，前後文只讀做語義錨點，解短句誤解；N=2 register-safe）④**name-diff flag**（`seg["refine_name_dropped"]`，純記錄唔還原）。
 - glossary 經 `derive_aligned_output`（refine 分支）+ `_produce_output_lang`（zh 分支）thread 入 `formal_refine`。ImportError fail-open。
 - 實證：研究 clip 理想達成 68.8→91.7-93.8%、位置 0→100%、名詞 87.5→100%、意思忠實 0/9→6/9（[研究](docs/superpowers/specs/2026-06-13-written-quality-research/)）；P1.5 3-clip gating PASS（racing 100%／generic+racing#2 零 regression／大詞彙表 ≥3 gate 乾淨 — [tracker](docs/superpowers/specs/2026-06-13-written-refine-validation-tracker.md)）；E2E 重新處理真檔 zh 軌位置 5×「倒數」/馬名 13 全留/口語殘留 0。已知限制：真 garbled cue（要上游 ASR）、generic prompt 未升級（只套機制）、cmn 未驗、AI Rerun cue 唔過新 refine（P2）。**REJECT 咗 C2 全文一次過（register 崩 54%）、phonetic 後處理還原（recall 0.40 吞句）。**
+
+### 英文詞彙糾錯 + 名詞括號「」（EN Correction + Name Brackets, NEW 2026-07-07）
+
+- **en 源檔嘅英文 ASR base 喺 derive 之前過兩層糾錯**（`backend/en_correction.py`，pure module，對稱 phonetic_correction）：AUTO tier 摺疊匹配（大小寫/任意空白/標點變體 → 改寫成詞彙表**原樣**，例 `golden  sixty`→`GOLDEN SIXTY`；零 LLM）→ JUDGE tier 摺疊 Levenshtein 近字候選（多 token d≤2／單 token 只准 d1／fold≥6／上限 200）交 qwen3.5 受限 accept/reject 多數票。詞條三分類：單 token 常用詞完全排除；多 token 全常用（ONE MORE 類 — dry-run 實證 7% FP 全屬此類）降級 JUDGE d0；其餘 AUTO。`_EN_COMMON` = `_COMMON` ∪ 高頻功能詞（特登唔收 superb/chap/juicy — 實證真馬名）。
+- 掛喺 `_run_output_lang_bound_base` + `_produce_output_lang`（`elif content_lang == "en"`，同 yue phonetic hook 並排；base 修一次 en/zh/ja 全 track 繼承 — zh 軌馬名由「靠彩數」變穩定，A/B 實證 tracker V3）；ImportError fail-open；`use_llm` 跟 `glossary_llm`；記錄 tag 英文糾正／英文糾正(AI判決)。
+- **Matcher 修復**：`build_name_pattern`（`output_lang_glossary.py`）— token `\s+` join + 彎直引號/連字符/彎雙引號變體 + ASCII lookaround 邊界（`'TIS` 頭標點 + 「SIXTY出咗」中英相鄰都得）；`_filter_source_side`/`scan_track`/en_correction 三處共用，「掃描話有＝pipeline 套得中」invariant 保持。
+- **名詞括號**：glossary 頂層 `name_brackets: off（default）/zh（只中文軌）/all（全部軌）`；`glossary_stage` 尾端 — bracket-off 表照舊 strip「」，bracket-on 表**只括本段真實命中**嘅名（candidate traceability — 2 字中文名喺 mt 軌可括、巧合出現嘅名唔括；851 句實測 1 誤括 → 0）；英文名 wrap 帶 ASCII word-boundary（防 `ACE`⊂`RACE` 誤括 — review HIGH 修正）；en pass 軌經新 route `source-display`（wrap-only，`name_brackets=="all"` 先觸發）。apply-item 跟設定（prompt 條款 + `ensure_brackets` 機械兜底）。UI：Glossary.html 右上三檔 select（第一個 PATCH glossary 前端 caller）+ 列表「」badge。
+- 實證：dry-run（研究 6 agents + proto 真數據兩片）→ 實施後 gating GATE1/1b/3/4 PASS（AUTO 145 rewrites 零已知 FP、真名保留、2 字名括到、巧合唔括、無詞彙表零改動）— [tracker](docs/superpowers/specs/2026-07-07-en-glossary-correction-validation-tracker.md)、[spec](docs/superpowers/specs/2026-07-07-en-glossary-correction-brackets-design.md)。已知限制：AI Rerun／全部重新生成唔重跑 base 層糾錯（同 phonetic P2 gap）；refine/pass 軌 target-side >2 字閘令 2 字名喺 yue 源書面語軌唔括；cmn/ja 源未開。
 
 ### 粵拼語音糾錯（Phonetic Correction P0+P1, NEW 2026-06-13）
 
