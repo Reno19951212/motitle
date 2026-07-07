@@ -110,6 +110,27 @@ def is_name_candidate(source: str) -> bool:
     return (source or "").strip().lower() not in _COMMON
 
 
+def build_name_pattern(source: str) -> "re.Pattern":
+    """Whitespace/punct-variant tolerant word-boundary pattern for a glossary term.
+
+    token 之間 \\s+（雙空格/換行都中）、IGNORECASE、彎直引號（'/’）同連字符
+    （-/–/—）變體歸一。共用：_filter_source_side / scan_track / en_correction —
+    保證「掃描話有 = pipeline 套得中」invariant。
+    Validation: V2（2026-07-07 tracker）— re.escape 字面單空格係實證 miss 成因。
+    """
+    parts = []
+    for tok in (source or "").split():
+        tok = (tok.replace("’", "'").replace("‘", "'")
+                  .replace("–", "-").replace("—", "-"))
+        esc = re.escape(tok)
+        esc = esc.replace("'", "['’]")
+        esc = esc.replace("\\-", "[-–—]")
+        parts.append(esc)
+    if not parts:
+        return re.compile(r"(?!x)x")  # never-match
+    return re.compile(r"\b" + r"\s+".join(parts) + r"\b", re.IGNORECASE)
+
+
 # ---------------------------------------------------------------------------
 # Index building
 # ---------------------------------------------------------------------------
@@ -579,7 +600,7 @@ def _filter_source_side(
             if not is_name_candidate(s):
                 continue
 
-            pattern = re.compile(r"\b" + re.escape(s) + r"\b", re.IGNORECASE)
+            pattern = build_name_pattern(s)
             if pattern.search(text):
                 seen.add(src_key)
                 candidates.append({
