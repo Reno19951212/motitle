@@ -84,6 +84,29 @@ def strip_name_brackets(text: str, names: List[str]) -> str:
     return out
 
 
+def wrap_matched_names(text: str, names: List[str]) -> str:
+    """將 names 用「」括住（冪等：已括唔再括）。Longest-first 防子串重疊。
+
+    只應該傳入「本段真實命中」嘅名（V6 修訂② — 盲掃全表會誤括巧合出現
+    嘅名 + 漏 2 字名；命中 traceability 令兩個問題同時消失）。
+    """
+    out = text
+    for nm in sorted({n for n in names if n and len(n) >= 2}, key=len, reverse=True):
+        if nm in out:
+            out = re.sub("(?<!「)" + re.escape(nm) + "(?!」)", "「" + nm + "」", out)
+    return out
+
+
+def brackets_enabled(glossary: dict, output_lang: str) -> bool:
+    """呢個 glossary 對呢條輸出軌係咪開咗名詞括號。off/缺欄 → False。"""
+    nb = glossary.get("name_brackets") or "off"
+    if nb == "all":
+        return True
+    if nb == "zh":
+        return _FAMILY.get(output_lang, output_lang) == "zh"
+    return False
+
+
 def strip_horse_id(t: Optional[str]) -> str:
     """Strip trailing horse-ID suffix like ` (H123)` or ` (K335)`.
 
@@ -233,6 +256,13 @@ def route_for_output(
     if derive_mode in ("refine", "pass"):
         if tgt_family == out_family:
             return "target"
+        if (derive_mode == "pass"
+                and glossary.get("name_brackets") == "all"
+                and gl_src == content_lang
+                and _FAMILY.get(gl_src, gl_src) == out_family):
+            # en pass 軌 + 全軌括號：唔做替換（base 已由 en_correction 正名），
+            # 只參與「」wrap（source-display）。
+            return "source-display"
         return None
 
     return None
@@ -510,7 +540,20 @@ def glossary_stage(
     # strip cover already-correct names that never produced a per-segment candidate
     # ("全部統一"). Reuse the same >2-char guard the matching uses so short common
     # words (和 / 球會 / 字幕) are never unwrapped.
-    strip_names = _build_strip_names(glossaries, output_lang, content_lang, derive_mode)
+    bracket_by_gid = {g.get("id"): brackets_enabled(g, output_lang) for g in glossaries}
+    # strip 只限 bracket-off 詞彙表（bracket-on 嘅名由 wrap 接手 — wrap wins）
+    strip_names = _build_strip_names(
+        [g for g in glossaries if not brackets_enabled(g, output_lang)],
+        output_lang, content_lang, derive_mode)
+    # source-display roster（en pass 軌 name_brackets='all'）：entry source 原樣，
+    # case-sensitive 存在檢查喺 wrap_matched_names 入面做。
+    sd_names: List[str] = []
+    for g in glossaries:
+        if route_for_output(g, output_lang, content_lang, derive_mode) == "source-display":
+            for e in g.get("entries", []):
+                s = (e.get("source") or "").strip()
+                if len(s) >= 3 and is_name_candidate(s):
+                    sd_names.append(s)
 
     result: List[dict] = []
 
@@ -558,6 +601,15 @@ def glossary_stage(
         # a no-op. Bracket-only strips do NOT add to glossary_changes (purely cosmetic).
         if strip_names:
             current_text = strip_name_brackets(current_text, strip_names)
+
+        # 名詞括號（V6 修訂②）：只括本段真實命中嘅 canonical —
+        # candidates 係 source/target 兩側過濾結果，target 喺文中先 wrap。
+        wrap_seg = [c["target"] for c in all_cands
+                    if c.get("target") and bracket_by_gid.get(c.get("glossary_id"))
+                    and c["target"] in current_text]
+        wrap_seg += [n for n in sd_names if n in current_text]
+        if wrap_seg:
+            current_text = wrap_matched_names(current_text, wrap_seg)
 
         # Stamp the language-track code onto every change so downstream persistence
         # (output_lang_persist union) keeps per-track attribution (add-only field).
