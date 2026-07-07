@@ -94,8 +94,8 @@ persist（glossary_changes 帶 tag，校對頁詞彙對照可覆核）
 - **修訂②「本段真實命中先括」**：wrap 名單 = 本 segment resolved candidates 入面 canonical 出現喺最終文字嘅名（deterministic_apply 改動+verbatim confirm+llm_review 改動），**唔係**全表盲掃。實證：解決 2 字馬名（祝願/球星/玩笑照括）+ 巧合誤括（「關鍵所在」851 句 1 例 → 0）。
 - 分流：該 candidate 所屬 glossary `name_brackets=="zh"` 且輸出屬中文系 → wrap；`=="all"` → 所有 routed 軌 wrap；`=="off"` → 沿用 strip（現行為，只限該 glossary 自己嘅名）。
 - **en 軌（all 檔）**：`route_for_output` 加 pass-mode 新 case — glossary source 家族==content==輸出家族 → side `source-display`（唔做替換，base 已由 F1 正名；只參與 wrap，名單=本段 F1 命中+verbatim 詞彙表原樣名）。
-- Wrap 實作：`(?<!「)name(?!」)` 冪等、longest-first；同名多表衝突 → wrap 優先，`glossary_ids` 順序先到先得。
-- 2 字下限取消（由「本段命中」traceability 提供安全），1 字名仍然唔括。
+- Wrap 實作：冪等（已括唔再括）、longest-first；**英文名帶 ASCII word-boundary**（防 `ACE` 喺 `RACE` 入面誤括 — review HIGH 修正），中文名無需；同名多表衝突 → wrap 優先，`glossary_ids` 順序先到先得。
+- 2 字中文名喺 **source-side（mt）軌**可括（candidate traceability 提供安全 — 用戶 en 源 case 全屬此類）；refine/pass 軌嘅 target-side 匹配保留原有 >2 字閘（既有匹配層限制，見 §7），1 字名一律唔括。
 
 **逐項 AI 套用（`glossary_review.py`）**：glossary bracket on → prompt 加一條「標準寫法用「」括住」+ validate 後**機械 post-wrap 兜底**（LLM 冇括就補括，冪等）。
 
@@ -109,7 +109,7 @@ persist（glossary_changes 帶 tag，校對頁詞彙對照可覆核）
 - JUDGE LLM 單票 error → None；多數決唔夠 → skip 候選（fail-open）。
 - `cancel_check` thread 過 AUTO（loop 頭）+ JUDGE（每候選）。
 - `name_brackets` 未知值：validate 擋寫入；讀到舊檔異常值 → 當 `off`。
-- PATCH glossary 未知 `name_brackets` 值 → 400。
+- PATCH glossary 未知 `name_brackets` 值 → 422（route 現有 ValueError→422 convention）。
 
 ## 6. 測試計劃
 
@@ -123,7 +123,8 @@ persist（glossary_changes 帶 tag，校對頁詞彙對照可覆核）
 ## 7. 生效範圍 + 已知限制
 
 - 新 derive 先生效（上傳/重新處理/AI Rerun/全部重新生成）；舊檔唔郁。
-- **AI Rerun 單 cue 唔過 base 層 en_correction**（rerun 只行 derive 鏈）— 同 phonetic P2 已知 gap 一致，P2 一併處理。
+- **AI Rerun 單 cue 唔過 base 層 en_correction**（rerun 只行 derive 鏈）— 同 phonetic P2 已知 gap 一致，P2 一併處理。**全部重新生成（glossary-reapply）同理**：由 cached base re-derive，上傳後先加嘅詞條只影響 MT 注入/括號層，唔會改 base 文字。
+- refine/pass 軌 target-side 匹配嘅 >2 字閘令 2 字中文名喺 yue 源檔嘅書面語軌唔會被括（en 源 mt 軌不受影響）— 既有匹配層行為，唔屬本期回歸。
 - 真馬名喺普通語境（「must go with the back runners」）靠 JUDGE 語境判斷，殘餘誤差非零。
 - JUDGE 運算成本：851 句片 ~110 候選；上限 200 + 票數可調控制 wall time；validation 後如準確率許可可降至 1 票。
 - cmn/ja 源、EN target_aliases 匹配唔喺本期範圍。

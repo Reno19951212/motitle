@@ -83,3 +83,31 @@ def test_stage_wrap_not_recorded_in_changes():
                              llm_call=lambda s, u: "", use_llm=False,
                              src_texts=["my wish wins"])
     assert out[0]["glossary_changes"] == []    # wrap 係 cosmetic，同 strip 一致唔記錄
+
+
+# --- review fixes 2026-07-07 ---
+
+def test_wrap_ascii_word_boundary_no_substring_corruption():
+    """review HIGH：'ACE' 唔可以喺 'RACE'/'GRACEFUL' 入面誤括。"""
+    assert olg.wrap_matched_names("THE RACE IS ON", ["ACE"]) == "THE RACE IS ON"
+    assert olg.wrap_matched_names("A GRACEFUL WIN", ["ACE"]) == "A GRACEFUL WIN"
+    assert olg.wrap_matched_names("ACE wins", ["ACE"]) == "「ACE」 wins"
+
+
+def test_wrap_ascii_cjk_adjacency_still_wraps():
+    assert olg.wrap_matched_names("冠軍ACE出賽", ["ACE"]) == "冠軍「ACE」出賽"
+
+
+def test_stage_source_display_no_substring_corruption():
+    g = _g("all", entries=[{"id": "e9", "source": "ACE", "target": "大魔法師 (H1)"}])
+    segs = [{"start": 0, "end": 1, "text": "THE RACE IS ON"}]
+    out = olg.glossary_stage(segs, [g], "en", "en", "pass",
+                             llm_call=lambda s, u: "", use_llm=False)
+    assert out[0]["text"] == "THE RACE IS ON"
+
+
+def test_scan_track_side_not_leaked_by_source_display():
+    g = _g("all")
+    res = olg.scan_track(["SUPERB GUY leads"], None, [g], "en", "en", "pass", [False])
+    assert res["side"] is None                      # source-display 唔可以 leak 落 side
+    assert "賽馬" in res["applicable_glossaries"]

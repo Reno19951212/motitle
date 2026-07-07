@@ -155,3 +155,26 @@ def test_orchestrator_empty_glossaries_noop():
     segs = [{"start": 0, "end": 1, "text": "hello"}]
     out, ch = ec.correct_segments_en(segs, glossaries=None)
     assert out[0]["text"] == "hello" and ch == [[]]
+
+
+# --- review fixes 2026-07-07 ---
+
+def test_stage_auto_cancel_check_called():
+    calls = []
+    segs = [{"start": 0, "end": 1, "text": "golden sixty wins"}]
+    ec.stage_auto(segs, ec.build_index(G_BASIC), cancel_check=lambda: calls.append(1))
+    assert calls
+
+
+def test_judge_duplicate_spans_same_cue_shared_verdict():
+    """同句重複聽錯：兩個 offset 都要改，但同句同 span 只判一次（budget flat）。"""
+    n_calls = []
+    def llm(s, u):
+        n_calls.append(1)
+        return '{"accept": true}'
+    idx = ec.build_index(G_JUDGE)
+    segs = [{"start": 0, "end": 1, "text": "speedy smarty and speedy smarty win"}]
+    out, ch = ec.judge_tier(segs, idx, llm, votes=1)
+    assert out[0]["text"] == "SPEEDY SMARTIE and SPEEDY SMARTIE win"
+    assert len(ch[0]) == 2
+    assert len(n_calls) == 1

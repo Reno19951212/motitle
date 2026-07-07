@@ -92,8 +92,17 @@ def wrap_matched_names(text: str, names: List[str]) -> str:
     """
     out = text
     for nm in sorted({n for n in names if n and len(n) >= 2}, key=len, reverse=True):
-        if nm in out:
-            out = re.sub("(?<!「)" + re.escape(nm) + "(?!」)", "「" + nm + "」", out)
+        if nm not in out:
+            continue
+        esc = re.escape(nm)
+        if nm.isascii():
+            # 英文名必須 word-boundary — 防 'ACE' 喺 'RACE'/'GRACEFUL' 入面誤括
+            # （review HIGH 2026-07-07）。用 ASCII class 唔用 \w：CJK 屬 unicode \w，
+            # 「冠軍ACE」呢類中英相鄰位一樣要括得到。
+            pat = "(?<!「)(?<![0-9A-Za-z_])" + esc + "(?![0-9A-Za-z_])(?!」)"
+        else:
+            pat = "(?<!「)" + esc + "(?!」)"
+        out = re.sub(pat, "「" + nm + "」", out)
     return out
 
 
@@ -144,14 +153,19 @@ def build_name_pattern(source: str) -> "re.Pattern":
     parts = []
     for tok in (source or "").split():
         tok = (tok.replace("’", "'").replace("‘", "'")
+                  .replace("“", '"').replace("”", '"')
                   .replace("–", "-").replace("—", "-"))
         esc = re.escape(tok)
         esc = esc.replace("'", "['’]")
+        esc = esc.replace('"', '["“”]')
         esc = esc.replace("\\-", "[-–—]")
         parts.append(esc)
     if not parts:
         return re.compile(r"(?!x)x")  # never-match
-    return re.compile(r"\b" + r"\s+".join(parts) + r"\b", re.IGNORECASE)
+    # ASCII lookaround boundaries 而唔係 \b：token 頭尾係標點（'TIS）\b 會失效，
+    # 而 CJK 屬 unicode \w，\b 會令「SIXTY出咗」呢類中英相鄰位 match 唔到（review LOW）。
+    return re.compile(r"(?<![0-9A-Za-z_])" + r"\s+".join(parts) + r"(?![0-9A-Za-z_])",
+                      re.IGNORECASE)
 
 
 # ---------------------------------------------------------------------------
@@ -762,7 +776,10 @@ def scan_track(
             inapplicable.append(g.get("name", ""))
         else:
             applicable.append(g.get("name", ""))
-            side = side or s
+            # source-display 係 wrap-only route — 唔 leak 落 side（前端只識
+            # source/target 兩值；review LOW 2026-07-07）
+            if s in ("source", "target"):
+                side = side or s
 
     items: List[dict] = []
     for i, text in enumerate(texts):

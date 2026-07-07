@@ -26,3 +26,16 @@ def test_ensure_brackets_absent_canonical_noop():
 
 def test_validate_applied_accepts_wrapped():
     assert gr.validate_applied("「巴閉佬」表現出色", "巴閉佬", "巴閉老表現出色") is None
+
+
+# --- review fixes 2026-07-07: prompt numbering byte-identical ---
+
+def test_prompt_default_numbering_byte_identical():
+    p = gr.build_apply_system_prompt("中文", "target")
+    assert p.endswith('5. 只輸出 JSON：{"text": "修改後字幕"}。冇 markdown、冇解釋、冇思考標籤。')
+
+
+def test_prompt_brackets_numbering_sequential():
+    p = gr.build_apply_system_prompt("中文", "target", brackets=True)
+    assert "5. 標準寫法必須用「」括住" in p
+    assert p.endswith('6. 只輸出 JSON：{"text": "修改後字幕"}。冇 markdown、冇解釋、冇思考標籤。')

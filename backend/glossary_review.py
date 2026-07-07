@@ -22,7 +22,10 @@ def build_apply_system_prompt(lang_label: str, side: str,
         if side == "target" else
         "原文入面有一個專有名詞，你要確保字幕用咗佢嘅標準譯名"
     )
+    # brackets=False 時 prompt 必須同舊版 byte-identical（已驗證 prompt 唔可以
+    # 靜默漂移 — review MEDIUM 2026-07-07）；brackets=True 先插第 5 條、JSON 條順延做 6。
     bracket_rule = ("5. 標準寫法必須用「」括住（例：「奮鬥心」）。\n" if brackets else "")
+    json_no = "6" if brackets else "5"
     return (
         "你係廣播字幕詞彙審核員。" + direction + "。\n"
         "規則：\n"
@@ -32,7 +35,7 @@ def build_apply_system_prompt(lang_label: str, side: str,
         "3. 修改後句子必須包含標準寫法。\n"
         "4. 如果個詞喺句中有屈折變化／前後接字，照語法自然咁接駁。\n"
         + bracket_rule +
-        '只輸出 JSON：{"text": "修改後字幕"}。冇 markdown、冇解釋、冇思考標籤。'
+        f'{json_no}. 只輸出 JSON：{{"text": "修改後字幕"}}。冇 markdown、冇解釋、冇思考標籤。'
     )
 
 

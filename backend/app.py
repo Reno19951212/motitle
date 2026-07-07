@@ -5329,14 +5329,18 @@ def api_glossary_apply_item(file_id):
             lang,
         )
 
-    # 名詞括號：apply-item 跟返 glossary 嘅 name_brackets 設定
+    # 名詞括號：apply-item 跟返 glossary 嘅 name_brackets 設定。
+    # glossary_id 缺席時用 glossary 名做 fallback（舊 caller 只送名 — review LOW），
+    # 免得同一個 bracket-on 表經唔同 caller 出唔一致嘅括號行為。
     _nb_brackets = False
     _nb_gid = data.get("glossary_id")
-    if _nb_gid:
-        _nb_g = _glossary_manager.get(_nb_gid)
-        if _nb_g:
-            import output_lang_glossary as _olg_nb
-            _nb_brackets = _olg_nb.brackets_enabled(_nb_g, lang)
+    _nb_g = _glossary_manager.get(_nb_gid) if _nb_gid else None
+    if _nb_g is None and data.get("glossary") and hasattr(_glossary_manager, "list_all"):
+        _nb_g = next((g for g in (_glossary_manager.list_all() or [])
+                      if g.get("name") == data.get("glossary")), None)
+    if _nb_g:
+        import output_lang_glossary as _olg_nb
+        _nb_brackets = _olg_nb.brackets_enabled(_nb_g, lang)
 
     # ----- Phase 2: slow LLM call (OUTSIDE the lock) -------------------------
     # target-side = the alias already sits in the cue text (canonicalize it);

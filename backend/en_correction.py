@@ -94,7 +94,8 @@ def build_index(glossaries: Optional[List[dict]]) -> List[dict]:
     return entries
 
 
-def stage_auto(segments: List[dict], entries: List[dict]
+def stage_auto(segments: List[dict], entries: List[dict],
+               cancel_check: Optional[Callable] = None
                ) -> Tuple[List[dict], List[List[dict]]]:
     """AUTO tier：非全常用詞條，摺疊命中 → 改寫成詞彙表原樣。
 
@@ -106,6 +107,8 @@ def stage_auto(segments: List[dict], entries: List[dict]
     out: List[dict] = []
     all_changes: List[List[dict]] = []
     for seg in segments:
+        if cancel_check is not None:
+            cancel_check()
         text = seg.get("text") or ""
         ch: List[dict] = []
         for en in autos:
@@ -178,7 +181,9 @@ def judge_candidates(segments: List[dict], entries: List[dict]) -> List[dict]:
                     hi = 2 if en["ntok"] >= 2 else 1
                     if not (lo <= d <= hi):
                         continue
-                    key = (i, span, en["source"])
+                    # key 帶 offset — 同一句重複出現嘅同一聽錯 span 每個位置
+                    # 都係候選（review LOW：舊 key 只保第一個 offset）
+                    key = (i, s, span, en["source"])
                     if key in seen:
                         continue
                     seen.add(key)
@@ -200,20 +205,24 @@ def judge_tier(segments: List[dict], entries: List[dict], llm_call: Callable,
     """受限 LLM 判決：多數票 accept 先改；LLM error 票 = None（fail-open）。"""
     cands = judge_candidates(segments, entries)
     accepted_by_seg: dict = {}
+    verdicts: dict = {}     # (idx, span, source) → bool — 同句同 span 重複 offset 共用一次判決
     for c in cands:
         if cancel_check is not None:
             cancel_check()
-        user = (f"句子：{segments[c['idx']].get('text') or ''}\n"
-                f"片段：「{c['span']}」\n候選名稱：「{c['source']}」\n"
-                f"呢個片段係咪 ASR 聽錯咗嘅候選名稱？")
-        vs = []
-        for _ in range(max(1, votes)):
-            try:
-                m = _ACCEPT_RE.search(llm_call(_JUDGE_SYS, user) or "")
-                vs.append(bool(m and m.group(1) == "true"))
-            except Exception:
-                vs.append(None)
-        if sum(1 for v in vs if v) >= (max(1, votes) // 2 + 1):
+        vk = (c["idx"], c["span"], c["source"])
+        if vk not in verdicts:
+            user = (f"句子：{segments[c['idx']].get('text') or ''}\n"
+                    f"片段：「{c['span']}」\n候選名稱：「{c['source']}」\n"
+                    f"呢個片段係咪 ASR 聽錯咗嘅候選名稱？")
+            vs = []
+            for _ in range(max(1, votes)):
+                try:
+                    m = _ACCEPT_RE.search(llm_call(_JUDGE_SYS, user) or "")
+                    vs.append(bool(m and m.group(1) == "true"))
+                except Exception:
+                    vs.append(None)
+            verdicts[vk] = sum(1 for v in vs if v) >= (max(1, votes) // 2 + 1)
+        if verdicts[vk]:
             accepted_by_seg.setdefault(c["idx"], []).append(c)
 
     out: List[dict] = []
@@ -249,7 +258,7 @@ def correct_segments_en(segments: List[dict],
     entries = build_index(glossaries)
     if not entries:
         return [dict(s) for s in segments], [[] for _ in segments]
-    out, all_changes = stage_auto(segments, entries)
+    out, all_changes = stage_auto(segments, entries, cancel_check=cancel_check)
     if use_llm and llm_call is not None:
         out, judge_ch = judge_tier(out, entries, llm_call, votes=votes,
                                    cancel_check=cancel_check)

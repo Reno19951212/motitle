@@ -38,3 +38,18 @@ def test_empty_source_never_matches():
 def test_filter_source_side_double_space_now_matches():
     cands = _filter_source_side("golden  sixty wins", [GLOSS], "zh", "en", "mt")
     assert [c["source"] for c in cands] == ["GOLDEN SIXTY"]
+
+
+# --- review fixes 2026-07-07: lookaround boundaries ---
+
+def test_leading_apostrophe_token_matches():
+    assert build_name_pattern("'TIS LUCKY").search("said 'tis lucky today")
+
+
+def test_cjk_adjacency_matches():
+    assert build_name_pattern("GOLDEN SIXTY").search("見到golden sixty出咗閘")
+
+
+def test_boundary_still_blocks_ascii_partial():
+    assert not build_name_pattern("CLASS").search("classic race")
+    assert not build_name_pattern("ACE").search("the race is on")
