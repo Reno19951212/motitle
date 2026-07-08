@@ -1,0 +1,515 @@
+{
+  "summary": {
+    "engine": "PaddleOCR",
+    "render": "/Users/renocheung/Documents/GitHub - Remote Repo/whisper-subtitle-ai/backend/data/renders/335ed02ff40f.mp4",
+    "file_id": "48c1657e7ec1",
+    "lang_track": "zh",
+    "ocr_lang": "chinese_cht",
+    "crop": "1920:100:0:980",
+    "missing_glyphs_in_render_font": "內錶沒為並",
+    "n_cues": 24,
+    "corpus_cer_ws": 0.0474,
+    "corpus_cer_nopunct": 0.0478,
+    "corpus_cer_ws_render_aware": 0.0038,
+    "corpus_cer_nopunct_render_aware": 0.0,
+    "mean_cue_cer_ws": 0.0522,
+    "exact_match_ws": 15,
+    "exact_match_nopunct": 15,
+    "exact_match_ws_render_aware": 23,
+    "frames_with_banner": 13,
+    "ocr_secs_mean": 0.855,
+    "ocr_secs_median": 1.061,
+    "ocr_secs_min": 0.349,
+    "ocr_secs_max": 1.448,
+    "init_secs": 0.75,
+    "warmup_first_predict_secs": 0.41,
+    "ffmpeg_extract_secs_mean": null,
+    "gt_chars_total_ws": 274,
+    "edit_distance_total_ws": 13
+  },
+  "cues": [
+    {
+      "idx": 1,
+      "start": 2.16,
+      "end": 5.04,
+      "gt": "好的，起步時，幸運有您領先。",
+      "ocr": "好的，起步時，幸運有您領先。",
+      "ocr_all_lines": [
+        "好的，起步時，幸運有您領先。"
+      ],
+      "banner_lines_dropped": 0,
+      "cer_ws": 0.0,
+      "cer_nopunct": 0.0,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 0.37
+    },
+    {
+      "idx": 3,
+      "start": 8.0,
+      "end": 10.0,
+      "gt": "內欄位置的錶之星河",
+      "ocr": "欄位置的之星河",
+      "ocr_all_lines": [
+        "STELLAR EXPRESS",
+        "LOCKY WITH YOU",
+        "SKY TRUST",
+        "BEAUTY WAVES",
+        "PATCH OF STARS",
+        "欄位置的",
+        "之星河"
+      ],
+      "banner_lines_dropped": 5,
+      "cer_ws": 0.2222,
+      "cer_nopunct": 0.2222,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 0.979
+    },
+    {
+      "idx": 5,
+      "start": 13.200000000000001,
+      "end": 15.72,
+      "gt": "留守於第五、六位的是好友心得。",
+      "ocr": "留守於第五、六位的是好友心得。",
+      "ocr_all_lines": [
+        "LUCKY WITH YOU",
+        "STELLAR EXPRESS",
+        "SKY TRUST",
+        "BEAUTY WAVES",
+        "TOMODACHAI KOKORUE",
+        "PATLH OF STARS",
+        "CRIMSUN FLASH",
+        "RUMANTIC SUN",
+        "留守於第五、六位的是好友心得。"
+      ],
+      "banner_lines_dropped": 8,
+      "cer_ws": 0.0,
+      "cer_nopunct": 0.0,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 1.442
+    },
+    {
+      "idx": 7,
+      "start": 18.2,
+      "end": 20.6,
+      "gt": "倒數第三、穿紅色賽衣的是翠紅。",
+      "ocr": "倒數第三、穿紅色賽衣的是翠紅。",
+      "ocr_all_lines": [
+        "STELLAR EXPRESS",
+        "SKY TRUST",
+        "LUCKY WITH YOU",
+        "BEAUTY WAVES",
+        "TOMODACHI KOKURUE",
+        "PATLH OF STARS",
+        "RUMANTIC SUN",
+        "CRIMSUN FLASH",
+        "倒數第三、穿紅色賽衣的是翠紅。"
+      ],
+      "banner_lines_dropped": 8,
+      "cer_ws": 0.0,
+      "cer_nopunct": 0.0,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 1.336
+    },
+    {
+      "idx": 9,
+      "start": 24.32,
+      "end": 26.36,
+      "gt": "經過該 800 米路段",
+      "ocr": "經過該 800 米路段",
+      "ocr_all_lines": [
+        "STELLAR EXPRESS",
+        "SKY TRUST",
+        "LOCKY WITH YOU",
+        "BEAUTY WAVES",
+        "PATLH OF STARS",
+        "TOMODACHI KOKURUE",
+        "ROMANTIC SUN",
+        "CRIMSUN FLASH",
+        "經過該 800 米路段"
+      ],
+      "banner_lines_dropped": 8,
+      "cer_ws": 0.0,
+      "cer_nopunct": 0.0,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 1.221
+    },
+    {
+      "idx": 11,
+      "start": 29.36,
+      "end": 32.04,
+      "gt": "倒數第二、靠近內欄的是幸運有您。",
+      "ocr": "倒數第二、靠近 欄的是幸運有您。",
+      "ocr_all_lines": [
+        "STELLAR EXPRESS",
+        "LOCKY WITH YOU",
+        "BEAUTY WAVES",
+        "PATCH OF STARS",
+        "TOMODACHI KOKORUE",
+        "RUMANTIC SUN",
+        "CRIMSUN FLASH",
+        "倒數第二、靠近 欄的是幸運有您。"
+      ],
+      "banner_lines_dropped": 7,
+      "cer_ws": 0.0625,
+      "cer_nopunct": 0.0714,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 1.214
+    },
+    {
+      "idx": 14,
+      "start": 34.8,
+      "end": 36.44,
+      "gt": "內欄第五為錶之星河",
+      "ocr": "欄第五之星河",
+      "ocr_all_lines": [
+        "STELLAR EXPRESS",
+        "SKY TRUST",
+        "LUCKY WITH YOU",
+        "BEAUTY WAVES",
+        "PATCH OF STARS",
+        "TOMODACHI KOKORUE",
+        "RUMANTIC SUN",
+        "欄第五",
+        "之星河"
+      ],
+      "banner_lines_dropped": 7,
+      "cer_ws": 0.3333,
+      "cer_nopunct": 0.3333,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 1.223
+    },
+    {
+      "idx": 16,
+      "start": 38.480000000000004,
+      "end": 40.2,
+      "gt": "倒數第四、戴黑色頭盔的是友愛心得。",
+      "ocr": "倒數第四、戴黑色頭盔的是友愛心得。",
+      "ocr_all_lines": [
+        "STELLAR EXPRESS",
+        "SKY TRUST",
+        "LUCKY WITH YOU",
+        "BEAUTY WAVES",
+        "PATCH OF STARS",
+        "TOMODACHI KOKORUE",
+        "RUMANTIC SUN",
+        "INVINCIBLE SHIELD",
+        "倒數第四、戴黑色頭盔的是友愛心得。"
+      ],
+      "banner_lines_dropped": 8,
+      "cer_ws": 0.0,
+      "cer_nopunct": 0.0,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 1.406
+    },
+    {
+      "idx": 18,
+      "start": 41.16,
+      "end": 43.72,
+      "gt": "戴紅色眼罩、穿紅色賽衣並從大外檔透出的是翠紅。",
+      "ocr": "戴紅色眼罩、穿紅色賽衣從大外檔透出的是翠紅。",
+      "ocr_all_lines": [
+        "STELLAR EXPRESS",
+        "SKY TRUST",
+        "LUCKY WITH YOU",
+        "BEAUTY WAVES",
+        "PATCH OF STARS",
+        "TOMODACHI KOKURUE",
+        "RUMANTIC SUN",
+        "CRIMSUN FLASH",
+        "戴紅色眼罩、穿紅色賽衣",
+        "從大外檔透出的是翠紅。"
+      ],
+      "banner_lines_dropped": 8,
+      "cer_ws": 0.0435,
+      "cer_nopunct": 0.0476,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 1.448
+    },
+    {
+      "idx": 20,
+      "start": 45.519999999999996,
+      "end": 47.28,
+      "gt": "包尾直路是精算暴雪",
+      "ocr": "包尾直路是精算暴雪",
+      "ocr_all_lines": [
+        "STELLAR EXPRESS",
+        "SKY TRUST",
+        "LUCKY WITH YOU",
+        "BEAUTY WAVES",
+        "PATCH OF STARS",
+        "TOMODACHI KOKORUE",
+        "RUMANTIC SUN",
+        "包尾直路是精算暴雪"
+      ],
+      "banner_lines_dropped": 7,
+      "cer_ws": 0.0,
+      "cer_nopunct": 0.0,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 1.143
+    },
+    {
+      "idx": 22,
+      "start": 48.68,
+      "end": 51.4,
+      "gt": "星際快車仍保有半個馬位的優勢",
+      "ocr": "星際快車仍保有半個馬位的優勢",
+      "ocr_all_lines": [
+        "STELLAR EXPRESS",
+        "SKY TRUST",
+        "LUCKY WITH YOU",
+        "BEAUTY WAVES",
+        "TOMODACHI KOKORUE",
+        "RUMANTIC SUN",
+        "INVINCIBLE SHIELD",
+        "星際快車仍保有半個馬位的優勢"
+      ],
+      "banner_lines_dropped": 7,
+      "cer_ws": 0.0,
+      "cer_nopunct": 0.0,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 1.253
+    },
+    {
+      "idx": 24,
+      "start": 53.64,
+      "end": 54.760000000000005,
+      "gt": "中檔已打開。",
+      "ocr": "中檔已打開。",
+      "ocr_all_lines": [
+        "STELLAR EXPRESS",
+        "SKY TRUST",
+        "LUCKY WITH YOU",
+        "TOMODACHI KOKORUE",
+        "PATCH OF STARS",
+        "BEAUTY WAVES",
+        "RUMANTIC SUN",
+        "RAGING BLIZZARD",
+        "中檔已打開。"
+      ],
+      "banner_lines_dropped": 8,
+      "cer_ws": 0.0,
+      "cer_nopunct": 0.0,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 1.288
+    },
+    {
+      "idx": 26,
+      "start": 56.6,
+      "end": 58.239999999999995,
+      "gt": "靠近內欄的就是笑傲江湖",
+      "ocr": "靠近 欄的就是笑傲江湖",
+      "ocr_all_lines": [
+        "STELLAR EXPRESS",
+        "SKY TRUST",
+        "PATLH OF STARS",
+        "TOMODACHI KOKORUE",
+        "LUCKY WITH YOU",
+        "RAGING BLIZZARD",
+        "RUMANTIC SUN",
+        "靠近 欄的就是笑傲江湖"
+      ],
+      "banner_lines_dropped": 7,
+      "cer_ws": 0.0909,
+      "cer_nopunct": 0.0909,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 1.22
+    },
+    {
+      "idx": 28,
+      "start": 59.68,
+      "end": 61.36,
+      "gt": "中檔位置還有好友心得",
+      "ocr": "中檔位置還有好友心得",
+      "ocr_all_lines": [
+        "STELLAR EXPRESS",
+        "PATCH OF STARS",
+        "TOMODACHI KOKORUE",
+        "SKY TRUST",
+        "LUCKY WITH YOU",
+        "RAGING BLIZZARD",
+        "INVINCIBLE SHIELD",
+        "RUMANTIC SUN",
+        "中檔位置還有好友心得"
+      ],
+      "banner_lines_dropped": 8,
+      "cer_ws": 0.0,
+      "cer_nopunct": 0.0,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 1.289
+    },
+    {
+      "idx": 30,
+      "start": 62.6,
+      "end": 63.88,
+      "gt": "自馬羣中突圍的是錶之星河。",
+      "ocr": "自馬羣中突圍的是 之星河。",
+      "ocr_all_lines": [
+        "自馬羣中突圍的是 之星河。"
+      ],
+      "banner_lines_dropped": 0,
+      "cer_ws": 0.0769,
+      "cer_nopunct": 0.0833,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 0.372
+    },
+    {
+      "idx": 32,
+      "start": 65.84,
+      "end": 66.64,
+      "gt": "位於中檔",
+      "ocr": "位於中檔",
+      "ocr_all_lines": [
+        "位於中檔"
+      ],
+      "banner_lines_dropped": 0,
+      "cer_ws": 0.0,
+      "cer_nopunct": 0.0,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 0.359
+    },
+    {
+      "idx": 34,
+      "start": 68.12,
+      "end": 69.6,
+      "gt": "外檔緊追精算暴雪",
+      "ocr": "外檔緊追精算暴雪",
+      "ocr_all_lines": [
+        "外檔緊追精算暴雪"
+      ],
+      "banner_lines_dropped": 0,
+      "cer_ws": 0.0,
+      "cer_nopunct": 0.0,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 0.36
+    },
+    {
+      "idx": 36,
+      "start": 72.32000000000001,
+      "end": 73.12,
+      "gt": "靠近內欄",
+      "ocr": "靠近欄",
+      "ocr_all_lines": [
+        "靠近欄"
+      ],
+      "banner_lines_dropped": 0,
+      "cer_ws": 0.25,
+      "cer_nopunct": 0.25,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 0.356
+    },
+    {
+      "idx": 39,
+      "start": 78.08,
+      "end": 80.6,
+      "gt": "精算暴雪確實緊追多匹。",
+      "ocr": "精算暴雪確實緊追多匹。",
+      "ocr_all_lines": [
+        "精算暴雪確實緊追多匹。"
+      ],
+      "banner_lines_dropped": 0,
+      "cer_ws": 0.0,
+      "cer_nopunct": 0.0,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 0.361
+    },
+    {
+      "idx": 41,
+      "start": 81.6,
+      "end": 84.2,
+      "gt": "好友心得於中檔位置跑至第三。",
+      "ocr": "好友心得於中檔位置跑至第三。",
+      "ocr_all_lines": [
+        "好友心得於中檔位置跑至第三。"
+      ],
+      "banner_lines_dropped": 0,
+      "cer_ws": 0.0,
+      "cer_nopunct": 0.0,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 0.379
+    },
+    {
+      "idx": 43,
+      "start": 85.24000000000001,
+      "end": 86.52000000000001,
+      "gt": "星際快車",
+      "ocr": "星際快車",
+      "ocr_all_lines": [
+        "星際快車"
+      ],
+      "banner_lines_dropped": 0,
+      "cer_ws": 0.0,
+      "cer_nopunct": 0.0,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 0.351
+    },
+    {
+      "idx": 45,
+      "start": 90.84,
+      "end": 94.44,
+      "gt": "沒錯。精算暴雪山來遲，跑過第二；",
+      "ocr": "錯。精算暴雪山來遲，跑過第二：",
+      "ocr_all_lines": [
+        "錯。精算暴雪山來遲，跑過第二："
+      ],
+      "banner_lines_dropped": 0,
+      "cer_ws": 0.125,
+      "cer_nopunct": 0.0769,
+      "cer_ws_render_aware": 0.0667,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 0.386
+    },
+    {
+      "idx": 47,
+      "start": 98.52,
+      "end": 103.52,
+      "gt": "推進小步亦不可，因步步緊迫，即為精算暴雪。",
+      "ocr": "推進小步亦不可，因步步緊迫，即 精算暴雪。",
+      "ocr_all_lines": [
+        "推進小步亦不可，因步步緊迫，即 精算暴雪。"
+      ],
+      "banner_lines_dropped": 0,
+      "cer_ws": 0.0476,
+      "cer_nopunct": 0.0556,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 0.416
+    },
+    {
+      "idx": 49,
+      "start": 107.52,
+      "end": 108.52,
+      "gt": "雙方",
+      "ocr": "雙方",
+      "ocr_all_lines": [
+        "雙方"
+      ],
+      "banner_lines_dropped": 0,
+      "cer_ws": 0.0,
+      "cer_nopunct": 0.0,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 0.349
+    }
+  ]
+}

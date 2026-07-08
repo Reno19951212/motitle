@@ -1,0 +1,46 @@
+{
+  "video": "/private/tmp/claude-501/-Users-renocheung-Documents-GitHub---Remote-Repo-whisper-subtitle-ai--claude-worktrees-packaging-license-sync/b2d423dd-4d0c-42ac-969d-72a2a7b1d4c8/scratchpad/synth/synth_heiti.mp4",
+  "duration_s": 108.56,
+  "runs": [
+    {
+      "fps": 2,
+      "vf": "crop=1920:270:0:810",
+      "wall_seconds": 1.6,
+      "n_frames": 217,
+      "total_mb": 76.9,
+      "out_dir": "/private/tmp/claude-501/-Users-renocheung-Documents-GitHub---Remote-Repo-whisper-subtitle-ai--claude-worktrees-packaging-license-sync/b2d423dd-4d0c-42ac-969d-72a2a7b1d4c8/scratchpad/bands_synth/2fps_native",
+      "label": "native",
+      "realtime_factor": 67.8
+    },
+    {
+      "fps": 2,
+      "vf": "crop=1920:270:0:810,scale=960:135",
+      "wall_seconds": 1.23,
+      "n_frames": 217,
+      "total_mb": 29.3,
+      "out_dir": "/private/tmp/claude-501/-Users-renocheung-Documents-GitHub---Remote-Repo-whisper-subtitle-ai--claude-worktrees-packaging-license-sync/b2d423dd-4d0c-42ac-969d-72a2a7b1d4c8/scratchpad/bands_synth/2fps_small",
+      "label": "small",
+      "realtime_factor": 88.3
+    },
+    {
+      "fps": 4,
+      "vf": "crop=1920:270:0:810",
+      "wall_seconds": 2.3,
+      "n_frames": 434,
+      "total_mb": 153.6,
+      "out_dir": "/private/tmp/claude-501/-Users-renocheung-Documents-GitHub---Remote-Repo-whisper-subtitle-ai--claude-worktrees-packaging-license-sync/b2d423dd-4d0c-42ac-969d-72a2a7b1d4c8/scratchpad/bands_synth/4fps_native",
+      "label": "native",
+      "realtime_factor": 47.2
+    },
+    {
+      "fps": 4,
+      "vf": "crop=1920:270:0:810,scale=960:135",
+      "wall_seconds": 1.38,
+      "n_frames": 434,
+      "total_mb": 58.6,
+      "out_dir": "/private/tmp/claude-501/-Users-renocheung-Documents-GitHub---Remote-Repo-whisper-subtitle-ai--claude-worktrees-packaging-license-sync/b2d423dd-4d0c-42ac-969d-72a2a7b1d4c8/scratchpad/bands_synth/4fps_small",
+      "label": "small",
+      "realtime_factor": 78.7
+    }
+  ]
+}

@@ -1,0 +1,140 @@
+{
+  "render": "/Users/renocheung/Documents/GitHub - Remote Repo/whisper-subtitle-ai/backend/data/renders/ac22373f4908.mp4",
+  "file_id": "98383e00aa62",
+  "crop": "1920:130:0:930",
+  "paddle_init_secs": 0.98,
+  "paddle_warmup_secs": 0.51,
+  "cues": [
+    {
+      "idx": 6,
+      "start": 23.0,
+      "end": 27.0,
+      "gt_registry": "需要具備紀律、耐性與定力",
+      "frame": "/private/tmp/claude-501/-Users-renocheung-Documents-GitHub---Remote-Repo-whisper-subtitle-ai--claude-worktrees-packaging-license-sync/b2d423dd-4d0c-42ac-969d-72a2a7b1d4c8/scratchpad/verify_frames/ver_cue006_t25.00.png",
+      "ffmpeg_secs": 0.164,
+      "vision": {
+        "lines_all": [
+          "需要有鱘傅紐旃兩導翻有定力"
+        ],
+        "hyp": "需要有鱘傅紐旃兩導翻有定力",
+        "secs": 0.236
+      },
+      "paddle": {
+        "lines_all": [
+          "需要有解Q備紀有耐性性和有定力"
+        ],
+        "hyp": "需要有解Q備紀有耐性性和有定力",
+        "secs": 0.481
+      },
+      "vision_cer_ws": 0.75,
+      "vision_cer_np": 0.8182,
+      "paddle_cer_ws": 0.6667,
+      "paddle_cer_np": 0.6364
+    },
+    {
+      "idx": 11,
+      "start": 53.2,
+      "end": 59.400000000000006,
+      "gt_registry": "我當時負責統籌香港馬術界的機構和人士",
+      "frame": "/private/tmp/claude-501/-Users-renocheung-Documents-GitHub---Remote-Repo-whisper-subtitle-ai--claude-worktrees-packaging-license-sync/b2d423dd-4d0c-42ac-969d-72a2a7b1d4c8/scratchpad/verify_frames/ver_cue011_t56.30.png",
+      "ffmpeg_secs": 0.12,
+      "vision": {
+        "lines_all": [
+          "而我負壺錥孈薊躇覊街圖癱燚槥和人事"
+        ],
+        "hyp": "而我負壺錥孈薊躇覊街圖癱燚槥和人事",
+        "secs": 0.085
+      },
+      "paddle": {
+        "lines_all": [
+          "而我負責當穿籬充巷馬術界圍機構機構和人事",
+          "555"
+        ],
+        "hyp": "而我負責當穿籬充巷馬術界圍機構機構和人事",
+        "secs": 0.77
+      },
+      "vision_cer_ws": 0.8333,
+      "vision_cer_np": 0.8333,
+      "paddle_cer_ws": 0.6667,
+      "paddle_cer_np": 0.6667
+    },
+    {
+      "idx": 22,
+      "start": 95.91999999999999,
+      "end": 98.88,
+      "gt_registry": "過去三十多年我在馬會擔任不同角色",
+      "frame": "/private/tmp/claude-501/-Users-renocheung-Documents-GitHub---Remote-Repo-whisper-subtitle-ai--claude-worktrees-packaging-license-sync/b2d423dd-4d0c-42ac-969d-72a2a7b1d4c8/scratchpad/verify_frames/ver_cue022_t97.40.png",
+      "ffmpeg_secs": 0.114,
+      "vision": {
+        "lines_all": [
+          "我的品麼就香码有负色"
+        ],
+        "hyp": "我的品麼就香码有负色",
+        "secs": 0.054
+      },
+      "paddle": {
+        "lines_all": [
+          "我在馬會擔叢不擔的角色"
+        ],
+        "hyp": "我在馬會擔叢不擔的角色",
+        "secs": 0.477
+      },
+      "vision_cer_ws": 0.875,
+      "vision_cer_np": 0.875,
+      "paddle_cer_ws": 0.5625,
+      "paddle_cer_np": 0.5625
+    },
+    {
+      "idx": 32,
+      "start": 131.04000000000002,
+      "end": 135.0,
+      "gt_registry": "一個馬會，一個團隊，一個目標",
+      "frame": "/private/tmp/claude-501/-Users-renocheung-Documents-GitHub---Remote-Repo-whisper-subtitle-ai--claude-worktrees-packaging-license-sync/b2d423dd-4d0c-42ac-969d-72a2a7b1d4c8/scratchpad/verify_frames/ver_cue032_t133.02.png",
+      "ffmpeg_secs": 0.111,
+      "vision": {
+        "lines_all": [
+          "一個馬命53一4國隊隊-個时採個目標"
+        ],
+        "hyp": "一個馬命53一4國隊隊-個时採個目標",
+        "secs": 0.072
+      },
+      "paddle": {
+        "lines_all": [
+          "一個馬命馬舍一個團隊隊一個目標個目標"
+        ],
+        "hyp": "一個馬命馬舍一個團隊隊一個目標個目標",
+        "secs": 0.48
+      },
+      "vision_cer_ws": 0.7143,
+      "vision_cer_np": 0.75,
+      "paddle_cer_ws": 0.5,
+      "paddle_cer_np": 0.5833
+    },
+    {
+      "idx": 43,
+      "start": 164.92000000000002,
+      "end": 166.12,
+      "gt_registry": "並肩同行",
+      "frame": "/private/tmp/claude-501/-Users-renocheung-Documents-GitHub---Remote-Repo-whisper-subtitle-ai--claude-worktrees-packaging-license-sync/b2d423dd-4d0c-42ac-969d-72a2a7b1d4c8/scratchpad/verify_frames/ver_cue043_t165.52.png",
+      "ffmpeg_secs": 0.107,
+      "vision": {
+        "lines_all": [
+          "並屩翮行"
+        ],
+        "hyp": "並屩翮行",
+        "secs": 0.042
+      },
+      "paddle": {
+        "lines_all": [
+          "並属品行"
+        ],
+        "hyp": "並属品行",
+        "secs": 0.459
+      },
+      "vision_cer_ws": 0.5,
+      "vision_cer_np": 0.5,
+      "paddle_cer_ws": 0.5,
+      "paddle_cer_np": 0.5
+    }
+  ]
+}

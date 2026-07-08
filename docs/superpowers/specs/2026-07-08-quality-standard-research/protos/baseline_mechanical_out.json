@@ -1,0 +1,205 @@
+{
+ "f66d9705f78d": {
+  "label": "馬會 Test Footage 1 (en→en,zh racing)",
+  "n_cues": 29,
+  "langs": [
+   "en",
+   "zh"
+  ],
+  "tracks": {
+   "en": {
+    "empty": 0,
+    "over28": 28,
+    "over40": 19,
+    "marker_per_100": 0.0,
+    "dup_run_cues": 0,
+    "total_chars": 1473
+   },
+   "zh": {
+    "empty": 0,
+    "over28": 0,
+    "over40": 0,
+    "marker_per_100": 0.0,
+    "dup_run_cues": 0,
+    "total_chars": 427
+   }
+  },
+  "timing": {
+   "overlaps": 0,
+   "cues_under_0.4s": 0
+  },
+  "glossary_changes_total": 4
+ },
+ "28deab03a71c": {
+  "label": "馬會 Test Footage 2 (en→en,zh racing)",
+  "n_cues": 21,
+  "langs": [
+   "en",
+   "zh"
+  ],
+  "tracks": {
+   "en": {
+    "empty": 0,
+    "over28": 17,
+    "over40": 11,
+    "marker_per_100": 0.0,
+    "dup_run_cues": 0,
+    "total_chars": 909
+   },
+   "zh": {
+    "empty": 0,
+    "over28": 1,
+    "over40": 0,
+    "marker_per_100": 0.0,
+    "dup_run_cues": 0,
+    "total_chars": 273
+   }
+  },
+  "timing": {
+   "overlaps": 0,
+   "cues_under_0.4s": 0
+  },
+  "glossary_changes_total": 0
+ },
+ "97b66062bfee": {
+  "label": "Sha Tin race previews (en→en,zh racing, 851)",
+  "n_cues": 851,
+  "langs": [
+   "en",
+   "zh"
+  ],
+  "tracks": {
+   "en": {
+    "empty": 0,
+    "over28": 701,
+    "over40": 451,
+    "marker_per_100": 0.0,
+    "dup_run_cues": 0,
+    "total_chars": 36613
+   },
+   "zh": {
+    "empty": 0,
+    "over28": 39,
+    "over40": 4,
+    "marker_per_100": 0.02,
+    "dup_run_cues": 0,
+    "total_chars": 12383
+   }
+  },
+  "timing": {
+   "overlaps": 0,
+   "cues_under_0.4s": 2
+  },
+  "glossary_changes_total": 159
+ },
+ "09e0e3679f35": {
+  "label": "研究 clip 沙田銀瓶 (yue→yue racing)",
+  "n_cues": 48,
+  "langs": [
+   "yue"
+  ],
+  "tracks": {
+   "yue": {
+    "empty": 0,
+    "over28": 1,
+    "over40": 1,
+    "marker_per_100": 4.41,
+    "dup_run_cues": 0,
+    "total_chars": 476
+   }
+  },
+  "timing": {
+   "overlaps": 0,
+   "cues_under_0.4s": 0
+  },
+  "glossary_changes_total": 1
+ },
+ "48c1657e7ec1": {
+  "label": "研究 clip 沙田銀瓶 (yue→zh racing)",
+  "n_cues": 50,
+  "langs": [
+   "zh"
+  ],
+  "tracks": {
+   "zh": {
+    "empty": 1,
+    "over28": 0,
+    "over40": 0,
+    "marker_per_100": 0.0,
+    "dup_run_cues": 0,
+    "total_chars": 592
+   }
+  },
+  "timing": {
+   "overlaps": 0,
+   "cues_under_0.4s": 0
+  },
+  "glossary_changes_total": 32
+ },
+ "de5bd2b803bf": {
+  "label": "袁幸堯新聞 (yue→zh racing)",
+  "n_cues": 49,
+  "langs": [
+   "zh"
+  ],
+  "tracks": {
+   "zh": {
+    "empty": 0,
+    "over28": 0,
+    "over40": 0,
+    "marker_per_100": 0.0,
+    "dup_run_cues": 0,
+    "total_chars": 442
+   }
+  },
+  "timing": {
+   "overlaps": 0,
+   "cues_under_0.4s": 0
+  },
+  "glossary_changes_total": 0
+ },
+ "fb76532ed5bc": {
+  "label": "賽後兩點晚 (yue→yue racing)",
+  "n_cues": 352,
+  "langs": [
+   "yue"
+  ],
+  "tracks": {
+   "yue": {
+    "empty": 0,
+    "over28": 3,
+    "over40": 0,
+    "marker_per_100": 2.12,
+    "dup_run_cues": 0,
+    "total_chars": 3295
+   }
+  },
+  "timing": {
+   "overlaps": 0,
+   "cues_under_0.4s": 0
+  },
+  "glossary_changes_total": 79
+ },
+ "ea49ef1969a9": {
+  "label": "3K5k4QXhzVA (yue→zh racing, 1809)",
+  "n_cues": 1809,
+  "langs": [
+   "zh"
+  ],
+  "tracks": {
+   "zh": {
+    "empty": 0,
+    "over28": 17,
+    "over40": 3,
+    "marker_per_100": 0.06,
+    "dup_run_cues": 0,
+    "total_chars": 20019
+   }
+  },
+  "timing": {
+   "overlaps": 0,
+   "cues_under_0.4s": 1
+  },
+  "glossary_changes_total": 224
+ }
+}

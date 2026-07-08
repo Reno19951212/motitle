@@ -1,0 +1,1199 @@
+{
+  "n_frames": 217,
+  "fps": 2.0,
+  "params": {
+    "BRIGHT_T": 200,
+    "MIN_MASK_PX": 40,
+    "CHANGE_FRAC": 0.25
+  },
+  "raw_diff": {
+    "mean": 16.32,
+    "p50": 10.13,
+    "p90": 39.12,
+    "events_gt_threshold": {
+      "2": 188,
+      "4": 162,
+      "6": 145,
+      "8": 125,
+      "10": 109
+    }
+  },
+  "mask_change_events": 129,
+  "n_runs": 130,
+  "n_text_runs": 130,
+  "ocr_calls_needed": 130,
+  "ocr_calls_every_frame": 217,
+  "savings_pct": 40.1,
+  "runs": [
+    {
+      "first": 0,
+      "last": 2,
+      "has_text": true,
+      "t_first": 0.0,
+      "t_last": 1.0,
+      "rep_idx": 1,
+      "rep_file": "f000002.png"
+    },
+    {
+      "first": 3,
+      "last": 3,
+      "has_text": true,
+      "t_first": 1.5,
+      "t_last": 1.5,
+      "rep_idx": 3,
+      "rep_file": "f000004.png"
+    },
+    {
+      "first": 4,
+      "last": 4,
+      "has_text": true,
+      "t_first": 2.0,
+      "t_last": 2.0,
+      "rep_idx": 4,
+      "rep_file": "f000005.png"
+    },
+    {
+      "first": 5,
+      "last": 5,
+      "has_text": true,
+      "t_first": 2.5,
+      "t_last": 2.5,
+      "rep_idx": 5,
+      "rep_file": "f000006.png"
+    },
+    {
+      "first": 6,
+      "last": 6,
+      "has_text": true,
+      "t_first": 3.0,
+      "t_last": 3.0,
+      "rep_idx": 6,
+      "rep_file": "f000007.png"
+    },
+    {
+      "first": 7,
+      "last": 7,
+      "has_text": true,
+      "t_first": 3.5,
+      "t_last": 3.5,
+      "rep_idx": 7,
+      "rep_file": "f000008.png"
+    },
+    {
+      "first": 8,
+      "last": 8,
+      "has_text": true,
+      "t_first": 4.0,
+      "t_last": 4.0,
+      "rep_idx": 8,
+      "rep_file": "f000009.png"
+    },
+    {
+      "first": 9,
+      "last": 9,
+      "has_text": true,
+      "t_first": 4.5,
+      "t_last": 4.5,
+      "rep_idx": 9,
+      "rep_file": "f000010.png"
+    },
+    {
+      "first": 10,
+      "last": 10,
+      "has_text": true,
+      "t_first": 5.0,
+      "t_last": 5.0,
+      "rep_idx": 10,
+      "rep_file": "f000011.png"
+    },
+    {
+      "first": 11,
+      "last": 11,
+      "has_text": true,
+      "t_first": 5.5,
+      "t_last": 5.5,
+      "rep_idx": 11,
+      "rep_file": "f000012.png"
+    },
+    {
+      "first": 12,
+      "last": 12,
+      "has_text": true,
+      "t_first": 6.0,
+      "t_last": 6.0,
+      "rep_idx": 12,
+      "rep_file": "f000013.png"
+    },
+    {
+      "first": 13,
+      "last": 13,
+      "has_text": true,
+      "t_first": 6.5,
+      "t_last": 6.5,
+      "rep_idx": 13,
+      "rep_file": "f000014.png"
+    },
+    {
+      "first": 14,
+      "last": 14,
+      "has_text": true,
+      "t_first": 7.0,
+      "t_last": 7.0,
+      "rep_idx": 14,
+      "rep_file": "f000015.png"
+    },
+    {
+      "first": 15,
+      "last": 15,
+      "has_text": true,
+      "t_first": 7.5,
+      "t_last": 7.5,
+      "rep_idx": 15,
+      "rep_file": "f000016.png"
+    },
+    {
+      "first": 16,
+      "last": 16,
+      "has_text": true,
+      "t_first": 8.0,
+      "t_last": 8.0,
+      "rep_idx": 16,
+      "rep_file": "f000017.png"
+    },
+    {
+      "first": 17,
+      "last": 17,
+      "has_text": true,
+      "t_first": 8.5,
+      "t_last": 8.5,
+      "rep_idx": 17,
+      "rep_file": "f000018.png"
+    },
+    {
+      "first": 18,
+      "last": 18,
+      "has_text": true,
+      "t_first": 9.0,
+      "t_last": 9.0,
+      "rep_idx": 18,
+      "rep_file": "f000019.png"
+    },
+    {
+      "first": 19,
+      "last": 19,
+      "has_text": true,
+      "t_first": 9.5,
+      "t_last": 9.5,
+      "rep_idx": 19,
+      "rep_file": "f000020.png"
+    },
+    {
+      "first": 20,
+      "last": 20,
+      "has_text": true,
+      "t_first": 10.0,
+      "t_last": 10.0,
+      "rep_idx": 20,
+      "rep_file": "f000021.png"
+    },
+    {
+      "first": 21,
+      "last": 21,
+      "has_text": true,
+      "t_first": 10.5,
+      "t_last": 10.5,
+      "rep_idx": 21,
+      "rep_file": "f000022.png"
+    },
+    {
+      "first": 22,
+      "last": 22,
+      "has_text": true,
+      "t_first": 11.0,
+      "t_last": 11.0,
+      "rep_idx": 22,
+      "rep_file": "f000023.png"
+    },
+    {
+      "first": 23,
+      "last": 23,
+      "has_text": true,
+      "t_first": 11.5,
+      "t_last": 11.5,
+      "rep_idx": 23,
+      "rep_file": "f000024.png"
+    },
+    {
+      "first": 24,
+      "last": 24,
+      "has_text": true,
+      "t_first": 12.0,
+      "t_last": 12.0,
+      "rep_idx": 24,
+      "rep_file": "f000025.png"
+    },
+    {
+      "first": 25,
+      "last": 25,
+      "has_text": true,
+      "t_first": 12.5,
+      "t_last": 12.5,
+      "rep_idx": 25,
+      "rep_file": "f000026.png"
+    },
+    {
+      "first": 26,
+      "last": 26,
+      "has_text": true,
+      "t_first": 13.0,
+      "t_last": 13.0,
+      "rep_idx": 26,
+      "rep_file": "f000027.png"
+    },
+    {
+      "first": 27,
+      "last": 27,
+      "has_text": true,
+      "t_first": 13.5,
+      "t_last": 13.5,
+      "rep_idx": 27,
+      "rep_file": "f000028.png"
+    },
+    {
+      "first": 28,
+      "last": 28,
+      "has_text": true,
+      "t_first": 14.0,
+      "t_last": 14.0,
+      "rep_idx": 28,
+      "rep_file": "f000029.png"
+    },
+    {
+      "first": 29,
+      "last": 29,
+      "has_text": true,
+      "t_first": 14.5,
+      "t_last": 14.5,
+      "rep_idx": 29,
+      "rep_file": "f000030.png"
+    },
+    {
+      "first": 30,
+      "last": 30,
+      "has_text": true,
+      "t_first": 15.0,
+      "t_last": 15.0,
+      "rep_idx": 30,
+      "rep_file": "f000031.png"
+    },
+    {
+      "first": 31,
+      "last": 31,
+      "has_text": true,
+      "t_first": 15.5,
+      "t_last": 15.5,
+      "rep_idx": 31,
+      "rep_file": "f000032.png"
+    },
+    {
+      "first": 32,
+      "last": 32,
+      "has_text": true,
+      "t_first": 16.0,
+      "t_last": 16.0,
+      "rep_idx": 32,
+      "rep_file": "f000033.png"
+    },
+    {
+      "first": 33,
+      "last": 33,
+      "has_text": true,
+      "t_first": 16.5,
+      "t_last": 16.5,
+      "rep_idx": 33,
+      "rep_file": "f000034.png"
+    },
+    {
+      "first": 34,
+      "last": 34,
+      "has_text": true,
+      "t_first": 17.0,
+      "t_last": 17.0,
+      "rep_idx": 34,
+      "rep_file": "f000035.png"
+    },
+    {
+      "first": 35,
+      "last": 35,
+      "has_text": true,
+      "t_first": 17.5,
+      "t_last": 17.5,
+      "rep_idx": 35,
+      "rep_file": "f000036.png"
+    },
+    {
+      "first": 36,
+      "last": 36,
+      "has_text": true,
+      "t_first": 18.0,
+      "t_last": 18.0,
+      "rep_idx": 36,
+      "rep_file": "f000037.png"
+    },
+    {
+      "first": 37,
+      "last": 37,
+      "has_text": true,
+      "t_first": 18.5,
+      "t_last": 18.5,
+      "rep_idx": 37,
+      "rep_file": "f000038.png"
+    },
+    {
+      "first": 38,
+      "last": 38,
+      "has_text": true,
+      "t_first": 19.0,
+      "t_last": 19.0,
+      "rep_idx": 38,
+      "rep_file": "f000039.png"
+    },
+    {
+      "first": 39,
+      "last": 39,
+      "has_text": true,
+      "t_first": 19.5,
+      "t_last": 19.5,
+      "rep_idx": 39,
+      "rep_file": "f000040.png"
+    },
+    {
+      "first": 40,
+      "last": 40,
+      "has_text": true,
+      "t_first": 20.0,
+      "t_last": 20.0,
+      "rep_idx": 40,
+      "rep_file": "f000041.png"
+    },
+    {
+      "first": 41,
+      "last": 41,
+      "has_text": true,
+      "t_first": 20.5,
+      "t_last": 20.5,
+      "rep_idx": 41,
+      "rep_file": "f000042.png"
+    },
+    {
+      "first": 42,
+      "last": 42,
+      "has_text": true,
+      "t_first": 21.0,
+      "t_last": 21.0,
+      "rep_idx": 42,
+      "rep_file": "f000043.png"
+    },
+    {
+      "first": 43,
+      "last": 43,
+      "has_text": true,
+      "t_first": 21.5,
+      "t_last": 21.5,
+      "rep_idx": 43,
+      "rep_file": "f000044.png"
+    },
+    {
+      "first": 44,
+      "last": 44,
+      "has_text": true,
+      "t_first": 22.0,
+      "t_last": 22.0,
+      "rep_idx": 44,
+      "rep_file": "f000045.png"
+    },
+    {
+      "first": 45,
+      "last": 45,
+      "has_text": true,
+      "t_first": 22.5,
+      "t_last": 22.5,
+      "rep_idx": 45,
+      "rep_file": "f000046.png"
+    },
+    {
+      "first": 46,
+      "last": 46,
+      "has_text": true,
+      "t_first": 23.0,
+      "t_last": 23.0,
+      "rep_idx": 46,
+      "rep_file": "f000047.png"
+    },
+    {
+      "first": 47,
+      "last": 47,
+      "has_text": true,
+      "t_first": 23.5,
+      "t_last": 23.5,
+      "rep_idx": 47,
+      "rep_file": "f000048.png"
+    },
+    {
+      "first": 48,
+      "last": 48,
+      "has_text": true,
+      "t_first": 24.0,
+      "t_last": 24.0,
+      "rep_idx": 48,
+      "rep_file": "f000049.png"
+    },
+    {
+      "first": 49,
+      "last": 49,
+      "has_text": true,
+      "t_first": 24.5,
+      "t_last": 24.5,
+      "rep_idx": 49,
+      "rep_file": "f000050.png"
+    },
+    {
+      "first": 50,
+      "last": 50,
+      "has_text": true,
+      "t_first": 25.0,
+      "t_last": 25.0,
+      "rep_idx": 50,
+      "rep_file": "f000051.png"
+    },
+    {
+      "first": 51,
+      "last": 51,
+      "has_text": true,
+      "t_first": 25.5,
+      "t_last": 25.5,
+      "rep_idx": 51,
+      "rep_file": "f000052.png"
+    },
+    {
+      "first": 52,
+      "last": 52,
+      "has_text": true,
+      "t_first": 26.0,
+      "t_last": 26.0,
+      "rep_idx": 52,
+      "rep_file": "f000053.png"
+    },
+    {
+      "first": 53,
+      "last": 53,
+      "has_text": true,
+      "t_first": 26.5,
+      "t_last": 26.5,
+      "rep_idx": 53,
+      "rep_file": "f000054.png"
+    },
+    {
+      "first": 54,
+      "last": 54,
+      "has_text": true,
+      "t_first": 27.0,
+      "t_last": 27.0,
+      "rep_idx": 54,
+      "rep_file": "f000055.png"
+    },
+    {
+      "first": 55,
+      "last": 55,
+      "has_text": true,
+      "t_first": 27.5,
+      "t_last": 27.5,
+      "rep_idx": 55,
+      "rep_file": "f000056.png"
+    },
+    {
+      "first": 56,
+      "last": 56,
+      "has_text": true,
+      "t_first": 28.0,
+      "t_last": 28.0,
+      "rep_idx": 56,
+      "rep_file": "f000057.png"
+    },
+    {
+      "first": 57,
+      "last": 57,
+      "has_text": true,
+      "t_first": 28.5,
+      "t_last": 28.5,
+      "rep_idx": 57,
+      "rep_file": "f000058.png"
+    },
+    {
+      "first": 58,
+      "last": 58,
+      "has_text": true,
+      "t_first": 29.0,
+      "t_last": 29.0,
+      "rep_idx": 58,
+      "rep_file": "f000059.png"
+    },
+    {
+      "first": 59,
+      "last": 59,
+      "has_text": true,
+      "t_first": 29.5,
+      "t_last": 29.5,
+      "rep_idx": 59,
+      "rep_file": "f000060.png"
+    },
+    {
+      "first": 60,
+      "last": 60,
+      "has_text": true,
+      "t_first": 30.0,
+      "t_last": 30.0,
+      "rep_idx": 60,
+      "rep_file": "f000061.png"
+    },
+    {
+      "first": 61,
+      "last": 61,
+      "has_text": true,
+      "t_first": 30.5,
+      "t_last": 30.5,
+      "rep_idx": 61,
+      "rep_file": "f000062.png"
+    },
+    {
+      "first": 62,
+      "last": 65,
+      "has_text": true,
+      "t_first": 31.0,
+      "t_last": 32.5,
+      "rep_idx": 63,
+      "rep_file": "f000064.png"
+    },
+    {
+      "first": 66,
+      "last": 66,
+      "has_text": true,
+      "t_first": 33.0,
+      "t_last": 33.0,
+      "rep_idx": 66,
+      "rep_file": "f000067.png"
+    },
+    {
+      "first": 67,
+      "last": 67,
+      "has_text": true,
+      "t_first": 33.5,
+      "t_last": 33.5,
+      "rep_idx": 67,
+      "rep_file": "f000068.png"
+    },
+    {
+      "first": 68,
+      "last": 68,
+      "has_text": true,
+      "t_first": 34.0,
+      "t_last": 34.0,
+      "rep_idx": 68,
+      "rep_file": "f000069.png"
+    },
+    {
+      "first": 69,
+      "last": 69,
+      "has_text": true,
+      "t_first": 34.5,
+      "t_last": 34.5,
+      "rep_idx": 69,
+      "rep_file": "f000070.png"
+    },
+    {
+      "first": 70,
+      "last": 70,
+      "has_text": true,
+      "t_first": 35.0,
+      "t_last": 35.0,
+      "rep_idx": 70,
+      "rep_file": "f000071.png"
+    },
+    {
+      "first": 71,
+      "last": 71,
+      "has_text": true,
+      "t_first": 35.5,
+      "t_last": 35.5,
+      "rep_idx": 71,
+      "rep_file": "f000072.png"
+    },
+    {
+      "first": 72,
+      "last": 72,
+      "has_text": true,
+      "t_first": 36.0,
+      "t_last": 36.0,
+      "rep_idx": 72,
+      "rep_file": "f000073.png"
+    },
+    {
+      "first": 73,
+      "last": 73,
+      "has_text": true,
+      "t_first": 36.5,
+      "t_last": 36.5,
+      "rep_idx": 73,
+      "rep_file": "f000074.png"
+    },
+    {
+      "first": 74,
+      "last": 74,
+      "has_text": true,
+      "t_first": 37.0,
+      "t_last": 37.0,
+      "rep_idx": 74,
+      "rep_file": "f000075.png"
+    },
+    {
+      "first": 75,
+      "last": 75,
+      "has_text": true,
+      "t_first": 37.5,
+      "t_last": 37.5,
+      "rep_idx": 75,
+      "rep_file": "f000076.png"
+    },
+    {
+      "first": 76,
+      "last": 76,
+      "has_text": true,
+      "t_first": 38.0,
+      "t_last": 38.0,
+      "rep_idx": 76,
+      "rep_file": "f000077.png"
+    },
+    {
+      "first": 77,
+      "last": 77,
+      "has_text": true,
+      "t_first": 38.5,
+      "t_last": 38.5,
+      "rep_idx": 77,
+      "rep_file": "f000078.png"
+    },
+    {
+      "first": 78,
+      "last": 78,
+      "has_text": true,
+      "t_first": 39.0,
+      "t_last": 39.0,
+      "rep_idx": 78,
+      "rep_file": "f000079.png"
+    },
+    {
+      "first": 79,
+      "last": 79,
+      "has_text": true,
+      "t_first": 39.5,
+      "t_last": 39.5,
+      "rep_idx": 79,
+      "rep_file": "f000080.png"
+    },
+    {
+      "first": 80,
+      "last": 80,
+      "has_text": true,
+      "t_first": 40.0,
+      "t_last": 40.0,
+      "rep_idx": 80,
+      "rep_file": "f000081.png"
+    },
+    {
+      "first": 81,
+      "last": 81,
+      "has_text": true,
+      "t_first": 40.5,
+      "t_last": 40.5,
+      "rep_idx": 81,
+      "rep_file": "f000082.png"
+    },
+    {
+      "first": 82,
+      "last": 85,
+      "has_text": true,
+      "t_first": 41.0,
+      "t_last": 42.5,
+      "rep_idx": 83,
+      "rep_file": "f000084.png"
+    },
+    {
+      "first": 86,
+      "last": 86,
+      "has_text": true,
+      "t_first": 43.0,
+      "t_last": 43.0,
+      "rep_idx": 86,
+      "rep_file": "f000087.png"
+    },
+    {
+      "first": 87,
+      "last": 87,
+      "has_text": true,
+      "t_first": 43.5,
+      "t_last": 43.5,
+      "rep_idx": 87,
+      "rep_file": "f000088.png"
+    },
+    {
+      "first": 88,
+      "last": 88,
+      "has_text": true,
+      "t_first": 44.0,
+      "t_last": 44.0,
+      "rep_idx": 88,
+      "rep_file": "f000089.png"
+    },
+    {
+      "first": 89,
+      "last": 99,
+      "has_text": true,
+      "t_first": 44.5,
+      "t_last": 49.5,
+      "rep_idx": 94,
+      "rep_file": "f000095.png"
+    },
+    {
+      "first": 100,
+      "last": 100,
+      "has_text": true,
+      "t_first": 50.0,
+      "t_last": 50.0,
+      "rep_idx": 100,
+      "rep_file": "f000101.png"
+    },
+    {
+      "first": 101,
+      "last": 104,
+      "has_text": true,
+      "t_first": 50.5,
+      "t_last": 52.0,
+      "rep_idx": 102,
+      "rep_file": "f000103.png"
+    },
+    {
+      "first": 105,
+      "last": 105,
+      "has_text": true,
+      "t_first": 52.5,
+      "t_last": 52.5,
+      "rep_idx": 105,
+      "rep_file": "f000106.png"
+    },
+    {
+      "first": 106,
+      "last": 106,
+      "has_text": true,
+      "t_first": 53.0,
+      "t_last": 53.0,
+      "rep_idx": 106,
+      "rep_file": "f000107.png"
+    },
+    {
+      "first": 107,
+      "last": 107,
+      "has_text": true,
+      "t_first": 53.5,
+      "t_last": 53.5,
+      "rep_idx": 107,
+      "rep_file": "f000108.png"
+    },
+    {
+      "first": 108,
+      "last": 108,
+      "has_text": true,
+      "t_first": 54.0,
+      "t_last": 54.0,
+      "rep_idx": 108,
+      "rep_file": "f000109.png"
+    },
+    {
+      "first": 109,
+      "last": 109,
+      "has_text": true,
+      "t_first": 54.5,
+      "t_last": 54.5,
+      "rep_idx": 109,
+      "rep_file": "f000110.png"
+    },
+    {
+      "first": 110,
+      "last": 110,
+      "has_text": true,
+      "t_first": 55.0,
+      "t_last": 55.0,
+      "rep_idx": 110,
+      "rep_file": "f000111.png"
+    },
+    {
+      "first": 111,
+      "last": 111,
+      "has_text": true,
+      "t_first": 55.5,
+      "t_last": 55.5,
+      "rep_idx": 111,
+      "rep_file": "f000112.png"
+    },
+    {
+      "first": 112,
+      "last": 112,
+      "has_text": true,
+      "t_first": 56.0,
+      "t_last": 56.0,
+      "rep_idx": 112,
+      "rep_file": "f000113.png"
+    },
+    {
+      "first": 113,
+      "last": 113,
+      "has_text": true,
+      "t_first": 56.5,
+      "t_last": 56.5,
+      "rep_idx": 113,
+      "rep_file": "f000114.png"
+    },
+    {
+      "first": 114,
+      "last": 114,
+      "has_text": true,
+      "t_first": 57.0,
+      "t_last": 57.0,
+      "rep_idx": 114,
+      "rep_file": "f000115.png"
+    },
+    {
+      "first": 115,
+      "last": 115,
+      "has_text": true,
+      "t_first": 57.5,
+      "t_last": 57.5,
+      "rep_idx": 115,
+      "rep_file": "f000116.png"
+    },
+    {
+      "first": 116,
+      "last": 116,
+      "has_text": true,
+      "t_first": 58.0,
+      "t_last": 58.0,
+      "rep_idx": 116,
+      "rep_file": "f000117.png"
+    },
+    {
+      "first": 117,
+      "last": 117,
+      "has_text": true,
+      "t_first": 58.5,
+      "t_last": 58.5,
+      "rep_idx": 117,
+      "rep_file": "f000118.png"
+    },
+    {
+      "first": 118,
+      "last": 118,
+      "has_text": true,
+      "t_first": 59.0,
+      "t_last": 59.0,
+      "rep_idx": 118,
+      "rep_file": "f000119.png"
+    },
+    {
+      "first": 119,
+      "last": 119,
+      "has_text": true,
+      "t_first": 59.5,
+      "t_last": 59.5,
+      "rep_idx": 119,
+      "rep_file": "f000120.png"
+    },
+    {
+      "first": 120,
+      "last": 120,
+      "has_text": true,
+      "t_first": 60.0,
+      "t_last": 60.0,
+      "rep_idx": 120,
+      "rep_file": "f000121.png"
+    },
+    {
+      "first": 121,
+      "last": 121,
+      "has_text": true,
+      "t_first": 60.5,
+      "t_last": 60.5,
+      "rep_idx": 121,
+      "rep_file": "f000122.png"
+    },
+    {
+      "first": 122,
+      "last": 122,
+      "has_text": true,
+      "t_first": 61.0,
+      "t_last": 61.0,
+      "rep_idx": 122,
+      "rep_file": "f000123.png"
+    },
+    {
+      "first": 123,
+      "last": 123,
+      "has_text": true,
+      "t_first": 61.5,
+      "t_last": 61.5,
+      "rep_idx": 123,
+      "rep_file": "f000124.png"
+    },
+    {
+      "first": 124,
+      "last": 124,
+      "has_text": true,
+      "t_first": 62.0,
+      "t_last": 62.0,
+      "rep_idx": 124,
+      "rep_file": "f000125.png"
+    },
+    {
+      "first": 125,
+      "last": 125,
+      "has_text": true,
+      "t_first": 62.5,
+      "t_last": 62.5,
+      "rep_idx": 125,
+      "rep_file": "f000126.png"
+    },
+    {
+      "first": 126,
+      "last": 127,
+      "has_text": true,
+      "t_first": 63.0,
+      "t_last": 63.5,
+      "rep_idx": 126,
+      "rep_file": "f000127.png"
+    },
+    {
+      "first": 128,
+      "last": 131,
+      "has_text": true,
+      "t_first": 64.0,
+      "t_last": 65.5,
+      "rep_idx": 129,
+      "rep_file": "f000130.png"
+    },
+    {
+      "first": 132,
+      "last": 132,
+      "has_text": true,
+      "t_first": 66.0,
+      "t_last": 66.0,
+      "rep_idx": 132,
+      "rep_file": "f000133.png"
+    },
+    {
+      "first": 133,
+      "last": 135,
+      "has_text": true,
+      "t_first": 66.5,
+      "t_last": 67.5,
+      "rep_idx": 134,
+      "rep_file": "f000135.png"
+    },
+    {
+      "first": 136,
+      "last": 138,
+      "has_text": true,
+      "t_first": 68.0,
+      "t_last": 69.0,
+      "rep_idx": 137,
+      "rep_file": "f000138.png"
+    },
+    {
+      "first": 139,
+      "last": 144,
+      "has_text": true,
+      "t_first": 69.5,
+      "t_last": 72.0,
+      "rep_idx": 141,
+      "rep_file": "f000142.png"
+    },
+    {
+      "first": 145,
+      "last": 145,
+      "has_text": true,
+      "t_first": 72.5,
+      "t_last": 72.5,
+      "rep_idx": 145,
+      "rep_file": "f000146.png"
+    },
+    {
+      "first": 146,
+      "last": 146,
+      "has_text": true,
+      "t_first": 73.0,
+      "t_last": 73.0,
+      "rep_idx": 146,
+      "rep_file": "f000147.png"
+    },
+    {
+      "first": 147,
+      "last": 152,
+      "has_text": true,
+      "t_first": 73.5,
+      "t_last": 76.0,
+      "rep_idx": 149,
+      "rep_file": "f000150.png"
+    },
+    {
+      "first": 153,
+      "last": 155,
+      "has_text": true,
+      "t_first": 76.5,
+      "t_last": 77.5,
+      "rep_idx": 154,
+      "rep_file": "f000155.png"
+    },
+    {
+      "first": 156,
+      "last": 160,
+      "has_text": true,
+      "t_first": 78.0,
+      "t_last": 80.0,
+      "rep_idx": 158,
+      "rep_file": "f000159.png"
+    },
+    {
+      "first": 161,
+      "last": 162,
+      "has_text": true,
+      "t_first": 80.5,
+      "t_last": 81.0,
+      "rep_idx": 161,
+      "rep_file": "f000162.png"
+    },
+    {
+      "first": 163,
+      "last": 167,
+      "has_text": true,
+      "t_first": 81.5,
+      "t_last": 83.5,
+      "rep_idx": 165,
+      "rep_file": "f000166.png"
+    },
+    {
+      "first": 168,
+      "last": 169,
+      "has_text": true,
+      "t_first": 84.0,
+      "t_last": 84.5,
+      "rep_idx": 168,
+      "rep_file": "f000169.png"
+    },
+    {
+      "first": 170,
+      "last": 172,
+      "has_text": true,
+      "t_first": 85.0,
+      "t_last": 86.0,
+      "rep_idx": 171,
+      "rep_file": "f000172.png"
+    },
+    {
+      "first": 173,
+      "last": 181,
+      "has_text": true,
+      "t_first": 86.5,
+      "t_last": 90.5,
+      "rep_idx": 177,
+      "rep_file": "f000178.png"
+    },
+    {
+      "first": 182,
+      "last": 188,
+      "has_text": true,
+      "t_first": 91.0,
+      "t_last": 94.0,
+      "rep_idx": 185,
+      "rep_file": "f000186.png"
+    },
+    {
+      "first": 189,
+      "last": 196,
+      "has_text": true,
+      "t_first": 94.5,
+      "t_last": 98.0,
+      "rep_idx": 192,
+      "rep_file": "f000193.png"
+    },
+    {
+      "first": 197,
+      "last": 206,
+      "has_text": true,
+      "t_first": 98.5,
+      "t_last": 103.0,
+      "rep_idx": 201,
+      "rep_file": "f000202.png"
+    },
+    {
+      "first": 207,
+      "last": 211,
+      "has_text": true,
+      "t_first": 103.5,
+      "t_last": 105.5,
+      "rep_idx": 209,
+      "rep_file": "f000210.png"
+    },
+    {
+      "first": 212,
+      "last": 212,
+      "has_text": true,
+      "t_first": 106.0,
+      "t_last": 106.0,
+      "rep_idx": 212,
+      "rep_file": "f000213.png"
+    },
+    {
+      "first": 213,
+      "last": 213,
+      "has_text": true,
+      "t_first": 106.5,
+      "t_last": 106.5,
+      "rep_idx": 213,
+      "rep_file": "f000214.png"
+    },
+    {
+      "first": 214,
+      "last": 214,
+      "has_text": true,
+      "t_first": 107.0,
+      "t_last": 107.0,
+      "rep_idx": 214,
+      "rep_file": "f000215.png"
+    },
+    {
+      "first": 215,
+      "last": 215,
+      "has_text": true,
+      "t_first": 107.5,
+      "t_last": 107.5,
+      "rep_idx": 215,
+      "rep_file": "f000216.png"
+    },
+    {
+      "first": 216,
+      "last": 216,
+      "has_text": true,
+      "t_first": 108.0,
+      "t_last": 108.0,
+      "rep_idx": 216,
+      "rep_file": "f000217.png"
+    }
+  ]
+}

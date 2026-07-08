@@ -1,0 +1,46 @@
+{
+  "video": "/Users/renocheung/Documents/GitHub - Remote Repo/whisper-subtitle-ai/backend/data/renders/6934c2373094.mp4",
+  "duration_s": 265.29,
+  "runs": [
+    {
+      "fps": 2,
+      "vf": "crop=1920:270:0:810",
+      "wall_seconds": 3.27,
+      "n_frames": 530,
+      "total_mb": 206.2,
+      "out_dir": "/private/tmp/claude-501/-Users-renocheung-Documents-GitHub---Remote-Repo-whisper-subtitle-ai--claude-worktrees-packaging-license-sync/b2d423dd-4d0c-42ac-969d-72a2a7b1d4c8/scratchpad/bands2/2fps_native",
+      "label": "native",
+      "realtime_factor": 81.1
+    },
+    {
+      "fps": 2,
+      "vf": "crop=1920:270:0:810,scale=960:135",
+      "wall_seconds": 2.58,
+      "n_frames": 530,
+      "total_mb": 74.2,
+      "out_dir": "/private/tmp/claude-501/-Users-renocheung-Documents-GitHub---Remote-Repo-whisper-subtitle-ai--claude-worktrees-packaging-license-sync/b2d423dd-4d0c-42ac-969d-72a2a7b1d4c8/scratchpad/bands2/2fps_small",
+      "label": "small",
+      "realtime_factor": 102.8
+    },
+    {
+      "fps": 4,
+      "vf": "crop=1920:270:0:810",
+      "wall_seconds": 4.73,
+      "n_frames": 1061,
+      "total_mb": 412.1,
+      "out_dir": "/private/tmp/claude-501/-Users-renocheung-Documents-GitHub---Remote-Repo-whisper-subtitle-ai--claude-worktrees-packaging-license-sync/b2d423dd-4d0c-42ac-969d-72a2a7b1d4c8/scratchpad/bands2/4fps_native",
+      "label": "native",
+      "realtime_factor": 56.1
+    },
+    {
+      "fps": 4,
+      "vf": "crop=1920:270:0:810,scale=960:135",
+      "wall_seconds": 2.8,
+      "n_frames": 1061,
+      "total_mb": 148.4,
+      "out_dir": "/private/tmp/claude-501/-Users-renocheung-Documents-GitHub---Remote-Repo-whisper-subtitle-ai--claude-worktrees-packaging-license-sync/b2d423dd-4d0c-42ac-969d-72a2a7b1d4c8/scratchpad/bands2/4fps_small",
+      "label": "small",
+      "realtime_factor": 94.7
+    }
+  ]
+}

@@ -1,0 +1,481 @@
+{
+  "summary": {
+    "engine": "RapidOCR(onnxruntime)",
+    "render": "/Users/renocheung/Documents/GitHub - Remote Repo/whisper-subtitle-ai/backend/data/renders/335ed02ff40f.mp4",
+    "file_id": "48c1657e7ec1",
+    "lang_track": "zh",
+    "ocr_lang": "chinese_cht",
+    "crop": "1920:100:0:980",
+    "missing_glyphs_in_render_font": "內錶沒為並",
+    "n_cues": 24,
+    "corpus_cer_ws": 0.1496,
+    "corpus_cer_nopunct": 0.1514,
+    "corpus_cer_ws_render_aware": 0.1107,
+    "corpus_cer_nopunct_render_aware": 0.1088,
+    "mean_cue_cer_ws": 0.1611,
+    "exact_match_ws": 6,
+    "exact_match_nopunct": 6,
+    "exact_match_ws_render_aware": 6,
+    "frames_with_banner": 13,
+    "ocr_secs_mean": 0.131,
+    "ocr_secs_median": 0.136,
+    "ocr_secs_min": 0.105,
+    "ocr_secs_max": 0.16,
+    "init_secs": 0.06,
+    "warmup_first_predict_secs": 0.18,
+    "ffmpeg_extract_secs_mean": null,
+    "gt_chars_total_ws": 274,
+    "edit_distance_total_ws": 41
+  },
+  "cues": [
+    {
+      "idx": 1,
+      "start": 2.16,
+      "end": 5.04,
+      "gt": "好的，起步時，幸運有您領先。",
+      "ocr": "好的，起步時，幸運有您领先。",
+      "ocr_all_lines": [
+        "好的，起步時，幸運有您领先。"
+      ],
+      "banner_lines_dropped": 0,
+      "cer_ws": 0.0714,
+      "cer_nopunct": 0.0909,
+      "cer_ws_render_aware": 0.0714,
+      "cer_nopunct_render_aware": 0.0909,
+      "ocr_secs": 0.13
+    },
+    {
+      "idx": 3,
+      "start": 8.0,
+      "end": 10.0,
+      "gt": "內欄位置的錶之星河",
+      "ocr": "位置的 之星河",
+      "ocr_all_lines": [
+        "STELLAREAPRESS",
+        "LUCKYWIHYUU",
+        "BCAUIYWAVES",
+        "PATGHUFSTARS",
+        "位置的 之星河"
+      ],
+      "banner_lines_dropped": 4,
+      "cer_ws": 0.3333,
+      "cer_nopunct": 0.3333,
+      "cer_ws_render_aware": 0.1429,
+      "cer_nopunct_render_aware": 0.1429,
+      "ocr_secs": 0.134
+    },
+    {
+      "idx": 5,
+      "start": 13.200000000000001,
+      "end": 15.72,
+      "gt": "留守於第五、六位的是好友心得。",
+      "ocr": "留守放第五、六位的是好友心得",
+      "ocr_all_lines": [
+        "SIELLAREAPRESS",
+        "SKYTRUST",
+        "BEAUIYWAVES",
+        "PAILHUFSTARS",
+        "LNIMSUNFLASH",
+        "RUMANUILSUN",
+        "留守放第五、六位的是好友心得"
+      ],
+      "banner_lines_dropped": 6,
+      "cer_ws": 0.1333,
+      "cer_nopunct": 0.0769,
+      "cer_ws_render_aware": 0.1333,
+      "cer_nopunct_render_aware": 0.0769,
+      "ocr_secs": 0.144
+    },
+    {
+      "idx": 7,
+      "start": 18.2,
+      "end": 20.6,
+      "gt": "倒數第三、穿紅色賽衣的是翠紅。",
+      "ocr": "倒數第三、穿红色赛衣的是翠红。",
+      "ocr_all_lines": [
+        "STELLAREAPRESS",
+        "SKYTRUST",
+        "WAVES",
+        "PATLHUFSTARS",
+        "RUMANUIUSUN",
+        "CRIMSUNFLASH",
+        "倒數第三、穿红色赛衣的是翠红。"
+      ],
+      "banner_lines_dropped": 6,
+      "cer_ws": 0.2,
+      "cer_nopunct": 0.2308,
+      "cer_ws_render_aware": 0.2,
+      "cer_nopunct_render_aware": 0.2308,
+      "ocr_secs": 0.145
+    },
+    {
+      "idx": 9,
+      "start": 24.32,
+      "end": 26.36,
+      "gt": "經過該 800 米路段",
+      "ocr": "經過該800米路段",
+      "ocr_all_lines": [
+        "STELLAREXPRESS",
+        "SKYTRUST",
+        "NAVES",
+        "PAILHUFSTARS",
+        "RUMANIIGSUN",
+        "LRIMSUNFLASF",
+        "經過該800米路段"
+      ],
+      "banner_lines_dropped": 6,
+      "cer_ws": 0.0,
+      "cer_nopunct": 0.0,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 0.157
+    },
+    {
+      "idx": 11,
+      "start": 29.36,
+      "end": 32.04,
+      "gt": "倒數第二、靠近內欄的是幸運有您。",
+      "ocr": "倒數第二、靠近的是幸運有您。",
+      "ocr_all_lines": [
+        "TELLAREAPRESN",
+        "WAVES",
+        "PATUHUFSTARS",
+        "MAN",
+        "GRIMSUNFLAS",
+        "倒數第二、靠近",
+        "的是幸運有您。"
+      ],
+      "banner_lines_dropped": 5,
+      "cer_ws": 0.125,
+      "cer_nopunct": 0.1429,
+      "cer_ws_render_aware": 0.0667,
+      "cer_nopunct_render_aware": 0.0769,
+      "ocr_secs": 0.16
+    },
+    {
+      "idx": 14,
+      "start": 34.8,
+      "end": 36.44,
+      "gt": "內欄第五為錶之星河",
+      "ocr": "第五之星河",
+      "ocr_all_lines": [
+        "STELLAREAPRESS",
+        "SKYTRUST",
+        "BEAUTYWAVES",
+        "PATCHUFSTARS",
+        "UALHCKU",
+        "RUMANIIGSUN",
+        "第五",
+        "之星河"
+      ],
+      "banner_lines_dropped": 6,
+      "cer_ws": 0.4444,
+      "cer_nopunct": 0.4444,
+      "cer_ws_render_aware": 0.1667,
+      "cer_nopunct_render_aware": 0.1667,
+      "ocr_secs": 0.158
+    },
+    {
+      "idx": 16,
+      "start": 38.480000000000004,
+      "end": 40.2,
+      "gt": "倒數第四、戴黑色頭盔的是友愛心得。",
+      "ocr": "倒數第四、戴黑色頭盔的是友愛心得。",
+      "ocr_all_lines": [
+        "STELLAREAPRESS",
+        "SKYTRUST",
+        "BEAUIYWAVES",
+        "PATLHUFSTARS",
+        "ZHMANT",
+        "倒數第四、戴黑色頭盔的是友愛心得。"
+      ],
+      "banner_lines_dropped": 5,
+      "cer_ws": 0.0,
+      "cer_nopunct": 0.0,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 0.16
+    },
+    {
+      "idx": 18,
+      "start": 41.16,
+      "end": 43.72,
+      "gt": "戴紅色眼罩、穿紅色賽衣並從大外檔透出的是翠紅。",
+      "ocr": "戴红色眼罩、穿红色赛衣大外檔透出的是翠红",
+      "ocr_all_lines": [
+        "STELLAREAPRESS",
+        "SKYTRUST",
+        "WAVES",
+        "PAIGHUFSTARS",
+        "HMANLI",
+        "戴红色眼罩、穿红色赛衣",
+        "大外檔透出的是翠红"
+      ],
+      "banner_lines_dropped": 5,
+      "cer_ws": 0.3043,
+      "cer_nopunct": 0.2857,
+      "cer_ws_render_aware": 0.2727,
+      "cer_nopunct_render_aware": 0.25,
+      "ocr_secs": 0.148
+    },
+    {
+      "idx": 20,
+      "start": 45.519999999999996,
+      "end": 47.28,
+      "gt": "包尾直路是精算暴雪",
+      "ocr": "包尾直路是精算暴雪",
+      "ocr_all_lines": [
+        "STELLAREAPREOS",
+        "SKYTRUST",
+        "TGHUFSTARS",
+        "RUMANU",
+        "包尾直路是精算暴雪"
+      ],
+      "banner_lines_dropped": 4,
+      "cer_ws": 0.0,
+      "cer_nopunct": 0.0,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 0.137
+    },
+    {
+      "idx": 22,
+      "start": 48.68,
+      "end": 51.4,
+      "gt": "星際快車仍保有半個馬位的優勢",
+      "ocr": "星際快車仍保有半個馬位的優势",
+      "ocr_all_lines": [
+        "STELLAREAPRESS",
+        "SKYTRUST",
+        "星際快車仍保有半個馬位的優势"
+      ],
+      "banner_lines_dropped": 2,
+      "cer_ws": 0.0714,
+      "cer_nopunct": 0.0714,
+      "cer_ws_render_aware": 0.0714,
+      "cer_nopunct_render_aware": 0.0714,
+      "ocr_secs": 0.137
+    },
+    {
+      "idx": 24,
+      "start": 53.64,
+      "end": 54.760000000000005,
+      "gt": "中檔已打開。",
+      "ocr": "中档已打用",
+      "ocr_all_lines": [
+        "STELLAREAPRESS",
+        "SKYTRUST",
+        "PATLHUFSTARS",
+        "BEAUTYWAVES",
+        "RAGINGBLIZZA",
+        "中档已打用"
+      ],
+      "banner_lines_dropped": 5,
+      "cer_ws": 0.5,
+      "cer_nopunct": 0.4,
+      "cer_ws_render_aware": 0.5,
+      "cer_nopunct_render_aware": 0.4,
+      "ocr_secs": 0.144
+    },
+    {
+      "idx": 26,
+      "start": 56.6,
+      "end": 58.239999999999995,
+      "gt": "靠近內欄的就是笑傲江湖",
+      "ocr": "靠近的就是笑傲江湖",
+      "ocr_all_lines": [
+        "STELLAREAPRESS",
+        "SKYTRUST",
+        "PATLHUFSTARS",
+        "RUMANIIGSUN",
+        "靠近的就是笑傲江湖"
+      ],
+      "banner_lines_dropped": 4,
+      "cer_ws": 0.1818,
+      "cer_nopunct": 0.1818,
+      "cer_ws_render_aware": 0.1,
+      "cer_nopunct_render_aware": 0.1,
+      "ocr_secs": 0.142
+    },
+    {
+      "idx": 28,
+      "start": 59.68,
+      "end": 61.36,
+      "gt": "中檔位置還有好友心得",
+      "ocr": "中档位置還有好友心得",
+      "ocr_all_lines": [
+        "STELLAREAPRESS",
+        "PATLHUFSTARS",
+        "RAGINGBLIZZARD",
+        "RUMANIGSUN",
+        "中档位置還有好友心得"
+      ],
+      "banner_lines_dropped": 4,
+      "cer_ws": 0.1,
+      "cer_nopunct": 0.1,
+      "cer_ws_render_aware": 0.1,
+      "cer_nopunct_render_aware": 0.1,
+      "ocr_secs": 0.137
+    },
+    {
+      "idx": 30,
+      "start": 62.6,
+      "end": 63.88,
+      "gt": "自馬羣中突圍的是錶之星河。",
+      "ocr": "自馬中突圍的是 之星河。",
+      "ocr_all_lines": [
+        "自馬中突圍的是 之星河。"
+      ],
+      "banner_lines_dropped": 0,
+      "cer_ws": 0.1538,
+      "cer_nopunct": 0.1667,
+      "cer_ws_render_aware": 0.0833,
+      "cer_nopunct_render_aware": 0.0909,
+      "ocr_secs": 0.111
+    },
+    {
+      "idx": 32,
+      "start": 65.84,
+      "end": 66.64,
+      "gt": "位於中檔",
+      "ocr": "位於中檔",
+      "ocr_all_lines": [
+        "位於中檔"
+      ],
+      "banner_lines_dropped": 0,
+      "cer_ws": 0.0,
+      "cer_nopunct": 0.0,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 0.108
+    },
+    {
+      "idx": 34,
+      "start": 68.12,
+      "end": 69.6,
+      "gt": "外檔緊追精算暴雪",
+      "ocr": "外檔紧追精算暴雪",
+      "ocr_all_lines": [
+        "外檔紧追精算暴雪"
+      ],
+      "banner_lines_dropped": 0,
+      "cer_ws": 0.125,
+      "cer_nopunct": 0.125,
+      "cer_ws_render_aware": 0.125,
+      "cer_nopunct_render_aware": 0.125,
+      "ocr_secs": 0.105
+    },
+    {
+      "idx": 36,
+      "start": 72.32000000000001,
+      "end": 73.12,
+      "gt": "靠近內欄",
+      "ocr": "靠近",
+      "ocr_all_lines": [
+        "靠近"
+      ],
+      "banner_lines_dropped": 0,
+      "cer_ws": 0.5,
+      "cer_nopunct": 0.5,
+      "cer_ws_render_aware": 0.3333,
+      "cer_nopunct_render_aware": 0.3333,
+      "ocr_secs": 0.121
+    },
+    {
+      "idx": 39,
+      "start": 78.08,
+      "end": 80.6,
+      "gt": "精算暴雪確實緊追多匹。",
+      "ocr": "精算暴雪確實紧追多匹。",
+      "ocr_all_lines": [
+        "精算暴雪確實紧追多匹。"
+      ],
+      "banner_lines_dropped": 0,
+      "cer_ws": 0.0909,
+      "cer_nopunct": 0.1,
+      "cer_ws_render_aware": 0.0909,
+      "cer_nopunct_render_aware": 0.1,
+      "ocr_secs": 0.109
+    },
+    {
+      "idx": 41,
+      "start": 81.6,
+      "end": 84.2,
+      "gt": "好友心得於中檔位置跑至第三。",
+      "ocr": "好友心得於中檔位置跑至第三。",
+      "ocr_all_lines": [
+        "好友心得於中檔位置跑至第三。"
+      ],
+      "banner_lines_dropped": 0,
+      "cer_ws": 0.0,
+      "cer_nopunct": 0.0,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 0.111
+    },
+    {
+      "idx": 43,
+      "start": 85.24000000000001,
+      "end": 86.52000000000001,
+      "gt": "星際快車",
+      "ocr": "星際快车",
+      "ocr_all_lines": [
+        "星際快车"
+      ],
+      "banner_lines_dropped": 0,
+      "cer_ws": 0.25,
+      "cer_nopunct": 0.25,
+      "cer_ws_render_aware": 0.25,
+      "cer_nopunct_render_aware": 0.25,
+      "ocr_secs": 0.105
+    },
+    {
+      "idx": 45,
+      "start": 90.84,
+      "end": 94.44,
+      "gt": "沒錯。精算暴雪山來遲，跑過第二；",
+      "ocr": "錯。精算暴雪山来避，跑過第二；",
+      "ocr_all_lines": [
+        "錯。精算暴雪山来避，跑過第二；"
+      ],
+      "banner_lines_dropped": 0,
+      "cer_ws": 0.1875,
+      "cer_nopunct": 0.2308,
+      "cer_ws_render_aware": 0.1333,
+      "cer_nopunct_render_aware": 0.1667,
+      "ocr_secs": 0.111
+    },
+    {
+      "idx": 47,
+      "start": 98.52,
+      "end": 103.52,
+      "gt": "推進小步亦不可，因步步緊迫，即為精算暴雪。",
+      "ocr": "推進小步亦不可，因步步紧迫，即精算暴雪。",
+      "ocr_all_lines": [
+        "推進小步亦不可，因步步紧迫，即精算暴雪。"
+      ],
+      "banner_lines_dropped": 0,
+      "cer_ws": 0.0952,
+      "cer_nopunct": 0.1111,
+      "cer_ws_render_aware": 0.05,
+      "cer_nopunct_render_aware": 0.0588,
+      "ocr_secs": 0.111
+    },
+    {
+      "idx": 49,
+      "start": 107.52,
+      "end": 108.52,
+      "gt": "雙方",
+      "ocr": "雙方",
+      "ocr_all_lines": [
+        "雙方"
+      ],
+      "banner_lines_dropped": 0,
+      "cer_ws": 0.0,
+      "cer_nopunct": 0.0,
+      "cer_ws_render_aware": 0.0,
+      "cer_nopunct_render_aware": 0.0,
+      "ocr_secs": 0.108
+    }
+  ]
+}

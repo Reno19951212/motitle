@@ -1,0 +1,234 @@
+[
+  {
+    "video": "26a39e99ddf3.mp4",
+    "duration_s": 108.6,
+    "height": 1080,
+    "probe_wall_s": 6.8,
+    "clusters": [
+      {
+        "y_top": 1003,
+        "y_bot": 1064,
+        "n_probe_frames": 12,
+        "sample_texts": [
+          "好的。起步時。幸運有您領先。",
+          "留守於第五。六位的是好友心得。",
+          "倒數第二、穿橙色賽衣的是笑傲江湖，目前落後的是精算暴雪，"
+        ]
+      },
+      {
+        "y_top": 930,
+        "y_bot": 969,
+        "n_probe_frames": 6,
+        "sample_texts": [
+          "幸運有您",
+          "星際快車",
+          "信心星"
+        ]
+      },
+      {
+        "y_top": 893,
+        "y_bot": 932,
+        "n_probe_frames": 1,
+        "sample_texts": [
+          "瞎"
+        ]
+      }
+    ],
+    "subtitle_band": {
+      "y_top": 1003,
+      "y_bot": 1064,
+      "pct_of_height": [
+        0.929,
+        0.985
+      ]
+    }
+  },
+  {
+    "video": "6934c2373094.mp4",
+    "duration_s": 265.3,
+    "height": 1080,
+    "probe_wall_s": 5.5,
+    "clusters": [
+      {
+        "y_top": 906,
+        "y_bot": 1050,
+        "n_probe_frames": 11,
+        "sample_texts": [
+          "就是澳洲好手布浩穎",
+          "#很篹歡看$每年新卸帮都C",
+          "同埋佢地嘅好處"
+        ]
+      },
+      {
+        "y_top": 874,
+        "y_bot": 1053,
+        "n_probe_frames": 6,
+        "sample_texts": [
+          "新十磅仔袁幸堯登場",
+          "新十磅仔袁幸堯登場",
+          "新十磅仔袁幸堯登場"
+        ]
+      },
+      {
+        "y_top": 882,
+        "y_bot": 954,
+        "n_probe_frames": 1,
+        "sample_texts": [
+          "陳芷敏",
+          "鄭杞瑤"
+        ]
+      },
+      {
+        "y_top": 544,
+        "y_bot": 572,
+        "n_probe_frames": 1,
+        "sample_texts": [
+          "回覆",
+          "資看翻認"
+        ]
+      }
+    ],
+    "subtitle_band": {
+      "y_top": 906,
+      "y_bot": 1050,
+      "pct_of_height": [
+        0.839,
+        0.972
+      ]
+    }
+  },
+  {
+    "video": "ac22373f4908.mp4",
+    "duration_s": 180.0,
+    "height": 1080,
+    "probe_wall_s": 6.2,
+    "clusters": [
+      {
+        "y_top": 966,
+        "y_bot": 1021,
+        "n_probe_frames": 10,
+        "sample_texts": [
+          "我太鹧緒嶔騻积五結緣",
+          "要儻酸人露舍一",
+          "當時香港賽霨畬銹蘙畟饙興扱髓釅所面的比賽場地"
+        ]
+      },
+      {
+        "y_top": 664,
+        "y_bot": 692,
+        "n_probe_frames": 1,
+        "sample_texts": [
+          "千厚先"
+        ]
+      },
+      {
+        "y_top": 767,
+        "y_bot": 793,
+        "n_probe_frames": 1,
+        "sample_texts": [
+          "香港賽馬會主席"
+        ]
+      }
+    ],
+    "subtitle_band": {
+      "y_top": 966,
+      "y_bot": 1021,
+      "pct_of_height": [
+        0.894,
+        0.945
+      ]
+    }
+  },
+  {
+    "video": "a118008862df.mp4",
+    "duration_s": 147.0,
+    "height": 1080,
+    "probe_wall_s": 6.1,
+    "clusters": [
+      {
+        "y_top": 952,
+        "y_bot": 1040,
+        "n_probe_frames": 12,
+        "sample_texts": [
+          "「金鎗六十」對致來就地位十分特別",
+          "我對自总動手的区土漫T這確實很痛。",
+          "然而飩張將鳖耨衝得較後"
+        ]
+      },
+      {
+        "y_top": 790,
+        "y_bot": 921,
+        "n_probe_frames": 1,
+        "sample_texts": [
+          "何澤堯"
+        ]
+      },
+      {
+        "y_top": 859,
+        "y_bot": 933,
+        "n_probe_frames": 1,
+        "sample_texts": [
+          "主席錦標"
+        ]
+      }
+    ],
+    "subtitle_band": {
+      "y_top": 952,
+      "y_bot": 1040,
+      "pct_of_height": [
+        0.881,
+        0.963
+      ]
+    }
+  },
+  {
+    "video": "3a24e08512c6.mp4",
+    "duration_s": 147.0,
+    "height": 1080,
+    "probe_wall_s": 4.1,
+    "clusters": [
+      {
+        "y_top": 966,
+        "y_bot": 1052,
+        "n_probe_frames": 7,
+        "sample_texts": [
+          "這Ton 蒜麥說恐餅市秘醬ing more than I do.",
+          "Idont think anyone would have Gfite我感副無 適蒜dd to myselt. So wel definitely hurts.",
+          "pace, and IveeoHo 請 d¥ 甜 6郎脆 last season."
+        ]
+      },
+      {
+        "y_top": 790,
+        "y_bot": 924,
+        "n_probe_frames": 1,
+        "sample_texts": [
+          "何澤堯"
+        ]
+      },
+      {
+        "y_top": 706,
+        "y_bot": 734,
+        "n_probe_frames": 1,
+        "sample_texts": [
+          "xw器krk"
+        ]
+      },
+      {
+        "y_top": 856,
+        "y_bot": 933,
+        "n_probe_frames": 1,
+        "sample_texts": [
+          "主席錦標"
+        ]
+      }
+    ],
+    "subtitle_band": {
+      "y_top": 966,
+      "y_bot": 1052,
+      "pct_of_height": [
+        0.894,
+        0.974
+      ]
+    }
+  }
+]

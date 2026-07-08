@@ -1,0 +1,89 @@
+{
+  "task": "Task C — burnt-in subtitle extraction pipeline research (2026-07-08)",
+  "machine": "Apple Silicon Mac (production host), ffmpeg 8.1.1, Apple Vision OCR via ocrmac, single-threaded",
+  "test_assets": {
+    "primary_valid_gt": {
+      "render": "backend/data/renders/26a39e99ddf3.mp4 (108.62s, 1080p25, decorative handwriting font, racing footage; b9df33020cd1/065e418201f4/335ed02ff40f are byte-identical md5 24bb3c5a...)",
+      "registry_gt": "48c1657e7ec1 (zh track, 49 non-empty cues; mapped by duration 108.62~108.52 + frame OCR text match at t=10)"
+    },
+    "synthetic_standard_font": {
+      "clip": "scratch synth_heiti.mp4 — SAME 49 cues burnt with Heiti TC size 60 outline 3 MarginV 25 over sub-free stretched top-810px of the same racing footage; GT exact by construction"
+    },
+    "second_render_invalid_gt": {
+      "render": "6934c2373094.mp4 (265.29s, interview/news content, standard font)",
+      "why_invalid": "registry entry aba2a5dcd181 was re-uploaded/re-processed 2026-07-03 AFTER the Jun-11 render: burnt track is colloquial with different cue grid (first sub at ~7.1s vs GT cue 0.00-10.68). Used only for robustness/hazard discovery, not scoring."
+    }
+  },
+  "a_sampling": {
+    "extraction_wall_times": {
+      "26a39e99ddf3_108.6s": {"2fps_native_1920x270": "1.68s (64.7x RT)", "2fps_small_960x135": "1.37s", "4fps_native": "2.45s (44.3x RT)", "4fps_small": "1.56s"},
+      "6934c2373094_265.3s": {"2fps_native": "3.27s (81x RT)", "4fps_native": "4.73s (56x RT)", "4fps_small": "2.80s"}
+    },
+    "boundary_accuracy_vs_fps": {
+      "4fps": {"abs_d_start": {"mean": 0.140, "p90": 0.235, "max": 0.245}, "abs_d_end_synth": {"mean": 0.142, "max": 0.245}},
+      "2fps": {"abs_d_start": {"mean": 0.282, "p90": 0.456, "max": 0.49}, "abs_d_end": {"p90": 0.47, "max": 1.57}},
+      "verdict": "4fps meets the ~0.3s target with max 0.245s; 2fps p90 0.456s fails it and also missed one real 1.68s cue in BOTH runs (frame-based sandwich-absorb window = 1s at 2fps swallowed it). Extraction cost difference is negligible (2.45s vs 1.68s per 109s)."
+    }
+  },
+  "b_change_detection": {
+    "signal": "outline-constrained text mask on downscaled tight band: (luma>=190) AND (luma<70 within 2px); run break when XOR/union > 0.20 or presence (mask_px>=40) flips",
+    "why_not_raw_diff": "raw grayscale mean-abs-diff on the band fires constantly on moving video (p50 8.3, would fire 337/433 pairs at threshold 2); raw bright-pixel count is inverted (no-text frames had MORE bright px than text frames: 1137 vs 516 median @T=200) because of rails/graphics",
+    "presence_calibration": "no-text background max 30px; real 2-char cue (雙方) = 55px -> gate 40 (80 missed it)",
+    "boundary_recall": "51/52 GT change moments caught at ALL thresholds 0.1-0.4 (true text swaps give near-total mask change); within-cue noise only costs extra OCR calls which text-dedup re-merges",
+    "ocr_call_savings_vs_every_frame": {
+      "synth_standard_font_4fps": "73 calls vs 434 frames = 83.2% saved",
+      "handwriting_4fps": "137 vs 434 = 68.4% saved (thin strokes wobble the mask)",
+      "handwriting_2fps": "96 vs 217 = 55.8% saved",
+      "watermark_polluted_render2_4fps": "660 vs 1061 = 37.8% saved (animated center watermark constantly fires)"
+    }
+  },
+  "c_dedup_merge": {
+    "algorithm": "one OCR per stable run (representative = middle frame, keep text of LONGEST run); merge adjacent runs with levenshtein-similarity >= 0.70; sandwich-absorb <=2-frame garble runs into the more-similar neighbour (sim>=0.30); cue = [first_frame - dt/2, last_frame + dt/2]",
+    "critical_ocr_join_fix": "Vision splits one visual line into multiple boxes with y-jitter; naive y-sort scrambled reading order -> CER 15.7% and 20 spurious cues. Grouping boxes into y-lines then x-sorting within line (+ x-gap>0.15 segment split) dropped CER to 7.3% and spurious to 3; sandwich-absorb removed the rest.",
+    "final_metrics_vs_gt": {
+      "handwriting_4fps": {"matched": "49/49", "spurious": 0, "abs_d_start_mean_s": 0.140, "abs_d_start_max_s": 0.245, "abs_d_end_mean_s": 0.142, "abs_d_end_max_s": 0.245, "corpus_cer": 0.0731},
+      "synth_heiti_4fps": {"matched": "49/49", "spurious": 0, "abs_d_start_mean_s": 0.140, "abs_d_end_mean_s": 0.142, "corpus_cer": 0.0136},
+      "synth_heiti_2fps": {"matched": "48/49", "corpus_cer": 0.0242},
+      "handwriting_2fps": {"matched": "48/49", "corpus_cer": 0.0744}
+    },
+    "cer_notes": "7.3% on the decorative handwriting font is a Vision-per-glyph ceiling (內/錶/佔 dropped deterministically; 2x upscale does NOT help). Standard Heiti TC over the SAME busy background: 1.36% (residuals: trailing 。 dropped 3x, one 內->肉, one boundary garble). Font, not pipeline, dominates CER."
+  },
+  "d_band_detection": {
+    "method": "12 full-frame OCR probes spread over the video; keep CJK boxes in bottom half; cluster y-centers (25px); subtitle cluster = the one recurring in most probe frames; ~4-7s wall per video",
+    "measured_bands_y_of_1080": {
+      "26a39e99ddf3": "1003-1064 (12/12 probes)",
+      "6934c2373094": "906-1050 (11/12; 2-line cues raise the top)",
+      "ac22373f4908": "966-1021 (10/12; double-burnt overlapping text, garbled OCR)",
+      "a118008862df": "952-1040 (12/12, bilingual zh+en stack)",
+      "3a24e08512c6": "966-1052 (7/12; legacy overlapping bilingual render)"
+    },
+    "verdict": "Fixed FULL-band capture crop (y 810-1080, bottom 25%) is fine for frame extraction, but a fixed TIGHT band is not: tops vary 906-1003 and other in-band graphics (saddlecloth banner y 850-996, presenter straps, lower-thirds) MUST be excluded from the change mask or they dominate it (first run: 210 runs all 'text'). Auto-probe tight band + generous capture crop is the required shape."
+  },
+  "hazards_measured": [
+    "in-band broadcast graphics (saddlecloth banner, presenter name straps L+R, lower-thirds): straps on the same y-line have an accidentally-centered x-union — must split y-lines at x-gaps>0.15 before applying the centered-line filter",
+    "animated semi-transparent watermark drifting through band CENTER (render 6934: P3n2/THEHONGKONGJOCKEYCLUB): defeats geometric filters, appends junk to cues, drops diff savings to 37.8% — needs recurring-substring suppression across cues (watermark text recurs video-wide, subtitle text does not)",
+    "legacy double-burnt renders (zh over en at same position) garble OCR irrecoverably (ac22373f4908, 3a24e08512c6)",
+    "registry-vs-render staleness: renders made before a file is re-processed do NOT match current registry text/grid (aba2a5dcd181) — GT mapping must verify by frame OCR, not duration alone"
+  ],
+  "cost_per_broadcast_hour_single_thread_apple_silicon": {
+    "band_probe_once": "~6s",
+    "extraction_4fps_two_pass": "~130s (2.2-3.7% of realtime; single-pass split-filter would halve)",
+    "change_detection": "~21s (1.4-1.5ms/frame x 14400 frames)",
+    "ocr": "136s clean standard font (2420 calls) to 529s watermark-noisy (8965 calls) at 0.053-0.060s/call",
+    "total": "~5-11 min per broadcast-hour (~8-18% of realtime); OCR-every-frame baseline would be 806s OCR alone (13.4 min)"
+  },
+  "videocr_family_survey": {
+    "videocr_paddleocr": "same architecture shape: sample frames (frames_to_skip) -> user-supplied fixed crop -> optional brightness_threshold binarize -> PaddleOCR per frame -> group consecutive frames by Levenshtein similarity (sim_threshold ~80) -> per-block best-confidence text -> SRT from block first/last frame times. Weaknesses this research confirms/fixes: manual fixed crop (we auto-probe), OCR-every-frame cost (later versions added an image-similarity skip = our measured 55-83% saving), flicker/watermarks splitting blocks (our sandwich-absorb + the open watermark hazard).",
+    "video_subtitle_extractor": "adds subtitle-area auto-detection and key-frame extraction via scene-change on the subtitle area only — same shape as our mask-XOR run segmentation; validates the probe+diff design.",
+    "lesson_adopted": "conf-weighted text selection per block (videocr) is a good refinement over our longest-run heuristic; grouping threshold must be loose (their default ~0.8 sim would leave garble fragments unmerged — we measured 0.70 + absorb needed)"
+  },
+  "recommended_pipeline": {
+    "stage0_probe": "12 spread full frames -> Vision OCR -> recurrence-clustered CJK y-band + x-anchor; also calibrates presence gate. ~6s/video",
+    "stage1_extract": "ffmpeg 4fps, generous capture crop (bottom 25%), native for OCR + half-res for detection (single pass, split filter)",
+    "stage2_gate": "outline-constrained bright mask on probed tight band; XOR/union>0.2 or presence flip -> stable runs; presence gate calibrated from probe (default 40px@half-res)",
+    "stage3_ocr": "Vision accurate zh-Hant on run-middle frame; y-line grouping + x-gap segment split + centered-line filter (when probe says subs are centered)",
+    "stage4_merge": "fuzzy 0.70 merge + time-based (<=0.5s) sandwich-absorb; cue text = longest run (upgrade path: confidence-weighted vote); boundaries = first/last frame -/+ dt/2",
+    "stage5_emit": "SRT + per-cue confidence; flag low-conf / watermark-suspect cues for human review",
+    "expected": "boundary error mean 0.14s / max 0.25s; CER 1.4-2.4% standard broadcast fonts (7%+ decorative fonts); ~5-11 min per broadcast-hour single-threaded"
+  }
+}
