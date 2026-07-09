@@ -514,6 +514,14 @@ This section summarises the CURRENT behaviour a developer needs; older entries l
 - glossary 經 `derive_aligned_output`（refine 分支）+ `_produce_output_lang`（zh 分支）thread 入 `formal_refine`。ImportError fail-open。
 - 實證：研究 clip 理想達成 68.8→91.7-93.8%、位置 0→100%、名詞 87.5→100%、意思忠實 0/9→6/9（[研究](docs/superpowers/specs/2026-06-13-written-quality-research/)）；P1.5 3-clip gating PASS（racing 100%／generic+racing#2 零 regression／大詞彙表 ≥3 gate 乾淨 — [tracker](docs/superpowers/specs/2026-06-13-written-refine-validation-tracker.md)）；E2E 重新處理真檔 zh 軌位置 5×「倒數」/馬名 13 全留/口語殘留 0。已知限制：真 garbled cue（要上游 ASR）、generic prompt 未升級（只套機制）、cmn 未驗、AI Rerun cue 唔過新 refine（P2）。**REJECT 咗 C2 全文一次過（register 崩 54%）、phonetic 後處理還原（recall 0.40 吞句）。**
 
+### 賽馬 MT prompt 術語補強（racing.txt, NEW 2026-07-09）
+
+- **「參考老師」閉環驅動**：PaddleOCR 提取 2 條馬會源片嘅專業 HKJC 燒錄字幕 → 對齊 MoTitle 輸出 → 逐 cue 診斷（Option A：忠實 1:1 + 學專業用詞語體，唔學壓縮改寫）→ 揪出跨兩檔重複嘅賽馬行話直譯錯。落 `config/mt_style_prompts/racing.txt`（純 config，賽馬 style 專屬；generic/sportsnews 不受影響）。
+- **加**：D 段術語 `track work/gallops→晨操`、`closer/back in the field→後上`、`newcomer→初次上陣（新馬）`、`out of a X mare→母系血統（X 是父系專名須保留，如 Reset 不可譯「重置」）`；G 段騎師 `Luke Ferraris→霍宏聲`；J 段「距離單位一律米，禁公尺」；示例六（晨操+母系）。**移走** sprinter 規則（冗餘 — baseline 已識；真錯係 ASR「spinner」聽壞，屬 ASR 層唔喺 prompt）。
+- **Validation-First（dev-side，本地 qwen3.5 = production MT 模型 + OCR 專業參考，唔掂 :5001）**：GATE A 乾淨隔離句術語命中 — `track work→晨操 0/3→3/3 決定性`、Reset 保護乾淨 3/3、單位米保持；GATE B 8-cue regression（Opus 親判，因本地 judge 都退化）**8/8 零 regression**，且 `newcomer` 實測主動修正「新人→新馬」。[tracker](docs/superpowers/specs/2026-07-08-racing-quality-p0-validation-tracker.md)、[spec](docs/superpowers/specs/2026-07-08-racing-quality-p0-design.md)、[參考老師診斷](docs/superpowers/specs/2026-07-08-quality-standard-research/diagnosis/improvement_backlog.md)。
+- **⚠️ 運維發現**：本地 qwen3.5:35b-a3b 喺長 sweep + run-on input 會嚴重退化（吐 prompt 示例/chat-refusal/timeout），連本地 judge 都不可信 → MT 質量驗證改用乾淨隔離 probe + 小樣本 Opus 親判。原 290-call 大 sweep 本機跑唔到。
+- 已知限制 / follow-up：closer（後上）soft 未乾淨量度（純 append 無害）；ASR 聽壞專名（spinner/fine arty/Mayor's/reset-mare）屬上游 ASR 層另議；檔2「星球勇士」英文用代詞時插入馬名需 cross-cue 實體追蹤（大功能 Defer）；P2 名稱（寶馬香港打吡大賽全名）。
+
 ### 英文詞彙糾錯 + 名詞括號「」（EN Correction + Name Brackets, NEW 2026-07-07）
 
 - **en 源檔嘅英文 ASR base 喺 derive 之前過兩層糾錯**（`backend/en_correction.py`，pure module，對稱 phonetic_correction）：AUTO tier 摺疊匹配（大小寫/任意空白/標點變體 → 改寫成詞彙表**原樣**，例 `golden  sixty`→`GOLDEN SIXTY`；零 LLM）→ JUDGE tier 摺疊 Levenshtein 近字候選（多 token d≤2／單 token 只准 d1／fold≥6／上限 200）交 qwen3.5 受限 accept/reject 多數票。詞條三分類：單 token 常用詞完全排除；多 token 全常用（ONE MORE 類 — dry-run 實證 7% FP 全屬此類）降級 JUDGE d0；其餘 AUTO。`_EN_COMMON` = `_COMMON` ∪ 高頻功能詞（特登唔收 superb/chap/juicy — 實證真馬名）。

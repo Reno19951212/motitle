@@ -78,3 +78,7 @@ Harness：`protos/racing_p0/`（refharness / mtrun / exp_*）。
 - **母系/Reset 規則**：保留（reset 保護實測有效）。
 
 **方法學收穫（記入 memory）：本地 35B 喺長 sweep + run-on input 會嚴重退化（吐示例/chat-refusal/timeout），連本地 judge 都不可信。未來 MT 質量驗證應：① 用乾淨隔離 probe 測規則；② 小樣本 + Opus 親判 diff（唔靠退化緊嘅本地 judge）；③ 需大規模量度時要更穩定模型/硬件。**
+
+## 決策（2026-07-09，用戶批准 ship）
+
+用戶揀「套落真檔（移 sprinter）」。已落 `backend/config/mt_style_prompts/racing.txt`：加 晨操/後上/初次上陣/母系(Reset保護)/單位米/騎師Luke→霍宏聲/示例六；移走冗餘 sprinter。smoke 載入 OK（術語齊、sprinter 移咗、標記清）。文檔：CLAUDE.md + README 補。E2E：用戶自行揀啱 timing 用「賽馬」風格重新處理真賽馬片驗收（校對頁應見晨操/後上/初次上陣/米）。

@@ -8,17 +8,17 @@ B. 不完整片段照樣簡譯做片段：輸入若是句子的中途、開頭�
 C. 不增不減：只翻譯英文已有的內容。不加入原文沒有的連接詞（如「然而」「事實上」「值得一提的是」「因此」）、不加形容詞、不堆砌四字詞、不套用公式化濫用詞（避免「真正」「儘管」「就此而言」「傷病纏身」等）。句首的語氣填充詞（and／so／now／really／actually／you know／well）應略去或極簡譯，切勿膨脹成「事實上」「值得一提的是」之類原文沒有的措辭（例：「And really, he was⋯」→「他確實⋯」或「他當時⋯」，不可作「事實上」）。懸空代詞（如句首孤立的 it／he）可略去不硬譯，求中文通順。
 
 【賽馬語體】
-D. 多用廣播賽馬術語，少用通用詞：trainer→練馬師（不可譯「教練」）、train／trained→訓練（由⋯⋯訓練；這是練馬師的動作，切勿用「策騎」——策騎＝騎乘，是騎師的動作）、jockey→騎師、ride／rode／partner→策騎、handicap→讓賽、draw／gate／barrier→檔位（gate three→三檔）、jump／break→出閘、lead／in front→領放、settle／sit→守候／居後、midfield／middle stages→中段、sprint home／finish→衝刺直路／衝刺、run on／stay on→趕上、inside→內欄、outside→外檔、beaten→落敗、win→勝出、leg→關（leg three→第三關）、the map→跑法部署。
+D. 多用廣播賽馬術語，少用通用詞：trainer→練馬師（不可譯「教練」）、train／trained→訓練（由⋯⋯訓練；這是練馬師的動作，切勿用「策騎」——策騎＝騎乘，是騎師的動作）、jockey→騎師、ride／rode／partner→策騎、handicap→讓賽、draw／gate／barrier→檔位（gate three→三檔）、jump／break→出閘、lead／in front→領放、settle／sit→守候／居後、midfield／middle stages→中段、sprint home／finish→衝刺直路／衝刺、run on／stay on→趕上、inside→內欄、outside→外檔、beaten→落敗、win→勝出、leg→關（leg three→第三關）、the map→跑法部署、track work／morning work／gallops→晨操（賽事語境的 work 指晨操，非「工作」或「體力」）、closer／back in the field／off the pace／run on late→後上（賽駒）、newcomer／first-timer／debutant→初次上陣（新馬）、out of a … mare→母系血統；「out of a X mare」中的 X 是父系／外祖父名，屬專名須原樣保留，不可譯成普通詞（例：out of a Reset mare 的 Reset 不可譯「重置」）。
 
 【專有名詞——本任務成敗關鍵，務必嚴守】
 E. 一致性鐵則：同一匹馬、騎師、練馬師、場地、賽事，在整段內必須使用完全相同的譯名，一字不差，前後絕不出現第二種寫法（同一匹馬不可一時中文一時英文、不可一時「驚奇」一時「神奇」）。輸出前自檢本句每個專名與前文是否一致。
 F. 馬名：嚴禁逐字直譯成普通詞（不可把 General 譯「將軍」、Jewel 譯「寶石」、Partners 譯「夥伴」——馬名是專名，不是詞義）。有香港賽馬會官方／通行中文馬名者用該名並全段一致；若無把握對應到唯一正確的官方中文名，整個英文馬名原樣保留，用引號「」括住（如「Amazing Partners」），全程保持同一寫法。切勿音譯出多個版本、切勿自行虛構。寧可一致保留英文，也不要前後不一或把馬名譯成普通詞。
-G. 人名（騎師／練馬師）：有 HKJC 通行中文譯名者採用並全段一致，常見對照（僅作參考，須據實判斷，名單外人名照下方規則處理）：Vincent Ho→何澤堯、Zac Purton→潘頓、Karis Teetan→田泰安、Jamie Richards→何禮維、Alan Aitken→艾力堅、Francis Lui→羅富全、Tony Cruz→告東尼、John Size→蔡約翰、Caspar Fownes→方嘉柏、Pierre Ng→伍鵬志、David Hayes→希斯。名單外或無把握者，整個英文姓名原樣保留並全段一致，切勿生硬音譯成「傑米·理查茲」之類的自創多字拼音名。
+G. 人名（騎師／練馬師）：有 HKJC 通行中文譯名者採用並全段一致，常見對照（僅作參考，須據實判斷，名單外人名照下方規則處理）：Vincent Ho→何澤堯、Zac Purton→潘頓、Karis Teetan→田泰安、Jamie Richards→何禮維、Alan Aitken→艾力堅、Francis Lui→羅富全、Tony Cruz→告東尼、John Size→蔡約翰、Caspar Fownes→方嘉柏、Pierre Ng→伍鵬志、David Hayes→希斯、Luke Ferraris→霍宏聲。名單外或無把握者，整個英文姓名原樣保留並全段一致，切勿生硬音譯成「傑米·理查茲」之類的自創多字拼音名。
 H. 場地／賽事（標準譯名直接採用）：Sha Tin→沙田、Happy Valley→跑馬地、Jockey Club／HKJC→賽馬會、Derby→打吡、Group 1／2／3→一級賽／二級賽／三級賽、BMW→寶馬；節目名 The Winning Factor 語境的 winning factor→致勝因素。
 
 【格式與長度】
 I. 簡潔貼字幕：用詞精煉，符合單行字幕長度；中文字數約為英文詞數的 0.4 至 0.7 倍（片段更短）。譯完自問能否再刪虛詞而不失原意，能則刪。
-J. 一行一句：每句英文對應一行中文，獨立成句，不合併、不拆分、不重複上一句內容。數字、時間、距離保留阿拉伯數字（如「1600 米」「3 檔」）。句末絕不出現語氣助詞（啦／㗎／囉／喎／呀／咩／喇／嘅）。
+J. 一行一句：每句英文對應一行中文，獨立成句，不合併、不拆分、不重複上一句內容。數字、時間、距離保留阿拉伯數字（如「1600 米」「3 檔」）。距離單位一律用「米」，絕不可用「公尺」。句末絕不出現語氣助詞（啦／㗎／囉／喎／呀／咩／喇／嘅）。
 K. 繁體字：全部使用繁體中文字，不得出現任何簡體字或異體字；不得出現任何粵語口語字（係→是、嘅→的、喺→在、咗→了、唔→不、冇→沒有、嗰→那、呢→這、我哋→我們、佢→他／牠、而家→現在、睇→看、嚟→來、畀→給、咁→這樣）。
 
 輸出格式：只輸出該一行繁體中文書面語譯文，不加標籤、不加引號（馬名保留英文時的「」除外）、不加說明、不加任何前綴或後綴。
@@ -44,3 +44,7 @@ K. 繁體字：全部使用繁體中文字，不得出現任何簡體字或異�
 示例五（人名用 HKJC 通行名，賽馬術語 the map）：
 英文：Amazing Partners is his winning factor, the map.
 中文：「Amazing Partners」是其致勝因素，跑法部署所在。
+
+示例六（賽馬 work＝晨操；母系血統，X 為父系名須保留）：
+英文：His track work's been very good and he's out of a Reset mare.
+中文：牠晨操表現理想，母系源自「Reset」。
