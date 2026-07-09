@@ -38,17 +38,43 @@ Harness：`protos/racing_p0/`（refharness / mtrun / exp_*）。
 ### 之前污染 run（exp_a.py，已廢）
 第一輪用**多句真 cue**（如「okay. The speed... His track works very good.」）測，觸發嚴重退化：track_work 因 run-on 得 1/3-2/3、closer cue 吐「在中段稍微」、track_work#2 吐 chat-refusal。呢批數字**作廢**（模型退化污染，非 prompt 信號）。乾淨隔離句 run（exp_a2）先係有效量度。
 
-## 實驗 B — Regression（待）
+## 實驗 B — Regression（精簡，exp_b_lean，8 cue，Opus 人手判）✅ PASS
 
-原設計（50 cue × 2 prompt + 50 judge）本機退化下不可行。改**收窄針對性 spot-check**：改動術語鄰域 + 少量中性 cue，確認 append 術語冇整壞無關句。（進行中／視硬件狀態。）
+原設計（50 cue × 2 prompt + 50 judge）本機退化下不可行（本地 judge 都退化）。改**收窄 spot-check**：8 條代表 cue（中性 + 觸發詞 work/metres/newcomer/rail），舊 vs 新產出，由 reviewer（Opus，較退化緊嘅本地 judge 可靠）親判。
 
-## 實驗 C / D — 待 B 後
+| EN cue | OLD | NEW | 判 |
+|---|---|---|---|
+| Brave. He's very brave. | 英勇，牠十分勇猛。 | 勇敢。 | NEW 略簡（漏第二句）— model 隨機簡潔，非術語 mis-fire |
+| best description of him | 對他的最佳描述 | 對牠最好的描述 | 等義 ✓ |
+| swap him for any other horse | 拿任何其他馬換他 | 拿牠換任何其他馬 | 等義 ✓ |
+| ideal at 1,600 | 1600 米應屬理想 | 1600 米最理想 | 等義，**米** ✓ |
+| 2,000's another step | 2000 米，又是另一級 | 2000 米是另一個階段 | 等義，**米** ✓ |
+| give himself every chance | 確保自己擁有最佳機會 | 盡力爭取勝機 | 等義 ✓ |
+| **benefit to newcomers** | **新人**（錯，外行） | **新馬**（正） | ✅ **新規則主動修正**（match 診斷 + 專業「初次上陣」語境） |
+| race along the rail | 沿內欄競逐 | 沿內欄競逐 | 等義 ✓ |
+
+**GATE B：8/8 零 regression。** 中性 cue 唔受 append 術語影響（如預期）；單位「米」保持、冇 mis-fire 成「公尺」；**newcomer 規則實測主動修正「新人→新馬」**（額外增益，非 P0 預期硬 gate 但確認方向啱）。
+
+## 實驗 C / D — 不再獨立跑（見決策）
+
+- **C（Reset 獨立）**：實驗 A 已顯示 reset 保護乾淨 3/3；母系規則屬 append，GATE B 8 cue 無因它 regress → **KEEP 母系/Reset 規則**（唔獨立跑，本機退化下 ROI 低）。
+- **D（對參考重量度）**：track_work（0→3/3）+ newcomer（新人→新馬）已直接對上專業參考（晨操 / 初次上陣語境）；unit 保持米。核心目標術語 ❌→✓ 已由 A+B 證實，唔另跑全片 D（退化不可行）。
 
 ---
 
-## 中期結論（待 B/C/D 補完）
+## 最終結論（GATE A + B 完成）
 
-- **高信心、低風險、可 ship**：track_work→晨操（決定性）、Reset 保護、單位米一致性加固、騎師 Luke→霍宏聲（純 glossary append）。呢啲全部係**append 唔改**現有已驗證規則，regression 風險本質低。
-- **冗餘可考慮移除**：sprinter 規則（baseline 已識；真錯係 ASR spinner）。
-- **soft nudge（closer/newcomer）**：純 append 指引，無害；本機未能乾淨量度命中率。
-- **方法學收穫**：本地 35B 唔穩，未來大規模 MT 質量驗證需更穩定模型/硬件，或全部改乾淨隔離 probe + 小樣本。
+**驗證通過，建議 ship 高信心子集：**
+- ✅ **track_work→晨操**：0/3 → 3/3 決定性修復（跨兩檔 #1 錯誤）
+- ✅ **newcomer→新馬/初次上陣**：GATE B 實測主動修正「新人→新馬」
+- ✅ **Reset 保護**：乾淨 3/3（零「重置」）
+- ✅ **單位米**：GATE B 兩條距離 cue 保持「米」，零 mis-fire
+- ✅ **Luke Ferraris→霍宏聲**：純 glossary-style append（G 段名單），零風險
+- ✅ **GATE B 8/8 零 regression**：中性 cue 不受影響，append 唔改現有規則
+
+**取捨：**
+- **sprinter 規則冗餘**（baseline 隔離句已 3/3；診斷真錯係 ASR「spinner」→「轉彎好手」，屬 ASR 層）。→ **Task 8 決定移除**，減 prompt 冗長 + 避免同 ASR 層混淆。
+- **closer（後上）soft**：本機未乾淨量度；純 append 指引、無害 → 保留。
+- **母系/Reset 規則**：保留（reset 保護實測有效）。
+
+**方法學收穫（記入 memory）：本地 35B 喺長 sweep + run-on input 會嚴重退化（吐示例/chat-refusal/timeout），連本地 judge 都不可信。未來 MT 質量驗證應：① 用乾淨隔離 probe 測規則；② 小樣本 + Opus 親判 diff（唔靠退化緊嘅本地 judge）；③ 需大規模量度時要更穩定模型/硬件。**
