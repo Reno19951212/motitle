@@ -19,15 +19,25 @@ def read_prompt(path: str) -> str:
         return fh.read().strip()
 
 
-def ollama(system: str, user: str, temperature: float = 0.3, timeout: int = 420) -> str:
-    body = json.dumps({"model": MODEL, "stream": False,
+def ollama(system: str, user: str, temperature: float = 0.3, timeout: int = 600,
+           attempts: int = 3) -> str:
+    # keep_alive 令 79GB model 全程駐留，避免 call 之間被 evict 要 cold-reload
+    #（cold-reload 曾超 420s 令 exp_a 逾時炒檔）。timeout 逾時 = 短暫 reload → retry。
+    body = json.dumps({"model": MODEL, "stream": False, "keep_alive": "30m",
                        "options": {"temperature": temperature},
                        "messages": [{"role": "system", "content": system},
                                     {"role": "user", "content": user}]}).encode()
-    req = urllib.request.Request("http://localhost:11434/api/chat", data=body,
-                                 headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read())["message"]["content"]
+    last = None
+    for i in range(attempts):
+        try:
+            req = urllib.request.Request("http://localhost:11434/api/chat", data=body,
+                                         headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.loads(r.read())["message"]["content"]
+        except Exception as e:  # noqa: BLE001 — timeout / transient reload → retry
+            last = e
+            print(f"    [ollama retry {i + 1}/{attempts}]: {e}", flush=True)
+    raise last
 
 
 def run_mt(cues: List[dict], prompt_text: str, temperature: float = 0.3) -> List[str]:
