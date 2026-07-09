@@ -40,9 +40,40 @@ def ollama(system: str, user: str, temperature: float = 0.3, timeout: int = 600,
     raise last
 
 
-def run_mt(cues: List[dict], prompt_text: str, temperature: float = 0.3) -> List[str]:
+# 退化守衛：qwen3.5 駐留重負下會吐 prompt 示例輸出當譯文（實測「在中段稍微」=示例二、
+# 「母系源自「Reset」」=示例六）。真 input 幾乎唔可能剛好等於某示例輸出 → 當退化 echo，retry。
+_EXAMPLE_OUTPUTS = frozenset({
+    "他們會早段搶攻，不惜一切手段競逐。",
+    "在中段稍微",
+    "他抽得三檔有利檔位，今早狀態出眾。",
+    "「Family Jewel」與「Amazing Partners」均順利出閘。",
+    "「Amazing Partners」是其致勝因素，跑法部署所在。",
+    "牠晨操表現理想，母系源自「Reset」。",
+})
+
+
+def _is_echo(text: str, en: str) -> bool:
+    t = (text or "").strip()
+    if t not in _EXAMPLE_OUTPUTS:
+        return False
+    # 唯一例外：input 真係示例句本身（唔會喺實驗 cue 出現）→ 保守當 echo
+    return True
+
+
+def run_mt(cues: List[dict], prompt_text: str, temperature: float = 0.3,
+           echo_retries: int = 3) -> List[str]:
     # override 真檔載入 — translate_segments 會用呢個 cached prompt
     cmt._STYLE_CACHE["racing"] = prompt_text
-    llm = lambda s, u: ollama(s, u, temperature=temperature)
-    out = cmt.translate_segments(cues, "en", "zh", llm, style="racing")
-    return [o["text"] for o in out]
+    out: List[str] = []
+    for cue in cues:
+        en = cue.get("text") or ""
+        zh = ""
+        for _ in range(max(1, echo_retries)):
+            zh = cmt.translate_segments([cue], "en", "zh",
+                                        lambda s, u: ollama(s, u, temperature=temperature),
+                                        style="racing")[0]["text"]
+            if not _is_echo(zh, en):
+                break
+            print(f"    [echo-guard retry] '{en[:35]}' → 撞示例輸出 '{zh[:20]}'", flush=True)
+        out.append(zh)
+    return out
