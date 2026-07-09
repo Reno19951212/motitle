@@ -52,12 +52,28 @@ _EXAMPLE_OUTPUTS = frozenset({
 })
 
 
-def _is_echo(text: str, en: str) -> bool:
+import difflib  # noqa: E402
+
+# chat-mode 退化：model 當 system prompt 係指令去回應而唔譯（實測「明白，請輸入…」）
+_CHAT_MARK = ("明白", "請輸入", "請提供", "我明白", "作為", "我是一", "抱歉", "understood",
+              "please provide", "as an ai", "i am")
+
+
+def _is_degenerate(text: str, en: str) -> bool:
     t = (text or "").strip()
-    if t not in _EXAMPLE_OUTPUTS:
+    if not t:
         return False
-    # 唯一例外：input 真係示例句本身（唔會喺實驗 cue 出現）→ 保守當 echo
-    return True
+    if t in _EXAMPLE_OUTPUTS:
+        return True
+    # 近似 echo：撞正某示例輸出 ≥0.85（避開輕微變體如「他抽得 3 檔有利，今早狀態出眾」）
+    for ex in _EXAMPLE_OUTPUTS:
+        if difflib.SequenceMatcher(None, t, ex).ratio() >= 0.85:
+            return True
+    # chat-mode 拒譯
+    low = t.lower()
+    if any(m in t or m in low for m in _CHAT_MARK):
+        return True
+    return False
 
 
 def run_mt(cues: List[dict], prompt_text: str, temperature: float = 0.3,
@@ -72,8 +88,8 @@ def run_mt(cues: List[dict], prompt_text: str, temperature: float = 0.3,
             zh = cmt.translate_segments([cue], "en", "zh",
                                         lambda s, u: ollama(s, u, temperature=temperature),
                                         style="racing")[0]["text"]
-            if not _is_echo(zh, en):
+            if not _is_degenerate(zh, en):
                 break
-            print(f"    [echo-guard retry] '{en[:35]}' → 撞示例輸出 '{zh[:20]}'", flush=True)
+            print(f"    [degen-guard retry] '{en[:30]}' → 退化輸出 '{zh[:22]}'", flush=True)
         out.append(zh)
     return out
