@@ -514,6 +514,14 @@ This section summarises the CURRENT behaviour a developer needs; older entries l
 - glossary 經 `derive_aligned_output`（refine 分支）+ `_produce_output_lang`（zh 分支）thread 入 `formal_refine`。ImportError fail-open。
 - 實證：研究 clip 理想達成 68.8→91.7-93.8%、位置 0→100%、名詞 87.5→100%、意思忠實 0/9→6/9（[研究](docs/superpowers/specs/2026-06-13-written-quality-research/)）；P1.5 3-clip gating PASS（racing 100%／generic+racing#2 零 regression／大詞彙表 ≥3 gate 乾淨 — [tracker](docs/superpowers/specs/2026-06-13-written-refine-validation-tracker.md)）；E2E 重新處理真檔 zh 軌位置 5×「倒數」/馬名 13 全留/口語殘留 0。已知限制：真 garbled cue（要上游 ASR）、generic prompt 未升級（只套機制）、cmn 未驗、AI Rerun cue 唔過新 refine（P2）。**REJECT 咗 C2 全文一次過（register 崩 54%）、phonetic 後處理還原（recall 0.40 吞句）。**
 
+### 確定性後處理正規化（單位+騎師正名, NEW 2026-07-09）
+
+- **分流理念**：MT prompt 係概率性（時中時唔中）；**確定映射**（公尺→米、騎師名）移去**確定層**（零 LLM，每次一樣），語意術語（晨操/後上）留 prompt。用戶 E2E 見 racing.txt prompt 補強效果散 → 起呢層兜底。
+- 新 pure module `backend/output_lang_normalize.py`（零 LLM、immutable），並排 `apply_script`（OpenCC）掛喺 `derive_aligned_output` + `_produce_output_lang`（apply_script 之後、glossary_stage 之前）；`build_aligned_bilingual` 亦 thread `style`（review HIGH 修正 — 否則 aligned 路徑騎師名唔 normalize）。
+- **`normalize_units`**：公尺→米、公裏→公里（有序），所有中文軌（yue/zh/cmn），純字串。**`normalize_names`**：騎師英文名/音譯錯→HKJC 正名，**只賽馬軌**（`style=='racing'`）；英文變體 `\b`+IGNORECASE（防 lukewarm），中文音譯 ≥2 字 substring，longest-first，already-正名 no-op。roster `config/racing_names/jockeys.json`（策展，**只全英文名 + 有據裸 Luke + 無歧義音譯**，移走裸姓 Vincent/Purton 防誤中 — review MED）；缺失/壞 fail-open。記錄入 glossary_changes（tag「單位正規化」/「騎師正名」），merge 喺 glossary_stage 之後（同 phonetic _pc2 pattern）。
+- **驗證**：確定性 → 主 gate = unit test 全覆蓋（21+2 pass，含誤中回歸）；真檔 dry-run 確認檔1「二千公尺→二千米」「Luke 已策騎→霍宏聲」零誤傷（[tracker](docs/superpowers/specs/2026-07-09-deterministic-mt-normalize-validation-tracker.md)、[spec](docs/superpowers/specs/2026-07-09-deterministic-mt-normalize-design.md)）。無同退化本地 model 搏（確定性唔需要）。
+- 已知限制：騎師 roster 只覆蓋策展名單（其餘騎師 MT 照舊）；ASR 聽壞專名屬上游；bare「Luke」靠賽馬 gate 保護（賽馬軌 English token 幾乎肯定係騎師）。
+
 ### 賽馬 MT prompt 術語補強（racing.txt, NEW 2026-07-09）
 
 - **「參考老師」閉環驅動**：PaddleOCR 提取 2 條馬會源片嘅專業 HKJC 燒錄字幕 → 對齊 MoTitle 輸出 → 逐 cue 診斷（Option A：忠實 1:1 + 學專業用詞語體，唔學壓縮改寫）→ 揪出跨兩檔重複嘅賽馬行話直譯錯。落 `config/mt_style_prompts/racing.txt`（純 config，賽馬 style 專屬；generic/sportsnews 不受影響）。
