@@ -48,3 +48,44 @@ def test_load_jockeys_has_luke():
 def test_load_jockeys_missing_file_failopen(monkeypatch):
     monkeypatch.setattr(oln, "_JOCKEYS_PATH", "/nonexistent/x.json")
     assert oln.load_jockeys() == []
+
+
+_ROSTER = [{"canonical": "霍宏聲", "variants": ["Luke Ferraris", "Luke", "盧克"]}]
+
+
+def test_name_english_kept_replaced():
+    out, ch = oln.normalize_names([{"start": 0, "end": 1, "text": "Luke 已策騎他"}], _ROSTER)
+    assert out[0]["text"] == "霍宏聲 已策騎他"
+    assert ch[0][0]["after"] == "霍宏聲" and ch[0][0]["glossary"] == oln.NAME_TAG
+
+
+def test_name_translit_error_replaced():
+    out, ch = oln.normalize_names([{"start": 0, "end": 1, "text": "盧克表現出色"}], _ROSTER)
+    assert out[0]["text"] == "霍宏聲表現出色"
+
+
+def test_name_longest_first():
+    out, ch = oln.normalize_names([{"start": 0, "end": 1, "text": "Luke Ferraris 上馬"}], _ROSTER)
+    assert out[0]["text"] == "霍宏聲 上馬"
+    assert len(ch[0]) == 1 and ch[0][0]["before"] == "Luke Ferraris"
+
+
+def test_name_word_boundary_no_partial():
+    out, ch = oln.normalize_names([{"start": 0, "end": 1, "text": "It was lukewarm today"}], _ROSTER)
+    assert out[0]["text"] == "It was lukewarm today" and ch[0] == []
+
+
+def test_name_already_canonical_noop():
+    out, ch = oln.normalize_names([{"start": 0, "end": 1, "text": "霍宏聲 策騎"}], _ROSTER)
+    assert out[0]["text"] == "霍宏聲 策騎" and ch[0] == []
+
+
+def test_name_immutable():
+    segs = [{"start": 0, "end": 1, "text": "Luke 上馬"}]
+    oln.normalize_names(segs, _ROSTER)
+    assert segs[0]["text"] == "Luke 上馬"
+
+
+def test_name_empty_roster_noop():
+    out, ch = oln.normalize_names([{"start": 0, "end": 1, "text": "Luke 上馬"}], [])
+    assert out[0]["text"] == "Luke 上馬" and ch[0] == []

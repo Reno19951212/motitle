@@ -55,3 +55,45 @@ def normalize_units(segments: List[dict]) -> Tuple[List[dict], List[List[dict]]]
         out.append({**seg, "text": text})
         all_changes.append(ch)
     return out, all_changes
+
+
+def _is_ascii(s: str) -> bool:
+    return s.isascii()
+
+
+def normalize_names(segments: List[dict],
+                    roster: Optional[List[dict]] = None
+                    ) -> Tuple[List[dict], List[List[dict]]]:
+    if roster is None:
+        roster = load_jockeys()
+    # 建 (variant, canonical) 對，longest-first；跳過 = canonical 嘅 variant。
+    pairs = []
+    for e in roster:
+        c = e["canonical"]
+        for v in e["variants"]:
+            if v and v != c:
+                pairs.append((v, c))
+    pairs.sort(key=lambda p: -len(p[0]))
+
+    out: List[dict] = []
+    all_changes: List[List[dict]] = []
+    for seg in segments:
+        text = seg.get("text") or ""
+        ch: List[dict] = []
+        for variant, canonical in pairs:
+            if _is_ascii(variant):
+                # 英文變體：word-boundary + IGNORECASE，防 lukewarm 誤中
+                pat = re.compile(r"\b" + re.escape(variant) + r"\b", re.IGNORECASE)
+                if pat.search(text):
+                    text = pat.sub(canonical, text)
+                    ch.append({"source": variant, "before": variant,
+                               "after": canonical, "glossary": NAME_TAG})
+            else:
+                # 中文音譯變體：≥2 字 substring
+                if len(variant) >= 2 and variant in text:
+                    text = text.replace(variant, canonical)
+                    ch.append({"source": variant, "before": variant,
+                               "after": canonical, "glossary": NAME_TAG})
+        out.append({**seg, "text": text})
+        all_changes.append(ch)
+    return out, all_changes
