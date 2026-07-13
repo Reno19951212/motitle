@@ -116,3 +116,22 @@ def test_stage_lang_stamp_absent_until_caller():
     # normalize_stage 唔加 lang（由 caller 蓋，同 glossary_stage 一致）
     out, ch = oln.normalize_stage([{"start": 0, "end": 1, "text": "二千公尺"}], "zh", "racing")
     assert "lang" not in ch[0][0]
+
+
+# --- review fixes 2026-07-09 ---
+
+def test_roster_no_bare_ambiguous_names():
+    """review MEDIUM：roster 唔可以有裸名/裸姓（Vincent/Purton 會誤中普通文本）。"""
+    js = oln.load_jockeys()
+    variants = {v for j in js for v in j["variants"]}
+    # 全英文 variant 至少兩個 token（全名），除咗有據可循嘅裸 Luke（賽馬 gate 保護）
+    for v in variants:
+        if v.isascii() and v != "Luke":
+            assert " " in v, f"裸英文名有誤中風險: {v}"
+    assert "Vincent" not in variants and "Purton" not in variants
+
+
+def test_names_no_falsepositive_on_common_text():
+    """review MEDIUM 回歸：Vincent van Gogh 唔會變 何澤堯。"""
+    out, ch = oln.normalize_names([{"start": 0, "end": 1, "text": "Vincent van Gogh 畫作"}])
+    assert out[0]["text"] == "Vincent van Gogh 畫作" and ch[0] == []

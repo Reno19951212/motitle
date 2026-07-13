@@ -79,10 +79,14 @@ def build_aligned_bilingual(base: List[dict], output_languages: List[str], conte
                             script: str, llm_call: Callable[[str, str], str],
                             glossaries: Optional[List[dict]] = None,
                             glossary_llm: bool = True,
-                            cancel_check: Optional[Callable[[], None]] = None) -> List[dict]:
+                            cancel_check: Optional[Callable[[], None]] = None,
+                            style: str = "generic") -> List[dict]:
     """Assemble [{start,end,by_lang:{lang:text}}] on the base grid (all outputs 1:1).
-    `glossaries` (if supplied) is threaded into each output's derive_aligned_output."""
+    `glossaries` (if supplied) is threaded into each output's derive_aligned_output.
+    `style` threads the domain prompt AND the racing-gated deterministic name-normalize
+    (review HIGH 2026-07-09 — 冇 style 會令 aligned_bilingual 路徑騎師名唔 normalize)."""
     derived = {ol: derive_aligned_output(base, content_lang, ol, script, llm_call,
+                                         style=style,
                                          glossaries=glossaries, glossary_llm=glossary_llm,
                                          cancel_check=cancel_check)
                for ol in output_languages}

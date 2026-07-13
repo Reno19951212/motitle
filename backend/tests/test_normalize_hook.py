@@ -17,3 +17,19 @@ def test_derive_applies_normalize_racing(monkeypatch):
     tags = {c.get("glossary") for c in gc}
     assert "單位正規化" in tags and "騎師正名" in tags
     assert all(c.get("lang") == "zh" for c in gc)   # caller 蓋 lang
+
+
+def test_build_aligned_bilingual_threads_style(monkeypatch):
+    """review HIGH：aligned_bilingual 要收 style，否則 racing 騎師名唔 normalize。"""
+    import output_lang_aligned as ola
+    import translation.crosslang_mt as cmt
+    monkeypatch.setattr(cmt, "translate_segments",
+                        lambda base, cl, ol, llm, **k: [{"start": 0, "end": 1, "text": "Luke 上馬"}])
+    base = [{"start": 0, "end": 1, "text": "Luke rode"}]
+    al = ola.build_aligned_bilingual(base, ["zh"], "en", "trad", lambda s, u: "",
+                                     glossaries=None, glossary_llm=False, style="racing")
+    assert al[0]["by_lang"]["zh"] == "霍宏聲 上馬"
+    # generic 唔郁騎師名
+    al2 = ola.build_aligned_bilingual(base, ["zh"], "en", "trad", lambda s, u: "",
+                                      glossaries=None, glossary_llm=False, style="generic")
+    assert "Luke" in al2[0]["by_lang"]["zh"]

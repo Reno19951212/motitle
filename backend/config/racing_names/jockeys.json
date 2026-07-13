@@ -1,8 +1,8 @@
 [
-  {"canonical": "霍宏聲", "variants": ["Luke Ferraris", "Luke", "盧克", "費拉里斯"]},
-  {"canonical": "何澤堯", "variants": ["Vincent Ho", "Vincent", "文森特"]},
-  {"canonical": "潘頓", "variants": ["Zac Purton", "Purton", "珀頓"]},
-  {"canonical": "田泰安", "variants": ["Karis Teetan", "Teetan", "蒂坦"]},
+  {"canonical": "霍宏聲", "variants": ["Luke Ferraris", "Luke", "盧克"]},
+  {"canonical": "何澤堯", "variants": ["Vincent Ho"]},
+  {"canonical": "潘頓", "variants": ["Zac Purton"]},
+  {"canonical": "田泰安", "variants": ["Karis Teetan"]},
   {"canonical": "何禮維", "variants": ["Jamie Richards"]},
   {"canonical": "告東尼", "variants": ["Tony Cruz"]},
   {"canonical": "蔡約翰", "variants": ["John Size"]},

@@ -800,6 +800,7 @@ def _run_output_lang_second(file_id, job, audio_path, cancel_event):
             outs2 = list(e.get("output_languages") or [])
             src2 = e.get("source_language") or "yue"
             scr2 = e.get("script") or "trad"
+            mt2 = e.get("mt_style") or "generic"
             base2 = e.get("content_asr_segments")
         if len(outs2) >= 2:
             from output_lang_router import content_asr_lang
@@ -816,7 +817,8 @@ def _run_output_lang_second(file_id, job, audio_path, cancel_event):
             aligned = build_aligned_bilingual(base2, outs2, content_asr_lang(src2), scr2,
                                               _make_ollama_llm_call(),
                                               glossaries=glossaries, glossary_llm=glossary_llm,
-                                              cancel_check=_make_cancel_check(cancel_event))
+                                              cancel_check=_make_cancel_check(cancel_event),
+                                              style=mt2)
             with _registry_lock:
                 if file_id in _file_registry:
                     _file_registry[file_id]["aligned_bilingual"] = aligned
@@ -5164,7 +5166,7 @@ def glossary_reapply(file_id):
         try:
             aligned = build_aligned_bilingual(
                 base, output_languages, content_lang, script, llm_call,
-                glossaries=glossaries, glossary_llm=glossary_llm)
+                glossaries=glossaries, glossary_llm=glossary_llm, style=mt_style)
         except Exception:
             aligned = None  # paired view is best-effort; rows already valid
 
