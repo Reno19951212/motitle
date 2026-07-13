@@ -57,6 +57,25 @@ def normalize_units(segments: List[dict]) -> Tuple[List[dict], List[List[dict]]]
     return out, all_changes
 
 
+_ZH_TRACKS = ("yue", "zh", "cmn")
+
+
+def normalize_stage(segments: List[dict], output_lang: str, style: str
+                    ) -> Tuple[List[dict], List[List[dict]]]:
+    """確定性正規化 orchestrator：單位（中文軌）+ 騎師（賽馬中文軌）。
+    非中文軌 → no-op。per-seg changes 各段串接（唔加 lang，由 caller 蓋）。"""
+    n = len(segments)
+    if output_lang not in _ZH_TRACKS:
+        return [dict(s) for s in segments], [[] for _ in range(n)]
+    segs, unit_ch = normalize_units(segments)
+    if style == "racing":
+        segs, name_ch = normalize_names(segs, roster=None)
+    else:
+        name_ch = [[] for _ in range(n)]
+    merged = [unit_ch[i] + name_ch[i] for i in range(n)]
+    return segs, merged
+
+
 def _is_ascii(s: str) -> bool:
     return s.isascii()
 

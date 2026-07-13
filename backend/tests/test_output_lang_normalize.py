@@ -89,3 +89,30 @@ def test_name_immutable():
 def test_name_empty_roster_noop():
     out, ch = oln.normalize_names([{"start": 0, "end": 1, "text": "Luke 上馬"}], [])
     assert out[0]["text"] == "Luke 上馬" and ch[0] == []
+
+
+def test_stage_zh_racing_both():
+    segs = [{"start": 0, "end": 1, "text": "Luke 跑二千公尺"}]
+    out, ch = oln.normalize_stage(segs, "zh", "racing")
+    assert "霍宏聲" in out[0]["text"] and "二千米" in out[0]["text"]
+    tags = {c["glossary"] for c in ch[0]}
+    assert oln.UNIT_TAG in tags and oln.NAME_TAG in tags
+
+
+def test_stage_zh_generic_units_only():
+    segs = [{"start": 0, "end": 1, "text": "Luke 跑二千公尺"}]
+    out, ch = oln.normalize_stage(segs, "zh", "generic")
+    assert "二千米" in out[0]["text"]           # 單位有做
+    assert "Luke" in out[0]["text"]             # 騎師唔郁（非賽馬）
+
+
+def test_stage_en_track_noop():
+    segs = [{"start": 0, "end": 1, "text": "Luke ran 2000m"}]
+    out, ch = oln.normalize_stage(segs, "en", "racing")
+    assert out[0]["text"] == "Luke ran 2000m" and ch[0] == []
+
+
+def test_stage_lang_stamp_absent_until_caller():
+    # normalize_stage 唔加 lang（由 caller 蓋，同 glossary_stage 一致）
+    out, ch = oln.normalize_stage([{"start": 0, "end": 1, "text": "二千公尺"}], "zh", "racing")
+    assert "lang" not in ch[0][0]
