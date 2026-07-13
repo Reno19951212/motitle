@@ -37,3 +37,14 @@ def test_multiple_segments():
         {"start": 1, "end": 2, "text": "冇單位"}])
     assert out[0]["text"] == "二千米" and out[1]["text"] == "冇單位"
     assert len(ch) == 2 and ch[1] == []
+
+
+def test_load_jockeys_has_luke():
+    js = oln.load_jockeys()
+    luke = next((j for j in js if j["canonical"] == "霍宏聲"), None)
+    assert luke and "Luke" in luke["variants"] and "盧克" in luke["variants"]
+
+
+def test_load_jockeys_missing_file_failopen(monkeypatch):
+    monkeypatch.setattr(oln, "_JOCKEYS_PATH", "/nonexistent/x.json")
+    assert oln.load_jockeys() == []

@@ -5,11 +5,33 @@
 Spec: docs/superpowers/specs/2026-07-09-deterministic-mt-normalize-design.md
 記錄格式同 glossary/phonetic：{source, before, after, glossary(TAG), lang(caller 蓋)}。
 """
+import json
+import os
 import re
 from typing import List, Optional, Tuple
 
 UNIT_TAG = "單位正規化"
 NAME_TAG = "騎師正名"
+
+_JOCKEYS_PATH = os.path.join(os.path.dirname(__file__),
+                             "config", "racing_names", "jockeys.json")
+
+
+def load_jockeys() -> List[dict]:
+    """HKJC 騎師 roster。缺失/壞格式 → [] fail-open（唔炒 job）。"""
+    try:
+        with open(_JOCKEYS_PATH, encoding="utf-8") as fh:
+            data = json.load(fh)
+        out = []
+        for e in data if isinstance(data, list) else []:
+            c = (e.get("canonical") or "").strip()
+            vs = [str(v).strip() for v in (e.get("variants") or []) if str(v).strip()]
+            if c and vs:
+                out.append({"canonical": c, "variants": vs})
+        return out
+    except Exception as ex:  # noqa: BLE001 — fail-open
+        print(f"[normalize] load_jockeys 跳過（{ex}）", flush=True)
+        return []
 
 # 有序：先做異體統一（公裏→公里）再做公尺→米，避免互相干擾。
 # 只替換單位詞本身，唔郁數字。「公尺」喺中文無其他意思，純字串安全。
