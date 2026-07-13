@@ -55,6 +55,8 @@ def derive_aligned_output(base: List[dict], content_lang: str, output_lang: str,
                for s in base]
     if output_lang in ("yue", "zh", "cmn"):
         out = olp.apply_script(out, script)
+    import output_lang_normalize as oln
+    out, _norm_changes = oln.normalize_stage(out, output_lang, style)
     if glossaries:
         import output_lang_glossary as olg
         # Source-side filtering sees the content-language `base` text; target-side
@@ -64,6 +66,12 @@ def derive_aligned_output(base: List[dict], content_lang: str, output_lang: str,
             use_llm=glossary_llm,
             src_texts=[s.get("text", "") for s in base],
             cancel_check=cancel_check)
+    # 正規化記錄 merge 喺 glossary_stage 之後 — glossary_stage 會 OVERWRITE
+    # seg["glossary_changes"]（fast path 直接 []），先 merge 會被冲走（同 phonetic _pc2）。
+    if any(_norm_changes):
+        stamped = [[{**c, "lang": output_lang} for c in seg_ch] for seg_ch in _norm_changes]
+        out = [({**s, "glossary_changes": (stamped[i] + (s.get("glossary_changes") or []))}
+                if i < len(stamped) and stamped[i] else s) for i, s in enumerate(out)]
     return out
 
 

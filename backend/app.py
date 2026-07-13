@@ -459,6 +459,7 @@ def _produce_output_lang(audio_path, source_language, output_lang, script,
 
     method = route_output(source_language, output_lang)
     _pc2 = None     # 粵拼語音糾錯 per-seg changes（whisper-direct 中文路徑先有）
+    _norm2 = None   # 確定性正規化 per-seg changes（單位/騎師，中文軌先有）
     if method == "whisper":
         res = transcribe_with_segments(
             audio_path, cancel_event=cancel_event,
@@ -512,6 +513,8 @@ def _produce_output_lang(audio_path, source_language, output_lang, script,
                                      glossaries=glossaries,
                                      cancel_check=_make_cancel_check(cancel_event))
         base = olp.apply_script(base, script)
+        import output_lang_normalize as oln
+        base, _norm2 = oln.normalize_stage(base, output_lang, mt_style)
     elif output_lang == "ja" and method == "asr_mt":
         base = olp.clause_split_all(base, char_cap=18)
 
@@ -533,6 +536,11 @@ def _produce_output_lang(audio_path, source_language, output_lang, script,
     if _pc2 and any(_pc2):
         base = [({**s, "glossary_changes": (_pc2[i] + (s.get("glossary_changes") or []))}
                  if i < len(_pc2) and _pc2[i] else s) for i, s in enumerate(base)]
+    # 確定性正規化記錄 merge — 同 _pc2 pattern，glossary_stage 之後（避免被 OVERWRITE）。
+    if _norm2 and any(_norm2):
+        base = [({**s, "glossary_changes": ([{**c, "lang": output_lang} for c in _norm2[i]]
+                                            + (s.get("glossary_changes") or []))}
+                 if i < len(_norm2) and _norm2[i] else s) for i, s in enumerate(base)]
     return base
 
 
