@@ -302,6 +302,9 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 | POST | `/api/files/<id>/segments/<pos>/split` | output_lang only — split cue at 0-indexed `pos` into two; body `{mode: "ai"\|"mechanical"}` (ai = LLM semantic split, mechanical = 50/50 midpoint + duplicate text); syncs segments/translations/aligned_bilingual/content_asr_segments; 400 non-output_lang / <0.4s, 409 render-in-progress / concurrent-edit |
 | POST | `/api/files/<id>/segments/<pos>/merge-next` | output_lang only — merge cue `pos` with `pos+1` (join text, union time, reset pending); 400 last-cue / non-output_lang, 409 render-in-progress |
 | POST | `/api/files/<id>/ai-edit` | output_lang only — AI 輔助修改（suggest-only）：body `{pos, role: first\|second, instruction ≤500字}`；LLM 按指令重寫該段該語言字幕，回 `{text, source_text}`；**唔寫 registry**（前端經 PATCH /translations/<idx> 套用）；400 非 output_lang/壞參數、404 段落唔存在、422 LLM 輸出無法解析、502 LLM 冇回應 |
+| POST | `/api/files/<id>/ai-chat/parse` | output_lang only — AI 助手意圖解析（每 turn 恰好 1 個 LLM call）：body `{message ≤500, cursor_seg_no?, last_turn_summary? ≤300}`；LLM 出結構化 ops（replace_term/rewrite_cue/none）→ server 零-LLM 機械展開成 proposal items（`expected_text`+start/end snapshot，200 項上限）；**零寫入**；回 `{reply, ops, proposal, rerun_active, render_active, grid_len}`；400/404、422 唔明白（帶澄清 reply）、502 LLM 冇回應。prompt/parse 在 `backend/ai_chat.py`，expand 在 `backend/ai_chat_ops.py`（pure modules） |
+| POST | `/api/files/<id>/ai-chat/expand` | output_lang only — 零 LLM 重掃：body `{ops}` 對現時 registry 重新展開（409 恢復/split 後刷新用） |
+| POST | `/api/files/<id>/ai-chat/apply` | output_lang only — AI 助手機械寫入（batch ≤200）：鎖內 rerun 409 + 逐項 `expected_text`+start/end 重驗 → `_write_output_lang_cue_text` 四庫原子寫 + `glossary_changes {source:"AI 助手"}` 審計；狀態規則 `status_after`（undo 還原用）> body `approve` > keep_status 預設；回 200 `{applied[{idx,lang,prev_status}], skipped, failed}`（partial failure 一級公民）；409 只用於 rerun 互鎖；render 進行中允許 + UI 警告 |
 | POST | `/api/files/<id>/transcribe` | 重跑整條 pipeline。**2026-06-10 起接受 optional body** `{output_languages, source_language, script, mt_style, glossary_ids, glossary_llm}`（重新處理 popup — 覆寫檔案設定並 force output_lang；驗證同 /api/transcribe 一致）；無 body 時 output_lang 檔保留自有設定、其他 kind re-snapshot 現時 active；AI Rerun 進行中 409 |
 | PATCH | `/api/files/<id>/segments/<pos>/timing` | output_lang only — 調整 cue In/Out：body `{in_ms?, out_ms?}`（絕對毫秒，至少一個）；**roll-on-contact**（相連邊界連鄰段一齊郁，0.4s floor）、gap clamp 永不重疊；四庫同步（translations/segments/content_asr_segments/aligned_bilingual）；**批核狀態保留**；回 `{rows:[{idx,start,end}…], clamped}`；409 render/rerun 中 |
 | POST | `/api/files/<id>/rerun` | output_lang only — AI Rerun：body `{positions:[int,…]}`；對每段重截音訊（短 cue pad 至 ≥1.2s）→ mlx-whisper 重轉錄 → derive 所有輸出語言（pass/refine/MT+OpenCC+詞彙表）→ 直接寫入並 reset pending；202 `{job_id,total}`；400 非 output_lang/壞 positions、409 渲染中/已有 rerun |
@@ -428,6 +431,14 @@ Whenever a new feature is completed or existing functionality is modified, you *
 Full chronological feature/version history → [docs/history.md](docs/history.md).
 
 This section summarises the CURRENT behaviour a developer needs; older entries live in history.md.
+
+### AI 助手聊天窗口（AI Chat Window, NEW 2026-07-14）
+
+- **主頁 + 校對頁**都有「✦ AI 助手」浮動可拖非阻擋窗（`frontend/js/ai-chat.js`，find-replace 同款 pattern，body-mounted z-index 2600，Esc chain 插喺 FindReplace 之前，close/reopen 對話保留，雙頁 `window.AIChatPage` adapter）。用自然語言落字幕修改指令：批量取代（零 LLM apply）＋指定段落 AI 改寫（兩段式：現有 `/ai-edit` 生成 → 卡片預覽實際文字 → 先套用）。
+- **每 turn 恰好 1 個 LLM call**（`_make_ollama_llm_call`，Beta-aware）；transcript 永不入 prompt；目標段 server 機械掃描；多輪 context = 前端機械生成 ≤300 字 `last_turn_summary`（depth-1，唔 replay 對話史）— 全部係本地 35b 退化防線。
+- **Intent schema（Validation-First 定案）**：LLM 出 `replace_term`（`langs` 一律 `"all"` — 5 輪 prompt 迭代證實 langs 唔可靠，軌範圍改由預覽卡片 checkbox 收窄）／`rewrite_cue`（`lang_role` 帶確定性語言關鍵字 override — LLM 本身 0/5 輪做啱語言名→role mapping）／`none`（clarify/unsupported）。qwen3.5 production stack（同 `_make_ollama_llm_call` 真路徑）66 calls 最終驗證：valid-JSON **100%**、欄位準確 **94%**、零 refusal 文字洩漏入 parsed 輸出。
+- **卡片預覽 → 剔選 → server-side apply**：已批核段 badge + 預設唔剔；預設 keep_status + 「套用後批核」toggle；卡片清單 render 保留 scroll 位（貼底先自動跟到底，唔貼底唔搶位）；session 內「還原」經同一條衝突檢查路（`status_after` 連批核狀態一齊還原，被人手改過 → 拒絕）；每次寫入記 `glossary_changes {source:"AI 助手"}`（詞彙對照 panel 可覆核）；grid 變動（split/merge/rerun）→ 卡片 stale + 「重新掃描」（零 LLM `/expand`，`rescanning` 防重入 guard）；改成刪除字詞（`to==""`）嘅行會有明確紅色警告行，提醒用戶留意預覽。
+- 內容問答唔支援（prompt 冇 transcript，答咗就係作嘢）— 禮貌引導返修改指令。E2E：88/88 隔離 pytest（`test_ai_chat.py`/`test_ai_chat_ops.py`/`test_ai_chat_routes.py`/write-helper 等價測試等）+ 真實運行實例 curl gates（含真 LLM parse call）通過，2026-07-14；Playwright 瀏覽器測試押後 merge 後 smoke。V1 cutlist + 產品決策：[spec](docs/superpowers/specs/2026-07-14-ai-chat-window-design.md)；prompt 驗證：[tracker](docs/superpowers/specs/2026-07-14-ai-chat-intent-validation-tracker.md)。
 
 ### Upload progress badge (dashboard, NEW 2026-06-12)
 
