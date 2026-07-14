@@ -341,7 +341,7 @@
         <label><input type="checkbox" data-apv ${card.approveAfter ? 'checked' : ''} ${card.applying ? 'disabled' : ''}> 套用後批核</label>
         <span style="flex:1"></span>
         <button class="ac-b ghost" data-rescan ${card.applying || card.rescanning ? 'disabled' : ''}>重新掃描</button>
-        <button class="ac-b" data-apply ${stale || card.applying || card.rerunActive || !sel ? 'disabled' : ''}>套用選中 (${sel})</button>
+        <button class="ac-b" data-apply ${stale || card.applying || card.rescanning || card.rerunActive || !sel ? 'disabled' : ''}>套用選中 (${sel})</button>
       </div></div>`;
   }
 
@@ -375,9 +375,140 @@
     finally { card.rescanning = false; renderList(); }
   }
 
-  function applySelected(card) { /* Task 11 */ }
-  function undoRow(card, i) { /* Task 11 */ }
-  function genSuggestions(card) { /* Task 11 */ }
+  /* Task 11: apply driver + session 還原 + 重寫兩段式 */
+  let rewriteChain = Promise.resolve();   // 單一本地 LLM — 生成串行，永不並行
+
+  function genSuggestions(card) {
+    // 重寫兩段式第一步：逐個 ai_rewrite item 經現有 /ai-edit 生成（已驗證 prompt），
+    // 卡片顯示實際生成文字先准套用（「預覽先」防線 — spec §2）。
+    card.items.forEach((it, i) => {
+      if (it.kind !== 'ai_rewrite' || card.suggestions.has(K(it))) return;
+      rewriteChain = rewriteChain.then(async () => {
+        if (cardStale(card)) return;
+        try {
+          const r = await fetch(`${api()}/api/files/${card.fileId}/ai-edit`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pos: it.idx, role: it.lang_role,
+                                   instruction: it.instruction }),
+          });
+          const data = await r.json().catch(() => ({}));
+          if (!r.ok) {
+            card.suggestions.set(K(it), { text: undefined, error: data.error || `HTTP ${r.status}` });
+            card.checks.set(i, false);
+          } else {
+            card.suggestions.set(K(it), { text: data.text });
+          }
+        } catch (e) {
+          card.suggestions.set(K(it), { text: undefined, error: 'AI 服務暫時冇回應' });
+          card.checks.set(i, false);
+        }
+        renderList();
+      });
+    });
+  }
+
+  function itemAfter(card, it) {
+    if (it.kind !== 'ai_rewrite') return it.after;
+    const sug = card.suggestions.get(K(it));
+    return sug ? sug.text : undefined;
+  }
+
+  async function applySelected(card) {
+    const p = P();
+    if (card.applying || cardStale(card)) return;
+    if (card.rescanning) return;
+    const todo = card.items
+      .map((it, i) => ({ it, i }))
+      .filter(({ it, i }) => card.checks.get(i) && !card.applied.has(K(it))
+                             && itemAfter(card, it) !== undefined);
+    if (!todo.length) return;
+    card.applying = true;
+    todo.forEach(({ it }) => card.applied.set(K(it), { state: 'busy' }));
+    renderList();
+    try {
+      const items = todo.map(({ it }) => ({
+        idx: it.idx, lang: it.lang, after: itemAfter(card, it),
+        expected_text: it.expected_text, start: it.start, end: it.end,
+      }));
+      const r = await fetch(`${api()}/api/files/${card.fileId}/ai-chat/apply`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items, approve: card.approveAfter }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (r.status === 409) {
+        todo.forEach(({ it }) => card.applied.delete(K(it)));
+        toast(data.error || 'AI Rerun 進行中，無法修改段落', 'warning');
+        card.rerunActive = true;
+        return;
+      }
+      if (!r.ok) {
+        todo.forEach(({ it }) => card.applied.delete(K(it)));
+        toast(data.error || `套用失敗（HTTP ${r.status}）`, 'error');
+        return;
+      }
+      const okSet = new Set((data.applied || []).map(a => `${a.idx}:${a.lang}`));
+      const prevBy = new Map((data.applied || []).map(a => [`${a.idx}:${a.lang}`, a.prev_status]));
+      const failBy = new Map((data.failed || []).map(f => [`${f.idx}:${f.lang}`, f.error]));
+      const skipSet = new Set((data.skipped || []).map(s => `${s.idx}:${s.lang}`));
+      todo.forEach(({ it }) => {
+        const k = K(it);
+        if (okSet.has(k) || skipSet.has(k)) {
+          card.applied.set(k, { state: 'ok', before: it.before,
+                                after: itemAfter(card, it),
+                                prevStatus: prevBy.get(k) || { row: 'pending', by_lang: 'pending' } });
+        } else {
+          card.applied.set(k, { state: 'err', error: failBy.get(k) || '未知錯誤' });
+        }
+      });
+      const nOk = (data.applied || []).length, nSkip = (data.skipped || []).length,
+            nFail = (data.failed || []).length;
+      toast(`已套用 ${nOk} 項${nSkip ? `，略過 ${nSkip} 項` : ''}${nFail ? `，${nFail} 項失敗` : ''}`,
+            nFail ? 'warning' : 'success');
+      lastTurnSummary = mkSummary(card.ops, card.items.length, `已套用 ${nOk} 項`);
+      await p.refresh();
+    } catch (e) {
+      todo.forEach(({ it }) => { if (card.applied.get(K(it)) &&
+        card.applied.get(K(it)).state === 'busy') card.applied.delete(K(it)); });
+      toast('套用失敗，請再試', 'error');
+    } finally {
+      card.applying = false;
+      renderList();
+    }
+  }
+
+  async function undoRow(card, i) {
+    const p = P();
+    const it = card.items[i];
+    const ap = card.applied.get(K(it));
+    if (!ap || ap.state !== 'ok' || card.applying) return;
+    card.applied.set(K(it), { ...ap, state: 'busy' });
+    renderList();
+    try {
+      // 還原經同一條衝突檢查路：expected_text = 已套用文字（之後有人手改過
+      // → failed「已被再次修改」，唔會 clobber）；status_after 連批核狀態一齊還原。
+      const r = await fetch(`${api()}/api/files/${card.fileId}/ai-chat/apply`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: [{ idx: it.idx, lang: it.lang, after: ap.before,
+          expected_text: ap.after, start: it.start, end: it.end,
+          status_after: ap.prevStatus.row }] }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (r.ok && (data.applied || []).length) {
+        card.applied.delete(K(it));
+        card.checks.set(i, false);
+        toast('已還原', 'success');
+        await p.refresh();
+      } else {
+        card.applied.set(K(it), ap);
+        const msg = (data.failed && data.failed[0] && data.failed[0].error)
+          || data.error || '還原失敗';
+        toast(msg.includes('段落已被修改') ? '段落已被再次修改，無法還原' : msg, 'warning');
+      }
+    } catch (e) {
+      card.applied.set(K(it), ap);
+      toast('還原失敗，請再試', 'error');
+    } finally { renderList(); }
+  }
 
   function openPop() {
     if (!P()) { toast('AI 助手載入中…', 'info'); return; }
