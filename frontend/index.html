@@ -1365,7 +1365,7 @@
                 <svg width="11" height="11" viewBox="0 0 16 16"><path fill="#fff" d="M3 2l10 6-10 6z"/></svg>
                 執行
               </button>
-              <button class="save-btn" id="aiChatBtnIdx" type="button" onclick="AIChat.open()">✦ AI 助手</button>
+              <button class="save-btn" id="aiChatBtnIdx" type="button" onclick="window.AIChat && AIChat.open()">✦ AI 助手</button>
             </div>
           </div>
 
@@ -5870,6 +5870,7 @@
     // Esc closes the topmost open modal — keyboard accessibility.
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
+      if (window.AIChat && AIChat.isOpen()) { AIChat.close(); return; }
       // Don't intercept when user is typing in a textarea (multi-line edit).
       if (e.target && e.target.tagName === 'TEXTAREA') return;
       const closers = [

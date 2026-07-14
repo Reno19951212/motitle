@@ -110,7 +110,7 @@ def lang_lines_of(file_meta: dict) -> str:
 
 
 def parse_ops(raw):
-    """草稿版 parse — PASS 後 port 入 ai_chat.py。None = 解析失敗。"""
+    """LLM ops JSON 解析 → {"reply", "ops"}；任何唔合格回 None。"""
     if not isinstance(raw, str):
         return None
     txt = _THINK_RE.sub("", raw).strip()
