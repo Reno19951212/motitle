@@ -65,6 +65,8 @@ from subtitle_text import (
 )
 import segment_split as ss
 import ai_edit
+import ai_chat
+import ai_chat_ops
 
 # Try to import faster-whisper for better performance
 try:
@@ -6353,6 +6355,129 @@ def ai_edit_segment(file_id):
         return jsonify({"error": "AI 輸出無法解析，請再試或修改指令"}), 422
     return jsonify({"ok": True, "text": text, "source_text": target_text,
                     "pos": pos, "role": role}), 200
+
+
+def _ai_chat_snapshot(entry):
+    """鎖內 snapshot：expand 所需嘅唯讀材料 + 互鎖 flags。
+
+    entry['languages'] 唔係可靠持久化欄位（/api/files response 時先計算）—
+    缺席時由 output_languages 砌 fallback（role first/second、label=lang code），
+    同 ai-edit/apply-item 嘅 best-effort label 讀法一致。
+    """
+    rows = entry.get("translations") or []
+    outs = list(entry.get("output_languages") or [])
+    langs = [
+        {"role": l.get("role"), "lang": l.get("lang"),
+         "label": l.get("label") or l.get("lang") or ""}
+        for l in (entry.get("languages") or []) if l.get("lang")
+    ]
+    if not langs:
+        roles = ["first", "second"]
+        langs = [{"role": roles[i], "lang": lg, "label": lg}
+                 for i, lg in enumerate(outs[:2])]
+    return {
+        "translations": rows,
+        "outs": outs,
+        "languages": langs,
+        "grid_len": len(rows),
+    }
+
+
+@app.route('/api/files/<file_id>/ai-chat/parse', methods=['POST'])
+@require_file_owner
+def ai_chat_parse(file_id):
+    """AI 助手：意圖解析（每 turn 恰好 1 個 LLM call）+ 機械展開。零寫入。
+    Spec: docs/superpowers/specs/2026-07-14-ai-chat-window-design.md §3.3
+    """
+    data = request.get_json(silent=True) or {}
+    message = (data.get("message") or "").strip()
+    if not message or len(message) > ai_chat.MAX_MESSAGE_CHARS:
+        return jsonify({"error": "指令唔可以係空，亦唔可以超過 500 字"}), 400
+    last_turn = str(data.get("last_turn_summary") or "")[:300]
+    cursor = data.get("cursor_seg_no")
+    if isinstance(cursor, bool) or not isinstance(cursor, (int, type(None))):
+        cursor = None
+
+    # Phase 1 — snapshot under lock（LLM 喺 lock 外）
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+        if not entry:
+            return jsonify({"error": "文件不存在"}), 404
+        if entry.get("active_kind") != "output_lang":
+            return jsonify({"error": "AI 助手只支援輸出語言流程"}), 400
+        snap = _ai_chat_snapshot(entry)
+        if not snap["outs"]:
+            return jsonify({"error": "檔案冇輸出語言資料"}), 400
+
+    # Phase 2 — LLM（bounded：message + labels + cue 數，transcript 永不入 prompt）
+    llm = _make_ollama_llm_call()
+    try:
+        raw = llm(
+            ai_chat.build_parse_system_prompt(ai_chat.lang_lines_of(snap["languages"])),
+            ai_chat.build_parse_user_prompt(
+                message, {"cue_count": snap["grid_len"], "cursor_seg_no": cursor},
+                last_turn),
+        )
+    except Exception as e:
+        app.logger.error("ai-chat parse LLM failed file=%s: %s", file_id, e)
+        return jsonify({"error": "AI 服務暫時冇回應，請再試"}), 502
+
+    parsed = ai_chat.parse_ops(raw)
+    if parsed is None:
+        return jsonify({"error": "AI 未能理解指令",
+                        "reply": "唔明白你嘅指示，可以講清楚啲嗎？"}), 422
+
+    # Phase 3 — fresh snapshot + 確定性 lang_role override + validate + 機械 expand（零 LLM）
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+        if not entry:
+            return jsonify({"error": "文件不存在"}), 404
+        snap = _ai_chat_snapshot(entry)
+        ops = ai_chat.apply_lang_role_override(parsed["ops"], message, snap["languages"])
+        err = ai_chat_ops.validate_ops(ops, snap["outs"], snap["grid_len"])
+        if err:
+            return jsonify({"error": f"AI 輸出唔合格：{err}",
+                            "reply": "唔明白你嘅指示，可以講清楚啲嗎？"}), 422
+        proposal = ai_chat_ops.expand_ops(snap["translations"], snap["outs"],
+                                          ops)
+        rerun_active = _file_has_active_rerun(file_id)
+        render_active = _file_has_active_render(file_id)
+        grid_len = snap["grid_len"]
+
+    return jsonify({"reply": parsed["reply"], "ops": ops,
+                    "proposal": proposal, "rerun_active": rerun_active,
+                    "render_active": render_active, "grid_len": grid_len})
+
+
+@app.route('/api/files/<file_id>/ai-chat/expand', methods=['POST'])
+@require_file_owner
+def ai_chat_expand(file_id):
+    """AI 助手：零-LLM 重掃 — 409/split 後刷新 proposal，唔燒 LLM call。"""
+    data = request.get_json(silent=True) or {}
+    ops = data.get("ops")
+    if not isinstance(ops, list) or not ops or len(ops) > ai_chat.MAX_OPS:
+        return jsonify({"error": "ops 必須係 1-5 個操作嘅 list"}), 400
+    # 重用 parse_ops 嘅 shape 白名單：serialize 返再 parse（客戶端 ops 唔可信）
+    reparsed = ai_chat.parse_ops(json.dumps({"reply": "r", "ops": ops},
+                                            ensure_ascii=False))
+    if reparsed is None:
+        return jsonify({"error": "ops 格式唔正確"}), 400
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+        if not entry:
+            return jsonify({"error": "文件不存在"}), 404
+        if entry.get("active_kind") != "output_lang":
+            return jsonify({"error": "AI 助手只支援輸出語言流程"}), 400
+        snap = _ai_chat_snapshot(entry)
+        err = ai_chat_ops.validate_ops(reparsed["ops"], snap["outs"], snap["grid_len"])
+        if err:
+            return jsonify({"error": err}), 400
+        proposal = ai_chat_ops.expand_ops(snap["translations"], snap["outs"],
+                                          reparsed["ops"])
+        return jsonify({"proposal": proposal, "ops": reparsed["ops"],
+                        "rerun_active": _file_has_active_rerun(file_id),
+                        "render_active": _file_has_active_render(file_id),
+                        "grid_len": snap["grid_len"]})
 
 
 @app.route('/api/files/<file_id>', methods=['PATCH'])
