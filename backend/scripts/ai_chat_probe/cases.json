@@ -10,9 +10,9 @@
   "cases": [
     {"id": "R1", "msg": "把所有「晨操」改成「早操」", "expect": {"op": "replace_term", "from": "晨操", "to": "早操", "langs": "all"}},
     {"id": "R2", "msg": "全部 Luke 改做霍宏聲", "expect": {"op": "replace_term", "from": "Luke", "to": "霍宏聲", "langs": "all"}},
-    {"id": "R3", "msg": "淨係英文軌，將 Happy Valley 一律改做 Happy Valley Racecourse", "expect": {"op": "replace_term", "from": "Happy Valley", "to": "Happy Valley Racecourse", "langs": ["en"]}},
+    {"id": "R3", "msg": "淨係英文軌，將 Happy Valley 一律改做 Happy Valley Racecourse", "note": "schema 簡化（validation Round 5）：langs 一律 all（parser 強制），軌範圍由 UI checkbox 收窄 — 呢個 case 淨係驗 from/to 抽取", "expect": {"op": "replace_term", "from": "Happy Valley", "to": "Happy Valley Racecourse", "langs": "all"}},
     {"id": "R4", "msg": "所有「公尺」轉返做「米」", "expect": {"op": "replace_term", "from": "公尺", "to": "米", "langs": "all"}},
-    {"id": "R5", "msg": "第一語言嗰欄，全部「賽事」改「賽馬賽事」", "expect": {"op": "replace_term", "from": "賽事", "to": "賽馬賽事", "langs": ["zh"]}},
+    {"id": "R5", "msg": "第一語言嗰欄，全部「賽事」改「賽馬賽事」", "note": "schema 簡化（validation Round 5）：同 R3 — langs 由 parser 強制 all", "expect": {"op": "replace_term", "from": "賽事", "to": "賽馬賽事", "langs": "all"}},
     {"id": "R6", "msg": "幫我刪走所有「呃」字", "expect": {"op": "replace_term", "from": "呃", "to": "", "langs": "all"}},
     {"id": "W1", "msg": "第 3 段個馬名錯咗，應該係「金鎗六十」", "expect": {"op": "rewrite_cue", "seg_no": 3, "lang_role": "first"}},
     {"id": "W2", "msg": "第 12 段改得更書面啲", "expect": {"op": "rewrite_cue", "seg_no": 12, "lang_role": "first"}},
