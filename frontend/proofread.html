@@ -1082,6 +1082,7 @@
                     <div class="glp-scan-bar">
                       <button class="btn btn-primary btn-sm" id="glScanBtn" onclick="window.GlossaryReview && window.GlossaryReview.openScan()">🔍 掃描詞彙表</button>
                       <button class="btn btn-ghost btn-sm" id="glossaryReapplyBtn" style="color:var(--warning,#f9e2af);" title="由原文重新生成所有字幕（覆寫人手修改、批核狀態全重設）">⟳ 全部重新生成</button>
+                      <button class="btn btn-primary btn-sm" id="aiChatBtn" type="button" onclick="window.AIChat && AIChat.open()">✦ AI 助手</button>
                     </div>
                   </div>
                   <div class="rv-b-glossary-body" id="glossaryBody">
@@ -1173,6 +1174,19 @@
 <script src="js/video-fullscreen.js"></script>
 <script src="js/find-replace.js"></script>
 <script src="js/glossary-review.js"></script>
+<script>
+  window.AIChatPage = {
+    hasGrid: true,
+    fileId: () => (typeof fileId !== 'undefined' ? fileId : null),
+    isOutputLang: () => (typeof fileInfo !== 'undefined' && !!fileInfo) && fileInfo.active_kind === 'output_lang',
+    cueCount: () => (typeof segs !== 'undefined' && Array.isArray(segs)) ? segs.length : 0,
+    cursorSegNo: () => (typeof cursorIdx === 'number' && cursorIdx >= 0) ? cursorIdx + 1 : null,
+    jump: (idx) => { const i = segs.findIndex(s => s.idx === idx); if (i >= 0) setCursor(i, true); },
+    refresh: async () => { if (typeof loadSegments === 'function') await loadSegments(); },
+    rerunActive: () => (typeof _rerunJob !== 'undefined') && !!_rerunJob,
+  };
+</script>
+<script src="js/ai-chat.js"></script>
 <script>
   // topbar chip: identity + logout (logout from auth.js)
   (async () => {
@@ -3791,6 +3805,7 @@
       const _modalOpen = document.getElementById('aeOverlay')?.classList.contains('open')
                       || document.getElementById('gaOverlay')?.classList.contains('open')
                       || document.getElementById('grOverlay')?.classList.contains('open');
+      if (!_modalOpen && window.AIChat && AIChat.isOpen()) { AIChat.close(); e.preventDefault(); return; }
       if (!_modalOpen && window.FindReplace && FindReplace.isOpen()) { FindReplace.close(); e.preventDefault(); return; }
     }
 
