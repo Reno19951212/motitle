@@ -299,8 +299,6 @@
     return card.stale;
   }
 
-  const K = (it) => `${it.idx}:${it.lang}`;
-
   function renderCard(card, ti) {
     const stale = cardStale(card);
     const sel = [...card.checks.values()].filter(Boolean).length;
@@ -311,19 +309,22 @@
       : (card.rerunActive ? '<div class="ac-warn">AI Rerun 進行中 — 暫時唔可以套用</div>'
       : (card.renderActive ? '<div class="ac-warn">渲染進行中 — 本次修改唔會反映喺該渲染</div>' : ''));
     const rows = card.items.map((it, i) => {
-      const ap = card.applied.get(K(it));
-      const sug = card.suggestions.get(K(it));
+      const ap = card.applied.get(i);
+      const sug = card.suggestions.get(i);
       let st;
       if (ap && ap.state === 'ok') st = `<span class="ok">✓</span> <span class="undo" data-un="${i}">還原</span>`;
       else if (ap && ap.state === 'err') st = `<span class="er" title="${esc(ap.error)}">✗</span>`;
       else if (ap && ap.state === 'busy') st = '…';
+      else if (it.kind === 'ai_rewrite' && sug && sug.text === undefined) st = `<span class="er" title="${esc(sug.error || '')}">✗ 生成失敗</span>`;
       else if (it.kind === 'ai_rewrite' && !sug) st = '生成中…';
       else st = `<input type="checkbox" data-ck="${i}" ${card.checks.get(i) ? 'checked' : ''} ${stale || card.applying ? 'disabled' : ''}>`;
       const shown = it.kind === 'ai_rewrite'
         ? { ...it, after: (sug && sug.text) !== undefined ? sug.text : undefined }
         : it;
       const diff = shown.after === undefined
-        ? `<del>${esc(it.before)}</del><br><span style="color:var(--text-dim)">（AI 生成中…）</span>`
+        ? (it.kind === 'ai_rewrite' && sug && sug.text === undefined
+          ? `<del>${esc(it.before)}</del><br><span style="color:var(--text-dim)">（生成失敗）</span>`
+          : `<del>${esc(it.before)}</del><br><span style="color:var(--text-dim)">（AI 生成中…）</span>`)
         : diffHtml(shown);
       return `<div class="ac-row">
         <div class="meta" data-jp="${i}"><span class="seg">#${it.idx + 1}</span>
@@ -382,7 +383,7 @@
     // 重寫兩段式第一步：逐個 ai_rewrite item 經現有 /ai-edit 生成（已驗證 prompt），
     // 卡片顯示實際生成文字先准套用（「預覽先」防線 — spec §2）。
     card.items.forEach((it, i) => {
-      if (it.kind !== 'ai_rewrite' || card.suggestions.has(K(it))) return;
+      if (it.kind !== 'ai_rewrite' || card.suggestions.has(i)) return;
       rewriteChain = rewriteChain.then(async () => {
         if (cardStale(card)) return;
         try {
@@ -393,13 +394,13 @@
           });
           const data = await r.json().catch(() => ({}));
           if (!r.ok) {
-            card.suggestions.set(K(it), { text: undefined, error: data.error || `HTTP ${r.status}` });
+            card.suggestions.set(i, { text: undefined, error: data.error || `HTTP ${r.status}` });
             card.checks.set(i, false);
           } else {
-            card.suggestions.set(K(it), { text: data.text });
+            card.suggestions.set(i, { text: data.text });
           }
         } catch (e) {
-          card.suggestions.set(K(it), { text: undefined, error: 'AI 服務暫時冇回應' });
+          card.suggestions.set(i, { text: undefined, error: 'AI 服務暫時冇回應' });
           card.checks.set(i, false);
         }
         renderList();
@@ -407,9 +408,9 @@
     });
   }
 
-  function itemAfter(card, it) {
+  function itemAfter(card, it, i) {
     if (it.kind !== 'ai_rewrite') return it.after;
-    const sug = card.suggestions.get(K(it));
+    const sug = card.suggestions.get(i);
     return sug ? sug.text : undefined;
   }
 
@@ -417,17 +418,32 @@
     const p = P();
     if (card.applying || cardStale(card)) return;
     if (card.rescanning) return;
-    const todo = card.items
+    let todo = card.items
       .map((it, i) => ({ it, i }))
-      .filter(({ it, i }) => card.checks.get(i) && !card.applied.has(K(it))
-                             && itemAfter(card, it) !== undefined);
+      .filter(({ it, i }) => card.checks.get(i) && !card.applied.has(i)
+                             && itemAfter(card, it, i) !== undefined);
     if (!todo.length) return;
+    // 同一 (idx, lang) 喺同一批入面撞埋（例：機械取代 + AI 改寫命中同一 cue）—
+    // server 一寫一衝突，淨送第一項，其餘直接標錯，唔好送去撞。
+    const seenKeys = new Set();
+    const rest = [];
+    todo.forEach(({ it, i }) => {
+      const key = `${it.idx}:${it.lang}`;
+      if (seenKeys.has(key)) {
+        card.applied.set(i, { state: 'err', error: '同一段同一語言軌一次只可以套用一項，請分開執行' });
+      } else {
+        seenKeys.add(key);
+        rest.push({ it, i });
+      }
+    });
+    todo = rest;
+    if (!todo.length) { renderList(); return; }
     card.applying = true;
-    todo.forEach(({ it }) => card.applied.set(K(it), { state: 'busy' }));
+    todo.forEach(({ i }) => card.applied.set(i, { state: 'busy' }));
     renderList();
     try {
-      const items = todo.map(({ it }) => ({
-        idx: it.idx, lang: it.lang, after: itemAfter(card, it),
+      const items = todo.map(({ it, i }) => ({
+        idx: it.idx, lang: it.lang, after: itemAfter(card, it, i),
         expected_text: it.expected_text, start: it.start, end: it.end,
       }));
       const r = await fetch(`${api()}/api/files/${card.fileId}/ai-chat/apply`, {
@@ -436,28 +452,30 @@
       });
       const data = await r.json().catch(() => ({}));
       if (r.status === 409) {
-        todo.forEach(({ it }) => card.applied.delete(K(it)));
+        todo.forEach(({ i }) => card.applied.delete(i));
         toast(data.error || 'AI Rerun 進行中，無法修改段落', 'warning');
         card.rerunActive = true;
         return;
       }
       if (!r.ok) {
-        todo.forEach(({ it }) => card.applied.delete(K(it)));
+        todo.forEach(({ i }) => card.applied.delete(i));
         toast(data.error || `套用失敗（HTTP ${r.status}）`, 'error');
         return;
       }
+      // server 回應用 (idx, lang) 識別行；上面嘅同鍵防護保證同一批入面
+      // 呢個 (idx, lang) 最多得一個 in-flight item，所以呢個 lookup 唔會撞誤配對。
       const okSet = new Set((data.applied || []).map(a => `${a.idx}:${a.lang}`));
       const prevBy = new Map((data.applied || []).map(a => [`${a.idx}:${a.lang}`, a.prev_status]));
       const failBy = new Map((data.failed || []).map(f => [`${f.idx}:${f.lang}`, f.error]));
       const skipSet = new Set((data.skipped || []).map(s => `${s.idx}:${s.lang}`));
-      todo.forEach(({ it }) => {
-        const k = K(it);
+      todo.forEach(({ it, i }) => {
+        const k = `${it.idx}:${it.lang}`;
         if (okSet.has(k) || skipSet.has(k)) {
-          card.applied.set(k, { state: 'ok', before: it.before,
-                                after: itemAfter(card, it),
+          card.applied.set(i, { state: 'ok', before: it.before,
+                                after: itemAfter(card, it, i),
                                 prevStatus: prevBy.get(k) || { row: 'pending', by_lang: 'pending' } });
         } else {
-          card.applied.set(k, { state: 'err', error: failBy.get(k) || '未知錯誤' });
+          card.applied.set(i, { state: 'err', error: failBy.get(k) || '未知錯誤' });
         }
       });
       const nOk = (data.applied || []).length, nSkip = (data.skipped || []).length,
@@ -465,10 +483,10 @@
       toast(`已套用 ${nOk} 項${nSkip ? `，略過 ${nSkip} 項` : ''}${nFail ? `，${nFail} 項失敗` : ''}`,
             nFail ? 'warning' : 'success');
       lastTurnSummary = mkSummary(card.ops, card.items.length, `已套用 ${nOk} 項`);
-      await p.refresh();
+      try { await p.refresh(); } catch (e) { toast('列表刷新失敗，請手動重新整理', 'warning'); }
     } catch (e) {
-      todo.forEach(({ it }) => { if (card.applied.get(K(it)) &&
-        card.applied.get(K(it)).state === 'busy') card.applied.delete(K(it)); });
+      todo.forEach(({ i }) => { if (card.applied.get(i) &&
+        card.applied.get(i).state === 'busy') card.applied.delete(i); });
       toast('套用失敗，請再試', 'error');
     } finally {
       card.applying = false;
@@ -479,9 +497,9 @@
   async function undoRow(card, i) {
     const p = P();
     const it = card.items[i];
-    const ap = card.applied.get(K(it));
+    const ap = card.applied.get(i);
     if (!ap || ap.state !== 'ok' || card.applying) return;
-    card.applied.set(K(it), { ...ap, state: 'busy' });
+    card.applied.set(i, { ...ap, state: 'busy' });
     renderList();
     try {
       // 還原經同一條衝突檢查路：expected_text = 已套用文字（之後有人手改過
@@ -494,18 +512,18 @@
       });
       const data = await r.json().catch(() => ({}));
       if (r.ok && (data.applied || []).length) {
-        card.applied.delete(K(it));
+        card.applied.delete(i);
         card.checks.set(i, false);
         toast('已還原', 'success');
-        await p.refresh();
+        try { await p.refresh(); } catch (e) { toast('列表刷新失敗，請手動重新整理', 'warning'); }
       } else {
-        card.applied.set(K(it), ap);
+        card.applied.set(i, ap);
         const msg = (data.failed && data.failed[0] && data.failed[0].error)
           || data.error || '還原失敗';
         toast(msg.includes('段落已被修改') ? '段落已被再次修改，無法還原' : msg, 'warning');
       }
     } catch (e) {
-      card.applied.set(K(it), ap);
+      card.applied.set(i, ap);
       toast('還原失敗，請再試', 'error');
     } finally { renderList(); }
   }

@@ -119,3 +119,19 @@ def test_ci_fold_length_guard():
     # 'İ'.lower() 變長 → 回退精確匹配，唔會索引漂移寫壞文字
     assert ops_mod.replace_all_ci("İstanbul x", "istanbul", "Y") == "İstanbul x"
     assert ops_mod.count_ci("ABC abc", "abc") == 2
+
+
+def test_expand_composes_multiple_ops_same_cue():
+    rows = _rows()
+    out = ops_mod.expand_ops(rows, OUTS, [
+        {"op": "replace_term", "from": "晨操", "to": "早操", "langs": ["zh"]},
+        {"op": "replace_term", "from": "之後", "to": "以後", "langs": ["zh"]},
+    ])
+    # row1 zh 兩個 op 都命中 → 合成一個 item，expected_text = 原文
+    hits = [i for i in out["items"] if i["idx"] == 1 and i["lang"] == "zh"]
+    assert len(hits) == 1
+    assert hits[0]["before"] == "晨操之後晨操。"
+    assert hits[0]["expected_text"] == "晨操之後晨操。"
+    assert hits[0]["after"] == "早操以後早操。"
+    # row0 只中第一個 op → 照出單項
+    assert any(i["idx"] == 0 and i["after"] == "今朝有早操。" for i in out["items"])
