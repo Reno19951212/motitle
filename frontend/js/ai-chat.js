@@ -164,13 +164,25 @@
   function renderList() {
     const list = document.getElementById('acList');
     if (!list) return;
+    // scroll 保持：非貼底時唔好搶 scroll；卡片內行清單逐張還原
+    const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 8;
+    const prevScroll = list.scrollTop;
+    const rowScrolls = new Map();
+    list.querySelectorAll('.ac-card').forEach((c) => {
+      const rows = c.querySelector('.ac-rows');
+      if (rows) rowScrolls.set(c.dataset.card, rows.scrollTop);
+    });
     list.innerHTML = turns.map((t, ti) => {
       if (t.card) return renderCard(t.card, ti);           // Task 10
       const cls = t.who === 'user' ? 'user' : (t.who === 'sys' ? 'sys' : 'ai');
       const think = t.thinking ? ' think' : '';
       return `<div class="ac-msg ${cls}${think}">${esc(t.text)}${t.thinking ? '<span class="dots"></span>' : ''}</div>`;
     }).join('');
-    list.scrollTop = list.scrollHeight;
+    list.querySelectorAll('.ac-card').forEach((c) => {
+      const rows = c.querySelector('.ac-rows');
+      if (rows && rowScrolls.has(c.dataset.card)) rows.scrollTop = rowScrolls.get(c.dataset.card);
+    });
+    list.scrollTop = atBottom ? list.scrollHeight : prevScroll;
   }
 
   async function send() {
@@ -328,7 +340,7 @@
       <div class="ac-cf">
         <label><input type="checkbox" data-apv ${card.approveAfter ? 'checked' : ''} ${card.applying ? 'disabled' : ''}> 套用後批核</label>
         <span style="flex:1"></span>
-        <button class="ac-b ghost" data-rescan ${card.applying ? 'disabled' : ''}>重新掃描</button>
+        <button class="ac-b ghost" data-rescan ${card.applying || card.rescanning ? 'disabled' : ''}>重新掃描</button>
         <button class="ac-b" data-apply ${stale || card.applying || card.rerunActive || !sel ? 'disabled' : ''}>套用選中 (${sel})</button>
       </div></div>`;
   }
@@ -337,6 +349,8 @@
     const p = P();
     const fid = p.fileId();
     if (!fid) return;
+    if (card.rescanning) return;
+    card.rescanning = true;
     try {
       const r = await fetch(`${api()}/api/files/${fid}/ai-chat/expand`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -357,8 +371,8 @@
       card.suggestions = new Map();
       card.items.forEach((it, i) => card.checks.set(i, !it.approved));
       if (typeof genSuggestions === 'function') genSuggestions(card);
-      renderList();
     } catch (e) { toast('重新掃描失敗', 'error'); }
+    finally { card.rescanning = false; renderList(); }
   }
 
   function applySelected(card) { /* Task 11 */ }
