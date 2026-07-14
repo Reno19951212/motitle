@@ -66,9 +66,11 @@ def test_expand_langs_all_and_ci_latin():
 
 def test_expand_idempotent_skip_and_cap():
     rows = _rows()
-    # after==before（to 已經喺晒度）→ skip
+    # 真冪等：row0 en 現文已經係 "Track work…" → after==before → skip（零 item）；
+    # row1 en 有 "track work"+"Track Work" 變體 → 真改動 → 有 item
     out = ops_mod.expand_ops(rows, OUTS,
-        [{"op": "replace_term", "from": "晨操", "to": "晨操。", "langs": ["zh"]}])
+        [{"op": "replace_term", "from": "track work", "to": "Track work", "langs": ["en"]}])
+    assert [i["idx"] for i in out["items"]] == [1]
     assert all(i["after"] != i["before"] for i in out["items"])
     # cap：整 250 行全命中 → 200 + truncated
     many = []
@@ -88,6 +90,17 @@ def test_expand_approved_from_row_status_approve_all_asymmetry():
                "by_lang": {"zh": {"text": "冇相關字詞。", "status": "pending", "flags": []},
                            "en": {"text": "Nothing here.", "status": "pending", "flags": []}},
                }
+    out = ops_mod.expand_ops(rows, OUTS,
+        [{"op": "replace_term", "from": "字詞", "to": "詞語", "langs": ["zh"]}])
+    assert out["items"][0]["approved"] is True
+
+
+def test_expand_approved_from_by_lang_only():
+    rows = _rows()
+    # row.status pending 但該語言 by_lang status approved → approved 都要 True
+    rows[2] = {**rows[2], "status": "pending",
+               "by_lang": {"zh": {"text": "冇相關字詞。", "status": "approved", "flags": []},
+                           "en": {"text": "Nothing here.", "status": "pending", "flags": []}}}
     out = ops_mod.expand_ops(rows, OUTS,
         [{"op": "replace_term", "from": "字詞", "to": "詞語", "langs": ["zh"]}])
     assert out["items"][0]["approved"] is True
