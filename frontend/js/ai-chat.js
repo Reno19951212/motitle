@@ -53,6 +53,42 @@
   .ac-send[disabled] { opacity:.4; pointer-events:none; }
   .ac-hint { padding:0 16px 10px; font-size:10.5px; color:var(--text-dim, #6a6a85); }
   /* Task 10 卡片 CSS 加喺呢度之下 */
+  .ac-card { align-self:stretch; border:1px solid var(--border-strong, #3a3a55);
+    border-radius:11px; background:var(--bg, #0d0d14); overflow:hidden; }
+  .ac-card.stale { opacity:.55; }
+  .ac-ch { padding:9px 12px; font-weight:700; font-size:12.5px;
+    border-bottom:1px solid var(--border, #26263a); display:flex; gap:8px; align-items:center; }
+  .ac-ch .n { color:var(--accent-2, #8f88ff); }
+  .ac-warn { padding:6px 12px; font-size:11px; color:#f0c66a;
+    background:rgba(240,198,106,.07); border-bottom:1px solid var(--border, #26263a); }
+  .ac-rows { max-height:240px; overflow-y:auto; }
+  .ac-row { display:flex; gap:9px; padding:8px 12px; border-top:1px solid var(--border, #1f1f2e);
+    align-items:flex-start; font-size:12px; }
+  .ac-row:first-child { border-top:none; }
+  .ac-row .meta { min-width:64px; cursor:pointer; }
+  .ac-row .meta .seg { font-weight:700; }
+  .ac-row .meta .tc { font-size:9.5px; color:var(--text-dim, #6a6a85); display:block;
+    font-family:var(--font-mono, monospace); }
+  .ac-row .meta .ap { font-size:9px; padding:1px 6px; border-radius:4px;
+    background:rgba(34,197,94,.13); color:#8fefad; }
+  .ac-row .diff { flex:1; line-height:1.55; word-break:break-word; }
+  .ac-row .diff del { background:rgba(255,99,99,.14); color:#f2a1a1; text-decoration:line-through;
+    border-radius:3px; padding:0 3px; }
+  .ac-row .diff ins { background:rgba(34,197,94,.17); color:#8fefad; text-decoration:none;
+    border-radius:3px; padding:0 3px; }
+  .ac-row .st { min-width:48px; text-align:right; font-size:10.5px; }
+  .ac-row .st .ok { color:#8fefad; } .ac-row .st .er { color:#f2a1a1; }
+  .ac-row .st .undo { color:var(--accent-2, #8f88ff); cursor:pointer; text-decoration:underline; }
+  .ac-cf { display:flex; align-items:center; gap:10px; padding:9px 12px;
+    border-top:1px solid var(--border, #26263a); font-size:11.5px; flex-wrap:wrap; }
+  .ac-cf label { display:flex; gap:5px; align-items:center; cursor:pointer;
+    color:var(--text-mid, #9a9ab2); }
+  .ac-b { border:1px solid rgba(108,99,255,.47); background:rgba(108,99,255,.13); color:#c4bdff;
+    border-radius:7px; padding:6px 13px; font-size:11.5px; font-weight:600; cursor:pointer;
+    font-family:inherit; }
+  .ac-b[disabled] { opacity:.4; pointer-events:none; }
+  .ac-b.ghost { background:none; border-color:var(--border-strong, #3a3a55);
+    color:var(--text-mid, #9a9ab2); font-weight:400; }
   `;
 
   function P() { return window.AIChatPage || null; }
@@ -104,6 +140,23 @@
       el.style.right = 'auto';
     });
     document.addEventListener('mouseup', () => { drag = null; });
+
+    document.getElementById('acList').addEventListener('click', (e) => {
+      const cardEl = e.target.closest('.ac-card');
+      if (!cardEl) return;
+      const card = (turns[Number(cardEl.dataset.card)] || {}).card;
+      if (!card) return;
+      const ck = e.target.closest('[data-ck]');
+      if (ck) { card.checks.set(Number(ck.dataset.ck), ck.checked); renderList(); return; }
+      const apv = e.target.closest('[data-apv]');
+      if (apv) { card.approveAfter = apv.checked; return; }
+      const jp = e.target.closest('[data-jp]');
+      if (jp) { P().jump(card.items[Number(jp.dataset.jp)].idx); return; }
+      if (e.target.closest('[data-rescan]')) { rescanCard(card); return; }
+      if (e.target.closest('[data-apply]')) { applySelected(card); return; }       // Task 11
+      const un = e.target.closest('[data-un]');
+      if (un) { undoRow(card, Number(un.dataset.un)); return; }                    // Task 11
+    });
   }
 
   function pushTurn(t) { turns.push(t); renderList(); }
@@ -119,9 +172,6 @@
     }).join('');
     list.scrollTop = list.scrollHeight;
   }
-
-  /* Task 10: cards — renderCard / bindCardEvents / rescanCard */
-  function renderCard() { return ''; }
 
   async function send() {
     const p = P();
@@ -158,8 +208,8 @@
         body: JSON.stringify(body),
       });
       const data = await r.json().catch(() => ({}));
-      if (myTurn !== turnSeq || boundFileId !== p.fileId()) return;  // stale 棄置
       turns = turns.filter(t => t !== thinkT);
+      if (myTurn !== turnSeq || boundFileId !== p.fileId()) return;  // stale 棄置
       if (r.status === 422) {
         pushTurn({ who: 'ai', text: data.reply || 'AI 一時冇明白，請講具體啲，例如：把所有「晨操」改成「早操」' });
         return;
@@ -170,8 +220,8 @@
       }
       handleParsed(data, msg);                             // Task 10 接手卡片
     } catch (e) {
-      if (myTurn !== turnSeq) return;
       turns = turns.filter(t => t !== thinkT);
+      if (myTurn !== turnSeq || boundFileId !== p.fileId()) return;
       pushTurn({ who: 'ai', text: 'AI 服務暫時冇回應，請再試' });
     } finally {
       sending = false;
@@ -181,10 +231,139 @@
     }
   }
 
-  /* Task 10 會取代呢個 stub：處理 ops → 卡片／澄清／唔支援 */
-  function handleParsed(data) {
-    pushTurn({ who: 'ai', text: data.reply || '（已解析）' });
+  /* Task 10: cards — diff / handleParsed / renderCard / rescanCard */
+  function diffHtml(item) {
+    // 逐字 diff 太重 — 直接 del before / ins after（match 位已由 server 換好）
+    return `<del>${esc(item.before)}</del><br><ins>${esc(item.after !== undefined ? item.after : item.before)}</ins>`;
   }
+
+  function handleParsed(data, userMsg) {
+    const p = P();
+    const editOps = (data.ops || []).filter(o => o.op !== 'none');
+    const noneOp = (data.ops || []).find(o => o.op === 'none');
+    pushTurn({ who: 'ai', text: data.reply || '收到' });
+    if (noneOp && !editOps.length) {
+      if (noneOp.kind === 'clarify' && noneOp.question) {
+        pushTurn({ who: 'ai', text: noneOp.question });
+      } else if (noneOp.kind === 'unsupported') {
+        pushTurn({ who: 'ai', text: p.hasGrid
+          ? '呢樣嘢我幫唔到手 — 我淨係可以修改字幕文字（批量取代／指定段落改寫）。'
+          : '呢樣嘢我幫唔到手 — 我淨係可以修改字幕文字。逐段檢視可以去校對頁。' });
+      }
+      lastTurnSummary = '';
+      return;
+    }
+    if (!data.proposal || !data.proposal.items.length) {
+      pushTurn({ who: 'ai', text: '搵唔到符合嘅段落 — 可能啲字幕入面冇呢個字詞。' });
+      lastTurnSummary = mkSummary(editOps, 0, '未套用');
+      return;
+    }
+    const card = {
+      ops: editOps, items: data.proposal.items, truncated: data.proposal.truncated,
+      totals: data.proposal.totals, gridLen: data.grid_len, fileId: boundFileId,
+      rerunActive: data.rerun_active, renderActive: data.render_active,
+      checks: new Map(), applied: new Map(), suggestions: new Map(),
+      stale: false, applying: false, approveAfter: false,
+    };
+    card.items.forEach((it, i) => card.checks.set(i, !it.approved));  // 已批核預設唔剔
+    pushTurn({ who: 'ai', card });
+    lastTurnSummary = mkSummary(editOps, card.items.length, '未套用');
+    if (typeof genSuggestions === 'function') genSuggestions(card);   // Task 11
+  }
+
+  function mkSummary(ops, n, state) {
+    if (!ops.length) return '';
+    const o = ops[0];
+    const s = o.op === 'replace_term'
+      ? `把「${o.from}」改成「${o.to}」，命中 ${n} 段`
+      : `改寫第 ${o.seg_no} 段（${o.lang_role === 'second' ? '第二' : '第一'}語言）`;
+    return `上一輪：${s}，${state}`.slice(0, 300);
+  }
+
+  function cardStale(card) {
+    const p = P();
+    if (card.fileId !== p.fileId()) return true;
+    if (p.hasGrid && p.cueCount() !== card.gridLen) return true;      // split/merge/rerun
+    return card.stale;
+  }
+
+  const K = (it) => `${it.idx}:${it.lang}`;
+
+  function renderCard(card, ti) {
+    const stale = cardStale(card);
+    const sel = [...card.checks.values()].filter(Boolean).length;
+    const delWarn = card.ops.some(o => o.op === 'replace_term' && o.to === '')
+      ? '<div class="ac-warn">此指令會刪除字詞 — 請留意預覽（紅色刪除線＝刪走）</div>' : '';
+    const warn = stale
+      ? '<div class="ac-warn">段落已變動 — 請撳「重新掃描」更新預覽</div>'
+      : (card.rerunActive ? '<div class="ac-warn">AI Rerun 進行中 — 暫時唔可以套用</div>'
+      : (card.renderActive ? '<div class="ac-warn">渲染進行中 — 本次修改唔會反映喺該渲染</div>' : ''));
+    const rows = card.items.map((it, i) => {
+      const ap = card.applied.get(K(it));
+      const sug = card.suggestions.get(K(it));
+      let st;
+      if (ap && ap.state === 'ok') st = `<span class="ok">✓</span> <span class="undo" data-un="${i}">還原</span>`;
+      else if (ap && ap.state === 'err') st = `<span class="er" title="${esc(ap.error)}">✗</span>`;
+      else if (ap && ap.state === 'busy') st = '…';
+      else if (it.kind === 'ai_rewrite' && !sug) st = '生成中…';
+      else st = `<input type="checkbox" data-ck="${i}" ${card.checks.get(i) ? 'checked' : ''} ${stale || card.applying ? 'disabled' : ''}>`;
+      const shown = it.kind === 'ai_rewrite'
+        ? { ...it, after: (sug && sug.text) !== undefined ? sug.text : undefined }
+        : it;
+      const diff = shown.after === undefined
+        ? `<del>${esc(it.before)}</del><br><span style="color:var(--text-dim)">（AI 生成中…）</span>`
+        : diffHtml(shown);
+      return `<div class="ac-row">
+        <div class="meta" data-jp="${i}"><span class="seg">#${it.idx + 1}</span>
+          <span class="tc">${(it.start != null) ? Number(it.start).toFixed(1) + 's' : ''}</span>
+          ${it.approved ? '<span class="ap">已批核</span>' : ''}</div>
+        <div class="diff">${diff}</div><div class="st">${st}</div></div>`;
+    }).join('');
+    return `<div class="ac-card ${stale ? 'stale' : ''}" data-card="${ti}">
+      <div class="ac-ch">建議修改 <span class="n">${card.items.length} 段</span>
+        ${card.totals.approved ? `<span style="font-weight:400;color:var(--text-dim)">（${card.totals.approved} 段已批核，預設唔剔）</span>` : ''}</div>
+      ${delWarn}
+      ${card.truncated ? '<div class="ac-warn">命中超過 200 段，請縮窄範圍</div>' : ''}${warn}
+      <div class="ac-rows">${rows}</div>
+      <div class="ac-cf">
+        <label><input type="checkbox" data-apv ${card.approveAfter ? 'checked' : ''} ${card.applying ? 'disabled' : ''}> 套用後批核</label>
+        <span style="flex:1"></span>
+        <button class="ac-b ghost" data-rescan ${card.applying ? 'disabled' : ''}>重新掃描</button>
+        <button class="ac-b" data-apply ${stale || card.applying || card.rerunActive || !sel ? 'disabled' : ''}>套用選中 (${sel})</button>
+      </div></div>`;
+  }
+
+  async function rescanCard(card) {
+    const p = P();
+    const fid = p.fileId();
+    if (!fid) return;
+    try {
+      const r = await fetch(`${api()}/api/files/${fid}/ai-chat/expand`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ops: card.ops }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) { toast(data.error || '重新掃描失敗', 'error'); return; }
+      card.items = data.proposal.items;
+      card.truncated = data.proposal.truncated;
+      card.totals = data.proposal.totals;
+      card.gridLen = data.grid_len;
+      card.fileId = fid;
+      card.rerunActive = data.rerun_active;
+      card.renderActive = data.render_active;
+      card.stale = false;
+      card.checks = new Map();
+      card.applied = new Map();
+      card.suggestions = new Map();
+      card.items.forEach((it, i) => card.checks.set(i, !it.approved));
+      if (typeof genSuggestions === 'function') genSuggestions(card);
+      renderList();
+    } catch (e) { toast('重新掃描失敗', 'error'); }
+  }
+
+  function applySelected(card) { /* Task 11 */ }
+  function undoRow(card, i) { /* Task 11 */ }
+  function genSuggestions(card) { /* Task 11 */ }
 
   function openPop() {
     if (!P()) { toast('AI 助手載入中…', 'info'); return; }
