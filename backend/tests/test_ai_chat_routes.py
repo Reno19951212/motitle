@@ -140,3 +140,89 @@ def test_expand_rejects_bad_ops(client_entry):
     assert r.status_code == 400
     r = client.post(f"/api/files/{fid}/ai-chat/expand", json={"ops": "x"})
     assert r.status_code == 400
+
+
+# ---------- /ai-chat/apply ----------
+
+def _apply(client, fid, items, approve=False):
+    return client.post(f"/api/files/{fid}/ai-chat/apply",
+                       json={"items": items, "approve": approve})
+
+
+def _item(idx=0, lang="zh", after="今朝有早操。", expected="今朝有晨操。",
+          start=0.0, end=2.0, **kw):
+    d = {"idx": idx, "lang": lang, "after": after, "expected_text": expected,
+         "start": start, "end": end}
+    d.update(kw)
+    return d
+
+
+def test_apply_writes_four_stores_keep_status_and_audit(client_entry):
+    client, fid, app_module = client_entry
+    r = _apply(client, fid, [_item()])
+    assert r.status_code == 200, r.get_data(as_text=True)
+    b = r.get_json()
+    assert b["applied"] == [{"idx": 0, "lang": "zh",
+                             "prev_status": {"row": "pending", "by_lang": "pending"}}]
+    with app_module._registry_lock:
+        e = app_module._file_registry[fid]
+        row = e["translations"][0]
+    assert row["by_lang"]["zh"]["text"] == "今朝有早操。"
+    assert row["zh_text"] == "今朝有早操。"
+    assert e["aligned_bilingual"][0]["by_lang"]["zh"] == "今朝有早操。"
+    assert row["status"] == "pending"                       # keep_status 預設
+    ch = row["glossary_changes"][-1]
+    assert ch["source"] == "AI 助手" and ch["before"] == "今朝有晨操。" \
+        and ch["after"] == "今朝有早操。" and ch["lang"] == "zh"
+
+
+def test_apply_conflict_and_idempotent_partial(client_entry):
+    client, fid, app_module = client_entry
+    items = [
+        _item(),                                             # OK
+        _item(idx=1, after="晨操之後休息。", expected="晨操之後休息。",
+              start=1.0, end=3.0),                           # current==after → skipped
+        _item(idx=1, lang="en", after="x", expected="WRONG", start=1.0, end=3.0),
+    ]
+    r = _apply(client, fid, items)
+    b = r.get_json()
+    assert len(b["applied"]) == 1 and b["skipped"] == [{"idx": 1, "lang": "zh"}]
+    assert b["failed"][0]["idx"] == 1 and "段落已被修改" in b["failed"][0]["error"]
+
+
+def test_apply_timing_drift_fails_item(client_entry):
+    client, fid, _ = client_entry
+    r = _apply(client, fid, [_item(start=0.5)])              # start 唔符 → mechanical split trap
+    assert r.get_json()["failed"][0]["idx"] == 0
+
+
+def test_apply_approve_and_status_after_restore(client_entry, monkeypatch):
+    client, fid, app_module = client_entry
+    # approve 模式
+    r = _apply(client, fid, [_item()], approve=True)
+    assert r.get_json()["applied"][0]["prev_status"]["row"] == "pending"
+    with app_module._registry_lock:
+        row = app_module._file_registry[fid]["translations"][0]
+        assert row["status"] == "approved" and row["by_lang"]["zh"]["status"] == "approved"
+    # undo：status_after 還原 + expected_text = 已套用文字
+    r = _apply(client, fid, [_item(after="今朝有晨操。", expected="今朝有早操。",
+                                   status_after="pending")])
+    assert r.get_json()["applied"], r.get_data(as_text=True)
+    with app_module._registry_lock:
+        row = app_module._file_registry[fid]["translations"][0]
+        assert row["zh_text"] == "今朝有晨操。" and row["status"] == "pending"
+
+
+def test_apply_rerun_409_and_gates(client_entry, monkeypatch):
+    client, fid, app_module = client_entry
+    monkeypatch.setattr(app_module, "_file_has_active_rerun", lambda f: True)
+    r = _apply(client, fid, [_item()])
+    assert r.status_code == 409
+    monkeypatch.undo()
+    # bogus lang / bool idx / 冇 after / 壞 status_after → 400
+    assert _apply(client, fid, [_item(lang="ja")]).status_code == 400
+    assert _apply(client, fid, [_item(idx=True)]).status_code == 400
+    bad = _item(); bad.pop("after")
+    assert _apply(client, fid, [bad]).status_code == 400
+    assert _apply(client, fid, [_item(status_after="weird")]).status_code == 400
+    assert _apply(client, fid, []).status_code == 400

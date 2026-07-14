@@ -6480,6 +6480,85 @@ def ai_chat_expand(file_id):
                         "grid_len": snap["grid_len"]})
 
 
+@app.route('/api/files/<file_id>/ai-chat/apply', methods=['POST'])
+@require_file_owner
+def ai_chat_apply(file_id):
+    """AI 助手：機械寫入（batch）。全程一個 _registry_lock pass：
+    rerun 409（鎖內查 — TOCTOU 防）→ 逐項 expected_text + start/end 重驗 →
+    _write_output_lang_cue_text 四庫寫 + 「AI 助手」審計 → 狀態規則
+    （status_after > approve > keep_status）。Per-item 衝突入 failed[]，
+    唔斷批次（HTTP 200 + applied/skipped/failed）。
+    Spec: docs/superpowers/specs/2026-07-14-ai-chat-window-design.md §3.3
+    """
+    data = request.get_json(silent=True) or {}
+    items = data.get("items")
+    approve = bool(data.get("approve", False))
+    if not isinstance(items, list) or not items or len(items) > ai_chat_ops.MAX_ITEMS:
+        return jsonify({"error": "items 必須係 1-200 項嘅 list"}), 400
+    cleaned = []
+    for it in items:
+        if not isinstance(it, dict):
+            return jsonify({"error": "item 格式唔正確"}), 400
+        idx, lang = it.get("idx"), it.get("lang")
+        after, expected = it.get("after"), it.get("expected_text")
+        status_after = it.get("status_after")
+        if isinstance(idx, bool) or not isinstance(idx, int):
+            return jsonify({"error": "idx 必須係整數"}), 400
+        if not isinstance(lang, str) or not isinstance(after, str) \
+                or not isinstance(expected, str):
+            return jsonify({"error": "需要 lang/after/expected_text"}), 400
+        if status_after not in (None, "pending", "approved"):
+            return jsonify({"error": "status_after 只可以係 pending 或 approved"}), 400
+        cleaned.append({"idx": idx, "lang": lang, "after": after,
+                        "expected_text": expected, "start": it.get("start"),
+                        "end": it.get("end"), "status_after": status_after})
+
+    applied, skipped, failed = [], [], []
+    with _registry_lock:
+        entry = _file_registry.get(file_id)
+        if not entry:
+            return jsonify({"error": "文件不存在"}), 404
+        if entry.get("active_kind") != "output_lang":
+            return jsonify({"error": "AI 助手只支援輸出語言流程"}), 400
+        outs = entry.get("output_languages") or []
+        if any(it["lang"] not in outs for it in cleaned):
+            return jsonify({"error": "lang 必須係檔案輸出語言之一"}), 400
+        if _file_has_active_rerun(file_id):
+            return jsonify({"error": "AI Rerun 進行中，無法修改段落"}), 409
+        rows = entry.get("translations") or []
+        for it in cleaned:
+            idx, lang = it["idx"], it["lang"]
+            if not (0 <= idx < len(rows)):
+                failed.append({"idx": idx, "lang": lang, "error": "段落已被修改 — 請重新掃描"})
+                continue
+            row = rows[idx]
+            bl = (row.get("by_lang") or {}).get(lang) or {}
+            current = bl.get("text") or row.get(f"{lang}_text") or ""
+            if current == it["after"]:
+                skipped.append({"idx": idx, "lang": lang})      # 冪等重交安全
+                continue
+            if current != it["expected_text"] \
+                    or row.get("start") != it["start"] or row.get("end") != it["end"]:
+                failed.append({"idx": idx, "lang": lang,
+                               "error": "段落已被修改 — 請重新掃描"})
+                continue
+            prev_status = {"row": row.get("status", "pending"),
+                           "by_lang": bl.get("status", "pending")}
+            change = {"source": "AI 助手", "before": current, "after": it["after"],
+                      "glossary": "", "lang": lang, "entry_id": None,
+                      "glossary_id": None}
+            row = _write_output_lang_cue_text(entry, idx, lang, it["after"], change)
+            new_status = it["status_after"] or ("approved" if approve else None)
+            if new_status:
+                row["status"] = new_status
+                row["by_lang"][lang]["status"] = new_status
+            applied.append({"idx": idx, "lang": lang, "prev_status": prev_status})
+        if applied:
+            _save_registry()
+
+    return jsonify({"applied": applied, "skipped": skipped, "failed": failed})
+
+
 @app.route('/api/files/<file_id>', methods=['PATCH'])
 @require_file_owner
 def patch_file(file_id):
