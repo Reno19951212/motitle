@@ -5266,6 +5266,27 @@ def api_glossary_preview(file_id):
     return jsonify({"tracks": tracks, "totals": totals})
 
 
+def _write_output_lang_cue_text(entry, idx, lang, new_text, change=None):
+    """output_lang 單 cue 文字四庫原子寫入（caller 必須揸住 _registry_lock）。
+
+    寫 by_lang[lang].text + {lang}_text mirror（同一變量）+
+    aligned_bilingual[idx].by_lang[lang]（plain string）；change 有值就 append
+    入 row.glossary_changes。status/flags 一律唔郁 — keep_status 係 caller 責任。
+    抽自 glossary-apply-item Phase 3（行為 byte-equivalent，見 test_write_helper.py）。
+    """
+    rows = entry.get("translations") or []
+    row = rows[idx]
+    bl = row.setdefault("by_lang", {}).setdefault(lang, {})
+    bl["text"] = new_text
+    row[f"{lang}_text"] = new_text
+    aligned = entry.get("aligned_bilingual")
+    if isinstance(aligned, list) and idx < len(aligned):
+        aligned[idx].setdefault("by_lang", {})[lang] = new_text
+    if change is not None:
+        row.setdefault("glossary_changes", []).append(change)
+    return row
+
+
 @app.route('/api/files/<file_id>/glossary-apply-item', methods=['POST'])
 @require_file_owner
 def api_glossary_apply_item(file_id):
@@ -5396,13 +5417,6 @@ def api_glossary_apply_item(file_id):
             # position during the LLM window) — content check can't see it.
             return jsonify({"error": "段落已被修改 — 請重新掃描"}), 409
 
-        bl = row.setdefault("by_lang", {}).setdefault(lang, {})
-        bl["text"] = new_text                       # by_lang[lang].text
-        row[f"{lang}_text"] = new_text              # {lang}_text mirror
-        aligned = entry.get("aligned_bilingual")    # aligned_bilingual cue
-        if isinstance(aligned, list) and idx < len(aligned):
-            cue = aligned[idx]
-            cue.setdefault("by_lang", {})[lang] = new_text
         change = {
             "source": data.get("source", alias),
             "before": alias,
@@ -5412,7 +5426,7 @@ def api_glossary_apply_item(file_id):
             "entry_id": data.get("entry_id"),
             "glossary_id": data.get("glossary_id"),
         }
-        row.setdefault("glossary_changes", []).append(change)
+        _write_output_lang_cue_text(entry, idx, lang, new_text, change)
         # keep_status: row["status"] / bl["status"] / flags are intentionally
         # left untouched — a glossary correction is not a re-review.
         _save_registry()
