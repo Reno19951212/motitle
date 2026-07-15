@@ -3172,6 +3172,35 @@ def api_export_glossary_csv(glossary_id):
     }
 
 
+@app.route('/api/lexicons/<style>', methods=['GET'])
+@login_required
+def api_get_lexicon(style):
+    """系統行話表（phonetic lexicon）view — 登入即可讀。"""
+    import lexicon_manager
+    view = lexicon_manager.get_lexicon(style)
+    if view is None:
+        return jsonify({"error": "未知行話表"}), 404
+    return jsonify(view)
+
+
+@app.route('/api/lexicons/<style>', methods=['PUT'])
+@admin_required
+def api_put_lexicon(style):
+    """系統行話表 bulk 覆寫 — 管理員專屬（全局共用資源）。"""
+    import lexicon_manager
+    data = request.get_json(silent=True) or {}
+    terms = data.get("terms")
+    if not isinstance(terms, list):
+        return jsonify({"error": "terms 必須係 list"}), 400
+    for t in terms:
+        if not isinstance(t, dict) or not (t.get("term") or "").strip():
+            return jsonify({"error": "每個 term 必須有非空 term 字串"}), 400
+    view = lexicon_manager.set_lexicon(style, terms)
+    if view is None:
+        return jsonify({"error": "未知行話表"}), 404
+    return jsonify(view)
+
+
 # v3.x multilingual — per-script boundary character ranges. Source-language
 # determines which characters are considered "same-script" and block a
 # strict match if they appear immediately before or after a term.
