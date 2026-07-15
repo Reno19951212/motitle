@@ -275,7 +275,7 @@
       totals: data.proposal.totals, gridLen: data.grid_len, fileId: boundFileId,
       rerunActive: data.rerun_active, renderActive: data.render_active,
       checks: new Map(), applied: new Map(), suggestions: new Map(),
-      stale: false, applying: false, approveAfter: false,
+      stale: false, applying: false, approveAfter: false, sugGen: 0,
     };
     card.items.forEach((it, i) => card.checks.set(i, !it.approved));  // 已批核預設唔剔
     pushTurn({ who: 'ai', card });
@@ -370,6 +370,7 @@
       card.checks = new Map();
       card.applied = new Map();
       card.suggestions = new Map();
+      card.sugGen = (card.sugGen || 0) + 1;   // invalidate any still-queued genSuggestions chain entries
       card.items.forEach((it, i) => card.checks.set(i, !it.approved));
       if (typeof genSuggestions === 'function') genSuggestions(card);
     } catch (e) { toast('重新掃描失敗', 'error'); }
@@ -382,10 +383,11 @@
   function genSuggestions(card) {
     // 重寫兩段式第一步：逐個 ai_rewrite item 經現有 /ai-edit 生成（已驗證 prompt），
     // 卡片顯示實際生成文字先准套用（「預覽先」防線 — spec §2）。
+    const myGen = card.sugGen;
     card.items.forEach((it, i) => {
       if (it.kind !== 'ai_rewrite' || card.suggestions.has(i)) return;
       rewriteChain = rewriteChain.then(async () => {
-        if (cardStale(card)) return;
+        if (card.sugGen !== myGen || cardStale(card)) return;
         try {
           const r = await fetch(`${api()}/api/files/${card.fileId}/ai-edit`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -430,7 +432,7 @@
     todo.forEach(({ it, i }) => {
       const key = `${it.idx}:${it.lang}`;
       if (seenKeys.has(key)) {
-        card.applied.set(i, { state: 'err', error: '同一段同一語言軌一次只可以套用一項，請分開執行' });
+        card.applied.set(i, { state: 'err', error: '同一段同一語言軌一次只可以套用一項 — 請重新掃描後再套用' });
       } else {
         seenKeys.add(key);
         rest.push({ it, i });

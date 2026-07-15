@@ -6469,6 +6469,8 @@ def ai_chat_expand(file_id):
         if entry.get("active_kind") != "output_lang":
             return jsonify({"error": "AI 助手只支援輸出語言流程"}), 400
         snap = _ai_chat_snapshot(entry)
+        if not snap["outs"]:
+            return jsonify({"error": "檔案冇輸出語言資料"}), 400
         err = ai_chat_ops.validate_ops(reparsed["ops"], snap["outs"], snap["grid_len"])
         if err:
             return jsonify({"error": err}), 400

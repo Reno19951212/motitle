@@ -142,6 +142,16 @@ def test_expand_rejects_bad_ops(client_entry):
     assert r.status_code == 400
 
 
+def test_expand_empty_outs_guard(client_entry):
+    client, fid, app_module = client_entry
+    with app_module._registry_lock:
+        e = app_module._file_registry[fid]
+        app_module._file_registry[fid] = {**e, "output_languages": []}
+    r = client.post(f"/api/files/{fid}/ai-chat/expand", json={"ops": [
+        {"op": "rewrite_cue", "seg_no": 1, "lang_role": "first", "instruction": "i"}]})
+    assert r.status_code == 400
+
+
 # ---------- /ai-chat/apply ----------
 
 def _apply(client, fid, items, approve=False):
