@@ -903,6 +903,7 @@
         (e.source || '').toLowerCase().includes(q) ||
         (e.target || '').includes(state.termFilter) ||
         (Array.isArray(e.target_aliases) && e.target_aliases.some(a => a.includes(state.termFilter)))
+        || (Array.isArray(e.source_variants) && e.source_variants.some(v => (v || '').toLowerCase().includes(q)))
       );
     }
     if (state.sort === 'alpha') list.sort((a, b) => (a.source || '').localeCompare(b.source || ''));
@@ -928,7 +929,10 @@
     body.innerHTML = list.map(e => `
       <button class="gl-tr ${e.id === state.selectedEntryId ? 'active' : ''}" data-id="${escapeHtml(e.id)}">
         <div class="gl-td-source">
-          <span>${escapeHtml(e.source || '(未填)')}</span>
+          <span>${escapeHtml(e.source || '(未填)')}</span>${
+            (Array.isArray(e.source_variants) && e.source_variants.length)
+              ? `<span class="gl-alt">近音 ${e.source_variants.length}</span>` : ''
+          }
         </div>
         <div class="gl-td-target">${escapeHtml(e.target || '(未填)')}</div>
         <div class="gl-td-actions"></div>
@@ -956,10 +960,18 @@
     }
     delBtn.disabled = false;
     const aliases = Array.isArray(entry.target_aliases) ? entry.target_aliases : [];
+    const variants = Array.isArray(entry.source_variants) ? entry.source_variants : [];
     body.innerHTML = `
       <div class="gl-field">
         <label>原文</label>
         <input class="gl-input" id="dSource" value="${escapeHtml(entry.source || '')}" />
+      </div>
+      <div class="gl-field">
+        <label>近音寫法 (原文別名)</label>
+        <div class="gl-chips" id="dVariants">
+          ${variants.map((v, i) => `<span class="gl-chip">${escapeHtml(v)}<button data-idx="${i}" title="移除">×</button></span>`).join('')}
+          <button class="gl-chip-add" id="dVariantAdd">+ 加入</button>
+        </div>
       </div>
       <div class="gl-field">
         <label>譯文</label>
@@ -1004,6 +1016,29 @@
         await saveEntryField('target_aliases', [...aliases, v.trim()]);
       } finally { _aliasSaveBusy = false; }
     });
+
+    /* Near-homophone source_variants chips — share _aliasSaveBusy with the
+       target_aliases handlers above so all alias/variant PATCHes serialize. */
+    document.querySelectorAll('#dVariants .gl-chip button').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (_aliasSaveBusy) return;
+        _aliasSaveBusy = true;
+        try {
+          const idx = parseInt(btn.dataset.idx, 10);
+          const next = variants.slice(); next.splice(idx, 1);
+          await saveEntryField('source_variants', next);
+        } finally { _aliasSaveBusy = false; }
+      });
+    });
+    document.getElementById('dVariantAdd').addEventListener('click', async () => {
+      if (_aliasSaveBusy) return;
+      const v = prompt('加入近音寫法（原文聽錯/拼錯形式）：');
+      if (!v || !v.trim()) return;
+      _aliasSaveBusy = true;
+      try {
+        await saveEntryField('source_variants', [...variants, v.trim()]);
+      } finally { _aliasSaveBusy = false; }
+    });
   }
   let _aliasSaveBusy = false;
 
@@ -1022,7 +1057,7 @@
       if (gid === state.activeId && seq === _entriesSyncSeq) {
         state.entries = updated.entries || [];
         renderTable();
-        if (field === 'target_aliases') {
+        if (field === 'target_aliases' || field === 'source_variants') {
           renderDetail();
         } else if (state.selectedEntryId === entry.id) {
           // Echo the server-normalized value (e.g. wrapping quotes stripped)
