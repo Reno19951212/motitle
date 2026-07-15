@@ -69,6 +69,28 @@ def test_apply_latin_immutable():
     assert seg["text"] == "Speedy Smarty"   # 入參未被 mutate
 
 
+def test_en_no_cascade_rewrite_into_inserted_canonical():
+    # 後 rule 嘅變體唔可以咬入前 rule 啱插入嘅 canonical（cascade 污染防線）。
+    # A: 'golden 60' → 'GOLDEN SIXTY'；B: 'SIXTY' → 'SIXTY FOLD'。
+    # 單 pass 改寫下，A 插入嘅 'GOLDEN SIXTY' 唔可以再被 B 咬成 'GOLDEN SIXTY FOLD'。
+    glossaries = [{
+        "source_lang": "en", "target_lang": "zh", "name": "賽馬", "id": "g1",
+        "entries": [
+            {"id": "e1", "source": "GOLDEN SIXTY", "target": "金鎗六十",
+             "source_variants": ["golden 60"]},
+            {"id": "e2", "source": "SIXTY FOLD", "target": "六十番",
+             "source_variants": ["SIXTY"]},
+        ],
+    }]
+    rules = ar.collect_en_rules(glossaries)
+    out, changes = ar.apply_latin([_seg("the golden 60 wins today")], rules)
+    assert out[0]["text"] == "the GOLDEN SIXTY wins today"
+    # 只有一個真實宣告改動，冇 phantom 'SIXTY'→'SIXTY FOLD'
+    assert len(changes[0]) == 1
+    assert changes[0][0]["before"] == "golden 60"
+    assert changes[0][0]["after"] == "GOLDEN SIXTY"
+
+
 def test_zh_declared_alias_rewrites_to_canonical():
     glossaries = [{
         "source_lang": "en", "target_lang": "zh", "name": "賽馬", "id": "g1",
@@ -106,19 +128,22 @@ def test_zh_lexicon_variants_rewrite():
 
 
 def test_zh_longest_first_no_partial_overlap():
-    # 長別名優先，短別名唔可以喺長別名內部再命中
+    # 同一起點：一個別名（快車手）係另一個（快車手仔）嘅前綴。長別名必須贏，
+    # 否則短別名先命中 → 剩 '仔' 殘字。呢個 case 真正驗到 longest-first 排序。
     glossaries = [{
         "source_lang": "en", "target_lang": "zh", "name": "賽馬", "id": "g1",
         "entries": [
-            {"id": "e1", "source": "A", "target": "星際快車",
-             "target_aliases": ["升制快車"]},
-            {"id": "e2", "source": "B", "target": "快車手",
+            {"id": "e1", "source": "A", "target": "手仔正名",
              "target_aliases": ["快車手仔"]},
+            {"id": "e2", "source": "B", "target": "手正名",
+             "target_aliases": ["快車手"]},
         ],
     }]
     rules = ar.collect_zh_rules(glossaries)
-    out, _ = ar.apply_cjk([_seg("升制快車今日出賽")], rules)
-    assert out[0]["text"] == "星際快車今日出賽"
+    # collect_zh_rules 必須 longest-variant-first（若 reverse/drop 排序，此斷言即爆）
+    assert [r["variant"] for r in rules][:2] == ["快車手仔", "快車手"]
+    out, _ = ar.apply_cjk([_seg("快車手仔今日出賽")], rules)
+    assert out[0]["text"] == "手仔正名今日出賽"   # 長別名贏，冇 '仔' 殘字
 
 
 def test_zh_apply_immutable():

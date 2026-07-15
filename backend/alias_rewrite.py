@@ -72,7 +72,24 @@ def collect_en_rules(glossaries: Optional[List[dict]]) -> List[dict]:
 def apply_latin(segments: List[dict], rules: List[dict],
                 cancel_check: Optional[Callable] = None
                 ) -> Tuple[List[dict], List[List[dict]]]:
-    """逐 rule（longest-first）以 ASCII 字界 pattern 改寫。回 (new_segments, changes)。"""
+    """單 alternation（longest-first → leftmost-longest）非重疊改寫。回 (new_segments, changes)。
+
+    所有 rule 嘅 ASCII 字界 pattern 併成一條 alternation、一次過 sub —
+    避免逐 rule 順序 sub 令「後 rule 咬入前 rule 啱插入嘅 canonical」cascade
+    污染宣告別名（同 apply_cjk 一致；re.sub 唔會重掃已替換嘅輸出）。
+    """
+    if not rules:
+        return [dict(s) for s in segments], [[] for _ in segments]
+    # rules 已 longest-variant-first；alternation 依序 → 同起點長別名先中。
+    # 逐 rule pattern 已帶 ASCII 字界 lookaround，包成 non-capturing group 併埋。
+    alt = re.compile("|".join("(?:%s)" % r["pattern"].pattern for r in rules),
+                     re.IGNORECASE)
+    # fold-normalized lookup：命中 span（可能有大小寫／空白變體）→ 對應 rule。
+    # longest-first + setdefault → 同 fold key 由最長別名 rule 佔（first-wins）。
+    lookup: Dict[str, dict] = {}
+    for r in rules:
+        lookup.setdefault(_fold(r["variant"]), r)
+
     out: List[dict] = []
     all_changes: List[List[dict]] = []
     for seg in segments:
@@ -80,18 +97,21 @@ def apply_latin(segments: List[dict], rules: List[dict],
             cancel_check()
         text = seg.get("text") or ""
         ch: List[dict] = []
-        for r in rules:
-            def _repl(m, _r=r, _ch=ch):
-                span = m.group(0)
-                if span == _r["canonical"]:
-                    return span                    # 已係正名 — no-op 唔記錄
-                _ch.append({"source": _r["canonical"], "before": span,
-                            "after": _r["canonical"], "glossary": ALIAS_TAG,
-                            "entry_id": _r["entry_id"],
-                            "glossary_id": _r["glossary_id"]})
-                return _r["canonical"]
-            text = r["pattern"].sub(_repl, text)
-        out.append({**seg, "text": text})
+
+        def _repl(m, _lookup=lookup, _ch=ch):
+            span = m.group(0)
+            r = _lookup.get(_fold(span))
+            if r is None:
+                return span                        # 防衛：理論上唔會發生
+            if span == r["canonical"]:
+                return span                        # 已係正名 — no-op 唔記錄
+            _ch.append({"source": r["canonical"], "before": span,
+                        "after": r["canonical"], "glossary": ALIAS_TAG,
+                        "entry_id": r["entry_id"],
+                        "glossary_id": r["glossary_id"]})
+            return r["canonical"]
+
+        out.append({**seg, "text": alt.sub(_repl, text)})
         all_changes.append(ch)
     return out, all_changes
 
