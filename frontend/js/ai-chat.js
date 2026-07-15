@@ -282,7 +282,9 @@
       return;
     }
     if (!data.proposal || !data.proposal.items.length) {
-      pushTurn({ who: 'ai', text: '搵唔到符合嘅段落 — 可能啲字幕入面冇呢個字詞。' });
+      pushTurn({ who: 'ai', text: '搵唔到符合嘅段落。提示：批量取代係照字面搵嘅 — '
+        + '想改中文字幕請用中文字眼（例：把所有「巴士」改成「總線」）；'
+        + '一次改兩個唔同嘅詞，請分開兩句講。' });
       turnSummaries.unshift({ s: mkSummary(editOps, 0, '未套用') });
       turnSummaries = turnSummaries.slice(0, 3);
       return;
