@@ -13,6 +13,7 @@
 
   let scanData = null;       // 最近一次 POST glossary-preview response
   let applying = false;
+  let _suspectsRequested = false;  // 疑似聽錯 fuzzy 掃描係 opt-in（大檔慢，唔預設跑）
   let _rowTexts = {};        // {`${lang}:${idx}` -> text} 本地 cache（套用後更新 expected_text 用）
 
   // ── modal 元素取得 ──────────────────────────────────────────
@@ -27,17 +28,30 @@
     const overlay = _overlay();
     if (!overlay) { console.error('GlossaryReview: #grOverlay not found'); return; }
 
-    // 重置 body 為 loading 狀態，先開 modal
+    // 重置 body 為 loading 狀態，先開 modal。預設快速 exact scan（唔跑 fuzzy）。
+    _suspectsRequested = false;
     _body().innerHTML = '<div class="ga-progress">掃描中…</div>';
     _el('grSubtitle').textContent = '';
     _el('grApplyBtn').textContent = '套用選中 (0)';
     overlay.classList.add('open');
+    await _doScan(false);
+  }
 
+  // 疑似聽錯係 opt-in — 大檔 judge_candidates 慢，唔可以卡住每次掃描。
+  async function loadSuspects() {
+    if (_suspectsRequested) return;
+    const btn = _el('grSuspectBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '搵緊…'; }
+    await _doScan(true);
+    _suspectsRequested = true;
+  }
+
+  async function _doScan(includeSuspects) {
     try {
       const r = await fetch(`${API_BASE}/api/files/${fileId}/glossary-preview`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: '{}',
+        body: JSON.stringify({ include_suspects: !!includeSuspects }),
       });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
@@ -49,6 +63,8 @@
     } catch (e) {
       _body().innerHTML = `<div class="ga-progress" style="color:var(--error,#f38ba8);">掃描失敗：${escapeHtml(e.message)}</div>`;
       showToast(`掃描失敗: ${e.message}`, 'error');
+      const btn = _el('grSuspectBtn');
+      if (btn) { btn.disabled = false; btn.textContent = '🔎 搵疑似聽錯'; }
     }
   }
 
@@ -100,8 +116,11 @@
       ? `詞彙表掃描 — ${glNames.join('、')}` : '詞彙表掃描';
     const totalFix = totals.fix || 0;
     const totalOk = totals.ok || 0;
+    const suspNote = totals.suspects_scanned
+      ? `、${totals.suspect || 0} 處疑似${totals.suspects_truncated ? `（只掃前 ${_SUSPECT_SCAN_HINT} 段）` : ''}`
+      : '';
     _el('grSubtitle').textContent =
-      `${totals.rows || 0} 段 · ${tracks.length} 條語言軌 · 搵到 ${totalFix} 處候選、${totalOk} 處已符合`;
+      `${totals.rows || 0} 段 · ${tracks.length} 條語言軌 · 搵到 ${totalFix} 處候選、${totalOk} 處已符合${suspNote}`;
 
     _body().innerHTML = tracks.map((t, ti) => {
       const langLabel = _langLabel(t.lang);
@@ -149,6 +168,22 @@
     _wireFooter();
     _updateCount();
     _wireSuspectAdds();
+    _updateSuspectBtn();
+  }
+
+  // 用 SUSPECT scan cue 上限（同 backend _SUSPECT_SCAN_CUES 對齊，純顯示用）
+  const _SUSPECT_SCAN_HINT = 400;
+
+  function _updateSuspectBtn() {
+    const btn = _el('grSuspectBtn');
+    if (!btn) return;
+    if (_suspectsRequested) {
+      btn.disabled = true;
+      btn.textContent = '✓ 已搵疑似聽錯';
+    } else {
+      btn.disabled = false;
+      btn.textContent = '🔎 搵疑似聽錯';
+    }
   }
 
   function _langLabel(lang) {
@@ -349,8 +384,13 @@
     const cancelBtn = _el('grCancelBtn');
     const rescanBtn = _el('grRescanBtn');
     const closeBtn  = _el('grCloseBtn');
+    const suspectBtn = _el('grSuspectBtn');
     const overlay   = _overlay();
 
+    if (suspectBtn && !suspectBtn._grWired) {
+      suspectBtn.addEventListener('click', loadSuspects);
+      suspectBtn._grWired = true;
+    }
     if (applyBtn && !applyBtn._grWired) {
       applyBtn.addEventListener('click', _applySelected);
       applyBtn._grWired = true;

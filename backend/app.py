@@ -5238,7 +5238,9 @@ def glossary_reapply(file_id):
     }), 200
 
 
-_SUSPECT_CAP = 40   # 每軌上限（超出 print + 截斷，唔靜默）
+_SUSPECT_CAP = 40         # 每軌 suspect 上限（超出 print + 截斷，唔靜默）
+_SUSPECT_SCAN_CUES = 400  # 每軌 fuzzy 掃描 cue 上限 — judge_candidates O(cue×詞條)，
+                          # 851-cue 檔約 21s，封頂令最壞情況 bounded（互動 opt-in 用）
 
 
 def _suspects_for_track(lang, texts, starts, glossaries, content_lang, mt_style):
@@ -5332,6 +5334,8 @@ def api_glossary_preview(file_id):
         output_langs = list(entry.get("output_languages") or [])
         source_language = entry.get("source_language") or "yue"
         mt_style = entry.get("mt_style") or "generic"
+        # 疑似聽錯 fuzzy 掃描係 opt-in（judge_candidates 喺大檔慢，唔可以卡住每次掃描）。
+        include_suspects = bool(data.get("include_suspects"))
         if "glossary_ids" in data and data["glossary_ids"] is not None:
             glossary_ids = list(data["glossary_ids"])
         else:
@@ -5366,14 +5370,17 @@ def api_glossary_preview(file_id):
         for it in trk["items"]:
             i = it["idx"]
             it["start"] = rows[i].get("start") if i < len(rows) else None
-        # 疑似聽錯（確定性，零 LLM）— add-only kind:'suspect'。
-        existing = {(it["idx"], it.get("alias") or it.get("canonical"))
-                    for it in trk["items"]}
-        for s in _suspects_for_track(lang, texts, [r.get("start") for r in rows],
-                                     glossaries, content_lang, mt_style):
-            if (s["idx"], s["span"]) in existing:
-                continue
-            trk["items"].append(s)
+        # 疑似聽錯（確定性，零 LLM）— add-only kind:'suspect'，opt-in 先跑（大檔慢）。
+        if include_suspects:
+            existing = {(it["idx"], it.get("alias") or it.get("canonical"))
+                        for it in trk["items"]}
+            scan_texts = texts[:_SUSPECT_SCAN_CUES]
+            for s in _suspects_for_track(lang, scan_texts,
+                                         [r.get("start") for r in rows],
+                                         glossaries, content_lang, mt_style):
+                if (s["idx"], s["span"]) in existing:
+                    continue
+                trk["items"].append(s)
         tracks.append(trk)
 
     totals = {
@@ -5381,6 +5388,8 @@ def api_glossary_preview(file_id):
         "ok": sum(1 for t in tracks for i in t["items"] if i["kind"] == "ok"),
         "suspect": sum(1 for t in tracks for i in t["items"] if i["kind"] == "suspect"),
         "rows": len(rows),
+        "suspects_scanned": include_suspects,
+        "suspects_truncated": bool(include_suspects and len(rows) > _SUSPECT_SCAN_CUES),
     }
     return jsonify({"tracks": tracks, "totals": totals})
 
