@@ -5468,6 +5468,70 @@ def api_glossary_apply_item(file_id):
     return jsonify({"text": new_text, "change": change})
 
 
+@app.route('/api/files/<file_id>/glossary-add-alias', methods=['POST'])
+@require_file_owner
+def api_glossary_add_alias(file_id):
+    """一鍵把一個「疑似聽錯」寫成永久別名（宣告層）。
+
+    kind='source' → entry.source_variants；'target' → entry.target_aliases
+    （entry_id 無就靠 canonical 反查 target）；'lexicon' → 系統行話表（管理員）。
+    """
+    import lexicon_manager
+    from output_lang_glossary import strip_horse_id
+
+    data = request.get_json(silent=True) or {}
+    kind = data.get("kind")
+    variant = (data.get("variant") or "").strip()
+    canonical = (data.get("canonical") or "").strip()
+    if kind not in ("source", "target", "lexicon") or not variant:
+        return jsonify({"error": "壞參數：kind / variant"}), 400
+
+    if kind == "lexicon":
+        if not app.config.get("R5_AUTH_BYPASS") and not getattr(current_user, "is_admin", False):
+            return jsonify({"error": "系統行話表只有管理員可以修改"}), 403
+        if not canonical:
+            return jsonify({"error": "lexicon 需要 canonical（行話正名）"}), 400
+        style = (data.get("style") or "racing").strip()
+        view = lexicon_manager.add_term_variant(style, canonical, variant)
+        if view is None:
+            return jsonify({"error": "未知行話表"}), 404
+        return jsonify({"ok": True, "kind": "lexicon"})
+
+    # kind in (source, target) — glossary entry 寫入
+    gid = data.get("glossary_id")
+    if not gid or _glossary_manager.get(gid) is None:
+        return jsonify({"error": "未知詞彙表"}), 404
+    if not app.config.get("R5_AUTH_BYPASS") and not _glossary_manager.can_edit(
+            gid, current_user.id, current_user.is_admin):
+        return jsonify({"error": "你冇權修改呢個詞彙表（共享表只有管理員可改）"}), 403
+
+    glossary = _glossary_manager.get(gid)
+    eid = data.get("entry_id")
+    entry = None
+    if eid:
+        entry = next((e for e in glossary["entries"] if e.get("id") == eid), None)
+    if entry is None and canonical:
+        # 靠 canonical 反查（粵語 candidate 冇 entry_id）
+        entry = next((e for e in glossary["entries"]
+                      if strip_horse_id(e.get("target") or "") == canonical), None)
+    if entry is None:
+        return jsonify({"error": "搵唔到對應詞條"}), 404
+
+    field = "source_variants" if kind == "source" else "target_aliases"
+    existing = entry.get(field) or []
+    if not isinstance(existing, list):
+        existing = [existing]
+    if variant in existing:
+        return jsonify({"ok": True, "kind": kind, "field": field,
+                        "count": len(existing)})   # 已存在 → idempotent
+    new_list = list(existing) + [variant]
+    try:
+        _glossary_manager.update_entry(gid, entry["id"], {field: new_list})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 422
+    return jsonify({"ok": True, "kind": kind, "field": field, "count": len(new_list)})
+
+
 @app.route('/api/transcribe/sync', methods=['POST'])
 @admin_required
 def transcribe_sync():
