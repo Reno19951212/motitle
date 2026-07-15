@@ -235,3 +235,18 @@ def test_load_lexicon_extracts_term_from_object_shape(tmp_path, monkeypatch):
 
 def test_load_lexicon_variants_non_racing_empty():
     assert pc.load_lexicon_variants("generic") == []
+
+
+# ---------- 宣告別名前置改寫（Task 7：target_aliases + lexicon variants）----------
+
+def test_target_alias_rewritten_before_stages():
+    glossaries = [{
+        "source_lang": "en", "target_lang": "zh", "name": "賽馬", "id": "g1",
+        "entries": [{"id": "e1", "source": "GOOD FRIEND", "target": "好友心得 (K263)",
+                     "target_aliases": ["好有心得"]}],
+    }]
+    segs = [{"start": 0, "end": 1, "text": "好有心得今仗跑第三"}]
+    out, changes = pc.correct_segments(segs, glossaries=glossaries,
+                                       mt_style="racing", use_llm=False)
+    assert out[0]["text"] == "好友心得今仗跑第三"
+    assert any(c["glossary"] == "宣告別名" for c in changes[0])

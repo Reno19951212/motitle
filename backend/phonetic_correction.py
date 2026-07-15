@@ -644,8 +644,20 @@ def correct_segments(segments: List[dict], glossaries: Optional[List[dict]] = No
                      cancel_check: Optional[Callable[[], None]] = None,
                      use_llm: bool = True, votes: int = 3
                      ) -> Tuple[List[dict], List[List[dict]]]:
-    """三層 orchestrator。回 (new_segments, per_seg_changes)，changes 同 segments 等長。
+    """四層（宣告別名 → Stage0 → AUTO → JUDGE）orchestrator。
+    回 (new_segments, per_seg_changes)，changes 同 segments 等長。
     中文判定由 caller 負責（呢度唔 gate 語言）。入參唔 mutate。"""
+    all_changes_pre = None
+    try:
+        import alias_rewrite as ar
+        rules = ar.collect_zh_rules(glossaries,
+                                    lexicon_variants=load_lexicon_variants(mt_style))
+        if rules:
+            segments, all_changes_pre = ar.apply_cjk(
+                segments, rules, cancel_check=cancel_check)
+    except ImportError as _ar_e:
+        print(f"[alias] 跳過宣告別名（模組缺失）: {_ar_e}", flush=True)
+
     lexicon = load_lexicon(mt_style)
     index = build_index(glossaries, lexicon)
     out: List[dict] = []
@@ -654,6 +666,8 @@ def correct_segments(segments: List[dict], glossaries: Optional[List[dict]] = No
         t, ch = stage0_rules(s.get("text") or "", mt_style)
         out.append({**s, "text": t})
         all_changes.append(ch)
+    if all_changes_pre is not None:
+        all_changes = [p + a for p, a in zip(all_changes_pre, all_changes)]
     out, auto_ch = auto_tier(out, index)
     all_changes = [a + b for a, b in zip(all_changes, auto_ch)]
     if use_llm and llm_call is not None and index["entries"]:
