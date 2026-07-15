@@ -168,6 +168,23 @@ def build_name_pattern(source: str) -> "re.Pattern":
                       re.IGNORECASE)
 
 
+def _alias_replace(text: str, alias: str, canonical: str) -> Optional[str]:
+    """安全替換：長度閘 (>=3) + Latin 字界。命中回新 text，否則 None。
+
+    CJK 別名靠長度閘（>=3；電流/尾指 2 字已被上游排除，此處係第二道防線）。
+    Latin 別名用 ASCII lookaround，杜絕 ACE ⊂ RACE 中詞誤中。
+    """
+    if not alias or len(alias) < 3:
+        return None
+    if alias.isascii():
+        pat = re.compile(r"(?<![0-9A-Za-z_])" + re.escape(alias) + r"(?![0-9A-Za-z_])")
+        new_text, n = pat.subn(canonical, text)
+        return new_text if n else None
+    if alias in text:
+        return text.replace(alias, canonical)
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Index building
 # ---------------------------------------------------------------------------
@@ -358,8 +375,9 @@ def deterministic_apply(
             # Check for alias replacements first (alias may contain canonical as substring)
             replaced_alias = False
             for alias in aliases:
-                if alias and alias in new_text:
-                    new_text = new_text.replace(alias, t)
+                replaced = _alias_replace(new_text, alias, t)
+                if replaced is not None:
+                    new_text = replaced
                     changes.append({
                         "source": cand["source"],
                         "before": alias,

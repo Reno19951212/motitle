@@ -391,3 +391,35 @@ def test_glossary_stage_changes_carry_lang():
     chs = out[0]["glossary_changes"]
     assert chs and chs[0]["lang"] == "yue"
     assert chs[0]["before"] == "快活谷" and chs[0]["after"] == "跑馬地"
+
+
+import output_lang_glossary as olg
+
+
+def test_deterministic_apply_cjk_alias_length_gate():
+    # 2 字別名唔可以觸發替換（電流 → 殿後 FP 防線）
+    cands = [{"source": "X", "target": "殿後", "side": "target",
+              "aliases": ["電流"], "glossary": "賽馬",
+              "entry_id": "e1", "glossary_id": "g1"}]
+    out, changes = olg.deterministic_apply("呢條電流好強", cands)
+    assert out == "呢條電流好強"
+    assert changes == []
+
+
+def test_deterministic_apply_latin_alias_word_boundary():
+    # Latin 別名唔可以咬入更長英文詞（ACE ⊄ RACE）
+    cands = [{"source": "ACE POWER", "target": "愛司力", "side": "target",
+              "aliases": ["ACE"], "glossary": "賽馬",
+              "entry_id": "e1", "glossary_id": "g1"}]
+    out, changes = olg.deterministic_apply("THE RACE IS ON", cands)
+    assert out == "THE RACE IS ON"
+    assert changes == []
+
+
+def test_deterministic_apply_valid_cjk_alias_still_works():
+    cands = [{"source": "X", "target": "好友心得", "side": "target",
+              "aliases": ["好有心得"], "glossary": "賽馬",
+              "entry_id": "e1", "glossary_id": "g1"}]
+    out, changes = olg.deterministic_apply("好有心得今仗", cands)
+    assert out == "好友心得今仗"
+    assert len(changes) == 1
