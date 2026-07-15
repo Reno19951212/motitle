@@ -253,12 +253,27 @@ def correct_segments_en(segments: List[dict],
                         cancel_check: Optional[Callable] = None,
                         use_llm: bool = True, votes: int = 3
                         ) -> Tuple[List[dict], List[List[dict]]]:
-    """兩層 orchestrator。回 (new_segments, per_seg_changes)，changes 同 segments 等長。
-    en 判定由 caller 負責（呢度唔 gate 語言）。入參唔 mutate。"""
+    """三層（宣告別名 → AUTO → JUDGE）orchestrator。回 (new_segments, per_seg_changes)，
+    changes 同 segments 等長。en 判定由 caller 負責（呢度唔 gate 語言）。入參唔 mutate。"""
+    # 宣告別名前置改寫（確定性，零 LLM）— 用戶明文對應，先於 AUTO。
+    all_changes_pre = None
+    try:
+        import alias_rewrite as ar
+        rules = ar.collect_en_rules(glossaries)
+        if rules:
+            segments, all_changes_pre = ar.apply_latin(
+                segments, rules, cancel_check=cancel_check)
+    except ImportError as _ar_e:
+        print(f"[alias] 跳過宣告別名（模組缺失）: {_ar_e}", flush=True)
+
     entries = build_index(glossaries)
     if not entries:
-        return [dict(s) for s in segments], [[] for _ in segments]
+        base = [dict(s) for s in segments]
+        empty = [[] for _ in segments]
+        return base, (all_changes_pre if all_changes_pre is not None else empty)
     out, all_changes = stage_auto(segments, entries, cancel_check=cancel_check)
+    if all_changes_pre is not None:
+        all_changes = [p + a for p, a in zip(all_changes_pre, all_changes)]
     if use_llm and llm_call is not None:
         out, judge_ch = judge_tier(out, entries, llm_call, votes=votes,
                                    cancel_check=cancel_check)

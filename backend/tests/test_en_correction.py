@@ -178,3 +178,17 @@ def test_judge_duplicate_spans_same_cue_shared_verdict():
     assert out[0]["text"] == "SPEEDY SMARTIE and SPEEDY SMARTIE win"
     assert len(ch[0]) == 2
     assert len(n_calls) == 1
+
+
+# --- 宣告別名前置改寫（Task 6）---
+
+def test_source_variant_rewritten_before_auto():
+    glossaries = [{
+        "source_lang": "en", "target_lang": "zh", "name": "賽馬", "id": "g1",
+        "entries": [{"id": "e1", "source": "MALPENSA", "target": "賢知友您",
+                     "source_variants": ["Malpenza"]}],
+    }]
+    segs = [{"start": 0, "end": 1, "text": "It's Malpenza with a wide draw"}]
+    out, changes = ec.correct_segments_en(segs, glossaries=glossaries, use_llm=False)
+    assert out[0]["text"] == "It's MALPENSA with a wide draw"
+    assert any(c["glossary"] == "宣告別名" for c in changes[0])
