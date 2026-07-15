@@ -5151,6 +5151,25 @@ def glossary_reapply(file_id):
     # ----- Phase 2: slow LLM re-derive (OUTSIDE the lock) --------------------
     content_lang = content_asr_lang(source_language)
     llm_call = _make_ollama_llm_call()
+
+    # 舊檔別名生效：新別名要對 cached base 補跑 base 糾錯層（idempotent）。
+    # base 糾錯（en/phonetic）之前被 reapply 跳過，加咗宣告別名後唔補跑 =
+    # 對舊檔零效果。alias 改寫 idempotent，對已糾錯 base 再行係安全 no-op。
+    if base and content_lang == "yue":
+        try:
+            from phonetic_correction import correct_segments as _pc_correct
+            base, _ = _pc_correct(base, glossaries=glossaries, mt_style=mt_style,
+                                  llm_call=llm_call, use_llm=glossary_llm)
+        except ImportError:
+            pass
+    elif base and content_lang == "en":
+        try:
+            from en_correction import correct_segments_en as _en_correct
+            base, _ = _en_correct(base, glossaries=glossaries,
+                                  llm_call=llm_call, use_llm=glossary_llm)
+        except ImportError:
+            pass
+
     derived = {
         out: derive_aligned_output(
             base, content_lang, out, script, llm_call,
@@ -6007,6 +6026,21 @@ def _rerun_one_cue(file_id, cue, snap, engine, content_lang, llm, glossaries):
         raise RuntimeError(f"rerun ASR returned empty text for pos={pos}")
 
     base_cue = {"start": start, "end": end, "text": new_text}
+    # AI Rerun 亦補跑 base 糾錯（gap A39）：fresh ASR 會重現原聽錯，需再糾正。
+    try:
+        if content_lang == "yue":
+            from phonetic_correction import correct_segments as _pc_correct
+            _fixed, _ = _pc_correct([base_cue], glossaries=glossaries,
+                                    mt_style=snap["mt_style"], llm_call=llm,
+                                    use_llm=snap["glossary_llm"])
+            base_cue = _fixed[0]
+        elif content_lang == "en":
+            from en_correction import correct_segments_en as _en_correct
+            _fixed, _ = _en_correct([base_cue], glossaries=glossaries,
+                                    llm_call=llm, use_llm=snap["glossary_llm"])
+            base_cue = _fixed[0]
+    except ImportError:
+        pass
     derived = {
         o: derive_aligned_output([base_cue], content_lang, o, snap["script"], llm,
                                  style=snap["mt_style"], glossaries=glossaries,

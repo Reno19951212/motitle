@@ -283,3 +283,27 @@ def test_other_ops_409_while_rerun_active(client, tmp_path, monkeypatch):
     finally:
         with appmod._rerun_jobs_lock:
             appmod._rerun_jobs.pop("lk-test", None)
+
+
+# ---------- recorrect base (glossary-reapply / AI Rerun 補跑 base 糾錯) ----------
+
+def test_recorrect_base_applies_new_alias_yue():
+    """cached base + 新宣告別名 → 補跑 correct_segments 會套用且 idempotent。
+
+    呢個係 glossary-reapply / _rerun_one_cue 兩條 re-derive 路徑補跑 base 糾錯
+    所倚賴嘅 helper 契約（確定性，零 LLM）。
+    """
+    import phonetic_correction as pc
+    glossaries = [{
+        "source_lang": "en", "target_lang": "zh", "name": "賽馬", "id": "g1",
+        "entries": [{"id": "e1", "source": "X", "target": "好友心得",
+                     "target_aliases": ["好有心得"]}],
+    }]
+    cached_base = [{"start": 0, "end": 1, "text": "好有心得今仗"}]
+    out, _ = pc.correct_segments(cached_base, glossaries=glossaries,
+                                 mt_style="racing", use_llm=False)
+    assert out[0]["text"] == "好友心得今仗"
+    # idempotent：再行一次唔變
+    out2, _ = pc.correct_segments(out, glossaries=glossaries,
+                                  mt_style="racing", use_llm=False)
+    assert out2[0]["text"] == "好友心得今仗"
