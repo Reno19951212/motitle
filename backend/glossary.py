@@ -111,6 +111,11 @@ def _normalize_entry(entry):
             _strip_wrapping_quotes(a) if isinstance(a, str) else a
             for a in out["target_aliases"]
         ]
+    if isinstance(out.get("source_variants"), list):
+        out["source_variants"] = [
+            _strip_wrapping_quotes(a) if isinstance(a, str) else a
+            for a in out["source_variants"]
+        ]
     return out
 
 
@@ -221,6 +226,10 @@ class GlossaryManager:
 
         if errors:
             return errors  # don't run downstream checks on missing fields
+
+        sv = entry.get("source_variants")
+        if sv is not None and not isinstance(sv, list):
+            errors.append("source_variants must be a list of strings")
 
         # Self-translation reject — only when both langs are the same.
         if same_lang:
@@ -517,11 +526,13 @@ class GlossaryManager:
 
     def import_csv(self, glossary_id: str, csv_content: str) -> tuple:
         """
-        Import entries from CSV. Header must be either:
+        Import entries from CSV. Header must be one of:
             source,target
             source,target,target_aliases
+            source,target,target_aliases,source_variants
 
-        Aliases use `;` as separator within a single cell. Per-row
+        Aliases and source_variants use `;` as separator within a single
+        cell. Per-row
         validation failures are silently skipped. Returns
         (updated_glossary, added_count).
 
@@ -549,14 +560,15 @@ class GlossaryManager:
 
             header_stripped = [h.strip().lower() for h in header]
             if header_stripped == ["source", "target"]:
-                has_aliases_col = False
+                has_aliases_col, has_variants_col = False, False
             elif header_stripped == ["source", "target", "target_aliases"]:
-                has_aliases_col = True
+                has_aliases_col, has_variants_col = True, False
+            elif header_stripped == ["source", "target", "target_aliases", "source_variants"]:
+                has_aliases_col, has_variants_col = True, True
             else:
                 raise ValueError(
-                    "CSV must use columns: source, target, target_aliases "
-                    f"(got: {', '.join(header)}). "
-                    "Update the header row and re-import."
+                    "CSV must use columns: source, target, target_aliases, source_variants "
+                    f"(got: {', '.join(header)}). Update the header row and re-import."
                 )
 
             added = 0
@@ -568,10 +580,14 @@ class GlossaryManager:
                 target = (row[1] if len(row) > 1 else "").strip()
                 aliases_raw = (row[2] if has_aliases_col and len(row) > 2 else "").strip()
                 aliases = [a.strip() for a in aliases_raw.split(";") if a.strip()] if aliases_raw else []
+                variants_raw = (row[3] if has_variants_col and len(row) > 3 else "").strip()
+                variants = [a.strip() for a in variants_raw.split(";") if a.strip()] if variants_raw else []
 
                 entry = {"source": source, "target": target}
                 if aliases:
                     entry["target_aliases"] = aliases
+                if variants:
+                    entry["source_variants"] = variants
 
                 normalized = _normalize_entry(entry)
                 errors = self.validate_entry(normalized, same_lang=same_lang)
@@ -589,8 +605,10 @@ class GlossaryManager:
 
     def export_csv(self, glossary_id: str) -> Optional[str]:
         """
-        Export entries to 3-column CSV: source,target,target_aliases.
-        Aliases are joined with `;`. Returns None if glossary not found.
+        Export entries to 4-column CSV:
+        source,target,target_aliases,source_variants.
+        Aliases and source_variants are joined with `;`. Returns None if
+        glossary not found.
         """
         glossary = self.get(glossary_id)
         if glossary is None:
@@ -598,13 +616,15 @@ class GlossaryManager:
 
         buf = io.StringIO()
         writer = csv.writer(buf)
-        writer.writerow(["source", "target", "target_aliases"])
+        writer.writerow(["source", "target", "target_aliases", "source_variants"])
         for entry in glossary.get("entries") or []:
             source = entry.get("source", "")
             target = entry.get("target", "")
             aliases = entry.get("target_aliases") or []
-            aliases_str = ";".join(a for a in aliases if isinstance(a, str))
-            writer.writerow([source, target, aliases_str])
+            variants = entry.get("source_variants") or []
+            writer.writerow([source, target,
+                             ";".join(a for a in aliases if isinstance(a, str)),
+                             ";".join(v for v in variants if isinstance(v, str))])
         return buf.getvalue()
 
     # ------------------------------------------------------------------

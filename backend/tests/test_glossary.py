@@ -470,3 +470,62 @@ def test_validate_entry_rejects_source_without_letters(glossary_dir):
     assert any("source" in e for e in errors), f"Expected source error, got: {errors}"
     errors = mgr.validate_entry({"source": "!!!", "target": "驚嘆"})
     assert any("source" in e for e in errors), f"Expected source error, got: {errors}"
+
+
+# ----------------------------------------------------------------------
+# source_variants (declared near-sound aliases) — validate + normalize +
+# CSV 4-column with 2/3-col backward compatibility (Task 5).
+# NOTE: plan tests used a `gm` fixture; this file's idiom is a `glossary_dir`
+# fixture with a locally-constructed GlossaryManager, so the tests below are
+# aligned to that (see deviations).
+# ----------------------------------------------------------------------
+
+def test_source_variants_persisted_and_normalized(glossary_dir):
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    g = mgr.create({"name": "t", "source_lang": "en", "target_lang": "zh"})
+    updated = mgr.add_entry(g["id"], {
+        "source": "SPEEDY SMARTIE", "target": "伶俐驫駒",
+        "source_variants": ['"Speedy Smarty"', "Speedy Smart"],
+    })
+    e = updated["entries"][-1]
+    assert e["source_variants"] == ["Speedy Smarty", "Speedy Smart"]  # quote 已 strip
+
+
+def test_validate_entry_source_variants_must_be_list(glossary_dir):
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    errs = mgr.validate_entry({"source": "X", "target": "Y", "source_variants": "oops"})
+    assert any("source_variants" in e for e in errs)
+
+
+def test_csv_import_four_columns(glossary_dir):
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    g = mgr.create({"name": "t", "source_lang": "en", "target_lang": "zh"})
+    csv_text = ("source,target,target_aliases,source_variants\n"
+                "SPEEDY SMARTIE,伶俐驫駒,伶俐飄駒,Speedy Smarty;Speedy Smart\n")
+    updated, added = mgr.import_csv(g["id"], csv_text)
+    assert added == 1
+    e = updated["entries"][-1]
+    assert e["source_variants"] == ["Speedy Smarty", "Speedy Smart"]
+    assert e["target_aliases"] == ["伶俐飄駒"]
+
+
+def test_csv_export_four_columns_roundtrip(glossary_dir):
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    g = mgr.create({"name": "t", "source_lang": "en", "target_lang": "zh"})
+    mgr.add_entry(g["id"], {"source": "A", "target": "甲",
+                            "source_variants": ["Ay", "Aye"]})
+    out = mgr.export_csv(g["id"])
+    assert out.splitlines()[0] == "source,target,target_aliases,source_variants"
+    assert "Ay;Aye" in out
+
+
+def test_csv_import_legacy_two_col_still_accepted(glossary_dir):
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    g = mgr.create({"name": "t", "source_lang": "en", "target_lang": "zh"})
+    _, added = mgr.import_csv(g["id"], "source,target\nA,甲\n")
+    assert added == 1
