@@ -197,6 +197,7 @@
 | Profile 系統 | 儲存/載入 ASR + 翻譯 + 字體配置組合 | ✅ |
 | 語言參數 | 每語言獨立 ASR/翻譯參數 | ✅ |
 | 術語表 | 英中對照 + CSV 匯入/匯出 | ✅ |
+| **術語表宣告別名（近音別名）** | 詞條可宣告「聽錯樣 → 正名」（`source_variants` / `target_aliases` / lexicon `variants`），零 LLM 確定性改寫 base；三重閘（中文 ≥3 字 / Latin 字界 / 內容語言）；CSV 4 欄；舊檔重新生成／AI Rerun 補跑生效 | ✅ 完成（2026-07-15；Frontend UI = Plan B 待接） |
 | 字體配置 | 字體族、大小、顏色、描邊、位置 | ✅ |
 
 ### 3.5 引擎選擇互動流程

@@ -429,6 +429,15 @@ Full chronological feature/version history → [docs/history.md](docs/history.md
 
 This section summarises the CURRENT behaviour a developer needs; older entries live in history.md.
 
+### 術語表宣告別名（近音別名確定性改寫, NEW 2026-07-15）
+
+- **新 pure module `backend/alias_rewrite.py`**（零 LLM、immutable）：把三個來源嘅「別名 → 正名」宣告（glossary `source_variants`／glossary `target_aliases`／lexicon `variants`）做 fold-exact、longest-first、非重疊改寫。三重閘：中文別名 ≥3 字（電流/尾指/標誌/段處 2 字 FP 防線）、Latin ASCII 字界（ACE⊄RACE）、內容語言 gate。
+- **「宣告」有別於「猜測」**：用戶明文對應 → 確定性執行、零 candidate、零 AI；亦係 `_COMMON` deny-list 逃生門。掛喺 `en_correction`（AUTO 之前，讀 source_variants）+ `phonetic_correction`（stage0 之前，讀 target_aliases + lexicon variants）base 糾錯層最前，一次改 base → 全輸出軌繼承。記錄 tag 「宣告別名」。
+- **修 live bug（HIGH）**：`output_lang_glossary.deterministic_apply` 裸 `str.replace(alias)` 補字界 + 長度閘（今日冇爆只因全 1,375 條詞條零別名）。
+- **舊檔生效**：`glossary-reapply` + AI Rerun 補跑 base 糾錯（idempotent），新別名對已處理檔真正生效。
+- **CSV 4 欄**：`source,target,target_aliases,source_variants`（向後兼容 2/3 欄）。`racing_terms.json` 升級雙 shape loader。
+- 驗證：發音編碼索引 REJECT（candidate 爆 67-84×、200 上限靜默截走 99%）；宣告機制 gating GATE1-3 PASS（[tracker](docs/superpowers/specs/2026-07-14-glossary-alias-validation-tracker.md)、[design](docs/superpowers/specs/2026-07-14-glossary-fuzzy-alias-design.md)）。**Frontend UI + 校對頁一鍵回饋 = Plan B（待接）。**
+
 ### Upload progress badge (dashboard, NEW 2026-06-12)
 
 - 上傳影片期間，檔案卡 badge 實時顯示「上傳中 N%」（XHR `upload.onprogress`，fetch 已換走）→ bytes 送晒後「處理緊…」（server file.save/註冊/入隊空窗）→ 202 後接返現有「排隊中/轉錄中」。`lengthComputable=false` 時顯示「上傳中…」無 %。
