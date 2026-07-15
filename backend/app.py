@@ -5238,6 +5238,67 @@ def glossary_reapply(file_id):
     }), 200
 
 
+_SUSPECT_CAP = 40   # 每軌上限（超出 print + 截斷，唔靜默）
+
+
+def _suspects_for_track(lang, texts, starts, glossaries, content_lang, mt_style):
+    """確定性疑似聽錯 candidate（零 LLM）。en track（content en）用 judge_candidates，
+    yue/zh/cmn track（content yue）用 phonetic match_segments。回 suspect item list。"""
+    from output_lang_glossary import strip_horse_id
+    out = []
+    segs = [{"start": 0, "end": 1, "text": t or ""} for t in texts]
+
+    if lang == "en" and content_lang == "en":
+        from en_correction import build_index as _en_build, judge_candidates
+        cands = judge_candidates(segs, _en_build(glossaries))
+        for c in cands:
+            i = c["idx"]
+            out.append({"idx": i, "start": starts[i] if i < len(starts) else None,
+                        "kind": "suspect", "span": c["span"], "canonical": c["source"],
+                        "glossary": c.get("glossary", ""), "glossary_id": c.get("glossary_id"),
+                        "entry_id": c.get("entry_id"), "side": "source",
+                        "source_index": "glossary", "style": mt_style})
+    elif lang in ("yue", "zh", "cmn") and content_lang == "yue":
+        from phonetic_correction import (build_index as _pc_build, match_segments,
+                                         load_lexicon)
+        index = _pc_build(glossaries, load_lexicon(mt_style))
+        cands, _ = match_segments(segs, index)
+        # canonical → (entry_id, glossary_id, glossary_name) 反查（glossary source_index）
+        by_target = {}
+        for g in glossaries:
+            for e in g.get("entries", []):
+                key = strip_horse_id(e.get("target") or "")
+                if key and key not in by_target:
+                    by_target[key] = (e.get("id"), g.get("id"), g.get("name", ""))
+        for c in cands:
+            i = c["seg_idx"]
+            canonical = c["glossary_name"]
+            si = c.get("source_index", "glossary")
+            if si == "supplement":
+                side, eid, gid, gname = "lexicon", None, None, ""
+            else:
+                eid, gid, gname = by_target.get(canonical, (None, None, ""))
+                side = "target"
+            out.append({"idx": i, "start": starts[i] if i < len(starts) else None,
+                        "kind": "suspect", "span": c["span"], "canonical": canonical,
+                        "glossary": gname, "glossary_id": gid, "entry_id": eid,
+                        "side": side, "source_index": si, "style": mt_style})
+
+    # dedupe by (idx, span, canonical) + cap
+    seen, deduped = set(), []
+    for s in out:
+        k = (s["idx"], s["span"], s["canonical"])
+        if k in seen:
+            continue
+        seen.add(k)
+        deduped.append(s)
+    if len(deduped) > _SUSPECT_CAP:
+        print(f"[glossary-preview] {lang} suspects {len(deduped)} 超上限 {_SUSPECT_CAP}，截斷",
+              flush=True)
+        deduped = deduped[:_SUSPECT_CAP]
+    return deduped
+
+
 @app.route('/api/files/<file_id>/glossary-preview', methods=['POST'])
 @require_file_owner
 def api_glossary_preview(file_id):
@@ -5270,6 +5331,7 @@ def api_glossary_preview(file_id):
         content_segs = list(entry.get("content_asr_segments") or [])
         output_langs = list(entry.get("output_languages") or [])
         source_language = entry.get("source_language") or "yue"
+        mt_style = entry.get("mt_style") or "generic"
         if "glossary_ids" in data and data["glossary_ids"] is not None:
             glossary_ids = list(data["glossary_ids"])
         else:
@@ -5304,11 +5366,20 @@ def api_glossary_preview(file_id):
         for it in trk["items"]:
             i = it["idx"]
             it["start"] = rows[i].get("start") if i < len(rows) else None
+        # 疑似聽錯（確定性，零 LLM）— add-only kind:'suspect'。
+        existing = {(it["idx"], it.get("alias") or it.get("canonical"))
+                    for it in trk["items"]}
+        for s in _suspects_for_track(lang, texts, [r.get("start") for r in rows],
+                                     glossaries, content_lang, mt_style):
+            if (s["idx"], s["span"]) in existing:
+                continue
+            trk["items"].append(s)
         tracks.append(trk)
 
     totals = {
         "fix": sum(1 for t in tracks for i in t["items"] if i["kind"] == "fix"),
         "ok": sum(1 for t in tracks for i in t["items"] if i["kind"] == "ok"),
+        "suspect": sum(1 for t in tracks for i in t["items"] if i["kind"] == "suspect"),
         "rows": len(rows),
     }
     return jsonify({"tracks": tracks, "totals": totals})
