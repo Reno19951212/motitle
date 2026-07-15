@@ -17,7 +17,7 @@
   let turnSeq = 0;            // stale-response identity guard
   let sending = false;
   let boundFileId = null;     // 對話綁定嘅檔案；轉檔 → divider + 舊卡作廢
-  let lastTurnSummary = '';   // 機械生成 ≤300 字，下 turn 帶去 /parse
+  let turnSummaries = [];     // rolling 記憶，最新喺前，最多 3 個（每個 ≤120 字原始摘要，未加「上一輪：」等 label）
   let turns = [];             // [{who:'user'|'ai'|'sys', text, card?}] card 見 Task 10
 
   const CSS = `
@@ -30,9 +30,11 @@
     border-bottom:1px solid var(--border, #26263a); cursor:grab; user-select:none; }
   .ac-head .t { font-weight:700; font-size:13.5px; }
   .ac-head .drag { color:var(--text-dim, #4a4a62); font-size:13px; letter-spacing:2px; }
-  .ac-head .x { margin-left:auto; color:var(--text-mid, #8a8aa0); border:1px solid var(--border, #30304a);
+  .ac-head .x { color:var(--text-mid, #8a8aa0); border:1px solid var(--border, #30304a);
     border-radius:6px; width:24px; height:24px; display:grid; place-items:center; cursor:pointer;
     background:none; font-size:12px; }
+  .ac-head .nw { margin-left:auto; }
+  .ac-head .x:not(.nw) { margin-left:6px; }
   .ac-head .x:hover { color:#fff; border-color:var(--accent, #6c63ff); }
   .ac-list { overflow-y:auto; flex:1; min-height:120px; padding:12px 14px;
     display:flex; flex-direction:column; gap:10px; }
@@ -109,6 +111,7 @@
     el.innerHTML = `
       <div class="ac-head" id="acHead">
         <span class="t">✦ AI 助手</span><span class="drag">⠿</span>
+        <button class="x nw" id="acNew" title="新對話" aria-label="新對話">＋</button>
         <button class="x" id="acClose" aria-label="關閉">✕</button>
       </div>
       <div class="ac-list" id="acList"></div>
@@ -121,6 +124,7 @@
     document.body.appendChild(el);
 
     document.getElementById('acClose').addEventListener('click', close);
+    document.getElementById('acNew').addEventListener('click', newChat);
     document.getElementById('acSend').addEventListener('click', send);
     document.getElementById('acInput').addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); }
@@ -128,7 +132,7 @@
 
     const head = document.getElementById('acHead');
     head.addEventListener('mousedown', (e) => {
-      if (e.target.closest('#acClose')) return;
+      if (e.target.closest('.ac-head .x')) return;   // 掣（新對話／關閉）唔拖窗
       const r = el.getBoundingClientRect();
       drag = { dx: e.clientX - r.left, dy: e.clientY - r.top };
       e.preventDefault();
@@ -160,6 +164,17 @@
   }
 
   function pushTurn(t) { turns.push(t); renderList(); }
+
+  function newChat() {
+    // 新對話：清空對話 + 記憶，bump turnSeq 令任何未回應嘅舊 turn 作廢；boundFileId 唔郁（仍然係同一檔案）
+    turns = [];
+    turnSummaries = [];
+    turnSeq++;
+    renderList();
+    pushTurn({ who: 'sys', text: '— 新對話 —' });
+    const input = document.getElementById('acInput');
+    if (input) input.focus();
+  }
 
   function renderList() {
     const list = document.getElementById('acList');
@@ -202,7 +217,7 @@
     if (fid !== boundFileId) {
       boundFileId = fid;
       pushTurn({ who: 'sys', text: '— 已綁定目前檔案 —' });
-      lastTurnSummary = '';
+      turnSummaries = [];
     }
     sending = true;
     const myTurn = ++turnSeq;
@@ -212,7 +227,7 @@
     pushTurn(thinkT);
     document.getElementById('acSend').disabled = true;
     try {
-      const body = { message: msg, last_turn_summary: lastTurnSummary };
+      const body = { message: msg, last_turn_summary: composeMemory() };
       const cur = p.cursorSegNo();
       if (cur) body.cursor_seg_no = cur;
       const r = await fetch(`${api()}/api/files/${fid}/ai-chat/parse`, {
@@ -262,12 +277,13 @@
           ? '呢樣嘢我幫唔到手 — 我淨係可以修改字幕文字（批量取代／指定段落改寫）。'
           : '呢樣嘢我幫唔到手 — 我淨係可以修改字幕文字。逐段檢視可以去校對頁。' });
       }
-      lastTurnSummary = '';
+      turnSummaries = [];
       return;
     }
     if (!data.proposal || !data.proposal.items.length) {
       pushTurn({ who: 'ai', text: '搵唔到符合嘅段落 — 可能啲字幕入面冇呢個字詞。' });
-      lastTurnSummary = mkSummary(editOps, 0, '未套用');
+      turnSummaries.unshift(mkSummary(editOps, 0, '未套用'));
+      turnSummaries = turnSummaries.slice(0, 3);
       return;
     }
     const card = {
@@ -279,17 +295,26 @@
     };
     card.items.forEach((it, i) => card.checks.set(i, !it.approved));  // 已批核預設唔剔
     pushTurn({ who: 'ai', card });
-    lastTurnSummary = mkSummary(editOps, card.items.length, '未套用');
+    turnSummaries.unshift(mkSummary(editOps, card.items.length, '未套用'));
+    turnSummaries = turnSummaries.slice(0, 3);
     if (typeof genSuggestions === 'function') genSuggestions(card);   // Task 11
   }
 
   function mkSummary(ops, n, state) {
+    // 原始摘要（未加「上一輪：」等 recency label — composeMemory() 先加）
     if (!ops.length) return '';
     const o = ops[0];
     const s = o.op === 'replace_term'
       ? `把「${o.from}」改成「${o.to}」，命中 ${n} 段`
       : `改寫第 ${o.seg_no} 段（${o.lang_role === 'second' ? '第二' : '第一'}語言）`;
-    return `上一輪：${s}，${state}`.slice(0, 300);
+    return `${s}，${state}`.slice(0, 120);
+  }
+
+  function composeMemory() {
+    // validated safe format（2026-07-14 addendum）：key 唔可以改（「上一輪」）；
+    // 深度由 value 內嘅 recency label 表達，一律前端組、server 只做整條 clamp ≤300 字。
+    const labels = ['上一輪：', '前一輪：', '再前一輪：'];
+    return turnSummaries.slice(0, 3).map((s, i) => labels[i] + s).join('；').slice(0, 300);
   }
 
   function cardStale(card) {
@@ -484,7 +509,8 @@
             nFail = (data.failed || []).length;
       toast(`已套用 ${nOk} 項${nSkip ? `，略過 ${nSkip} 項` : ''}${nFail ? `，${nFail} 項失敗` : ''}`,
             nFail ? 'warning' : 'success');
-      lastTurnSummary = mkSummary(card.ops, card.items.length, `已套用 ${nOk} 項`);
+      turnSummaries.unshift(mkSummary(card.ops, card.items.length, `已套用 ${nOk} 項`));
+      turnSummaries = turnSummaries.slice(0, 3);
       try { await p.refresh(); } catch (e) { toast('列表刷新失敗，請手動重新整理', 'warning'); }
     } catch (e) {
       todo.forEach(({ i }) => { if (card.applied.get(i) &&
