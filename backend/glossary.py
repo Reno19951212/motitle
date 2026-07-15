@@ -501,6 +501,66 @@ class GlossaryManager:
             self._write_glossary(glossary_id, updated)
             return updated
 
+    def add_entry_field_value(
+        self, glossary_id: str, entry_id: str, field: str, value: str
+    ) -> Optional[int]:
+        """Atomically append `value` to a list-valued entry field.
+
+        `field` must be ``"source_variants"`` or ``"target_aliases"``. The
+        read → dedupe → append → validate → write all happen inside ONE
+        ``_get_gm_lock`` critical section, so two concurrent appends to the
+        SAME entry can never clobber each other. (A read-outside-the-lock +
+        ``update_entry`` full-field replace loses one of the two values,
+        because ``update_entry`` replaces the whole field with a snapshot
+        taken before the peer's write.)
+
+        `value` is quote-normalised the same way ``update_entry`` normalises
+        list items.
+
+        Returns the new length of the field list on success (unchanged when
+        `value` is already present — idempotent), or ``None`` when the
+        glossary or entry is not found. Raises ValueError if `field` is
+        unsupported or the merged entry fails validation.
+        """
+        if field not in ("source_variants", "target_aliases"):
+            raise ValueError(f"unsupported field: {field}")
+        if isinstance(value, str):
+            value = _strip_wrapping_quotes(value)
+        with _get_gm_lock(glossary_id):
+            glossary = self.get(glossary_id)
+            if glossary is None:
+                return None
+
+            existing_entry = next(
+                (e for e in glossary["entries"] if e.get("id") == entry_id), None
+            )
+            if existing_entry is None:
+                return None
+
+            current = existing_entry.get(field) or []
+            if not isinstance(current, list):
+                current = [current]
+            if value in current:
+                return len(current)  # idempotent — no write
+
+            new_list = [*current, value]
+            merged_entry = {**existing_entry, field: new_list, "id": entry_id}
+            same_lang = (
+                glossary.get("source_lang") == glossary.get("target_lang")
+                and is_supported_lang(glossary.get("source_lang"))
+            )
+            errors = self.validate_entry(merged_entry, same_lang=same_lang)
+            if errors:
+                raise ValueError(f"Invalid entry: {errors}")
+
+            new_entries = [
+                merged_entry if e.get("id") == entry_id else e
+                for e in glossary["entries"]
+            ]
+            updated = {**glossary, "entries": new_entries}
+            self._write_glossary(glossary_id, updated)
+            return len(new_list)
+
     def delete_entry(self, glossary_id: str, entry_id: str) -> Optional[dict]:
         """
         Remove a single entry from a glossary.

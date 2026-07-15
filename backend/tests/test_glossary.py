@@ -529,3 +529,90 @@ def test_csv_import_legacy_two_col_still_accepted(glossary_dir):
     g = mgr.create({"name": "t", "source_lang": "en", "target_lang": "zh"})
     _, added = mgr.import_csv(g["id"], "source,target\nA,甲\n")
     assert added == 1
+
+
+# ---------------------------------------------------------------------------
+# add_entry_field_value — atomic append (fixes the add-alias non-atomic RMW)
+# ---------------------------------------------------------------------------
+
+def test_add_entry_field_value_appends_and_dedupes(glossary_dir):
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    g = mgr.create({"name": "t", "source_lang": "en", "target_lang": "zh"})
+    upd = mgr.add_entry(g["id"], {"source": "SPEEDY", "target": "伶俐"})
+    eid = upd["entries"][-1]["id"]
+    assert mgr.add_entry_field_value(g["id"], eid, "source_variants", "Speedy") == 1
+    # duplicate → idempotent, count unchanged, list stays single
+    assert mgr.add_entry_field_value(g["id"], eid, "source_variants", "Speedy") == 1
+    assert mgr.add_entry_field_value(g["id"], eid, "source_variants", "Speedie") == 2
+    e = mgr.get(g["id"])["entries"][0]
+    assert e["source_variants"] == ["Speedy", "Speedie"]
+
+
+def test_add_entry_field_value_target_aliases(glossary_dir):
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    g = mgr.create({"name": "t", "source_lang": "en", "target_lang": "zh"})
+    upd = mgr.add_entry(g["id"], {"source": "A", "target": "甲"})
+    eid = upd["entries"][-1]["id"]
+    assert mgr.add_entry_field_value(g["id"], eid, "target_aliases", "甲乙") == 1
+    e = mgr.get(g["id"])["entries"][0]
+    assert e["target_aliases"] == ["甲乙"]
+
+
+def test_add_entry_field_value_not_found(glossary_dir):
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    g = mgr.create({"name": "t", "source_lang": "en", "target_lang": "zh"})
+    mgr.add_entry(g["id"], {"source": "A", "target": "甲"})
+    assert mgr.add_entry_field_value(g["id"], "no-such-entry",
+                                     "source_variants", "x") is None
+    assert mgr.add_entry_field_value("no-such-glossary", "e",
+                                     "source_variants", "x") is None
+
+
+def test_add_entry_field_value_rejects_unsupported_field(glossary_dir):
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    g = mgr.create({"name": "t", "source_lang": "en", "target_lang": "zh"})
+    upd = mgr.add_entry(g["id"], {"source": "A", "target": "甲"})
+    eid = upd["entries"][-1]["id"]
+    with pytest.raises(ValueError):
+        mgr.add_entry_field_value(g["id"], eid, "bogus_field", "x")
+
+
+def test_add_entry_field_value_concurrent_appends_no_loss(glossary_dir):
+    """Two+ concurrent appends to the SAME entry field must all survive.
+
+    This is the exact bug being fixed: the add-alias endpoint used to do a
+    read-outside-the-lock + update_entry full-field replace, so racing
+    appends clobbered each other and lost aliases. The atomic method must
+    keep every value.
+    """
+    import threading
+    from glossary import GlossaryManager
+    mgr = GlossaryManager(glossary_dir)
+    g = mgr.create({"name": "t", "source_lang": "en", "target_lang": "zh"})
+    upd = mgr.add_entry(g["id"], {"source": "A", "target": "甲"})
+    eid = upd["entries"][-1]["id"]
+    gid = g["id"]
+    n = 24
+    barrier = threading.Barrier(n)
+    errors: list = []
+
+    def worker(i):
+        try:
+            barrier.wait()
+            mgr.add_entry_field_value(gid, eid, "source_variants", f"v{i}")
+        except Exception as exc:  # pragma: no cover - failure surfaces below
+            errors.append(exc)
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(n)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert not errors, errors
+    final = mgr.get(gid)["entries"][0]["source_variants"]
+    assert sorted(final) == sorted(f"v{i}" for i in range(n))

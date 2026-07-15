@@ -5589,18 +5589,19 @@ def api_glossary_add_alias(file_id):
         return jsonify({"error": "搵唔到對應詞條"}), 404
 
     field = "source_variants" if kind == "source" else "target_aliases"
-    existing = entry.get(field) or []
-    if not isinstance(existing, list):
-        existing = [existing]
-    if variant in existing:
-        return jsonify({"ok": True, "kind": kind, "field": field,
-                        "count": len(existing)})   # 已存在 → idempotent
-    new_list = list(existing) + [variant]
+    # Atomic read → dedupe → append → write under the per-id glossary lock.
+    # `entry` above is resolved (by entry_id or canonical reverse-lookup)
+    # only to pick the target entry_id; the field mutation itself MUST happen
+    # inside the lock, otherwise two concurrent add-alias calls to the same
+    # entry each snapshot the old list and one alias is silently lost.
     try:
-        _glossary_manager.update_entry(gid, entry["id"], {field: new_list})
+        count = _glossary_manager.add_entry_field_value(
+            gid, entry["id"], field, variant)
     except ValueError as e:
         return jsonify({"error": str(e)}), 422
-    return jsonify({"ok": True, "kind": kind, "field": field, "count": len(new_list)})
+    if count is None:
+        return jsonify({"error": "搵唔到對應詞條"}), 404
+    return jsonify({"ok": True, "kind": kind, "field": field, "count": count})
 
 
 @app.route('/api/transcribe/sync', methods=['POST'])

@@ -2,6 +2,27 @@
 import os, sys, json, pathlib
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _isolate_lexicon(tmp_path, monkeypatch):
+    """Isolate lexicon_manager.LEXICON_DIR to a tmp dir seeded with a
+    racing_terms.json fixture, so these route tests never mutate the tracked
+    config/phonetic_lexicons/racing_terms.json (mirrors
+    test_glossary_add_alias.py::test_add_lexicon_variant). set_lexicon
+    re-serialises and would otherwise silently reformat/truncate the real
+    file even with a best-effort PUT-restore."""
+    import lexicon_manager
+    d = tmp_path / "lex"
+    d.mkdir()
+    (d / "racing_terms.json").write_text(
+        json.dumps({"style": "racing", "comment": "test fixture",
+                    "terms": ["內欄位置", {"term": "殿後", "variants": ["電流位"]}]},
+                   ensure_ascii=False),
+        encoding="utf-8")
+    monkeypatch.setattr(lexicon_manager, "LEXICON_DIR", pathlib.Path(d))
+
 
 def test_get_lexicon(client):
     r = client.get("/api/lexicons/racing")
