@@ -17,7 +17,8 @@
   let turnSeq = 0;            // stale-response identity guard
   let sending = false;
   let boundFileId = null;     // 對話綁定嘅檔案；轉檔 → divider + 舊卡作廢
-  let turnSummaries = [];     // rolling 記憶，最新喺前，最多 3 個（每個 ≤120 字原始摘要，未加「上一輪：」等 label）
+  let turnSummaries = [];     // rolling 記憶，最新喺前，最多 3 個；每個係 {s: <原始摘要 ≤160 字，未加「上一輪：」等 label>}
+                               // — mutable ref object，propose→apply 更新同一格（唔會多計一個記憶槽）
   let turns = [];             // [{who:'user'|'ai'|'sys', text, card?}] card 見 Task 10
 
   const CSS = `
@@ -282,7 +283,7 @@
     }
     if (!data.proposal || !data.proposal.items.length) {
       pushTurn({ who: 'ai', text: '搵唔到符合嘅段落 — 可能啲字幕入面冇呢個字詞。' });
-      turnSummaries.unshift(mkSummary(editOps, 0, '未套用'));
+      turnSummaries.unshift({ s: mkSummary(editOps, 0, '未套用') });
       turnSummaries = turnSummaries.slice(0, 3);
       return;
     }
@@ -295,7 +296,11 @@
     };
     card.items.forEach((it, i) => card.checks.set(i, !it.approved));  // 已批核預設唔剔
     pushTurn({ who: 'ai', card });
-    turnSummaries.unshift(mkSummary(editOps, card.items.length, '未套用'));
+    // memRef：propose 摘要嘅 mutable ref，apply 成功後喺同一格 in-place 更新
+    // （唔好加返一個新槽 — 否則同一個指令喺記憶入面食兩格，見 Task review Fix 1）
+    const memRef = { s: mkSummary(editOps, card.items.length, '未套用') };
+    card.memRef = memRef;
+    turnSummaries.unshift(memRef);
     turnSummaries = turnSummaries.slice(0, 3);
     if (typeof genSuggestions === 'function') genSuggestions(card);   // Task 11
   }
@@ -307,14 +312,14 @@
     const s = o.op === 'replace_term'
       ? `把「${o.from}」改成「${o.to}」，命中 ${n} 段`
       : `改寫第 ${o.seg_no} 段（${o.lang_role === 'second' ? '第二' : '第一'}語言）`;
-    return `${s}，${state}`.slice(0, 120);
+    return `${s}，${state}`.slice(0, 160);
   }
 
   function composeMemory() {
     // validated safe format（2026-07-14 addendum）：key 唔可以改（「上一輪」）；
     // 深度由 value 內嘅 recency label 表達，一律前端組、server 只做整條 clamp ≤300 字。
     const labels = ['上一輪：', '前一輪：', '再前一輪：'];
-    return turnSummaries.slice(0, 3).map((s, i) => labels[i] + s).join('；').slice(0, 300);
+    return turnSummaries.slice(0, 3).map((r, i) => labels[i] + r.s).join('；').slice(0, 300);
   }
 
   function cardStale(card) {
@@ -509,8 +514,17 @@
             nFail = (data.failed || []).length;
       toast(`已套用 ${nOk} 項${nSkip ? `，略過 ${nSkip} 項` : ''}${nFail ? `，${nFail} 項失敗` : ''}`,
             nFail ? 'warning' : 'success');
-      turnSummaries.unshift(mkSummary(card.ops, card.items.length, `已套用 ${nOk} 項`));
-      turnSummaries = turnSummaries.slice(0, 3);
+      // in-place 更新 propose 嗰陣起嘅同一格記憶（唔好 unshift 新槽 — 否則
+      // 同一個指令「未套用」+「已套用」食兩格記憶，見 Task review Fix 1）。
+      // 如果個 ref 已經被later嘅指令擠出咗 turnSummaries（array 只留 3 個），
+      // 淨係 mutate ref 本身係無害嘅 — 唔會重新插番落 array。
+      const summaryText = mkSummary(card.ops, card.items.length, `已套用 ${nOk} 項`);
+      if (card.memRef) {
+        card.memRef.s = summaryText;
+      } else {
+        turnSummaries.unshift({ s: summaryText });
+        turnSummaries = turnSummaries.slice(0, 3);
+      }
       try { await p.refresh(); } catch (e) { toast('列表刷新失敗，請手動重新整理', 'warning'); }
     } catch (e) {
       todo.forEach(({ i }) => { if (card.applied.get(i) &&
