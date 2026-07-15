@@ -90,6 +90,12 @@ def build_parse_system_prompt(lang_lines: str) -> str:
 
 
 def build_parse_user_prompt(message: str, file_meta: dict, last_turn_summary: str = "") -> str:
+    """last_turn_summary：前端組好嘅 rolling 摘要 string（最多 3 輪，新→舊）—
+    「上一輪：<最新>；前一輪：<較早>；再前一輪：<最早>」；單輪就係「上一輪：<摘要>」。
+    server 只做整條 string ≤300 字 clamp，唔重組。
+    ⚠️ payload key 一定要係「上一輪」— 2026-07-15 addendum 實證：改名「之前幾輪（新→舊）」
+    會 orphan system prompt 嘅 follow-up rule + few-shot anchor（F1 3/3→0/2、M1/M2 全冧）；
+    ①②③ 數字 label 都唔掂（M2 0/2）— 一定要用「上一輪／前一輪」recency label 貼返 anchor。"""
     payload = {
         "用戶指令": message,
         "檔案資料": {

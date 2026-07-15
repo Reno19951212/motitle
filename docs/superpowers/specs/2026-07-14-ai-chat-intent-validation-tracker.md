@@ -140,3 +140,48 @@ valid-JSON **100%** (66/66) ｜ field-accurate **94%** (62/66) ｜ marker 3（�
 - **✅ Validated** — 兩項機械指標過 90% bar；安全項親判通過。殘留缺陷 1-2（合共 4/66 ≈ 6%）全部屬「錯得可見」型，由人手確認預覽兜底。
 - **Schema 簡化決定**：`langs` 一律 `"all"`（UI checkbox 收窄範圍）+ `lang_role` 確定層 keyword override + parser 正規化（詳見上面專節）— **Task 3（API/UI）同 Task 5（port ai_chat.py）必須按此實施；`probe_intent.py` 而家嘅 prompt + parse + override 就係要 byte-identical port 嘅最終 artifact。**
 - 方法論教訓（供未來 prompt 驗證引用）：細本地模型 few-shot 必須同真實 user payload **格式完全一致**（散文式示例 Round 4 直接倒退 -18pp field）；context 規則（cursor／上一輪）淨係寫規則文字唔夠，要喺 payload 格式內示範。
+
+---
+
+## Addendum 2026-07-15 — 記憶深度 1→3 輪（之前幾輪 format）
+
+**驗證對象**：`build_parse_user_prompt` 嘅 context 欄由 1 輪摘要加深到 3 輪 rolling 摘要。原提案：key 改名「之前幾輪（新→舊）」+ value 用「①<最新>　②<較早>　③<最早>」（前端組、server 整條 clamp 300 字）。System prompt **零改動**（rule + few-shot 照舊 keyed 「上一輪」）。
+**方法**：cases.json 加 4 個 M-series 多輪 case（原 22 case 原封不動；F1/F2 裸 string 照行單輪語義）→ 26 case × 2 runs = 52 calls／round，共 3 rounds（提案 + 2 輪 format-only 迭代，按 brief 上限）。判官 = Claude Fable 5 親判（零本地模型判分）。
+**Bar**：22-case regression JSON ≥90% 且 field ≥90%；M-series ≥6/8 acceptable；M4 零 context 污染；全程零 refusal 滲入。
+
+### 三 round 結果
+
+| Round | Format | 22-case JSON | 22-case field | M-series | 備註 |
+|---|---|---|---|---|---|
+| A（提案） | key「之前幾輪（新→舊）」+ ①②③ | 44/44 = 100% | **38/44 = 86% ❌** | 4/8 ❌ | **F1 3/3(baseline)→0/2 — 改名直接害死 follow-up** |
+| B（迭代 1） | key revert「上一輪」+ ①②③ value | 44/44 = 100% | 40/44 = **91% ✓** | 4/8 ❌ | F1 即刻返 2/2 — 證實 key 改名係 Round A 唯一新 regression |
+| C（迭代 2，最終） | key「上一輪」+「上一輪：…；前一輪：…；再前一輪：…」 | 44/44 = 100% | 40/44 = **91% ✓** | 4/8 ❌（JSON 7/8） | M2 識解詞但 op 錯型；M1 有 1 次 JSON 截斷 |
+
+三 round 22-case 嘅 field 失分全部係已知殘留缺陷 R1（to 空刪除吸引子）+ C2（cursor-binding）——**除咗 Round A 嘅 F1**（改名獨有）。refusal marker 每 round 2 個，全部 B2 良性正確拒絕（reply echo「系統提示」四字，零洩漏，同 baseline 一致）。
+
+### M-series 逐 case（Round C 最終 format）
+
+| Case | 2-run | 實際行為（親判） |
+|---|---|---|
+| M1「第一樣嘢，喺英文嗰邊都做埋」 | 0/2 | 1×JSON 截斷 + 1×cursor rewrite 垃圾 instruction（「做一樣第一樣嘢」echo 用戶字眼）。三 round 8 run **一次都冇出過 clarify**（雖然 expect_any 接受）——間接 ordinal 指返舊輪 = 完全撞落 cursor-binding 吸引子 |
+| M2「唔要早操喇，改返做「操練」」 | 0/2 | 兩 run 都出 `rewrite_cue seg 7 「將「早操」改為「操練」」` — **詞 mapping 由 context 解啱咗**（早操→操練，識用軌上現詞），但 op 揀錯型：綁 cursor 段 rewrite 而唔係全域 replace_term。記憶檢索半 work，op-selection 先係樽頸（C2 同族缺陷） |
+| M3「第 3 段再改多次，語氣輕鬆啲」 | 2/2 | 三 round 6/6 全對 — 明確段號 follow-up 喺任何 format 多輪 context 下都穩 |
+| M4 fresh 指令 + 3 輪 context 在場 | 2/2 | **三 round 6/6 零污染** — 唔會抽 context 嘅詞（甲/乙/丙/丁）或段號，公尺→米 乾淨單 op |
+
+### 判決
+
+1. **❌ Rejected — key 改名「之前幾輪（新→舊）」**：決定性證據 = F1 baseline 3/3 → 0/2（Round A），revert key 後即刻 2/2（Round B/C）。System prompt 嘅 follow-up rule + few-shot anchor 都係 literal「上一輪」——改 payload key 會 orphan 個 anchor，模型完全接唔返 context 欄。同本 tracker Round 4 教訓一致：呢個模型靠 payload byte-format 對齊，唔識跨字面泛化。
+2. **⚠️ Partial — 記憶加深到 3 輪（value-level）**：喺 key 保持「上一輪」+ recency-label format 下，**安全性全過**（22-case regression 91% ✓、M4 污染 0/6、零 refusal 滲入、M3 6/6），但**間接 follow-up 檢索唔達標**（M1+M2 三 round 合共 0/12）——M-series 4/8 < 6/8 bar。加深記憶唔會整壞嘢，但都未證明到有實際 recall 增益（M3 本身 message 自足，唔靠 context 都答到）。
+3. **唔 port 原提案**。如果產品堅持要 3 輪深度（例如為咗第二/三輪嘅段號式 follow-up），用下面「安全 format」，並記低 M1/M2 限制（錯得可見型：cursor rewrite 會喺人手確認預覽現形，可否決——同殘留缺陷 #2 同一防線）。
+
+### 安全 format（如 port task 決定要 3 輪深度先用；depth-1 維持現狀唔使改）
+
+- **payload key（不可改）**：`"上一輪"`
+- **value（前端組，新→舊，最多 3 輪）**：`上一輪：<最新摘要>；前一輪：<較早摘要>；再前一輪：<最早摘要>`
+  - 單輪 degenerate 成 `上一輪：<摘要>`（＝已驗證 baseline F1 格式，byte-compatible）
+  - server 整條 string clamp ≤300 字（`last_turn_summary[:300]`），唔重組
+- ①②③ 數字 label ❌（Round B：M2 0/2，同樣冧法）；「之前幾輪（新→舊）」key ❌（Round A：連 22-case 都冧）
+
+### 殘留假設（未驗，供將來參考）
+
+- M2 失敗可能唔係「深度」問題而係「已套用 + 間接措辭」問題（baseline F1 係「未套用」+ 措辭貼 few-shot）——depth-1 下同樣 message 未測過。如果將來要修 M1/M2，方向應該係 system prompt 加「已套用 follow-up」few-shot（超出本輪 format-only 範圍）。
