@@ -207,3 +207,31 @@ def test_fuzzy_4char_still_auto():
     # 內藍米子 vs 內欄位置: laam/laan(coda 弱化) + mai/wai 係 d1 唔係 d0 — 改用純聲調/懶音變體
     segs, changes = pc.auto_tier(_segs("企喺內欄位置度"), idx)
     assert segs[0]["text"] == "企喺內欄位置度"      # verbatim 唔郁（sanity）
+
+
+# ---------- 雙 shape lexicon loader（Task 4：term + variants）----------
+
+def test_load_lexicon_flat_strings_still_work():
+    terms = pc.load_lexicon("racing")
+    assert "內欄位置" in terms          # 舊 shape 字串照讀
+    assert all(isinstance(t, str) for t in terms)
+
+
+def test_load_lexicon_extracts_term_from_object_shape(tmp_path, monkeypatch):
+    import json, pathlib
+    d = tmp_path / "lex"
+    d.mkdir()
+    (d / "racing_terms.json").write_text(json.dumps({
+        "style": "racing",
+        "terms": ["內欄位置", {"term": "殿後", "variants": ["電流", "店後"]}],
+    }, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(pc, "LEXICON_DIR", pathlib.Path(d))
+    terms = pc.load_lexicon("racing")
+    assert "內欄位置" in terms and "殿後" in terms   # object shape 抽 term
+    variants = pc.load_lexicon_variants("racing")
+    dianhou = [v for v in variants if v["term"] == "殿後"][0]
+    assert dianhou["variants"] == ["電流", "店後"]
+
+
+def test_load_lexicon_variants_non_racing_empty():
+    assert pc.load_lexicon_variants("generic") == []

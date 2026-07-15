@@ -126,8 +126,7 @@ def edit_le1(a, b):
 
 
 # ----------------------------------------------------------------- lexicon --
-def load_lexicon(mt_style: str) -> List[str]:
-    """config/phonetic_lexicons/<style>_terms.json 嘅 terms（冇就空 list）。"""
+def _read_lexicon_raw(mt_style: str) -> List:
     if not mt_style or not _MT_STYLE_RE.match(mt_style):
         return []
     path = LEXICON_DIR / "{}_terms.json".format(mt_style)
@@ -137,9 +136,39 @@ def load_lexicon(mt_style: str) -> List[str]:
     except (OSError, ValueError):
         return []
     terms = data.get("terms") if isinstance(data, dict) else None
-    if not isinstance(terms, list):
-        return []
-    return [t.strip() for t in terms if isinstance(t, str) and t.strip()]
+    return terms if isinstance(terms, list) else []
+
+
+def load_lexicon(mt_style: str) -> List[str]:
+    """config/phonetic_lexicons/<style>_terms.json 嘅 terms（純字串 list）。
+
+    元素可以係 str（舊 shape）或 {"term": str, "variants": [...]}（新 shape）—
+    兩種都抽出 term 字串。冇檔／壞檔 → 空 list。
+    """
+    out: List[str] = []
+    for item in _read_lexicon_raw(mt_style):
+        if isinstance(item, str) and item.strip():
+            out.append(item.strip())
+        elif isinstance(item, dict):
+            t = (item.get("term") or "").strip()
+            if t:
+                out.append(t)
+    return out
+
+
+def load_lexicon_variants(mt_style: str) -> List[dict]:
+    """新 shape 條目嘅宣告別名。回 [{"term": str, "variants": [str,...]}]。
+    只收有非空 variants 嘅條目（舊純字串條目冇別名，跳過）。"""
+    out: List[dict] = []
+    for item in _read_lexicon_raw(mt_style):
+        if not isinstance(item, dict):
+            continue
+        term = (item.get("term") or "").strip()
+        variants = [str(v).strip() for v in (item.get("variants") or [])
+                    if v and str(v).strip()]
+        if term and variants:
+            out.append({"term": term, "variants": variants})
+    return out
 
 
 # ------------------------------------------------------------------ index --
