@@ -67,3 +67,66 @@ def test_apply_latin_immutable():
     }]
     ar.apply_latin([seg], ar.collect_en_rules(glossaries))
     assert seg["text"] == "Speedy Smarty"   # 入參未被 mutate
+
+
+def test_zh_declared_alias_rewrites_to_canonical():
+    glossaries = [{
+        "source_lang": "en", "target_lang": "zh", "name": "賽馬", "id": "g1",
+        "entries": [{"id": "e1", "source": "GOOD FRIEND", "target": "好友心得 (K263)",
+                     "target_aliases": ["好有心得"]}],
+    }]
+    rules = ar.collect_zh_rules(glossaries)
+    out, changes = ar.apply_cjk([_seg("好有心得今仗跑第三")], rules)
+    assert out[0]["text"] == "好友心得今仗跑第三"          # canonical 去咗 horse id
+    assert changes[0][0]["after"] == "好友心得"
+    assert changes[0][0]["before"] == "好有心得"
+    assert changes[0][0]["glossary"] == "宣告別名"
+
+
+def test_zh_alias_below_len_gate_skipped():
+    # 2 字別名（電流/尾指/標誌/段處）一律跳過 — 實證 FP 元兇
+    glossaries = [{
+        "source_lang": "en", "target_lang": "zh", "name": "賽馬", "id": "g1",
+        "entries": [{"id": "e1", "source": "X", "target": "殿後",
+                     "target_aliases": ["電流"]}],
+    }]
+    rules = ar.collect_zh_rules(glossaries)
+    assert all(r["variant"] != "電流" for r in rules)
+    out, changes = ar.apply_cjk([_seg("呢條電流好強")], rules)
+    assert out[0]["text"] == "呢條電流好強"                # 未改（防 FP）
+    assert changes[0] == []
+
+
+def test_zh_lexicon_variants_rewrite():
+    lex = [{"term": "殿後", "variants": ["店後嘅位置"]}]  # ≥3 字合法別名
+    rules = ar.collect_zh_rules([], lexicon_variants=lex)
+    out, changes = ar.apply_cjk([_seg("佢一直店後嘅位置")], rules)
+    assert out[0]["text"] == "佢一直殿後"
+    assert changes[0][0]["glossary"] == "宣告別名"
+
+
+def test_zh_longest_first_no_partial_overlap():
+    # 長別名優先，短別名唔可以喺長別名內部再命中
+    glossaries = [{
+        "source_lang": "en", "target_lang": "zh", "name": "賽馬", "id": "g1",
+        "entries": [
+            {"id": "e1", "source": "A", "target": "星際快車",
+             "target_aliases": ["升制快車"]},
+            {"id": "e2", "source": "B", "target": "快車手",
+             "target_aliases": ["快車手仔"]},
+        ],
+    }]
+    rules = ar.collect_zh_rules(glossaries)
+    out, _ = ar.apply_cjk([_seg("升制快車今日出賽")], rules)
+    assert out[0]["text"] == "星際快車今日出賽"
+
+
+def test_zh_apply_immutable():
+    seg = _seg("好有心得")
+    glossaries = [{
+        "source_lang": "en", "target_lang": "zh", "name": "x", "id": "g1",
+        "entries": [{"id": "e1", "source": "X", "target": "好友心得",
+                     "target_aliases": ["好有心得"]}],
+    }]
+    ar.apply_cjk([seg], ar.collect_zh_rules(glossaries))
+    assert seg["text"] == "好有心得"
