@@ -110,6 +110,7 @@
         : '將字幕入面嘅別名統一做標準名';
       const fixes = t.items ? t.items.filter(it => it.kind === 'fix') : [];
       const oks   = t.items ? t.items.filter(it => it.kind === 'ok')  : [];
+      const suspects = t.items ? t.items.filter(it => it.kind === 'suspect') : [];
       const inapp = (t.inapplicable_glossaries || []).length
         ? `<div class="trk-inapp">⚠ ${t.inapplicable_glossaries.map(escapeHtml).join('、')} 唔適用於呢條軌（原文語言唔對應）</div>`
         : '';
@@ -127,21 +128,27 @@
           + oks.map(it => _okRowHtml(t, it)).join('')
         : '';
 
-      const emptyMsg = (!fixes.length && !oks.length)
+      const suspectRows = suspects.length
+        ? `<div class="ga-section-head ga-section-head-suspect">疑似聽錯 (${suspects.length}) — 一鍵加為近音別名</div>`
+          + suspects.map((it, si) => _suspectRowHtml(t, ti, si, it)).join('')
+        : '';
+
+      const emptyMsg = (!fixes.length && !oks.length && !suspects.length)
         ? `<div style="padding:8px 0;font-size:12px;color:var(--text-dim);">呢條軌冇命中任何詞條</div>` : '';
 
       return `<div class="trk" data-ti="${ti}">
         <div class="trk-head">
           <span class="trk-lang">${escapeHtml(langLabel)}</span>
           <span class="trk-dir">${escapeHtml(dir)}</span>
-          <span class="trk-count">${fixes.length} 待修正 · ${oks.length} 已符合</span>
+          <span class="trk-count">${fixes.length} 待修正 · ${oks.length} 已符合 · ${suspects.length} 疑似</span>
         </div>
-        ${inapp}${emptyMsg}${fixRows}${okRows}
+        ${inapp}${emptyMsg}${fixRows}${okRows}${suspectRows}
       </div>`;
     }).join('');
 
     _wireFooter();
     _updateCount();
+    _wireSuspectAdds();
   }
 
   function _langLabel(lang) {
@@ -186,6 +193,25 @@
           <span class="seg-link" onclick="_grJumpSeg(${it.idx})">#${it.idx + 1} ${_fmtTc(it.start)}</span>
         </div>
         <div class="ga-row-line">字幕：${_hlOk(rowText, it.canonical)}</div>
+      </div>
+    </div>`;
+  }
+
+  function _suspectRowHtml(t, ti, si, it) {
+    const rowText = _rowTextFor(t.lang, it.idx);
+    const where = it.side === 'lexicon' ? '系統行話表'
+                : it.side === 'source' ? '原文近音' : '譯文別名';
+    return `<div class="ga-row suspect" data-ti="${ti}" data-si="${si}">
+      <div class="ga-row-body">
+        <div class="ga-row-term">
+          <span class="susp-span">${escapeHtml(it.span)}</span> ≈ ${escapeHtml(it.canonical)}
+          <span class="gl-src-tag">${escapeHtml(it.glossary || where)}</span>
+          <span class="seg-link" onclick="_grJumpSeg(${it.idx})">#${it.idx + 1} ${_fmtTc(it.start)}</span>
+          <button class="susp-add" data-ti="${ti}" data-si="${si}">＋ 加為近音別名</button>
+          <span class="gr-state"></span>
+        </div>
+        <div class="ga-row-line">字幕：${_hl(rowText, it.span)}</div>
+        <div class="ga-row-line ga-hint">確定性掃描 · 加咗別名之後「全部重新生成」即生效（${escapeHtml(where)}）</div>
       </div>
     </div>`;
   }
@@ -347,6 +373,39 @@
       });
       overlay._grEscWired = true;
     }
+  }
+
+  // ── 疑似聽錯：一鍵加為近音別名（event delegation）─────────────
+  function _wireSuspectAdds() {
+    document.querySelectorAll('#grBody .susp-add').forEach(btn => {
+      if (btn._wired) return; btn._wired = true;
+      btn.addEventListener('click', async () => {
+        const ti = parseInt(btn.dataset.ti, 10), si = parseInt(btn.dataset.si, 10);
+        const t = scanData.tracks[ti];
+        const it = (t.items || []).filter(x => x.kind === 'suspect')[si];
+        if (!it) return;
+        const st = btn.parentElement.querySelector('.gr-state');
+        btn.disabled = true; if (st) st.textContent = '…';
+        try {
+          const r = await fetch(`${API_BASE}/api/files/${fileId}/glossary-add-alias`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              kind: it.side === 'source' ? 'source' : (it.side === 'lexicon' ? 'lexicon' : 'target'),
+              variant: it.span, canonical: it.canonical,
+              glossary_id: it.glossary_id || null, entry_id: it.entry_id || null,
+              style: it.style || 'racing',
+            }),
+          });
+          const body = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(body.error || `HTTP ${r.status}`);
+          if (st) { st.textContent = '✓ 已加'; st.className = 'gr-state ok'; }
+          btn.textContent = '已加入';
+        } catch (e) {
+          btn.disabled = false;
+          if (st) { st.textContent = `✗ ${e.message}`; st.className = 'gr-state err'; }
+        }
+      });
+    });
   }
 
   function _close() {
