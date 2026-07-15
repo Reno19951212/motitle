@@ -509,6 +509,43 @@
     .toast.success { border-color: var(--success); }
     .toast.error { border-color: var(--danger); }
 
+    /* 系統行話表 modal — mirrors the app's .gr-* modal convention
+       (proofread.html), self-contained here (Glossary.html has no shared CSS). */
+    .lex-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 3000; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .lex-overlay.open { opacity: 1; pointer-events: auto; }
+    .lex-modal {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+      width: 560px; max-width: calc(100vw - 40px); max-height: 78vh;
+      display: flex; flex-direction: column; box-shadow: var(--shadow);
+    }
+    .lex-header {
+      padding: 14px 18px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: flex-start; justify-content: space-between;
+      font-size: 14px; font-weight: 700; color: var(--text); flex-shrink: 0;
+    }
+    .lex-subtitle { font-size: 11px; font-weight: 400; color: var(--text-dim); margin-top: 3px; }
+    .lex-close {
+      background: none; border: none; color: var(--text-dim); font-size: 20px;
+      cursor: pointer; padding: 0 4px; line-height: 1;
+    }
+    .lex-close:hover { color: var(--text); }
+    .lex-body {
+      flex: 1; overflow-y: auto; padding: 12px 18px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .lex-loading { color: var(--text-dim); font-size: 13px; padding: 20px 0; text-align: center; }
+    .lex-row { display: flex; flex-direction: column; gap: 5px; }
+    .lex-term { font-size: 13px; font-weight: 600; color: var(--text); }
+    .lex-footer {
+      padding: 10px 18px; border-top: 1px solid var(--border);
+      display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+    }
+    .lex-foot-note { font-size: 11px; color: var(--text-dim); }
+
     /* Responsive */
     @media (max-width: 1280px) {
       .gl-edit { grid-template-columns: 240px minmax(0, 1fr) 320px; }
@@ -637,6 +674,7 @@
                   <option value="all">全部軌</option>
                 </select>
               </div>
+              <button class="btn btn-secondary btn-sm" id="lexAdminBtn" style="display:none;" title="編輯系統行話表（賽馬術語近音別名，管理員專屬）">系統行話表</button>
             </div>
             <div class="gl-table">
               <div class="gl-tr gl-th">
@@ -695,6 +733,28 @@
 
 <div class="toast" id="toast" role="status"></div>
 
+<!-- 系統行話表 admin modal (admin-only; opened from #lexAdminBtn) -->
+<div class="lex-overlay" id="lexOverlay">
+  <div class="lex-modal">
+    <div class="lex-header">
+      <div>
+        系統行話表
+        <div class="lex-subtitle">賽馬術語近音別名 · 管理員專屬 · 全局共用（改咗要「全部重新生成」先對舊檔生效）</div>
+      </div>
+      <button class="lex-close" id="lexCloseBtn" aria-label="關閉">&times;</button>
+    </div>
+    <div class="lex-body" id="lexBody">
+      <div class="lex-loading">載入中…</div>
+    </div>
+    <div class="lex-footer">
+      <span class="lex-foot-note" id="lexFootNote"></span>
+      <div style="flex:1"></div>
+      <button class="btn btn-secondary btn-sm" id="lexCancelBtn">取消</button>
+      <button class="btn btn-primary btn-sm" id="lexSaveBtn">儲存</button>
+    </div>
+  </div>
+</div>
+
 <!-- topbar chip: identity + logout (non-blocking, no auth-redirect) -->
 <script>
   (async () => {
@@ -704,7 +764,11 @@
       const u = await r.json();
       const nm = document.getElementById('userChipName');
       if (nm) nm.textContent = u.username || '—';
-      if (u.is_admin) { const al = document.getElementById('adminLink'); if (al) al.style.display = 'inline'; }
+      if (u.is_admin) {
+        const al = document.getElementById('adminLink'); if (al) al.style.display = 'inline';
+        const lex = document.getElementById('lexAdminBtn'); if (lex) lex.style.display = '';
+        state.isAdmin = !!u.is_admin;
+      }
     } catch (e) { /* keep default */ }
   })();
   (function () {
@@ -737,6 +801,7 @@
     listFilter: '',
     termFilter: '',
     sort: 'alpha',
+    isAdmin: false,
   };
 
   /* ============================================================
@@ -1315,6 +1380,100 @@
 
   document.querySelectorAll('.gl-vtab').forEach(btn => {
     btn.addEventListener('click', () => setVariant(btn.dataset.variant));
+  });
+
+  /* ============================================================
+     系統行話表 admin modal (GET/PUT /api/lexicons/<style>) — admin only.
+     Local editing state is an immutable snapshot of the fetched view;
+     每次改動都 rebuild（永不 in-place mutate 共享結構）。
+     ============================================================ */
+  let _lexState = { style: 'racing', terms: [] };
+
+  async function openLexAdmin() {
+    const style = 'racing';
+    let view;
+    try { view = await apiJson('GET', `/api/lexicons/${style}`); }
+    catch (e) { toast(`載入失敗: ${e.message}`, 'error'); return; }
+    _renderLexModal(style, view.terms || []);
+    document.getElementById('lexOverlay').classList.add('open');
+  }
+
+  function _renderLexModal(style, terms) {
+    _lexState = {
+      style,
+      terms: (terms || []).map(t => ({
+        term: t.term,
+        variants: Array.isArray(t.variants) ? t.variants.slice() : [],
+      })),
+    };
+    _lexRenderBody();
+  }
+
+  function _lexRenderBody() {
+    const body = document.getElementById('lexBody');
+    const rows = _lexState.terms.map((t, ti) => `
+      <div class="lex-row" data-ti="${ti}">
+        <div class="lex-term">${escapeHtml(t.term)}</div>
+        <div class="gl-chips">
+          ${t.variants.map((v, vi) =>
+            `<span class="gl-chip">${escapeHtml(v)}<button data-ti="${ti}" data-vi="${vi}" title="移除">×</button></span>`
+          ).join('')}
+          <button class="gl-chip-add" data-ti="${ti}" data-add="1">+ 加入近音</button>
+        </div>
+      </div>`).join('');
+    body.innerHTML = rows || '<div class="lex-loading">呢個行話表未有術語</div>';
+    document.getElementById('lexFootNote').textContent =
+      `${_lexState.terms.length} 個術語 · style=${_lexState.style}`;
+    body.querySelectorAll('.gl-chip button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const ti = parseInt(btn.dataset.ti, 10), vi = parseInt(btn.dataset.vi, 10);
+        const term = _lexState.terms[ti];
+        if (!term) return;
+        const next = term.variants.slice();
+        next.splice(vi, 1);
+        _lexState.terms[ti] = { ...term, variants: next };
+        _lexRenderBody();
+      });
+    });
+    body.querySelectorAll('.gl-chip-add').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const ti = parseInt(btn.dataset.ti, 10);
+        const term = _lexState.terms[ti];
+        if (!term) return;
+        const v = prompt(`為「${term.term}」加入近音寫法（聽錯／拼錯形式）：`);
+        if (!v || !v.trim()) return;
+        if (term.variants.includes(v.trim())) return;
+        _lexState.terms[ti] = { ...term, variants: [...term.variants, v.trim()] };
+        _lexRenderBody();
+      });
+    });
+  }
+
+  async function saveLex(style, terms) {
+    try {
+      const view = await apiJson('PUT', `/api/lexicons/${style}`, { terms });
+      toast('行話表已儲存', 'success');
+      return view;
+    } catch (e) {
+      if (/HTTP 403/.test(e.message)) alert('你唔係管理員，無權修改系統行話表');
+      else toast(`儲存失敗: ${e.message}`, 'error');
+      return null;
+    }
+  }
+
+  function _closeLexModal() {
+    document.getElementById('lexOverlay').classList.remove('open');
+  }
+
+  document.getElementById('lexAdminBtn').addEventListener('click', openLexAdmin);
+  document.getElementById('lexCloseBtn').addEventListener('click', _closeLexModal);
+  document.getElementById('lexCancelBtn').addEventListener('click', _closeLexModal);
+  document.getElementById('lexOverlay').addEventListener('click', (e) => {
+    if (e.target.id === 'lexOverlay') _closeLexModal();
+  });
+  document.getElementById('lexSaveBtn').addEventListener('click', async () => {
+    const view = await saveLex(_lexState.style, _lexState.terms);
+    if (view) _closeLexModal();
   });
 
   /* Boot */
