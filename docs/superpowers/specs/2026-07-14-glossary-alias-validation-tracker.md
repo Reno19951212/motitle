@@ -169,3 +169,40 @@ ALL PASS: True
 ```
 
 **⇒ GATE1-3 全部 PASS ✅** — 別名確定性層（宣告全中 / 2 字零誤中 / 既有 AUTO 零 regression）達 CLAUDE.md Validation-First 強制 gate。Plan B（frontend 閉環）可接上。
+
+---
+
+## Plan B 閉環驗證（2026-07-15）
+
+**Plan B（Task 1-9）落地後嘅閉環 round-trip 驗證** — 零 LLM、Flask test client（唔掂 live server）。目標：證明閉環真係 round-trip（preview 見到疑似聽錯 → add-alias 寫入 → 別名確實落 glossary/lexicon）。掃描層本身零 LLM；「全部重新生成」生效已由 Plan A GATE1-3 覆蓋，此處只驗**寫入鏈**。
+
+Script：`backend/scripts/aliasui_verify.py`（`sys.path` 加 backend；`import app`；直測 `app._suspects_for_track` helper + `lexicon_manager` 寫入鏈 + `/api/lexicons/<style>` GET）。
+
+指令：`cd backend && ./venv/bin/python scripts/aliasui_verify.py`
+
+| Gate | 驗證 | 結果 |
+|---|---|---|
+| **GATE1** | en 疑似聽錯生成 — `_suspects_for_track("en", ["It's Malpenza with a wide draw"], [1.0], [真 glossary db323f9d], "en", "racing")` 用確定性 `en_correction.judge_candidates`（零 LLM）產生一個 `canonical=="MALPENSA"` 嘅 `kind:'suspect'` 項（`Malpenza` fuzzy 命中真詞條 `MALPENSA→賢知友您 (K545)`） | ✅ **True** |
+| **GATE2** | lexicon 寫入 round-trip — `lexicon_manager.add_term_variant("racing", "殿後", "電流位驗證")` 寫入後，`GET /api/lexicons/racing` view 嘅 `殿後.variants` 讀返個新 variant；讀寫兩端一致（write chain + normalized GET view）；驗證尾用 `set_lexicon` 還原（唔留污染） | ✅ **True** |
+
+原始輸出：
+
+```
+GATE1 en suspect 生成: True
+GATE2 lexicon 寫入 round-trip: True
+
+ALL PASS: True
+```
+
+**新增/改到嘅 backend test file（隔離跑，`backend/venv/bin/python -m pytest tests/<f>.py -q`）**：
+
+| Test file | 結果 |
+|---|---|
+| `test_lexicon_manager.py`（Task 1：dual-shape / dedupe / bare-string / bad-style）| ✅ 5 passed |
+| `test_lexicon_routes.py`（Task 2：GET view / 404 / PUT admin bulk / 400 bad body）| ✅ 4 passed |
+| `test_glossary_add_alias.py`（Task 3：source_variants / target_aliases canonical 反查 / lexicon / bad kind）| ✅ 4 passed |
+| `test_glossary_preview_suspects.py`（Task 4：en judge / yue phonetic side / 非 yue-非 en 零 suspects）| ✅ 3 passed |
+
+**⇒ Plan B 閉環 GATE1/GATE2 全部 PASS ✅ + 4 隔離 test file 全 PASS（16 tests）** — 別名寫入鏈（疑似聽錯確定性生成 → 一鍵寫 source_variants/target_aliases/lexicon variants）通。閉環已完整（Glossary.html 近音 chip + 系統行話表 admin + 校對頁一鍵回饋）。前端 live-browser E2E（掃描 modal 疑似聽錯分節、一鍵加別名、系統行話表 admin modal）**待人手驗證**（本 gate 為純後端 round-trip，無跑瀏覽器）。
+
+> **Note（deviation）**：`aliasui_verify.py` 除 plan 原文外，額外喺 `app = appmod.app` 之後直接設 `app.config["LOGIN_DISABLED"/"R5_AUTH_BYPASS"/"R5_LICENSE_BYPASS"] = True`。原因：bypass flag 由 `app.config` 讀取（`conftest._isolate_app_data` 直接設 config），app.py boot **唔會**將同名 env var 映射入 config，所以 plan 原文淨靠 `os.environ.setdefault(...)` 嘅 standalone client 會俾 `login_required` 擋成 401。呢個係最小修正，鏡返 conftest idiom。**Plan C（自動學）仍待做。**
