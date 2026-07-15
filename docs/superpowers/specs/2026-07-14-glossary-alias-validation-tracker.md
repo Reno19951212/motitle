@@ -143,3 +143,29 @@
 - `scratchpad/glossary_fuzzy_proto.py` — 英文側 8 變體對比（import 真 `en_correction`）
 - `scratchpad/phonetic_alias_proto.py` — 中文側 Z0/Z1/Z2（import 真 `phonetic_correction`）
 - 兩份都經**獨立 agent 逐行反查 + 重跑**：數字 byte-identical 重現；英文側 headline framing 被推翻（circular GT），中文側 sound=true。
+
+---
+
+## 實施後 gating（2026-07-15）
+
+**Plan A（Task 1-8）落地後嘅強制 gating** — 零 LLM、read-only、跑真檔語料。Script：`backend/scripts/alias_gating_dryrun.py`（import 真 `alias_rewrite` / `phonetic_correction` / `en_correction`；讀 `data/registry.json` → `97b66062bfee`（851 en cue）+ glossary `db323f9d`，零 registry 寫入）。
+
+指令：`cd backend && ./venv/bin/python scripts/alias_gating_dryrun.py`
+
+| Gate | 驗證 | 結果 |
+|---|---|---|
+| **GATE1** | en 宣告別名全中 — 注入 `Speedy Smarty→SPEEDY SMARTIE` / `Malpenza→MALPENSA` / `Wolff coming→WOLF COMING` 做 `source_variants`，851 cue 全部改回正名（三個 canonical 原本零出現，變體全出現 → 非 tautological） | ✅ **True** |
+| **GATE2** | 2 字別名零誤中 — `電流`/`尾指` 等 2 字 `target_aliases`（實證 FP 元兇）唔可以改動「呢條電流好強 / 佢隻尾指受咗傷 / 個標誌好靚 / 段處理流程順暢」正常句 | ✅ **True** |
+| **GATE3** | 既有糾錯零 regression — `喺整個過程之中` 經 `phonetic_correction.correct_segments`（racing, use_llm=False）之後，`整個過→靖哥哥` 仍被 AUTO 擋，唔會因別名層變樣 | ✅ **True** |
+
+原始輸出：
+
+```
+GATE1 en 宣告別名全中: True
+GATE2 2字別名零誤中: True
+GATE3 整個過→靖哥哥 仍被擋: True
+
+ALL PASS: True
+```
+
+**⇒ GATE1-3 全部 PASS ✅** — 別名確定性層（宣告全中 / 2 字零誤中 / 既有 AUTO 零 regression）達 CLAUDE.md Validation-First 強制 gate。Plan B（frontend 閉環）可接上。
