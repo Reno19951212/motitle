@@ -250,3 +250,21 @@ def test_target_alias_rewritten_before_stages():
                                        mt_style="racing", use_llm=False)
     assert out[0]["text"] == "好友心得今仗跑第三"
     assert any(c["glossary"] == "宣告別名" for c in changes[0])
+
+
+def test_target_alias_protected_from_destroying_other_canonical():
+    # entry A 嘅 target_alias '好友心' 唔可以摧毀 entry B 正名 '好友心得'
+    # （orchestrator 必須 thread protected 清單畀 apply_cjk）
+    glossaries = [{
+        "source_lang": "en", "target_lang": "zh", "name": "賽馬", "id": "g1",
+        "entries": [
+            {"id": "e1", "source": "A", "target": "好友心水 (H101)",
+             "target_aliases": ["好友心"]},
+            {"id": "e2", "source": "B", "target": "好友心得 (K263)"},
+        ],
+    }]
+    segs = [{"start": 0, "end": 1, "text": "好友心得今仗跑第三"}]
+    out, changes = pc.correct_segments(segs, glossaries=glossaries,
+                                       mt_style="racing", use_llm=False)
+    assert out[0]["text"] == "好友心得今仗跑第三"
+    assert not any(c["glossary"] == "宣告別名" for c in changes[0])

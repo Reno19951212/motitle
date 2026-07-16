@@ -155,3 +155,104 @@ def test_zh_apply_immutable():
     }]
     ar.apply_cjk([seg], ar.collect_zh_rules(glossaries))
     assert seg["text"] == "好有心得"
+
+
+# ---------- ASCII 字界（apply_cjk）+ 宣告別名正名保護 ----------
+
+def test_zh_ascii_alias_word_boundary_no_midword_corruption():
+    # target_aliases ['ace'] 唔可以咬入 'Racecourse' → 'R愛司力course'
+    glossaries = [{
+        "source_lang": "en", "target_lang": "zh", "name": "賽馬", "id": "g1",
+        "entries": [{"id": "e1", "source": "ACE POWER", "target": "愛司力 (H101)",
+                     "target_aliases": ["ace"]}],
+    }]
+    rules = ar.collect_zh_rules(glossaries)
+    out, changes = ar.apply_cjk([_seg("Sha Tin Racecourse today")], rules)
+    assert out[0]["text"] == "Sha Tin Racecourse today"     # 未改
+    assert changes[0] == []
+    # 獨立 token 'ace' 照 fire（case-sensitive）
+    out2, ch2 = ar.apply_cjk([_seg("the ace wins")], rules)
+    assert out2[0]["text"] == "the 愛司力 wins"
+    assert len(ch2[0]) == 1
+
+
+def test_zh_protected_canonical_not_destroyed():
+    # 宣告 '好友心'（entry A 別名）唔可以摧毀 entry B 嘅正名 '好友心得'
+    glossaries = [{
+        "source_lang": "en", "target_lang": "zh", "name": "賽馬", "id": "g1",
+        "entries": [
+            {"id": "e1", "source": "A", "target": "好友心水 (H101)",
+             "target_aliases": ["好友心"]},
+            {"id": "e2", "source": "B", "target": "好友心得 (K263)"},
+        ],
+    }]
+    rules = ar.collect_zh_rules(glossaries)
+    protected = ar.collect_protected_zh(glossaries)
+    out, changes = ar.apply_cjk([_seg("好友心得今仗跑第三")], rules,
+                                protected=protected)
+    assert out[0]["text"] == "好友心得今仗跑第三"           # 正名唔郁
+    assert changes[0] == []
+    # 唔喺 protected 正名內嘅獨立出現照 fire
+    out2, _ = ar.apply_cjk([_seg("好友心領放")], rules, protected=protected)
+    assert out2[0]["text"] == "好友心水領放"
+
+
+def test_zh_protection_embedded_own_canonical_exemption():
+    # 內嵌名 exemption：protected 名（心得）完全落喺 match span（好有心得）之內、
+    # 而且係本 rule canonical（好友心得）嘅 substring → 照 fire
+    glossaries = [{
+        "source_lang": "en", "target_lang": "zh", "name": "賽馬", "id": "g1",
+        "entries": [
+            {"id": "e1", "source": "GF", "target": "好友心得 (K263)",
+             "target_aliases": ["好有心得"]},
+            {"id": "e2", "source": "XD", "target": "心得"},
+        ],
+    }]
+    rules = ar.collect_zh_rules(glossaries)
+    protected = ar.collect_protected_zh(glossaries)
+    out, changes = ar.apply_cjk([_seg("好有心得今仗跑第三")], rules,
+                                protected=protected)
+    assert out[0]["text"] == "好友心得今仗跑第三"
+    assert len(changes[0]) == 1
+
+
+def test_zh_lexicon_terms_protected():
+    # lexicon term（行話正名）都要受保護：別名唔可以咬入行話正名
+    glossaries = [{
+        "source_lang": "en", "target_lang": "zh", "name": "賽馬", "id": "g1",
+        "entries": [{"id": "e1", "source": "A", "target": "四早三",
+                     "target_aliases": ["晨操快"]}],
+    }]
+    rules = ar.collect_zh_rules(glossaries)
+    protected = ar.collect_protected_zh(glossaries, lexicon_terms=["晨操快圈"])
+    out, changes = ar.apply_cjk([_seg("今朝晨操快圈表現好")], rules,
+                                protected=protected)
+    assert out[0]["text"] == "今朝晨操快圈表現好"           # 行話正名唔郁
+    assert changes[0] == []
+
+
+def test_en_protected_canonical_not_mangled():
+    # source_variant 'GOLDEN'（entry A）唔可以咬入 entry B 正名 'GOLDEN SIXTY'
+    glossaries = [{
+        "source_lang": "en", "target_lang": "zh", "name": "賽馬", "id": "g1",
+        "entries": [
+            {"id": "e1", "source": "GOLDEN AGE", "target": "黃金歲月",
+             "source_variants": ["GOLDEN"]},
+            {"id": "e2", "source": "GOLDEN SIXTY", "target": "金鎗六十"},
+        ],
+    }]
+    rules = ar.collect_en_rules(glossaries)
+    protected = ar.collect_protected_en(glossaries)
+    out, changes = ar.apply_latin([_seg("GOLDEN SIXTY wins the race")], rules,
+                                  protected=protected)
+    assert out[0]["text"] == "GOLDEN SIXTY wins the race"   # 正名唔郁
+    assert changes[0] == []
+    # 大小寫變體嘅正名出現一樣受保護（build_name_pattern IGNORECASE）
+    out2, ch2 = ar.apply_latin([_seg("golden sixty runs")], rules,
+                               protected=protected)
+    assert out2[0]["text"] == "golden sixty runs"
+    assert ch2[0] == []
+    # 獨立出現照 fire
+    out3, _ = ar.apply_latin([_seg("GOLDEN runs well")], rules,
+                             protected=protected)
+    assert out3[0]["text"] == "GOLDEN AGE runs well"

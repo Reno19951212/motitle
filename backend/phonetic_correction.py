@@ -654,7 +654,9 @@ def correct_segments(segments: List[dict], glossaries: Optional[List[dict]] = No
                                     lexicon_variants=load_lexicon_variants(mt_style))
         if rules:
             segments, all_changes_pre = ar.apply_cjk(
-                segments, rules, cancel_check=cancel_check)
+                segments, rules, cancel_check=cancel_check,
+                protected=ar.collect_protected_zh(
+                    glossaries, lexicon_terms=load_lexicon(mt_style)))
     except ImportError as _ar_e:
         print(f"[alias] 跳過宣告別名（模組缺失）: {_ar_e}", flush=True)
 

@@ -192,3 +192,20 @@ def test_source_variant_rewritten_before_auto():
     out, changes = ec.correct_segments_en(segs, glossaries=glossaries, use_llm=False)
     assert out[0]["text"] == "It's MALPENSA with a wide draw"
     assert any(c["glossary"] == "宣告別名" for c in changes[0])
+
+
+def test_source_variant_protected_from_mangling_other_canonical():
+    # entry A 嘅 source_variant 'GOLDEN' 唔可以咬入 entry B 正名 'GOLDEN SIXTY'
+    # （orchestrator 必須 thread protected 清單畀 apply_latin）
+    glossaries = [{
+        "source_lang": "en", "target_lang": "zh", "name": "賽馬", "id": "g1",
+        "entries": [
+            {"id": "e1", "source": "GOLDEN AGE", "target": "黃金歲月",
+             "source_variants": ["GOLDEN"]},
+            {"id": "e2", "source": "GOLDEN SIXTY", "target": "金鎗六十"},
+        ],
+    }]
+    segs = [{"start": 0, "end": 1, "text": "GOLDEN SIXTY wins the race"}]
+    out, changes = ec.correct_segments_en(segs, glossaries=glossaries, use_llm=False)
+    assert out[0]["text"] == "GOLDEN SIXTY wins the race"
+    assert not any(c["glossary"] == "宣告別名" for c in changes[0])

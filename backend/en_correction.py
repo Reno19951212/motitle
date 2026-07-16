@@ -262,7 +262,8 @@ def correct_segments_en(segments: List[dict],
         rules = ar.collect_en_rules(glossaries)
         if rules:
             segments, all_changes_pre = ar.apply_latin(
-                segments, rules, cancel_check=cancel_check)
+                segments, rules, cancel_check=cancel_check,
+                protected=ar.collect_protected_en(glossaries))
     except ImportError as _ar_e:
         print(f"[alias] 跳過宣告別名（模組缺失）: {_ar_e}", flush=True)
 

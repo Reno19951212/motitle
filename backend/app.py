@@ -5259,14 +5259,17 @@ def _declared_for_track(lang, texts, starts, glossaries, content_lang, mt_style)
         rules = ar.collect_en_rules(glossaries)
         if not rules:
             return []
-        _, changes = ar.apply_latin(segs, rules)
+        _, changes = ar.apply_latin(segs, rules,
+                                    protected=ar.collect_protected_en(glossaries))
     elif lang in ("yue", "zh", "cmn") and content_lang == "yue":
-        from phonetic_correction import load_lexicon_variants
+        from phonetic_correction import load_lexicon, load_lexicon_variants
         rules = ar.collect_zh_rules(glossaries,
                                     lexicon_variants=load_lexicon_variants(mt_style))
         if not rules:
             return []
-        _, changes = ar.apply_cjk(segs, rules)
+        _, changes = ar.apply_cjk(segs, rules,
+                                  protected=ar.collect_protected_zh(
+                                      glossaries, lexicon_terms=load_lexicon(mt_style)))
     else:
         return []
 
