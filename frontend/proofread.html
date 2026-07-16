@@ -1897,26 +1897,56 @@
     }
   }
 
+  let _glEntryQuery = '';
+
+  function _glEntryMatches(e, q) {
+    if (!q) return true;
+    const hay = [e.source || '', e.target || '',
+      ...(Array.isArray(e.source_variants) ? e.source_variants : []),
+      ...(Array.isArray(e.target_aliases) ? e.target_aliases : [])
+    ].join(' ').toLowerCase();
+    return hay.includes(q);
+  }
+
+  function _glRenderRows() {
+    const tbody = document.getElementById('glEntryRows');
+    const emptyEl = document.getElementById('glEntryEmpty');
+    if (!tbody) return;
+    const q = _glEntryQuery.trim().toLowerCase();
+    const filtered = glossaryEntries.filter(e => _glEntryMatches(e, q));
+    tbody.innerHTML = filtered.map(e => {
+      const nv = Array.isArray(e.source_variants) ? e.source_variants.length : 0;
+      const badge = nv ? `<span class="gl-td-alt">·近${nv}</span>` : '';
+      return `<tr id="grow-${escapeHtml(e.id)}">
+        <td>${escapeHtml(e.source)}${badge}</td>
+        <td>${escapeHtml(e.target)}</td>
+        <td style="text-align:center;white-space:nowrap;">
+          <button class="btn btn-ghost btn-sm" onclick="openEntryModal('${escapeHtml(e.id)}')" title="編輯">✎</button>
+          <button class="btn btn-ghost btn-sm" onclick="deleteGlossaryEntry('${escapeHtml(e.id)}')" title="刪除">🗑</button>
+        </td>
+      </tr>`;
+    }).join('');
+    emptyEl.innerHTML = (!filtered.length && q)
+      ? '<div class="rv-b-rail-empty" style="padding:6px;">搜尋無結果</div>' : '';
+  }
+
   function renderGlossaryTable() {
     const body = document.getElementById('glossaryBody');
     if (!glossaryEntries.length) {
       body.innerHTML = '<div class="rv-b-rail-empty">暫無條目</div>';
       return;
     }
-    const rows = glossaryEntries.map(e => `
-      <tr id="grow-${e.id}">
-        <td>${escapeHtml(e.source)}</td>
-        <td>${escapeHtml(e.target)}</td>
-        <td style="text-align:center;white-space:nowrap;">
-          <button class="btn btn-ghost btn-sm" onclick="startEditEntry('${e.id}')" title="編輯">✎</button>
-          <button class="btn btn-ghost btn-sm" onclick="deleteGlossaryEntry('${e.id}')" title="刪除">🗑</button>
-        </td>
-      </tr>`).join('');
     body.innerHTML = `
+      <input class="rv-b-glossary-input" id="glEntrySearch" placeholder="🔍 搜尋原文/譯文/近音…"
+             style="margin-bottom:4px;" value="${escapeHtml(_glEntryQuery)}">
       <table class="rv-b-glossary-table">
         <thead><tr><th>原文</th><th>譯文</th><th></th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>`;
+        <tbody id="glEntryRows"></tbody>
+      </table>
+      <div id="glEntryEmpty"></div>`;
+    const search = document.getElementById('glEntrySearch');
+    search.addEventListener('input', () => { _glEntryQuery = search.value; _glRenderRows(); });
+    _glRenderRows();
   }
 
   // ── 詞彙表條目編輯 modal（編輯 + 新增共用；chip 批次保存）─────
@@ -2012,53 +2042,6 @@
     });
   })();
 
-  function startEditEntry(eid) {
-    const entry = glossaryEntries.find(e => e.id === eid);
-    if (!entry) return;
-    const row = document.getElementById(`grow-${eid}`);
-    if (!row) return;
-    row.innerHTML = `
-      <td><input class="rv-b-glossary-input" id="gedit-source-${eid}" value="${escapeHtml(entry.source)}"></td>
-      <td><input class="rv-b-glossary-input" id="gedit-target-${eid}" value="${escapeHtml(entry.target)}"></td>
-      <td style="text-align:center;white-space:nowrap;">
-        <button class="btn btn-primary btn-sm" onclick="saveEditEntry('${eid}')" title="儲存到詞彙表 (Enter)">儲存</button>
-        <button class="btn btn-ghost btn-sm" onclick="renderGlossaryTable()" title="取消 (Esc)">取消</button>
-      </td>`;
-    const sourceInput = document.getElementById(`gedit-source-${eid}`);
-    const targetInput = document.getElementById(`gedit-target-${eid}`);
-    [sourceInput, targetInput].forEach(el => {
-      el.addEventListener('keydown', e => {
-        if (e.key === 'Enter') saveEditEntry(eid);
-        else if (e.key === 'Escape') renderGlossaryTable();
-      });
-    });
-    sourceInput.focus();
-  }
-
-  async function saveEditEntry(eid) {
-    const sourceEl = document.getElementById(`gedit-source-${eid}`);
-    const targetEl = document.getElementById(`gedit-target-${eid}`);
-    if (!sourceEl || !targetEl) return;
-    const source = sourceEl.value.trim();
-    const target = targetEl.value.trim();
-    if (!source || !target) { showToast('原文同譯文不能為空', 'error'); return; }
-    try {
-      const r = await fetch(`${API_BASE}/api/glossaries/${glossaryId}/entries/${eid}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source, target }),
-      });
-      if (!r.ok) throw new Error((await r.json()).error || '儲存失敗');
-      const idx = glossaryEntries.findIndex(e => e.id === eid);
-      if (idx >= 0) glossaryEntries = glossaryEntries.map((e, i) => i === idx ? { ...e, source, target } : e);
-      renderGlossaryTable();
-      showToast('已儲存到詞彙表', 'success');
-    } catch (e) {
-      showToast(`儲存失敗: ${e.message}`, 'error');
-      renderGlossaryTable();
-    }
-  }
-
   async function deleteGlossaryEntry(eid) {
     if (!glossaryId) return;
     const entry = glossaryEntries.find(e => e.id === eid);
@@ -2071,72 +2054,6 @@
       renderGlossaryTable();
     } catch (e) {
       showToast(`刪除失敗：${e.message}`, 'error');
-    }
-  }
-
-  function addGlossaryEntry() {
-    if (!glossaryId) { showToast('請先選擇詞彙表', 'error'); return; }
-    const body = document.getElementById('glossaryBody');
-    let tbl = body.querySelector('table tbody');
-    if (!tbl) {
-      body.innerHTML = `<table class="rv-b-glossary-table"><thead><tr><th>EN</th><th>ZH</th><th></th></tr></thead><tbody></tbody></table>`;
-      tbl = body.querySelector('tbody');
-    }
-    if (document.getElementById('grow-new')) {
-      document.getElementById('gnew-source').focus();
-      return;
-    }
-    const newRow = document.createElement('tr');
-    newRow.id = 'grow-new';
-    newRow.innerHTML = `
-      <td><input class="rv-b-glossary-input" id="gnew-source" placeholder="原文"></td>
-      <td><input class="rv-b-glossary-input" id="gnew-target" placeholder="譯文"></td>
-      <td style="text-align:center;white-space:nowrap;">
-        <button class="btn btn-primary btn-sm" onclick="saveNewEntry()" title="儲存到詞彙表 (Enter)">儲存</button>
-        <button class="btn btn-ghost btn-sm" onclick="cancelNewEntry()" title="取消 (Esc)">取消</button>
-      </td>`;
-    tbl.appendChild(newRow);
-    const sourceInput = document.getElementById('gnew-source');
-    const targetInput = document.getElementById('gnew-target');
-    [sourceInput, targetInput].forEach(el => {
-      el.addEventListener('keydown', e => {
-        if (e.key === 'Enter') saveNewEntry();
-        else if (e.key === 'Escape') cancelNewEntry();
-      });
-    });
-    sourceInput.focus();
-  }
-
-  function cancelNewEntry() {
-    const row = document.getElementById('grow-new');
-    if (row) row.remove();
-  }
-
-  async function saveNewEntry() {
-    const sourceEl = document.getElementById('gnew-source');
-    const targetEl = document.getElementById('gnew-target');
-    if (!sourceEl || !targetEl) return;
-    const source = sourceEl.value.trim();
-    const target = targetEl.value.trim();
-    if (!source || !target) { showToast('需要原文同譯文', 'error'); return; }
-    try {
-      const r = await fetch(`${API_BASE}/api/glossaries/${glossaryId}/entries`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ source, target }),
-      });
-      if (!r.ok) {
-        const err = await r.json().catch(() => ({}));
-        showToast(err.error || '加入失敗', 'error');
-        return;
-      }
-      await loadGlossaryEntries(glossaryId);
-      sourceEl.value = '';
-      targetEl.value = '';
-      showToast(`已加入詞彙表：${source} → ${target}`, 'success');
-    } catch (e) {
-      showToast(`新增失敗: ${e.message}`, 'error');
     }
   }
 
