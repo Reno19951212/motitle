@@ -430,6 +430,36 @@
       z-index: 3001; opacity: 0; pointer-events: none; transition: opacity 0.2s;
     }
     .gr-overlay.open { opacity: 1; pointer-events: auto; }
+    /* 詞彙表條目編輯 modal */
+    .ge-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 3002; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .ge-overlay.open { opacity: 1; pointer-events: auto; }
+    .ge-modal {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+      width: 380px; max-width: 92vw; max-height: 86vh; overflow: auto;
+      display: flex; flex-direction: column; box-shadow: var(--shadow);
+    }
+    .ge-header { display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; border-bottom: 1px solid var(--border); font-weight: 700; }
+    .ge-close { background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; }
+    .ge-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+    .ge-label { font-size: 11px; color: var(--text-dim); margin-top: 8px; }
+    .ge-input { width: 100%; box-sizing: border-box; background: var(--surface-2);
+      border: 1px solid var(--border); border-radius: 4px; color: var(--text);
+      font-size: 13px; padding: 5px 8px; }
+    .ge-chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+    .ge-chip { display: inline-flex; align-items: center; gap: 3px; background: var(--surface-2);
+      border: 1px solid var(--border); border-radius: 12px; padding: 2px 8px; font-size: 12px; }
+    .ge-chip button { background: none; border: none; color: var(--text-dim); cursor: pointer;
+      font-size: 13px; line-height: 1; padding: 0; }
+    .ge-chip-add { background: none; border: 1px dashed var(--border); border-radius: 12px;
+      color: var(--accent); cursor: pointer; font-size: 12px; padding: 2px 8px; }
+    .ge-footer { display: flex; justify-content: flex-end; gap: 8px;
+      padding: 10px 14px; border-top: 1px solid var(--border); }
+    .gl-td-alt { font-size: 10px; color: var(--text-dim); margin-left: 4px; }
     .gr-modal {
       background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
       width: 560px; max-height: 75vh; display: flex; flex-direction: column;
@@ -1070,13 +1100,13 @@
                       <option value="">選擇詞彙表…</option>
                     </select>
                     <button class="btn btn-ghost btn-sm" id="glossaryApplyBtn" onclick="scanGlossary()" disabled>套用</button>
-                    <button class="btn btn-ghost btn-sm" onclick="addGlossaryEntry()">+ 新增</button>
+                    <button class="btn btn-ghost btn-sm" onclick="openEntryModal(null)">+ 新增</button>
                     <button class="btn btn-ghost btn-sm" id="glossaryDeleteBtn" onclick="deleteCurrentGlossary()" title="刪除此詞彙表" disabled>🗑</button>
                   </div>
                   <!-- output_lang mode header (hidden when profile/V6) -->
                   <div class="rv-b-glossary-head" id="glHeadOutputLang" style="display:none;">
                     <span class="rv-b-glossary-title" style="white-space:normal;line-height:1.3;">詞彙表 — 此檔案使用中<br><span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;color:var(--text-dim);">剔選即儲存</span></span>
-                    <button class="btn btn-ghost btn-sm" onclick="addGlossaryEntry()">+ 新增</button>
+                    <button class="btn btn-ghost btn-sm" onclick="openEntryModal(null)">+ 新增</button>
                     <button class="btn btn-ghost btn-sm" id="glossaryDeleteBtn2" onclick="deleteCurrentGlossaryOL()" title="刪除此詞彙表" disabled>🗑</button>
                   </div>
                   <!-- output_lang mode: multi-select glossary list (hidden when profile/V6) -->
@@ -1888,6 +1918,99 @@
         <tbody>${rows}</tbody>
       </table>`;
   }
+
+  // ── 詞彙表條目編輯 modal（編輯 + 新增共用；chip 批次保存）─────
+  let _geEditId = null;
+  let _geVariants = [];
+  let _geAliases = [];
+
+  function openEntryModal(eid) {
+    if (!glossaryId) { showToast('請先點選詞彙表名稱', 'error'); return; }
+    _geEditId = eid || null;
+    const entry = eid ? glossaryEntries.find(e => e.id === eid) : null;
+    document.getElementById('geTitle').textContent = eid ? '編輯詞條' : '新增詞條';
+    document.getElementById('geSource').value = entry ? (entry.source || '') : '';
+    document.getElementById('geTarget').value = entry ? (entry.target || '') : '';
+    _geVariants = entry && Array.isArray(entry.source_variants) ? entry.source_variants.slice() : [];
+    _geAliases = entry && Array.isArray(entry.target_aliases) ? entry.target_aliases.slice() : [];
+    _geRenderChips();
+    document.getElementById('geOverlay').classList.add('open');
+    document.getElementById('geSource').focus();
+  }
+  window.openEntryModal = openEntryModal;
+
+  function _geRenderChips() {
+    document.getElementById('geVariants').innerHTML =
+      _geVariants.map((v, i) => `<span class="ge-chip">${escapeHtml(v)}<button data-kind="v" data-idx="${i}" title="移除">×</button></span>`).join('')
+      + `<button class="ge-chip-add" data-kind="v" data-add="1">+ 加入</button>`;
+    document.getElementById('geAliases').innerHTML =
+      _geAliases.map((a, i) => `<span class="ge-chip">${escapeHtml(a)}<button data-kind="a" data-idx="${i}" title="移除">×</button></span>`).join('')
+      + `<button class="ge-chip-add" data-kind="a" data-add="1">+ 加入</button>`;
+  }
+
+  function _geChipClick(e) {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    const kind = btn.dataset.kind;
+    const arr = kind === 'v' ? _geVariants : _geAliases;
+    if (btn.dataset.add) {
+      const v = prompt(kind === 'v' ? '加入近音寫法（原文聽錯/拼錯形式）：' : '加入別名（譯文寫法）：');
+      if (v && v.trim() && !arr.includes(v.trim())) arr.push(v.trim());
+    } else if (btn.dataset.idx != null) {
+      arr.splice(parseInt(btn.dataset.idx, 10), 1);
+    }
+    _geRenderChips();
+  }
+
+  async function _geSave() {
+    const source = document.getElementById('geSource').value.trim();
+    const target = document.getElementById('geTarget').value.trim();
+    if (!source || !target) { showToast('原文同譯文不能為空', 'error'); return; }
+    const saveBtn = document.getElementById('geSaveBtn');
+    saveBtn.disabled = true;
+    try {
+      const url = _geEditId
+        ? `${API_BASE}/api/glossaries/${glossaryId}/entries/${_geEditId}`
+        : `${API_BASE}/api/glossaries/${glossaryId}/entries`;
+      const r = await fetch(url, {
+        method: _geEditId ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ source, target,
+          source_variants: _geVariants, target_aliases: _geAliases }),
+      });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(body.error === 'forbidden'
+        ? '你冇權改共享詞彙表（需管理員）' : (body.error || `HTTP ${r.status}`));
+      document.getElementById('geOverlay').classList.remove('open');
+      await loadGlossaryEntries(glossaryId);
+      showToast('已儲存到詞彙表', 'success');
+    } catch (e) {
+      showToast(`儲存失敗: ${e.message}`, 'error');
+    } finally {
+      saveBtn.disabled = false;
+    }
+  }
+
+  function _geClose() { document.getElementById('geOverlay').classList.remove('open'); }
+
+  (function _geWire() {
+    const ov = document.getElementById('geOverlay');
+    if (!ov) return;
+    document.getElementById('geCloseBtn').addEventListener('click', _geClose);
+    document.getElementById('geCancelBtn').addEventListener('click', _geClose);
+    document.getElementById('geSaveBtn').addEventListener('click', _geSave);
+    document.getElementById('geVariants').addEventListener('click', _geChipClick);
+    document.getElementById('geAliases').addEventListener('click', _geChipClick);
+    ov.addEventListener('click', e => { if (e.target === ov) _geClose(); });
+    ['geSource', 'geTarget'].forEach(id => document.getElementById(id).addEventListener('keydown', e => {
+      if (e.key === 'Enter') _geSave();
+      else if (e.key === 'Escape') _geClose();
+    }));
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && ov.classList.contains('open')) _geClose();
+    });
+  })();
 
   function startEditEntry(eid) {
     const entry = glossaryEntries.find(e => e.id === eid);
@@ -3908,6 +4031,30 @@
       <button class="btn btn-ghost" id="grRescanBtn">↻ 重新掃描</button>
       <button class="btn btn-ghost" id="grCancelBtn">取消</button>
       <button class="btn btn-primary" id="grApplyBtn">套用選中 (0)</button>
+    </div>
+  </div>
+</div>
+
+<!-- 詞彙表條目編輯 modal (output_lang; 編輯 + 新增共用) -->
+<div class="ge-overlay" id="geOverlay">
+  <div class="ge-modal">
+    <div class="ge-header">
+      <span id="geTitle">編輯詞條</span>
+      <button class="ge-close" id="geCloseBtn" aria-label="關閉">&times;</button>
+    </div>
+    <div class="ge-body">
+      <label class="ge-label">原文</label>
+      <input class="ge-input" id="geSource" placeholder="原文">
+      <label class="ge-label">譯文</label>
+      <input class="ge-input" id="geTarget" placeholder="譯文">
+      <label class="ge-label">近音寫法（原文別名）</label>
+      <div class="ge-chips" id="geVariants"></div>
+      <label class="ge-label">別名（譯文）</label>
+      <div class="ge-chips" id="geAliases"></div>
+    </div>
+    <div class="ge-footer">
+      <button class="btn btn-ghost" id="geCancelBtn">取消</button>
+      <button class="btn btn-primary" id="geSaveBtn">儲存</button>
     </div>
   </div>
 </div>
