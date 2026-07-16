@@ -156,6 +156,19 @@ def load_lexicon(mt_style: str) -> List[str]:
     return out
 
 
+def coerce_variants(raw) -> List[str]:
+    """variants 必須係 list — 單一 string 當一個 variant（唔可以逐字拆），
+    其他型（dict/int/None）安全當空。
+
+    Pipeline reader 同 lexicon_manager（view/write）共用呢個 helper，
+    保證兩邊對同一個檔嘅 string-shape variants 讀法一致。"""
+    if isinstance(raw, str):
+        raw = [raw]
+    elif not isinstance(raw, (list, tuple)):
+        raw = []
+    return [str(v).strip() for v in raw if v and str(v).strip()]
+
+
 def load_lexicon_variants(mt_style: str) -> List[dict]:
     """新 shape 條目嘅宣告別名。回 [{"term": str, "variants": [str,...]}]。
     只收有非空 variants 嘅條目（舊純字串條目冇別名，跳過）。"""
@@ -164,8 +177,7 @@ def load_lexicon_variants(mt_style: str) -> List[dict]:
         if not isinstance(item, dict):
             continue
         term = (item.get("term") or "").strip()
-        variants = [str(v).strip() for v in (item.get("variants") or [])
-                    if v and str(v).strip()]
+        variants = coerce_variants(item.get("variants"))
         if term and variants:
             out.append({"term": term, "variants": variants})
     return out

@@ -237,6 +237,22 @@ def test_load_lexicon_variants_non_racing_empty():
     assert pc.load_lexicon_variants("generic") == []
 
 
+def test_load_lexicon_variants_string_shape_not_char_split(tmp_path, monkeypatch):
+    # 手改檔 legacy shape：variants 係單一 string — 必須當一個 variant，
+    # 唔可以逐字拆（拆字後每字 <MIN_CJK_ALIAS_LEN 會全部被 collect_zh_rules 丟走，
+    # pipeline 靜默失效但 lexicon_manager view 顯示為有效）。
+    import json, pathlib
+    d = tmp_path / "lex"
+    d.mkdir()
+    (d / "racing_terms.json").write_text(json.dumps({
+        "style": "racing",
+        "terms": [{"term": "後上", "variants": "後尚走"}],
+    }, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(pc, "LEXICON_DIR", pathlib.Path(d))
+    assert pc.load_lexicon_variants("racing") == [
+        {"term": "後上", "variants": ["後尚走"]}]
+
+
 # ---------- 宣告別名前置改寫（Task 7：target_aliases + lexicon variants）----------
 
 def test_target_alias_rewritten_before_stages():

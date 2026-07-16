@@ -12,7 +12,7 @@ import threading
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from phonetic_correction import LEXICON_DIR  # 同一個 config 目錄
+from phonetic_correction import LEXICON_DIR, coerce_variants  # 同一個 config 目錄 + 共用 reader 語義
 
 _STYLE_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 _LOCKS: Dict[str, threading.Lock] = {}
@@ -44,14 +44,10 @@ def _read_raw(style: str) -> Optional[dict]:
     return data if isinstance(data, dict) else None
 
 
-def _coerce_variants(raw) -> List[str]:
-    """variants 必須係 list — 單一 string 當一個 variant（唔可以逐字拆），
-    其他型（dict/int/None）安全當空。"""
-    if isinstance(raw, str):
-        raw = [raw]
-    elif not isinstance(raw, (list, tuple)):
-        raw = []
-    return [str(v).strip() for v in raw if v and str(v).strip()]
+# variants 讀法（string-shape 當一個 variant，唔可以逐字拆）統一用
+# phonetic_correction.coerce_variants — manager view/write 同 pipeline reader
+# 對同一個檔必須一致。
+_coerce_variants = coerce_variants
 
 
 def _normalize_terms(raw_terms) -> List[dict]:
