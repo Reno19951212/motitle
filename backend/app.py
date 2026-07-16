@@ -5184,18 +5184,19 @@ def glossary_reapply(file_id):
     # 舊檔別名生效：新別名要對 cached base 補跑 base 糾錯層（idempotent）。
     # base 糾錯（en/phonetic）之前被 reapply 跳過，加咗宣告別名後唔補跑 =
     # 對舊檔零效果。alias 改寫 idempotent，對已糾錯 base 再行係安全 no-op。
+    _pc_changes = None
     if base and content_lang == "yue":
         try:
             from phonetic_correction import correct_segments as _pc_correct
-            base, _ = _pc_correct(base, glossaries=glossaries, mt_style=mt_style,
-                                  llm_call=llm_call, use_llm=glossary_llm)
+            base, _pc_changes = _pc_correct(base, glossaries=glossaries, mt_style=mt_style,
+                                            llm_call=llm_call, use_llm=glossary_llm)
         except ImportError:
             pass
     elif base and content_lang == "en":
         try:
             from en_correction import correct_segments_en as _en_correct
-            base, _ = _en_correct(base, glossaries=glossaries,
-                                  llm_call=llm_call, use_llm=glossary_llm)
+            base, _pc_changes = _en_correct(base, glossaries=glossaries,
+                                            llm_call=llm_call, use_llm=glossary_llm)
         except ImportError:
             pass
 
@@ -5207,6 +5208,12 @@ def glossary_reapply(file_id):
     }
     rows = build_output_translations(
         base, [(out, derived[out]) for out in output_languages])
+    # F3(c)(i)：base 糾錯記錄併入每 row 嘅 glossary_changes（同 fresh-ASR path
+    # 嘅 _pc_changes zip/merge pattern 一致）— 詞彙對照先顯示得到宣告別名糾正。
+    if _pc_changes:
+        rows = [({**r, "glossary_changes": (_pc_changes[i] + (r.get("glossary_changes") or []))}
+                 if i < len(_pc_changes) and _pc_changes[i] else r)
+                for i, r in enumerate(rows)]
 
     # Rebuild aligned_bilingual for ≥2 outputs (best-effort — never block).
     aligned = None
@@ -5225,9 +5232,20 @@ def glossary_reapply(file_id):
         "translations": rows,
         "glossary_ids": list(glossary_ids),
         "glossary_llm": glossary_llm,
+        # F3(c)(ii)：persist 糾正後 base — 否則 translate-second 會由 stale
+        # cached base 再繼承聽錯（糾錯 idempotent，再 reapply 係安全 no-op）。
+        "content_asr_segments": [dict(s) for s in base],
     }
     if aligned is not None:
         update_fields["aligned_bilingual"] = aligned
+    # segments 只喺 grid-aligned（bound-base 檔，len 相等）先 mirror 糾正後
+    # 文字；否則（whisper-direct 多軌檔）segments 唔郁。
+    with _registry_lock:
+        _entry_now = _file_registry.get(file_id)
+        _segs_now = list((_entry_now or {}).get("segments") or [])
+    if len(_segs_now) == len(base):
+        update_fields["segments"] = [{**s, "text": (b.get("text") or "")}
+                                     for s, b in zip(_segs_now, base)]
     _update_file(file_id, **update_fields)
 
     return jsonify({
@@ -6254,21 +6272,27 @@ def _rerun_one_cue(file_id, cue, snap, engine, content_lang, llm, glossaries):
         raise RuntimeError(f"rerun ASR returned empty text for pos={pos}")
 
     base_cue = {"start": start, "end": end, "text": new_text}
+    base_changes = []
     # AI Rerun 亦補跑 base 糾錯（gap A39）：fresh ASR 會重現原聽錯，需再糾正。
     try:
         if content_lang == "yue":
             from phonetic_correction import correct_segments as _pc_correct
-            _fixed, _ = _pc_correct([base_cue], glossaries=glossaries,
-                                    mt_style=snap["mt_style"], llm_call=llm,
-                                    use_llm=snap["glossary_llm"])
+            _fixed, _fixed_ch = _pc_correct([base_cue], glossaries=glossaries,
+                                            mt_style=snap["mt_style"], llm_call=llm,
+                                            use_llm=snap["glossary_llm"])
             base_cue = _fixed[0]
+            base_changes = list((_fixed_ch[0] if _fixed_ch else None) or [])
         elif content_lang == "en":
             from en_correction import correct_segments_en as _en_correct
-            _fixed, _ = _en_correct([base_cue], glossaries=glossaries,
-                                    llm_call=llm, use_llm=snap["glossary_llm"])
+            _fixed, _fixed_ch = _en_correct([base_cue], glossaries=glossaries,
+                                            llm_call=llm, use_llm=snap["glossary_llm"])
             base_cue = _fixed[0]
+            base_changes = list((_fixed_ch[0] if _fixed_ch else None) or [])
     except ImportError:
         pass
+    # F3(a)：persist 用糾正後 base 文字 — 唔係原始 new_text，否則 stored base
+    # （segments/content_asr_segments）同 outputs（由 base_cue derive）divergence。
+    base_text = base_cue.get("text") or new_text
     derived = {
         o: derive_aligned_output([base_cue], content_lang, o, snap["script"], llm,
                                  style=snap["mt_style"], glossaries=glossaries,
@@ -6278,6 +6302,11 @@ def _rerun_one_cue(file_id, cue, snap, engine, content_lang, llm, glossaries):
     by_lang_texts = {o: (derived[o][0].get("text", "") if derived[o] else "")
                      for o in snap["outs"]}
     glossary_changes = []
+    # F3(b)：base 糾錯記錄（宣告別名/語音/英文糾正）併入 audit trail — 先於
+    # per-output 記錄（同 fresh-ASR path 嘅 _pc_changes 前置 merge 一致）。
+    for gc in base_changes:
+        if gc not in glossary_changes:
+            glossary_changes.append(gc)
     for o in snap["outs"]:
         if derived[o]:
             for gc in (derived[o][0].get("glossary_changes") or []):
@@ -6300,12 +6329,12 @@ def _rerun_one_cue(file_id, cue, snap, engine, content_lang, llm, glossaries):
         segs_l = entry.get("segments") or []
         if pos < len(segs_l):
             entry["segments"] = (segs_l[:pos]
-                                 + [{**segs_l[pos], "text": new_text}]
+                                 + [{**segs_l[pos], "text": base_text}]
                                  + segs_l[pos + 1:])
         cas = entry.get("content_asr_segments") or []
         if pos < len(cas):
             entry["content_asr_segments"] = (cas[:pos]
-                                             + [{**cas[pos], "text": new_text}]
+                                             + [{**cas[pos], "text": base_text}]
                                              + cas[pos + 1:])
         aligned = entry.get("aligned_bilingual")
         if aligned and pos < len(aligned):

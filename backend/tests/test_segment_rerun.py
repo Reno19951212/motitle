@@ -287,6 +287,60 @@ def test_other_ops_409_while_rerun_active(client, tmp_path, monkeypatch):
 
 # ---------- recorrect base (glossary-reapply / AI Rerun 補跑 base 糾錯) ----------
 
+_ALIAS_GLOSSARY = {
+    "id": "g1", "name": "賽馬", "source_lang": "en", "target_lang": "zh",
+    "entries": [{"id": "e1", "source": "X", "target": "好友心得",
+                 "target_aliases": ["好有心得"]}],
+}
+
+
+class _GMStub:
+    """Minimal glossary-manager stub: .get(id) -> glossary dict or None."""
+
+    def __init__(self, glossaries):
+        self._by_id = {g["id"]: g for g in glossaries}
+
+    def get(self, gid):
+        return self._by_id.get(gid)
+
+
+class _MishearEngine:
+    """Fresh ASR 重現原聽錯（宣告別名 好有心得 → 正名 好友心得）。"""
+
+    def transcribe(self, audio_path, language="yue"):
+        return [{"start": 0.0, "end": 1.0, "text": "好有心得今仗"}]
+
+
+def test_rerun_persists_corrected_base_and_change_records(client, tmp_path, monkeypatch):
+    """F3(a)+(b)：AI Rerun 補跑 base 糾錯之後，segments/content_asr_segments
+    必須存糾正後文字（唔係原始 ASR 聽錯 — 否則 stored base 同 outputs
+    divergence），且糾正記錄要併入 row glossary_changes（宣告別名 audit trail）。"""
+    _patch_rerun_stack(monkeypatch)
+    monkeypatch.setattr(appmod, "_rerun_asr_engine", lambda: _MishearEngine())
+    monkeypatch.setattr(appmod, "_glossary_manager", _GMStub([_ALIAS_GLOSSARY]))
+    fid = _seed_rerun_file(tmp_path, "f-rerun-alias")
+    with appmod._registry_lock:
+        e = appmod._file_registry[fid]
+        e["glossary_ids"] = ["g1"]
+        e["glossary_llm"] = False      # 唔開判決層 — 測確定性宣告別名層
+        e["mt_style"] = "racing"
+    r = client.post(f"/api/files/{fid}/rerun", json={"positions": [0]})
+    assert r.status_code == 202, r.get_data(as_text=True)
+    job = _wait_rerun(client, r.get_json()["job_id"])
+    assert job["status"] == "done" and job["done_positions"] == [0]
+    with appmod._registry_lock:
+        e = appmod._file_registry[fid]
+        # (a) 糾正後 base 全位置一致 — 唔可以存返聽錯原文
+        assert e["translations"][0]["by_lang"]["yue"]["text"] == "好友心得今仗"
+        assert e["segments"][0]["text"] == "好友心得今仗"
+        assert e["content_asr_segments"][0]["text"] == "好友心得今仗"
+        assert "好友心得今仗" in e["text"]
+        # (b) 糾正記錄併入 glossary_changes（宣告別名 audit trail）
+        changes = e["translations"][0]["glossary_changes"]
+        assert any(c.get("before") == "好有心得" and c.get("after") == "好友心得"
+                   and c.get("glossary") == "宣告別名" for c in changes), changes
+
+
 def test_recorrect_base_applies_new_alias_yue():
     """cached base + 新宣告別名 → 補跑 correct_segments 會套用且 idempotent。
 

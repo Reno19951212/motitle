@@ -376,6 +376,49 @@ def test_reapply_not_blocked_when_render_other_file(client_with_entry, monkeypat
             app_module._render_jobs.pop("rj-other", None)
 
 
+def test_reapply_persists_corrected_base_and_merges_change_records(client_with_entry, monkeypatch):
+    """F3(c)：全部重新生成要 (i) 將 base 糾錯（宣告別名）記錄併入 rows 嘅
+    glossary_changes（audit trail — 詞彙對照先顯示得到）(ii) persist 糾正後
+    base 落 content_asr_segments + grid-aligned segments mirror — 否則
+    translate-second 會由舊快取再繼承聽錯。"""
+    client, fid, app_module = client_with_entry
+    monkeypatch.setattr(app_module, "_make_ollama_llm_call",
+                        _mock_llm('{"text": "x"}'))
+    with app_module._registry_lock:
+        entry = app_module._file_registry[fid]
+        # bound-base 檔：segments 同 content base grid-aligned（等長）
+        entry["segments"] = [dict(s) for s in entry["content_asr_segments"]]
+    r = client.post(f"/api/files/{fid}/glossary-reapply", json={})
+    assert r.status_code == 200, r.get_data(as_text=True)
+    with app_module._registry_lock:
+        entry = app_module._file_registry[fid]
+        # (ii) 糾正後 base persist（快活谷 → 跑馬地，宣告別名 target_aliases）
+        assert entry["content_asr_segments"][0]["text"] == "跑馬地今晚有賽事。"
+        assert entry["segments"][0]["text"] == "跑馬地今晚有賽事。"
+        # (i) 糾正記錄併入 row glossary_changes（tag 宣告別名）
+        changes = entry["translations"][0]["glossary_changes"]
+        assert any(c.get("before") == "快活谷" and c.get("after") == "跑馬地"
+                   and c.get("glossary") == "宣告別名" for c in changes), changes
+
+
+def test_reapply_leaves_segments_untouched_when_not_grid_aligned(client_with_entry, monkeypatch):
+    """segments 同 base 唔等長（whisper-direct 多軌檔）→ segments 唔郁，
+    只 persist content_asr_segments。"""
+    client, fid, app_module = client_with_entry
+    monkeypatch.setattr(app_module, "_make_ollama_llm_call",
+                        _mock_llm('{"text": "x"}'))
+    misaligned = [{"start": 0.0, "end": 1.0, "text": "快活谷今晚"},
+                  {"start": 1.0, "end": 2.0, "text": "有賽事。"}]
+    with app_module._registry_lock:
+        app_module._file_registry[fid]["segments"] = [dict(s) for s in misaligned]
+    r = client.post(f"/api/files/{fid}/glossary-reapply", json={})
+    assert r.status_code == 200, r.get_data(as_text=True)
+    with app_module._registry_lock:
+        entry = app_module._file_registry[fid]
+        assert entry["content_asr_segments"][0]["text"] == "跑馬地今晚有賽事。"
+        assert entry["segments"] == misaligned   # 唔郁
+
+
 # ---------------------------------------------------------------------------
 # Review follow-ups (adversarial review 2026-06-12)
 # ---------------------------------------------------------------------------
