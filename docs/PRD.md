@@ -198,7 +198,9 @@
 | 語言參數 | 每語言獨立 ASR/翻譯參數 | ✅ |
 | 術語表 | 英中對照 + CSV 匯入/匯出 | ✅ |
 | **術語表宣告別名（近音別名）** | 詞條可宣告「聽錯樣 → 正名」（`source_variants` / `target_aliases` / lexicon `variants`），零 LLM 確定性改寫 base；三重閘（中文 ≥3 字 / Latin 字界 / 內容語言）；CSV 4 欄；舊檔重新生成／AI Rerun 補跑生效 | ✅ 完成（2026-07-15；核心引擎 Plan A） |
-| **近音別名閉環 UI（Plan B）** | 術語表頁 `source_variants` chip 列 + 表格別名 badge；系統行話表 admin modal（GET/PUT `/api/lexicons/<style>`）；校對頁掃描加「疑似聽錯」分節（確定性零 LLM）+ 一鍵 `POST /api/files/<id>/glossary-add-alias`（source/target/lexicon，authz per kind） | ✅ 完成（2026-07-15；Plan C 自動學仍待做） |
+| **近音別名閉環 UI（Plan B）** | 術語表頁 `source_variants` chip 列 + 表格別名 badge；系統行話表 admin modal（GET/PUT `/api/lexicons/<style>`）；校對頁掃描加「疑似聽錯」分節（確定性零 LLM，opt-in「🔎 搵疑似聽錯」掣）+ 一鍵 `POST /api/files/<id>/glossary-add-alias`（source/target/lexicon，authz per kind） | ✅ 完成（2026-07-15；Plan C 自動學仍待做） |
+| **校對頁詞彙表面板升級** | 面板詞條搜尋（原文/譯文/近音/別名）；✎/＋新增 開條目編輯 modal（原文/譯文 + 近音寫法 + 譯文別名 chips）；「·近N」badge；三入口別名警告安全網（lint 非阻斷） | ✅ 完成（2026-07-16） |
+| **已宣告別名掃描反饋（閉環收尾）** | 掃描 modal「已宣告別名」分節 + 頂部 banner（列出已宣告但未生效嘅位置，指向「全部重新生成」）；reapply/AI Rerun persist 糾錯後 base + 糾錯記錄併入詞彙對照 | ✅ 完成（2026-07-16；三輪 Chrome E2E 14/14、11/11、4/4） |
 | 字體配置 | 字體族、大小、顏色、描邊、位置 | ✅ |
 
 ### 3.5 引擎選擇互動流程

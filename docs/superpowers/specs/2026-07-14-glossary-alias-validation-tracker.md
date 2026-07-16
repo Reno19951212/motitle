@@ -203,7 +203,7 @@ ALL PASS: True
 | `test_glossary_add_alias.py`（Task 3：source_variants / target_aliases canonical 反查 / lexicon / bad kind）| ✅ 4 passed |
 | `test_glossary_preview_suspects.py`（Task 4：en judge / yue phonetic side / 非 yue-非 en 零 suspects）| ✅ 3 passed |
 
-**⇒ Plan B 閉環 GATE1/GATE2 全部 PASS ✅ + 4 隔離 test file 全 PASS（16 tests）** — 別名寫入鏈（疑似聽錯確定性生成 → 一鍵寫 source_variants/target_aliases/lexicon variants）通。閉環已完整（Glossary.html 近音 chip + 系統行話表 admin + 校對頁一鍵回饋）。前端 live-browser E2E（掃描 modal 疑似聽錯分節、一鍵加別名、系統行話表 admin modal）**待人手驗證**（本 gate 為純後端 round-trip，無跑瀏覽器）。
+**⇒ Plan B 閉環 GATE1/GATE2 全部 PASS ✅ + 4 隔離 test file 全 PASS（16 tests）** — 別名寫入鏈（疑似聽錯確定性生成 → 一鍵寫 source_variants/target_aliases/lexicon variants）通。閉環已完整（Glossary.html 近音 chip + 系統行話表 admin + 校對頁一鍵回饋）。前端 live-browser E2E（掃描 modal 疑似聽錯分節、一鍵加別名、系統行話表 admin modal）~~待人手驗證~~ → **已驗證 ✅（2026-07-16，三輪真 Chrome Playwright E2E 全 PASS）**：閉環 UI round 14/14、詞彙表編輯器（`frontend/tests/test_proofread_glossary_editor.py`）11/11、已宣告別名掃描反饋（`frontend/tests/test_proofread_glossary_declared.py`）4/4。
 
 > **Note（deviation）**：`aliasui_verify.py` 除 plan 原文外，額外喺 `app = appmod.app` 之後直接設 `app.config["LOGIN_DISABLED"/"R5_AUTH_BYPASS"/"R5_LICENSE_BYPASS"] = True`。原因：bypass flag 由 `app.config` 讀取（`conftest._isolate_app_data` 直接設 config），app.py boot **唔會**將同名 env var 映射入 config，所以 plan 原文淨靠 `os.environ.setdefault(...)` 嘅 standalone client 會俾 `login_required` 擋成 401。呢個係最小修正，鏡返 conftest idiom。**Plan C（自動學）仍待做。**
 
@@ -230,3 +230,32 @@ Spec §4.2b 要求「填入常用詞／常用片語別名時**警告但唔阻止
 | `test_alias_lint_route.py`（新 route：warn / clean / 400）| ✅ 6 passed |
 | `test_glossary_add_alias.py`（+3：鬆反查 / response warnings ×2）| ✅ 7 passed |
 | `scripts/alias_gating_dryrun.py` GATE1-3 | ✅ ALL PASS |
+
+---
+
+## 2026-07-16 fresh-eyes review + fix batch
+
+對成條 feat/glossary-fuzzy-match branch 做咗一次 fresh-eyes code review，**18 個 confirmed findings 全部已修**（每項均有對應 commit + 隔離 test）：
+
+1. 「⟳ 全部重新生成」掣從未 wire（`reapplyGlossary` dead button，pre-existing；閉環 CTA 指住佢）— 已接返（fb54df73）
+2. `apply_cjk` 中文別名改寫欠 ASCII 字界，會咬爛 Latin 內文（`Racecourse` corrupt 實證）— 補字界（6826789b）
+3. 宣告別名 alias⊂canonical 時正名被自我改寫（`好友心`⊂`好友心得`）— 加正名保護（6826789b）
+4. glossary-reapply / AI Rerun 補跑糾錯後**冇 persist 糾錯後 base** — 重新生成先真正生效（670017c3）
+5. 補跑糾錯記錄冇併入 `glossary_changes`（宣告別名 audit trail 缺口）— 已併（670017c3）
+6. declared 掃描被 `_SUSPECT_SCAN_CUES=400` 靜默封頂（大檔宣告別名漏報）— declared 路徑去除封頂（7688bd2a）
+7. 「🔎 搵疑似聽錯」掣失敗後卡死唔可重試 — 狀態機修正（7688bd2a）
+8. `geSave` 冇防雙提交（double-click 重複寫入）— 已鎖（a0c4dd0a）
+9. lexicon bare-string variants 被 `list()` 拆成單字 — 防拆字（a0c4dd0a）
+10. 別名 chip 冇去重 — 已去重（a0c4dd0a）
+11. 別名措辭三入口唔一致（近音寫法／替代寫法）— 統一（a0c4dd0a）
+12. 行話表非管理員冇只讀視圖（直接俾 403 冇 UX）— 加只讀視圖（a0c4dd0a）
+13. §4.2b 別名警告安全網 MISSED（常用詞／太短別名照收零提示）— `lint_variant` + `POST /api/glossaries/alias-lint` + 三入口非阻斷提示（3be44664）
+14. add-alias canonical 反查太嚴（target 尾帶非馬匹編號括號永遠反查唔中）— 鬆規則剝尾括號（3be44664）
+15. preview declared/suspect 組合路徑冇 route 測試 — 補（c2b625eb）
+16. add-alias / lexicon PUT 冇非 bypass 403 authz 測試 — 補（c2b625eb）
+17. 文檔三條「AI Rerun／全部重新生成唔重跑 base 糾錯」限制已失效仲自相矛盾（README ×1 + CLAUDE.md ×2）— 全部撤回標「已修 2026-07-15」（本 commit）
+18. README 漏五樣（疑似聽錯 opt-in 掣／校對頁面板搜尋+編輯 modal／已宣告別名分節+banner／CSV 仍教 3 欄／別名警告行為）+ 本 tracker「待人手驗證」過期 — 全部補齊（本 commit）
+
+**Accepted limitations（明文接受，唔係遺漏）**：
+- **CJK 常用詞 lint 冇 deny-list** — `_COMMON`/`_EN_COMMON` 只覆蓋英文；中文側 lint 只做 `MIN_CJK_ALIAS_LEN=3` 長度警告，唔發明一個中文常用詞表（將來有實證 FP 語料先考慮）。
+- **`scan_track` 851-cue 慢** — pre-existing／open，唔屬本 batch scope（suspect 掃描已 opt-in + 封頂緩解，exact 掃描本身嘅 O(cue×詞條) 未郁）。

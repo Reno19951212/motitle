@@ -1,6 +1,7 @@
 """校對頁詞彙表面板：搜尋 + 條目編輯 modal — Playwright E2E（真 Chrome headless）。
 跑法：backend/venv/bin/python frontend/tests/test_proofread_glossary_editor.py
-前置：branch code 行喺 :5011（admin Reno / Reno12345）。非破壞性（丟棄式詞彙表，跑完還原檔案綁定）。
+前置：branch code 行喺 :5011（admin Reno / Reno12345）；檔案 FILE（細 yue output_lang 檔）
+必須存在於該 server 嘅 registry。非破壞性（丟棄式詞彙表，跑完還原檔案綁定）。
 """
 import sys
 from playwright.sync_api import sync_playwright

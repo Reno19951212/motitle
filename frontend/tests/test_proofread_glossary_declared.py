@@ -1,4 +1,9 @@
-"""驗證：加 source_variant 後，校對頁掃描顯示「已宣告別名」section + banner。真 Chrome。"""
+"""驗證：加 source_variant 後，校對頁掃描顯示「已宣告別名」section + banner。真 Chrome（headless）。
+跑法：backend/venv/bin/python frontend/tests/test_proofread_glossary_declared.py
+前置：branch code 行喺 :5011（admin Reno / Reno12345）；檔案 FILE（en 源 output_lang 檔，
+base 含 "Speedy Smarty"）必須存在於該 server 嘅 registry。非破壞性（丟棄式詞彙表，
+跑完還原檔案 glossary_ids 綁定）。
+"""
 import sys
 from playwright.sync_api import sync_playwright
 BASE = "http://127.0.0.1:5011"
