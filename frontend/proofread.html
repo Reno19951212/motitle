@@ -2024,9 +2024,10 @@
 
   function _geClose() { document.getElementById('geOverlay').classList.remove('open'); }
 
-  (function _geWire() {
+  function _geWire() {
     const ov = document.getElementById('geOverlay');
-    if (!ov) return;
+    if (!ov || ov._geWired) return;   // modal DOM 喺 body 尾 — 要 DOM ready 先 wire
+    ov._geWired = true;
     document.getElementById('geCloseBtn').addEventListener('click', _geClose);
     document.getElementById('geCancelBtn').addEventListener('click', _geClose);
     document.getElementById('geSaveBtn').addEventListener('click', _geSave);
@@ -2040,7 +2041,9 @@
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape' && ov.classList.contains('open')) _geClose();
     });
-  })();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _geWire);
+  else _geWire();
 
   async function deleteGlossaryEntry(eid) {
     if (!glossaryId) return;
