@@ -50,6 +50,31 @@ def test_set_lexicon_empty_variants_writes_bare_string(tmp_path, monkeypatch):
     assert {"term": "尾二", "variants": ["尾指位置"]} in raw["terms"]
 
 
+def test_string_variants_not_split_into_characters(tmp_path, monkeypatch):
+    # 客戶端寫壞 variants 做單一 string → 必須當一個 variant，唔可以逐字拆
+    _seed(tmp_path, monkeypatch, ["內欄位置"])
+    lm.set_lexicon("racing", [{"term": "殿後", "variants": "電流位"}])
+    view = lm.get_lexicon("racing")
+    dh = [t for t in view["terms"] if t["term"] == "殿後"][0]
+    assert dh["variants"] == ["電流位"]        # 唔係 ["電", "流", "位"]
+
+
+def test_get_lexicon_string_variants_on_disk_not_split(tmp_path, monkeypatch):
+    # 磁碟檔本身 variants 係 string（手改壞）→ 讀 view 一樣唔可以拆字
+    _seed(tmp_path, monkeypatch, [{"term": "後上", "variants": "後尚"}])
+    view = lm.get_lexicon("racing")
+    hs = [t for t in view["terms"] if t["term"] == "後上"][0]
+    assert hs["variants"] == ["後尚"]
+
+
+def test_non_list_variants_ignored(tmp_path, monkeypatch):
+    # variants 係其他垃圾型（dict/int）→ 安全當空
+    _seed(tmp_path, monkeypatch, [{"term": "殿後", "variants": {"x": 1}}])
+    view = lm.get_lexicon("racing")
+    dh = [t for t in view["terms"] if t["term"] == "殿後"][0]
+    assert dh["variants"] == []
+
+
 def test_bad_style_returns_none(tmp_path, monkeypatch):
     _seed(tmp_path, monkeypatch, ["x"])
     assert lm.get_lexicon("../etc") is None

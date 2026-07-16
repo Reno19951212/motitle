@@ -1997,10 +1997,14 @@
     _geRenderChips();
   }
 
+  let _geSaving = false;   // in-flight guard — Enter 鍵路徑唔經 disabled 掣，防雙提交
+
   async function _geSave() {
+    if (_geSaving) return;
+    _geSaving = true;
     const source = document.getElementById('geSource').value.trim();
     const target = document.getElementById('geTarget').value.trim();
-    if (!source || !target) { showToast('原文同譯文不能為空', 'error'); return; }
+    if (!source || !target) { showToast('原文同譯文不能為空', 'error'); _geSaving = false; return; }
     const saveBtn = document.getElementById('geSaveBtn');
     saveBtn.disabled = true;
     try {
@@ -2024,6 +2028,7 @@
       showToast(`儲存失敗: ${e.message}`, 'error');
     } finally {
       saveBtn.disabled = false;
+      _geSaving = false;
     }
   }
 
@@ -3974,7 +3979,7 @@
       <input class="ge-input" id="geTarget" placeholder="譯文">
       <label class="ge-label">近音寫法（原文別名）</label>
       <div class="ge-chips" id="geVariants"></div>
-      <label class="ge-label">別名（譯文）</label>
+      <label class="ge-label">替代寫法（譯文別名）</label>
       <div class="ge-chips" id="geAliases"></div>
     </div>
     <div class="ge-footer">

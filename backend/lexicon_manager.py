@@ -44,6 +44,16 @@ def _read_raw(style: str) -> Optional[dict]:
     return data if isinstance(data, dict) else None
 
 
+def _coerce_variants(raw) -> List[str]:
+    """variants 必須係 list — 單一 string 當一個 variant（唔可以逐字拆），
+    其他型（dict/int/None）安全當空。"""
+    if isinstance(raw, str):
+        raw = [raw]
+    elif not isinstance(raw, (list, tuple)):
+        raw = []
+    return [str(v).strip() for v in raw if v and str(v).strip()]
+
+
 def _normalize_terms(raw_terms) -> List[dict]:
     out: List[dict] = []
     for item in raw_terms or []:
@@ -53,9 +63,7 @@ def _normalize_terms(raw_terms) -> List[dict]:
             term = (item.get("term") or "").strip()
             if not term:
                 continue
-            variants = [str(v).strip() for v in (item.get("variants") or [])
-                        if v and str(v).strip()]
-            out.append({"term": term, "variants": variants})
+            out.append({"term": term, "variants": _coerce_variants(item.get("variants"))})
     return out
 
 
@@ -81,7 +89,7 @@ def _to_raw_terms(terms: List[dict]) -> List:
         term = (t.get("term") or "").strip()
         if not term:
             continue
-        variants = [str(v).strip() for v in (t.get("variants") or []) if v and str(v).strip()]
+        variants = _coerce_variants(t.get("variants"))
         raw.append({"term": term, "variants": variants} if variants else term)
     return raw
 

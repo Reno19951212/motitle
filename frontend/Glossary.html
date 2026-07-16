@@ -674,7 +674,7 @@
                   <option value="all">全部軌</option>
                 </select>
               </div>
-              <button class="btn btn-secondary btn-sm" id="lexAdminBtn" style="display:none;" title="編輯系統行話表（賽馬術語近音別名，管理員專屬）">系統行話表</button>
+              <button class="btn btn-secondary btn-sm" id="lexAdminBtn" title="查看系統行話表（賽馬術語近音別名；修改需要管理員）">系統行話表</button>
             </div>
             <div class="gl-table">
               <div class="gl-tr gl-th">
@@ -733,13 +733,13 @@
 
 <div class="toast" id="toast" role="status"></div>
 
-<!-- 系統行話表 admin modal (admin-only; opened from #lexAdminBtn) -->
+<!-- 系統行話表 modal (opened from #lexAdminBtn; 管理員可改、普通用戶只讀) -->
 <div class="lex-overlay" id="lexOverlay">
   <div class="lex-modal">
     <div class="lex-header">
       <div>
         系統行話表
-        <div class="lex-subtitle">賽馬術語近音別名 · 管理員專屬 · 全局共用（改咗要「全部重新生成」先對舊檔生效）</div>
+        <div class="lex-subtitle" id="lexSubtitle">賽馬術語近音別名 · 全局共用（改咗要「全部重新生成」先對舊檔生效）</div>
       </div>
       <button class="lex-close" id="lexCloseBtn" aria-label="關閉">&times;</button>
     </div>
@@ -766,7 +766,6 @@
       if (nm) nm.textContent = u.username || '—';
       if (u.is_admin) {
         const al = document.getElementById('adminLink'); if (al) al.style.display = 'inline';
-        const lex = document.getElementById('lexAdminBtn'); if (lex) lex.style.display = '';
         state.isAdmin = !!u.is_admin;
       }
     } catch (e) { /* keep default */ }
@@ -1043,7 +1042,7 @@
         <input class="gl-input gl-input-zh" id="dTarget" value="${escapeHtml(entry.target || '')}" />
       </div>
       <div class="gl-field">
-        <label>替代寫法 (別名)</label>
+        <label>替代寫法（譯文別名）</label>
         <div class="gl-chips" id="dAliases">
           ${aliases.map((a, i) => `<span class="gl-chip">${escapeHtml(a)}<button data-idx="${i}" title="移除">×</button></span>`).join('')}
           <button class="gl-chip-add" id="dAliasAdd">+ 加入</button>
@@ -1074,8 +1073,8 @@
     });
     document.getElementById('dAliasAdd').addEventListener('click', async () => {
       if (_aliasSaveBusy) return;
-      const v = prompt('加入別名：');
-      if (!v || !v.trim()) return;
+      const v = prompt('加入替代寫法（譯文別名）：');
+      if (!v || !v.trim() || aliases.includes(v.trim())) return;   // dedupe — 同 proofread modal 一致
       _aliasSaveBusy = true;
       try {
         await saveEntryField('target_aliases', [...aliases, v.trim()]);
@@ -1098,7 +1097,7 @@
     document.getElementById('dVariantAdd').addEventListener('click', async () => {
       if (_aliasSaveBusy) return;
       const v = prompt('加入近音寫法（原文聽錯/拼錯形式）：');
-      if (!v || !v.trim()) return;
+      if (!v || !v.trim() || variants.includes(v.trim())) return;  // dedupe — 同 proofread modal 一致
       _aliasSaveBusy = true;
       try {
         await saveEntryField('source_variants', [...variants, v.trim()]);
@@ -1394,6 +1393,11 @@
     let view;
     try { view = await apiJson('GET', `/api/lexicons/${style}`); }
     catch (e) { toast(`載入失敗: ${e.message}`, 'error'); return; }
+    // 管理員可改、普通用戶只讀（GET login-only、PUT admin-only）
+    document.getElementById('lexSubtitle').textContent = state.isAdmin
+      ? '賽馬術語近音別名 · 全局共用（改咗要「全部重新生成」先對舊檔生效）'
+      : '賽馬術語近音別名 · 只讀 — 修改需要管理員';
+    document.getElementById('lexSaveBtn').style.display = state.isAdmin ? '' : 'none';
     _renderLexModal(style, view.terms || []);
     document.getElementById('lexOverlay').classList.add('open');
   }
@@ -1411,19 +1415,23 @@
 
   function _lexRenderBody() {
     const body = document.getElementById('lexBody');
+    const canEdit = !!state.isAdmin;   // 非管理員只讀：唔 render 移除 × / 加入掣
     const rows = _lexState.terms.map((t, ti) => `
       <div class="lex-row" data-ti="${ti}">
         <div class="lex-term">${escapeHtml(t.term)}</div>
         <div class="gl-chips">
           ${t.variants.map((v, vi) =>
-            `<span class="gl-chip">${escapeHtml(v)}<button data-ti="${ti}" data-vi="${vi}" title="移除">×</button></span>`
+            `<span class="gl-chip">${escapeHtml(v)}${canEdit
+              ? `<button data-ti="${ti}" data-vi="${vi}" title="移除">×</button>` : ''}</span>`
           ).join('')}
-          <button class="gl-chip-add" data-ti="${ti}" data-add="1">+ 加入近音</button>
+          ${canEdit ? `<button class="gl-chip-add" data-ti="${ti}" data-add="1">+ 加入近音</button>` : ''}
         </div>
       </div>`).join('');
     body.innerHTML = rows || '<div class="lex-loading">呢個行話表未有術語</div>';
     document.getElementById('lexFootNote').textContent =
-      `${_lexState.terms.length} 個術語 · style=${_lexState.style}`;
+      `${_lexState.terms.length} 個術語 · style=${_lexState.style}`
+      + (canEdit ? '' : ' · 只讀');
+    if (!canEdit) return;   // 只讀 view — 唔 wire 任何修改 handler
     body.querySelectorAll('.gl-chip button').forEach(btn => {
       btn.addEventListener('click', () => {
         const ti = parseInt(btn.dataset.ti, 10), vi = parseInt(btn.dataset.vi, 10);
