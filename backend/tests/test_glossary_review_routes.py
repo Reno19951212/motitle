@@ -456,3 +456,155 @@ def test_apply_item_409_when_timing_changed_mid_llm(client_with_entry, monkeypat
     assert r.status_code == 409
     # 冇寫入
     assert app_mod._file_registry[fid]["translations"][0]["by_lang"]["yue"]["text"] == before
+
+
+# ===========================================================================
+# F7(a) — glossary-preview declared / suspect COMPOSITION (route level).
+#
+# The pure helpers (_declared_for_track / _suspects_for_track) are unit-tested
+# in test_glossary_preview_suspects.py; these tests pin down how the ROUTE
+# composes them with scan_track: opt-in gating, (idx, span) dedupe against
+# fix items and against declared items, and the add-only totals contract.
+# ===========================================================================
+
+_GLOSSARY_EN = {
+    "id": "g-en",
+    "name": "賽馬EN",
+    "source_lang": "en",
+    "target_lang": "zh",
+    "entries": [
+        # source_variants 係「宣告別名」— en pass 軌 scan_track 唔 match 佢，
+        # declared 掃描係佢唯一嘅 route-level 反饋。
+        {"id": "e-en-1", "source": "SPEEDY SMARTIE", "target": "伶俐驫駒 (H108)",
+         "source_variants": ["Speedy Smarty"]},
+    ],
+}
+
+
+def _en_source_entry(fid):
+    """en→[en,zh] output_lang entry — the en (pass) track still carries the
+    DECLARED source_variant 「Speedy Smarty」 (base not regenerated yet)."""
+    return {
+        "id": fid,
+        "active_kind": "output_lang",
+        "source_language": "en",
+        "script": "trad",
+        "output_languages": ["en", "zh"],
+        "content_asr_segments": [
+            {"start": 0.0, "end": 2.0, "text": "Speedy Smarty leads the field"},
+        ],
+        "glossary_ids": ["g-en"],
+        "glossary_llm": True,
+        "translations": [
+            {
+                "idx": 0, "start": 0.0, "end": 2.0, "status": "pending",
+                "by_lang": {
+                    "en": {"text": "Speedy Smarty leads the field",
+                           "status": "pending", "flags": []},
+                    "zh": {"text": "伶俐驫駒帶出。", "status": "pending", "flags": []},
+                },
+                "en_text": "Speedy Smarty leads the field",
+                "zh_text": "伶俐驫駒帶出。",
+                "glossary_changes": [],
+            },
+        ],
+        "aligned_bilingual": [
+            {"start": 0.0, "end": 2.0,
+             "by_lang": {"en": "Speedy Smarty leads the field",
+                         "zh": "伶俐驫駒帶出。"}},
+        ],
+        "user_id": 1,
+    }
+
+
+@pytest.fixture
+def client_with_en_entry(monkeypatch):
+    """(client, fid, app_module) with an en→[en,zh] output_lang entry whose en
+    track contains a declared source_variant."""
+    import app as _app
+    monkeypatch.setattr(_app, "_glossary_manager", _GM([_GLOSSARY_EN]))
+    fid = "glreview-ol-en"
+    with _app._registry_lock:
+        _app._file_registry[fid] = _en_source_entry(fid)
+    try:
+        yield _app.app.test_client(), fid, _app
+    finally:
+        with _app._registry_lock:
+            _app._file_registry.pop(fid, None)
+
+
+def test_preview_default_scan_surfaces_declared_without_suspects(client_with_en_entry):
+    """[1] Default scan (body {}) → declared item present + totals.declared>0,
+    but the expensive fuzzy pass did NOT run (suspects_scanned false, zero
+    kind:'suspect' items anywhere)."""
+    client, fid, _ = client_with_en_entry
+    r = client.post(f"/api/files/{fid}/glossary-preview", json={})
+    assert r.status_code == 200, r.get_data(as_text=True)
+    body = r.get_json()
+    en = next(t for t in body["tracks"] if t["lang"] == "en")
+    declared = [i for i in en["items"] if i["kind"] == "declared"]
+    assert any(d["span"] == "Speedy Smarty" and d["canonical"] == "SPEEDY SMARTIE"
+               and d["side"] == "source" and d["entry_id"] == "e-en-1"
+               and d["idx"] == 0 for d in declared), declared
+    assert body["totals"]["declared"] > 0
+    assert body["totals"]["suspects_scanned"] is False
+    assert body["totals"]["suspect"] == 0
+    assert all(i["kind"] != "suspect" for t in body["tracks"] for i in t["items"])
+
+
+def test_preview_declared_span_not_duplicated_as_suspect(client_with_en_entry):
+    """[2] include_suspects:true → the declared (idx, span) must NOT re-appear
+    as a fuzzy suspect (閉環：加咗別名唔會再當未處理)."""
+    import app as app_module
+    client, fid, _ = client_with_en_entry
+    # Non-vacuous guard: the fuzzy pass ALONE genuinely produces this span as a
+    # d=1 judge candidate — so its absence below proves the route excluded it.
+    sus = app_module._suspects_for_track(
+        "en", ["Speedy Smarty leads the field"], [0.0],
+        [_GLOSSARY_EN], "en", "generic")
+    assert any(s["span"] == "Speedy Smarty" and s["idx"] == 0 for s in sus), sus
+
+    r = client.post(f"/api/files/{fid}/glossary-preview",
+                    json={"include_suspects": True})
+    assert r.status_code == 200, r.get_data(as_text=True)
+    body = r.get_json()
+    assert body["totals"]["suspects_scanned"] is True
+    en = next(t for t in body["tracks"] if t["lang"] == "en")
+    # declared feedback still listed …
+    assert any(i["kind"] == "declared" and i["span"] == "Speedy Smarty"
+               for i in en["items"])
+    # … and the SAME (idx, span) is not double-listed as suspect
+    assert not any(i["kind"] == "suspect" and i["idx"] == 0
+                   and i["span"] == "Speedy Smarty"
+                   for t in body["tracks"] for i in t["items"])
+
+
+def test_preview_fix_not_duplicated_as_declared(client_with_entry):
+    """[3] target_alias 快活谷 already surfaces from scan_track as kind:'fix' —
+    the declared pass must NOT list the same (idx, span) again."""
+    import app as app_module
+    client, fid, _ = client_with_entry
+    # Non-vacuous guard: the declared pass ALONE does rewrite 快活谷 (it's a
+    # ≥3-char target_alias), so its absence below proves the route deduped it.
+    dec = app_module._declared_for_track(
+        "yue", ["快活谷今晚有賽事。"], [0.0], [_GLOSSARY], "yue", "generic")
+    assert any(d["span"] == "快活谷" for d in dec), dec
+
+    r = client.post(f"/api/files/{fid}/glossary-preview", json={})
+    assert r.status_code == 200, r.get_data(as_text=True)
+    yue = next(t for t in r.get_json()["tracks"] if t["lang"] == "yue")
+    fixes = [i for i in yue["items"]
+             if i["kind"] == "fix" and i["alias"] == "快活谷"]
+    assert fixes  # precondition: scan_track reports it as a fix
+    assert not any(i["kind"] == "declared" and i.get("span") == "快活谷"
+                   for i in yue["items"])
+
+
+def test_preview_totals_has_all_composition_keys(client_with_en_entry):
+    """[4] totals carries the full add-only key set — fix/ok/suspect/declared/
+    suspects_scanned/suspects_truncated (frontend contract, never remove)."""
+    client, fid, _ = client_with_en_entry
+    body = client.post(f"/api/files/{fid}/glossary-preview", json={}).get_json()
+    for key in ("fix", "ok", "suspect", "declared", "rows",
+                "suspects_scanned", "suspects_truncated"):
+        assert key in body["totals"], f"totals missing key: {key}"
