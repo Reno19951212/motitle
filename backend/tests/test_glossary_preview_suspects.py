@@ -65,6 +65,27 @@ def test_declared_zh_target_alias_surfaced():
                and d["entry_id"] == "e1" for d in dec)
 
 
+def test_declared_scan_covers_beyond_400_cues():
+    """declared 掃描係 cheap regex pass — 唔可以被 fuzzy 掃描嘅 400 cue 上限封頂。
+
+    >400 段檔案，別名喺第 441 段（index 440）都必須搵到（否則用戶加咗別名
+    掃描見唔到 → 「冇反應」）。
+    """
+    import app
+    glossaries = [{
+        "source_lang": "en", "target_lang": "zh", "name": "賽馬", "id": "g1",
+        "entries": [{"id": "e1", "source": "SPEEDY SMARTIE", "target": "伶俐驫駒 (H108)",
+                     "source_variants": ["Speedy Smarty"]}],
+    }]
+    texts = ["filler line"] * 450
+    texts[440] = "Speedy Smarty leads the field"
+    starts = [float(i) for i in range(450)]
+    dec = app._declared_for_track("en", texts, starts, glossaries, "en", "racing")
+    assert any(d["kind"] == "declared" and d["idx"] == 440
+               and d["span"] == "Speedy Smarty" and d["start"] == 440.0
+               for d in dec)
+
+
 def test_declared_none_when_no_variant():
     import app
     glossaries = [{

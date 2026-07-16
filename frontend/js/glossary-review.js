@@ -42,8 +42,11 @@
     if (_suspectsRequested) return;
     const btn = _el('grSuspectBtn');
     if (btn) { btn.disabled = true; btn.textContent = '搵緊…'; }
-    await _doScan(true);
+    // 必須喺 _doScan 之前 set — 成功路徑 _doScan → _renderModal → _updateSuspectBtn
+    // 會讀呢個 flag；set 遲咗 button 會重新 enable 但撳落 no-op（上面 guard 截咗）。
+    // 失敗路徑由 _doScan 嘅 catch reset 返 false，令重試可行。
     _suspectsRequested = true;
+    await _doScan(true);
   }
 
   async function _doScan(includeSuspects) {
@@ -61,10 +64,10 @@
       _buildRowTextCache();
       _renderModal();
     } catch (e) {
+      if (includeSuspects) _suspectsRequested = false;  // 失敗 reset，令重試可行
       _body().innerHTML = `<div class="ga-progress" style="color:var(--error,#f38ba8);">掃描失敗：${escapeHtml(e.message)}</div>`;
       showToast(`掃描失敗: ${e.message}`, 'error');
-      const btn = _el('grSuspectBtn');
-      if (btn) { btn.disabled = false; btn.textContent = '🔎 搵疑似聽錯'; }
+      _updateSuspectBtn();  // 跟 flag 還原掣狀態（失敗 → 重新 enable「🔎 搵疑似聽錯」）
     }
   }
 

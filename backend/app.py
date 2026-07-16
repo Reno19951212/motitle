@@ -5272,7 +5272,10 @@ def _declared_for_track(lang, texts, starts, glossaries, content_lang, mt_style)
         import alias_rewrite as ar
     except ImportError:
         return []
-    segs = [{"start": 0, "end": 1, "text": (t or "")} for t in texts[:_SUSPECT_SCAN_CUES]]
+    # 全部 cue 都掃（cheap regex pass，唔使封頂）— _SUSPECT_SCAN_CUES 只封
+    # expensive 嘅 _suspects_for_track；declared 掃描封頂會令 >400 cue 檔案
+    # 加咗別名之後掃描「冇反應」。
+    segs = [{"start": 0, "end": 1, "text": (t or "")} for t in texts]
     if lang == "en" and content_lang == "en":
         rules = ar.collect_en_rules(glossaries)
         if not rules:
