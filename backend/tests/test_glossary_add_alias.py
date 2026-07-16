@@ -102,3 +102,60 @@ def test_bad_kind_400(client):
     fid = _mk_file(client)
     assert client.post(f"/api/files/{fid}/glossary-add-alias",
                        json={"kind": "bogus", "variant": "x", "canonical": "y"}).status_code == 400
+
+
+def test_add_target_alias_loose_parenthetical_reverse_lookup(client):
+    """Target 尾帶非馬匹編號括號（strip_horse_id 唔剝）都要反查得中 —
+    phonetic build_index 用鬆規則剝任何尾括號，canonical 冇括號。"""
+    r = client.post("/api/glossaries", json={"name": "loosetest",
+                    "source_lang": "en", "target_lang": "zh"})
+    gid = r.get_json()["id"]
+    g = client.post(f"/api/glossaries/{gid}/entries",
+                    json={"source": "NEW STAR", "target": "新星 (新馬)"}).get_json()
+    eid = g["entries"][-1]["id"]
+    fid = _mk_file(client)
+    r = client.post(f"/api/files/{fid}/glossary-add-alias", json={
+        "kind": "target", "variant": "辛星測試", "canonical": "新星",
+        "glossary_id": gid})   # 無 entry_id → 反查；嚴格 strip 唔中 → 鬆規則
+    assert r.status_code == 200, r.get_data(as_text=True)
+    g = client.get(f"/api/glossaries/{gid}").get_json()
+    e = [x for x in g["entries"] if x["id"] == eid][0]
+    assert "辛星測試" in e["target_aliases"]
+
+
+def test_add_alias_response_includes_warnings(client):
+    """成功 response 帶 add-only `warnings`（§4.2b 安全網）。"""
+    gid, eid = _mk_glossary(client)
+    fid = _mk_file(client)
+    # 乾淨別名 → warnings == []
+    r = client.post(f"/api/files/{fid}/glossary-add-alias", json={
+        "kind": "source", "variant": "Speedy Smartee", "canonical": "SPEEDY SMARTIE",
+        "glossary_id": gid, "entry_id": eid})
+    assert r.status_code == 200
+    assert r.get_json()["warnings"] == []
+    # 常用詞別名 → 照加（非阻斷）但 warnings 有提示
+    r = client.post(f"/api/files/{fid}/glossary-add-alias", json={
+        "kind": "source", "variant": "one more", "canonical": "SPEEDY SMARTIE",
+        "glossary_id": gid, "entry_id": eid})
+    assert r.status_code == 200
+    body = r.get_json()
+    assert any("常用英文詞" in w for w in body["warnings"])
+    g = client.get(f"/api/glossaries/{gid}").get_json()
+    e = [x for x in g["entries"] if x["id"] == eid][0]
+    assert "one more" in e["source_variants"]     # 照儲存 — 唔阻止
+
+
+def test_add_lexicon_response_includes_warnings(client, tmp_path, monkeypatch):
+    import lexicon_manager
+    d = tmp_path / "lex2"
+    d.mkdir()
+    (d / "racing_terms.json").write_text(
+        json.dumps({"style": "racing", "comment": "x",
+                    "terms": [{"term": "殿後", "variants": []}]}, ensure_ascii=False),
+        encoding="utf-8")
+    monkeypatch.setattr(lexicon_manager, "LEXICON_DIR", Path(d))
+    fid = _mk_file(client)
+    r = client.post(f"/api/files/{fid}/glossary-add-alias", json={
+        "kind": "lexicon", "variant": "電流", "canonical": "殿後", "style": "racing"})
+    assert r.status_code == 200
+    assert any("太短" in w for w in r.get_json()["warnings"])

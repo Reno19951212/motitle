@@ -32,6 +32,41 @@ def _fold(s: str) -> str:
     return re.sub(r"\s+", " ", s.strip()).casefold()
 
 
+def lint_variant(variant: str, side: str) -> List[str]:
+    """§4.2b 別名警告安全網 — pure、非阻斷、零寫入。
+
+    side='source'（en source_variants）：fold 長度閘 + 常用英文詞提示；
+    side='target'/'lexicon'（CJK 別名）：字數閘（同 collect_zh_rules 一致）。
+    警告只提示、唔阻止 — 宣告別名係 deny-list 逃生門，用戶明文填 = 明文承擔。
+
+    Limitation（tracker 記錄）：中文冇常用詞表 — CJK 側只做長度警告，
+    唔發明一個中文 deny-list。
+    """
+    warnings: List[str] = []
+    v = (variant or "").strip()
+    if not v:
+        return warnings
+    if side == "source":
+        if len(_fold(v)) < MIN_LATIN_ALIAS_FOLD_LEN:
+            warnings.append(
+                f"呢個別名太短，唔會生效（最少{MIN_LATIN_ALIAS_FOLD_LEN}字）")
+        elif v.isascii():
+            # 常用詞檢查只對 Latin 別名有意義（CJK 冇常用詞表）。
+            # en_correction 缺失 → fail-open（同模組 ImportError posture）。
+            try:
+                from en_correction import _tok_common
+            except ImportError:
+                return warnings
+            toks = v.split()
+            if toks and all(_tok_common(t) for t in toks):
+                warnings.append("呢個係常用英文詞，宣告做別名可能會誤中日常字句")
+    else:  # target / lexicon — CJK 字數閘（同 collect_zh_rules 語義）
+        if len(v) < MIN_CJK_ALIAS_LEN:
+            warnings.append(
+                f"呢個別名太短，唔會生效（最少{MIN_CJK_ALIAS_LEN}字）")
+    return warnings
+
+
 def _variants(entry: dict, key: str) -> List[str]:
     """安全提取 entry[key] 別名 list（容忍 str / 非 list — 同 _get_aliases posture）。"""
     raw = entry.get(key)

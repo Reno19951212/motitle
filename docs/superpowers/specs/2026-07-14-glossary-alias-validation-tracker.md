@@ -206,3 +206,27 @@ ALL PASS: True
 **⇒ Plan B 閉環 GATE1/GATE2 全部 PASS ✅ + 4 隔離 test file 全 PASS（16 tests）** — 別名寫入鏈（疑似聽錯確定性生成 → 一鍵寫 source_variants/target_aliases/lexicon variants）通。閉環已完整（Glossary.html 近音 chip + 系統行話表 admin + 校對頁一鍵回饋）。前端 live-browser E2E（掃描 modal 疑似聽錯分節、一鍵加別名、系統行話表 admin modal）**待人手驗證**（本 gate 為純後端 round-trip，無跑瀏覽器）。
 
 > **Note（deviation）**：`aliasui_verify.py` 除 plan 原文外，額外喺 `app = appmod.app` 之後直接設 `app.config["LOGIN_DISABLED"/"R5_AUTH_BYPASS"/"R5_LICENSE_BYPASS"] = True`。原因：bypass flag 由 `app.config` 讀取（`conftest._isolate_app_data` 直接設 config），app.py boot **唔會**將同名 env var 映射入 config，所以 plan 原文淨靠 `os.environ.setdefault(...)` 嘅 standalone client 會俾 `login_required` 擋成 401。呢個係最小修正，鏡返 conftest idiom。**Plan C（自動學）仍待做。**
+
+---
+
+## §4.2b 別名警告安全網（lint_variant, 2026-07-16 補做）
+
+Spec §4.2b 要求「填入常用詞／常用片語別名時**警告但唔阻止**」— 之前 MISSED，本次補齊。
+
+**單一 source of truth**：`alias_rewrite.lint_variant(variant, side)`（pure、零寫入）。兩類 advisory：
+
+1. **太短唔會生效** — 鏡返實際 firing gate：source side 用 `_fold` 長度 < `MIN_LATIN_ALIAS_FOLD_LEN`（同 `collect_en_rules`）；target/lexicon side 用字數 < `MIN_CJK_ALIAS_LEN`（同 `collect_zh_rules`）。lint 話唔生效 ⇔ rule collection 真係唔會收 — 唔會 drift。
+2. **常用英文詞風險**（source side、Latin only）— 單 token ∈ `en_correction._EN_COMMON`，或多 token **全部** common（`ONE MORE` 類）→ 提示「可能會誤中日常字句」。照儲存（宣告 = 逃生門語義不變）。
+
+**已知 limitation（明文記錄，唔發明）**：**中文冇常用詞 deny-list** — `_COMMON`/`_EN_COMMON` 只覆蓋英文；CJK 側 lint 只做長度警告，唔可以靠 lint 捕捉「電流」呢類日常中文詞（嗰條防線係 `MIN_CJK_ALIAS_LEN=3` 長度硬閘本身）。將來如有實證 FP 語料先考慮建中文常用詞表，唔喺呢次 scope。
+
+**入口**：`POST /api/glossaries/alias-lint`（login_required, pure）+ add-alias 成功 response 加 add-only `warnings`。三個前端入口全部非阻斷 toast/row-state：Glossary.html chips、proofread 詞條 modal chip-add、掃描 modal 一鍵加。
+
+**同場修（LOW）**：add-alias canonical 反查由「只嚴格 `strip_horse_id`」放寬成「嚴格唔中 → 鬆規則剝任何尾括號（同 `phonetic_correction.build_index` 一致）」— target 尾帶非馬匹編號括號嘅詞條之前永遠反查唔中。
+
+| Test file（隔離跑）| 結果 |
+|---|---|
+| `test_alias_rewrite.py`（+10 lint_variant tests）| ✅ 26 passed |
+| `test_alias_lint_route.py`（新 route：warn / clean / 400）| ✅ 6 passed |
+| `test_glossary_add_alias.py`（+3：鬆反查 / response warnings ×2）| ✅ 7 passed |
+| `scripts/alias_gating_dryrun.py` GATE1-3 | ✅ ALL PASS |

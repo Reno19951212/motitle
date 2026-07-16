@@ -1078,6 +1078,7 @@
       _aliasSaveBusy = true;
       try {
         await saveEntryField('target_aliases', [...aliases, v.trim()]);
+        lintAliasWarn(v.trim(), 'target');   // §4.2b 非阻斷提示 — 照儲存
       } finally { _aliasSaveBusy = false; }
     });
 
@@ -1101,10 +1102,19 @@
       _aliasSaveBusy = true;
       try {
         await saveEntryField('source_variants', [...variants, v.trim()]);
+        lintAliasWarn(v.trim(), 'source');   // §4.2b 非阻斷提示 — 照儲存
       } finally { _aliasSaveBusy = false; }
     });
   }
   let _aliasSaveBusy = false;
+
+  /* §4.2b 別名警告安全網 — fire-and-forget lint，唔阻斷儲存流程。
+     常用詞/太短別名出 toast 提示；lint 本身失敗就靜默（純 advisory）。 */
+  function lintAliasWarn(variant, kind) {
+    apiJson('POST', '/api/glossaries/alias-lint', { variant, kind })
+      .then(r => (r.warnings || []).forEach(w => toast(`⚠ ${w}`)))
+      .catch(() => { /* advisory only — never block */ });
+  }
 
   async function saveEntryField(field, value) {
     const entry = state.entries.find(e => e.id === state.selectedEntryId);

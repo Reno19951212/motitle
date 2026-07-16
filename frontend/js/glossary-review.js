@@ -471,7 +471,13 @@
           });
           const body = await r.json().catch(() => ({}));
           if (!r.ok) throw new Error(body.error || `HTTP ${r.status}`);
-          if (st) { st.textContent = '✓ 已加'; st.className = 'gr-state ok'; }
+          // §4.2b 非阻斷警告 — 已加照舊，warnings 附喺 row state 提示。
+          // textContent 賦值 — 警告文字永不入 HTML（等同 escapeHtml 安全）。
+          const warns = Array.isArray(body.warnings) ? body.warnings : [];
+          if (st) {
+            st.textContent = warns.length ? `✓ 已加 ⚠ ${warns.join('；')}` : '✓ 已加';
+            st.className = 'gr-state ok';
+          }
           btn.textContent = '已加入';
         } catch (e) {
           btn.disabled = false;

@@ -1990,11 +1990,27 @@
     const arr = kind === 'v' ? _geVariants : _geAliases;
     if (btn.dataset.add) {
       const v = prompt(kind === 'v' ? '加入近音寫法（原文聽錯/拼錯形式）：' : '加入別名（譯文寫法）：');
-      if (v && v.trim() && !arr.includes(v.trim())) arr.push(v.trim());
+      if (v && v.trim() && !arr.includes(v.trim())) {
+        arr.push(v.trim());
+        // §4.2b 非阻斷提示 — chip 加入時 lint，儲存照舊批次（_geSave）
+        _geLintWarn(v.trim(), kind === 'v' ? 'source' : 'target');
+      }
     } else if (btn.dataset.idx != null) {
       arr.splice(parseInt(btn.dataset.idx, 10), 1);
     }
     _geRenderChips();
+  }
+
+  /* §4.2b 別名警告安全網 — fire-and-forget，lint 失敗靜默（純 advisory）。 */
+  function _geLintWarn(variant, kind) {
+    fetch(`${API_BASE}/api/glossaries/alias-lint`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ variant, kind }),
+    }).then(r => (r.ok ? r.json() : null)).then(b => {
+      ((b && b.warnings) || []).forEach(w => showToast(`⚠ ${w}`, 'info'));
+    }).catch(() => { /* advisory only — never block */ });
   }
 
   let _geSaving = false;   // in-flight guard — Enter 鍵路徑唔經 disabled 掣，防雙提交

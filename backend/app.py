@@ -3024,6 +3024,24 @@ def api_glossary_languages():
     })
 
 
+@app.route('/api/glossaries/alias-lint', methods=['POST'])
+@login_required
+def api_glossary_alias_lint():
+    """§4.2b 別名警告安全網 — pure lint、零寫入。
+
+    body {variant, kind: source|target|lexicon} → {warnings: [中文提示…]}。
+    三個前端別名入口（Glossary 詳情 chips / proofread 詞條 modal /
+    掃描 modal 一鍵加）用嚟做非阻斷提示 — 照儲存，只出 toast。
+    """
+    from alias_rewrite import lint_variant
+    data = request.get_json(silent=True) or {}
+    kind = data.get("kind")
+    variant = (data.get("variant") or "").strip()
+    if kind not in ("source", "target", "lexicon") or not variant:
+        return jsonify({"error": "壞參數：kind / variant"}), 400
+    return jsonify({"warnings": lint_variant(variant, kind)})
+
+
 @app.route('/api/glossaries/<glossary_id>', methods=['GET'])
 @login_required
 def api_get_glossary(glossary_id):
@@ -5632,6 +5650,7 @@ def api_glossary_add_alias(file_id):
     （entry_id 無就靠 canonical 反查 target）；'lexicon' → 系統行話表（管理員）。
     """
     import lexicon_manager
+    from alias_rewrite import lint_variant
     from output_lang_glossary import strip_horse_id
 
     data = request.get_json(silent=True) or {}
@@ -5650,7 +5669,8 @@ def api_glossary_add_alias(file_id):
         view = lexicon_manager.add_term_variant(style, canonical, variant)
         if view is None:
             return jsonify({"error": "未知行話表"}), 404
-        return jsonify({"ok": True, "kind": "lexicon"})
+        return jsonify({"ok": True, "kind": "lexicon",
+                        "warnings": lint_variant(variant, "lexicon")})
 
     # kind in (source, target) — glossary entry 寫入
     gid = data.get("glossary_id")
@@ -5666,9 +5686,18 @@ def api_glossary_add_alias(file_id):
     if eid:
         entry = next((e for e in glossary["entries"] if e.get("id") == eid), None)
     if entry is None and canonical:
-        # 靠 canonical 反查（粵語 candidate 冇 entry_id）
+        # 靠 canonical 反查（粵語 candidate 冇 entry_id）。先用嚴格
+        # strip_horse_id（只剝 ' (X999)' 馬匹編號）；唔中就退一步用鬆規則
+        # 剝任何尾括號 — phonetic_correction.build_index 就係用鬆規則生成
+        # canonical，否則 target 尾帶非編號括號嘅詞條永遠反查唔中。
         entry = next((e for e in glossary["entries"]
                       if strip_horse_id(e.get("target") or "") == canonical), None)
+        if entry is None:
+            def _loose(t):
+                return re.sub(r'\s*\([^)]*\)\s*$', '', t or '').strip()
+            want = _loose(canonical)
+            entry = next((e for e in glossary["entries"]
+                          if _loose(e.get("target") or "") == want), None)
     if entry is None:
         return jsonify({"error": "搵唔到對應詞條"}), 404
 
@@ -5685,7 +5714,8 @@ def api_glossary_add_alias(file_id):
         return jsonify({"error": str(e)}), 422
     if count is None:
         return jsonify({"error": "搵唔到對應詞條"}), 404
-    return jsonify({"ok": True, "kind": kind, "field": field, "count": count})
+    return jsonify({"ok": True, "kind": kind, "field": field, "count": count,
+                    "warnings": lint_variant(variant, kind)})
 
 
 @app.route('/api/transcribe/sync', methods=['POST'])

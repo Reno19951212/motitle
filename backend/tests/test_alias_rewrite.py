@@ -256,3 +256,55 @@ def test_en_protected_canonical_not_mangled():
     out3, _ = ar.apply_latin([_seg("GOLDEN runs well")], rules,
                              protected=protected)
     assert out3[0]["text"] == "GOLDEN AGE runs well"
+
+
+# ── §4.2b lint_variant（非阻斷警告安全網）──────────────────────────
+
+def test_lint_cjk_too_short_target_side():
+    ws = ar.lint_variant("電流", "target")
+    assert len(ws) == 1 and "太短" in ws[0]
+    assert str(ar.MIN_CJK_ALIAS_LEN) in ws[0]
+
+
+def test_lint_cjk_too_short_lexicon_side():
+    assert any("太短" in w for w in ar.lint_variant("尾指", "lexicon"))
+
+
+def test_lint_cjk_ok_length_no_warning():
+    assert ar.lint_variant("好友心得", "target") == []
+    assert ar.lint_variant("電流位", "lexicon") == []
+
+
+def test_lint_latin_too_short_source_side():
+    ws = ar.lint_variant("AB", "source")
+    assert len(ws) == 1 and "太短" in ws[0]
+
+
+def test_lint_source_single_common_token_warns():
+    ws = ar.lint_variant("more", "source")
+    assert any("常用英文詞" in w for w in ws)
+
+
+def test_lint_source_all_tokens_common_warns():
+    ws = ar.lint_variant("one more", "source")
+    assert any("常用英文詞" in w for w in ws)
+
+
+def test_lint_source_not_all_common_no_warning():
+    # 'smartie' 唔喺 _EN_COMMON → 唔係全部 common → 冇警告
+    assert ar.lint_variant("smartie more", "source") == []
+
+
+def test_lint_source_proper_name_clean():
+    assert ar.lint_variant("Speedy Smarty", "source") == []
+
+
+def test_lint_empty_variant_no_warning():
+    assert ar.lint_variant("", "source") == []
+    assert ar.lint_variant("   ", "target") == []
+
+
+def test_lint_source_cjk_variant_skips_common_check():
+    # 中文冇常用詞表（tracker 記錄咗呢個 limitation）— 只有長度警告可能出現
+    ws = ar.lint_variant("好友心得測試", "source")
+    assert all("常用英文詞" not in w for w in ws)
