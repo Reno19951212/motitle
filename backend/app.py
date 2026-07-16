@@ -5243,6 +5243,45 @@ _SUSPECT_SCAN_CUES = 400  # 每軌 fuzzy 掃描 cue 上限 — judge_candidates 
                           # 851-cue 檔約 21s，封頂令最壞情況 bounded（互動 opt-in 用）
 
 
+def _declared_for_track(lang, texts, starts, glossaries, content_lang, mt_style):
+    """已宣告別名喺當前文字嘅出現（cheap，零 LLM，同 pipeline alias_rewrite 一致）。
+
+    kind='declared'：呢個 span 已經係術語表/行話表宣告咗嘅近音別名，base 而家仲有
+    佢（未重新生成），撳「全部重新生成」/ AI Rerun 就會改成正名。en 內容讀
+    source_variants、yue 內容讀 target_aliases + lexicon variants（同 base 糾錯層一致）。
+    """
+    try:
+        import alias_rewrite as ar
+    except ImportError:
+        return []
+    segs = [{"start": 0, "end": 1, "text": (t or "")} for t in texts[:_SUSPECT_SCAN_CUES]]
+    if lang == "en" and content_lang == "en":
+        rules = ar.collect_en_rules(glossaries)
+        if not rules:
+            return []
+        _, changes = ar.apply_latin(segs, rules)
+    elif lang in ("yue", "zh", "cmn") and content_lang == "yue":
+        from phonetic_correction import load_lexicon_variants
+        rules = ar.collect_zh_rules(glossaries,
+                                    lexicon_variants=load_lexicon_variants(mt_style))
+        if not rules:
+            return []
+        _, changes = ar.apply_cjk(segs, rules)
+    else:
+        return []
+
+    out = []
+    for i, seg_changes in enumerate(changes):
+        for ch in seg_changes:
+            gid = ch.get("glossary_id")
+            side = "source" if lang == "en" else ("lexicon" if gid is None else "target")
+            out.append({"idx": i, "start": starts[i] if i < len(starts) else None,
+                        "kind": "declared", "span": ch.get("before"),
+                        "canonical": ch.get("after"), "glossary": ch.get("glossary", ""),
+                        "glossary_id": gid, "entry_id": ch.get("entry_id"), "side": side})
+    return out
+
+
 def _suspects_for_track(lang, texts, starts, glossaries, content_lang, mt_style):
     """確定性疑似聽錯 candidate（零 LLM）。en track（content en）用 judge_candidates，
     yue/zh/cmn track（content yue）用 phonetic match_segments。回 suspect item list。"""
@@ -5370,15 +5409,26 @@ def api_glossary_preview(file_id):
         for it in trk["items"]:
             i = it["idx"]
             it["start"] = rows[i].get("start") if i < len(rows) else None
+        starts_all = [r.get("start") for r in rows]
+        # 已宣告別名反饋（cheap，每次掃描都跑）— base 仲有呢個變體，重新生成後生效。
+        # 去重：target_aliases 已經由 scan_track 出「待修正(fix)」，唔重複列做 declared
+        #（source_variants 英文側 scan_track 唔 match → declared 係佢唯一反饋）。
+        fix_keys = {(it["idx"], it.get("alias")) for it in trk["items"]
+                    if it["kind"] == "fix"}
+        declared = [d for d in _declared_for_track(lang, texts, starts_all,
+                                                   glossaries, content_lang, mt_style)
+                    if (d["idx"], d["span"]) not in fix_keys]
+        declared_keys = {(d["idx"], d["span"]) for d in declared}
+        trk["items"].extend(declared)
         # 疑似聽錯（確定性，零 LLM）— add-only kind:'suspect'，opt-in 先跑（大檔慢）。
+        # 已宣告嘅變體唔再列做疑似（閉環：㩒完加為別名，唔會再當未處理咁出）。
         if include_suspects:
             existing = {(it["idx"], it.get("alias") or it.get("canonical"))
-                        for it in trk["items"]}
-            scan_texts = texts[:_SUSPECT_SCAN_CUES]
-            for s in _suspects_for_track(lang, scan_texts,
-                                         [r.get("start") for r in rows],
-                                         glossaries, content_lang, mt_style):
-                if (s["idx"], s["span"]) in existing:
+                        for it in trk["items"] if it["kind"] in ("fix", "ok")}
+            for s in _suspects_for_track(lang, texts[:_SUSPECT_SCAN_CUES],
+                                         starts_all, glossaries, content_lang, mt_style):
+                key = (s["idx"], s["span"])
+                if key in existing or key in declared_keys:
                     continue
                 trk["items"].append(s)
         tracks.append(trk)
@@ -5387,6 +5437,7 @@ def api_glossary_preview(file_id):
         "fix": sum(1 for t in tracks for i in t["items"] if i["kind"] == "fix"),
         "ok": sum(1 for t in tracks for i in t["items"] if i["kind"] == "ok"),
         "suspect": sum(1 for t in tracks for i in t["items"] if i["kind"] == "suspect"),
+        "declared": sum(1 for t in tracks for i in t["items"] if i["kind"] == "declared"),
         "rows": len(rows),
         "suspects_scanned": include_suspects,
         "suspects_truncated": bool(include_suspects and len(rows) > _SUSPECT_SCAN_CUES),

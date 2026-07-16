@@ -116,13 +116,20 @@
       ? `詞彙表掃描 — ${glNames.join('、')}` : '詞彙表掃描';
     const totalFix = totals.fix || 0;
     const totalOk = totals.ok || 0;
+    const totalDeclared = totals.declared || 0;
     const suspNote = totals.suspects_scanned
       ? `、${totals.suspect || 0} 處疑似${totals.suspects_truncated ? `（只掃前 ${_SUSPECT_SCAN_HINT} 段）` : ''}`
       : '';
     _el('grSubtitle').textContent =
       `${totals.rows || 0} 段 · ${tracks.length} 條語言軌 · 搵到 ${totalFix} 處候選、${totalOk} 處已符合${suspNote}`;
 
-    _body().innerHTML = tracks.map((t, ti) => {
+    // 已宣告別名提示 banner（base 仲有變體 → 提示去重新生成先生效）
+    const declaredBanner = totalDeclared
+      ? `<div class="gr-declared-banner">✍ 有 ${totalDeclared} 處字幕命中你宣告嘅近音別名，`
+        + `但仲未生效 —— 撳面板「<b>⟳ 全部重新生成</b>」（或 AI Rerun）先會改成正名。</div>`
+      : '';
+
+    _body().innerHTML = declaredBanner + tracks.map((t, ti) => {
       const langLabel = _langLabel(t.lang);
       const dir = (t.mode === 'mt')
         ? `按原文命中詞條，檢查${escapeHtml(langLabel)}字幕有冇用標準譯名`
@@ -130,6 +137,7 @@
       const fixes = t.items ? t.items.filter(it => it.kind === 'fix') : [];
       const oks   = t.items ? t.items.filter(it => it.kind === 'ok')  : [];
       const suspects = t.items ? t.items.filter(it => it.kind === 'suspect') : [];
+      const declared = t.items ? t.items.filter(it => it.kind === 'declared') : [];
       const inapp = (t.inapplicable_glossaries || []).length
         ? `<div class="trk-inapp">⚠ ${t.inapplicable_glossaries.map(escapeHtml).join('、')} 唔適用於呢條軌（原文語言唔對應）</div>`
         : '';
@@ -152,16 +160,21 @@
           + suspects.map((it, si) => _suspectRowHtml(t, ti, si, it)).join('')
         : '';
 
-      const emptyMsg = (!fixes.length && !oks.length && !suspects.length)
+      const declaredRows = declared.length
+        ? `<div class="ga-section-head ga-section-head-declared">已宣告別名 (${declared.length}) — 重新生成後生效</div>`
+          + declared.map(it => _declaredRowHtml(t, it)).join('')
+        : '';
+
+      const emptyMsg = (!fixes.length && !oks.length && !suspects.length && !declared.length)
         ? `<div style="padding:8px 0;font-size:12px;color:var(--text-dim);">呢條軌冇命中任何詞條</div>` : '';
 
       return `<div class="trk" data-ti="${ti}">
         <div class="trk-head">
           <span class="trk-lang">${escapeHtml(langLabel)}</span>
           <span class="trk-dir">${escapeHtml(dir)}</span>
-          <span class="trk-count">${fixes.length} 待修正 · ${oks.length} 已符合 · ${suspects.length} 疑似</span>
+          <span class="trk-count">${fixes.length} 待修正 · ${oks.length} 已符合 · ${suspects.length} 疑似${declared.length ? ` · ${declared.length} 已宣告` : ''}</span>
         </div>
-        ${inapp}${emptyMsg}${fixRows}${okRows}${suspectRows}
+        ${inapp}${emptyMsg}${fixRows}${okRows}${declaredRows}${suspectRows}
       </div>`;
     }).join('');
 
@@ -214,6 +227,23 @@
         </div>
         <div class="ga-row-line">字幕：${_hl(rowText, it.alias)}</div>
         <div class="ga-row-line ga-hint warn">⚠ AI 將判斷修改位置 · 套用唔會改批核狀態</div>
+      </div>
+    </div>`;
+  }
+
+  function _declaredRowHtml(t, it) {
+    const rowText = _rowTextFor(t.lang, it.idx);
+    const where = it.side === 'lexicon' ? '系統行話表'
+                : it.side === 'source' ? '原文近音別名' : '譯文別名';
+    return `<div class="ga-row declared">
+      <div class="ga-row-body">
+        <div class="ga-row-term">
+          <span class="decl-span">${escapeHtml(it.span)}</span> → ${escapeHtml(it.canonical)}
+          <span class="gl-src-tag">${escapeHtml(it.glossary || where)}</span>
+          <span class="seg-link" onclick="_grJumpSeg(${it.idx})">#${it.idx + 1} ${_fmtTc(it.start)}</span>
+        </div>
+        <div class="ga-row-line">字幕：${_hl(rowText, it.span)}</div>
+        <div class="ga-row-line ga-hint">✍ 已宣告（${escapeHtml(where)}）· 重新生成後自動改成「${escapeHtml(it.canonical)}」</div>
       </div>
     </div>`;
   }

@@ -33,3 +33,43 @@ def test_zh_suspect_lexicon_side():
 def test_non_yue_non_en_content_no_suspects():
     import app
     assert app._suspects_for_track("ja", ["x"], [1.0], [], "ja", "generic") == []
+
+
+# ---- 已宣告別名喺掃描嘅反饋（閉環）----
+
+def test_declared_en_source_variant_surfaced():
+    import app
+    glossaries = [{
+        "source_lang": "en", "target_lang": "zh", "name": "賽馬", "id": "g1",
+        "entries": [{"id": "e1", "source": "SPEEDY SMARTIE", "target": "伶俐驫駒 (H108)",
+                     "source_variants": ["Speedy Smarty"]}],
+    }]
+    texts = ["Speedy Smarty leads the field"]
+    dec = app._declared_for_track("en", texts, [1.0], glossaries, "en", "racing")
+    assert any(d["kind"] == "declared" and d["span"] == "Speedy Smarty"
+               and d["canonical"] == "SPEEDY SMARTIE" and d["side"] == "source"
+               and d["entry_id"] == "e1" for d in dec)
+
+
+def test_declared_zh_target_alias_surfaced():
+    import app
+    glossaries = [{
+        "source_lang": "en", "target_lang": "zh", "name": "賽馬", "id": "g1",
+        "entries": [{"id": "e1", "source": "X", "target": "好友心得 (K263)",
+                     "target_aliases": ["好有心得"]}],
+    }]
+    texts = ["好有心得今仗跑第三"]
+    dec = app._declared_for_track("yue", texts, [1.0], glossaries, "yue", "racing")
+    assert any(d["kind"] == "declared" and d["span"] == "好有心得"
+               and d["canonical"] == "好友心得" and d["side"] == "target"
+               and d["entry_id"] == "e1" for d in dec)
+
+
+def test_declared_none_when_no_variant():
+    import app
+    glossaries = [{
+        "source_lang": "en", "target_lang": "zh", "name": "賽馬", "id": "g1",
+        "entries": [{"id": "e1", "source": "SPEEDY SMARTIE", "target": "伶俐驫駒"}],
+    }]
+    assert app._declared_for_track("en", ["Speedy Smarty leads"], [1.0],
+                                   glossaries, "en", "racing") == []
