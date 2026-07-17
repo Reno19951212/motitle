@@ -1365,6 +1365,7 @@
                 <svg width="11" height="11" viewBox="0 0 16 16"><path fill="#fff" d="M3 2l10 6-10 6z"/></svg>
                 執行
               </button>
+              <button class="save-btn" id="aiChatBtnIdx" type="button" onclick="window.AIChat && AIChat.open()">✦ AI 助手</button>
             </div>
           </div>
 
@@ -5867,22 +5868,29 @@
     renderAll();
 
     // Esc closes the topmost open modal — keyboard accessibility.
+    // Modal closers get priority (mirrors proofread.html:~3805's _modalOpen guard);
+    // AIChat only closes when no modal is open, so Esc never reaches through a
+    // foreground modal to close the chat panel sitting behind it.
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
-      // Don't intercept when user is typing in a textarea (multi-line edit).
-      if (e.target && e.target.tagName === 'TEXTAREA') return;
-      const closers = [
-        ['olOverlay', () => cancelOutputLangModal()],
-        ['renderOverlay', closeRenderModal],
-        ['orOverlay', () => _closeModalRestoreFocus('orOverlay')],
-        ['ppsOverlay', () => closeProfileSaveModal()],
-        ['ppmOverlay', () => closeProfileManageModal()],
-        ['lcmOverlay', () => closeLangConfigManageModal()],
-        ['lcOverlay', () => closeLangConfigModal()],
-      ];
-      for (const [id, close] of closers) {
-        if (document.getElementById(id)?.classList.contains('open')) { close(); e.preventDefault(); return; }
+      // Don't intercept the modal closers when user is typing in a textarea
+      // (multi-line edit) — but AIChat's own input is a textarea too and relies
+      // on this same Esc to close it, so that branch stays unguarded below.
+      if (!(e.target && e.target.tagName === 'TEXTAREA')) {
+        const closers = [
+          ['olOverlay', () => cancelOutputLangModal()],
+          ['renderOverlay', closeRenderModal],
+          ['orOverlay', () => _closeModalRestoreFocus('orOverlay')],
+          ['ppsOverlay', () => closeProfileSaveModal()],
+          ['ppmOverlay', () => closeProfileManageModal()],
+          ['lcmOverlay', () => closeLangConfigManageModal()],
+          ['lcOverlay', () => closeLangConfigModal()],
+        ];
+        for (const [id, close] of closers) {
+          if (document.getElementById(id)?.classList.contains('open')) { close(); e.preventDefault(); return; }
+        }
       }
+      if (window.AIChat && AIChat.isOpen()) { AIChat.close(); e.preventDefault(); return; }
     });
   </script>
 
@@ -6165,6 +6173,29 @@
   <script src="js/step-diagram.js"></script>
   <!-- R5 Phase 1 — job queue panel auto-refresh -->
   <script src="js/queue-panel.js"></script>
+
+  <script>
+  window.AIChatPage = {
+    hasGrid: false,
+    fileId: () => (typeof activeFileId !== 'undefined' ? activeFileId : null),
+    isOutputLang: () => {
+      const f = (typeof uploadedFiles !== 'undefined') && uploadedFiles[activeFileId];
+      return !!f && f.active_kind === 'output_lang';
+    },
+    cueCount: () => {
+      const f = (typeof uploadedFiles !== 'undefined') && uploadedFiles[activeFileId];
+      return (f && f.segment_count) || 0;
+    },
+    cursorSegNo: () => null,
+    jump: (idx) => { if (typeof jumpToSegment === 'function') jumpToSegment(idx); },
+    refresh: async () => {
+      if (typeof loadFileSegments === 'function' && activeFileId) await loadFileSegments(activeFileId);
+      if (typeof fetchFileList === 'function') fetchFileList();
+    },
+    rerunActive: () => false,   // 主頁冇 rerun state；server 409 係真執法
+  };
+  </script>
+  <script src="js/ai-chat.js"></script>
 
   <!-- Licence grace / near-expiry banner -->
   <script src="/js/license.js"></script>
