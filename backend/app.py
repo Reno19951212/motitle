@@ -5264,6 +5264,10 @@ def glossary_reapply(file_id):
     if len(_segs_now) == len(base):
         update_fields["segments"] = [{**s, "text": (b.get("text") or "")}
                                      for s, b in zip(_segs_now, base)]
+        # segments 郁咗就同步 re-join 全文（同 bound-base 鮮跑/split/merge/rerun
+        # 一致 — 否則 /api/files 列表、dashboard 全文、.txt 匯出仍係舊聽錯文字）。
+        update_fields["text"] = " ".join(
+            (s.get("text") or "") for s in update_fields["segments"])
     _update_file(file_id, **update_fields)
 
     return jsonify({
@@ -5294,12 +5298,14 @@ def _declared_for_track(lang, texts, starts, glossaries, content_lang, mt_style)
     # expensive 嘅 _suspects_for_track；declared 掃描封頂會令 >400 cue 檔案
     # 加咗別名之後掃描「冇反應」。
     segs = [{"start": 0, "end": 1, "text": (t or "")} for t in texts]
+    blocked = []    # per-seg blocked 記錄 — 被正名保護壓制嘅宣告別名（都要 surface）
     if lang == "en" and content_lang == "en":
         rules = ar.collect_en_rules(glossaries)
         if not rules:
             return []
         _, changes = ar.apply_latin(segs, rules,
-                                    protected=ar.collect_protected_en(glossaries))
+                                    protected=ar.collect_protected_en(glossaries),
+                                    blocked_out=blocked)
     elif lang in ("yue", "zh", "cmn") and content_lang == "yue":
         from phonetic_correction import load_lexicon, load_lexicon_variants
         rules = ar.collect_zh_rules(glossaries,
@@ -5308,7 +5314,8 @@ def _declared_for_track(lang, texts, starts, glossaries, content_lang, mt_style)
             return []
         _, changes = ar.apply_cjk(segs, rules,
                                   protected=ar.collect_protected_zh(
-                                      glossaries, lexicon_terms=load_lexicon(mt_style)))
+                                      glossaries, lexicon_terms=load_lexicon(mt_style)),
+                                  blocked_out=blocked)
     else:
         return []
 
@@ -5321,6 +5328,19 @@ def _declared_for_track(lang, texts, starts, glossaries, content_lang, mt_style)
                         "kind": "declared", "span": ch.get("before"),
                         "canonical": ch.get("after"), "glossary": ch.get("glossary", ""),
                         "glossary_id": gid, "entry_id": ch.get("entry_id"), "side": side})
+    # blocked 都要出（kind='declared' + blocked:true）— 靜默壓制會令用戶以為
+    # 別名冇 save；掃描明示「與正名重疊，唔會改寫」先係誠實 feedback。
+    for i, seg_blocked in enumerate(blocked):
+        for b in seg_blocked:
+            gid = b.get("glossary_id")
+            side = "source" if lang == "en" else ("lexicon" if gid is None else "target")
+            out.append({"idx": i, "start": starts[i] if i < len(starts) else None,
+                        "kind": "declared", "span": b.get("span"),
+                        "canonical": b.get("canonical"),
+                        "glossary": b.get("glossary", ""),
+                        "glossary_id": gid, "entry_id": b.get("entry_id"),
+                        "side": side, "blocked": True,
+                        "blocked_by": b.get("blocked_by")})
     return out
 
 
@@ -5479,7 +5499,12 @@ def api_glossary_preview(file_id):
         "fix": sum(1 for t in tracks for i in t["items"] if i["kind"] == "fix"),
         "ok": sum(1 for t in tracks for i in t["items"] if i["kind"] == "ok"),
         "suspect": sum(1 for t in tracks for i in t["items"] if i["kind"] == "suspect"),
-        "declared": sum(1 for t in tracks for i in t["items"] if i["kind"] == "declared"),
+        # declared 只計會真正生效嘅（banner「重新生成後生效」語義）；被正名保護
+        # 壓制嘅另計 declared_blocked（add-only）。
+        "declared": sum(1 for t in tracks for i in t["items"]
+                        if i["kind"] == "declared" and not i.get("blocked")),
+        "declared_blocked": sum(1 for t in tracks for i in t["items"]
+                                if i["kind"] == "declared" and i.get("blocked")),
         "rows": len(rows),
         "suspects_scanned": include_suspects,
         "suspects_truncated": bool(include_suspects and len(rows) > _SUSPECT_SCAN_CUES),

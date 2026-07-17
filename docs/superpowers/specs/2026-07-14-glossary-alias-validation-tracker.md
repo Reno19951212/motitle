@@ -258,4 +258,17 @@ Spec §4.2b 要求「填入常用詞／常用片語別名時**警告但唔阻止
 
 **Accepted limitations（明文接受，唔係遺漏）**：
 - **CJK 常用詞 lint 冇 deny-list** — `_COMMON`/`_EN_COMMON` 只覆蓋英文；中文側 lint 只做 `MIN_CJK_ALIAS_LEN=3` 長度警告，唔發明一個中文常用詞表（將來有實證 FP 語料先考慮）。
-- **`scan_track` 851-cue 慢** — pre-existing／open，唔屬本 batch scope（suspect 掃描已 opt-in + 封頂緩解，exact 掃描本身嘅 O(cue×詞條) 未郁）。
+- **`scan_track` 851-cue 慢** — ~~pre-existing／open~~ **已修（2026-07-17 收尾 batch）**：根因係 `build_name_pattern` 每 cue×每詞條重新 compile regex（851×1353 ≈ 115 萬次 compile）。修法 = `@lru_cache(maxsize=8192)`（pattern pure function of source 字串，re.Pattern immutable/thread-safe）。**Validation（確定性）**：`backend/scripts/scan_bench.py` 真 851-cue 檔 × 真 1353 條表 — zh mt 軌 **161.2s → 1.2s（134×）**，兩份 snapshot **byte-identical**（183 items 完全一樣）。pipeline `glossary_stage` 同 en_correction 共用同一 matcher，一齊受惠。
+
+---
+
+## 收尾 batch（2026-07-17）— fix-diff review 3 LOW + scan_track perf
+
+| 項 | 修法 | 驗證 |
+|---|---|---|
+| 內嵌豁免 boundary-less（`ace`⊂`PLACEHOLDER` 開錯豁免） | `_survives_in_canonical`：ASCII 名用 `build_name_pattern` 字界測試、CJK 名 exact substring | `test_embedded_exemption_*` 2 tests（ace holder 必須 block；gold and sixty 照 fire） |
+| 正名保護靜默壓制零 feedback | `apply_latin`/`apply_cjk` 加可選 `blocked_out` collector → `_declared_for_track` 出 `kind:'declared', blocked:true, blocked_by`；totals 加 `declared_blocked`（add-only，banner 只計會生效嘅）；掃描 modal blocked 行顯示「⚠ 與正名重疊，唔會改寫」 | `test_blocked_out_*` 3 tests + `test_declared_blocked_surfaced_with_flag` |
+| reapply segments mirror 唔 re-join `entry["text"]` | mirror segments 時同步 `text = " ".join(...)`（同 bound-base 鮮跑/rerun 一致） | 全套 review routes 28 passed |
+| `scan_track` 161s | 見上（lru_cache，byte-identical，134×） | `scan_bench.py` 前後 snapshot |
+
+全套收尾驗證：12 backend test file 隔離 241 passed + gating GATE1-3 + 三個 Chrome E2E（11/11、4/4、7/7 — planb E2E 已收編做 `frontend/tests/test_planb_closed_loop.py`，唔再齋擺 scratchpad）。

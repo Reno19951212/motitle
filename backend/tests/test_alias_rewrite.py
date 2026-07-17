@@ -308,3 +308,99 @@ def test_lint_source_cjk_variant_skips_common_check():
     # 中文冇常用詞表（tracker 記錄咗呢個 limitation）— 只有長度警告可能出現
     ws = ar.lint_variant("好友心得測試", "source")
     assert all("常用英文詞" not in w for w in ws)
+
+
+# ---- fix-diff review LOW (b)：內嵌豁免必須字界感知 ----
+
+def test_embedded_exemption_rejects_boundaryless_substring():
+    # protected 'ACE' 係 canonical 'PLACEHOLDER' 嘅裸子串但唔以字界存在 —
+    # 豁免唔可以開；改寫會摧毀獨立字 ACE → 必須 block（唔改寫）。
+    glossaries = [{
+        "source_lang": "en", "target_lang": "zh", "name": "x", "id": "g1",
+        "entries": [
+            {"id": "e1", "source": "ACE", "target": "愛司"},
+            {"id": "e2", "source": "PLACEHOLDER", "target": "佔位",
+             "source_variants": ["ace holder"]},
+        ],
+    }]
+    rules = ar.collect_en_rules(glossaries)
+    prot = ar.collect_protected_en(glossaries)
+    out, ch = ar.apply_latin([_seg("the ace holder won")], rules, protected=prot)
+    assert out[0]["text"] == "the ace holder won"
+    assert ch[0] == []
+
+
+def test_embedded_exemption_boundary_survivor_still_fires():
+    # protected 'SIXTY' 以字界完整存在於 canonical 'GOLDEN SIXTY' → 豁免照開，
+    # 宣告改寫照行（改寫產物仍然含住個 protected 名）。
+    glossaries = [{
+        "source_lang": "en", "target_lang": "zh", "name": "x", "id": "g1",
+        "entries": [
+            {"id": "e1", "source": "SIXTY", "target": "六十"},
+            {"id": "e2", "source": "GOLDEN SIXTY", "target": "金鎗六十",
+             "source_variants": ["gold and sixty"]},
+        ],
+    }]
+    rules = ar.collect_en_rules(glossaries)
+    prot = ar.collect_protected_en(glossaries)
+    out, ch = ar.apply_latin([_seg("gold and sixty leads")], rules, protected=prot)
+    assert out[0]["text"] == "GOLDEN SIXTY leads"
+    assert len(ch[0]) == 1
+
+
+# ---- fix-diff review LOW (a)：blocked 改寫要有 feedback（唔可以靜默消失）----
+
+def test_blocked_out_reports_suppressed_cjk_alias():
+    # E1 別名「馬會盃賽」→ 馬會盃，但 E2 正名「盃賽」verbatim 喺 match 內 →
+    # block。blocked_out 必須收到記錄（span/canonical/blocked_by）。
+    glossaries = [{
+        "source_lang": "en", "target_lang": "zh", "name": "x", "id": "g1",
+        "entries": [
+            {"id": "e1", "source": "A", "target": "馬會盃",
+             "target_aliases": ["馬會盃賽"]},
+            {"id": "e2", "source": "B", "target": "盃賽"},
+        ],
+    }]
+    rules = ar.collect_zh_rules(glossaries)
+    prot = ar.collect_protected_zh(glossaries)
+    blocked = []
+    out, ch = ar.apply_cjk([_seg("今日馬會盃賽開跑")], rules,
+                           protected=prot, blocked_out=blocked)
+    assert out[0]["text"] == "今日馬會盃賽開跑"     # 唔改（保護正名）
+    assert ch[0] == []
+    assert len(blocked) == 1 and len(blocked[0]) == 1
+    b = blocked[0][0]
+    assert b["span"] == "馬會盃賽" and b["canonical"] == "馬會盃"
+    assert b["blocked_by"] == "盃賽" and b["entry_id"] == "e1"
+
+
+def test_blocked_out_latin_side():
+    glossaries = [{
+        "source_lang": "en", "target_lang": "zh", "name": "x", "id": "g1",
+        "entries": [
+            {"id": "e1", "source": "ACE", "target": "愛司"},
+            {"id": "e2", "source": "PLACEHOLDER", "target": "佔位",
+             "source_variants": ["ace holder"]},
+        ],
+    }]
+    rules = ar.collect_en_rules(glossaries)
+    prot = ar.collect_protected_en(glossaries)
+    blocked = []
+    out, _ = ar.apply_latin([_seg("the ace holder won")], rules,
+                            protected=prot, blocked_out=blocked)
+    assert out[0]["text"] == "the ace holder won"
+    assert blocked[0] and blocked[0][0]["blocked_by"] == "ACE"
+
+
+def test_blocked_out_default_none_no_behavior_change():
+    # 唔傳 blocked_out → 行為同以前完全一樣（pipeline caller 唔受影響）
+    glossaries = [{
+        "source_lang": "en", "target_lang": "zh", "name": "x", "id": "g1",
+        "entries": [{"id": "e1", "source": "GOOD FRIEND", "target": "好友心得",
+                     "target_aliases": ["好有心得"]}],
+    }]
+    rules = ar.collect_zh_rules(glossaries)
+    out, ch = ar.apply_cjk([_seg("好有心得今仗")], rules,
+                           protected=ar.collect_protected_zh(glossaries))
+    assert out[0]["text"] == "好友心得今仗"
+    assert len(ch[0]) == 1

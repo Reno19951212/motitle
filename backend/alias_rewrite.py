@@ -189,35 +189,53 @@ def _protected_ranges(text: str,
     return ranges
 
 
+def _survives_in_canonical(pname: str, canonical: str) -> bool:
+    """protected 名喺 rule canonical 內「字界完整」存在（改寫產物仍含該名）。
+
+    ASCII 名用 build_name_pattern（字界 + fold 容錯）— 裸 fold-substring 唔算
+    （'ace' ⊄ 'PLACEHOLDER'，改寫會摧毀獨立字 ACE）；CJK 名用 exact substring
+    （「心得」⊆「好友心得」照豁免）。
+    """
+    if pname.isascii():
+        return bool(build_name_pattern(pname).search(canonical))
+    return pname in canonical
+
+
 def _blocked_by_protection(start: int, end: int, canonical: str,
-                           ranges: List[Tuple[int, int, str]]) -> bool:
-    """match [start, end) 撞正 protected 正名出現 → block（唔改寫）。
+                           ranges: List[Tuple[int, int, str]]) -> Optional[str]:
+    """match [start, end) 撞正 protected 正名出現 → 回該正名（block）；否則 None。
 
     豁免（內嵌名 exemption）：protected 出現完全落喺 match span 之內、而且
-    該名係本 rule canonical 嘅 substring（例：好有心得→好友心得 內嵌 protected
+    該名以字界完整存在於本 rule canonical（例：好有心得→好友心得 內嵌 protected
     「心得」— 改寫本身會保留/產出該名，唔算摧毀）。
     """
-    fold_canon = _fold(canonical)
     for ps, pe, pname in ranges:
         if pe <= start or ps >= end:
             continue                               # 無重疊
-        if ps >= start and pe <= end and _fold(pname) in fold_canon:
-            continue                               # 內嵌名豁免
-        return True
-    return False
+        if ps >= start and pe <= end and _survives_in_canonical(pname, canonical):
+            continue                               # 內嵌名豁免（字界感知）
+        return pname
+    return None
 
 
 def apply_latin(segments: List[dict], rules: List[dict],
                 cancel_check: Optional[Callable] = None,
-                protected: Optional[List[str]] = None
+                protected: Optional[List[str]] = None,
+                blocked_out: Optional[List[List[dict]]] = None
                 ) -> Tuple[List[dict], List[List[dict]]]:
     """單 alternation（longest-first → leftmost-longest）非重疊改寫。回 (new_segments, changes)。
 
     所有 rule 嘅 ASCII 字界 pattern 併成一條 alternation、一次過 sub —
     避免逐 rule 順序 sub 令「後 rule 咬入前 rule 啱插入嘅 canonical」cascade
     污染宣告別名（同 apply_cjk 一致；re.sub 唔會重掃已替換嘅輸出）。
+
+    blocked_out（可選）：每 seg append 一個 list，收被 protection 壓制嘅
+    match 記錄 {span, canonical, blocked_by, entry_id, glossary_id, glossary} —
+    畀掃描層 surface「已宣告但唔會改寫」，pipeline caller 唔傳（零行為差異）。
     """
     if not rules:
+        if blocked_out is not None:
+            blocked_out.extend([[] for _ in segments])
         return [dict(s) for s in segments], [[] for _ in segments]
     # rules 已 longest-variant-first；alternation 依序 → 同起點長別名先中。
     # 逐 rule pattern 已帶 ASCII 字界 lookaround，包成 non-capturing group 併埋。
@@ -237,19 +255,26 @@ def apply_latin(segments: List[dict], rules: List[dict],
             cancel_check()
         text = seg.get("text") or ""
         ch: List[dict] = []
+        bl: List[dict] = []
         # protected 掃描只喺 alternation 真有命中先做（大部分 cue 冇 alias）
         ranges = (_protected_ranges(text, matchers)
                   if matchers and alt.search(text) else [])
 
-        def _repl(m, _lookup=lookup, _ch=ch, _ranges=ranges):
+        def _repl(m, _lookup=lookup, _ch=ch, _bl=bl, _ranges=ranges):
             span = m.group(0)
             r = _lookup.get(_fold(span))
             if r is None:
                 return span                        # 防衛：理論上唔會發生
             if span == r["canonical"]:
                 return span                        # 已係正名 — no-op 唔記錄
-            if _ranges and _blocked_by_protection(m.start(), m.end(),
-                                                  r["canonical"], _ranges):
+            blocker = (_blocked_by_protection(m.start(), m.end(),
+                                              r["canonical"], _ranges)
+                       if _ranges else None)
+            if blocker is not None:
+                _bl.append({"span": span, "canonical": r["canonical"],
+                            "blocked_by": blocker, "entry_id": r["entry_id"],
+                            "glossary_id": r["glossary_id"],
+                            "glossary": r["glossary"]})
                 return span                        # 撞正 protected 正名 — 唔改
             _ch.append({"source": r["canonical"], "before": span,
                         "after": r["canonical"], "glossary": ALIAS_TAG,
@@ -259,6 +284,8 @@ def apply_latin(segments: List[dict], rules: List[dict],
 
         out.append({**seg, "text": alt.sub(_repl, text)})
         all_changes.append(ch)
+        if blocked_out is not None:
+            blocked_out.append(bl)
     return out, all_changes
 
 
@@ -315,10 +342,15 @@ def _cjk_alt_piece(variant: str) -> str:
 
 def apply_cjk(segments: List[dict], rules: List[dict],
               cancel_check: Optional[Callable] = None,
-              protected: Optional[List[str]] = None
+              protected: Optional[List[str]] = None,
+              blocked_out: Optional[List[List[dict]]] = None
               ) -> Tuple[List[dict], List[List[dict]]]:
-    """單 alternation regex（longest-first → leftmost-longest）非重疊改寫。"""
+    """單 alternation regex（longest-first → leftmost-longest）非重疊改寫。
+
+    blocked_out 語義同 apply_latin：可選 per-seg blocked 記錄收集器。"""
     if not rules:
+        if blocked_out is not None:
+            blocked_out.extend([[] for _ in segments])
         return [dict(s) for s in segments], [[] for _ in segments]
     lookup: Dict[str, dict] = {r["variant"]: r for r in rules}
     # rules 已 longest-first；alternation 依序 → 同位置長別名先中
@@ -332,15 +364,22 @@ def apply_cjk(segments: List[dict], rules: List[dict],
             cancel_check()
         text = seg.get("text") or ""
         ch: List[dict] = []
+        bl: List[dict] = []
         # protected 掃描只喺 alternation 真有命中先做（大部分 cue 冇 alias）
         ranges = (_protected_ranges(text, matchers)
                   if matchers and alt.search(text) else [])
 
-        def _repl(m, _ch=ch, _ranges=ranges):
+        def _repl(m, _ch=ch, _bl=bl, _ranges=ranges):
             v = m.group(0)
             r = lookup[v]
-            if _ranges and _blocked_by_protection(m.start(), m.end(),
-                                                  r["canonical"], _ranges):
+            blocker = (_blocked_by_protection(m.start(), m.end(),
+                                              r["canonical"], _ranges)
+                       if _ranges else None)
+            if blocker is not None:
+                _bl.append({"span": v, "canonical": r["canonical"],
+                            "blocked_by": blocker, "entry_id": r["entry_id"],
+                            "glossary_id": r["glossary_id"],
+                            "glossary": r["glossary"]})
                 return v                           # 撞正 protected 正名 — 唔改
             _ch.append({"source": r["canonical"], "before": v,
                         "after": r["canonical"], "glossary": ALIAS_TAG,
@@ -349,4 +388,6 @@ def apply_cjk(segments: List[dict], rules: List[dict],
 
         out.append({**seg, "text": alt.sub(_repl, text)})
         all_changes.append(ch)
+        if blocked_out is not None:
+            blocked_out.append(bl)
     return out, all_changes

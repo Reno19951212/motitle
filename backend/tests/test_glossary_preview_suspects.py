@@ -94,3 +94,23 @@ def test_declared_none_when_no_variant():
     }]
     assert app._declared_for_track("en", ["Speedy Smarty leads"], [1.0],
                                    glossaries, "en", "racing") == []
+
+
+def test_declared_blocked_surfaced_with_flag():
+    """被正名保護壓制嘅宣告別名要 surface（blocked:true），唔可以靜默消失。"""
+    import app
+    glossaries = [{
+        "source_lang": "en", "target_lang": "zh", "name": "賽馬", "id": "g1",
+        "entries": [
+            {"id": "e1", "source": "A", "target": "馬會盃",
+             "target_aliases": ["馬會盃賽"]},
+            {"id": "e2", "source": "B", "target": "盃賽"},
+        ],
+    }]
+    dec = app._declared_for_track("yue", ["今日馬會盃賽開跑"], [1.0],
+                                  glossaries, "yue", "racing")
+    blocked = [d for d in dec if d.get("blocked")]
+    assert blocked, "blocked 宣告別名必須出現喺 declared feedback"
+    assert blocked[0]["span"] == "馬會盃賽"
+    assert blocked[0]["blocked_by"] == "盃賽"
+    assert blocked[0]["kind"] == "declared"

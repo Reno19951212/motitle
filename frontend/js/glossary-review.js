@@ -238,7 +238,12 @@
     const rowText = _rowTextFor(t.lang, it.idx);
     const where = it.side === 'lexicon' ? '系統行話表'
                 : it.side === 'source' ? '原文近音別名' : '譯文別名';
-    return `<div class="ga-row declared">
+    // blocked：宣告咗但同另一條正名 verbatim 重疊 — 唔會改寫（保護正名）。
+    // 明示出嚟，唔好令用戶以為別名冇 save / 冇反應。
+    const hint = it.blocked
+      ? `⚠ 已宣告（${escapeHtml(where)}）· 但同正名「${escapeHtml(it.blocked_by || '')}」重疊 — 唔會改寫（保護正名）`
+      : `✍ 已宣告（${escapeHtml(where)}）· 重新生成後自動改成「${escapeHtml(it.canonical)}」`;
+    return `<div class="ga-row declared${it.blocked ? ' decl-blocked' : ''}">
       <div class="ga-row-body">
         <div class="ga-row-term">
           <span class="decl-span">${escapeHtml(it.span)}</span> → ${escapeHtml(it.canonical)}
@@ -246,7 +251,7 @@
           <span class="seg-link" onclick="_grJumpSeg(${it.idx})">#${it.idx + 1} ${_fmtTc(it.start)}</span>
         </div>
         <div class="ga-row-line">字幕：${_hl(rowText, it.span)}</div>
-        <div class="ga-row-line ga-hint">✍ 已宣告（${escapeHtml(where)}）· 重新生成後自動改成「${escapeHtml(it.canonical)}」</div>
+        <div class="ga-row-line ga-hint${it.blocked ? ' warn' : ''}">${hint}</div>
       </div>
     </div>`;
   }

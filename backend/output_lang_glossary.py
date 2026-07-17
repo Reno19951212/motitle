@@ -10,6 +10,7 @@ Proven reference: backend/scripts/crosslang_prototype/diag_glossary_v2.py
 """
 import json
 import re
+from functools import lru_cache
 from typing import Callable, Dict, List, Optional, Tuple
 
 # ---------------------------------------------------------------------------
@@ -142,6 +143,7 @@ def is_name_candidate(source: str) -> bool:
     return (source or "").strip().lower() not in _COMMON
 
 
+@lru_cache(maxsize=8192)
 def build_name_pattern(source: str) -> "re.Pattern":
     """Whitespace/punct-variant tolerant word-boundary pattern for a glossary term.
 
