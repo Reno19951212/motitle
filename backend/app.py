@@ -5151,6 +5151,26 @@ def translate_second_language(file_id):
     }), 202
 
 
+def _translations_sig(rows):
+    """Lightweight signature of a file's translation text/status across all langs.
+
+    Used by glossary-reapply for optimistic-concurrency: reapply re-derives
+    wholesale over a 30-47s LLM window OUTSIDE the lock, then overwrites. If a
+    concurrent cue write (ai-chat/apply, apply-item, split/merge, PATCH) lands
+    during that window, the signature taken at snapshot time no longer matches
+    at write time, so reapply refuses (409) instead of silently clobbering it.
+    """
+    import hashlib
+    h = hashlib.sha1()
+    for r in (rows or []):
+        h.update(str(r.get("idx")).encode())
+        for lang, v in sorted((r.get("by_lang") or {}).items()):
+            h.update(lang.encode())
+            h.update(((v or {}).get("text") or "").encode())
+        h.update((r.get("status") or "").encode())
+    return h.hexdigest()
+
+
 @app.route('/api/files/<file_id>/glossary-reapply', methods=['POST'])
 @require_file_owner
 def glossary_reapply(file_id):
@@ -5192,6 +5212,10 @@ def glossary_reapply(file_id):
         base = list(entry.get("content_asr_segments") or [])
         if not base:
             return jsonify({"error": "此檔案無內容語音快取，請重新處理"}), 400
+
+        # Snapshot the current translations so Phase 3 can detect a concurrent
+        # cue write that landed during the LLM window (else it clobbers silently).
+        sig_at_start = _translations_sig(entry.get("translations"))
 
         output_languages = list(entry.get("output_languages") or [])
         source_language = entry.get("source_language") or "yue"
@@ -5280,17 +5304,24 @@ def glossary_reapply(file_id):
         update_fields["aligned_bilingual"] = aligned
     # segments 只喺 grid-aligned（bound-base 檔，len 相等）先 mirror 糾正後
     # 文字；否則（whisper-direct 多軌檔）segments 唔郁。
+    # Atomic Phase 3 — re-check the concurrency signature and write under one
+    # lock hold so a cue write that landed during the LLM window is not clobbered.
     with _registry_lock:
         _entry_now = _file_registry.get(file_id)
-        _segs_now = list((_entry_now or {}).get("segments") or [])
-    if len(_segs_now) == len(base):
-        update_fields["segments"] = [{**s, "text": (b.get("text") or "")}
-                                     for s, b in zip(_segs_now, base)]
-        # segments 郁咗就同步 re-join 全文（同 bound-base 鮮跑/split/merge/rerun
-        # 一致 — 否則 /api/files 列表、dashboard 全文、.txt 匯出仍係舊聽錯文字）。
-        update_fields["text"] = " ".join(
-            (s.get("text") or "") for s in update_fields["segments"])
-    _update_file(file_id, **update_fields)
+        if not _entry_now:
+            return jsonify({"error": "文件不存在"}), 404
+        if _translations_sig(_entry_now.get("translations")) != sig_at_start:
+            return jsonify({"error": "檔案喺重新生成期間被修改，請重試"}), 409
+        _segs_now = list(_entry_now.get("segments") or [])
+        if len(_segs_now) == len(base):
+            update_fields["segments"] = [{**s, "text": (b.get("text") or "")}
+                                         for s, b in zip(_segs_now, base)]
+            # segments 郁咗就同步 re-join 全文（同 bound-base 鮮跑/split/merge/rerun
+            # 一致 — 否則 /api/files 列表、dashboard 全文、.txt 匯出仍係舊聽錯文字）。
+            update_fields["text"] = " ".join(
+                (s.get("text") or "") for s in update_fields["segments"])
+        _entry_now.update(update_fields)
+        _save_registry()
 
     return jsonify({
         "ok": True,
@@ -5682,6 +5713,12 @@ def api_glossary_apply_item(file_id):
         new_text = gr.ensure_brackets(new_text, canonical)
 
     # ----- Phase 3: re-acquire lock + conflict re-check + atomic write -------
+    # Re-check render/rerun — one could have STARTED during the LLM window (the
+    # pre-LLM check is stale by now; TOCTOU). Before the lock to avoid nesting.
+    if _file_has_active_render(file_id):
+        return jsonify({"error": "正在渲染中，無法修改段落"}), 409
+    if _file_has_active_rerun(file_id):
+        return jsonify({"error": "AI Rerun 進行中，無法修改段落"}), 409
     with _registry_lock:
         entry = _file_registry.get(file_id)
         if not entry:
@@ -6297,7 +6334,14 @@ def split_segment(file_id, pos):
             app.logger.warning("AI split LLM failed, falling back to mechanical: %s", e)
             ai_parts = None
 
-    # Phase 3 — re-acquire, conflict check (AI only), apply
+    # Phase 3 — re-acquire, conflict check (AI only), apply.
+    # Re-check render/rerun: one could have STARTED during the AI-split LLM window
+    # (the Phase-1 checks are stale by now — TOCTOU). Checked before the registry
+    # lock to avoid nested lock acquisition.
+    if _file_has_active_render(file_id):
+        return jsonify({"error": "正在渲染中，無法修改段落"}), 409
+    if _file_has_active_rerun(file_id):
+        return jsonify({"error": "AI Rerun 進行中，無法修改段落"}), 409
     with _registry_lock:
         entry = _file_registry.get(file_id)
         if not entry:
