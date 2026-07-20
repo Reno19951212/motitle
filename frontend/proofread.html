@@ -2075,7 +2075,9 @@
     document.getElementById('geAliases').addEventListener('click', _geChipClick);
     ov.addEventListener('click', e => { if (e.target === ov) _geClose(); });
     ['geSource', 'geTarget'].forEach(id => document.getElementById(id).addEventListener('keydown', e => {
-      if (e.key === 'Enter') _geSave();
+      // Guard against the IME-composition Enter: pressing Enter to confirm a
+      // Chinese candidate must NOT save + close the modal (same guard as ai-chat.js).
+      if (e.key === 'Enter' && !e.isComposing) _geSave();
       else if (e.key === 'Escape') _geClose();
     }));
     document.addEventListener('keydown', e => {
@@ -3876,15 +3878,17 @@
     if (e.key === 'Escape') {
       const _modalOpen = document.getElementById('aeOverlay')?.classList.contains('open')
                       || document.getElementById('gaOverlay')?.classList.contains('open')
+                      || document.getElementById('geOverlay')?.classList.contains('open')
                       || document.getElementById('grOverlay')?.classList.contains('open');
       if (!_modalOpen && window.AIChat && AIChat.isOpen()) { AIChat.close(); e.preventDefault(); return; }
       if (!_modalOpen && window.FindReplace && FindReplace.isOpen()) { FindReplace.close(); e.preventDefault(); return; }
     }
 
-    // 詞彙表掃描 modal 開住時，page-level mutation 快捷鍵（split/merge/I/O）
-    // 全部停用 — 佢哋會改 modal 掃描快照嘅基準文字（review finding；modal
-    // 自己嘅 Esc/close 由 glossary-review.js 處理）。
+    // 掃描 modal（grOverlay）或條目編輯 modal（geOverlay）開住時，page-level
+    // mutation 快捷鍵（split/merge/I/O/←→）全部停用 — 佢哋會改基準文字或喺你
+    // 打緊字時改 grid（review finding；modal 自己嘅 Esc/close 各自處理）。
     if (document.getElementById('grOverlay')?.classList.contains('open')) return;
+    if (document.getElementById('geOverlay')?.classList.contains('open')) return;
 
     // Segment split/merge — fire even while editing a textarea (before inInput guard).
     // Note: Ctrl+Shift+D / Ctrl+Shift+M may be shadowed by browser shortcuts on some
@@ -3924,10 +3928,8 @@
       const v = document.getElementById('videoPlayer');
       if (v) { v.paused ? v.play() : v.pause(); }
     }
-    else if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-      e.preventDefault();
-      approveAndAdvance();
-    }
+    // NB: no Cmd/Ctrl+Enter branch here — line 3906 above returns early for any
+    // modifier key, so it was unreachable. Cmd+Enter is handled by onZhKey.
   });
 
   // ============================================================

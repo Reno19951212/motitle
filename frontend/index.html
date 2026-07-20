@@ -903,6 +903,11 @@
       background: var(--surface-2); border: 1px dashed var(--border-strong);
       color: var(--text-dim); font-size: 12px;
       display: flex; align-items: center; justify-content: center;
+      position: relative; overflow: hidden;
+    }
+    .swatch-pick .sw.custom input[type=color] {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      opacity: 0; cursor: pointer; padding: 0; border: 0;
     }
     .slider-row { margin-bottom: 10px; }
     .slider-row .labels {
@@ -1360,7 +1365,7 @@
               <span class="tp-empty">未選擇檔案</span>
             </div>
             <div class="topbar-actions">
-              <button class="save-btn" title="儲存為 Pipeline 預設">💾 儲存</button>
+              <button class="save-btn" type="button" title="儲存為 Pipeline 預設" onclick="openProfileManageModal()">💾 儲存</button>
               <button class="run-btn" id="runBtn" onclick="startTranscription()" title="使用當前設定執行上傳或翻譯" disabled>
                 <svg width="11" height="11" viewBox="0 0 16 16"><path fill="#fff" d="M3 2l10 6-10 6z"/></svg>
                 執行
@@ -3904,7 +3909,7 @@
                 ${['#ffffff','#ffe066','#a3e635','#f472b6'].map(c =>
                   `<div class="sw ${c===fontConfig.color?'on':''}" style="background:${c}" onclick="updateFontConfig('color','${c}')"></div>`
                 ).join('')}
-                <div class="sw custom">+</div>
+                <label class="sw custom" title="自訂顏色">+<input type="color" value="${fontConfig.color}" oninput="updateFontConfig('color', this.value)"></label>
               </div>
             </div>
             <div class="slider-row">
@@ -3936,10 +3941,7 @@
           </div>
 
           <div class="ss-scope">
-            <div class="ss-scope-title">套用範圍</div>
-            <label class="ss-chk"><input type="checkbox" checked> <span>預覽播放</span></label>
-            <label class="ss-chk"><input type="checkbox" checked> <span>燒入輸出</span></label>
-            <button class="btn btn-secondary btn-sm" style="margin-top:8px;width:100%;" onclick="saveFontAsProfile()">💾 儲存為預設</button>
+            <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="saveFontAsProfile()">💾 儲存為預設</button>
           </div>
         </div>`;
     }

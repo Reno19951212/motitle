@@ -343,7 +343,7 @@
   document.getElementById('search').oninput = (e) => { query = e.target.value; renderRows(); };
   document.getElementById('sort').onchange = (e) => { sortKey = e.target.value; renderRows(); };
   // Upload lives on the dashboard (the cross-language upload popup). Redirect there.
-  document.getElementById('uploadBtn').onclick = () => { location.href = 'index.html'; };
+  document.getElementById('uploadBtn').onclick = () => { location.href = '/'; };
   document.getElementById('refreshBtn').onclick = () => { refresh(); toast('已重新整理', 'info'); };
   document.querySelectorAll('th.sortable').forEach((th) => {
     th.onclick = () => {
