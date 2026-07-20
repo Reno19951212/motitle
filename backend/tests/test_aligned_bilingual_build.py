@@ -1,6 +1,23 @@
+import json
 import os
+import re
 os.environ.setdefault("R5_AUTH_BYPASS", "1")
 import app as _app
+
+
+def _identity_refine_llm(sysp, user):
+    """Model the REAL refiner contract: return JSON {"action":"keep","text": 本句}.
+
+    The refiner user prompt wraps the target cue as 【前文】/【本句】/【後文】 and
+    expects a JSON reply carrying only the rewritten 本句. A fake LLM that echoes
+    the raw prompt (the old `lambda s,u: u`) is unrealistic — it drove the
+    non-JSON fallback in formal_refine and leaked 【本句】/【後文】 markers into the
+    subtitle. Extracting the 本句 body and wrapping it in the JSON contract keeps
+    this an identity transform while exercising the same JSON path production uses.
+    """
+    m = re.search(r"【本句】\n(.*?)(?:\n【|$)", user, re.S)
+    body = m.group(1).strip() if m else user.strip()
+    return json.dumps({"action": "keep", "text": body}, ensure_ascii=False)
 
 
 def test_second_pass_builds_aligned_bilingual(monkeypatch):
@@ -9,9 +26,9 @@ def test_second_pass_builds_aligned_bilingual(monkeypatch):
     # grid from the merged rows when the file has none yet (legacy-shaped here).
     fid = "f-al"
     base = [{"start": 0, "end": 1, "text": "今晚嘅賽事"}, {"start": 1, "end": 2, "text": "多謝大家"}]
-    # Identity LLM — yue→zh refine returns text unchanged (so zh == the yue base text).
+    # Identity LLM — yue→zh refine returns the 本句 unchanged (so zh == the yue base text).
     monkeypatch.setattr(_app, "_make_ollama_llm_call",
-                        lambda: (lambda s, u: u))
+                        lambda: _identity_refine_llm)
     with _app._registry_lock:
         _app._file_registry[fid] = {
             "id": fid, "active_kind": "output_lang", "source_language": "yue", "script": "trad",
