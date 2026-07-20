@@ -626,10 +626,12 @@
       position: relative; background: #000;
       border: 1px solid var(--border); border-radius: 8px;
       aspect-ratio: 16/9; overflow: hidden;
-      /* Fill the (now wider) video column width; aspect-ratio sets the height. The
-         wrap centers it vertically. max-height:100% letterboxes (object-fit:contain)
-         instead of distorting on short windows. */
-      width: 100%; max-height: 100%; max-width: 100%; margin: 0 auto;
+      /* Keep the container itself 16:9 at every column width. Cap the WIDTH to
+         (max-height × 16/9) — NOT the height — so on a wide column the box stops
+         widening at the height cap instead of becoming a >16:9 black box that
+         pillarboxes the video. width:100% + this max-width means: narrow column →
+         full-width 16:9; wide column → 16:9 capped at the max-height, centered. */
+      width: 100%; max-width: calc(clamp(200px, 42vh, 400px) * 16 / 9); margin: 0 auto;
     }
     .rv-b-video video { width: 100%; height: 100%; display: block; object-fit: contain; }
     .rv-b-video-placeholder {
