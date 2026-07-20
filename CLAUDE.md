@@ -342,6 +342,51 @@ Output Video with burnt-in Chinese subtitles (MP4 / MXF ProRes)
 >
 > `PUT /api/admin/beta-mode` — Admin-only: toggle Beta mode and/or set OpenRouter API key; body `{enabled?: bool, api_key?: string}`; enabling without a key configured → 400.
 
+#### 補充路由清單（blueprints + 主表未列嘅 app.py routes）
+
+主 REST 表以上聚焦核心 pipeline；以下係之前漏列、但 code 一直實有嘅路由（2026-07-17 bug-sweep 文檔對齊補齊）。
+
+**Auth blueprint（`backend/auth/routes.py`）**
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/login` | 登入（body `{username,password}`；10/min rate-limit；壞憑證 401） |
+| POST | `/logout` | 登出 |
+| GET | `/api/me` | 目前使用者 `{id,username,is_admin,remarks,active_kind,active_id,v6_available}` |
+| POST | `/api/me/password` | 自改密碼（body `{old_password,new_password}`；弱密碼 400、舊密碼錯 403） |
+
+**Admin blueprint（`backend/auth/admin.py`，全部 admin-only）** — 另見上方 `POST /api/admin/users`（建立）、`/reset-password`、`PATCH …/remarks`、`GET/PUT /api/admin/beta-mode` prose。
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/admin/users` | 列出所有使用者 |
+| DELETE | `/api/admin/users/<id>` | 刪除使用者（唔准刪自己 / 最後一個 admin） |
+| POST | `/api/admin/users/<id>/toggle-admin` | 切換 admin flag |
+| GET | `/api/admin/audit` | 結構化審計日誌 |
+
+**Queue blueprint（`backend/routes/queue.py`）**
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/queue` | 全域活動佇列（login-required，240/min rate-limit；含 `cancel_requested`） |
+| DELETE | `/api/queue/<job_id>` | 取消排隊/進行中 job（cooperative cancel） |
+| POST | `/api/queue/<job_id>/retry` | 重試失敗 job |
+
+**其他 app.py routes（主表未列）**
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/ready` | Readiness probe（license allowlisted） |
+| POST | `/api/active` | 統一設定 active（`profile` / `pipeline_v6`） |
+| POST | `/api/ollama/signin` · GET `/api/ollama/status` | Ollama 雲端登入 + 狀態 |
+| GET | `/api/glossaries/languages` · GET `/api/prompt_templates` | 詞彙表語言清單 / prompt template 清單 |
+| POST | `/api/transcribe/sync` | 同步轉錄（testing） |
+| GET | `/api/files/<id>/languages` · GET `/api/files/<id>/waveform` | 檔案語言軌 / 波形 peaks（`?bins=`） |
+| POST | `/api/languages` · DELETE `/api/languages/<id>` | 建立 / 刪除語言配置 |
+| POST | `/api/restart` | 重啟服務（admin） |
+
+**V6 pipeline + profile-management blueprints（`backend/routes/{pipelines,refiner_profiles,transcribe_profiles,llm_profiles}.py`）** — V6 DAG + 三套 profile 管理，各自 CRUD：
+- `/api/pipelines`（GET/POST）、`/api/pipelines/<id>`（GET/PATCH/DELETE）、`POST /api/pipelines/<id>/run`；`POST /api/files/<id>/stages/<idx>/rerun`、`PATCH /api/files/<id>/stages/<idx>/segments/<idx>`、`POST /api/files/<id>/pipeline_overrides`
+- `/api/refiner_profiles`、`/api/transcribe_profiles`、`/api/llm_profiles` — 各 GET/POST + `<id>` GET/PATCH/DELETE
+
+**靜態頁面 / 資源** — auth guard 各異：`/`（未登入→302 `/login.html`）、`/login.html`·`/license.html`·`/proofread.html`（public）、`/Glossary.html`·`/Files.html`·`/user.html`（未登入→302 login）、`/admin.html`（→`/user.html`，非 admin 403）、`/index.html`（→`/`）、`/favicon.ico`（204）、`/js/<f>`·`/css/<f>`·`/fonts/<f>`。
+
 ### Frontend
 
 **`index.html`** — Main dashboard. File upload, transcription with progress, auto-translation, profile selector, transcript display (auto-switches to Chinese when translations available), subtitle overlay on video playback.
