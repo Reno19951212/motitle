@@ -369,22 +369,21 @@
     @media (max-width: 768px) { .rv-b-top-row { grid-template-columns: 1fr; } }
     .rv-b-video-col { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
 
-    /* Cap the video preview with a viewport-relative height (not its raw 16:9
-       height) so the 詞彙表 / 字幕設定 panels below always get usable room and the
-       字幕設定 controls don't get squeezed into a scroll. vh-based so it adapts to
-       browser zoom (px would not). On short windows the video pillarboxes a touch
-       (object-fit: contain) rather than eating all the column height. */
-    /* Fixed-size video pinned to the TOP of the column (not stretched/centered), so the
-       panels below get a stable expanded block beneath it. */
-    .rv-b-video-wrap { flex: 0 0 auto; min-height: 0; max-height: clamp(200px, 42vh, 400px); overflow: hidden; }
-    /* Panels grow to fill the space the capped video frees up, but min-height:0 lets
-       them SHRINK + scroll internally on short windows so the timeline below is never
-       clipped. The video cap (above) is what gives them height when there is room. */
-    /* Glossary + 字幕設定: always expanded, side-by-side, filling the height below the
-       fixed top-aligned video — a stable, balanced lower block. */
+    /* Maximise the 16:9 preview: the wrap GROWS to take the height freed by the
+       compressed 詞彙表 / 字幕設定 panels below, and a container query fits the
+       LARGEST 16:9 box inside it — width-limited on a wide-short wrap, height-limited
+       on a tall-narrow one — so the video always uses the full available space at
+       16:9 with no black bars, and scales with the window. */
+    .rv-b-video-wrap {
+      flex: 1 1 0; min-height: 0; overflow: hidden;
+      container-type: size; display: grid; place-items: center;
+    }
+    /* Glossary + 字幕設定: compressed to a compact block so the 16:9 video above gets
+       the room. Each panel scrolls internally (min-height:0 on children), so the
+       timeline below is never pushed off-screen. clamp() adapts to window height. */
     .rv-b-vid-panels {
       display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
-      flex: 1 1 auto; min-height: 0;
+      flex: 0 0 auto; height: clamp(120px, 26vh, 280px); min-height: 0;
     }
     .rv-b-vid-panels > * { min-height: 0; }
     /* When stacked (≤1024) split the available height into two scrolling rows rather
@@ -625,13 +624,14 @@
     .rv-b-video {
       position: relative; background: #000;
       border: 1px solid var(--border); border-radius: 8px;
-      aspect-ratio: 16/9; overflow: hidden;
-      /* Keep the container itself 16:9 at every column width. Cap the WIDTH to
-         (max-height × 16/9) — NOT the height — so on a wide column the box stops
-         widening at the height cap instead of becoming a >16:9 black box that
-         pillarboxes the video. width:100% + this max-width means: narrow column →
-         full-width 16:9; wide column → 16:9 capped at the max-height, centered. */
-      width: 100%; max-width: calc(clamp(200px, 42vh, 400px) * 16 / 9); margin: 0 auto;
+      overflow: hidden;
+      /* Largest 16:9 box that fits the (container-query) wrap: min() picks the
+         limiting dimension — full width when width-bound, full height when
+         height-bound. The box is always exactly 16:9, so the video fills it with
+         no letterbox/pillarbox; place-items:center on the wrap centres it. */
+      aspect-ratio: 16/9;
+      width: min(100cqw, calc(100cqh * 16 / 9));
+      max-width: 100%; max-height: 100%;
     }
     .rv-b-video video { width: 100%; height: 100%; display: block; object-fit: contain; }
     .rv-b-video-placeholder {
