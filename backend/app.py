@@ -2281,23 +2281,43 @@ def serve_proofread():
 
 
 @app.get("/Glossary.html")
-@login_required
 def serve_glossary_page():
-    """v3.15 — Standalone glossary management page."""
+    """v3.15 — Standalone glossary management page.
+
+    Redirect to /login.html when unauthenticated (a browser navigating here
+    should see the login page, not a raw 401 JSON body). Same pattern as "/".
+    """
+    if not current_user.is_authenticated:
+        return redirect("/login.html")
     return send_from_directory(_FRONTEND_DIR, "Glossary.html")
 
 
 @app.get("/Files.html")
-@login_required
 def serve_files_page():
     """Standalone files library page (wired to /api/files)."""
+    if not current_user.is_authenticated:
+        return redirect("/login.html")
     return send_from_directory(_FRONTEND_DIR, "Files.html")
 
 
 @app.get("/user.html")
-@login_required
 def serve_user_page():
+    if not current_user.is_authenticated:
+        return redirect("/login.html")
     return send_from_directory(_FRONTEND_DIR, "user.html")
+
+
+@app.get("/index.html")
+def serve_index_html_alias():
+    """Alias for the dashboard root — some in-app links point at /index.html
+    (e.g. Files.html's upload button). Redirect to "/" instead of 404-ing."""
+    return redirect("/")
+
+
+@app.get("/favicon.ico")
+def serve_favicon():
+    """Silence the per-page favicon 404 console noise. 204 = no icon, no error."""
+    return ("", 204)
 
 
 @app.get("/js/<path:filename>")

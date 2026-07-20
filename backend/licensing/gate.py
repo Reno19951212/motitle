@@ -9,7 +9,7 @@ from licensing import validator
 
 # Exact paths reachable without a licence.
 ALLOWLIST_EXACT = {
-    "/api/health",
+    "/api/health", "/api/ready",
     "/login", "/logout", "/api/me",
     "/login.html", "/license.html",
     "/api/license", "/api/license/activate", "/api/license/deactivate",
