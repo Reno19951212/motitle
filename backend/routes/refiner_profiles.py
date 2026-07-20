@@ -19,6 +19,7 @@ headers pointing here). Narrowed to same-lingual polish — `lang` is both input
 and output. For cross-lingual conversion use TranslatorProfile.
 """
 from flask import Blueprint, jsonify, request
+from request_utils import json_dict
 from flask_login import current_user, login_required
 
 from refiner_profiles import validate_refiner_profile
@@ -43,7 +44,7 @@ def list_profiles():
 @login_required
 def create_profile():
     import app as _app
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     errors = validate_refiner_profile(data)
     if errors:
         return jsonify({"error": "; ".join(errors)}), 400
@@ -72,7 +73,7 @@ def get_profile(pid):
 @login_required
 def update_profile(pid):
     import app as _app
-    patch = request.get_json(silent=True) or {}
+    patch = json_dict()
     mgr = _app._refiner_profile_manager
     try:
         result = mgr.update_if_owned(pid, current_user.id, _is_admin(), patch)

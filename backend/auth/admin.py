@@ -2,6 +2,7 @@
 """Admin-only user management routes (R5 Phase 3)."""
 import sqlite3
 from flask import Blueprint, jsonify, request, current_app
+from request_utils import json_dict
 from flask_login import current_user
 
 from auth.decorators import admin_required
@@ -110,7 +111,7 @@ def list_users():
 @bp.post("/api/admin/users")
 @admin_required
 def create_user_route():
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     username = (data.get("username") or "").strip()
     password = data.get("password") or ""
     is_admin = bool(data.get("is_admin", False))
@@ -158,7 +159,7 @@ def delete_user_route(user_id):
 @bp.post("/api/admin/users/<int:user_id>/reset-password")
 @admin_required
 def reset_password_route(user_id):
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     new_pw = data.get("new_password") or ""
     if not new_pw:
         return jsonify({"error": "new_password required"}), 400
@@ -179,7 +180,7 @@ def reset_password_route(user_id):
 @bp.patch("/api/admin/users/<int:user_id>/remarks")
 @admin_required
 def update_remarks_route(user_id):
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     remarks = data.get("remarks") or ""
     trimmed = remarks.strip()
     db = current_app.config["AUTH_DB_PATH"]
@@ -247,7 +248,7 @@ def get_beta_mode_route():
 @admin_required
 def update_beta_mode_route():
     pm = current_app.config["PROFILE_MANAGER"]
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
 
     if "api_key" in data:
         try:

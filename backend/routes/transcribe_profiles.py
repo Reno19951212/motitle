@@ -20,6 +20,7 @@ This blueprint is the v5 successor for the v4 ``/api/asr_profiles`` endpoint
 endpoint will be removed in the v5-A3 cleanup phase.
 """
 from flask import Blueprint, jsonify, request
+from request_utils import json_dict
 from flask_login import current_user, login_required
 
 from transcribe_profiles import validate_transcribe_profile
@@ -44,7 +45,7 @@ def list_profiles():
 @login_required
 def create_profile():
     import app as _app
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     errors = validate_transcribe_profile(data)
     if errors:
         return jsonify({"error": "; ".join(errors)}), 400
@@ -73,7 +74,7 @@ def get_profile(pid):
 @login_required
 def update_profile(pid):
     import app as _app
-    patch = request.get_json(silent=True) or {}
+    patch = json_dict()
     mgr = _app._transcribe_profile_manager
     try:
         result = mgr.update_if_owned(pid, current_user.id, _is_admin(), patch)

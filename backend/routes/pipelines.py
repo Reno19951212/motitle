@@ -16,6 +16,7 @@ blueprint imports them lazily at request time so the existing test surface
 from __future__ import annotations
 
 from flask import Blueprint, jsonify, request
+from request_utils import json_dict
 from flask_login import current_user
 
 from auth.decorators import (
@@ -89,7 +90,7 @@ def list_pipelines():
 @login_required
 def create_pipeline():
     import app as _app
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     user_id = getattr(current_user, "id", None)
 
     # v6 branch — bypass v4/v5 schema, store as-is (no separate schema validator yet)
@@ -167,7 +168,7 @@ def get_pipeline(pipeline_id):
 @require_pipeline_owner
 def patch_pipeline(pipeline_id):
     import app as _app
-    patch = request.get_json(silent=True) or {}
+    patch = json_dict()
     user_id = getattr(current_user, "id", None)
     is_admin = bool(getattr(current_user, "is_admin", False)) or bool(
         _app.app.config.get("R5_AUTH_BYPASS")
@@ -227,7 +228,7 @@ def run_pipeline(pipeline_id):
     Returns 202 + {"job_id": "..."}.
     """
     import app as _app
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     file_id = data.get("file_id") or request.args.get("file_id")
     if not file_id:
         return jsonify({"error": "file_id required"}), 400
@@ -292,7 +293,7 @@ def rerun_stage(fid, stage_idx):
 def edit_stage_segment(fid, stage_idx, seg_idx):
     """T15 — edit segment text at a specific stage; mark downstream stages needs_rerun."""
     import app as _app
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     new_text = data.get("text")
     if new_text is None:
         return jsonify({"error": "text required"}), 400
@@ -332,7 +333,7 @@ def edit_stage_segment(fid, stage_idx, seg_idx):
 def set_pipeline_overrides(fid):
     """T16 — write file-level per-(pipeline_id, stage_index) overrides. overrides=null clears."""
     import app as _app
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     pipeline_id = data.get("pipeline_id")
     stage_index = data.get("stage_index")
     overrides = data.get("overrides")  # dict or None to clear

@@ -51,6 +51,7 @@ from urllib.parse import urlparse
 from flask_socketio import SocketIO, emit
 from profiles import ProfileManager
 from glossary import GlossaryManager
+from request_utils import json_dict
 from language_config import LanguageConfigManager, DEFAULT_ASR_CONFIG, DEFAULT_TRANSLATION_CONFIG
 from renderer import SubtitleRenderer, DEFAULT_FONT_CONFIG
 from ffmpeg_locate import find_ffmpeg, find_ffprobe
@@ -2408,7 +2409,7 @@ def get_license_status():
 @app.post("/api/license/activate")
 @admin_required
 def activate_license():
-    raw_token = (request.get_json(silent=True) or {}).get("token")
+    raw_token = (json_dict()).get("token")
     if not isinstance(raw_token, str) or not raw_token.strip():
         return jsonify({"error": "token required"}), 400
     token_str = raw_token.strip()
@@ -2607,7 +2608,7 @@ def api_get_settings_font():
 @app.route('/api/settings/font', methods=['PUT'])
 @login_required
 def api_set_settings_font():
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     font = data.get("font") if isinstance(data.get("font"), dict) else data
     errs = _validate_global_font(font)
     if errs:
@@ -2708,7 +2709,7 @@ def api_set_active():
     Both kinds share config/settings.json as the single source of truth —
     only one resource is active at any time.
     """
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     kind = data.get("kind")
     aid = data.get("id")
     if kind not in ("profile", "pipeline_v6"):
@@ -2939,7 +2940,7 @@ def api_ollama_status():
 @login_required
 def api_translate_file():
     """R5 Phase 2: enqueue a translate job, return 202 with job_id."""
-    data = request.get_json() or {}
+    data = json_dict()
     file_id = data.get('file_id')
     if not file_id:
         return jsonify({"error": "file_id is required"}), 400
@@ -3036,7 +3037,7 @@ def api_glossary_alias_lint():
     掃描 modal 一鍵加）用嚟做非阻斷提示 — 照儲存，只出 toast。
     """
     from alias_rewrite import lint_variant
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     kind = data.get("kind")
     variant = (data.get("variant") or "").strip()
     if kind not in ("source", "target", "lexicon") or not variant:
@@ -3208,7 +3209,7 @@ def api_get_lexicon(style):
 def api_put_lexicon(style):
     """系統行話表 bulk 覆寫 — 管理員專屬（全局共用資源）。"""
     import lexicon_manager
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     terms = data.get("terms")
     if not isinstance(terms, list):
         return jsonify({"error": "terms 必須係 list"}), 400
@@ -3443,7 +3444,7 @@ def api_glossary_apply(file_id):
     if not entry:
         return jsonify({"error": "File not found"}), 404
 
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     glossary_id = data.get("glossary_id")
     violations = data.get("violations", [])
     if not glossary_id:
@@ -3599,7 +3600,7 @@ def api_update_language(lang_id):
 @login_required
 def api_create_language():
     """Create a new language config."""
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     try:
         config = _language_config_manager.create(data)
     except ValueError as e:
@@ -4158,7 +4159,7 @@ def _role_fields_for(entry: dict):
 @login_required
 def api_start_render():
     """Start a render job: burn approved translations into video as ASS subtitles."""
-    data = request.get_json() or {}
+    data = json_dict()
 
     file_id = data.get("file_id")
     if not file_id:
@@ -4940,7 +4941,7 @@ def re_transcribe_file(file_id):
     # popup 改咗語言/風格/詞彙表。有 output_languages 就覆寫檔案設定並 force
     # active_kind=output_lang；冇就照舊行為（output_lang 檔保留自有設定，其他
     # kind re-snapshot 現時 active — 見 _resnapshot_active_for_rerun）。
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     _raw_langs = data.get('output_languages')
     if _raw_langs is not None:
         if not isinstance(_raw_langs, list) or not (1 <= len(_raw_langs) <= 2):
@@ -5015,7 +5016,7 @@ def translate_second_language(file_id):
     Returns 202 {file_id, job_id, target_lang} on success.
     """
     from pathlib import Path as _LocalPath
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     lang = (data.get("lang") or "").strip()
     if not lang:
         return jsonify({"error": "lang is required"}), 400
@@ -5155,7 +5156,7 @@ def glossary_reapply(file_id):
     from output_lang_router import content_asr_lang
     from output_lang_aligned import derive_aligned_output, build_aligned_bilingual
 
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     if _file_has_active_render(file_id):
         return jsonify({"error": "正在渲染中，無法修改段落"}), 409
     if _file_has_active_rerun(file_id):
@@ -5423,7 +5424,7 @@ def api_glossary_preview(file_id):
     from output_lang_router import content_asr_lang
     from output_lang_aligned import derive_mode as _derive_mode
 
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
 
     # ----- Phase 1: read-only snapshot under the lock ------------------------
     with _registry_lock:
@@ -5558,7 +5559,7 @@ def api_glossary_apply_item(file_id):
     """
     import glossary_review as gr
 
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     try:
         idx = int(data["idx"])
         lang = str(data["lang"])
@@ -5694,7 +5695,7 @@ def api_glossary_add_alias(file_id):
     from alias_rewrite import lint_variant
     from output_lang_glossary import strip_horse_id
 
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     kind = data.get("kind")
     variant = (data.get("variant") or "").strip()
     canonical = (data.get("canonical") or "").strip()
@@ -6218,7 +6219,7 @@ def _seg_apply_split(entry, pos, parts, content_lang, r, start, end):
 @require_file_owner
 def split_segment(file_id, pos):
     """Split cue at 0-indexed position `pos` into two. mode: 'ai' | 'mechanical'."""
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     mode = data.get("mode", "mechanical")
     if mode not in ("ai", "mechanical"):
         return jsonify({"error": "未知分割模式"}), 400
@@ -6482,7 +6483,7 @@ def start_segment_rerun(file_id):
     202 + {job_id, total}；前端 poll GET /api/reruns/<job_id>。
     Spec: docs/superpowers/specs/2026-06-10-proofread-ai-rerun-design.md
     """
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     positions = data.get("positions")
     if (not isinstance(positions, list) or not positions
             or not all(isinstance(p, int) and not isinstance(p, bool) for p in positions)):
@@ -6576,7 +6577,7 @@ def patch_segment_timing(file_id, pos):
     Body {in_ms?, out_ms?}（絕對毫秒，至少一個）。四庫同步照 split cascade。
     Spec: docs/superpowers/specs/2026-06-11-segment-timing-design.md
     """
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     in_ms = data.get('in_ms')
     out_ms = data.get('out_ms')
     for v in (in_ms, out_ms):
@@ -6640,7 +6641,7 @@ def ai_edit_segment(file_id):
     唔寫 registry — 前端預覽後經 PATCH /translations/<idx> 套用。
     Spec: docs/superpowers/specs/2026-06-10-proofread-ai-edit-design.md
     """
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     instruction = (data.get("instruction") or "").strip()
     role = data.get("role")
     pos = data.get("pos")
@@ -6738,7 +6739,7 @@ def ai_chat_parse(file_id):
     """AI 助手：意圖解析（每 turn 恰好 1 個 LLM call）+ 機械展開。零寫入。
     Spec: docs/superpowers/specs/2026-07-14-ai-chat-window-design.md §3.3
     """
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     message = (data.get("message") or "").strip()
     if not message or len(message) > ai_chat.MAX_MESSAGE_CHARS:
         return jsonify({"error": "指令唔可以係空，亦唔可以超過 500 字"}), 400
@@ -6802,7 +6803,7 @@ def ai_chat_parse(file_id):
 @require_file_owner
 def ai_chat_expand(file_id):
     """AI 助手：零-LLM 重掃 — 409/split 後刷新 proposal，唔燒 LLM call。"""
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     ops = data.get("ops")
     if not isinstance(ops, list) or not ops or len(ops) > ai_chat.MAX_OPS:
         return jsonify({"error": "ops 必須係 1-5 個操作嘅 list"}), 400
@@ -6841,7 +6842,7 @@ def ai_chat_apply(file_id):
     唔斷批次（HTTP 200 + applied/skipped/failed）。
     Spec: docs/superpowers/specs/2026-07-14-ai-chat-window-design.md §3.3
     """
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     items = data.get("items")
     approve = bool(data.get("approve", False))
     if not isinstance(items, list) or not items or len(items) > ai_chat_ops.MAX_ITEMS:
@@ -6914,7 +6915,7 @@ def ai_chat_apply(file_id):
 @require_file_owner
 def patch_file(file_id):
     """Patch file-level settings — subtitle_source / bilingual_order / prompt_overrides."""
-    data = request.get_json() or {}
+    data = json_dict()
 
     if "subtitle_source" in data:
         v = data["subtitle_source"]

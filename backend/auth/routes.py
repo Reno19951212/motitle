@@ -1,5 +1,6 @@
 """Auth blueprint: /login, /logout, /api/me."""
 from flask import Blueprint, request, jsonify, current_app
+from request_utils import json_dict
 from flask_login import login_user, logout_user, login_required, current_user
 
 from auth.users import verify_credentials, get_user_by_id, update_password
@@ -28,7 +29,7 @@ class _LoginUser:
 @bp.post("/login")
 @limiter.limit("10 per minute")
 def login():
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     # R5 Phase 5 T1.1: explicit `null` in JSON returns None from .get(),
     # bypassing the default. Coerce with `or` to avoid NoneType.strip().
     username = (data.get("username") or "").strip()
@@ -104,7 +105,7 @@ def me():
 @login_required
 @limiter.limit("10 per minute")
 def change_own_password():
-    data = request.get_json(silent=True) or {}
+    data = json_dict()
     old = data.get("old_password") or ""
     new = data.get("new_password") or ""
     if not old or not new:
