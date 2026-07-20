@@ -151,6 +151,13 @@ def formal_refine(segments: List[dict], llm_call: Callable[[str, str], str],
                 refined = json.loads(raw).get("text", raw)
             except Exception:
                 refined = raw
+        # 防禦：退化 LLM（本地 qwen 長跑會 echo 個 marked-up prompt）唔可以令
+        # 【前文】/【本句】/【後文】scaffolding 洩入字幕。命中 marker 就抽返【本句】body，
+        # 抽唔到就退回原句（未 refine 但乾淨，好過 garbage）。正常 JSON path 唔受影響。
+        if any(mk in refined for mk in ("【本句】", "【前文】", "【後文】")):
+            m = re.search(r"【本句】\s*(.*?)(?:\s*【(?:前文|後文)】|$)", refined, re.S)
+            body = m.group(1).strip() if m else ""
+            refined = body or texts[i]
         new_seg = {**s, "text": refined}
         dropped = [n for n in names_here if n not in refined]
         if dropped:

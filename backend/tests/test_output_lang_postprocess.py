@@ -46,15 +46,26 @@ def test_formal_refine_plain_text_fallback():
 def test_formal_refine_style_aware_default_neutral():
     # 2026-06-04: 書面語 refiner is style-aware. Default (generic) = neutral de-raced
     # prompt that forbids domain-term injection; 'racing' = the racing-flavoured V6 prompt.
+    # Capture the SYSTEM prompt via a side-channel (the refiner's marker guard now
+    # strips 【本句】/【後文】 scaffolding out of any echoed output, so we can no longer
+    # inspect prompt selection through the refined text).
+    import json
     segs = [{"start": 0, "end": 1, "text": "佢好開心㗎"}]
-    echo = lambda system, user: system  # echo the chosen system prompt back as the "refined" text
-    racing = formal_refine(segs, echo, style="racing")[0]["text"]
-    generic = formal_refine(segs, echo, style="generic")[0]["text"]
-    default = formal_refine(segs, echo)[0]["text"]
-    assert "賽馬術語" in racing               # racing prompt is racing-flavoured
-    assert "賽馬術語" not in generic          # neutral prompt has no racing lock
-    assert "特定領域術語" in generic          # …and explicitly forbids domain-term injection
-    assert default == generic                # default == neutral (de-raced)
+
+    def _capturing_llm():
+        box = {}
+        def _c(system, user):
+            box["sys"] = system
+            return json.dumps({"action": "keep", "text": "佢好開心"}, ensure_ascii=False)
+        return _c, box
+
+    cr, rb = _capturing_llm(); formal_refine(segs, cr, style="racing")
+    cg, gb = _capturing_llm(); formal_refine(segs, cg, style="generic")
+    cd, db = _capturing_llm(); formal_refine(segs, cd)
+    assert "賽馬術語" in rb["sys"]            # racing prompt is racing-flavoured
+    assert "賽馬術語" not in gb["sys"]        # neutral prompt has no racing lock
+    assert "特定領域術語" in gb["sys"]        # …and explicitly forbids domain-term injection
+    assert db["sys"] == gb["sys"]            # default == neutral (de-raced)
 
 
 def test_derive_aligned_output_refine_passes_style():
