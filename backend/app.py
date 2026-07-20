@@ -2326,14 +2326,13 @@ def serve_admin_page():
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    """Health check endpoint"""
-    return jsonify({
-        'status': 'ok',
-        'faster_whisper_available': FASTER_WHISPER_AVAILABLE,
-        'openai_models_loaded': list(_openai_model_cache.keys()),
-        'faster_models_loaded': list(_faster_model_cache.keys()),
-        'upload_dir': str(UPLOAD_DIR)
-    })
+    """Public liveness probe (allowlisted before auth + licence).
+
+    Deliberately minimal — it must be reachable unauthenticated, so it must not
+    leak the absolute upload path or loaded-engine/model internals. Operator
+    detail lives behind the authenticated surface.
+    """
+    return jsonify({'status': 'ok'})
 
 
 @app.route('/api/ready')
@@ -5440,10 +5439,24 @@ def api_glossary_preview(file_id):
         mt_style = entry.get("mt_style") or "generic"
         # 疑似聽錯 fuzzy 掃描係 opt-in（judge_candidates 喺大檔慢，唔可以卡住每次掃描）。
         include_suspects = bool(data.get("include_suspects"))
-        if "glossary_ids" in data and data["glossary_ids"] is not None:
-            glossary_ids = list(data["glossary_ids"])
-        else:
-            glossary_ids = list(entry.get("glossary_ids") or [])
+        stored_glossary_ids = list(entry.get("glossary_ids") or [])
+
+    # Resolve glossary ids: caller override (tests) or the file's stored ids.
+    override = data.get("glossary_ids")
+    if "glossary_ids" in data and override is not None:
+        if not isinstance(override, list):
+            return jsonify({"error": "glossary_ids 必須係 array"}), 400
+        glossary_ids = list(override)
+        # The override is caller-supplied, so enforce can_view — otherwise a
+        # file owner could read another user's private glossary by passing its
+        # id here (the stored-ids path is already validated at PATCH time).
+        if not app.config.get("R5_AUTH_BYPASS"):
+            for gid in glossary_ids:
+                if not _glossary_manager.can_view(
+                        gid, current_user.id, current_user.is_admin):
+                    return jsonify({"error": f"forbidden: {gid}"}), 403
+    else:
+        glossary_ids = stored_glossary_ids
 
     # Validate each glossary id (outside the lock — manager has its own lock).
     for gid in glossary_ids:
@@ -6249,13 +6262,20 @@ def split_segment(file_id, pos):
     ai_parts = None
     ai_r = 0.5
     if mode == "ai" and any(texts.values()):
-        llm = _make_ollama_llm_call()
-        raw = llm(ss.build_split_prompt_system(list(texts.keys())),
-                  ss.build_split_prompt_user(texts))
-        parsed = ss.parse_split_response(raw, texts, content_lang)
-        if parsed is not None:
-            ai_parts = parsed
-            ai_r = ss.compute_split_ratio(parsed[content_lang][0], texts.get(content_lang, ""))
+        # The LLM call can raise (Ollama down / network error) — the documented
+        # contract is "AI split failure falls back to mechanical". Catch here so
+        # a dead LLM degrades gracefully instead of 500-ing the whole request.
+        try:
+            llm = _make_ollama_llm_call()
+            raw = llm(ss.build_split_prompt_system(list(texts.keys())),
+                      ss.build_split_prompt_user(texts))
+            parsed = ss.parse_split_response(raw, texts, content_lang)
+            if parsed is not None:
+                ai_parts = parsed
+                ai_r = ss.compute_split_ratio(parsed[content_lang][0], texts.get(content_lang, ""))
+        except Exception as e:
+            app.logger.warning("AI split LLM failed, falling back to mechanical: %s", e)
+            ai_parts = None
 
     # Phase 3 — re-acquire, conflict check (AI only), apply
     with _registry_lock:
@@ -6543,6 +6563,21 @@ def start_segment_rerun(file_id):
     return jsonify({"job_id": job_id, "total": len(positions)}), 202
 
 
+def _rerun_job_owner_or_error(job):
+    """Return None if current_user may access this rerun job, else a (resp, code).
+
+    Rerun jobs carry a ``file_id``; mirror ``@require_file_owner`` so a user
+    cannot read/cancel another user's rerun (was asymmetric with render jobs).
+    """
+    from auth.decorators import _auth_bypassed, _lookup_file_owner
+    if _auth_bypassed():
+        return None
+    owner_id = _lookup_file_owner(job.get("file_id"))
+    if owner_id is not None and (current_user.is_admin or current_user.id == owner_id):
+        return None
+    return jsonify({"error": "forbidden"}), 403
+
+
 @app.route('/api/reruns/<job_id>', methods=['GET'])
 @login_required
 def get_rerun_status(job_id):
@@ -6550,6 +6585,9 @@ def get_rerun_status(job_id):
         job = _rerun_jobs.get(job_id)
         if not job:
             return jsonify({"error": "Rerun job not found"}), 404
+        denied = _rerun_job_owner_or_error(job)
+        if denied:
+            return denied
         return jsonify({k: job[k] for k in
                         ("status", "total", "done", "current_pos",
                          "done_positions", "failed_positions", "file_id")
@@ -6563,6 +6601,9 @@ def cancel_rerun(job_id):
         job = _rerun_jobs.get(job_id)
         if not job:
             return jsonify({"error": "Rerun job not found"}), 404
+        denied = _rerun_job_owner_or_error(job)
+        if denied:
+            return denied
         if job.get("status") != "running":
             return jsonify({"error": "Rerun 已經完結"}), 400
         _rerun_jobs[job_id] = {**job, "cancelled": True}
